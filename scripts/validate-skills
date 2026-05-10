@@ -416,7 +416,7 @@ require_grep "^## Prompt$" tests/acceptance/transcripts/TEMPLATE.md
 require_grep "^## Evaluation$" tests/acceptance/transcripts/TEMPLATE.md
 require_grep "Expected route:" tests/acceptance/transcripts/TEMPLATE.md
 require_grep "Actual route:" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "Result: PASS | FAIL | PARTIAL" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "Result: PASS \\| FAIL \\| PARTIAL" tests/acceptance/transcripts/TEMPLATE.md
 require_grep "scenarios/01-feature-request.md" tests/acceptance/README.md
 require_grep "Behavior scenarios" tests/acceptance/README.md
 
@@ -456,10 +456,27 @@ if ref != f"v{manifest_version}":
     )
 
 readme = Path("README.md").read_text()
-if f"v{manifest_version}" not in readme:
-    raise SystemExit(
-        f"validate-skills: README.md does not pin v{manifest_version}"
-    )
+expected_pin = f"v{manifest_version}"
+# Pin formats kept in lockstep by scripts/release. Each must exist,
+# and every occurrence must point to the current manifest version;
+# otherwise a stale install line can hide behind an unrelated version
+# mention elsewhere in README.
+pin_patterns = [
+    (re.compile(r"currently `v\d+\.\d+\.\d+`"), f"currently `{expected_pin}`"),
+    (re.compile(r"--ref v\d+\.\d+\.\d+"), f"--ref {expected_pin}"),
+]
+for pattern, expected_text in pin_patterns:
+    matches = pattern.findall(readme)
+    if not matches:
+        raise SystemExit(
+            f"validate-skills: README.md missing install pin {expected_text!r}"
+        )
+    stale = [m for m in matches if m != expected_text]
+    if stale:
+        raise SystemExit(
+            f"validate-skills: README.md has stale install pin(s) "
+            f"{stale!r}, expected {expected_text!r}"
+        )
 PY
 
 require_file README.md
