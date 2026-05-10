@@ -174,11 +174,12 @@ Do not claim completion from confidence alone.
 
 ## Finalization handoff
 
-Ralph does not finalize branches or worktrees. After the completion
-gate passes, hand off to `verify`, which owns the finalization
-protocol (merge locally, push/create PR, keep as-is, or discard with
-typed confirmation). Do not merge, push, delete branches, or remove
-worktrees from inside the execution loop.
+Ralph does not finalize branches or worktrees. If the task explicitly
+asks for branch/worktree finalization after the completion gate passes,
+hand off to `verify`, which owns the finalization protocol (merge
+locally, push/create PR, keep as-is, or discard with typed
+confirmation). Do not merge, push, delete branches, or remove worktrees
+from inside the execution loop.
 
 ## Completion integrity
 

@@ -118,8 +118,16 @@ Report:
 
 ## Finalization protocol
 
-After verification reports `VERIFIED` for every required claim, present
-the next-step options to the user instead of acting unilaterally:
+This protocol is conditional. Use it only when the verification target
+explicitly includes branch/worktree finalization, or when a plan or
+progress artifact marks finalization as the next requested action. A
+normal "is this complete?" verification pass ends with the final
+response shape above and does not offer merge, PR, keep, or discard
+options.
+
+When finalization is in scope and verification reports `VERIFIED` for
+every required claim, present the next-step options to the user instead
+of acting unilaterally:
 
 1. **Merge locally** — fast-forward or merge into the integration
    branch. Suitable when the change is small, the worktree is owned by
@@ -151,9 +159,10 @@ Rules:
   fresh verification commands, their results, and any remaining risks
   so the user can act with full context.
 
-The finalization protocol is the only sanctioned exit from a
-verification pass. `ralph` hands off to `verify` for completion; do not
-finalize from inside the execution loop.
+For branch/worktree lifecycle tasks, this protocol is the only
+sanctioned finalization exit from a verification pass. `ralph` hands
+off to `verify` for completion; do not finalize from inside the
+execution loop.
 
 ## Completion integrity
 
