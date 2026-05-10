@@ -32,6 +32,15 @@ copy_tree() {
   cp -R "$src"/. "$dst"/
 }
 
+copy_reference_materials() {
+  local dst="$1"
+  mkdir -p "${dst}/docs/oh-no" "${dst}/tests"
+  cp docs/oh-no/*.md "${dst}/docs/oh-no"/
+  cp docs/oh-no-harness-design.md "${dst}/docs/"
+  copy_tree docs/oh-no/techniques "${dst}/docs/oh-no/techniques"
+  copy_tree tests/acceptance "${dst}/tests/acceptance"
+}
+
 if [ "$mode" = "dry-run" ]; then
   cat <<EOF2
 sync-adapters: dry run
@@ -41,15 +50,19 @@ Would create:
 - ${out_dir}/codex/skills
 - ${out_dir}/codex/agents
 - ${out_dir}/codex/bootstrap
+- ${out_dir}/codex/docs
 - ${out_dir}/codex/scripts
 - ${out_dir}/codex/templates
+- ${out_dir}/codex/tests
 - ${out_dir}/claude/.claude-plugin
 - ${out_dir}/claude/hooks
 - ${out_dir}/claude/skills
 - ${out_dir}/claude/agents
 - ${out_dir}/claude/bootstrap
+- ${out_dir}/claude/docs
 - ${out_dir}/claude/scripts
 - ${out_dir}/claude/templates
+- ${out_dir}/claude/tests
 Run with --write to materialize bundles.
 EOF2
   exit 0
@@ -66,6 +79,7 @@ copy_tree agents "${out_dir}/codex/agents"
 copy_tree bootstrap "${out_dir}/codex/bootstrap"
 copy_tree scripts "${out_dir}/codex/scripts"
 copy_tree templates "${out_dir}/codex/templates"
+copy_reference_materials "${out_dir}/codex"
 
 copy_tree .claude-plugin "${out_dir}/claude/.claude-plugin"
 copy_tree hooks "${out_dir}/claude/hooks"
@@ -74,5 +88,6 @@ copy_tree agents "${out_dir}/claude/agents"
 copy_tree bootstrap "${out_dir}/claude/bootstrap"
 copy_tree scripts "${out_dir}/claude/scripts"
 copy_tree templates "${out_dir}/claude/templates"
+copy_reference_materials "${out_dir}/claude"
 
 printf 'sync-adapters: wrote %s\n' "$out_dir"

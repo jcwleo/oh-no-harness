@@ -35,6 +35,12 @@
 - Suggested setup command: `scripts/worktree-start <branch> --baseline '<command>'` | `git worktree add ...`
 - Baseline command: <command or none>
 
+## File/module map
+
+| Area | Files / modules | Owner role | Notes |
+| --- | --- | --- | --- |
+| <area> | <path or module> | executor / test-engineer / debugger / shared | <patterns to follow, gotchas> |
+
 ## Task list
 
 ### T-001: <task title>
@@ -44,7 +50,10 @@
 - Objective: <what changes>
 - Implementation notes: <smallest coherent change>
 - TDD or verification-first step: <RED/GREEN/REFACTOR or alternate evidence>
+- First failing check: <command or assertion that should fail before the change | not applicable>
 - Commands/checks: <commands>
+- Expected pass signal: <exit 0 / specific output line / VR-* row>
+- Rollback note: <revert command, feature flag, or "non-reversible because <reason>">
 - Dependencies: <none or T-xxx>
 
 ## Risks and mitigations

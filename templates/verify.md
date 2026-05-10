@@ -34,12 +34,39 @@
 - Temporary workaround present: no | yes, documented below
 - Diagnostic logging/tracing/assertions: removed | gated | intentionally retained | not used
 
-## Retrieval and evidence gaps
+## Retrieval basis
 
 - Searched/checked: <files, commands, searches>
-- Could not verify: <none or gaps>
+
+## Evidence gaps
+
+Use this section for claims whose evidence is missing, partial, or
+substituted. The Retrieval basis above describes search scope; this
+section describes verification gaps.
+
+| Gap | Linked AC/INV/T | Impact | Alternate evidence collected | Follow-up |
+| --- | --- | --- | --- | --- |
+| <gap> | AC-001 | <user-visible / regression risk / observability> | <command/file or "none"> | <new task ID, hardening note, or "accepted with reason"> |
 
 ## Completion decision
 
 - Safe to claim complete: yes | no
 - Remaining risks: <none or details>
+
+## Finalization
+
+Only fill this in when branch/worktree finalization is explicitly in
+scope, and only after Final status is `VERIFIED`. If status is
+`PARTIAL` or `MISSING`, return to `ralph` or `debug` instead. For
+ordinary completion verification, leave the selected option as `not
+requested`.
+
+- Branch: <branch | not applicable>
+- Worktree path: <path | current checkout>
+- Worktree ownership: harness-owned (.worktrees/ or worktrees/) | externally managed | not applicable
+- Baseline command/result: <command -> result | not applicable>
+- Final verification commands and results: <list>
+- Selected option: merge-locally | push-pr | keep-as-is | discard | not requested | not yet decided
+- Discard typed confirmation: <`discard feature/<slug>` | not applicable>
+- Cleanup performed: none | harness-owned worktree removed | branch deleted | not applicable
+- Follow-up: <none or details>

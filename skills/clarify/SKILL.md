@@ -1,6 +1,6 @@
 ---
 name: clarify
-description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation. Uses a default clarification mode plus --deep for high-risk or high-ambiguity requirement pressure."
+description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation."
 when_to_use: "Use before implementation when a request is ambiguous, design-shaped, risky, or likely to benefit from a written spec; use --deep for high-risk or high-ambiguity work."
 argument-hint: "[--deep]"
 arguments: [mode]
@@ -240,3 +240,9 @@ Before completing `clarify`, verify:
 - Use `planning` for ordinary executable plans from approved or sufficiently clear specs.
 - Use `planning --ral` when the spec has architectural risk, broad scope, disputed trade-offs, unresolved residual risk, or any `--deep` early-exit warning.
 - If the user asks to proceed with remaining uncertainty, record the risk and hand off to `planning --ral` unless the uncertainty is clearly low-impact.
+
+## Optional references
+
+- `docs/oh-no/visual-clarification.md` — when a UI / UX / diagram
+  request genuinely benefits from a sketch. Optional; the harness
+  never adds runtime, server, or asset dependencies for visuals.

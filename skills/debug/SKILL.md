@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Investigate a bug, failing test, regression, or runtime error from concrete evidence before proposing or applying a fix. Uses a systematic four-phase root-cause process."
+description: "Investigate a bug, failing test, regression, or runtime error from concrete evidence before proposing or applying a fix."
 when_to_use: "Use for bugs, failing tests, regressions, runtime errors, flaky behavior, pasted logs, or unexplained symptoms where root cause should be established before fixing."
 argument-hint: "[symptom|failing-command|log]"
 arguments: [evidence]
@@ -110,3 +110,10 @@ Do not cut corners. Inspect required evidence directly, do not use placeholders 
 - Do not make multiple speculative changes before testing the hypothesis.
 - If a temporary workaround is unavoidable for safety, label it as such, keep it reversible, and continue tracking the root-cause fix.
 - Diagnostic logs must be targeted, safe for secrets/PII, and removed or gated before final completion unless intentionally retained.
+
+## Techniques
+
+- `docs/oh-no/techniques/root-cause-tracing.md` — symptom-vs-cause and the hypothesis table.
+- `docs/oh-no/techniques/diagnostic-logging.md` — bounds for the instrumentation in Phase 1/4.
+- `docs/oh-no/techniques/condition-based-waiting.md` — for timing-related flakiness.
+- `docs/oh-no/techniques/defense-in-depth.md` — adding guards beyond the root-cause fix.

@@ -103,6 +103,15 @@ scripts/validate-skills
 git diff --check
 ```
 
+`scripts/validate-skills` is the structural gate: it checks file shape,
+required tokens, manifest/marketplace/`README.md`/`CHANGELOG.md` version
+alignment, and the generated Codex bundle. For behavior validation —
+"does the agent actually route the work the way the harness says it
+should?" — run a fresh-session scenario from `tests/acceptance/scenarios/`
+and record a transcript using `tests/acceptance/transcripts/TEMPLATE.md`.
+See [`tests/acceptance/README.md`](tests/acceptance/README.md) for the
+scenario inventory and recording protocol.
+
 ## Isolated worktrees
 
 Use isolated worktrees for implementation when multiple tasks, agents, or humans may work concurrently, or when the current checkout has unrelated changes:
@@ -170,3 +179,15 @@ scripts/sync-adapters --write
 ## Design
 
 - Design notes: [`docs/oh-no-harness-design.md`](docs/oh-no-harness-design.md)
+
+## Releases and license
+
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md). `scripts/release` keeps the
+  manifest version, marketplace `ref`, and the install pin shown above in
+  lockstep. New releases must add a matching `## [<version>]` entry to
+  `CHANGELOG.md` before the tag is cut; `scripts/validate-skills` enforces
+  this.
+- License: [`LICENSE`](LICENSE) (MIT). The plugin manifests
+  (`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`) declare
+  `"license": "MIT"`, so the root `LICENSE` file must remain present and
+  match.
