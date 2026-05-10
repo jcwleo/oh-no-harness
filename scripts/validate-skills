@@ -337,6 +337,26 @@ require_grep "Tests that always pass" docs/oh-no/techniques/testing-anti-pattern
 require_grep "techniques/test-first.md" skills/planning/SKILL.md
 require_grep "techniques/root-cause-tracing.md" skills/debug/SKILL.md
 
+# Brief 4.9 host mapping (P2): supported vs planned distinction in the
+# matrix, limitation language in host-mapping, no overstated claims.
+require_file docs/oh-no/host-mapping.md
+require_grep "What the harness assumes" docs/oh-no/host-mapping.md
+require_grep "Limitations and unsupported claims" docs/oh-no/host-mapping.md
+require_file docs/oh-no/platform-matrix.md
+require_grep "supported" docs/oh-no/platform-matrix.md
+require_grep "planned" docs/oh-no/platform-matrix.md
+require_grep "Status legend" docs/oh-no/platform-matrix.md
+require_grep "Claude Code .* supported" docs/oh-no/platform-matrix.md
+require_grep "Codex CLI .* supported" docs/oh-no/platform-matrix.md
+
+# Brief 4.10 visual clarification (P2): optional-only, no runtime/asset
+# dependency, reachable from clarify or planning.
+require_file docs/oh-no/visual-clarification.md
+require_grep "optional guide" docs/oh-no/visual-clarification.md
+require_grep "no runtime|never adds runtime" docs/oh-no/visual-clarification.md
+require_grep "What stays out" docs/oh-no/visual-clarification.md
+require_grep "visual-clarification.md" skills/clarify/SKILL.md
+
 python3 - <<'PY'
 import re
 import sys
