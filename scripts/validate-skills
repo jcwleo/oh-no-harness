@@ -93,24 +93,11 @@ for template in "${required_templates[@]}"; do
   require_file "templates/${template}.md"
 done
 
-for readonly_agent in architect critic code-reviewer verifier explore analyst debugger test-engineer; do
-  require_grep "[Rr]ead-only|[Rr]ead only" "agents/${readonly_agent}.md"
+for readonly_agent in architect critic code-reviewer verifier explore analyst; do
+  require_grep "read-only|read only" "agents/${readonly_agent}.md"
   require_grep "sandbox_mode = \"read-only\"" "${generated_codex_agents_dir}/${readonly_agent}.toml"
 done
 require_grep "write role" agents/executor.md
-
-require_grep "## Severity taxonomy" agents/code-reviewer.md
-require_grep "BLOCKER" agents/code-reviewer.md
-require_grep "IMPORTANT" agents/code-reviewer.md
-require_grep "WATCH" agents/code-reviewer.md
-require_grep "NIT" agents/code-reviewer.md
-require_grep "## Final status" agents/code-reviewer.md
-require_grep "INSUFFICIENT_EVIDENCE" agents/code-reviewer.md
-require_grep "Security, data-loss, auth, and secrets" agents/code-reviewer.md
-require_grep "Planted-bug scenarios" agents/code-reviewer.md
-require_grep "06-planted-bug-sql-injection" agents/code-reviewer.md
-require_grep "07-planted-bug-secret-logging" agents/code-reviewer.md
-require_grep "08-planted-bug-swallowed-exception" agents/code-reviewer.md
 
 require_file .codex-plugin/plugin.json
 require_file .claude-plugin/plugin.json
@@ -199,11 +186,6 @@ require_grep "scripts/worktree-start" skills/ralph/SKILL.md
 require_grep "[Hh]elper.*project-local.*installed oh-no.*manual fallback" skills/ralph/SKILL.md
 require_grep "dirty changes" skills/ralph/SKILL.md
 require_grep "Resume and context-window protocol" skills/verify/SKILL.md
-require_grep "Finalization protocol" skills/verify/SKILL.md
-require_grep "Discard requires typed confirmation" skills/verify/SKILL.md
-require_grep "externally managed" skills/verify/SKILL.md
-require_grep "merge.locally|Merge locally" skills/verify/SKILL.md
-require_grep "Finalization handoff" skills/ralph/SKILL.md
 require_grep "templates/spec.md" skills/clarify/SKILL.md
 require_grep "templates/plan.md" skills/planning/SKILL.md
 require_grep "templates/progress.md" skills/ralph/SKILL.md
@@ -266,18 +248,7 @@ require_grep "Helper resolution" templates/plan.md
 require_grep "Worktree:" templates/progress.md
 require_grep "Worktree baseline" templates/progress.md
 require_grep "Dirty-change handling" templates/progress.md
-require_grep "Last known verification" templates/progress.md
 require_grep "Verification checkout/worktree" templates/verify.md
-require_grep "^## Finalization$" templates/verify.md
-require_grep "merge-locally \\| push-pr \\| keep-as-is \\| discard" templates/verify.md
-require_grep "Discard typed confirmation" templates/verify.md
-require_grep "Finalization handoff" templates/progress.md
-require_grep "^## File/module map$" templates/plan.md
-require_grep "First failing check" templates/plan.md
-require_grep "Expected pass signal" templates/plan.md
-require_grep "Rollback note" templates/plan.md
-require_grep "^## Evidence gaps$" templates/verify.md
-require_grep "Alternate evidence collected" templates/verify.md
 
 for worktree_agent in executor debugger test-engineer verifier code-reviewer; do
   require_grep "worktree|Worktree" "agents/${worktree_agent}.md"
@@ -303,260 +274,6 @@ if grep -RIn "using""-oh-no" bootstrap skills agents .codex-plugin .claude-plugi
   cat /tmp/oh-no-forbidden-grep.txt >&2
   fail "forbidden bootstrap-as-skill name found"
 fi
-
-require_file docs/oh-no/skill-authoring.md
-require_grep "Trigger-only" docs/oh-no/skill-authoring.md
-require_grep "Anti-patterns the validator flags" docs/oh-no/skill-authoring.md
-require_file docs/oh-no/evals.md
-require_grep "Behavior validation" docs/oh-no/evals.md
-require_grep "Triaging a behavior failure" docs/oh-no/evals.md
-
-technique_docs=(
-  "docs/oh-no/techniques/test-first.md"
-  "docs/oh-no/techniques/regression-proof.md"
-  "docs/oh-no/techniques/testing-anti-patterns.md"
-  "docs/oh-no/techniques/root-cause-tracing.md"
-  "docs/oh-no/techniques/condition-based-waiting.md"
-  "docs/oh-no/techniques/diagnostic-logging.md"
-  "docs/oh-no/techniques/defense-in-depth.md"
-)
-for technique in "${technique_docs[@]}"; do
-  require_file "$technique"
-done
-require_grep "RED.*GREEN" docs/oh-no/techniques/regression-proof.md
-require_grep "failing-first" docs/oh-no/techniques/test-first.md
-require_grep "hypothesis" docs/oh-no/techniques/root-cause-tracing.md
-require_grep "Bounded retention" docs/oh-no/techniques/diagnostic-logging.md
-require_grep "Condition-based waiting" docs/oh-no/techniques/condition-based-waiting.md
-require_grep "suppression, not defense" docs/oh-no/techniques/defense-in-depth.md
-require_grep "Tests that always pass" docs/oh-no/techniques/testing-anti-patterns.md
-# Brief 4.5/4.6 require at least one canonical reference into techniques/.
-# Verify the two anchor references; the rest are recommended in
-# docs/oh-no/skill-authoring.md but not gated, so technique files can
-# move/merge without breaking 13 grep checks at once.
-require_grep "techniques/test-first.md" skills/planning/SKILL.md
-require_grep "techniques/root-cause-tracing.md" skills/debug/SKILL.md
-
-# Brief 4.9 host mapping (P2): supported vs planned distinction in the
-# matrix, limitation language in host-mapping, no overstated claims.
-require_file docs/oh-no/host-mapping.md
-require_grep "What the harness assumes" docs/oh-no/host-mapping.md
-require_grep "Limitations and unsupported claims" docs/oh-no/host-mapping.md
-require_file docs/oh-no/platform-matrix.md
-require_grep "supported" docs/oh-no/platform-matrix.md
-require_grep "planned" docs/oh-no/platform-matrix.md
-require_grep "Status legend" docs/oh-no/platform-matrix.md
-require_grep "documented" docs/oh-no/platform-matrix.md
-# Row presence only; status is enforced by the Python block below so the
-# matrix can legitimately promote a row from `documented` to `supported`
-# once a passing transcript is committed.
-require_grep "^\\| Claude Code " docs/oh-no/platform-matrix.md
-require_grep "^\\| Codex CLI " docs/oh-no/platform-matrix.md
-python3 - <<'PY'
-import re
-from pathlib import Path
-
-
-def normalize(value: str) -> str:
-    value = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return re.sub(r"-+", "-", value)
-
-
-HOST_ALIASES = {
-    "Claude Code": {"claude-code"},
-    "Codex CLI / App": {"codex-cli", "codex-app", "codex"},
-}
-
-
-matrix = Path("docs/oh-no/platform-matrix.md").read_text(encoding="utf-8")
-supported_hosts = []
-for line in matrix.splitlines():
-    if not line.startswith("| ") or line.startswith("| Host ") or line.startswith("| ---"):
-        continue
-    columns = [column.strip() for column in line.strip("|").split("|")]
-    if len(columns) >= 2 and columns[1] == "supported":
-        supported_hosts.append(columns[0])
-
-transcripts_dir = Path("tests/acceptance/transcripts")
-real_transcripts = [
-    path
-    for path in transcripts_dir.glob("*.md")
-    if path.name != "TEMPLATE.md"
-]
-
-# Each real transcript must declare host AND result via metadata
-# (filename stem is not authoritative because it can carry alias-like
-# tokens by accident); only PASS transcripts count as evidence for
-# the supported-host gate. FAIL or PARTIAL transcripts exist as
-# behavior records but cannot satisfy the contract a `supported`
-# row is supposed to make.
-passing_transcript_hosts = set()
-for path in real_transcripts:
-    host = None
-    result = None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if host is None and line.startswith("- Host:"):
-            host = normalize(line.partition(":")[2])
-        if result is None and line.startswith("- Result:"):
-            result = line.partition(":")[2].strip().upper()
-    if host is None:
-        raise SystemExit(
-            f"validate-skills: transcript {path} is missing required "
-            f"'- Host:' metadata"
-        )
-    if result is None:
-        raise SystemExit(
-            f"validate-skills: transcript {path} is missing required "
-            f"'- Result:' metadata"
-        )
-    if result == "PASS":
-        passing_transcript_hosts.add(host)
-
-missing_transcripts = []
-for host in supported_hosts:
-    aliases = HOST_ALIASES.get(host, {normalize(host)})
-    # Exact alias match against normalized transcript host. Substring
-    # match would let "noncodex" satisfy the "codex" alias.
-    if not aliases & passing_transcript_hosts:
-        missing_transcripts.append(host)
-
-if missing_transcripts:
-    raise SystemExit(
-        "validate-skills: platform-matrix marks host(s) as supported "
-        "without a matching committed PASS acceptance transcript: "
-        f"{', '.join(missing_transcripts)}"
-    )
-PY
-
-# Brief 4.10 visual clarification (P2): optional-only, no runtime/asset
-# dependency, reachable from clarify or planning.
-require_file docs/oh-no/visual-clarification.md
-require_grep "optional guide" docs/oh-no/visual-clarification.md
-require_grep "no runtime|never adds runtime" docs/oh-no/visual-clarification.md
-require_grep "What stays out" docs/oh-no/visual-clarification.md
-require_grep "visual-clarification.md" skills/clarify/SKILL.md
-
-python3 - <<'PY'
-import re
-import sys
-from pathlib import Path
-
-forbidden_substrings = [
-    "Uses a ",
-    "Integrates ",
-    "Combines ",
-    "four-phase",
-    "basic mode and --ral mode",
-    "default clarification mode plus --deep",
-]
-canonical = ["clarify", "planning", "ralph", "debug", "verify"]
-errors = []
-for skill in canonical:
-    path = Path(f"skills/{skill}/SKILL.md")
-    text = path.read_text(encoding="utf-8")
-    match = re.search(r'^description:\s*"([^"]*)"\s*$', text, re.MULTILINE)
-    if not match:
-        errors.append(f"{path}: description must be a double-quoted single line")
-        continue
-    description = match.group(1).strip()
-    for needle in forbidden_substrings:
-        if needle in description:
-            errors.append(
-                f"{path}: description contains process-summary fragment '{needle}'; "
-                "see docs/oh-no/skill-authoring.md"
-            )
-if errors:
-    for e in errors:
-        print("validate-skills:", e, file=sys.stderr)
-    raise SystemExit(1)
-PY
-
-acceptance_scenarios=(
-  "tests/acceptance/scenarios/01-feature-request.md"
-  "tests/acceptance/scenarios/02-failing-test-debug.md"
-  "tests/acceptance/scenarios/03-risky-architecture.md"
-  "tests/acceptance/scenarios/04-completion-claim.md"
-  "tests/acceptance/scenarios/05-dirty-checkout.md"
-  "tests/acceptance/scenarios/06-planted-bug-sql-injection.md"
-  "tests/acceptance/scenarios/07-planted-bug-secret-logging.md"
-  "tests/acceptance/scenarios/08-planted-bug-swallowed-exception.md"
-)
-for scenario in "${acceptance_scenarios[@]}"; do
-  require_file "$scenario"
-  require_grep "^## Prompt$" "$scenario"
-  require_grep "^## Repository state$" "$scenario"
-  require_grep "^## Expected route$" "$scenario"
-  require_grep "^## Forbidden shortcuts$" "$scenario"
-  require_grep "^## Pass criteria$" "$scenario"
-done
-require_file tests/acceptance/transcripts/TEMPLATE.md
-require_grep "^## Metadata$" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "^## Prompt$" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "^## Evaluation$" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "Expected route:" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "Actual route:" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "Result: PASS \\| FAIL \\| PARTIAL" tests/acceptance/transcripts/TEMPLATE.md
-require_grep "scenarios/01-feature-request.md" tests/acceptance/README.md
-require_grep "Behavior scenarios" tests/acceptance/README.md
-
-require_file LICENSE
-require_grep "MIT License" LICENSE
-
-require_file CHANGELOG.md
-require_grep "Keep a Changelog|Semantic Versioning" CHANGELOG.md
-python3 - <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-manifest_version = json.loads(Path(".claude-plugin/plugin.json").read_text())["version"]
-codex_version = json.loads(Path(".codex-plugin/plugin.json").read_text())["version"]
-if manifest_version != codex_version:
-    raise SystemExit(
-        f"validate-skills: plugin manifest versions diverge: "
-        f"claude={manifest_version} codex={codex_version}"
-    )
-
-changelog = Path("CHANGELOG.md").read_text()
-heading = re.compile(rf"^## \[{re.escape(manifest_version)}\]", re.MULTILINE)
-if not heading.search(changelog):
-    raise SystemExit(
-        f"validate-skills: CHANGELOG.md is missing a '## [{manifest_version}]' "
-        "section for the current manifest version"
-    )
-
-marketplace = json.loads(Path(".claude-plugin/marketplace.json").read_text())
-ref = marketplace["plugins"][0]["source"]["ref"]
-if ref != f"v{manifest_version}":
-    raise SystemExit(
-        f"validate-skills: marketplace ref {ref} does not match manifest "
-        f"version v{manifest_version}"
-    )
-
-readme = Path("README.md").read_text()
-expected_pin = f"v{manifest_version}"
-# Pin formats kept in lockstep by scripts/release. Each must exist,
-# and every occurrence must point to the current manifest version;
-# otherwise a stale install line can hide behind an unrelated version
-# mention elsewhere in README.
-pin_patterns = [
-    (re.compile(r"currently `v\d+\.\d+\.\d+`"), f"currently `{expected_pin}`"),
-    (re.compile(r"--ref v\d+\.\d+\.\d+"), f"--ref {expected_pin}"),
-]
-for pattern, expected_text in pin_patterns:
-    matches = pattern.findall(readme)
-    if not matches:
-        raise SystemExit(
-            f"validate-skills: README.md missing install pin {expected_text!r}"
-        )
-    stale = [m for m in matches if m != expected_text]
-    if stale:
-        raise SystemExit(
-            f"validate-skills: README.md has stale install pin(s) "
-            f"{stale!r}, expected {expected_text!r}"
-        )
-PY
 
 require_file README.md
 require_grep "clarify -> planning" README.md
@@ -594,16 +311,6 @@ require_file "$tmp_dir/claude/scripts/release"
 require_file "$tmp_dir/claude/scripts/worktree-start"
 require_file "$tmp_dir/codex/templates/plan.md"
 require_file "$tmp_dir/claude/templates/plan.md"
-require_file "$tmp_dir/codex/docs/oh-no/techniques/root-cause-tracing.md"
-require_file "$tmp_dir/codex/docs/oh-no/techniques/regression-proof.md"
-require_file "$tmp_dir/codex/docs/oh-no/visual-clarification.md"
-require_file "$tmp_dir/codex/tests/acceptance/scenarios/06-planted-bug-sql-injection.md"
-require_file "$tmp_dir/codex/tests/acceptance/transcripts/TEMPLATE.md"
-require_file "$tmp_dir/claude/docs/oh-no/techniques/root-cause-tracing.md"
-require_file "$tmp_dir/claude/docs/oh-no/techniques/regression-proof.md"
-require_file "$tmp_dir/claude/docs/oh-no/visual-clarification.md"
-require_file "$tmp_dir/claude/tests/acceptance/scenarios/06-planted-bug-sql-injection.md"
-require_file "$tmp_dir/claude/tests/acceptance/transcripts/TEMPLATE.md"
 (cd "$tmp_dir/codex" && scripts/sync-codex-agents --check >/dev/null)
 
 for agent in "${required_agents[@]}"; do

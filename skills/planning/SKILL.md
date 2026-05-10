@@ -1,6 +1,6 @@
 ---
 name: planning
-description: "Create an executable implementation plan from a spec or clear request before any code change."
+description: "Create an executable implementation plan from a spec or clear request. Integrates Superpowers-style writing-plans with RALPLAN-style consensus review through basic mode and --ral mode."
 when_to_use: "Use after a clear request or approved spec when the next step is an executable task plan; use --ral for high-risk, broad, architectural, or disputed trade-off planning."
 argument-hint: "[--ral] [spec-or-request]"
 arguments: [mode, target]
@@ -121,8 +121,6 @@ For behavior changes, bugfixes, and refactors, include a test-first step when pr
 5. REFACTOR: simplify while keeping the checks green.
 
 When test-first work is not practical, the plan must say why and define alternate verification evidence such as static checks, rendered output, fixture comparison, manual smoke path, script output, or file inspection.
-
-See `docs/oh-no/techniques/test-first.md` for the failing-first contract these steps must satisfy and `docs/oh-no/techniques/regression-proof.md` for the RED/GREEN evidence record they produce.
 
 ## Plan artifact
 

@@ -1,9 +1,5 @@
 # oh-no-harness
 
-[![GitHub release](https://img.shields.io/github/v/release/jcwleo/oh-no-harness?color=blue)](https://github.com/jcwleo/oh-no-harness/releases)
-[![GitHub stars](https://img.shields.io/github/stars/jcwleo/oh-no-harness?style=flat&color=yellow)](https://github.com/jcwleo/oh-no-harness/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
 Lightweight coding-tool harness inspired by Superpowers, with selected planning and execution discipline from OMC/OMX but without a default runtime, daemon, tmux team layer, HUD, or hidden state database.
 
 ## Canonical workflow
@@ -103,15 +99,6 @@ scripts/validate-skills
 git diff --check
 ```
 
-`scripts/validate-skills` is the structural gate: it checks file shape,
-required tokens, manifest/marketplace/`README.md`/`CHANGELOG.md` version
-alignment, and the generated Codex bundle. For behavior validation —
-"does the agent actually route the work the way the harness says it
-should?" — run a fresh-session scenario from `tests/acceptance/scenarios/`
-and record a transcript using `tests/acceptance/transcripts/TEMPLATE.md`.
-See [`tests/acceptance/README.md`](tests/acceptance/README.md) for the
-scenario inventory and recording protocol.
-
 ## Isolated worktrees
 
 Use isolated worktrees for implementation when multiple tasks, agents, or humans may work concurrently, or when the current checkout has unrelated changes:
@@ -153,8 +140,6 @@ The release helper updates plugin versions, updates the marketplace ref and READ
 scripts/release v0.1.1 --push
 ```
 
-`--push` pushes `main` and the new tag, then creates a GitHub Release for the tag via `gh release create --latest --generate-notes` (so the version visible on the repo's Releases page tracks the latest tag). If `gh` is not installed, the script prints the equivalent command to run manually.
-
 ## Plugin notes
 
 - Superpowers pattern: keep the workflow core shared, and make the repo root installable for each host.
@@ -179,15 +164,3 @@ scripts/sync-adapters --write
 ## Design
 
 - Design notes: [`docs/oh-no-harness-design.md`](docs/oh-no-harness-design.md)
-
-## Releases and license
-
-- Release notes: [`CHANGELOG.md`](CHANGELOG.md). `scripts/release` keeps the
-  manifest version, marketplace `ref`, and the install pin shown above in
-  lockstep. New releases must add a matching `## [<version>]` entry to
-  `CHANGELOG.md` before the tag is cut; `scripts/validate-skills` enforces
-  this.
-- License: [`LICENSE`](LICENSE) (MIT). The plugin manifests
-  (`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`) declare
-  `"license": "MIT"`, so the root `LICENSE` file must remain present and
-  match.

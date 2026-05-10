@@ -81,18 +81,11 @@ If progress records a worktree, read that path and branch before verifying. If t
 Prefer, in order:
 
 1. Targeted tests for changed behavior.
-2. RED/GREEN regression proof for bug fixes when practical. See
-   `docs/oh-no/techniques/regression-proof.md` for what counts as a
-   proof and which substitutes are acceptable.
+2. RED/GREEN regression proof for bug fixes when practical.
 3. Typecheck, lint, build, or static analysis.
 4. Reproduction or smoke checks.
 5. Diff and file inspection against `AC-*`, `INV-*`, and scope.
 6. Explicitly documented verification gap.
-
-When the change touched tests themselves, also screen for the patterns
-in `docs/oh-no/techniques/testing-anti-patterns.md`; a test suite that
-turns green via skipped assertions, mocked SUT, or widened retries is
-a regression-proof gap, not a pass.
 
 ## Red flags
 
@@ -115,54 +108,6 @@ Report:
 - `VERIFIED` / `PARTIAL` / `MISSING` status for required claims.
 - Remaining risks or gaps.
 - Whether completion is safe to claim.
-
-## Finalization protocol
-
-This protocol is conditional. Use it only when the verification target
-explicitly includes branch/worktree finalization, or when a plan or
-progress artifact marks finalization as the next requested action. A
-normal "is this complete?" verification pass ends with the final
-response shape above and does not offer merge, PR, keep, or discard
-options.
-
-When finalization is in scope and verification reports `VERIFIED` for
-every required claim, present the next-step options to the user instead
-of acting unilaterally:
-
-1. **Merge locally** — fast-forward or merge into the integration
-   branch. Suitable when the change is small, the worktree is owned by
-   the harness, and no PR review is required.
-2. **Push and create a PR** — preserves the worktree until the PR is
-   merged so reviewers can read the implementation lane and any
-   pre-existing branch state.
-3. **Keep branch and worktree as-is** — no finalization yet, e.g.
-   waiting for an external dependency, follow-up scope, or human
-   review.
-4. **Discard work** — abandon the branch and worktree.
-
-Rules:
-
-- Do not offer finalization options before fresh verification has
-  reported `VERIFIED`. If status is `PARTIAL` or `MISSING`, return to
-  `ralph` or `debug` instead.
-- The PR path preserves the worktree; do not remove the worktree as
-  part of "PR created".
-- Discard requires typed confirmation from the user that names the
-  branch (for example `discard feature/<slug>`). A bare "yes" / "ok"
-  / "지워줘" / "discard" without the branch name is not enough; if
-  the confirmation is ambiguous, leave the work as-is and ask the
-  user to repeat with the branch name.
-- Cleanup only worktrees the harness created or owns (paths under
-  `.worktrees/` or `worktrees/`). Never remove externally managed
-  worktrees, even when they appear in `git worktree list`.
-- Report branch name, worktree path, baseline command and result, the
-  fresh verification commands, their results, and any remaining risks
-  so the user can act with full context.
-
-For branch/worktree lifecycle tasks, this protocol is the only
-sanctioned finalization exit from a verification pass. `ralph` hands
-off to `verify` for completion; do not finalize from inside the
-execution loop.
 
 ## Completion integrity
 
