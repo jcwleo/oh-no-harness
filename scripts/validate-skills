@@ -275,6 +275,54 @@ if grep -RIn "using""-oh-no" bootstrap skills agents .codex-plugin .claude-plugi
   fail "forbidden bootstrap-as-skill name found"
 fi
 
+require_file docs/oh-no/skill-authoring.md
+require_grep "Trigger-only" docs/oh-no/skill-authoring.md
+require_grep "Anti-patterns the validator flags" docs/oh-no/skill-authoring.md
+require_file docs/oh-no/evals.md
+require_grep "Behavior validation" docs/oh-no/evals.md
+require_grep "Triaging a behavior failure" docs/oh-no/evals.md
+
+python3 - <<'PY'
+import re
+import sys
+from pathlib import Path
+
+forbidden_substrings = [
+    "Uses a ",
+    "Integrates ",
+    "Combines ",
+    "four-phase",
+    "basic mode and --ral mode",
+    "default clarification mode plus --deep",
+]
+canonical = ["clarify", "planning", "ralph", "debug", "verify"]
+errors = []
+for skill in canonical:
+    path = Path(f"skills/{skill}/SKILL.md")
+    text = path.read_text(encoding="utf-8")
+    match = re.search(r'^description:\s*"([^"]*)"\s*$', text, re.MULTILINE)
+    if not match:
+        errors.append(f"{path}: description must be a double-quoted single line")
+        continue
+    description = match.group(1).strip()
+    for needle in forbidden_substrings:
+        if needle.lower() in description.lower():
+            errors.append(
+                f"{path}: description contains process-summary fragment '{needle}'; "
+                "see docs/oh-no/skill-authoring.md"
+            )
+    sentence_split = re.split(r"\.\s+(?=[A-Z])", description.rstrip("."))
+    if len(sentence_split) > 1:
+        errors.append(
+            f"{path}: description must be a single sentence; saw {len(sentence_split)} "
+            "(process detail belongs in when_to_use or the body)"
+        )
+if errors:
+    for e in errors:
+        print("validate-skills:", e, file=sys.stderr)
+    raise SystemExit(1)
+PY
+
 acceptance_scenarios=(
   "tests/acceptance/scenarios/01-feature-request.md"
   "tests/acceptance/scenarios/02-failing-test-debug.md"

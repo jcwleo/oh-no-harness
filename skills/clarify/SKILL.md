@@ -1,6 +1,6 @@
 ---
 name: clarify
-description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation. Uses a default clarification mode plus --deep for high-risk or high-ambiguity requirement pressure."
+description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation."
 when_to_use: "Use before implementation when a request is ambiguous, design-shaped, risky, or likely to benefit from a written spec; use --deep for high-risk or high-ambiguity work."
 argument-hint: "[--deep]"
 arguments: [mode]
