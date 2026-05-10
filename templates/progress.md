@@ -16,7 +16,7 @@ Read in this order before continuing:
 3. This progress file
 4. Latest verification report, if any
 
-Single-glance state for resume after compaction or context loss:
+## Current state
 
 - Current task: T-001 | none
 - Completed tasks: <T-xxx list>

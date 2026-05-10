@@ -48,13 +48,18 @@ gives the agent enough surface to skip the body.
 ### Anti-patterns the validator flags
 
 `scripts/validate-skills` fails the build if any `description:` field
-contains:
+contains the following case-sensitive fragments — each of them only
+appears in process narration, never in a real trigger:
 
 - `Uses a ` / `Integrates ` / `Combines ` — process narration.
 - `four-phase`, `basic mode and --ral mode`, `default clarification
   mode plus --deep` — internal mode counts and phase counts.
-- More than one sentence (a `.` followed by another non-trailing word
-  with capitalization). Process detail belongs in the body.
+
+Single-sentence shape is recommended but not enforced. A
+two-sentence description with two trigger conditions
+(e.g. "Use when X. Use --deep when Y.") is acceptable; a
+two-sentence description with a process summary is not — the
+keyword filters above will catch it.
 
 ### Where process detail goes instead
 

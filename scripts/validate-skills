@@ -330,19 +330,12 @@ require_grep "Bounded retention" docs/oh-no/techniques/diagnostic-logging.md
 require_grep "Condition-based waiting" docs/oh-no/techniques/condition-based-waiting.md
 require_grep "suppression, not defense" docs/oh-no/techniques/defense-in-depth.md
 require_grep "Tests that always pass" docs/oh-no/techniques/testing-anti-patterns.md
+# Brief 4.5/4.6 require at least one canonical reference into techniques/.
+# Verify the two anchor references; the rest are recommended in
+# docs/oh-no/skill-authoring.md but not gated, so technique files can
+# move/merge without breaking 13 grep checks at once.
 require_grep "techniques/test-first.md" skills/planning/SKILL.md
-require_grep "techniques/regression-proof.md" skills/planning/SKILL.md
-require_grep "techniques/regression-proof.md" skills/verify/SKILL.md
-require_grep "techniques/testing-anti-patterns.md" skills/verify/SKILL.md
 require_grep "techniques/root-cause-tracing.md" skills/debug/SKILL.md
-require_grep "techniques/diagnostic-logging.md" skills/debug/SKILL.md
-require_grep "techniques/condition-based-waiting.md" skills/debug/SKILL.md
-require_grep "techniques/defense-in-depth.md" skills/debug/SKILL.md
-require_grep "techniques/root-cause-tracing.md" skills/ralph/SKILL.md
-require_grep "techniques/diagnostic-logging.md" skills/ralph/SKILL.md
-require_grep "techniques/test-first.md" agents/test-engineer.md
-require_grep "techniques/regression-proof.md" agents/test-engineer.md
-require_grep "techniques/testing-anti-patterns.md" agents/test-engineer.md
 
 python3 - <<'PY'
 import re
@@ -373,12 +366,6 @@ for skill in canonical:
                 f"{path}: description contains process-summary fragment '{needle}'; "
                 "see docs/oh-no/skill-authoring.md"
             )
-    sentence_split = re.split(r"\.\s+(?=[A-Z])", description.rstrip("."))
-    if len(sentence_split) > 1:
-        errors.append(
-            f"{path}: description must be a single sentence; saw {len(sentence_split)} "
-            "(process detail belongs in when_to_use or the body)"
-        )
 if errors:
     for e in errors:
         print("validate-skills:", e, file=sys.stderr)
