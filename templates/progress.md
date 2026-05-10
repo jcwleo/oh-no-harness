@@ -5,6 +5,7 @@
 - Spec: docs/oh-no/specs/YYYY-MM-DD-<slug>-spec.md | none
 - Plan: docs/oh-no/plans/YYYY-MM-DD-<slug>-plan.md | inline
 - Status: active | blocked | ready-for-verify | complete
+- Worktree: <path and branch | not used>
 
 ## Resume checkpoint
 
@@ -18,6 +19,8 @@ Read in this order before continuing:
 ## Current state
 
 - Current task: T-001 | none
+- Worktree baseline: <command/result | not used>
+- Dirty-change handling: unrelated left in main | carried by <method> | none | not used
 - Completed tasks: <T-xxx list>
 - Remaining tasks: <T-xxx list>
 - Blockers: <none or details>
@@ -31,6 +34,12 @@ Read in this order before continuing:
 | Time | Command/check | Result | Linked IDs |
 | --- | --- | --- | --- |
 | <time> | <command> | <pass/fail/notes> | AC-001 |
+
+## Review status
+
+- Spec compliance review: pending | passed | failed | not needed
+- Code quality review: pending | passed | failed | not needed
+- Review findings needing another loop: <none or details>
 
 ## Root-cause evidence, if applicable
 

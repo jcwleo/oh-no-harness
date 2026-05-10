@@ -526,6 +526,22 @@ fresh-lane execution의 위치:
   4. issue가 있으면 같은 task로 돌아가 수정 후 재검증한다.
 - subagent를 지원하지 않는 환경에서는 같은 절차를 current-session role-pass로 순차 수행한다.
 
+worktree isolation의 위치:
+
+- Superpowers `using-git-worktrees`의 핵심은 별도 top-level skill로 복제하지 않고, `planning`/`ralph`의 실행 안전 규칙으로 흡수한다.
+- 여러 작업, 여러 에이전트, dirty checkout, 겹치는 파일 소유권, long-lived branch가 있으면 mutation-heavy 실행은 격리된 git worktree에서 한다.
+- 기본 helper는 `scripts/worktree-start <branch>`다.
+  - `.worktrees/`가 있으면 우선 사용하고, 그다음 `worktrees/`, 없으면 `.worktrees/`를 만든다.
+  - project-local worktree directory는 gitignore 되어 있어야 한다.
+  - dedicated branch를 만들고 setup/baseline check를 실행한다.
+- 플러그인으로 다른 repo에서 쓸 때 현재 repo에 `scripts/worktree-start`가 없을 수 있으므로 helper resolution을 명시한다:
+  1. project-local `scripts/worktree-start`
+  2. 설치된 oh-no harness helper path
+  3. 동일 contract의 manual `git worktree add` fallback
+- Dirty checkout은 먼저 분류한다. unrelated dirty changes는 main checkout에 남기고, current task에 필요한 dirty changes는 commit/patch 등 명시적 carry-forward step으로 worktree에 옮긴다. 깨끗한 base에서 시작하면서 필요한 변경을 누락하면 안 된다.
+- `planning`은 worktree isolation decision과 suggested branch/setup command를 plan에 기록한다.
+- `ralph`는 plan이 `required`라고 표시했거나 현재 checkout이 dirty/concurrent-risk이면 실행 전에 worktree를 만들고 progress artifact에 path/baseline result를 기록한다.
+
 즉, 최종 구조는 다음과 같다.
 
 ```text
@@ -685,10 +701,12 @@ MVP에서 가장 중요한 구분:
    - 기본 모드: Superpowers `writing-plans`처럼 실행 가능한 file/task/test/verification plan을 만든다.
    - `--ral` 모드: OMC `ralplan`처럼 Planner → Architect → Critic consensus planning을 실행한다.
    - `--ral` 모드는 기본 plan output의 superset이며 RALPLAN-DR + ADR output을 포함한다.
+   - 실행 전 worktree isolation 필요 여부와 setup command를 기록한다.
    - 계획만 하고 source code를 수정하지 않는다.
 
 4. `skills/ralph/SKILL.md`
    - plan/spec 기반 실행 루프.
+   - 필요한 경우 helper resolution을 통해 격리된 worktree에서 mutation-heavy 실행을 시작한다.
    - verification evidence와 reviewer sign-off 전 완료 선언 금지.
 
 5. `skills/debug/SKILL.md`
@@ -713,6 +731,10 @@ MVP에서 가장 중요한 구분:
 10. `templates/*.md`
    - spec/plan/progress/verify 산출물의 기본 구조.
    - context-window, retrieve 누락, checklist 누락을 줄이기 위한 최소 템플릿.
+
+11. `scripts/worktree-start`
+   - Superpowers `using-git-worktrees`에서 가져온 conflict isolation helper.
+   - worktree directory selection, gitignore safety verification, branch creation, setup detection, baseline verification을 담당한다.
 
 ## 10. 검증 기준
 

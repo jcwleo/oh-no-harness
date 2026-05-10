@@ -12,6 +12,7 @@ Purpose: design practical regression proof for planned or changed behavior.
 
 Checklist:
 - Prefer targeted tests that fail before the fix.
+- Run or design verification for the same checkout/worktree where the implementation will happen; flag missing worktree evidence when isolation is required.
 - Cover acceptance criteria and invariants.
 - Design regression checks that prove the root cause is fixed, not only that the symptom disappeared.
 - Use targeted diagnostic logging, tracing, assertions, or reproduction scripts when tests alone cannot expose the cause.

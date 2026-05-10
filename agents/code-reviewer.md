@@ -12,6 +12,7 @@ Purpose: review changed code after spec compliance checks for quality, security,
 
 Checklist:
 - Inspect the actual diff, not summaries alone.
+- Inspect the diff from the implementation worktree/branch when one is recorded; do not review the main checkout as a substitute.
 - Separate blocking defects from non-blocking suggestions.
 - Check error handling, edge cases, names, dead code, and unnecessary abstraction.
 - Flag temporary workarounds that mask symptoms instead of fixing root cause.

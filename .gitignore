@@ -1,0 +1,6 @@
+# Isolated development worktrees created by scripts/worktree-start
+.worktrees/
+worktrees/
+
+# Local adapter bundle output
+/dist/
