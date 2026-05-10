@@ -12,7 +12,7 @@ varies.
 
 ## What the harness assumes
 
-A host is "supported" when it can do all of:
+A host is "documented" when it can do all of:
 
 - Discover and dispatch the canonical skills (typically by reading
   `skills/<name>/SKILL.md` frontmatter and exposing them via slash
@@ -25,10 +25,12 @@ A host is "supported" when it can do all of:
 - Honor the worktree isolation protocol (`scripts/worktree-start` or
   the manual fallback) when the plan requires it.
 
-A host is "planned" when one or more of the above is missing today
-but is on a roadmap. Hosts that cannot meet the canonical-skill
-discovery contract are not listed; the harness does not pretend to
-support them.
+A host becomes "supported" only after those mapped surfaces have at
+least one committed behavior transcript under
+`tests/acceptance/transcripts/`. A host is "planned" when one or more
+of the above is missing today but is on a roadmap. Hosts that cannot
+meet the canonical-skill discovery contract are not listed; the
+harness does not pretend to support them.
 
 ## Mapping concepts to a new host
 

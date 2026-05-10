@@ -48,8 +48,10 @@ severity taxonomy and security/data-loss/auth/secrets sweep.
 
 Each scenario file declares a Prompt, Expected route, Forbidden shortcuts,
 and Pass criteria. `scripts/validate-skills` verifies the file set and the
-required headings exist, but the scenarios themselves are run by humans or
-by an evaluator agent — not by the validator.
+required headings exist. It also prevents the platform matrix from claiming
+`supported` without a matching, non-template transcript for that host. The
+scenarios themselves are still run by humans or by an evaluator agent — not
+by the validator.
 
 To record a run:
 

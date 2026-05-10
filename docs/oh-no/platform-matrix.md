@@ -5,8 +5,8 @@ loses any of the five integration surfaces.
 
 | Host | Status | Skills | Agents | Hooks | Bootstrap injection | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Claude Code | supported | yes (`/<skill>`) | yes (Claude `Task` / native subagents from `agents/*.md`) | yes (`hooks/session-start` on `SessionStart`) | yes — additionalContext from `bootstrap/oh-no.md` | Reference host. Plugin metadata in `.claude-plugin/`. |
-| Codex CLI / App | supported | yes (registered via `.codex-plugin/plugin.json` `"skills": "./skills/"`) | generated TOML at bundle time (`scripts/sync-codex-agents`) | limited (no SessionStart equivalent) | not assumed — fallback to repository guidance (`AGENTS.md`) | `scripts/sync-adapters --write` materializes the Codex bundle. |
+| Claude Code | documented | yes (`/<skill>`) | yes (Claude `Task` / native subagents from `agents/*.md`) | yes (`hooks/session-start` on `SessionStart`) | yes — additionalContext from `bootstrap/oh-no.md` | Reference host. Plugin metadata in `.claude-plugin/`; behavior transcript not yet committed. |
+| Codex CLI / App | documented | yes (registered via `.codex-plugin/plugin.json` `"skills": "./skills/"`) | generated TOML at bundle time (`scripts/sync-codex-agents`) | limited (no SessionStart equivalent) | not assumed — fallback to repository guidance (`AGENTS.md`) | `scripts/sync-adapters --write` materializes the Codex bundle; behavior transcript not yet committed. |
 | Cursor | planned | TBD — needs slash-command surface mapping | TBD — likely as markdown role prompts only | TBD — no native equivalent of SessionStart known at writing time | not assumed | No work has begun. |
 | OpenCode | planned | TBD | TBD | TBD | TBD | No work has begun. |
 | Gemini CLI | planned | TBD | TBD | TBD | TBD | No work has begun. |
@@ -16,8 +16,11 @@ Status legend:
 
 - **supported** — the host can run the canonical workflow end-to-end
   through native primitives or a documented current-session
-  fallback. Behavior validated by at least one transcript under
-  `tests/acceptance/transcripts/`.
+  fallback. Behavior validated by at least one committed transcript
+  under `tests/acceptance/transcripts/`.
+- **documented** — the integration surfaces are mapped and expected to
+  work, but no committed transcript currently validates the behavior
+  claim. Treat these as documented but unverified.
 - **planned** — the host is on the roadmap; some surfaces may already
   work but the contract has not been verified.
 
@@ -33,8 +36,11 @@ When you change a row:
    host in a fresh session.
 2. File the resulting transcripts under
    `tests/acceptance/transcripts/`.
-3. Move the host's status from `planned` to `supported` only after
-   at least one transcript is committed.
+3. Move the host's status to `supported` only after at least one
+   matching, non-template transcript is committed for that host.
+   `scripts/validate-skills` rejects `supported` rows when only
+   `transcripts/TEMPLATE.md` exists or when the transcript host does
+   not match the matrix row.
 
 ## Cross-references
 

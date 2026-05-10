@@ -93,8 +93,8 @@ for template in "${required_templates[@]}"; do
   require_file "templates/${template}.md"
 done
 
-for readonly_agent in architect critic code-reviewer verifier explore analyst; do
-  require_grep "read-only|read only" "agents/${readonly_agent}.md"
+for readonly_agent in architect critic code-reviewer verifier explore analyst debugger test-engineer; do
+  require_grep "[Rr]ead-only|[Rr]ead only" "agents/${readonly_agent}.md"
   require_grep "sandbox_mode = \"read-only\"" "${generated_codex_agents_dir}/${readonly_agent}.toml"
 done
 require_grep "write role" agents/executor.md
@@ -346,8 +346,66 @@ require_file docs/oh-no/platform-matrix.md
 require_grep "supported" docs/oh-no/platform-matrix.md
 require_grep "planned" docs/oh-no/platform-matrix.md
 require_grep "Status legend" docs/oh-no/platform-matrix.md
-require_grep "Claude Code .* supported" docs/oh-no/platform-matrix.md
-require_grep "Codex CLI .* supported" docs/oh-no/platform-matrix.md
+require_grep "documented" docs/oh-no/platform-matrix.md
+require_grep "Claude Code .* documented" docs/oh-no/platform-matrix.md
+require_grep "Codex CLI .* documented" docs/oh-no/platform-matrix.md
+python3 - <<'PY'
+import re
+from pathlib import Path
+
+
+def normalize(value: str) -> str:
+    value = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return re.sub(r"-+", "-", value)
+
+
+HOST_ALIASES = {
+    "Claude Code": {"claude-code"},
+    "Codex CLI / App": {"codex-cli", "codex-app", "codex"},
+}
+
+
+matrix = Path("docs/oh-no/platform-matrix.md").read_text(encoding="utf-8")
+supported_hosts = []
+for line in matrix.splitlines():
+    if not line.startswith("| ") or line.startswith("| Host ") or line.startswith("| ---"):
+        continue
+    columns = [column.strip() for column in line.strip("|").split("|")]
+    if len(columns) >= 2 and columns[1] == "supported":
+        supported_hosts.append(columns[0])
+
+transcripts_dir = Path("tests/acceptance/transcripts")
+real_transcripts = [
+    path
+    for path in transcripts_dir.glob("*.md")
+    if path.name != "TEMPLATE.md"
+]
+
+transcript_hosts = set()
+for path in real_transcripts:
+    transcript_hosts.add(normalize(path.stem))
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("- Host:"):
+            transcript_hosts.add(normalize(line.partition(":")[2]))
+            break
+
+missing_transcripts = []
+for host in supported_hosts:
+    aliases = HOST_ALIASES.get(host, {normalize(host)})
+    if not any(
+        alias in transcript_host
+        for alias in aliases
+        for transcript_host in transcript_hosts
+    ):
+        missing_transcripts.append(host)
+
+if missing_transcripts:
+    raise SystemExit(
+        "validate-skills: platform-matrix marks host(s) as supported "
+        "without a matching committed acceptance transcript: "
+        f"{', '.join(missing_transcripts)}"
+    )
+PY
 
 # Brief 4.10 visual clarification (P2): optional-only, no runtime/asset
 # dependency, reachable from clarify or planning.
@@ -515,6 +573,16 @@ require_file "$tmp_dir/claude/scripts/release"
 require_file "$tmp_dir/claude/scripts/worktree-start"
 require_file "$tmp_dir/codex/templates/plan.md"
 require_file "$tmp_dir/claude/templates/plan.md"
+require_file "$tmp_dir/codex/docs/oh-no/techniques/root-cause-tracing.md"
+require_file "$tmp_dir/codex/docs/oh-no/techniques/regression-proof.md"
+require_file "$tmp_dir/codex/docs/oh-no/visual-clarification.md"
+require_file "$tmp_dir/codex/tests/acceptance/scenarios/06-planted-bug-sql-injection.md"
+require_file "$tmp_dir/codex/tests/acceptance/transcripts/TEMPLATE.md"
+require_file "$tmp_dir/claude/docs/oh-no/techniques/root-cause-tracing.md"
+require_file "$tmp_dir/claude/docs/oh-no/techniques/regression-proof.md"
+require_file "$tmp_dir/claude/docs/oh-no/visual-clarification.md"
+require_file "$tmp_dir/claude/tests/acceptance/scenarios/06-planted-bug-sql-injection.md"
+require_file "$tmp_dir/claude/tests/acceptance/transcripts/TEMPLATE.md"
 (cd "$tmp_dir/codex" && scripts/sync-codex-agents --check >/dev/null)
 
 for agent in "${required_agents[@]}"; do
