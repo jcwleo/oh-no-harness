@@ -3,6 +3,7 @@ name: planning
 description: "Create an executable implementation plan from a spec or clear request. Integrates Superpowers-style writing-plans with RALPLAN-style consensus review through basic mode and --ral mode."
 when_to_use: "Use after a clear request or approved spec when the next step is an executable task plan; use --ral for high-risk, broad, architectural, or disputed trade-off planning."
 argument-hint: "[--ral] [spec-or-request]"
+arguments: [mode, target]
 ---
 
 # planning

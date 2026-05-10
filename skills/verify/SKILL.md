@@ -3,6 +3,7 @@ name: verify
 description: "Check completion claims against fresh evidence, tests, builds, lint, static checks, diffs, and spec acceptance IDs before final reporting."
 when_to_use: "Use before claiming work is complete, after implementation, or when asked to audit whether a prior change satisfies its spec, tests, and evidence requirements."
 argument-hint: "[claim|artifact-path]"
+arguments: [target]
 ---
 
 # verify

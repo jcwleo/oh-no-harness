@@ -50,10 +50,11 @@ Superpowers에서 근거로 삼은 주요 파일:
 
 Superpowers의 본체는 `skills/<skill-name>/SKILL.md` 파일들이다.
 
-- 각 스킬은 frontmatter의 `name`, `description`, `when_to_use`, `argument-hint`로 발견/호출 UI를 보강한다.
+- 각 스킬은 frontmatter의 `name`, `description`, `when_to_use`, `argument-hint`, `arguments`로 발견/호출 UI와 인수 매핑을 보강한다.
 - `description`은 언제 스킬을 써야 하는지에 대한 라우팅 힌트다.
 - `when_to_use`는 `description`에 더해 자동 호출 트리거와 예시 요청을 구체화한다.
 - `argument-hint`는 Claude Code 자동완성에서 `[--deep]` 같은 예상 인수를 보여주는 힌트다.
+- `arguments`는 Claude Code가 위치 인수를 이름 있는 값으로 치환할 수 있게 하는 매핑이다.
 - 본문은 에이전트가 따라야 할 절차/원칙/검증 조건을 담는다.
 - 스킬끼리는 다음에 사용할 스킬을 문서로 연결한다. 별도 상태 머신이 아니라 문서 체인이다.
 
