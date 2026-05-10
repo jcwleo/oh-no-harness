@@ -12,6 +12,7 @@ This repository is a lightweight, Markdown-first coding harness. The repo root i
 - `scripts/sync-codex-agents --write --out <dir>` — generates Codex custom-agent TOML from `agents/*.md`.
 - `scripts/sync-adapters --dry-run` — previews separated Codex/Claude bundle outputs.
 - `scripts/sync-adapters --write --out <dir>` — materializes installable bundles for inspection.
+- `scripts/release <version> [--push]` — updates release refs, creates the generated bundle tag commit, and optionally pushes.
 - `python3 -m json.tool <file>` — validates JSON manifests such as `.codex-plugin/plugin.json`.
 
 There is no app build step or package install requirement for normal development.
@@ -22,7 +23,7 @@ Prefer small, readable Markdown and shell changes. Use lowercase hyphenated name
 
 ## Testing Guidelines
 
-Run `scripts/validate-skills` after changing skills, agents, templates, manifests, hooks, or sync logic. After changing `agents/*.md`, rely on validation to render-check Codex TOML; do not commit generated `.codex/agents/*.toml` in the source checkout. For sync changes, also run `scripts/sync-adapters --write --out $(mktemp -d)` and inspect representative Claude and Codex files. Update `tests/acceptance/` when behavior expectations change.
+Run `scripts/validate-skills` after changing skills, agents, templates, manifests, hooks, or sync logic. After changing `agents/*.md`, rely on validation to render-check Codex TOML; do not commit generated `.codex/agents/*.toml` in the source checkout. For sync changes, also run `scripts/sync-adapters --write --out $(mktemp -d)` and inspect representative Claude and Codex files. For release-flow changes, run `bash -n scripts/release`. Update `tests/acceptance/` when behavior expectations change.
 
 ## Commit & Pull Request Guidelines
 

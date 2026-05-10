@@ -78,6 +78,7 @@ scripts/worktree-start              # isolated git worktree helper for conflict-
 scripts/sync-codex-agents           # renders Codex custom-agent TOML from agents/*.md
 scripts/validate-skills             # local consistency checks
 scripts/sync-adapters               # optional platform-specific bundle materializer
+scripts/release                     # version, bundle-tag, and optional push helper
 templates/*.md                      # spec/plan/progress/verify artifact templates
 docs/oh-no-harness-design.md        # design notes
 ```
@@ -116,8 +117,23 @@ bash -n scripts/validate-skills
 bash -n scripts/sync-codex-agents
 bash -n scripts/worktree-start
 bash -n scripts/sync-adapters
+bash -n scripts/release
 bash -n hooks/session-start
 bash -n hooks/run-hook.cmd
+```
+
+## Release
+
+Run releases from `main` with no tracked working tree changes:
+
+```sh
+scripts/release v0.1.1
+```
+
+The release helper updates plugin versions, updates the marketplace ref and README pin, validates the source checkout, creates a source release commit on `main`, then creates a tag-only bundle commit with generated `.codex/agents/*.toml`. By default it does not push. To publish:
+
+```sh
+scripts/release v0.1.1 --push
 ```
 
 ## Plugin notes

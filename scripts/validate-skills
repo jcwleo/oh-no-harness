@@ -102,6 +102,7 @@ require_file hooks/run-hook.cmd
 require_file hooks/session-start
 require_file scripts/sync-codex-agents
 require_file scripts/sync-adapters
+require_file scripts/release
 require_file scripts/worktree-start
 require_file .gitignore
 
@@ -110,6 +111,7 @@ python3 -m json.tool .claude-plugin/plugin.json >/dev/null
 python3 -m json.tool hooks/hooks.json >/dev/null
 bash -n scripts/sync-codex-agents
 bash -n scripts/sync-adapters
+bash -n scripts/release
 bash -n scripts/worktree-start
 bash -n scripts/validate-skills
 bash -n hooks/session-start
@@ -269,6 +271,7 @@ require_file README.md
 require_grep "clarify -> planning" README.md
 require_grep "scripts/validate-skills" README.md
 require_grep "scripts/sync-codex-agents" README.md
+require_grep "scripts/release" README.md
 require_grep "Isolated worktrees" README.md
 require_grep "scripts/worktree-start" README.md
 require_grep "installed harness helper" README.md
@@ -282,6 +285,7 @@ require_grep "platform-specific" README.md
 require_file AGENTS.md
 require_grep "Repository Guidelines" AGENTS.md
 require_grep "scripts/sync-codex-agents" AGENTS.md
+require_grep "scripts/release" AGENTS.md
 
 tmp_dir="$(mktemp -d)"
 tmp_paths+=("$tmp_dir")
@@ -292,8 +296,10 @@ require_grep '"skills": "./skills/"' "$tmp_dir/codex/.codex-plugin/plugin.json"
 require_file "$tmp_dir/claude/.claude-plugin/plugin.json"
 require_file "$tmp_dir/claude/hooks/session-start"
 require_file "$tmp_dir/codex/scripts/sync-codex-agents"
+require_file "$tmp_dir/codex/scripts/release"
 require_file "$tmp_dir/codex/scripts/worktree-start"
 require_file "$tmp_dir/claude/scripts/sync-codex-agents"
+require_file "$tmp_dir/claude/scripts/release"
 require_file "$tmp_dir/claude/scripts/worktree-start"
 require_file "$tmp_dir/codex/templates/plan.md"
 require_file "$tmp_dir/claude/templates/plan.md"

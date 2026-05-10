@@ -11,6 +11,7 @@ python3 -m json.tool hooks/hooks.json >/dev/null
 bash -n scripts/validate-skills
 bash -n scripts/sync-codex-agents
 bash -n scripts/sync-adapters
+bash -n scripts/release
 bash -n scripts/worktree-start
 bash -n hooks/session-start
 bash -n hooks/run-hook.cmd
