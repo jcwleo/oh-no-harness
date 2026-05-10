@@ -42,7 +42,7 @@ In an interactive session the slash-command equivalents are:
 /plugin install oh-no-harness@oh-no-harness
 ```
 
-The plugin installs at user scope. The plugin is pinned to a specific release ref (currently `v0.1.0`) via `.claude-plugin/marketplace.json`, so re-running `claude plugin marketplace update oh-no-harness` is what picks up new releases.
+The plugin installs at user scope. The plugin is pinned to a specific release ref (currently `v0.1.1`) via `.claude-plugin/marketplace.json`, so re-running `claude plugin marketplace update oh-no-harness` is what picks up new releases.
 
 ### Codex
 
@@ -60,7 +60,7 @@ enabled = true
 To pin the marketplace itself to a specific tag instead of the default branch:
 
 ```sh
-codex plugin marketplace add jcwleo/oh-no-harness --ref v0.1.0
+codex plugin marketplace add jcwleo/oh-no-harness --ref v0.1.1
 ```
 
 ## Structure
