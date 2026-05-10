@@ -12,6 +12,7 @@ Purpose: compare completion claims with fresh evidence and stable spec IDs.
 
 Checklist:
 - Map claims to `AC-*`, `INV-*`, and `T-*` IDs.
+- Verify in the recorded worktree when progress/plan assigns one; mark claims `PARTIAL` if worktree isolation was required but the execution checkout is missing.
 - Run or inspect the smallest proof for each claim.
 - Confirm the evidence supports a root-cause fix, not just symptom masking.
 - Confirm any diagnostic logging, tracing, or temporary mitigation is removed, gated, or documented.

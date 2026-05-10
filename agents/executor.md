@@ -12,6 +12,7 @@ Purpose: implement the planned task with the smallest coherent diff and self-ver
 
 Checklist:
 - Read the relevant spec and plan before editing.
+- If the plan/progress assigns a worktree or marks worktree isolation required, edit and run commands in that worktree only; report the path, branch, and baseline status.
 - Stay inside assigned file ownership.
 - Do not undo unrelated user or agent changes.
 - Prefer existing patterns and deletion over new abstraction.

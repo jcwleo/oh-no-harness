@@ -75,6 +75,7 @@ hooks/                              # Claude SessionStart bootstrap hook
 bootstrap/oh-no.md                  # shared session guidance
 skills/*/SKILL.md                   # workflow contracts
 agents/*.md                         # Claude-ready role/subagent prompts
+scripts/worktree-start              # isolated git worktree helper for conflict-safe execution
 scripts/validate-skills             # local consistency checks
 scripts/sync-adapters               # optional platform-specific bundle materializer
 templates/*.md                      # spec/plan/progress/verify artifact templates
@@ -92,6 +93,18 @@ scripts/validate-skills
 git diff --check
 ```
 
+## Isolated worktrees
+
+Use isolated worktrees for implementation when multiple tasks, agents, or humans may work concurrently, or when the current checkout has unrelated changes:
+
+```sh
+scripts/worktree-start feature/<slug>
+```
+
+The helper prefers project-local `.worktrees/`, verifies the worktree directory is gitignored, creates a dedicated branch, runs detected setup, and runs a baseline check when one is available. Plans should record whether worktree isolation is required and Ralph should execute mutation-heavy work there when required.
+
+When oh-no harness is used as an installed plugin in another repository, use project-local `scripts/worktree-start` if that repository provides it; otherwise use the installed harness helper when its path is available, or follow the same `git worktree add` contract manually. Before creating the worktree, classify dirty changes as unrelated or relevant-to-task so required uncommitted work is not silently left behind.
+
 Optional static checks:
 
 ```sh
@@ -99,6 +112,7 @@ python3 -m json.tool .codex-plugin/plugin.json >/dev/null
 python3 -m json.tool .claude-plugin/plugin.json >/dev/null
 python3 -m json.tool hooks/hooks.json >/dev/null
 bash -n scripts/validate-skills
+bash -n scripts/worktree-start
 bash -n scripts/sync-adapters
 bash -n hooks/session-start
 bash -n hooks/run-hook.cmd

@@ -32,6 +32,24 @@ Use the lightest workflow that preserves correctness:
 - High-risk work uses `planning --ral`: security/auth, migrations, public API changes, architectural boundaries, broad refactors, data-loss risk, or unresolved tradeoffs.
 - If a plan grows beyond about 7 tasks, split it into milestones instead of creating one oversized plan.
 
+## Worktree isolation protocol
+
+Use an isolated git worktree before implementation when work may overlap with other active work, the current checkout is dirty, multiple agents or lanes may edit concurrently, or the user explicitly wants conflict isolation.
+
+Before creating a worktree, inspect the current dirty diff. If dirty changes are unrelated, leave them in the main checkout and start the new branch from the chosen base. If dirty changes are part of the current task, carry them deliberately by commit, patch, or another explicit transfer step; do not silently start a clean worktree that omits required changes.
+
+Preferred helper resolution:
+
+1. Use project-local `scripts/worktree-start` when it exists.
+2. Otherwise use the installed oh-no harness helper when its plugin/bundle path is available.
+3. Otherwise use the manual fallback below.
+
+```sh
+scripts/worktree-start <branch-name>
+```
+
+If the helper is unavailable, follow the same contract manually: use `.worktrees/` if present, then `worktrees/`, otherwise `.worktrees/`; verify the project-local worktree directory is gitignored before creation; create a dedicated branch; run setup and a clean baseline check before implementation. Record the worktree path in the plan/progress artifacts. Planning may run in the main checkout. Verification may be coordinated from the main checkout, but execution-dependent diffs, commands, and artifacts must be checked in the recorded worktree when one was used.
+
 ## Canonical skill surface
 
 Use only these user-callable workflow skills:

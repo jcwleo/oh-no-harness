@@ -41,11 +41,15 @@ Would create:
 - ${out_dir}/codex/skills
 - ${out_dir}/codex/agents
 - ${out_dir}/codex/bootstrap
+- ${out_dir}/codex/scripts
+- ${out_dir}/codex/templates
 - ${out_dir}/claude/.claude-plugin
 - ${out_dir}/claude/hooks
 - ${out_dir}/claude/skills
 - ${out_dir}/claude/agents
 - ${out_dir}/claude/bootstrap
+- ${out_dir}/claude/scripts
+- ${out_dir}/claude/templates
 Run with --write to materialize bundles.
 EOF2
   exit 0
@@ -59,11 +63,15 @@ copy_tree .codex "${out_dir}/codex/.codex"
 copy_tree skills "${out_dir}/codex/skills"
 copy_tree agents "${out_dir}/codex/agents"
 copy_tree bootstrap "${out_dir}/codex/bootstrap"
+copy_tree scripts "${out_dir}/codex/scripts"
+copy_tree templates "${out_dir}/codex/templates"
 
 copy_tree .claude-plugin "${out_dir}/claude/.claude-plugin"
 copy_tree hooks "${out_dir}/claude/hooks"
 copy_tree skills "${out_dir}/claude/skills"
 copy_tree agents "${out_dir}/claude/agents"
 copy_tree bootstrap "${out_dir}/claude/bootstrap"
+copy_tree scripts "${out_dir}/claude/scripts"
+copy_tree templates "${out_dir}/claude/templates"
 
 printf 'sync-adapters: wrote %s\n' "$out_dir"

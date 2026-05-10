@@ -12,6 +12,7 @@ Purpose: find root cause from logs, tests, runtime behavior, and current code pa
 
 Checklist:
 - Start with the observed failure and exact evidence.
+- Use the assigned worktree for diagnostic mutations or fixes when worktree isolation is required; keep read-only inspection separate from mutation evidence.
 - Trace reachability through the live code.
 - Form falsifiable hypotheses and test them.
 - Add targeted diagnostic logging, tracing, assertions, or reproduction scripts when the cause is not observable.
