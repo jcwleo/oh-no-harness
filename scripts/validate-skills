@@ -45,6 +45,19 @@ canonical_skills=(clarify planning ralph debug verify)
 required_agents=(planner architect critic code-reviewer executor verifier explore analyst debugger test-engineer)
 required_templates=(spec plan progress verify)
 
+tmp_paths=()
+cleanup() {
+  if [ "${#tmp_paths[@]}" -gt 0 ]; then
+    rm -rf "${tmp_paths[@]}"
+  fi
+}
+trap cleanup EXIT
+
+generated_codex_agents_dir="$(mktemp -d)"
+tmp_paths+=("$generated_codex_agents_dir")
+require_file scripts/sync-codex-agents
+scripts/sync-codex-agents --write --out "$generated_codex_agents_dir" >/dev/null
+
 require_file bootstrap/oh-no.md
 for skill in "${canonical_skills[@]}"; do
   require_file "skills/${skill}/SKILL.md"
@@ -65,12 +78,12 @@ for agent in "${required_agents[@]}"; do
   require_grep "^Authority:" "agents/${agent}.md"
   require_grep "^Purpose:" "agents/${agent}.md"
   require_grep "^Checklist:" "agents/${agent}.md"
-  require_file ".codex/agents/${agent}.toml"
-  require_grep "^name = \"${agent}\"$" ".codex/agents/${agent}.toml"
-  require_grep "^description = " ".codex/agents/${agent}.toml"
-  require_grep "^developer_instructions = " ".codex/agents/${agent}.toml"
+  require_file "${generated_codex_agents_dir}/${agent}.toml"
+  require_grep "^name = \"${agent}\"$" "${generated_codex_agents_dir}/${agent}.toml"
+  require_grep "^description = " "${generated_codex_agents_dir}/${agent}.toml"
+  require_grep "^developer_instructions = " "${generated_codex_agents_dir}/${agent}.toml"
 done
-validate_codex_agent_toml_dir .codex/agents
+validate_codex_agent_toml_dir "$generated_codex_agents_dir"
 
 for template in "${required_templates[@]}"; do
   require_file "templates/${template}.md"
@@ -78,7 +91,7 @@ done
 
 for readonly_agent in architect critic code-reviewer verifier explore analyst; do
   require_grep "read-only|read only" "agents/${readonly_agent}.md"
-  require_grep "sandbox_mode = \"read-only\"" ".codex/agents/${readonly_agent}.toml"
+  require_grep "sandbox_mode = \"read-only\"" "${generated_codex_agents_dir}/${readonly_agent}.toml"
 done
 require_grep "write role" agents/executor.md
 
@@ -87,6 +100,7 @@ require_file .claude-plugin/plugin.json
 require_file hooks/hooks.json
 require_file hooks/run-hook.cmd
 require_file hooks/session-start
+require_file scripts/sync-codex-agents
 require_file scripts/sync-adapters
 require_file scripts/worktree-start
 require_file .gitignore
@@ -94,6 +108,7 @@ require_file .gitignore
 python3 -m json.tool .codex-plugin/plugin.json >/dev/null
 python3 -m json.tool .claude-plugin/plugin.json >/dev/null
 python3 -m json.tool hooks/hooks.json >/dev/null
+bash -n scripts/sync-codex-agents
 bash -n scripts/sync-adapters
 bash -n scripts/worktree-start
 bash -n scripts/validate-skills
@@ -104,6 +119,7 @@ hooks/session-start | python3 -m json.tool >/dev/null
 require_grep '"skills": "./skills/"' .codex-plugin/plugin.json
 require_grep "SessionStart" hooks/hooks.json
 require_grep "bootstrap/oh-no.md" hooks/session-start
+scripts/sync-codex-agents --check --out "$generated_codex_agents_dir" >/dev/null
 
 require_grep "--ral" skills/planning/SKILL.md
 require_grep "RALPLAN-DR" skills/planning/SKILL.md
@@ -209,6 +225,7 @@ require_grep "helper resolution" docs/oh-no-harness-design.md
 require_grep "Dirty checkout" docs/oh-no-harness-design.md
 require_grep "^\\.worktrees/$" .gitignore
 require_grep "^worktrees/$" .gitignore
+require_grep "^\\.codex/agents/$" .gitignore
 
 for template in templates/spec.md templates/plan.md templates/progress.md templates/verify.md; do
   require_grep "Retrieval basis|Retrieval and evidence gaps|Resume checkpoint|Sizing decision" "$template"
@@ -225,7 +242,7 @@ require_grep "Verification checkout/worktree" templates/verify.md
 
 for worktree_agent in executor debugger test-engineer verifier code-reviewer; do
   require_grep "worktree|Worktree" "agents/${worktree_agent}.md"
-  require_grep "worktree|Worktree" ".codex/agents/${worktree_agent}.toml"
+  require_grep "worktree|Worktree" "${generated_codex_agents_dir}/${worktree_agent}.toml"
 done
 
 for file in skills/*/SKILL.md agents/*.md; do
@@ -251,6 +268,7 @@ fi
 require_file README.md
 require_grep "clarify -> planning" README.md
 require_grep "scripts/validate-skills" README.md
+require_grep "scripts/sync-codex-agents" README.md
 require_grep "Isolated worktrees" README.md
 require_grep "scripts/worktree-start" README.md
 require_grep "installed harness helper" README.md
@@ -263,19 +281,23 @@ require_grep "platform-specific" README.md
 
 require_file AGENTS.md
 require_grep "Repository Guidelines" AGENTS.md
+require_grep "scripts/sync-codex-agents" AGENTS.md
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+tmp_paths+=("$tmp_dir")
 scripts/sync-adapters --write --out "$tmp_dir" >/dev/null
 
 require_file "$tmp_dir/codex/.codex-plugin/plugin.json"
 require_grep '"skills": "./skills/"' "$tmp_dir/codex/.codex-plugin/plugin.json"
 require_file "$tmp_dir/claude/.claude-plugin/plugin.json"
 require_file "$tmp_dir/claude/hooks/session-start"
+require_file "$tmp_dir/codex/scripts/sync-codex-agents"
 require_file "$tmp_dir/codex/scripts/worktree-start"
+require_file "$tmp_dir/claude/scripts/sync-codex-agents"
 require_file "$tmp_dir/claude/scripts/worktree-start"
 require_file "$tmp_dir/codex/templates/plan.md"
 require_file "$tmp_dir/claude/templates/plan.md"
+(cd "$tmp_dir/codex" && scripts/sync-codex-agents --check >/dev/null)
 
 for agent in "${required_agents[@]}"; do
   require_file "$tmp_dir/claude/agents/${agent}.md"

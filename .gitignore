@@ -10,5 +10,8 @@ worktrees/
 # Local adapter bundle output
 /dist/
 
+# Locally generated Codex custom-agent templates
+.codex/agents/
+
 # OS/editor noise
 .DS_Store

@@ -59,7 +59,8 @@ rm -rf "${out_dir}/codex" "${out_dir}/claude"
 mkdir -p "${out_dir}/codex" "${out_dir}/claude"
 
 copy_tree .codex-plugin "${out_dir}/codex/.codex-plugin"
-copy_tree .codex "${out_dir}/codex/.codex"
+mkdir -p "${out_dir}/codex/.codex"
+scripts/sync-codex-agents --write --out "${out_dir}/codex/.codex/agents" >/dev/null
 copy_tree skills "${out_dir}/codex/skills"
 copy_tree agents "${out_dir}/codex/agents"
 copy_tree bootstrap "${out_dir}/codex/bootstrap"

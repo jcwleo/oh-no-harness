@@ -14,7 +14,7 @@ Checklist:
 - Prefer exact file paths and line references.
 - Separate evidence from inference.
 - When investigating failures, map the code/log/test path needed to identify root cause rather than suggesting temporary workarounds.
-- Identify where targeted diagnostic logging, tracing, assertions, or reproduction hooks could expose an unobservable cause.
+- When asked about a failure, map the existing code paths, logs, tests, assertions, and tracing relevant to the symptom; label observability gaps and hand off new instrumentation design to debugger or planner.
 - Keep scope narrow and avoid design recommendations unless asked.
 - Report unknowns rather than guessing.
 

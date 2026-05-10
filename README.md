@@ -70,12 +70,12 @@ The repository uses a root-level plugin layout: the repository root is the plugi
 ```text
 .codex-plugin/plugin.json           # Codex plugin metadata; registers ./skills/
 .claude-plugin/plugin.json          # Claude Code plugin metadata
-.codex/agents/*.toml                # Codex native custom-agent templates
 hooks/                              # Claude SessionStart bootstrap hook
 bootstrap/oh-no.md                  # shared session guidance
 skills/*/SKILL.md                   # workflow contracts
 agents/*.md                         # Claude-ready role/subagent prompts
 scripts/worktree-start              # isolated git worktree helper for conflict-safe execution
+scripts/sync-codex-agents           # renders Codex custom-agent TOML from agents/*.md
 scripts/validate-skills             # local consistency checks
 scripts/sync-adapters               # optional platform-specific bundle materializer
 templates/*.md                      # spec/plan/progress/verify artifact templates
@@ -89,6 +89,7 @@ This repository uses GitHub Flow. Keep `main` releasable. For every change, crea
 ## Validate
 
 ```sh
+scripts/sync-codex-agents --check
 scripts/validate-skills
 git diff --check
 ```
@@ -112,6 +113,7 @@ python3 -m json.tool .codex-plugin/plugin.json >/dev/null
 python3 -m json.tool .claude-plugin/plugin.json >/dev/null
 python3 -m json.tool hooks/hooks.json >/dev/null
 bash -n scripts/validate-skills
+bash -n scripts/sync-codex-agents
 bash -n scripts/worktree-start
 bash -n scripts/sync-adapters
 bash -n hooks/session-start
@@ -124,7 +126,7 @@ bash -n hooks/run-hook.cmd
 - Claude Code: root `.claude-plugin/`, `skills/`, `agents/`, and `hooks/` make the checkout a Claude plugin candidate; `hooks/session-start` injects `bootstrap/oh-no.md` on `SessionStart`.
 - Claude native subagents: root `agents/*.md` include YAML frontmatter (`name`, `description`, `tools`) and can be used as Claude subagents.
 - Codex: root `.codex-plugin/plugin.json` registers the canonical skills through `"skills": "./skills/"`.
-- Codex native custom agents: root `.codex/agents/*.toml` provides custom-agent templates. If the host does not auto-install plugin custom agents, copy them into the project `.codex/agents/` or user `~/.codex/agents/`.
+- Codex native custom agents: `scripts/sync-adapters --write` materializes generated templates under the Codex bundle's `.codex/agents/*.toml`. Edit `agents/*.md`; do not commit generated TOML from the source checkout. If the host does not auto-install plugin custom agents, copy the generated bundle templates into the project `.codex/agents/` or user `~/.codex/agents/`.
 - Codex fallback: skills still describe role-pass usage, so the harness remains usable without native custom agents.
 
 To preview separated installable bundles without writing files:

@@ -18,7 +18,7 @@ Checklist:
 - Flag temporary workarounds that mask symptoms instead of fixing root cause.
 - Confirm diagnostic logging or tracing is removed, gated, or intentionally documented.
 - Confirm tests or alternate evidence cover changed behavior.
-- Return `APPROVE` only when no blocking issue remains.
+- Return `APPROVE` when no blocking issue remains, `REQUEST_CHANGES` for non-blocking issues that still need fixing, or `BLOCK` for security, correctness, or regression defects that must not ship.
 
 ## Integrity rule
 

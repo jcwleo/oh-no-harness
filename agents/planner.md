@@ -6,7 +6,7 @@ tools: Read, Grep, Glob, Bash
 
 # planner
 
-Authority: read/write planning artifacts only. Do not edit product source code.
+Authority: read/write planning artifacts only (under `docs/oh-no/**`). Do not edit product source code.
 
 Purpose: convert a spec or clear request into executable tasks with file ownership, linked acceptance IDs, and verification commands.
 

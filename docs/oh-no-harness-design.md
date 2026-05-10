@@ -226,8 +226,8 @@ oh-no-harness/
 
 - `bootstrap/oh-no.md`는 세션 시작 지침의 source of truth다.
 - `skills/`는 사용자 호출 workflow의 source of truth다.
-- `agents/`는 Claude-ready role/subagent prompt의 source of truth다.
-- `.codex/agents/`는 Codex native custom-agent template의 source of truth다.
+- `agents/`는 Claude-ready role/subagent prompt와 Codex role prompt 본문의 source of truth다.
+- `.codex/agents/`는 source checkout에 두지 않고, Codex adapter bundle 생성 시 `agents/*.md`에서 materialize되는 native custom-agent template이다.
 - repo root 자체가 Claude Code와 Codex의 plugin root다. `.codex-plugin/`, `.claude-plugin/`, `hooks/`는 얇은 host metadata/부트스트랩 레이어다.
 - `scripts/`는 검증/복사만 수행한다. 런타임 상태를 소유하지 않는다.
 - `tests/acceptance/`는 “새 세션에서 스킬이 실제로 적용되는가”를 검증한다.
@@ -636,16 +636,18 @@ Superpowers를 그대로 따를 부분은 **repo root를 plugin root로 만들�
 
 | 항목 | Claude Code | Codex |
 | --- | --- | --- |
-| native agent 원본 | `agents/*.md` | `.codex/agents/*.toml` |
+| role prompt 원본 | `agents/*.md` | `agents/*.md` |
+| native agent 산출물 | `agents/*.md` | bundle-generated `.codex/agents/*.toml` |
 | 필수 metadata | YAML frontmatter `name`, `description`, `tools` | TOML `name`, `description`, `developer_instructions` |
 | skill fallback | 같은 파일 본문을 role prompt로 사용 | `agents/*.md` 또는 current-session role-pass 사용 |
 | 자동성 가정 | Claude plugin `agents/`는 native subagent로 쓰일 수 있음 | Codex plugin은 skills 등록이 확실한 계약이며 custom agent TOML은 project/user `.codex/agents` 설치 템플릿으로 취급 |
 
 중요한 판단:
 
-- `scripts/sync-adapters`는 선택적 dist bundle을 만들 뿐 정책을 만들지 않는다. root layout이 source of truth다.
+- `scripts/sync-adapters`는 선택적 dist bundle을 만들 뿐 정책을 만들지 않는다. root layout과 `scripts/sync-codex-agents`의 생성 규칙이 source of truth다.
 - Claude는 root `agents/`가 바로 sub-agent 후보가 되도록 frontmatter를 가진다.
-- Codex는 root `.codex-plugin/plugin.json`으로 skills를 등록하고, root `.codex/agents/*.toml`에 native custom-agent 템플릿을 둔다.
+- Codex는 root `.codex-plugin/plugin.json`으로 skills를 등록하고, `scripts/sync-adapters --write`가 Codex bundle의 `.codex/agents/*.toml`에 generated native custom-agent 템플릿을 둔다.
+- 역할 prompt를 바꿀 때는 `agents/*.md`만 편집한다. `scripts/validate-skills`는 `scripts/sync-codex-agents --check`로 render 가능성을 검증하고, bundle 검증 단계에서 generated TOML shape를 검사한다.
 - Codex plugin marketplace가 custom agents를 직접 설치한다는 보장은 설계 불변식으로 삼지 않는다. 그래서 Codex에서도 skill-directed `spawn_agent` 또는 current-session role-pass fallback이 항상 동작해야 한다.
 - `description`은 자동/수동 delegation 품질에 직접 영향을 주므로, “언제 써야 하는지”를 구체적으로 적고 `verifier`/`code-reviewer`처럼 완료 품질 gate인 역할에는 `MUST BE USED`를 사용할 수 있다.
 - write-capable 역할은 `executor` 하나로 제한한다. reviewer 계열은 read-only 권한과 “Do not implement”를 frontmatter/body 양쪽에서 보존한다.
@@ -726,7 +728,7 @@ MVP에서 가장 중요한 구분:
 9. Codex plugin root
    - `.codex-plugin/plugin.json`로 `skills/` 등록.
    - 필요 시 `AGENTS.md`나 README에 `bootstrap/oh-no.md` 기반 snippet 제공.
-   - `.codex/agents/*.toml`에 Codex custom-agent 템플릿을 둔다. 이것은 project/user `.codex/agents` 설치용이며, plugin skills만으로도 동작해야 한다.
+   - 배포 bundle의 `.codex/agents/*.toml`에 generated Codex custom-agent 템플릿을 둔다. 이것은 project/user `.codex/agents` 설치용이며, plugin skills만으로도 동작해야 한다.
 
 10. `templates/*.md`
    - spec/plan/progress/verify 산출물의 기본 구조.
@@ -757,8 +759,9 @@ MVP에서 가장 중요한 구분:
 - `skills/*/SKILL.md`의 `description`이 암시 선택에 충분히 강하다.
 - Codex에서 강제 SessionStart 보장이 없다면 문서에 그 한계를 명확히 적고 bootstrap fallback을 제공한다.
 - role agent prompt를 native subagent가 지원하면 사용할 수 있고, 지원하지 않으면 current-session role-pass로 대체할 수 있다.
-- root Codex plugin manifest의 `skills` 경로는 `./skills/`이고, native custom-agent 템플릿은 `.codex/agents/*.toml`에 있다.
+- root Codex plugin manifest의 `skills` 경로는 `./skills/`이고, native custom-agent 템플릿은 generated bundle `.codex/agents/*.toml`에 있다.
 - Codex custom-agent 템플릿은 `name`, `description`, `developer_instructions`를 포함하고, read-only 역할은 `sandbox_mode = "read-only"`를 명시한다.
+- `scripts/sync-codex-agents --check`가 `agents/*.md`에서 Codex TOML을 render할 수 있음을 검증하고, adapter bundle 검증이 generated `.codex/agents/*.toml`의 shape를 검증한다.
 
 ### 공통 acceptance
 
@@ -795,7 +798,7 @@ MVP에서 가장 중요한 구분:
 
 - Codex 플러그인만으로 `bootstrap/oh-no.md`를 첫 턴 전에 안정적으로 강제할 수 있는가?
   - 현재 설계 가정: 보장하지 않는다. canonical skill descriptions + `AGENTS.md`/README bootstrap snippet을 fallback으로 제공한다.
-- Codex plugin marketplace가 `.codex/agents/*.toml`을 자동으로 project/user custom agent로 설치하는가?
+- Codex plugin marketplace가 bundle-generated `.codex/agents/*.toml`을 자동으로 project/user custom agent로 설치하는가?
   - 현재 설계 가정: 보장하지 않는다. 배포 bundle에는 템플릿을 포함하지만, native custom agent로 쓰려면 project `.codex/agents/` 또는 user `~/.codex/agents/`에 설치하는 경로를 문서화한다.
 - marketplace 배포를 언제 도입할 것인가?
   - 현재 설계 가정: 초기에는 local install/copy를 우선한다.
