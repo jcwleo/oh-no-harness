@@ -15,3 +15,6 @@ worktrees/
 
 # OS/editor noise
 .DS_Store
+
+# One-off task input documents (kept out of repo history)
+oh-no-harness-superpowers-codex-brief.md
