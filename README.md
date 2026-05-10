@@ -170,3 +170,15 @@ scripts/sync-adapters --write
 ## Design
 
 - Design notes: [`docs/oh-no-harness-design.md`](docs/oh-no-harness-design.md)
+
+## Releases and license
+
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md). `scripts/release` keeps the
+  manifest version, marketplace `ref`, and the install pin shown above in
+  lockstep. New releases must add a matching `## [<version>]` entry to
+  `CHANGELOG.md` before the tag is cut; `scripts/validate-skills` enforces
+  this.
+- License: [`LICENSE`](LICENSE) (MIT). The plugin manifests
+  (`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`) declare
+  `"license": "MIT"`, so the root `LICENSE` file must remain present and
+  match.

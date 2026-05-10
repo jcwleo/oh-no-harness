@@ -275,6 +275,48 @@ if grep -RIn "using""-oh-no" bootstrap skills agents .codex-plugin .claude-plugi
   fail "forbidden bootstrap-as-skill name found"
 fi
 
+require_file LICENSE
+require_grep "MIT License" LICENSE
+
+require_file CHANGELOG.md
+require_grep "Keep a Changelog|Semantic Versioning" CHANGELOG.md
+python3 - <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+manifest_version = json.loads(Path(".claude-plugin/plugin.json").read_text())["version"]
+codex_version = json.loads(Path(".codex-plugin/plugin.json").read_text())["version"]
+if manifest_version != codex_version:
+    raise SystemExit(
+        f"validate-skills: plugin manifest versions diverge: "
+        f"claude={manifest_version} codex={codex_version}"
+    )
+
+changelog = Path("CHANGELOG.md").read_text()
+heading = re.compile(rf"^## \[{re.escape(manifest_version)}\]", re.MULTILINE)
+if not heading.search(changelog):
+    raise SystemExit(
+        f"validate-skills: CHANGELOG.md is missing a '## [{manifest_version}]' "
+        "section for the current manifest version"
+    )
+
+marketplace = json.loads(Path(".claude-plugin/marketplace.json").read_text())
+ref = marketplace["plugins"][0]["source"]["ref"]
+if ref != f"v{manifest_version}":
+    raise SystemExit(
+        f"validate-skills: marketplace ref {ref} does not match manifest "
+        f"version v{manifest_version}"
+    )
+
+readme = Path("README.md").read_text()
+if f"v{manifest_version}" not in readme:
+    raise SystemExit(
+        f"validate-skills: README.md does not pin v{manifest_version}"
+    )
+PY
+
 require_file README.md
 require_grep "clarify -> planning" README.md
 require_grep "scripts/validate-skills" README.md
