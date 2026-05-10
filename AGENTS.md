@@ -24,7 +24,7 @@ Run `scripts/validate-skills` after changing skills, agents, templates, manifest
 
 ## Commit & Pull Request Guidelines
 
-The current Git history is minimal (`first commit`), so no detailed convention is established. Use a concise intent-focused commit title and include validation evidence in the body when useful. PRs should describe workflow impact, list changed areas, include validation commands/results, and call out any known Codex or Claude Code limitation.
+This repository uses GitHub Flow. Keep `main` releasable; do not commit feature work directly to `main`. Create a short-lived branch such as `docs/github-flow-guidelines`, make the smallest coherent change, run validation, push the branch, and open a PR. PRs should describe workflow impact, list changed areas, include validation commands/results, and call out known Codex or Claude Code limitations. Releases are tagged from `main` after merge.
 
 ## Agent-Specific Instructions
 

@@ -42,6 +42,10 @@ templates/*.md                      # spec/plan/progress/verify artifact templat
 docs/oh-no-harness-design.md        # design notes
 ```
 
+## Development flow
+
+This repository uses GitHub Flow. Keep `main` releasable. For every change, create a short-lived branch, commit the smallest coherent update, run `scripts/validate-skills` and `git diff --check`, then open a pull request. Merge to `main` only after review/validation. Tag releases from `main` after merge, for example `v0.0.1`.
+
 ## Validate
 
 ```sh
