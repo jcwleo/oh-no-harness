@@ -13,6 +13,10 @@ Clarify converts ambiguous, creative, risky, or underspecified work into a writt
 - a default clarification path for ordinary feature/refactor work and creative product/UX/behavior design, including alternatives, trade-offs, recommendation, and user approval when design choices matter;
 - rigorous requirement narrowing for ambiguous or high-risk work (`--deep`), including Socratic pressure, weakest-dimension targeting, non-goal and decision-boundary gates, and explicit residual-risk capture.
 
+## Argument intake
+
+Treat `$ARGUMENTS` as the user-provided clarify mode text. The named `$mode` argument may contain `--deep`; because the mode is optional, prefer `$ARGUMENTS` when deciding whether the user explicitly requested deep clarification. If `$ARGUMENTS` is empty, use default `clarify` unless the request itself requires `clarify --deep`.
+
 ## Use when
 
 - The request involves a new feature, UX/product-shape decision, behavior change, creative direction, or "make this better/natural" improvement and the user has not already supplied a concrete implementation target.

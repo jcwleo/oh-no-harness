@@ -55,6 +55,7 @@ Superpowers의 본체는 `skills/<skill-name>/SKILL.md` 파일들이다.
 - `when_to_use`는 `description`에 더해 자동 호출 트리거와 예시 요청을 구체화한다.
 - `argument-hint`는 Claude Code 자동완성에서 `[--deep]` 같은 예상 인수를 보여주는 힌트다.
 - `arguments`는 Claude Code가 위치 인수를 이름 있는 값으로 치환할 수 있게 하는 매핑이다.
+- 스킬 본문은 `$ARGUMENTS`를 raw input으로 우선 해석한다. optional flag가 있는 skill에서는 named positional 값이 밀릴 수 있으므로 `$mode`/`$target` 등은 convenience alias로만 취급한다.
 - 본문은 에이전트가 따라야 할 절차/원칙/검증 조건을 담는다.
 - 스킬끼리는 다음에 사용할 스킬을 문서로 연결한다. 별도 상태 머신이 아니라 문서 체인이다.
 

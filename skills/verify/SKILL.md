@@ -10,6 +10,10 @@ arguments: [target]
 
 Verify compares claims with evidence. It is the final gate before saying work is complete.
 
+## Argument intake
+
+Treat `$ARGUMENTS` as the raw claim, artifact path, or completion target to verify. The named `$target` argument is a convenience alias for the same text. Prefer `$ARGUMENTS` when the verification target contains spaces, flags, or multiple claims.
+
 ## Evidence-before-claims gate
 
 Before any completion, success, fixed, passing, or ready claim:

@@ -10,6 +10,10 @@ arguments: [evidence]
 
 Debugging starts from evidence, not guesses. The default outcome is a root-cause fix, not a temporary workaround.
 
+## Argument intake
+
+Treat `$ARGUMENTS` as the raw symptom, failing command, log reference, or reproduction hint. The named `$evidence` argument is a convenience alias for the same user-provided text; prefer `$ARGUMENTS` when preserving exact command lines or pasted error fragments matters.
+
 ## Use when
 
 - A test, build, runtime path, or user flow fails.

@@ -10,6 +10,10 @@ arguments: [target]
 
 Ralph is the execution loop. It implements only after a clear target exists and it does not claim completion without fresh evidence, spec compliance, and review.
 
+## Argument intake
+
+Treat `$ARGUMENTS` as the raw execution target. The named `$target` argument is a convenience alias for a spec path, plan path, task ID, checklist, or focused task text. Prefer `$ARGUMENTS` when the target contains spaces, flags, or multiple references.
+
 ## Required target
 
 Start only when at least one of these exists:

@@ -10,6 +10,10 @@ arguments: [mode, target]
 
 Planning turns a spec or clear request into executable tasks. It must not modify product source code. Its output should be complete enough that an executor with little repository context can implement task-by-task without guessing.
 
+## Argument intake
+
+Treat `$ARGUMENTS` as the raw planning request. The named `$mode` and `$target` arguments are hints only because `--ral` is optional: `/planning spec.md` may put the target into `$mode`, while `/planning --ral spec.md` maps cleanly to `$mode=--ral` and `$target=spec.md`. Parse `$ARGUMENTS` first; use `--ral` only when it appears there or the work clearly meets the high-risk criteria below.
+
 ## Sizing and anti-overplanning
 
 Use the smallest planning surface that preserves correctness:

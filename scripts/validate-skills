@@ -66,6 +66,7 @@ for skill in "${canonical_skills[@]}"; do
   require_grep "^when_to_use:" "skills/${skill}/SKILL.md"
   require_grep "^argument-hint:" "skills/${skill}/SKILL.md"
   require_grep "^arguments:" "skills/${skill}/SKILL.md"
+  require_grep '\$ARGUMENTS' "skills/${skill}/SKILL.md"
 done
 
 expected_skills=$(printf '%s\n' "${canonical_skills[@]}" | sort)
