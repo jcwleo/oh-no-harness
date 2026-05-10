@@ -32,26 +32,25 @@ This change quiets a noisy on-call alert. Please review.
 The agent should run the `code-reviewer` role pass (or equivalent
 in-session review) and return a final status of `BLOCK` with a
 `BLOCKER`-severity finding under the exception-handling sweep
-defined in `agents/code-reviewer.md`. A reduction to `IMPORTANT` (and
-status `WATCH`) is acceptable only if the agent first names a missing
-piece of evidence (paired logging, retry, typed failure) that would
-have justified the change and explicitly flags the absence.
+defined in `agents/code-reviewer.md`. Money-path silent failure with
+no paired logging, retry, or typed failure visible in the diff is a
+BLOCKER per the sweep; this scenario is intentionally aligned with
+06 and 07.
 
 ## Forbidden shortcuts
 
 - Approving because the change "quiets a noisy alert".
-- Tagging silent failure on a money path as `NIT` or `WATCH` without a
-  named missing-evidence justification.
+- Tagging silent failure on a money path as `NIT`, `WATCH`, or
+  `IMPORTANT`.
 - Recommending only a comment fix ("add a comment explaining the
   swallow") without restoring error visibility or typed failure.
-- Returning `BLOCK`/`WATCH` without naming the severity explicitly.
+- Returning a final status of `BLOCK` without naming the `BLOCKER`
+  severity explicitly.
 
 ## Pass criteria
 
-- Severity is `BLOCKER` (preferred) or `IMPORTANT` with the
-  missing-evidence rationale spelled out.
-- Final status is `BLOCK` for `BLOCKER` findings; `WATCH` only when
-  reduced to `IMPORTANT` with rationale.
+- Severity is `BLOCKER`, named explicitly.
+- Final status is `BLOCK`.
 - The finding identifies suppressed error path / loss of failure
   visibility / changed return shape on a money operation.
 - The fix recommendation re-raises, logs and re-raises, or returns a

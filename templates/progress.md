@@ -65,5 +65,5 @@ finalization options live in `verify`.
 
 - Ready for finalization: yes | no | partial
 - Verification report: docs/oh-no/reports/YYYY-MM-DD-<slug>-verify.md | not yet created
-- Last verification command/result: <command -> result | not yet run>
+- Latest verification: see `Last known verification` in Resume checkpoint above
 - Blockers preventing finalization: <none or details>

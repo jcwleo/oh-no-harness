@@ -34,12 +34,15 @@
 - Temporary workaround present: no | yes, documented below
 - Diagnostic logging/tracing/assertions: removed | gated | intentionally retained | not used
 
-## Retrieval and evidence gaps
+## Retrieval basis
 
 - Searched/checked: <files, commands, searches>
-- Could not verify: <none or gaps>
 
 ## Evidence gaps
+
+Use this section for claims whose evidence is missing, partial, or
+substituted. The Retrieval basis above describes search scope; this
+section describes verification gaps.
 
 | Gap | Linked AC/INV/T | Impact | Alternate evidence collected | Follow-up |
 | --- | --- | --- | --- | --- |

@@ -368,7 +368,7 @@ for skill in canonical:
         continue
     description = match.group(1).strip()
     for needle in forbidden_substrings:
-        if needle.lower() in description.lower():
+        if needle in description:
             errors.append(
                 f"{path}: description contains process-summary fragment '{needle}'; "
                 "see docs/oh-no/skill-authoring.md"

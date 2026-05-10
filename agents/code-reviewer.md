@@ -32,12 +32,13 @@ IMPORTANT to "soften" the review.
 
 ## Final status
 
-Return one of:
+Return one of (these are reviewer-output statuses; they do not overlap
+with the severity tags above, even when a label looks similar):
 
-- **CLEAR** — no BLOCKER and no IMPORTANT. WATCH/NIT may be present and
-  are advisory.
-- **WATCH** — BLOCKER absent; one or more IMPORTANT findings remain.
-  Reviewer recommends a fix loop but does not block release.
+- **CLEAR** — no BLOCKER and no IMPORTANT. WATCH/NIT may be present
+  and are advisory.
+- **ATTENTION** — BLOCKER absent; one or more IMPORTANT findings
+  remain. Reviewer recommends a fix loop but does not block release.
 - **BLOCK** — at least one BLOCKER finding. The change must not ship
   until the BLOCKER is resolved.
 - **INSUFFICIENT_EVIDENCE** — the assigned diff, files, or evidence
@@ -61,7 +62,7 @@ Checklist:
   missing RED/GREEN regression proof on bug fixes.
 - Run the security/data-loss/auth/secrets sweep below for any change
   that touches those surfaces.
-- Issue final status (CLEAR / WATCH / BLOCK / INSUFFICIENT_EVIDENCE),
+- Issue final status (CLEAR / ATTENTION / BLOCK / INSUFFICIENT_EVIDENCE),
   not a free-form approval.
 
 ## Security, data-loss, auth, and secrets sweep

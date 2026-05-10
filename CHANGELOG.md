@@ -9,6 +9,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 the install pin shown in `README.md`. Each release tag is created on `main`
 after the source bump and the materialized Codex agent bundle.
 
+> Note: entries for v0.0.1–v0.1.4 below are reconstructed from git
+> history (commit titles, tag messages, and diff inspection) rather than
+> written at release time, so wording may not exactly match each
+> release's intent. From v0.1.5 onward, entries are added to the
+> `## [Unreleased]` block at change time and renamed at tag time.
+
 ## [Unreleased]
 
 ## [0.1.4] - 2026-05-10

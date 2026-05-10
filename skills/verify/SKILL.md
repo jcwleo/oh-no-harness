@@ -139,9 +139,11 @@ Rules:
   `ralph` or `debug` instead.
 - The PR path preserves the worktree; do not remove the worktree as
   part of "PR created".
-- Discard requires typed confirmation from the user, for example
-  `discard feature/<slug>`. Without that exact token, leave the work
-  as-is.
+- Discard requires typed confirmation from the user that names the
+  branch (for example `discard feature/<slug>`). A bare "yes" / "ok"
+  / "지워줘" / "discard" without the branch name is not enough; if
+  the confirmation is ambiguous, leave the work as-is and ask the
+  user to repeat with the branch name.
 - Cleanup only worktrees the harness created or owns (paths under
   `.worktrees/` or `worktrees/`). Never remove externally managed
   worktrees, even when they appear in `git worktree list`.

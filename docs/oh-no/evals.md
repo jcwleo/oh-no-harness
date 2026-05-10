@@ -104,8 +104,11 @@ becomes part of the structural gate.
 
 A good scenario is:
 
-- **Self-contained.** A reader can run it without scrolling other
-  files.
+- **Readable in one file.** A reader can understand the prompt, the
+  expected route, and the pass criteria without scrolling other
+  files. Repository state preparation is still required (the
+  scenario may reference fabricated test paths or specs); the
+  Repository state section names what to set up.
 - **Minimal.** It exercises one routing or evidence rule, not five.
 - **Falsifiable.** "Forbidden shortcuts" lists concrete behaviors that
   could plausibly happen, not motherhood statements.

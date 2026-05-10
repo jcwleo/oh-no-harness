@@ -113,14 +113,7 @@ Do not cut corners. Inspect required evidence directly, do not use placeholders 
 
 ## Techniques
 
-- `docs/oh-no/techniques/root-cause-tracing.md` — symptom-vs-cause
-  separation, the evidence ladder, and the hypothesis-table contract
-  Phase 1 and Phase 3 rely on.
-- `docs/oh-no/techniques/diagnostic-logging.md` — bounded-scope and
-  bounded-retention rules for the instrumentation Phase 1 step 6 and
-  Phase 4 step 5 reference.
-- `docs/oh-no/techniques/condition-based-waiting.md` — what to do
-  when the failing path is timing-related so flakiness is not "fixed"
-  by widening sleeps.
-- `docs/oh-no/techniques/defense-in-depth.md` — when to add guards
-  beyond the root-cause fix without hiding the cause.
+- `docs/oh-no/techniques/root-cause-tracing.md` — symptom-vs-cause and the hypothesis table.
+- `docs/oh-no/techniques/diagnostic-logging.md` — bounds for the instrumentation in Phase 1/4.
+- `docs/oh-no/techniques/condition-based-waiting.md` — for timing-related flakiness.
+- `docs/oh-no/techniques/defense-in-depth.md` — adding guards beyond the root-cause fix.
