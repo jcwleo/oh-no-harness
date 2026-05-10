@@ -24,6 +24,45 @@ Retrieval and planning should stay right-sized: inspect explicit user evidence f
 
 `bootstrap/oh-no.md` is session-start guidance only, not a user-callable skill.
 
+## Install
+
+The repository doubles as the plugin and as the marketplace that publishes it.
+
+### Claude Code
+
+```sh
+claude plugin marketplace add jcwleo/oh-no-harness
+claude plugin install oh-no-harness@oh-no-harness
+```
+
+In an interactive session the slash-command equivalents are:
+
+```text
+/plugin marketplace add jcwleo/oh-no-harness
+/plugin install oh-no-harness@oh-no-harness
+```
+
+The plugin installs at user scope. The plugin is pinned to a specific release ref (currently `v0.1.0`) via `.claude-plugin/marketplace.json`, so re-running `claude plugin marketplace update oh-no-harness` is what picks up new releases.
+
+### Codex
+
+```sh
+codex plugin marketplace add jcwleo/oh-no-harness
+```
+
+This registers the marketplace in `~/.codex/config.toml` and clones the repo into `~/.codex/.tmp/marketplaces/oh-no-harness`. Codex CLI does not currently expose a non-interactive `plugin install` / `enable` subcommand — enable the plugin from your interactive Codex session, or add the following block to `~/.codex/config.toml` manually:
+
+```toml
+[plugins."oh-no-harness@oh-no-harness"]
+enabled = true
+```
+
+To pin the marketplace itself to a specific tag instead of the default branch:
+
+```sh
+codex plugin marketplace add jcwleo/oh-no-harness --ref v0.1.0
+```
+
 ## Structure
 
 The repository uses a root-level plugin layout: the repository root is the plugin root for both Claude Code and Codex.
@@ -44,7 +83,7 @@ docs/oh-no-harness-design.md        # design notes
 
 ## Development flow
 
-This repository uses GitHub Flow. Keep `main` releasable. For every change, create a short-lived branch, commit the smallest coherent update, run `scripts/validate-skills` and `git diff --check`, then open a pull request. Merge to `main` only after review/validation. Tag releases from `main` after merge, for example `v0.0.1`.
+This repository uses GitHub Flow. Keep `main` releasable. For every change, create a short-lived branch, commit the smallest coherent update, run `scripts/validate-skills` and `git diff --check`, then open a pull request. Merge to `main` only after review/validation. Tag releases from `main` after merge, for example `v0.1.0`.
 
 ## Validate
 
