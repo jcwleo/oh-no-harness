@@ -1,9 +1,5 @@
 # oh-no-harness
 
-[![GitHub release](https://img.shields.io/github/v/release/jcwleo/oh-no-harness?color=blue)](https://github.com/jcwleo/oh-no-harness/releases)
-[![GitHub stars](https://img.shields.io/github/stars/jcwleo/oh-no-harness?style=flat&color=yellow)](https://github.com/jcwleo/oh-no-harness/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
 Lightweight coding-tool harness inspired by Superpowers, with selected planning and execution discipline from OMC/OMX but without a default runtime, daemon, tmux team layer, HUD, or hidden state database.
 
 ## Canonical workflow
@@ -143,8 +139,6 @@ The release helper updates plugin versions, updates the marketplace ref and READ
 ```sh
 scripts/release v0.1.1 --push
 ```
-
-`--push` pushes `main` and the new tag, then creates a GitHub Release for the tag via `gh release create --latest --generate-notes` (so the version visible on the repo's Releases page tracks the latest tag). If `gh` is not installed, the script prints the equivalent command to run manually.
 
 ## Plugin notes
 

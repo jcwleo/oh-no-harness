@@ -151,21 +151,11 @@ run git -C "$bundle_worktree" tag -a "$tag" -m "$tag"
 if [ "$push" = "true" ]; then
   run git push origin main
   run git push origin "$tag"
-  if command -v gh >/dev/null 2>&1; then
-    run gh release create "$tag" --title "$tag" --latest --generate-notes
-  else
-    cat <<EOF
-release: gh CLI not found; create the GitHub Release manually:
-  gh release create $tag --title $tag --latest --generate-notes
-EOF
-  fi
 else
   cat <<EOF
 release: created local source commit and tag $tag
 release: push with:
   git push origin main
   git push origin $tag
-release: then publish the GitHub Release with:
-  gh release create $tag --title $tag --latest --generate-notes
 EOF
 fi
