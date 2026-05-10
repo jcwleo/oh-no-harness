@@ -275,6 +275,31 @@ if grep -RIn "using""-oh-no" bootstrap skills agents .codex-plugin .claude-plugi
   fail "forbidden bootstrap-as-skill name found"
 fi
 
+acceptance_scenarios=(
+  "tests/acceptance/scenarios/01-feature-request.md"
+  "tests/acceptance/scenarios/02-failing-test-debug.md"
+  "tests/acceptance/scenarios/03-risky-architecture.md"
+  "tests/acceptance/scenarios/04-completion-claim.md"
+  "tests/acceptance/scenarios/05-dirty-checkout.md"
+)
+for scenario in "${acceptance_scenarios[@]}"; do
+  require_file "$scenario"
+  require_grep "^## Prompt$" "$scenario"
+  require_grep "^## Repository state$" "$scenario"
+  require_grep "^## Expected route$" "$scenario"
+  require_grep "^## Forbidden shortcuts$" "$scenario"
+  require_grep "^## Pass criteria$" "$scenario"
+done
+require_file tests/acceptance/transcripts/TEMPLATE.md
+require_grep "^## Metadata$" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "^## Prompt$" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "^## Evaluation$" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "Expected route:" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "Actual route:" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "Result: PASS | FAIL | PARTIAL" tests/acceptance/transcripts/TEMPLATE.md
+require_grep "scenarios/01-feature-request.md" tests/acceptance/README.md
+require_grep "Behavior scenarios" tests/acceptance/README.md
+
 require_file LICENSE
 require_grep "MIT License" LICENSE
 

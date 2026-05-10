@@ -103,6 +103,15 @@ scripts/validate-skills
 git diff --check
 ```
 
+`scripts/validate-skills` is the structural gate: it checks file shape,
+required tokens, manifest/marketplace/`README.md`/`CHANGELOG.md` version
+alignment, and the generated Codex bundle. For behavior validation —
+"does the agent actually route the work the way the harness says it
+should?" — run a fresh-session scenario from `tests/acceptance/scenarios/`
+and record a transcript using `tests/acceptance/transcripts/TEMPLATE.md`.
+See [`tests/acceptance/README.md`](tests/acceptance/README.md) for the
+scenario inventory and recording protocol.
+
 ## Isolated worktrees
 
 Use isolated worktrees for implementation when multiple tasks, agents, or humans may work concurrently, or when the current checkout has unrelated changes:
