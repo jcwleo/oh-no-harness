@@ -1,0 +1,39 @@
+{
+  "name": "oh-no-harness",
+  "version": "0.0.1",
+  "description": "Lightweight Markdown-first coding workflow harness with clarify, planning, ralph, debug, and verify skills.",
+  "author": {
+    "name": "oh-no-harness maintainers"
+  },
+  "homepage": "https://github.com/jcwleo/oh-no-harness",
+  "repository": "https://github.com/jcwleo/oh-no-harness",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "planning",
+    "tdd",
+    "sdd",
+    "debugging",
+    "verification",
+    "coding-workflow"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "oh-no harness",
+    "shortDescription": "Lightweight clarify, plan, execute, debug, and verify workflows for coding agents",
+    "longDescription": "oh-no harness provides Markdown-first workflow skills and role prompts without a default runtime daemon or hidden state. Codex registers only the canonical workflow skills; bootstrap guidance should be supplied through repository guidance when first-turn injection is unavailable.",
+    "developerName": "oh-no-harness maintainers",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Clarify this feature before implementation.",
+      "Create a plan and execute it with verification."
+    ],
+    "brandColor": "#111827",
+    "screenshots": []
+  }
+}

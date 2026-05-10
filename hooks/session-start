@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+find_bootstrap() {
+  local candidate
+  for candidate in \
+    "${OH_NO_HARNESS_ROOT:-}/bootstrap/oh-no.md" \
+    "${PLUGIN_ROOT}/bootstrap/oh-no.md" \
+    "${PLUGIN_ROOT}/../../bootstrap/oh-no.md"; do
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+escape_for_json() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+if bootstrap_path="$(find_bootstrap)"; then
+  bootstrap_content="$(cat "$bootstrap_path")"
+else
+  bootstrap_content="oh-no harness bootstrap file was not found. Continue with manually loaded canonical skills: clarify, planning, ralph, debug, verify."
+fi
+
+payload="<OH_NO_HARNESS_BOOTSTRAP>\n${bootstrap_content}\n</OH_NO_HARNESS_BOOTSTRAP>"
+escaped="$(escape_for_json "$payload")"
+
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped"
+else
+  printf '{\n  "additionalContext": "%s"\n}\n' "$escaped"
+fi

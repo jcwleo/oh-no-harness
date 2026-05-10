@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'validate-skills: %s\n' "$1" >&2
+  exit 1
+}
+
+require_file() {
+  [ -f "$1" ] || fail "missing file: $1"
+}
+
+require_grep() {
+  local pattern="$1"
+  local file="$2"
+  grep -Eq -- "$pattern" "$file" || fail "missing pattern '$pattern' in $file"
+}
+
+validate_codex_agent_toml_dir() {
+  local dir="$1"
+  python3 - "$dir" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+dir_path = Path(sys.argv[1])
+required = ("name", "description", "developer_instructions")
+paths = sorted(dir_path.glob("*.toml"))
+if not paths:
+    raise SystemExit(f"{dir_path}: no TOML agents found")
+for path in paths:
+    text = path.read_text()
+    values = {}
+    for key in required:
+        match = re.search(rf'^{re.escape(key)} = "(.+)"$', text, re.MULTILINE)
+        if not match:
+            raise SystemExit(f"{path}: missing {key}")
+        values[key] = match.group(1)
+    if path.stem != values["name"]:
+        raise SystemExit(f"{path}: stem/name mismatch")
+PY
+}
+
+canonical_skills=(clarify planning ralph debug verify)
+required_agents=(planner architect critic code-reviewer executor verifier explore analyst debugger test-engineer)
+required_templates=(spec plan progress verify)
+
+require_file bootstrap/oh-no.md
+for skill in "${canonical_skills[@]}"; do
+  require_file "skills/${skill}/SKILL.md"
+  require_grep "^name: ${skill}$" "skills/${skill}/SKILL.md"
+  require_grep "^description:" "skills/${skill}/SKILL.md"
+done
+
+expected_skills=$(printf '%s\n' "${canonical_skills[@]}" | sort)
+actual_joined=$(find skills -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
+[ "$actual_joined" = "$expected_skills" ] || fail "skill directories must be exactly: ${canonical_skills[*]}"
+
+for agent in "${required_agents[@]}"; do
+  require_file "agents/${agent}.md"
+  require_grep "^---$" "agents/${agent}.md"
+  require_grep "^name: ${agent}$" "agents/${agent}.md"
+  require_grep "^description:" "agents/${agent}.md"
+  require_grep "^tools:" "agents/${agent}.md"
+  require_grep "^Authority:" "agents/${agent}.md"
+  require_grep "^Purpose:" "agents/${agent}.md"
+  require_grep "^Checklist:" "agents/${agent}.md"
+  require_file ".codex/agents/${agent}.toml"
+  require_grep "^name = \"${agent}\"$" ".codex/agents/${agent}.toml"
+  require_grep "^description = " ".codex/agents/${agent}.toml"
+  require_grep "^developer_instructions = " ".codex/agents/${agent}.toml"
+done
+validate_codex_agent_toml_dir .codex/agents
+
+for template in "${required_templates[@]}"; do
+  require_file "templates/${template}.md"
+done
+
+for readonly_agent in architect critic code-reviewer verifier explore analyst; do
+  require_grep "read-only|read only" "agents/${readonly_agent}.md"
+  require_grep "sandbox_mode = \"read-only\"" ".codex/agents/${readonly_agent}.toml"
+done
+require_grep "write role" agents/executor.md
+
+require_file .codex-plugin/plugin.json
+require_file .claude-plugin/plugin.json
+require_file hooks/hooks.json
+require_file hooks/run-hook.cmd
+require_file hooks/session-start
+require_file scripts/sync-adapters
+
+python3 -m json.tool .codex-plugin/plugin.json >/dev/null
+python3 -m json.tool .claude-plugin/plugin.json >/dev/null
+python3 -m json.tool hooks/hooks.json >/dev/null
+bash -n scripts/sync-adapters
+bash -n scripts/validate-skills
+bash -n hooks/session-start
+bash -n hooks/run-hook.cmd
+hooks/session-start | python3 -m json.tool >/dev/null
+
+require_grep '"skills": "./skills/"' .codex-plugin/plugin.json
+require_grep "SessionStart" hooks/hooks.json
+require_grep "bootstrap/oh-no.md" hooks/session-start
+
+require_grep "--ral" skills/planning/SKILL.md
+require_grep "RALPLAN-DR" skills/planning/SKILL.md
+require_grep "Architect" skills/planning/SKILL.md
+require_grep "Critic" skills/planning/SKILL.md
+require_grep "ADR" skills/planning/SKILL.md
+require_grep "AC-" skills/clarify/SKILL.md
+require_grep "INV-" skills/clarify/SKILL.md
+require_grep "DEC-" skills/clarify/SKILL.md
+require_grep "T-" skills/planning/SKILL.md
+require_grep "VR-" skills/verify/SKILL.md
+require_grep "TDD" skills/planning/SKILL.md
+require_grep "alternate verification" skills/planning/SKILL.md
+require_grep "Retrieval protocol" bootstrap/oh-no.md
+require_grep "Workflow sizing" bootstrap/oh-no.md
+require_grep "root-cause|root cause" bootstrap/oh-no.md
+require_grep "root-cause|root cause" skills/planning/SKILL.md
+require_grep "root-cause|root cause" skills/ralph/SKILL.md
+require_grep "root-cause|root cause" skills/debug/SKILL.md
+require_grep "diagnostic logging" skills/ralph/SKILL.md
+require_grep "diagnostic logging" skills/debug/SKILL.md
+require_grep "temporary workaround" agents/executor.md
+require_grep "temporary workaround" agents/debugger.md
+require_grep "Sizing and anti-overplanning" skills/planning/SKILL.md
+require_grep "Use \`--ral\` only" skills/planning/SKILL.md
+require_grep "Resume and context-window protocol" skills/ralph/SKILL.md
+require_grep "Resume and context-window protocol" skills/verify/SKILL.md
+require_grep "templates/spec.md" skills/clarify/SKILL.md
+require_grep "templates/plan.md" skills/planning/SKILL.md
+require_grep "templates/progress.md" skills/ralph/SKILL.md
+require_grep "templates/verify.md" skills/verify/SKILL.md
+require_grep "Role-pass matrix" bootstrap/oh-no.md
+require_grep "explore.*analyst" bootstrap/oh-no.md
+require_grep "planner.*architect.*critic" bootstrap/oh-no.md
+require_grep "executor.*debugger.*test-engineer.*verifier.*code-reviewer.*architect" bootstrap/oh-no.md
+require_grep "## Role passes" skills/clarify/SKILL.md
+require_grep "explore" skills/clarify/SKILL.md
+require_grep "analyst" skills/clarify/SKILL.md
+require_grep "## Role passes" skills/planning/SKILL.md
+require_grep "planner.*explore.*test-engineer" skills/planning/SKILL.md
+require_grep "planner -> architect -> critic" skills/planning/SKILL.md
+require_grep "## Role passes" skills/ralph/SKILL.md
+require_grep "executor" skills/ralph/SKILL.md
+require_grep "debugger" skills/ralph/SKILL.md
+require_grep "test-engineer" skills/ralph/SKILL.md
+require_grep "verifier" skills/ralph/SKILL.md
+require_grep "code-reviewer" skills/ralph/SKILL.md
+require_grep "architect" skills/ralph/SKILL.md
+require_grep "## Role passes" skills/debug/SKILL.md
+require_grep "explore" skills/debug/SKILL.md
+require_grep "debugger" skills/debug/SKILL.md
+require_grep "test-engineer" skills/debug/SKILL.md
+require_grep "executor.*ralph" skills/debug/SKILL.md
+require_grep "## Role passes" skills/verify/SKILL.md
+require_grep "verifier" skills/verify/SKILL.md
+require_grep "test-engineer" skills/verify/SKILL.md
+require_grep "code-reviewer" skills/verify/SKILL.md
+require_grep "architect" skills/verify/SKILL.md
+require_grep "Host mapping" skills/ralph/SKILL.md
+require_grep "spawn_agent" skills/ralph/SKILL.md
+
+for template in templates/spec.md templates/plan.md templates/progress.md templates/verify.md; do
+  require_grep "Retrieval basis|Retrieval and evidence gaps|Resume checkpoint|Sizing decision" "$template"
+  require_grep "AC-001|T-001|VR-001" "$template"
+done
+
+for file in skills/*/SKILL.md agents/*.md; do
+  require_grep "root-cause|root cause|temporary workaround|diagnostic logging|tracing|assertions?|workaround" "$file"
+  require_grep "Do not cut corners|Completion integrity|Integrity rule" "$file"
+done
+
+for forbidden in "using""-oh-no" brainstorming deep-interview writing-plans implementation-plan ralplan; do
+  if [ -e "skills/${forbidden}" ]; then
+    fail "forbidden skill directory exists: skills/${forbidden}"
+  fi
+done
+
+if [ -d adapters ]; then
+  fail "adapters/ should not exist in root-installable layout"
+fi
+
+if grep -RIn "using""-oh-no" bootstrap skills agents .codex-plugin .claude-plugin hooks README.md >/tmp/oh-no-forbidden-grep.txt 2>/dev/null; then
+  cat /tmp/oh-no-forbidden-grep.txt >&2
+  fail "forbidden bootstrap-as-skill name found"
+fi
+
+require_file README.md
+require_grep "clarify -> planning" README.md
+require_grep "scripts/validate-skills" README.md
+require_grep "Codex" README.md
+require_grep "Claude" README.md
+require_grep "Superpowers" README.md
+require_grep "root-level" README.md
+require_grep "platform-specific" README.md
+
+require_file AGENTS.md
+require_grep "Repository Guidelines" AGENTS.md
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+scripts/sync-adapters --write --out "$tmp_dir" >/dev/null
+
+require_file "$tmp_dir/codex/.codex-plugin/plugin.json"
+require_grep '"skills": "./skills/"' "$tmp_dir/codex/.codex-plugin/plugin.json"
+require_file "$tmp_dir/claude/.claude-plugin/plugin.json"
+require_file "$tmp_dir/claude/hooks/session-start"
+
+for agent in "${required_agents[@]}"; do
+  require_file "$tmp_dir/claude/agents/${agent}.md"
+  require_grep "^name: ${agent}$" "$tmp_dir/claude/agents/${agent}.md"
+  require_grep "^tools:" "$tmp_dir/claude/agents/${agent}.md"
+
+  require_file "$tmp_dir/codex/agents/${agent}.md"
+  require_grep "^name: ${agent}$" "$tmp_dir/codex/agents/${agent}.md"
+
+  require_file "$tmp_dir/codex/.codex/agents/${agent}.toml"
+  require_grep "^name = \"${agent}\"$" "$tmp_dir/codex/.codex/agents/${agent}.toml"
+done
+validate_codex_agent_toml_dir "$tmp_dir/codex/.codex/agents"
+
+printf 'validate-skills: OK\n'
