@@ -1,6 +1,14 @@
+# Local harness/runtime state
+.omx/
+.claude/settings.local.json
+.claude/worktrees/
+
 # Isolated development worktrees created by scripts/worktree-start
 .worktrees/
 worktrees/
 
 # Local adapter bundle output
 /dist/
+
+# OS/editor noise
+.DS_Store
