@@ -347,8 +347,11 @@ require_grep "supported" docs/oh-no/platform-matrix.md
 require_grep "planned" docs/oh-no/platform-matrix.md
 require_grep "Status legend" docs/oh-no/platform-matrix.md
 require_grep "documented" docs/oh-no/platform-matrix.md
-require_grep "Claude Code .* documented" docs/oh-no/platform-matrix.md
-require_grep "Codex CLI .* documented" docs/oh-no/platform-matrix.md
+# Row presence only; status is enforced by the Python block below so the
+# matrix can legitimately promote a row from `documented` to `supported`
+# once a passing transcript is committed.
+require_grep "^\\| Claude Code " docs/oh-no/platform-matrix.md
+require_grep "^\\| Codex CLI " docs/oh-no/platform-matrix.md
 python3 - <<'PY'
 import re
 from pathlib import Path
@@ -381,28 +384,46 @@ real_transcripts = [
     if path.name != "TEMPLATE.md"
 ]
 
-transcript_hosts = set()
+# Each real transcript must declare host AND result via metadata
+# (filename stem is not authoritative because it can carry alias-like
+# tokens by accident); only PASS transcripts count as evidence for
+# the supported-host gate. FAIL or PARTIAL transcripts exist as
+# behavior records but cannot satisfy the contract a `supported`
+# row is supposed to make.
+passing_transcript_hosts = set()
 for path in real_transcripts:
-    transcript_hosts.add(normalize(path.stem))
+    host = None
+    result = None
     for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("- Host:"):
-            transcript_hosts.add(normalize(line.partition(":")[2]))
-            break
+        if host is None and line.startswith("- Host:"):
+            host = normalize(line.partition(":")[2])
+        if result is None and line.startswith("- Result:"):
+            result = line.partition(":")[2].strip().upper()
+    if host is None:
+        raise SystemExit(
+            f"validate-skills: transcript {path} is missing required "
+            f"'- Host:' metadata"
+        )
+    if result is None:
+        raise SystemExit(
+            f"validate-skills: transcript {path} is missing required "
+            f"'- Result:' metadata"
+        )
+    if result == "PASS":
+        passing_transcript_hosts.add(host)
 
 missing_transcripts = []
 for host in supported_hosts:
     aliases = HOST_ALIASES.get(host, {normalize(host)})
-    if not any(
-        alias in transcript_host
-        for alias in aliases
-        for transcript_host in transcript_hosts
-    ):
+    # Exact alias match against normalized transcript host. Substring
+    # match would let "noncodex" satisfy the "codex" alias.
+    if not aliases & passing_transcript_hosts:
         missing_transcripts.append(host)
 
 if missing_transcripts:
     raise SystemExit(
         "validate-skills: platform-matrix marks host(s) as supported "
-        "without a matching committed acceptance transcript: "
+        "without a matching committed PASS acceptance transcript: "
         f"{', '.join(missing_transcripts)}"
     )
 PY
