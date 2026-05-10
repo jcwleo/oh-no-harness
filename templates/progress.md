@@ -16,14 +16,17 @@ Read in this order before continuing:
 3. This progress file
 4. Latest verification report, if any
 
-## Current state
+Single-glance state for resume after compaction or context loss:
 
 - Current task: T-001 | none
-- Worktree baseline: <command/result | not used>
-- Dirty-change handling: unrelated left in main | carried by <method> | none | not used
 - Completed tasks: <T-xxx list>
 - Remaining tasks: <T-xxx list>
 - Blockers: <none or details>
+- Last known verification: <command -> result | not yet run>
+- Branch: <branch | not applicable>
+- Worktree: <path | not used>
+- Worktree baseline: <command/result | not used>
+- Dirty-change handling: unrelated left in main | carried by <method> | none | not used
 
 ## Changed files
 

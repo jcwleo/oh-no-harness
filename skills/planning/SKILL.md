@@ -122,6 +122,8 @@ For behavior changes, bugfixes, and refactors, include a test-first step when pr
 
 When test-first work is not practical, the plan must say why and define alternate verification evidence such as static checks, rendered output, fixture comparison, manual smoke path, script output, or file inspection.
 
+See `docs/oh-no/techniques/test-first.md` for the failing-first contract these steps must satisfy and `docs/oh-no/techniques/regression-proof.md` for the RED/GREEN evidence record they produce.
+
 ## Plan artifact
 
 For persisted plans, write the plan to:

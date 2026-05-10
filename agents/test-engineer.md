@@ -19,6 +19,14 @@ Checklist:
 - Identify when TDD is not practical and define alternate evidence.
 - Flag flaky, slow, or environment-dependent checks.
 
+References:
+- `docs/oh-no/techniques/test-first.md` — when test-first applies and
+  which substitutes are acceptable.
+- `docs/oh-no/techniques/regression-proof.md` — RED/GREEN evidence
+  contract for bug fixes.
+- `docs/oh-no/techniques/testing-anti-patterns.md` — patterns that
+  produce a green suite without proving the change.
+
 ## Integrity rule
 
 Do not cut corners. Inspect assigned files, evidence, logs, tests, or artifacts directly when available. Do not approve or hand off with unchecked assumptions, placeholders, hidden gaps, or cherry-picked evidence.

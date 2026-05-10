@@ -39,6 +39,12 @@
 - Searched/checked: <files, commands, searches>
 - Could not verify: <none or gaps>
 
+## Evidence gaps
+
+| Gap | Linked AC/INV/T | Impact | Alternate evidence collected | Follow-up |
+| --- | --- | --- | --- | --- |
+| <gap> | AC-001 | <user-visible / regression risk / observability> | <command/file or "none"> | <new task ID, hardening note, or "accepted with reason"> |
+
 ## Completion decision
 
 - Safe to claim complete: yes | no

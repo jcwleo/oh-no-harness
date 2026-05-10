@@ -81,11 +81,18 @@ If progress records a worktree, read that path and branch before verifying. If t
 Prefer, in order:
 
 1. Targeted tests for changed behavior.
-2. RED/GREEN regression proof for bug fixes when practical.
+2. RED/GREEN regression proof for bug fixes when practical. See
+   `docs/oh-no/techniques/regression-proof.md` for what counts as a
+   proof and which substitutes are acceptable.
 3. Typecheck, lint, build, or static analysis.
 4. Reproduction or smoke checks.
 5. Diff and file inspection against `AC-*`, `INV-*`, and scope.
 6. Explicitly documented verification gap.
+
+When the change touched tests themselves, also screen for the patterns
+in `docs/oh-no/techniques/testing-anti-patterns.md`; a test suite that
+turns green via skipped assertions, mocked SUT, or widened retries is
+a regression-proof gap, not a pass.
 
 ## Red flags
 

@@ -133,7 +133,7 @@ On resume, after compaction, or when context may be stale:
 
 When implementation hits a failure, regression, flaky test, or unexpected runtime behavior, diagnose the root cause before fixing. Do not hide the symptom with retries, sleeps, broad catches, fallback branches, disabled checks, or other temporary workarounds unless the plan explicitly calls for a reversible mitigation.
 
-If the root cause is not observable, add targeted diagnostic logging, tracing, assertions, or a reproduction script to expose it. Keep diagnostic output narrow and safe: avoid secrets, PII, noisy hot-path logs, and permanent debug spam. Before completion, remove the instrumentation or gate it behind an intentional debug/observability switch and document why it remains.
+If the root cause is not observable, add targeted diagnostic logging, tracing, assertions, or a reproduction script to expose it. Keep diagnostic output narrow and safe: avoid secrets, PII, noisy hot-path logs, and permanent debug spam. Before completion, remove the instrumentation or gate it behind an intentional debug/observability switch and document why it remains. See `docs/oh-no/techniques/root-cause-tracing.md` and `docs/oh-no/techniques/diagnostic-logging.md` for the bounded contract.
 
 Record the evidence that connects cause to fix in the progress artifact or final summary.
 

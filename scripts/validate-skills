@@ -266,11 +266,18 @@ require_grep "Helper resolution" templates/plan.md
 require_grep "Worktree:" templates/progress.md
 require_grep "Worktree baseline" templates/progress.md
 require_grep "Dirty-change handling" templates/progress.md
+require_grep "Last known verification" templates/progress.md
 require_grep "Verification checkout/worktree" templates/verify.md
 require_grep "^## Finalization$" templates/verify.md
 require_grep "merge-locally \\| push-pr \\| keep-as-is \\| discard" templates/verify.md
 require_grep "Discard typed confirmation" templates/verify.md
 require_grep "Finalization handoff" templates/progress.md
+require_grep "^## File/module map$" templates/plan.md
+require_grep "First failing check" templates/plan.md
+require_grep "Expected pass signal" templates/plan.md
+require_grep "Rollback note" templates/plan.md
+require_grep "^## Evidence gaps$" templates/verify.md
+require_grep "Alternate evidence collected" templates/verify.md
 
 for worktree_agent in executor debugger test-engineer verifier code-reviewer; do
   require_grep "worktree|Worktree" "agents/${worktree_agent}.md"
@@ -303,6 +310,39 @@ require_grep "Anti-patterns the validator flags" docs/oh-no/skill-authoring.md
 require_file docs/oh-no/evals.md
 require_grep "Behavior validation" docs/oh-no/evals.md
 require_grep "Triaging a behavior failure" docs/oh-no/evals.md
+
+technique_docs=(
+  "docs/oh-no/techniques/test-first.md"
+  "docs/oh-no/techniques/regression-proof.md"
+  "docs/oh-no/techniques/testing-anti-patterns.md"
+  "docs/oh-no/techniques/root-cause-tracing.md"
+  "docs/oh-no/techniques/condition-based-waiting.md"
+  "docs/oh-no/techniques/diagnostic-logging.md"
+  "docs/oh-no/techniques/defense-in-depth.md"
+)
+for technique in "${technique_docs[@]}"; do
+  require_file "$technique"
+done
+require_grep "RED.*GREEN" docs/oh-no/techniques/regression-proof.md
+require_grep "failing-first" docs/oh-no/techniques/test-first.md
+require_grep "hypothesis" docs/oh-no/techniques/root-cause-tracing.md
+require_grep "Bounded retention" docs/oh-no/techniques/diagnostic-logging.md
+require_grep "Condition-based waiting" docs/oh-no/techniques/condition-based-waiting.md
+require_grep "suppression, not defense" docs/oh-no/techniques/defense-in-depth.md
+require_grep "Tests that always pass" docs/oh-no/techniques/testing-anti-patterns.md
+require_grep "techniques/test-first.md" skills/planning/SKILL.md
+require_grep "techniques/regression-proof.md" skills/planning/SKILL.md
+require_grep "techniques/regression-proof.md" skills/verify/SKILL.md
+require_grep "techniques/testing-anti-patterns.md" skills/verify/SKILL.md
+require_grep "techniques/root-cause-tracing.md" skills/debug/SKILL.md
+require_grep "techniques/diagnostic-logging.md" skills/debug/SKILL.md
+require_grep "techniques/condition-based-waiting.md" skills/debug/SKILL.md
+require_grep "techniques/defense-in-depth.md" skills/debug/SKILL.md
+require_grep "techniques/root-cause-tracing.md" skills/ralph/SKILL.md
+require_grep "techniques/diagnostic-logging.md" skills/ralph/SKILL.md
+require_grep "techniques/test-first.md" agents/test-engineer.md
+require_grep "techniques/regression-proof.md" agents/test-engineer.md
+require_grep "techniques/testing-anti-patterns.md" agents/test-engineer.md
 
 python3 - <<'PY'
 import re
