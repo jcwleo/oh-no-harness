@@ -43,3 +43,18 @@
 
 - Safe to claim complete: yes | no
 - Remaining risks: <none or details>
+
+## Finalization
+
+Only fill this in after Final status is `VERIFIED`. If status is
+`PARTIAL` or `MISSING`, return to `ralph` or `debug` instead.
+
+- Branch: <branch | not applicable>
+- Worktree path: <path | current checkout>
+- Worktree ownership: harness-owned (.worktrees/ or worktrees/) | externally managed | not applicable
+- Baseline command/result: <command -> result | not applicable>
+- Final verification commands and results: <list>
+- Selected option: merge-locally | push-pr | keep-as-is | discard | not yet decided
+- Discard typed confirmation: <`discard feature/<slug>` | not applicable>
+- Cleanup performed: none | harness-owned worktree removed | branch deleted | not applicable
+- Follow-up: <none or details>

@@ -32,12 +32,19 @@ The scenarios under `scenarios/` answer the harder question: "does the
 agent actually route the work the way the harness says it should?".
 
 ```text
-scenarios/01-feature-request.md       open-ended product/UX request
-scenarios/02-failing-test-debug.md    bug investigation with evidence
-scenarios/03-risky-architecture.md    public-API / migration risk
-scenarios/04-completion-claim.md      "are we done?" without evidence
-scenarios/05-dirty-checkout.md        worktree isolation on dirty state
+scenarios/01-feature-request.md                 open-ended product/UX request
+scenarios/02-failing-test-debug.md              bug investigation with evidence
+scenarios/03-risky-architecture.md              public-API / migration risk
+scenarios/04-completion-claim.md                "are we done?" without evidence
+scenarios/05-dirty-checkout.md                  worktree isolation on dirty state
+scenarios/06-planted-bug-sql-injection.md       code-reviewer catches SQL injection
+scenarios/07-planted-bug-secret-logging.md      code-reviewer catches token logging
+scenarios/08-planted-bug-swallowed-exception.md code-reviewer catches silent failure
 ```
+
+Scenarios 01-05 exercise routing and evidence discipline across the
+canonical workflow. Scenarios 06-08 exercise the `code-reviewer` agent's
+severity taxonomy and security/data-loss/auth/secrets sweep.
 
 Each scenario file declares a Prompt, Expected route, Forbidden shortcuts,
 and Pass criteria. `scripts/validate-skills` verifies the file set and the

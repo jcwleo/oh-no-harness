@@ -54,3 +54,13 @@ Read in this order before continuing:
 ## Next action
 
 - <first incomplete task or verification step>
+
+## Finalization handoff
+
+Ralph does not finalize. When the completion gate passes, the
+finalization options live in `verify`.
+
+- Ready for finalization: yes | no | partial
+- Verification report: docs/oh-no/reports/YYYY-MM-DD-<slug>-verify.md | not yet created
+- Last verification command/result: <command -> result | not yet run>
+- Blockers preventing finalization: <none or details>

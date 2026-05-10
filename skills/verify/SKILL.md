@@ -109,6 +109,43 @@ Report:
 - Remaining risks or gaps.
 - Whether completion is safe to claim.
 
+## Finalization protocol
+
+After verification reports `VERIFIED` for every required claim, present
+the next-step options to the user instead of acting unilaterally:
+
+1. **Merge locally** — fast-forward or merge into the integration
+   branch. Suitable when the change is small, the worktree is owned by
+   the harness, and no PR review is required.
+2. **Push and create a PR** — preserves the worktree until the PR is
+   merged so reviewers can read the implementation lane and any
+   pre-existing branch state.
+3. **Keep branch and worktree as-is** — no finalization yet, e.g.
+   waiting for an external dependency, follow-up scope, or human
+   review.
+4. **Discard work** — abandon the branch and worktree.
+
+Rules:
+
+- Do not offer finalization options before fresh verification has
+  reported `VERIFIED`. If status is `PARTIAL` or `MISSING`, return to
+  `ralph` or `debug` instead.
+- The PR path preserves the worktree; do not remove the worktree as
+  part of "PR created".
+- Discard requires typed confirmation from the user, for example
+  `discard feature/<slug>`. Without that exact token, leave the work
+  as-is.
+- Cleanup only worktrees the harness created or owns (paths under
+  `.worktrees/` or `worktrees/`). Never remove externally managed
+  worktrees, even when they appear in `git worktree list`.
+- Report branch name, worktree path, baseline command and result, the
+  fresh verification commands, their results, and any remaining risks
+  so the user can act with full context.
+
+The finalization protocol is the only sanctioned exit from a
+verification pass. `ralph` hands off to `verify` for completion; do not
+finalize from inside the execution loop.
+
 ## Completion integrity
 
 Do not cut corners. Inspect required evidence directly, do not use placeholders or cherry-picked results, and report blockers or verification gaps instead of pretending completion. Follow the bootstrap completion-integrity rule.

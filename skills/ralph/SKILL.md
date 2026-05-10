@@ -172,6 +172,14 @@ Completion requires:
 
 Do not claim completion from confidence alone.
 
+## Finalization handoff
+
+Ralph does not finalize branches or worktrees. After the completion
+gate passes, hand off to `verify`, which owns the finalization
+protocol (merge locally, push/create PR, keep as-is, or discard with
+typed confirmation). Do not merge, push, delete branches, or remove
+worktrees from inside the execution loop.
+
 ## Completion integrity
 
 Do not cut corners. Inspect required evidence directly, do not use placeholders or cherry-picked results, and report blockers or verification gaps instead of pretending completion. Follow the bootstrap completion-integrity rule.
