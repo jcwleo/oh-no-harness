@@ -19,14 +19,11 @@ Read in this order before continuing:
 ## Current state
 
 - Current task: T-001 | none
+- Worktree baseline: <command/result | not used>
+- Dirty-change handling: unrelated left in main | carried by <method> | none | not used
 - Completed tasks: <T-xxx list>
 - Remaining tasks: <T-xxx list>
 - Blockers: <none or details>
-- Last known verification: <command -> result | not yet run>
-- Branch: <branch | not applicable>
-- Worktree: <path | not used>
-- Worktree baseline: <command/result | not used>
-- Dirty-change handling: unrelated left in main | carried by <method> | none | not used
 
 ## Changed files
 
@@ -57,13 +54,3 @@ Read in this order before continuing:
 ## Next action
 
 - <first incomplete task or verification step>
-
-## Finalization handoff
-
-Ralph does not finalize. When the completion gate passes, the
-finalization options live in `verify`.
-
-- Ready for finalization: yes | no | partial
-- Verification report: docs/oh-no/reports/YYYY-MM-DD-<slug>-verify.md | not yet created
-- Latest verification: see `Last known verification` in Resume checkpoint above
-- Blockers preventing finalization: <none or details>

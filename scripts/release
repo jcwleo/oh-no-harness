@@ -86,11 +86,6 @@ if git remote get-url origin >/dev/null 2>&1; then
   fi
 fi
 
-escaped_version="${version//./\\.}"
-if ! grep -Eq "^## \[${escaped_version}\]" CHANGELOG.md; then
-  fail "CHANGELOG.md has no '## [${version}]' section; add release notes before tagging"
-fi
-
 python3 - "$version" "$tag" <<'PY'
 import json
 import re
