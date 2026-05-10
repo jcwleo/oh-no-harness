@@ -63,6 +63,8 @@ for skill in "${canonical_skills[@]}"; do
   require_file "skills/${skill}/SKILL.md"
   require_grep "^name: ${skill}$" "skills/${skill}/SKILL.md"
   require_grep "^description:" "skills/${skill}/SKILL.md"
+  require_grep "^when_to_use:" "skills/${skill}/SKILL.md"
+  require_grep "^argument-hint:" "skills/${skill}/SKILL.md"
 done
 
 expected_skills=$(printf '%s\n' "${canonical_skills[@]}" | sort)
@@ -135,6 +137,9 @@ require_grep "helper resolution" skills/planning/SKILL.md
 require_grep "AC-" skills/clarify/SKILL.md
 require_grep "INV-" skills/clarify/SKILL.md
 require_grep "DEC-" skills/clarify/SKILL.md
+require_grep "There are exactly two clarify modes" skills/clarify/SKILL.md
+require_grep "clarify --ral.*not a valid mode" skills/clarify/SKILL.md
+require_grep "Pre-work routing prompt" skills/clarify/SKILL.md
 require_grep "2-3 viable approaches" skills/clarify/SKILL.md
 require_grep "Written-spec review gate" skills/clarify/SKILL.md
 require_grep "Commit gate" skills/clarify/SKILL.md
@@ -158,6 +163,7 @@ require_grep "TDD" skills/planning/SKILL.md
 require_grep "alternate verification" skills/planning/SKILL.md
 require_grep "Retrieval protocol" bootstrap/oh-no.md
 require_grep "Workflow sizing" bootstrap/oh-no.md
+require_grep "Pre-work routing" bootstrap/oh-no.md
 require_grep "root-cause|root cause" bootstrap/oh-no.md
 require_grep "root-cause|root cause" skills/planning/SKILL.md
 require_grep "root-cause|root cause" skills/ralph/SKILL.md

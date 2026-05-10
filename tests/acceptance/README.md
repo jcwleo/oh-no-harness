@@ -21,6 +21,6 @@ git diff --check
 
 Expected result: every command exits 0.
 
-`validate-skills` also checks canonical skill names, required role prompts, skill integration gates for `clarify`/`planning`/`ralph`/`debug`/`verify`, worktree isolation protocol wiring, root-cause and completion-integrity rules, retrieval/sizing/resume rules, generated bundle shape, generated Codex custom-agent TOML templates, helper scripts, and the four artifact templates.
+`validate-skills` also checks canonical skill names, skill argument hints, required role prompts, skill integration gates for `clarify`/`planning`/`ralph`/`debug`/`verify`, pre-work routing guidance, worktree isolation protocol wiring, root-cause and completion-integrity rules, retrieval/sizing/resume rules, generated bundle shape, generated Codex custom-agent TOML templates, helper scripts, and the four artifact templates.
 
 Codex first-turn bootstrap injection is not assumed by this MVP. Codex validation checks skill registration, native custom-agent templates, and documentation fallback. Claude validation checks the SessionStart hook shape, root `agents/*.md` subagent metadata, and safe bootstrap lookup.

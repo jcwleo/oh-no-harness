@@ -28,9 +28,26 @@ Use the lightest workflow that preserves correctness:
 
 - Tiny clear question or one-line inspection: answer directly with evidence.
 - Small clear edit: use a short checklist, implement, then verify; a full plan artifact is optional.
+- Creative work, UX/product-shape work, behavior changes, or "make this better/natural" requests should normally start with default `clarify` even when the user does not say "brainstorm".
 - Multi-file, ambiguous, risky, or context-window-sized work: use `clarify` and/or `planning` with artifacts.
 - High-risk work uses `planning --ral`: security/auth, migrations, public API changes, architectural boundaries, broad refactors, data-loss risk, or unresolved tradeoffs.
 - If a plan grows beyond about 7 tasks, split it into milestones instead of creating one oversized plan.
+
+## Pre-work routing
+
+When a request looks like work is about to start and the workflow choice would materially affect the result, pause before editing and offer a short route recommendation. Lead with one recommended route, explain the reason in one sentence, and list only the realistic alternatives.
+
+Recommended routes:
+
+- Direct execution: for tiny or already-clear edits.
+- `clarify`: for ordinary feature/refactor requirements, new features, UX, product shape, behavior design, creative direction, or naturalness improvements.
+- `clarify --deep`: for high ambiguity, high risk, external contracts, migrations, security/auth, data safety, or explicit "do not assume" requests.
+- `planning`: when the desired outcome is clear enough and the next need is executable tasks.
+- `planning --ral`: when the desired outcome is clear enough but plan quality needs adversarial review for architecture, broad scope, public API, data-loss, migration, or disputed trade-off risk.
+
+Do not offer `clarify --ral`; `--ral` is a planning mode, not a clarify mode. If the user asks for it, translate the intent into either `clarify --deep` followed by `planning --ral`, or direct `planning --ral` when requirements are already clear.
+
+Skip the routing prompt when the user explicitly chose a skill or workflow, explicitly asked not to clarify, or the task is so small and concrete that the prompt would add friction without reducing risk.
 
 ## Worktree isolation protocol
 
@@ -68,7 +85,7 @@ There is no user-callable bootstrap skill. This file is session-start guidance o
 clarify -> planning [--ral] -> ralph -> verify
 ```
 
-Short, already-clear edits may go directly to `ralph` or direct execution followed by `verify`. High-risk or high-ambiguity work should use `clarify --deep` and `planning --ral` before implementation.
+Short, already-clear edits may go directly to `ralph` or direct execution followed by `verify`. Design-shaped work should naturally enter default `clarify`; high-risk or high-ambiguity work should use `clarify --deep` and then `planning --ral` before implementation when plan review still matters.
 
 ## Artifact chain
 

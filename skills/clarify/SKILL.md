@@ -1,18 +1,20 @@
 ---
 name: clarify
-description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation. Integrates lightweight brainstorming-style design exploration with deep-interview-style requirement pressure through --design, --standard, and --deep profiles."
+description: "Clarify a feature, refactor, bugfix, or product idea into an SDD-ready spec before planning or implementation. Uses a default clarification mode plus --deep for high-risk or high-ambiguity requirement pressure."
+when_to_use: "Use before implementation when a request is ambiguous, design-shaped, risky, or likely to benefit from a written spec; use --deep for high-risk or high-ambiguity work."
+argument-hint: "[--deep]"
 ---
 
 # clarify
 
 Clarify converts ambiguous, creative, risky, or underspecified work into a written spec before planning or implementation. It combines:
 
-- lightweight design exploration for creative work (`--design`), including alternatives, trade-offs, recommendation, and user design approval;
-- rigorous requirement narrowing for ambiguous or high-risk work (`--deep`), including Socratic pressure, weakest-dimension targeting, non-goal and decision-boundary gates, and explicit residual-risk capture;
-- a compact default path (`--standard`) for ordinary feature/refactor clarification.
+- a default clarification path for ordinary feature/refactor work and creative product/UX/behavior design, including alternatives, trade-offs, recommendation, and user approval when design choices matter;
+- rigorous requirement narrowing for ambiguous or high-risk work (`--deep`), including Socratic pressure, weakest-dimension targeting, non-goal and decision-boundary gates, and explicit residual-risk capture.
 
 ## Use when
 
+- The request involves a new feature, UX/product-shape decision, behavior change, creative direction, or "make this better/natural" improvement and the user has not already supplied a concrete implementation target.
 - The request has unclear intent, scope, constraints, non-goals, success criteria, or ownership boundaries.
 - The user asks for brainstorming, design exploration, an interview-style clarification, or says not to assume.
 - The task may outgrow the current context window and needs a durable spec first.
@@ -30,13 +32,29 @@ Clarify converts ambiguous, creative, risky, or underspecified work into a writt
 
 Do not bypass this gate because the change looks simple. For small work, the spec can be short, but goals, boundaries, acceptance criteria, and verification must still be explicit enough for safe planning.
 
-## Profile selection
+## Mode selection
 
-- `clarify --design`: creative feature, UX, behavior, or product-shape exploration. Use this for brainstorming-style work.
-- `clarify --standard`: ordinary feature/refactor clarification where uncertainty is real but not high-risk.
-- `clarify --deep`: high-risk, high-ambiguity, security-sensitive, migration, public API, broad architecture, or explicit "do not assume" work.
+There are exactly two clarify modes:
 
-If no profile is provided, choose the lightest profile that can remove ambiguity. Escalate from `--design` or `--standard` to `--deep` when hidden assumptions, decision authority, safety, data loss, compatibility, or rollback risk would materially change execution.
+- `clarify`: the default mode for ordinary feature/refactor clarification and lightweight design exploration. Use it for new features, UX/product-shape changes, behavior design, creative direction, naturalness improvements, and normal scope/acceptance-criteria cleanup.
+- `clarify --deep`: the high-rigor mode for high-risk, high-ambiguity, security-sensitive, migration, public API, broad architecture, data-safety, or explicit "do not assume" work.
+
+`clarify --ral` is not a valid mode. `--ral` belongs to `planning --ral`, after the desired outcome is clear enough to plan. If a user appears to want both deeper clarification and stronger plan review, use `clarify --deep` first, then hand off to `planning --ral`.
+
+If no mode is provided, use default `clarify` unless hidden assumptions, decision authority, safety, data loss, compatibility, rollback risk, or external contracts would materially change execution. Escalate to `clarify --deep` when those risks are present.
+
+Keep the mode choice simple to avoid both failure modes: under-clarifying work that needs risk pressure, and over-interviewing small changes that only need the default path.
+
+## Pre-work routing prompt
+
+When a request looks like implementation is about to begin but the right route is not obvious, recommend one path before writing code. Keep it short:
+
+1. Name the recommended path, such as `clarify`, `clarify --deep`, `planning`, `planning --ral`, or direct execution.
+2. Give one concrete reason.
+3. Offer only realistic alternatives.
+4. Ask the user which route to take.
+
+Do not show this prompt for tiny concrete edits, explicit skill invocations, or cases where the user already chose the route.
 
 ## Common workflow
 
@@ -49,25 +67,26 @@ If no profile is provided, choose the lightest profile that can remove ambiguity
    - **human decisions**: goals, trade-offs, non-goals, decision boundaries, success criteria.
 5. Ask one focused question at a time when user input is required. Prefer multiple-choice options when the valid choices are known; use open-ended questions when the answer space is genuinely unknown.
 6. Separate goals, non-goals, constraints, assumptions, open questions, and residual risks as the clarification proceeds.
-7. Stop clarifying only when the profile-specific gates below are satisfied or the user chooses early exit with risk recorded.
+7. Stop clarifying only when the mode-specific gates below are satisfied or the user chooses early exit with risk recorded.
 8. Write or update the spec artifact.
 
-## `--design` workflow
+## Default workflow
 
-Use `--design` to turn a creative idea into an approved design direction.
+Use default `clarify` to turn ordinary feature/refactor requirements or creative product/UX/behavior ideas into an approved spec.
 
 Required sequence:
 
 1. **Explore context**: inspect relevant files, docs, examples, current patterns, and recent changes before proposing a design.
 2. **Scope check**: if the idea contains multiple independent subsystems, identify them and recommend splitting into separate specs before drilling into details.
 3. **Clarify intent**: ask one question at a time about purpose, users, constraints, success criteria, and what should not change.
-4. **Propose approaches**: present 2-3 viable approaches with trade-offs. Lead with the recommended option and explain why.
-5. **Present the design**: summarize architecture, components, data flow, user-visible behavior, error handling, and testing/verification. Scale detail to complexity.
-6. **Approval gate**: get user approval of the design direction before writing the final spec. If approval is partial, revise the disputed section and ask again.
-7. **Spec self-review**: after writing the spec, scan for placeholders, contradictions, vague requirements, missing non-goals, scope creep, and untestable acceptance criteria. Fix issues inline.
-8. **Written-spec review gate**: ask the user to review the written spec before planning. If changes are requested, update the spec and repeat the self-review.
-9. **Commit gate**: if the repo/user workflow expects committed spec artifacts, commit only the spec artifact after written-spec approval and follow the repo commit protocol. Otherwise keep it as a working-tree artifact.
-10. **Handoff**: hand off to `planning` only after the spec is reviewable and approved or after explicit early exit with risk recorded.
+4. **Clarify requirements**: make the goal, in-scope and out-of-scope boundaries, constraints, assumptions, acceptance criteria, and regression guards explicit.
+5. **Propose approaches when choices matter**: for creative or behavior-shaping work, present 2-3 viable approaches with trade-offs. Lead with the recommended option and explain why.
+6. **Present the direction**: summarize architecture, components, data flow, user-visible behavior, error handling, and testing/verification when relevant. Scale detail to complexity.
+7. **Approval gate**: get user approval of the direction before writing the final spec when the direction changes user-visible behavior, architecture, data shape, or scope. If approval is partial, revise the disputed section and ask again.
+8. **Spec self-review**: after writing the spec, scan for placeholders, contradictions, vague requirements, missing non-goals, scope creep, and untestable acceptance criteria. Fix issues inline.
+9. **Written-spec review gate**: ask the user to review the written spec before planning. If changes are requested, update the spec and repeat the self-review.
+10. **Commit gate**: if the repo/user workflow expects committed spec artifacts, commit only the spec artifact after written-spec approval and follow the repo commit protocol. Otherwise keep it as a working-tree artifact.
+11. **Handoff**: hand off to `planning` only after the spec is reviewable and approved or after explicit early exit with risk recorded.
 
 Design principles:
 
@@ -75,11 +94,7 @@ Design principles:
 - Include targeted cleanup only when it directly serves the current goal; do not add unrelated refactors.
 - Treat visual work specially: when layouts, mockups, diagrams, or visual comparisons would materially clarify decisions, offer to create or inspect visual references before finalizing the design. Do not block non-visual conceptual questions on visual tooling.
 
-## `--standard` workflow
-
-Use `--standard` for normal feature/refactor clarification.
-
-Required gates:
+Default readiness gates:
 
 - Goal is stated in one sentence without ambiguous nouns.
 - In-scope and out-of-scope boundaries are explicit.
@@ -88,7 +103,7 @@ Required gates:
 - Invariants/regression guards are explicit enough to become `INV-*` entries.
 - Remaining open questions are recorded as `OQ-*` and do not block safe planning.
 
-If an unknown would change architecture, data shape, external contracts, migration safety, or user-visible behavior, escalate to `--deep`.
+If an unknown would change architecture, data shape, external contracts, migration safety, or user-visible behavior in a high-risk way, escalate to `--deep`.
 
 ## `--deep` workflow
 
@@ -147,9 +162,9 @@ Write the spec to:
 docs/oh-no/specs/YYYY-MM-DD-<slug>-spec.md
 ```
 
-Use `templates/spec.md` as the preferred base structure. Extend it with profile-specific sections when needed. The spec must include:
+Use `templates/spec.md` as the preferred base structure. Extend it with mode-specific sections when needed. The spec must include:
 
-- Date, slug, profile, and status.
+- Date, slug, mode, and status.
 - Retrieval basis: user evidence, repository evidence checked, and unknowns after retrieval.
 - Prompt-safe summary note when oversized initial context was summarized.
 - Goal.
@@ -165,7 +180,7 @@ Use `templates/spec.md` as the preferred base structure. Extend it with profile-
 - Verification matrix.
 - Decision log.
 
-For `--design`, also include:
+For default mode when design choices matter, also include:
 
 - Considered approaches and trade-offs.
 - Recommended design and rationale.
@@ -199,8 +214,8 @@ Do not cut corners. Inspect required evidence directly, do not use placeholders 
 
 Before completing `clarify`, verify:
 
-- The selected profile is recorded.
-- Required profile gates are satisfied or an early-exit risk is recorded.
+- The selected mode is recorded.
+- Required mode gates are satisfied or an early-exit risk is recorded.
 - The spec has no placeholders, unresolved contradictions, or fake certainty.
 - `AC-*`, `INV-*`, `DEC-*`, and `OQ-*` IDs are stable and meaningful.
 - Retrieval gaps are explicit rather than hidden.

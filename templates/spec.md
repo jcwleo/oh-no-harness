@@ -2,7 +2,7 @@
 
 - Date: YYYY-MM-DD
 - Slug: <slug>
-- Profile: design | standard | deep
+- Mode: default | deep
 - Status: draft | approved | superseded
 
 ## Retrieval basis

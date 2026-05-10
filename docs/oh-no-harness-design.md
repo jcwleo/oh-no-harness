@@ -50,8 +50,10 @@ Superpowers에서 근거로 삼은 주요 파일:
 
 Superpowers의 본체는 `skills/<skill-name>/SKILL.md` 파일들이다.
 
-- 각 스킬은 frontmatter의 `name`, `description`으로 발견된다.
+- 각 스킬은 frontmatter의 `name`, `description`, `when_to_use`, `argument-hint`로 발견/호출 UI를 보강한다.
 - `description`은 언제 스킬을 써야 하는지에 대한 라우팅 힌트다.
+- `when_to_use`는 `description`에 더해 자동 호출 트리거와 예시 요청을 구체화한다.
+- `argument-hint`는 Claude Code 자동완성에서 `[--deep]` 같은 예상 인수를 보여주는 힌트다.
 - 본문은 에이전트가 따라야 할 절차/원칙/검증 조건을 담는다.
 - 스킬끼리는 다음에 사용할 스킬을 문서로 연결한다. 별도 상태 머신이 아니라 문서 체인이다.
 
@@ -289,10 +291,10 @@ oh-no-harness/
 새 하네스에서의 결론:
 
 - 별도 `brainstorming`/`deep-interview` 스킬을 만들지 않는다.
-- 하나의 `skills/clarify/SKILL.md`가 두 역할을 profile로 흡수한다.
-- Superpowers `brainstorming`의 동작은 `clarify --design` profile에 흡수한다.
-- OMX/OMC `deep-interview`의 동작은 `clarify --deep` profile에 흡수한다.
-- 기본 profile은 Superpowers식 가벼운 design clarification이다.
+- 하나의 `skills/clarify/SKILL.md`가 두 역할을 mode로 흡수한다.
+- Superpowers `brainstorming`의 동작은 기본 `clarify` mode에 흡수한다.
+- OMX/OMC `deep-interview`의 동작은 `clarify --deep` mode에 흡수한다.
+- 기본 mode는 Superpowers식 가벼운 design clarification과 일반 feature/refactor clarification을 함께 담당한다.
 - 고위험/고모호성/명시 deep-interview 요청에서만 Socratic pressure를 강화한다.
 - 공통 clarification 원칙은 한 곳에 둔다.
   - codebase facts는 에이전트가 직접 조사한다.
@@ -308,24 +310,22 @@ oh-no-harness/
 ```text
 skills/
   clarify/
-    SKILL.md        # adaptive clarification: --design 기본, --deep 고강도
+    SKILL.md        # adaptive clarification: default 기본, --deep 고강도
 ```
 
-`clarify`는 내부적으로 세 profile을 가진다.
+`clarify`는 내부적으로 두 mode를 가진다.
 
-| Profile | 선택 기준 | 목적 | 종료 조건 |
+| Mode | 선택 기준 | 목적 | 종료 조건 |
 | --- | --- | --- | --- |
-| `--design` | 새 기능/창의적 설계/UX/동작 변경 | Superpowers식 자연스러운 아이디어 구체화, 2-3개 접근안과 추천안 제시 | 사용자가 design 방향을 승인하고 spec이 충분히 구체화됨 |
-| `--standard` | 기본값 또는 애매한 feature/refactor | design + requirements를 균형 있게 정리 | scope, constraints, success criteria, non-goals가 명시됨 |
+| 기본 `clarify` | 새 기능/창의적 설계/UX/동작 변경 또는 일반 feature/refactor clarification | 자연스러운 아이디어 구체화와 요구사항 정리, 필요 시 2-3개 접근안과 추천안 제시 | scope, constraints, success criteria, non-goals가 명시되고 design 방향이 충분히 승인됨 |
 | `--deep` | “don't assume”류 요청, 고위험/고모호성 | 숨은 가정/decision boundaries/acceptance criteria를 압박 | non-goals와 decision boundaries가 명시되고 residual risk가 기록됨 |
 
-Profile 선택 규칙:
+Mode 선택 규칙:
 
-1. 새 기능/창의적 설계/UX/동작 변경은 `clarify --design`.
-2. 일반 feature/refactor clarification은 `clarify --standard`.
-3. “don't assume”류 요청, 고위험/고모호성 요청은 `clarify --deep`.
-4. 대화 중 모호성이나 실패 비용이 커지면 `clarify --standard` 또는 `--deep`으로 승격할 수 있다.
-5. 반대로 `--deep` 중에도 요구가 충분히 작고 명확해지면 spec만 남기고 빨리 종료한다.
+1. 새 기능/창의적 설계/UX/동작 변경과 일반 feature/refactor clarification은 기본 `clarify`.
+2. “don't assume”류 요청, 고위험/고모호성 요청은 `clarify --deep`.
+3. 대화 중 모호성이나 실패 비용이 커지면 `--deep`으로 승격할 수 있다.
+4. 반대로 `--deep` 중에도 요구가 충분히 작고 명확해지면 spec만 남기고 빨리 종료한다.
 
 산출물은 하나로 통일한다.
 
@@ -333,7 +333,7 @@ Profile 선택 규칙:
 docs/oh-no/specs/YYYY-MM-DD-<slug>-spec.md
 ```
 
-문서 안에 `profile: design|standard|deep`을 기록한다. 그래서 downstream `planning`/`ralph`는 스킬 이름이 아니라 artifact의 clarity 수준과 acceptance criteria를 보고 이어받는다.
+문서 안에 `mode: default|deep`을 기록한다. 그래서 downstream `planning`/`ralph`는 스킬 이름이 아니라 artifact의 clarity 수준과 acceptance criteria를 보고 이어받는다.
 
 ### 8.2 `planning`: 기본 계획과 RAL 합의 계획을 하나로 합친다
 
@@ -665,7 +665,7 @@ Superpowers를 그대로 따를 부분은 **repo root를 plugin root로 만들�
 
 ```text
 새 기능/행동 변경 기본 경로:
-clarify --design -> planning -> ralph -> verify
+clarify -> planning -> ralph -> verify
 
 모호하거나 고위험인 경로:
 clarify --deep -> planning --ral -> ralph -> verify
@@ -679,7 +679,7 @@ planning --ral --review 또는 critic
 
 MVP에서 가장 중요한 구분:
 
-- `clarify`: profile에 따라 가벼운 brainstorming과 고강도 deep-interview를 모두 담당한다.
+- `clarify`: 기본 mode와 `--deep`에 따라 가벼운 brainstorming/requirements clarification과 고강도 deep-interview를 모두 담당한다.
 - `planning`: 기본 실행 계획과 `--ral` 합의형 계획을 모두 담당한다.
 - `ralph`: 실행하고 검증 완료까지 밀고 간다.
 
@@ -694,9 +694,8 @@ MVP에서 가장 중요한 구분:
 
 2. `skills/clarify/SKILL.md`
    - `brainstorming`과 `deep-interview`를 통합한 adaptive clarification skill.
-   - `--design`: 기본 lightweight brainstorming profile.
-   - `--standard`: 일반 feature/refactor clarification profile.
-   - `--deep`: 명시 요청 또는 고위험/고모호성 요청에 사용하는 high-rigor profile.
+   - 기본 `clarify`: lightweight brainstorming과 일반 feature/refactor clarification을 함께 담당하는 기본 mode.
+   - `--deep`: 명시 요청 또는 고위험/고모호성 요청에 사용하는 high-rigor mode.
    - MVP에서는 hidden persistent state 없이 spec artifact와 현재 세션 checklist 중심으로 동작.
 
 3. `skills/planning/SKILL.md`
@@ -743,10 +742,12 @@ MVP에서 가장 중요한 구분:
 ### Claude Code acceptance
 
 - fresh session에서 첫 응답 전에 `bootstrap/oh-no.md` 내용이 추가 컨텍스트로 들어간다.
-- “brainstorm this feature” 같은 명시 요청은 `clarify --design` profile 적용으로 이어진다.
+- “brainstorm this feature” 같은 명시 요청은 기본 `clarify` mode 적용으로 이어진다.
+- 작업이 시작될 것 같고 경로 선택이 결과를 바꿀 수 있으면 direct execution, `clarify`, `clarify --deep`, `planning`, `planning --ral` 중 추천 경로를 짧게 제안한다.
+- `clarify --ral`은 존재하지 않는 경로로 취급하고, 필요하면 `clarify --deep` 뒤 `planning --ral` 또는 바로 `planning --ral`로 번역한다.
 - 명시 스킬 요청이 있으면 일반 작업보다 스킬 적용이 먼저 일어난다.
 - 훅 실패 시에도 플러그인 전체가 깨지지 않고, 스킬 자체는 수동 호출 가능해야 한다.
-- 고위험/고모호성 clarification 요청은 `clarify --deep` profile로 라우팅된다.
+- 고위험/고모호성 clarification 요청은 `clarify --deep` mode로 라우팅된다.
 - `planning`은 plan artifact만 만들고 source code를 수정하지 않는다.
 - `planning --ral`은 기본 plan output, `architect`/`critic` 검토, ADR을 모두 포함한다.
 - `ralph`는 plan/spec 또는 명확한 checklist 없이 모호한 실행을 시작하지 않는다.

@@ -1,6 +1,8 @@
 ---
 name: planning
 description: "Create an executable implementation plan from a spec or clear request. Integrates Superpowers-style writing-plans with RALPLAN-style consensus review through basic mode and --ral mode."
+when_to_use: "Use after a clear request or approved spec when the next step is an executable task plan; use --ral for high-risk, broad, architectural, or disputed trade-off planning."
+argument-hint: "[--ral] [spec-or-request]"
 ---
 
 # planning
@@ -16,6 +18,8 @@ Use the smallest planning surface that preserves correctness:
 - Use `--ral` only when consensus review is useful: security/auth, migrations, public API changes, architectural boundaries, broad refactors, data-loss risk, or unresolved tradeoffs.
 - Keep tasks small enough to verify independently. A practical default is 3-7 tasks; if there are more, split into milestones.
 - Do not add roles, artifacts, or review loops that do not reduce risk for the current task.
+
+`--ral` is a planning mode, not a clarify mode. Use `planning --ral` only after the desired outcome is clear enough to plan; if the outcome is still unclear, return to `clarify` first, using `clarify --deep` only for high-risk ambiguity.
 
 ## Hard gate
 

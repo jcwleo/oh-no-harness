@@ -1,6 +1,8 @@
 ---
 name: ralph
 description: "Execute a clear spec, plan, checklist, or focused task until implementation is verified, spec-compliant, and reviewed."
+when_to_use: "Use when the target is already clear enough to implement from a spec, plan, checklist, or focused task and the work should be carried through verification."
+argument-hint: "[spec|plan|task-id]"
 ---
 
 # ralph

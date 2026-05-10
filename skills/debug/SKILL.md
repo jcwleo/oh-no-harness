@@ -1,6 +1,8 @@
 ---
 name: debug
 description: "Investigate a bug, failing test, regression, or runtime error from concrete evidence before proposing or applying a fix. Uses a systematic four-phase root-cause process."
+when_to_use: "Use for bugs, failing tests, regressions, runtime errors, flaky behavior, pasted logs, or unexplained symptoms where root cause should be established before fixing."
+argument-hint: "[symptom|failing-command|log]"
 ---
 
 # debug

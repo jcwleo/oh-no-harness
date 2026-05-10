@@ -16,6 +16,10 @@ Canonical user-callable skills:
 - `debug` — investigate from logs, tests, and live code paths before fixing.
 - `verify` — prove completion claims with fresh evidence.
 
+When a request looks ready to become work but the right path is ambiguous, the harness should recommend a route before editing: direct execution, `clarify`, `clarify --deep`, `planning`, or `planning --ral`. The `clarify` skill has only two modes; `--ral` belongs to planning.
+
+Claude Code autocomplete shows each skill's expected arguments through `argument-hint`, for example `clarify [--deep]` and `planning [--ral] [spec-or-request]`. Each skill also uses `when_to_use` to sharpen automatic routing without adding hidden runtime logic.
+
 Implementation and debugging must favor root-cause fixes over temporary workarounds. If the cause is not visible from current evidence, add targeted diagnostic logging or tracing to expose it, then remove or gate that instrumentation before claiming completion unless it is intentional observability.
 
 The harness also treats completion integrity as a hard rule: do not cut corners, skip checks, fake confidence, leave placeholders, or cherry-pick evidence to appear done. Either complete the requested work thoroughly with evidence or report the precise blocker/gap.
