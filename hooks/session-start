@@ -1,44 +1,43 @@
 #!/usr/bin/env bash
+# SessionStart hook for oh-no-harness.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-find_bootstrap() {
-  local candidate
-  for candidate in \
-    "${OH_NO_HARNESS_ROOT:-}/bootstrap/oh-no.md" \
-    "${PLUGIN_ROOT}/bootstrap/oh-no.md" \
-    "${PLUGIN_ROOT}/../../bootstrap/oh-no.md"; do
-    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}
+using_oh_no_content=$(cat "${PLUGIN_ROOT}/skills/using-oh-no-harness/SKILL.md" 2>&1 || echo "Error reading using-oh-no-harness skill")
 
 escape_for_json() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  s="${s//$'\n'/\\n}"
-  s="${s//$'\r'/\\r}"
-  s="${s//$'\t'/\\t}"
-  printf '%s' "$s"
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
 }
 
-if bootstrap_path="$(find_bootstrap)"; then
-  bootstrap_content="$(cat "$bootstrap_path")"
-else
-  bootstrap_content="oh-no harness bootstrap file was not found. Continue with manually loaded canonical skills: clarify, planning, ralph, debug, verify."
+using_oh_no_escaped=$(escape_for_json "$using_oh_no_content")
+
+auto_routing_policy=""
+if "${PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
+  auto_routing_policy="\n\n<OH_NO_AUTO_ROUTING>\nAuto-routing is enabled for Oh No Harness.\n\nBefore responding, asking a clarification question, inspecting files, editing files, or claiming completion, check whether any local Oh No Harness skill could apply. If there is even a small chance, read the relevant skill first and follow it. Needing more context is not a reason to skip skill selection.\n\nUse deep-interview for vague, broad, ambiguous, or requirement-light requests, especially when the next response would otherwise be a clarification question. Use ralplan for broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work that needs a plan before coding. Use ralph for approved plans, PRDs, specs, tickets, or concrete implementation tasks with acceptance criteria. Use autopilot for autonomous or end-to-end delivery requests. Use test-driven-development before behavior-changing production edits. Use systematic-debugging before fixing failures or unknown root causes. Use ai-slop-cleaner after implementation approval or before delivery when cleanup is needed. Use verification-before-completion before final completion, fixed, passing, ready, or safe-to-deliver claims.\n\nIf a selected skill turns out not to apply, say so briefly and continue with the next best path. User instructions and repository constraints still take priority.\n</OH_NO_AUTO_ROUTING>"
 fi
 
-payload="<OH_NO_HARNESS_BOOTSTRAP>\n${bootstrap_content}\n</OH_NO_HARNESS_BOOTSTRAP>"
-escaped="$(escape_for_json "$payload")"
+base_session_context="<EXTREMELY_IMPORTANT>\nYou have oh-no-harness.\n\n**Below is the full content of your 'oh-no-harness:using-oh-no-harness' skill. Use it to select and follow the local skills in this plugin:**\n\n${using_oh_no_escaped}${auto_routing_policy}\n</EXTREMELY_IMPORTANT>"
 
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped"
+claude_code_question_policy="<CLAUDE_CODE_ONLY>\nThis platform is Claude Code. When asking the user a clarification, preference, scope, or approval question, use AskUserQuestion when that tool is available.\n\nPrefer one focused question at a time. For option questions, provide 2-4 mutually exclusive choices and put the recommended option first when there is a clear recommendation. Use plain text only when AskUserQuestion is unavailable or the answer needs free-form detail that does not fit structured options.\n\nThis instruction is Claude Code-only. Do not apply it on Codex or other platforms.\n</CLAUDE_CODE_ONLY>"
+
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  session_context="$base_session_context"
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  session_context="${base_session_context}\n\n${claude_code_question_policy}"
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
 else
-  printf '{\n  "additionalContext": "%s"\n}\n' "$escaped"
+  session_context="$base_session_context"
+  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
 fi
+
+exit 0

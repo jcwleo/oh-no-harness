@@ -1,177 +1,220 @@
 ---
 name: ralph
-description: "Execute a clear spec, plan, checklist, or focused task until implementation is verified, spec-compliant, and reviewed."
-when_to_use: "Use when the target is already clear enough to implement from a spec, plan, checklist, or focused task and the work should be carried through verification."
-argument-hint: "[spec|plan|task-id]"
-arguments: [target]
+description: Use when implementing or executing an approved plan, PRD, spec, story list, ticket, or concrete task with acceptance criteria, required verification, or multiple implementation steps.
+argument-hint: "<approved plan, PRD path, spec path, or concrete task>"
 ---
 
-# ralph
+# Ralph
 
-Ralph is the execution loop. It implements only after a clear target exists and it does not claim completion without fresh evidence, spec compliance, and review.
+Ralph is a PRD-driven execution loop. It keeps working until each story is complete, verification passes, review is resolved, cleanup has run or been explicitly disabled, and the final report is written.
 
-## Argument intake
+## When To Use
 
-Treat `$ARGUMENTS` as the raw execution target. The named `$target` argument is a convenience alias for a spec path, plan path, task ID, checklist, or focused task text. Prefer `$ARGUMENTS` when the target contains spaces, flags, or multiple references.
+Use when:
 
-## Required target
+- the user gives an approved plan, PRD, or concrete spec
+- acceptance criteria exist or can be made explicit before editing
+- the task needs durable progress tracking
+- the work should not stop at "probably done"
 
-Start only when at least one of these exists:
+Do not use when requirements are still vague. Use `deep-interview` or `ralplan` first.
 
-- A spec artifact
-- A plan artifact
-- A concrete checklist
-- A focused task with clear files and acceptance criteria
+## Artifacts
 
-If the target is vague, return to `clarify` or `planning`.
-
-## Worktree isolation
-
-Before mutation-heavy execution, decide whether to work in an isolated git worktree. Use isolation when:
-
-- the current checkout is dirty or has unrelated user work;
-- multiple tasks, agents, or humans may work concurrently;
-- planned file ownership may overlap or branches may diverge;
-- the plan marks `Worktree isolation: required`;
-- the user explicitly requests conflict isolation.
-
-Before creating the worktree, inspect the dirty diff. If dirty changes are unrelated, leave them in the current checkout. If dirty changes are part of the current task, carry them deliberately into the execution branch by commit, patch, or another explicit transfer step before editing; do not silently omit them by starting from a clean base.
-
-Preferred setup:
-
-```sh
-scripts/worktree-start <branch-name>
-```
-
-Helper resolution order: project-local `scripts/worktree-start`, installed oh-no harness helper when its plugin/bundle path is available, then manual fallback. If the helper is unavailable, manually follow the same contract: choose `.worktrees/` first, then `worktrees/`, verify project-local worktree directories are gitignored, create a dedicated branch, run setup, and verify a clean baseline before editing. Record the worktree path and baseline result in the progress artifact. If baseline verification fails, report the failure and do not mix baseline failures with new implementation claims.
-
-## Execution loop
-
-For every task or checklist item:
-
-1. Read the relevant spec and plan sections before the task.
-2. Select the next `T-*` task or focused checklist item.
-3. Confirm linked `AC-*`, `INV-*`, `DEC-*`, risks, owned files, dependencies, and verification commands.
-4. If the plan includes TDD or verification-first work, follow its RED -> GREEN -> REFACTOR sequence. Do not replace it with tests-after unless the plan explicitly allows alternate evidence.
-5. Implement the smallest coherent change inside the task ownership boundary.
-6. Run the task's verification command and read the output.
-7. Record progress for long work.
-8. Run task-level review in this order when review is needed:
-   1. Spec compliance review: `verifier` or `critic` checks linked `AC-*` and `INV-*` first.
-   2. Code quality review: `code-reviewer` checks maintainability, security, regressions, and style after spec compliance is acceptable.
-9. Fix any failed verification or review finding and repeat the same task until it passes or is explicitly blocked.
-10. Continue to the next task only after required checks for the current task are resolved.
-
-## Role passes
-
-Use these roles according to the task shape:
-
-- `executor`: implements assigned tasks and owns source changes.
-- `debugger`: diagnoses failures, flaky behavior, or unclear root cause before fixes.
-- `test-engineer`: defines or reviews test-first and regression evidence when test shape is non-trivial.
-- `verifier`: checks `AC-*` and `INV-*` compliance before completion.
-- `code-reviewer`: reviews quality, security, maintainability, and hidden regressions after spec compliance.
-- `architect`: reviews architecture-sensitive or broad changes before final completion.
-
-Default order for normal work: `executor -> verifier`; add `debugger`, `test-engineer`, `code-reviewer`, or `architect` only when their risk area applies. If both `verifier` and `code-reviewer` apply, spec compliance comes before code quality review. If native subagents are unavailable, run the same role passes in-session.
-
-## Fresh-lane strategy
-
-If the host supports native subagents and tasks have disjoint file ownership, Ralph may use fresh executor lanes. Keep default concurrency at three lanes or fewer.
-
-Fresh-lane rules:
-
-- Use parallel lanes only when file/module ownership is disjoint.
-- Shared files, shared types, migrations, global config, lockfiles, or cross-cutting APIs require a single owner lane.
-- When lanes must run concurrently and could affect the same checkout state, give each lane its own isolated worktree or serialize the work.
-- Give each executor the full task text, relevant spec/plan excerpts, owned files, verification commands, and constraints; do not make a worker rediscover the whole plan.
-- Tell each executor they are not alone in the codebase, must not revert others' edits, and must report shared-file conflicts upward.
-- Each lane must self-check, then pass spec compliance review, then code quality review when required.
-- If a lane is blocked, decide whether to answer the blocker, narrow scope, return to planning, or reassign; do not stack speculative fixes.
-
-Host mapping:
-
-- Claude Code: dispatch bounded role passes through native subagents/Task using the generated Claude `agents/*.md` definitions when available.
-- Codex: dispatch bounded role passes with `spawn_agent` and Codex custom-agent TOML definitions when installed; otherwise use the markdown role prompt in the current session.
-- Do not assume Codex plugin installation automatically installs custom agents; skills and current-session role passes remain the reliable fallback.
-
-When subagents are unavailable, run the same sequence as current-session role passes.
-
-## Progress artifact
-
-For long work or context-window-sized tasks, update:
+Use:
 
 ```text
-docs/oh-no/runs/YYYY-MM-DD-<slug>-progress.md
+.oh-no/sessions/{sessionId}/prd.json
+.oh-no/sessions/{sessionId}/progress.md
+.oh-no/sessions/{sessionId}/verification.md
 ```
 
-Use `templates/progress.md` as the preferred structure. Include:
+If no session id exists, create a timestamped directory under `.oh-no/sessions/`.
 
-- Current task state
-- Worktree path and branch, when isolation is used
-- Completed `T-*` items
-- Changed files
-- Verification commands and results
-- Spec compliance review status
-- Code quality review status when applicable
-- Spec conflicts or decision-log updates
-- Remaining work
+## PRD Shape
 
-## Resume and context-window protocol
+Represent work as stories:
 
-On resume, after compaction, or when context may be stale:
+```json
+{
+  "title": "Task title",
+  "stories": [
+    {
+      "id": "story-1",
+      "description": "User-visible or maintainer-visible outcome",
+      "acceptanceCriteria": [
+        "Concrete criterion"
+      ],
+      "status": "pending",
+      "passes": false
+    }
+  ]
+}
+```
 
-1. Read the source spec first.
-2. Read the plan second.
-3. Read the latest progress artifact third.
-4. Reconstruct remaining `T-*`, `AC-*`, and `INV-*` IDs from artifacts, not memory.
-5. Continue from the first incomplete task.
-6. If memory conflicts with artifacts, trust artifacts and record the discrepancy.
-7. If artifacts are missing for long work, create or repair the progress artifact before continuing.
+If a PRD does not exist, scaffold one from the approved input before editing.
 
-## Root-cause implementation discipline
+## Agent Roles
 
-When implementation hits a failure, regression, flaky test, or unexpected runtime behavior, diagnose the root cause before fixing. Do not hide the symptom with retries, sleeps, broad catches, fallback branches, disabled checks, or other temporary workarounds unless the plan explicitly calls for a reversible mitigation.
+Ralph uses these roles while preserving the current platform's rules for agent use:
 
-If the root cause is not observable, add targeted diagnostic logging, tracing, assertions, or a reproduction script to expose it. Keep diagnostic output narrow and safe: avoid secrets, PII, noisy hot-path logs, and permanent debug spam. Before completion, remove the instrumentation or gate it behind an intentional debug/observability switch and document why it remains.
+| Agent | Use |
+|---|---|
+| `explore` | Find relevant files, existing tests, commands, and integration surfaces before story implementation when they are not obvious. |
+| `executor` | Implement scoped story work using the configured agent model. |
+| `architect` | Review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
+| `critic` | Optional adversarial review when the approach may be overcomplicated or the acceptance argument is weak. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers. |
+| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
+| `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
+| `qa-tester` | Validate user-facing flows and scenario coverage when applicable. |
 
-Record the evidence that connects cause to fix in the progress artifact or final summary.
+`ai-slop-cleaner` is a skill, not an agent.
 
-## SDD discipline
+`verification-before-completion` and `systematic-debugging` are skills, not agents.
 
-SDD means spec-driven development. The spec is the source of truth across long tasks and context compaction.
+## Input Hardening
 
-- If code conflicts with the spec, do not silently change code first.
-- For small corrections, update the spec decision log and continue.
-- For major scope changes, return to `clarify` or `planning --ral`.
-- The final verifier checks `AC-*` and `INV-*` fulfillment, not only test pass status.
-- Spec compliance review must happen before code quality review; quality cannot excuse missing requirements.
+Before editing, make the executable scope explicit.
 
-## Final verification and review
+If the input lacks acceptance criteria, derive them from the approved request and record them in the PRD. Ask before editing when an assumption changes user-visible behavior, architecture, data handling, security posture, or delivery scope.
 
-Before final completion:
+For each story, record:
 
-1. Rebuild the claim list from spec, plan, progress, user requirements, and changed files.
-2. Run the smallest fresh checks that prove all claims; read the output.
-3. Confirm no required `AC-*` or `INV-*` is `PARTIAL` or `MISSING`.
-4. Run `verify` or an equivalent verifier pass.
-5. Run `code-reviewer` for substantive code changes, and `architect` for architecture-sensitive changes.
-6. Fix findings and rerun affected checks before claiming completion.
+- expected outcome
+- acceptance criteria
+- owned files or investigation targets
+- TDD requirement or exception
+- verification command or evidence type
 
-## Completion gate
+## Execution Loop
 
-Completion requires:
+1. Read the PRD, plan, or spec.
+2. Read `docs/shared/agent-tiers.md` and `docs/shared/verification-tiers.md`.
+3. Select the next incomplete story.
+4. Use `explore` when files, tests, or integration surfaces are not obvious.
+5. Identify files and checks.
+6. Identify safe parallelization opportunities using the Parallel Subagent Policy below.
+7. Classify the story's TDD requirement:
+   - behavior-changing production code: TDD required
+   - bug fix: reproduction test required
+   - behavior-preserving refactor: characterization or regression coverage required
+   - docs-only, config-only, generated code, throwaway prototype, or unavailable test harness: document the exception
+8. If TDD is required, read and follow `test-driven-development` before editing production code.
+9. Record RED, GREEN, and post-refactor evidence in `.oh-no/sessions/{sessionId}/verification.md`.
+10. Use `executor` for scoped implementation or implement inline when the platform requires it.
+11. Run the story-specific verification.
+12. Mark the story complete only when acceptance criteria and required TDD evidence pass.
+13. Repeat until all stories pass.
+14. Run the functional review gate with `verifier`, `code-reviewer`, and when risk warrants it `architect`, `critic`, `security-reviewer`, or `qa-tester`.
+15. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+16. After functional reviewer approval, read and follow `ai-slop-cleaner` for the changed-file set unless the user explicitly disabled it.
+17. Re-run verification after cleanup.
+18. If cleanup changed non-trivial code or tests, run a focused post-cleanup `code-reviewer` or `verifier` pass.
+19. Read and follow `verification-before-completion` before claiming completion.
+20. Write the final report.
 
-- All planned tasks complete or explicitly deferred with user-visible risk.
-- Fresh verification evidence for every completed claim.
-- Spec compliance review completed for linked `AC-*` and `INV-*`.
-- Code quality/security review completed when substantive code changed.
-- No `PARTIAL` or `MISSING` required acceptance criteria.
-- Reviewer or verifier sign-off.
-- A concise final summary with changed files, commands, outcomes, and remaining risks.
+## Parallel Subagent Policy
 
-Do not claim completion from confidence alone.
+Use subagents aggressively when the current platform supports them and the work can be safely isolated.
 
-## Completion integrity
+Respect the platform rules from `using-oh-no-harness`: Claude Code may use its Task/subagent mechanism; Codex may use `spawn_agent` only when the user explicitly requested subagents or parallel delegation.
 
-Do not cut corners. Inspect required evidence directly, do not use placeholders or cherry-picked results, and report blockers or verification gaps instead of pretending completion. Follow the bootstrap completion-integrity rule.
+Read and apply `docs/shared/parallel-subagents.md` before dispatching parallel work.
+
+Before dispatching parallel subagents, partition the work and write down:
+
+- story or task id
+- owned files, directories, or read-only scope
+- expected output
+- verification responsibility
+- dependencies on other subagents
+
+Parallelize only when write scopes are disjoint or read-only:
+
+- multiple `explore` agents over different subsystems
+- independent `executor` agents for stories touching separate files or modules
+- review agents after implementation when they read the same final diff but do not edit
+- `qa-tester`, `security-reviewer`, and `code-reviewer` in parallel after the implementation is stable
+
+Do not parallelize when:
+
+- two agents would edit the same file, directory, schema, migration, generated artifact, lockfile, or shared config
+- one task depends on another task's output
+- TDD RED/GREEN order for a behavior would be split across agents
+- the plan does not define file ownership clearly enough
+- a reviewer has found unresolved issues that an implementer is still fixing
+
+Implementation subagents must know they are not alone in the codebase. Tell them not to revert or overwrite others' work and to stay inside their assigned write scope.
+
+Use this dispatch shape for every parallel subagent:
+
+````markdown
+Role: {explore|executor|verifier|code-reviewer|security-reviewer|qa-tester}
+Story/task: {id and short title}
+Scope: {owned files/directories, or read-only areas}
+Do not touch: {files/directories owned by other agents}
+Expected output: {patch, findings, evidence, or test result}
+TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
+Verification responsibility: {command/evidence}
+Coordination: You are not alone in the codebase. Do not revert, overwrite, or reformat work outside your scope. Report conflicts instead of resolving them silently.
+````
+
+After parallel work completes, integrate sequentially:
+
+1. Inspect each subagent result and changed-file set.
+2. Resolve conflicts deliberately.
+3. Run story-specific verification.
+4. Run cross-story verification when shared behavior could be affected.
+5. Only then mark stories complete.
+
+## Review Gate
+
+Completion requires evidence, not confidence.
+
+The reviewer pass must answer:
+
+- Do all stories satisfy their acceptance criteria?
+- Is there a simpler or safer approach that still satisfies the PRD?
+- For behavior-changing work, does RED/GREEN/REFACTOR evidence exist or is an exception documented?
+- Are TDD exceptions specific and justified rather than vague convenience claims?
+- Are tests or verification sufficient for the risk?
+
+If review rejects the work, return to the relevant story and continue.
+
+## Cleanup And Final Verification
+
+Cleanup happens only after functional review approval.
+
+The post-cleanup pass must answer:
+
+- Did cleanup preserve behavior?
+- Did the behavior lock or relevant verification pass after cleanup?
+- Did cleanup stay inside the changed-file scope?
+- Is any additional code review required because cleanup changed structure, tests, or control flow?
+
+## Persistence Rule
+
+Continue until:
+
+- every story has `passes: true`
+- verification evidence exists
+- required TDD evidence exists, or each exception is documented
+- review is approved or a blocking reason is documented
+- `ai-slop-cleaner` ran or was explicitly disabled
+- post-cleanup verification passed
+- `verification-before-completion` ran for the final completion claim
+- final report was written
+
+## Output
+
+Return:
+
+- Session directory.
+- PRD path.
+- Stories completed.
+- Files changed.
+- Cleanup status.
+- Verification commands and results.
+- Review verdict.
+- Residual risk.
