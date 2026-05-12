@@ -17,6 +17,56 @@ It combines Superpowers' simple bootstrap/plugin shape with a focused subset of 
 
 The harness intentionally does not port OMC's keyword detector, persistent-mode Stop hook, PreToolUse/PostToolUse bridge, mode state ledger, or unsupported workflow skills.
 
+## Install
+
+The repository is both the plugin and the marketplace that publishes it. Users install directly from GitHub; no central registry submission is needed.
+
+### Claude Code
+
+```sh
+claude plugin marketplace add jcwleo/oh-no-harness
+claude plugin install oh-no-harness@oh-no-harness
+```
+
+In an interactive session the slash-command equivalents are:
+
+```text
+/plugin marketplace add jcwleo/oh-no-harness
+/plugin install oh-no-harness@oh-no-harness
+```
+
+The marketplace tracks the default branch (`main`). To pick up newer releases:
+
+```sh
+claude plugin marketplace update oh-no-harness
+claude plugin update oh-no-harness@oh-no-harness
+```
+
+### Codex
+
+```sh
+codex plugin marketplace add jcwleo/oh-no-harness
+```
+
+This clones the marketplace into `$CODEX_HOME/plugins/cache/oh-no-harness/`. Codex CLI does not currently expose a non-interactive `plugin install` / `enable` subcommand, so enable the plugin from your interactive Codex session, or add the following block to `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) manually:
+
+```toml
+[plugins."oh-no-harness@oh-no-harness"]
+enabled = true
+```
+
+To pin the marketplace to a specific tag instead of the default branch:
+
+```sh
+codex plugin marketplace add jcwleo/oh-no-harness --ref v0.2.0
+```
+
+To upgrade the cached marketplace later:
+
+```sh
+codex plugin marketplace upgrade oh-no-harness
+```
+
 ## Runtime Model
 
 Claude Code receives one `SessionStart` bootstrap injection from `hooks/session-start`.
