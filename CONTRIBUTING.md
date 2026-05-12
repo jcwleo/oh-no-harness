@@ -58,7 +58,7 @@ Live model smoke tests (cost real budget — opt-in):
 ```sh
 scripts/test-claude-plugin.sh --live              # all 10 public skills, light prompts
 scripts/test-claude-plugin.sh --live-hook-only    # SessionStart + auto-routing only
-scripts/test-claude-plugin.sh --deep-live         # linked internal docs dereferencing
+scripts/test-claude-plugin.sh --deep-live         # linked support-doc dereferencing
 scripts/test-codex-plugin.sh --live
 scripts/test-codex-plugin.sh --deep-live
 ```
@@ -102,7 +102,6 @@ Skip flags:
 hooks/session-start               # SessionStart bootstrap (Claude Code only)
 hooks/run-hook.cmd                # Cross-platform polyglot wrapper
 skills/<name>/SKILL.md            # Public skill (10 total)
-skills/internal/plan/SKILL.md     # Internal-only skill (user-invocable: false)
 agents/<name>.md                  # Subagent prompts (Claude-native, Codex-routable)
 scripts/release                   # Release helper
 scripts/test-claude-plugin.sh     # Claude Code install + smoke tests

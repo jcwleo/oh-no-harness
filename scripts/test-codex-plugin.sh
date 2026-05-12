@@ -46,7 +46,7 @@ Codex's enabled plugin cache layout directly:
 
 Options:
   --live             Run live codex exec smoke tests after prompt exposure checks.
-  --deep-live        Run live deep smoke tests that require linked internal docs.
+  --deep-live        Run live deep smoke tests that require linked support docs.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Do not sync the plugin cache or edit Codex config.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
@@ -363,7 +363,7 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:deep-interview skill. Deep smoke test only. Read the linked Optional Company Context reference before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, and whether remote/global systems should be searched for it. End with OH_NO_CODEX_DEEP_OK deep-interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the linked internal consensus planning workflow before answering. Do not edit files. Return the loop limit, approval status term, and Architect/Critic ordering rule from the internal workflow. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow before answering. Do not edit files. Return the loop limit, approval status term, and Architect/Critic ordering rule from the ralplan workflow. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the base agent naming rule, all verification tier names, the parallel dispatch scope phrase, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
@@ -469,7 +469,7 @@ run_deep_live_skill_test() {
 run_deep_live_tests() {
   if [[ "$RUN_DEEP_LIVE" != "1" ]]; then
     log "Skipping deep Codex linked-doc smoke tests"
-    printf 'Run with --deep-live or OH_NO_DEEP_LIVE=1 to verify linked internal docs are read.\n' >&2
+    printf 'Run with --deep-live or OH_NO_DEEP_LIVE=1 to verify linked support docs are read.\n' >&2
     return
   fi
 

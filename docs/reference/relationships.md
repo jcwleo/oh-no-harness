@@ -31,7 +31,7 @@ deep-interview
   -> autopilot after approval for end-to-end orchestration
 
 ralplan
-  -> skills/internal/plan/SKILL.md
+  -> embedded consensus planning workflow
   -> explore when codebase context is needed
   -> analyst for hidden requirements, risks, and constraints
   -> planner

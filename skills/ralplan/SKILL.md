@@ -8,7 +8,27 @@ argument-hint: "<task, spec path, or plan request>"
 
 Ralplan is the public consensus planning entry point.
 
-It wraps `skills/internal/plan/SKILL.md` and keeps planning separate from execution.
+It owns the consensus planning workflow directly and keeps planning separate from execution.
+
+## Goal
+
+Create a concrete implementation plan that survives Analyst, Planner, Architect, and Critic review before execution begins.
+
+## Artifacts
+
+Use durable plan files under:
+
+```text
+.oh-no/plans/{slug}.md
+```
+
+For transient planning notes, use:
+
+```text
+.oh-no/sessions/{sessionId}/planning.md
+```
+
+If there is no session id, use a timestamped directory under `.oh-no/sessions/`.
 
 ## When To Use
 
@@ -25,15 +45,21 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 
 ## Required Flow
 
-1. Read `skills/internal/plan/SKILL.md`.
-2. Follow the consensus planning workflow.
-   - Dispatch `analyst` as a subagent to identify hidden requirements, risks, and constraints before the planner drafts.
-3. Ensure Architect completes before Critic begins.
-   - Dispatch `architect` as a subagent for the feasibility / sequencing review. Then dispatch `critic` as a separate subagent only after the architect's output is in hand.
-4. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
-5. Present the plan to the user with the Plan Approval Brief format below.
-6. Mark the plan `pending approval` unless the user explicitly approves execution.
-7. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill via the Skill tool after the user answers. Skip the question only when running under `autopilot`.
+1. Dispatch `explore` subagent when repository context is needed.
+2. Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions before the planner drafts.
+3. Dispatch `planner` subagent to draft the plan.
+4. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, and antithesis.
+5. Dispatch `critic` subagent only after Architect completes.
+6. Dispatch `planner` subagent to revise with accepted feedback.
+7. Repeat until Critic approves or five complete loops have run.
+8. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
+9. Present the plan to the user with the Plan Approval Brief format below.
+10. Mark the plan `pending approval` unless the user explicitly approves execution.
+11. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill via the Skill tool after the user answers. Skip the question only when running under `autopilot`.
+
+On platforms without subagent support, or when the user has not authorized subagent dispatch on Codex per `using-oh-no-harness`, perform each role inline and record the exception in the plan.
+
+Architect and Critic are sequential. Do not run them in parallel.
 
 ## Planning Quality Bar
 
@@ -50,6 +76,35 @@ Before presenting the plan, check that it includes:
 - Architect and Critic feedback with disposition: accepted, rejected, deferred, or blocking
 
 Do not hide blocking uncertainty inside assumptions. If an unresolved question changes architecture, product behavior, data handling, security, or delivery scope, mark the plan `pending approval` and ask before execution.
+
+## Plan File Requirements
+
+Every plan must include:
+
+- a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
+- goal
+- scope and non-goals
+- files to create or modify
+- task sequence
+- acceptance criteria
+- verification commands
+- rollout or recovery notes when risk warrants them
+- approval status
+
+## TDD Task Shape
+
+For each task that changes production behavior, include explicit test-driven steps:
+
+1. Write the failing test.
+2. Run it and confirm the expected failure.
+3. Write the minimal implementation.
+4. Run the test and confirm it passes.
+5. Refactor only after green.
+6. Rerun the relevant verification after refactor.
+
+For bug fixes, require a reproduction test before the fix. For behavior-preserving refactors, require characterization or regression coverage before refactoring.
+
+If TDD does not apply, the plan must say why: docs-only, config-only, generated code, throwaway prototype, no practical test harness, or explicit user instruction.
 
 ## Plan Approval Brief
 
@@ -165,7 +220,7 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 ## Agent Roles
 
-Ralplan uses these roles through `skills/internal/plan/SKILL.md`.
+Ralplan uses these roles directly.
 
 This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents per `ralph`'s `## Subagent Dispatch Default`. On Codex, follow the `using-oh-no-harness` Codex policy.
 
@@ -199,7 +254,9 @@ If these are absent and the user is asking for execution, prefer this planning s
 Return:
 
 - Plan path.
-- Consensus status.
+- Consensus loop summary.
+- Architect concerns and disposition.
+- Critic verdict and disposition.
 - Plan approval brief.
 - Approval status.
 - Recommended next skill for execution.

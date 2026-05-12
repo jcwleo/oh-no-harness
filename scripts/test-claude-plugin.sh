@@ -35,7 +35,6 @@ PUBLIC_SKILLS=(
 
 ALL_SKILLS=(
   "${PUBLIC_SKILLS[@]}"
-  internal/plan
 )
 
 AGENTS=(
@@ -61,7 +60,7 @@ Live Claude Code skill smoke tests are opt-in because they spend model budget.
 
 Options:
   --live                 Run live /skill smoke tests after static checks.
-  --deep-live            Run live deep smoke tests that require linked internal docs.
+  --deep-live            Run live deep smoke tests that require linked support docs.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
@@ -736,7 +735,7 @@ deep_prompt_for_skill() {
       printf '/deep-interview --quick Deep smoke test only. Read the linked Optional Company Context reference before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, and whether remote/global systems should be searched for it. End with OH_NO_CLAUDE_DEEP_OK deep-interview.'
       ;;
     ralplan)
-      printf '/ralplan Deep smoke test only. Read the linked internal consensus planning workflow before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, and Architect/Critic ordering rule from the internal workflow. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
+      printf '/ralplan Deep smoke test only. Read the embedded consensus planning workflow before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, and Architect/Critic ordering rule from the ralplan workflow. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
       ;;
     ralph)
       printf '/ralph Deep smoke test only. Read the execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the base agent naming rule, all verification tier names, the parallel dispatch scope phrase, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.'
@@ -848,7 +847,7 @@ run_deep_live_skill_test() {
 run_deep_live_tests() {
   if [[ "$RUN_DEEP_LIVE" != "1" ]]; then
     log "Skipping deep Claude linked-doc smoke tests"
-    printf 'Run with --deep-live or OH_NO_DEEP_LIVE=1 to verify linked internal docs are read.\n' >&2
+    printf 'Run with --deep-live or OH_NO_DEEP_LIVE=1 to verify linked support docs are read.\n' >&2
     return
   fi
 

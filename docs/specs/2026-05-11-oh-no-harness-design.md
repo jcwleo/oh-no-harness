@@ -24,11 +24,14 @@ The external skill surface is intentionally small:
 - `ralplan`
 - `ralph`
 - `autopilot`
+- `auto-routing`
+- `test-driven-development`
 - `ai-slop-cleaner`
+- `verification-before-completion`
+- `systematic-debugging`
 
-The internal support surface includes only the Markdown needed for those skills to operate coherently:
+The support surface includes only the Markdown needed for those skills to operate coherently:
 
-- `skills/internal/plan`
 - selected OMC agent prompts
 - selected shared reference docs
 - migration/relationship documentation
@@ -171,7 +174,7 @@ deep-interview
   -> autopilot
 
 ralplan
-  -> internal plan consensus workflow
+  -> embedded consensus planning workflow
   -> planner / architect / critic
   -> user approval
   -> ralph or autopilot
@@ -224,7 +227,7 @@ Derived from OMC `deep-interview`, but simplified:
 
 Derived from OMC `ralplan` and `plan --consensus`.
 
-Key change: `ralplan` should no longer be a thin alias that depends on an external `/oh-my-claudecode:plan` command. The first version will explicitly reference `skills/internal/plan/SKILL.md` so the relationship stays clear while avoiding a large duplicated workflow inside `ralplan/SKILL.md`.
+Key change: `ralplan` should no longer be a thin alias that depends on an external `/oh-my-claudecode:plan` command. The consensus planning workflow is embedded directly in `ralplan/SKILL.md` so there is a single planning skill surface.
 
 Remove:
 
@@ -458,8 +461,12 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
   - `ralplan`
   - `ralph`
   - `autopilot`
+  - `auto-routing`
+  - `test-driven-development`
   - `ai-slop-cleaner`
-- `skills/internal/plan/SKILL.md` exists or the plan consensus workflow is fully embedded into `ralplan`.
+  - `verification-before-completion`
+  - `systematic-debugging`
+- The plan consensus workflow is fully embedded into `ralplan`.
 - Required agent prompts exist.
 - Shared docs exist:
   - `agent-tiers.md`
@@ -479,7 +486,6 @@ The implementation should proceed in small stages:
 4. Copy/adapt agents.
 5. Copy/adapt skills in dependency order:
    - `ai-slop-cleaner`
-   - `internal/plan`
    - `ralplan`
    - `deep-interview`
    - `ralph`

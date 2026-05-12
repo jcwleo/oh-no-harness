@@ -7,8 +7,7 @@ This file records the source material used to build Oh No Harness.
 | Oh No Harness file | Source file |
 |---|---|
 | `skills/ai-slop-cleaner/SKILL.md` | `omc/raw/skills/ai-slop-cleaner/SKILL.md` |
-| `skills/internal/plan/SKILL.md` | `omc/raw/skills/plan/SKILL.md` |
-| `skills/ralplan/SKILL.md` | `omc/raw/skills/ralplan/SKILL.md` |
+| `skills/ralplan/SKILL.md` | `omc/raw/skills/ralplan/SKILL.md` plus `omc/raw/skills/plan/SKILL.md` consensus workflow content |
 | `skills/deep-interview/SKILL.md` | `omc/raw/skills/deep-interview/SKILL.md` |
 | `skills/ralph/SKILL.md` | `omc/raw/skills/ralph/SKILL.md` |
 | `skills/autopilot/SKILL.md` | `omc/raw/skills/autopilot/SKILL.md` |

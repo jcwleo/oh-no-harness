@@ -9,7 +9,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 - `ralph`
 - `autopilot`
 - `ai-slop-cleaner`
-- `plan` as internal support for `ralplan`
+- `plan --consensus` behavior embedded directly in `ralplan`
 - `test-driven-development`, `verification-before-completion`, and `systematic-debugging` as Superpowers-derived safety workflows
 - selected agents needed by those skills
 - shared agent tier, verification tier, and company context guidance

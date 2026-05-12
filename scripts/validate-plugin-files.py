@@ -22,7 +22,7 @@ PUBLIC_SKILLS = [
     "systematic-debugging",
 ]
 
-ALL_SKILLS = PUBLIC_SKILLS + ["internal/plan"]
+ALL_SKILLS = PUBLIC_SKILLS
 
 AGENTS = [
     "explore",
@@ -123,13 +123,11 @@ def assert_skill(root: Path, skill: str) -> None:
     missing = REQUIRED_SKILL_FIELDS - set(fm)
     if missing:
         die(f"{path} missing frontmatter fields: {sorted(missing)}")
-    expected_name = "internal-plan" if skill == "internal/plan" else skill.split("/")[-1]
+    expected_name = skill.split("/")[-1]
     if fm["name"] != expected_name:
         die(f"{path} name={fm['name']!r}, expected {expected_name!r}")
     if skill in WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT and "argument-hint" not in fm:
         die(f"{path} should define argument-hint")
-    if skill == "internal/plan" and fm.get("user-invocable") != "false":
-        die(f"{path} should set user-invocable: false")
     if skill in NEXT_SKILL_GATE_REQUIRED:
         body = read_text(path)
         for marker in NEXT_SKILL_GATE_MARKERS:
