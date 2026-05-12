@@ -12,7 +12,10 @@
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
 #      then an annotated tag `v{X.Y.Z}` on the same commit.
 #   6. With --push: pushes main and the tag to origin, then publishes a
-#      GitHub Release via gh CLI if available.
+#      GitHub Release via gh CLI if available. Release notes are built from
+#      `git log <prev-tag>..<new-tag>`, grouped by conventional-commit
+#      prefix (Features / Fixes / Documentation / Other), with the standard
+#      "Full Changelog" compare link appended.
 #
 # Usage:
 #   scripts/release 0.2.1
@@ -51,6 +54,65 @@ fail() {
 run() {
   printf '+ %s\n' "$*"
   "$@"
+}
+
+# Build Markdown release notes from commits between the previous tag and the
+# new tag, grouped by conventional-commit prefix. Excludes the release commit
+# itself. Appends the standard "**Full Changelog**: ..." compare link.
+build_release_notes() {
+  local tag="$1" prev_tag repo_slug
+  prev_tag=$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)
+  repo_slug=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+  "$PYTHON_BIN" - "$tag" "$prev_tag" "$repo_slug" <<'PY'
+import re
+import subprocess
+import sys
+
+tag, prev_tag, repo_slug = sys.argv[1:4]
+range_ = f"{prev_tag}..{tag}" if prev_tag else tag
+log = subprocess.run(
+    ["git", "log", "--reverse", "--pretty=format:%h%x09%s", range_],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.splitlines()
+
+buckets = {"Features": [], "Fixes": [], "Documentation": [], "Other": []}
+prefix_to_bucket = {"feat": "Features", "fix": "Fixes", "docs": "Documentation"}
+release_re = re.compile(r"^chore: release v\d+\.\d+\.\d+$")
+prefix_re = re.compile(r"^(\w+)(\([^)]*\))?:")
+
+for entry in log:
+    if "\t" not in entry:
+        continue
+    sha, subject = entry.split("\t", 1)
+    if release_re.match(subject):
+        continue
+    match = prefix_re.match(subject)
+    bucket = prefix_to_bucket.get(match.group(1) if match else "", "Other")
+    buckets[bucket].append((subject, sha))
+
+lines = []
+for heading, items in buckets.items():
+    if not items:
+        continue
+    lines.append(f"## {heading}")
+    lines.append("")
+    for subject, sha in items:
+        lines.append(f"- {subject} (`{sha}`)")
+    lines.append("")
+
+if not any(buckets.values()):
+    lines.append("_No notable changes since the previous release._")
+    lines.append("")
+
+if prev_tag and repo_slug:
+    lines.append(
+        f"**Full Changelog**: https://github.com/{repo_slug}/compare/{prev_tag}...{tag}"
+    )
+
+sys.stdout.write("\n".join(lines).rstrip() + "\n")
+PY
 }
 
 version_arg=""
@@ -144,15 +206,22 @@ fi
 
 run git tag -a "$tag" -m "$tag"
 
+notes_file="$(mktemp)"
+trap 'rm -f "$notes_file"' EXIT
+build_release_notes "$tag" >"$notes_file"
+
 if [ "$push" = "true" ]; then
   run git push origin main
   run git push origin "$tag"
   if command -v gh >/dev/null 2>&1; then
-    run gh release create "$tag" --title "$tag" --prerelease --generate-notes
+    run gh release create "$tag" --title "$tag" --prerelease --notes-file "$notes_file"
   else
     cat <<EOF
 release: gh CLI not found; publish the GitHub Release manually:
-  gh release create $tag --title $tag --prerelease --generate-notes
+  gh release create $tag --title $tag --prerelease --notes-file <(cat <<'NOTES'
+$(cat "$notes_file")
+NOTES
+)
 EOF
   fi
 else
@@ -161,6 +230,9 @@ release: created local commit (if needed) and tag $tag
 release: publish with:
   git push origin main
   git push origin $tag
-  gh release create $tag --title $tag --prerelease --generate-notes
+  gh release create $tag --title $tag --prerelease --notes-file <(cat <<'NOTES'
+$(cat "$notes_file")
+NOTES
+)
 EOF
 fi
