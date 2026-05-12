@@ -58,16 +58,16 @@ If a PRD does not exist, scaffold one from the approved input before editing.
 
 Ralph uses these roles while preserving the current platform's rules for agent use:
 
-| Agent | Use |
+| Agent | Dispatch (when) |
 |---|---|
-| `explore` | Find relevant files, existing tests, commands, and integration surfaces before story implementation when they are not obvious. |
-| `executor` | Implement scoped story work using the configured agent model. |
-| `architect` | Review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
-| `critic` | Optional adversarial review when the approach may be overcomplicated or the acceptance argument is weak. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers. |
-| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
-| `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
-| `qa-tester` | Validate user-facing flows and scenario coverage when applicable. |
+| `explore` | Dispatch `explore` subagent to find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
+| `executor` | Dispatch `executor` subagent to implement scoped story work using the configured agent model. |
+| `architect` | Dispatch `architect` subagent to review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
+| `critic` | Dispatch `critic` subagent for adversarial review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. |
+| `verifier` | Dispatch `verifier` subagent to package evidence against acceptance criteria and verification tiers. |
+| `code-reviewer` | Dispatch `code-reviewer` subagent to review correctness, maintainability, regressions, and missing tests. |
+| `security-reviewer` | Dispatch `security-reviewer` subagent to review auth, data, secrets, file system, network, policy, or injection risk. |
+| `qa-tester` | Dispatch `qa-tester` subagent to validate user-facing flows and scenario coverage when applicable. |
 
 `ai-slop-cleaner` is a skill, not an agent.
 
@@ -92,7 +92,7 @@ For each story, record:
 1. Read the PRD, plan, or spec.
 2. Read `docs/shared/agent-tiers.md` and `docs/shared/verification-tiers.md`.
 3. Select the next incomplete story.
-4. Use `explore` when files, tests, or integration surfaces are not obvious.
+4. Dispatch the `explore` subagent when files, tests, or integration surfaces are not obvious.
 5. Identify files and checks.
 6. Identify safe parallelization opportunities using the Parallel Subagent Policy below.
 7. Classify the story's TDD requirement:
@@ -102,17 +102,30 @@ For each story, record:
    - docs-only, config-only, generated code, throwaway prototype, or unavailable test harness: document the exception
 8. If TDD is required, read and follow `test-driven-development` before editing production code.
 9. Record RED, GREEN, and post-refactor evidence in `.oh-no/sessions/{sessionId}/verification.md`.
-10. Use `executor` for scoped implementation or implement inline when the platform requires it.
+10. Dispatch the `executor` subagent for each story's scoped implementation. Inline implementation is the exception per `## Subagent Dispatch Default` below.
 11. Run the story-specific verification.
 12. Mark the story complete only when acceptance criteria and required TDD evidence pass.
 13. Repeat until all stories pass.
-14. Run the functional review gate with `verifier`, `code-reviewer`, and when risk warrants it `architect`, `critic`, `security-reviewer`, or `qa-tester`.
+14. Dispatch `verifier` and `code-reviewer` as separate subagents in parallel after implementation. Dispatch `architect`, `critic`, `security-reviewer`, or `qa-tester` as additional subagents when risk warrants.
 15. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
 16. After functional reviewer approval, read and follow `ai-slop-cleaner` for the changed-file set unless the user explicitly disabled it.
 17. Re-run verification after cleanup.
 18. If cleanup changed non-trivial code or tests, run a focused post-cleanup `code-reviewer` or `verifier` pass.
 19. Read and follow `verification-before-completion` before claiming completion.
 20. Write the final report.
+
+## Subagent Dispatch Default
+
+This section governs *agent role* dispatch only. Workflow-skill chaining (`deep-interview` → `ralplan` → `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
+
+On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when the user has authorized delegation per `using-oh-no-harness`), dispatch is the default for every agent role named in this skill. Inline execution is the exception, allowed only when:
+
+- the platform has no subagent mechanism;
+- the user has explicitly opted out of subagent dispatch for this work;
+- the agent role is `critic` and the approach is not adversarial-review-worthy (the existing "otherwise skip" gate at this skill's table still applies);
+- or the work is a single-line trivially-light check that the `verifier` tier from `docs/shared/agent-tiers.md` already covers without dispatch.
+
+Pick the lightest tier from `docs/shared/agent-tiers.md` and dispatch at that tier; do not collapse multiple roles into one mental pass. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
 ## Parallel Subagent Policy
 

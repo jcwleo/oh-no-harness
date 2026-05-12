@@ -65,6 +65,26 @@ NEXT_SKILL_GATE_MARKERS = (
 )
 AUTOPILOT_EXCEPTION_HEADING = "## Autopilot Exception"
 
+# Skills whose body must instruct subagent dispatch as the default. Each
+# skill gets one structural marker (heading- or sentinel-phrase-anchored)
+# plus a count threshold for the imperative verb so wording can still
+# evolve without breaking the validator. Mirrors the NEXT_SKILL_GATE
+# design just above.
+DISPATCH_DEFAULT_REQUIRED = {
+    "ralph",
+    "ralplan",
+    "systematic-debugging",
+    "autopilot",
+}
+DISPATCH_VERB_MARKER = "Dispatch "
+DISPATCH_VERB_MIN_OCCURRENCES = 3
+DISPATCH_STRUCTURAL_MARKERS = {
+    "ralph": "## Subagent Dispatch Default",
+    "ralplan": "Dispatch (when)",
+    "systematic-debugging": "Dispatch the listed subagents in the order shown",
+    "autopilot": "fallback, not the default",
+}
+
 
 def die(message: str) -> None:
     raise SystemExit(f"ERROR: {message}")
@@ -119,6 +139,17 @@ def assert_skill(root: Path, skill: str) -> None:
         body = read_text(path)
         if AUTOPILOT_EXCEPTION_HEADING not in body:
             die(f"{path} is missing required heading: {AUTOPILOT_EXCEPTION_HEADING!r}")
+    if skill in DISPATCH_DEFAULT_REQUIRED:
+        body = read_text(path)
+        count = body.count(DISPATCH_VERB_MARKER)
+        if count < DISPATCH_VERB_MIN_OCCURRENCES:
+            die(
+                f"{path} has {count} occurrences of {DISPATCH_VERB_MARKER!r}; "
+                f"requires at least {DISPATCH_VERB_MIN_OCCURRENCES}"
+            )
+        marker = DISPATCH_STRUCTURAL_MARKERS[skill]
+        if marker not in body:
+            die(f"{path} is missing required Subagent-Dispatch marker: {marker!r}")
 
 
 def assert_agent(root: Path, agent: str) -> None:

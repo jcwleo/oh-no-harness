@@ -18,6 +18,10 @@ Use base agent names and choose the amount of scrutiny the task needs. This is n
 | Security review | `security-reviewer` | check a narrow sensitive path | review data, auth, and policy risk | assess security-critical or externally exposed behavior |
 | QA testing | `qa-tester` | run smoke scenarios | validate user-facing workflows | design scenario coverage for complex flows |
 
+## Invocation Default
+
+On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), dispatch is the default — pick the lightest credible tier from the matrix above and dispatch a subagent at that tier rather than performing the role inline. Inline execution is the exception (no subagent support, user opted out, or a trivially-light single-line check the `verifier` tier already covers). The Escalation Rules below still govern when to climb tiers.
+
 ## Escalation Rules
 
 - Start with the lightest involvement that can produce credible evidence.

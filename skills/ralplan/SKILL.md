@@ -27,7 +27,9 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 
 1. Read `skills/internal/plan/SKILL.md`.
 2. Follow the consensus planning workflow.
+   - Dispatch `analyst` as a subagent to identify hidden requirements, risks, and constraints before the planner drafts.
 3. Ensure Architect completes before Critic begins.
+   - Dispatch `architect` as a subagent for the feasibility / sequencing review. Then dispatch `critic` as a separate subagent only after the architect's output is in hand.
 4. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
 5. Present the plan to the user with the Plan Approval Brief format below.
 6. Mark the plan `pending approval` unless the user explicitly approves execution.
@@ -163,15 +165,17 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 ## Agent Roles
 
-Ralplan uses these roles through `skills/internal/plan/SKILL.md`:
+Ralplan uses these roles through `skills/internal/plan/SKILL.md`.
 
-| Agent | Use |
+This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents per `ralph`'s `## Subagent Dispatch Default`. On Codex, follow the `using-oh-no-harness` Codex policy.
+
+| Agent | Dispatch (when) |
 |---|---|
-| `explore` | Gather repository facts when codebase context is needed. |
-| `analyst` | Identify hidden requirements, risks, constraints, and open questions. |
-| `planner` | Draft and revise the implementation plan. |
-| `architect` | Review feasibility, architecture fit, sequencing, and tradeoffs. |
-| `critic` | Review quality only after Architect completes. |
+| `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. |
+| `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions. |
+| `planner` | Dispatch `planner` subagent to draft and revise the implementation plan. |
+| `architect` | Dispatch `architect` subagent to review feasibility, architecture fit, sequencing, and tradeoffs. |
+| `critic` | Dispatch `critic` subagent to review quality only after Architect completes. |
 
 Architect and Critic remain sequential. Do not run them in parallel.
 

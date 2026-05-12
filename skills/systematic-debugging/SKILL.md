@@ -24,13 +24,15 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Agent Roles
 
-| Agent | Use |
+Dispatch the listed subagents in the order shown. Inline execution is the exception per `ralph`'s `## Subagent Dispatch Default` (no subagent support, explicit user opt-out, or a verifier-tier single-line check).
+
+| Agent | Dispatch (when) |
 |---|---|
-| `debugger` | Reproduce the failure, identify root cause, and recommend the minimal fix. |
-| `explore` | Gather codebase facts, related call sites, working examples, and commands. |
-| `executor` | Apply the minimal fix only after root cause and reproduction evidence exist. |
-| `verifier` | Confirm the fix and package evidence. |
-| `architect` | Reassess direction after repeated failed fixes or architecture-level coupling. |
+| `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. |
+| `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
+| `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
+| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
+| `architect` | Dispatch `architect` subagent to reassess direction after repeated failed fixes or architecture-level coupling. |
 
 ## Debugging Flow
 

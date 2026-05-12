@@ -14,6 +14,10 @@ Create a concrete implementation plan that survives Analyst, Planner, Architect,
 
 ## Agent Roles
 
+_Verbs in this table are descriptive; the Consensus Loop below is the dispatch-driving contract._
+
+<!-- keep verbs descriptive; the Consensus Loop drives dispatch. see scripts/validate-plugin-files.py DISPATCH_DEFAULT_REQUIRED. -->
+
 | Agent | Use |
 |---|---|
 | `explore` | Gather codebase facts, relevant files, commands, and constraints. |
@@ -40,14 +44,16 @@ If there is no session id, use a timestamped directory under `.oh-no/sessions/`.
 
 ## Consensus Loop
 
-1. Use `explore` when repository context is needed.
-2. Use `analyst` to identify hidden requirements, risks, constraints, and open questions.
-3. Use `planner` to draft the plan.
-4. Use `architect` to review feasibility, sequencing, architecture fit, tradeoffs, and antithesis.
-5. Use `critic` only after Architect completes.
-6. Use `planner` to revise with accepted feedback.
+1. Dispatch `explore` subagent when repository context is needed.
+2. Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions.
+3. Dispatch `planner` subagent to draft the plan.
+4. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, and antithesis.
+5. Dispatch `critic` subagent only after Architect completes.
+6. Dispatch `planner` subagent to revise with accepted feedback.
 7. Repeat until Critic approves or five complete loops have run.
 8. Output the final plan as `pending approval` unless the user has already explicitly approved execution.
+
+On platforms without subagent support, or when the user has not authorized subagent dispatch on Codex per `using-oh-no-harness`, perform each role inline and record the exception in the plan.
 
 Architect and Critic are sequential. Do not run them in parallel.
 

@@ -42,15 +42,15 @@ Write transient orchestration notes under:
 
 ## Agent Roles
 
-Autopilot normally reaches most roles by reading and following `deep-interview`, `ralplan`, and `ralph`. When a phase is handled inline on the current platform, preserve these role boundaries:
+Autopilot normally reaches most roles by reading and following `deep-interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), per `ralph`'s `## Subagent Dispatch Default`. The phase boundaries below still hold either way.
 
 | Phase | Agents |
 |---|---|
-| Clarify | `analyst`, `architect`, and `explore` when codebase facts are needed. |
-| Plan | `planner`, `architect`, and `critic`; Architect always completes before Critic. |
-| Execute | `executor`, with scope and scrutiny chosen from `docs/shared/agent-tiers.md`. |
-| QA | `debugger`, `verifier`, and `qa-tester`. |
-| Final validation | `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires. |
+| Clarify | Dispatch `analyst`, `architect`, and `explore` when codebase facts are needed. |
+| Plan | Dispatch `planner`, `architect`, and `critic`; Architect always completes before Critic. |
+| Execute | Dispatch `executor`, with scope and scrutiny chosen from `docs/shared/agent-tiers.md`. |
+| QA | Dispatch `debugger`, `verifier`, and `qa-tester`. |
+| Final validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires. |
 
 When inline work can run in parallel, read `docs/shared/parallel-subagents.md` and use the same ownership and integration rules as `ralph`.
 
@@ -80,18 +80,18 @@ If execution is handled inline instead of through `ralph`, apply Ralph's TDD gat
 
 Run build, lint, test, or scenario checks relevant to the repository.
 
-Use:
+Dispatch:
 
-- `systematic-debugging` for root-cause investigation before fixes
-- `debugger` for failures
-- `verifier` for evidence packaging
-- `qa-tester` for user-facing flows
+- `systematic-debugging` (skill, not agent) for root-cause investigation before fixes
+- `debugger` subagent for failures
+- `verifier` subagent for evidence packaging
+- `qa-tester` subagent for user-facing flows
 
 Repeat until checks pass or a blocking reason is documented.
 
 ### Phase 4: Final Validation
 
-Use the appropriate review set for risk:
+Dispatch the appropriate review subagents for the risk:
 
 - `architect` for architecture-sensitive changes
 - `code-reviewer` for correctness and maintainability
