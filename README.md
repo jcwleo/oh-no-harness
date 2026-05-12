@@ -1,12 +1,15 @@
 # Oh No Harness
 
-[![GitHub release](https://img.shields.io/github/v/release/jcwleo/oh-no-harness?color=blue)](https://github.com/jcwleo/oh-no-harness/releases)
+[![GitHub release](https://img.shields.io/github/v/release/jcwleo/oh-no-harness?include_prereleases&color=blue)](https://github.com/jcwleo/oh-no-harness/releases)
+[![Status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/jcwleo/oh-no-harness/releases)
 [![GitHub stars](https://img.shields.io/github/stars/jcwleo/oh-no-harness?style=flat&color=yellow)](https://github.com/jcwleo/oh-no-harness/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 **English** | [한국어](README.ko.md)
 
 A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Ten focused workflows for clarifying vague work, planning, executing with verification, debugging, and cleanup — no daemon, no hidden state.
+
+> ⚠️ **Beta** — Skill behavior, command shapes, and config layout may change between `0.x` releases. Pin a tag (`--ref v0.2.x`) if you need stability.
 
 ## Install
 
