@@ -4,6 +4,8 @@
 [![GitHub stars](https://img.shields.io/github/stars/jcwleo/oh-no-harness?style=flat&color=yellow)](https://github.com/jcwleo/oh-no-harness/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
+**English** | [한국어](README.ko.md)
+
 A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Ten focused workflows for clarifying vague work, planning, executing with verification, debugging, and cleanup — no daemon, no hidden state.
 
 ## Install
