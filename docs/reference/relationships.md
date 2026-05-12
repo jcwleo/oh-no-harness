@@ -8,6 +8,10 @@ Claude Code SessionStart
   -> hooks/session-start
   -> skills/using-oh-no-harness/SKILL.md
 
+Claude Code slash command
+  -> commands/<skill>.md
+  -> skills/<skill>/SKILL.md with raw $ARGUMENTS
+
 Codex
   -> .codex-plugin/plugin.json
   -> skills/

@@ -96,11 +96,12 @@ Skip flags:
 ## Repository layout
 
 ```text
-.claude-plugin/plugin.json        # Claude Code manifest (lists public skills)
+.claude-plugin/plugin.json        # Claude Code manifest (lists public skills and commands)
 .claude-plugin/marketplace.json   # Self-hosted marketplace (source: "./")
 .codex-plugin/plugin.json         # Codex manifest (skills: "./skills/")
 hooks/session-start               # SessionStart bootstrap (Claude Code only)
 hooks/run-hook.cmd                # Cross-platform polyglot wrapper
+commands/<name>.md                # Claude slash-command wrapper delegating to the matching skill
 skills/<name>/SKILL.md            # Public skill (10 total)
 agents/<name>.md                  # Subagent prompts (Claude-native, Codex-routable)
 scripts/release                   # Release helper
@@ -116,6 +117,7 @@ docs/specs/                       # Design specs
 ## Conventions
 
 - Public skill surface is the 10 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
+- Claude Code command wrappers must mirror those same 10 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching skill file.
 - Skills route to each other via Markdown links, not via runtime orchestration. No `Task(...)` / `Skill(...)` calls in skill bodies — the validator rejects them.
 - Generated artifacts live under `.oh-no/` and are gitignored.
 - Commit messages follow the existing prefixes: `chore:`, `docs:`, `fix:`, `feat:`, `refactor:`, `build:`. Keep first line under ~72 chars.

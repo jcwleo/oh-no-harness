@@ -21,6 +21,11 @@ next-skill handoffs. Agents may return findings and recommended next roles or
 skills to the calling skill, but they must not bypass skill-chaining gates or
 act as hidden workflow automation.
 
+`commands/*.md` may exist only as thin Claude Code slash-command wrappers for
+the same public skill names above. Each command must delegate to its matching
+`skills/<name>/SKILL.md`, preserve the user's raw arguments, and must not add a
+new workflow, hidden automation, or separate source of truth.
+
 When adapting OMC content:
 
 - Keep only dependencies required by the retained skills.

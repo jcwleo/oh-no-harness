@@ -15,6 +15,7 @@
 
 - **외부 의존성 최소화.** tmux도, 데몬도, 별도 CLI도 필요 없습니다. Claude Code는 `SessionStart` 훅 하나, Codex는 표준 skill 캐시만 사용합니다.
 - **Skill _+_ 전문 에이전트.** 10개 공개 워크플로우 skill이 소프트웨어 개발 단계를 소유하고, 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)가 그 안에서 분석·실행·리뷰를 담당합니다.
+- **Claude 슬래시 명령은 skill을 그대로 감쌉니다.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출하고, 실제 지시는 canonical `skills/<name>/SKILL.md`로 위임합니다.
 - **Auto-routing은 skill-first 가이드를 강화.** `/auto-routing on` 한 번이면 Claude Code가 응답, 질문, 수정 전에 적절한 skill을 먼저 확인하도록 안내합니다. 숨겨진 모드 상태를 만들거나 승인 게이트를 건너뛰지는 않습니다.
 - **자연어로 작업을 시작.** 일반 문장으로 작업을 설명하면 시작할 수 있습니다. skill 간 전환은 명시적으로 유지되고, `/autopilot`은 인터뷰·계획·실행·검증을 한 요청으로 묶고 싶을 때 쓰는 opt-in 경로입니다.
 
@@ -65,7 +66,7 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## 사용법
 
-설치 후, skill을 슬래시 명령으로 호출하세요. 손에 든 입력 형태에 맞게 고르면 됩니다:
+설치 후, 같은 워크플로우 이름을 슬래시 명령으로 호출하세요. Claude Code에서는 얇은 `commands/*.md` wrapper가 autocomplete argument hint를 제공한 뒤 matching skill을 읽습니다. 손에 든 입력 형태에 맞게 고르면 됩니다:
 
 | Skill | 언제 쓰면 좋은가 |
 |---|---|
@@ -97,7 +98,7 @@ codex plugin marketplace upgrade oh-no-harness
 - `SessionStart` 훅 하나만 사용 — `UserPromptSubmit`/`PreToolUse`/`PostToolUse` 미사용.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
-- 모든 skill과 agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
+- 모든 command, skill, agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
 
 ## 산출물
 

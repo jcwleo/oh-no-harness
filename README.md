@@ -15,6 +15,7 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 
 - **Minimal external dependencies.** No tmux, no daemon, no extra CLIs. Claude Code uses a single `SessionStart` hook; Codex uses the standard skill cache. That's it.
 - **Skills _plus_ specialized agents.** Ten public workflow skills own the software-development stages; 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) supply focused analysis, execution, and review inside those skills.
+- **Claude slash commands mirror skills.** `commands/*.md` exposes the same 10 names with argument hints, then delegates to the canonical `skills/<name>/SKILL.md` instructions.
 - **Mode-gated execution.** Specs and plans size work as `LIGHT`, `STANDARD`, or `THOROUGH`; Ralph must record the selected mode and follow that mode instead of applying the heaviest loop to every task.
 - **Auto-routing adds skill-first guidance.** Flip `/auto-routing on` once and Claude Code is reminded to check the right skill before raw clarification questions or edits. It does not add hidden mode state or skip approval gates.
 - **Just describe the task.** Plain natural-language input is enough to start. The harness keeps skill handoffs explicit, and `/autopilot` is the opt-in end-to-end path when you want one request to span interview, planning, execution, and validation.
@@ -66,7 +67,9 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## Usage
 
-After install, invoke a skill as a slash command. Pick by what you have in hand:
+After install, invoke the same workflow names as slash commands. In Claude Code,
+thin `commands/*.md` wrappers provide autocomplete argument hints and then load
+the matching skill. Pick by what you have in hand:
 
 | Skill | Use when |
 |---|---|
@@ -98,7 +101,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 - Single `SessionStart` hook that injects skill text — no `UserPromptSubmit`/`PreToolUse`/`PostToolUse`.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
-- All skills and agents are plain Markdown. No daemon, no background process.
+- All commands, skills, and agents are plain Markdown. No daemon, no background process.
 
 ## Artifacts
 

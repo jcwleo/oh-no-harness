@@ -259,7 +259,7 @@ include_files = [
     ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",
 ]
-include_dirs = ["skills", "agents", "hooks", "scripts", "docs"]
+include_dirs = ["skills", "commands", "agents", "hooks", "scripts", "docs"]
 
 paths: list[Path] = [Path(item) for item in include_files]
 for dirname in include_dirs:

@@ -40,7 +40,9 @@ AGENTS = [
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
 REQUIRED_SKILL_FIELDS = {"name", "description"}
+REQUIRED_COMMAND_FIELDS = {"description", "argument-hint"}
 WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
+    "using-oh-no-harness",
     "deep-interview",
     "ralplan",
     "ralph",
@@ -51,6 +53,11 @@ WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
     "verification-before-completion",
     "systematic-debugging",
 }
+COMMAND_WRAPPERS = PUBLIC_SKILLS
+COMMAND_DELEGATION_MARKER = (
+    "Read the file at `${{CLAUDE_PLUGIN_ROOT}}/skills/{skill}/SKILL.md` using the Read tool "
+    "and follow its instructions exactly."
+)
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
 # structural: the heading tags the section, "HARD-GATE" tags the negative
@@ -212,6 +219,29 @@ def assert_skill(root: Path, skill: str) -> None:
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
 
 
+def assert_command(root: Path, skill: str) -> None:
+    path = root / "commands" / f"{skill}.md"
+    fm = parse_frontmatter(path)
+    missing = REQUIRED_COMMAND_FIELDS - set(fm)
+    if missing:
+        die(f"{path} missing frontmatter fields: {sorted(missing)}")
+    if fm.get("disable-model-invocation") != "true":
+        die(f"{path} should set disable-model-invocation: true")
+
+    skill_fm = parse_frontmatter(root / "skills" / skill / "SKILL.md")
+    if fm["argument-hint"] != skill_fm.get("argument-hint"):
+        die(
+            f"{path} argument-hint should mirror skills/{skill}/SKILL.md. "
+            f"expected={skill_fm.get('argument-hint')!r} actual={fm['argument-hint']!r}"
+        )
+
+    body = read_text(path)
+    expected_marker = COMMAND_DELEGATION_MARKER.format(skill=skill)
+    for marker in (expected_marker, "## User Input", "$ARGUMENTS"):
+        if marker not in body:
+            die(f"{path} is missing required command delegation marker: {marker!r}")
+
+
 def assert_agent(root: Path, agent: str) -> None:
     path = root / "agents" / f"{agent}.md"
     fm = parse_frontmatter(path)
@@ -267,6 +297,8 @@ def assert_claude_manifest_skills(root: Path) -> None:
             f"{path} skills array should list public skill directories in order. "
             f"expected={expected!r} actual={actual!r}"
         )
+    if manifest.get("commands") != "./commands/":
+        die(f"{path} should declare commands='./commands/' for Claude slash-command wrappers")
 
 
 def has_token(text: str, token: str) -> bool:
@@ -278,7 +310,11 @@ def assert_no_omc_runtime_coupling(root: Path) -> None:
         r"\bTask\(",
         r"\bSkill\(",
     ]
-    checked_paths = list((root / "skills").glob("**/*.md")) + list((root / "agents").glob("*.md"))
+    checked_paths = (
+        list((root / "skills").glob("**/*.md"))
+        + list((root / "agents").glob("*.md"))
+        + list((root / "commands").glob("*.md"))
+    )
     for path in checked_paths:
         text = read_text(path)
         for pattern in forbidden:
@@ -290,6 +326,7 @@ def assert_no_deprecated_artifact_paths(root: Path) -> None:
     checked_paths = (
         list((root / "skills").glob("**/*.md"))
         + list((root / "agents").glob("*.md"))
+        + list((root / "commands").glob("*.md"))
         + [
             root / "README.md",
             root / "AGENTS.md",
@@ -310,6 +347,8 @@ def main() -> None:
     root = Path(sys.argv[1]).resolve()
     for skill in ALL_SKILLS:
         assert_skill(root, skill)
+    for skill in COMMAND_WRAPPERS:
+        assert_command(root, skill)
     for agent in AGENTS:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)

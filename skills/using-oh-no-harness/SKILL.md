@@ -1,6 +1,7 @@
 ---
 name: using-oh-no-harness
 description: Use when starting a session with Oh No Harness, deciding whether a local skill applies, selecting between interview, planning, execution, debugging, TDD, cleanup, or verification skills, handling a request that may need one, or asking a clarification question.
+argument-hint: "[task, question, or routing need]"
 ---
 
 # Using Oh No Harness

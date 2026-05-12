@@ -27,5 +27,6 @@
     "./skills/ai-slop-cleaner/",
     "./skills/verification-before-completion/",
     "./skills/systematic-debugging/"
-  ]
+  ],
+  "commands": "./commands/"
 }

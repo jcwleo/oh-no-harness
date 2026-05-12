@@ -61,6 +61,7 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Purpose |
 |---|---|
+| `commands/*.md` | local Claude Code slash-command wrappers that mirror public skills and delegate to `skills/<name>/SKILL.md` |
 | `skills/auto-routing/SKILL.md` | local configuration skill for optional stronger bootstrap routing guidance |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
 
