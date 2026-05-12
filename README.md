@@ -62,7 +62,7 @@ After install, invoke a skill as a slash command. Pick by what you have in hand:
 | `/deep-interview <vague task>` | Request is vague or requirement-light. Produces a spec under `.oh-no/specs/`. |
 | `/ralplan <task or spec>` | Broad, risky, or cross-file work that needs a plan + approval before coding. Saves to `.oh-no/plans/`. |
 | `/ralph <plan or ticket>` | Concrete task with clear acceptance criteria. Executes to verification. |
-| `/autopilot <request>` | End-to-end delivery: clarify → plan → execute → verify in one flow. |
+| `/autopilot <request>` | End-to-end delivery: deep-interview → ralplan → ralph → verification in one flow. |
 | `/test-driven-development <change>` | Any behavior-changing edit. Enforces RED/GREEN/REFACTOR. |
 | `/systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/verification-before-completion` | Before claiming "done"/"fixed"/"ready". Demands fresh evidence. |

@@ -62,7 +62,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/deep-interview <모호한 작업>` | 요청이 막연하거나 요구사항이 부족할 때. `.oh-no/specs/`에 스펙이 저장됩니다. |
 | `/ralplan <작업 또는 스펙>` | 광범위하거나 위험도가 높고, 여러 파일에 걸치는 작업이라 코딩 전 계획·승인이 필요할 때. `.oh-no/plans/`에 계획이 저장됩니다. |
 | `/ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업. 검증까지 실행합니다. |
-| `/autopilot <요청>` | end-to-end 전달: clarify → plan → execute → verify를 한 흐름으로. |
+| `/autopilot <요청>` | end-to-end 전달: deep-interview → ralplan → ralph → verification을 한 흐름으로. |
 | `/test-driven-development <변경>` | 동작이 바뀌는 모든 수정. RED/GREEN/REFACTOR 사이클을 강제합니다. |
 | `/systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/verification-before-completion` | "완료" / "수정됨" / "준비됨"을 선언하기 전에. 새 증거를 요구합니다. |
