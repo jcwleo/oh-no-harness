@@ -96,7 +96,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 
 - Single `SessionStart` hook that injects skill text — no `UserPromptSubmit`/`PreToolUse`/`PostToolUse`.
 - **No** network calls, **no** telemetry.
-- Reads/writes only inside the plugin dir and `${CLAUDE_PLUGIN_DATA}` (or `~/.config/oh-no-harness/`) for the auto-routing flag.
+- Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
 - All skills and agents are plain Markdown. No daemon, no background process.
 
 ## Artifacts

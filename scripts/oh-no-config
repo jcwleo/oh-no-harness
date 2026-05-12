@@ -4,9 +4,25 @@ set -euo pipefail
 config_dir() {
   if [ -n "${OH_NO_CONFIG_DIR:-}" ]; then
     printf '%s\n' "$OH_NO_CONFIG_DIR"
-  elif [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
-    printf '%s\n' "$CLAUDE_PLUGIN_DATA"
-  elif [ -n "${XDG_CONFIG_HOME:-}" ]; then
+    return
+  fi
+
+  # Pin to the oh-no-harness plugin data dir directly. CLAUDE_PLUGIN_DATA
+  # resolves to whichever plugin's context invoked the script, so honoring
+  # it would let the writer (called from another plugin's Bash) and the
+  # SessionStart-hook reader (always in oh-no-harness's context) land on
+  # different files — which silently breaks the auto-routing toggle.
+  local plugins_data="${HOME}/.claude/plugins/data"
+  if [ -d "$plugins_data" ]; then
+    local match
+    match=$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | head -n 1)
+    if [ -n "$match" ]; then
+      printf '%s\n' "$match"
+      return
+    fi
+  fi
+
+  if [ -n "${XDG_CONFIG_HOME:-}" ]; then
     printf '%s\n' "${XDG_CONFIG_HOME}/oh-no-harness"
   else
     printf '%s\n' "${HOME}/.config/oh-no-harness"
@@ -70,8 +86,11 @@ Usage: scripts/oh-no-config <on|off|status|path|is-enabled>
 
 Manages Oh No Harness user settings outside the plugin cache.
 
+Stored at $HOME/.claude/plugins/data/<oh-no-harness-*>/config.json on
+Claude Code, or $XDG_CONFIG_HOME/oh-no-harness/config.json (default
+$HOME/.config/oh-no-harness/config.json) on hosts without that layout.
+
 Environment:
-  CLAUDE_PLUGIN_DATA  Preferred Claude Code plugin data directory.
   OH_NO_CONFIG_DIR    Test override for the config directory.
 USAGE
 }

@@ -313,7 +313,7 @@ validate_hooks() {
 
   local temp_data
   temp_data="$(mktemp -d)"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_DATA="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-off.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-off.json"
   "$PYTHON_BIN" - "$temp_data/hook-off.json" <<'PY'
 import json
 import sys
@@ -330,8 +330,8 @@ if "Before any response or action, including clarification questions" not in tex
 if "Do not ask raw clarification questions for vague work before reading `deep-interview`" not in text:
     raise SystemExit("base bootstrap is missing deep-interview-before-clarification guidance")
 PY
-  CLAUDE_PLUGIN_DATA="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_DATA="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-on.json"
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-on.json"
   "$PYTHON_BIN" - "$temp_data/hook-on.json" <<'PY'
 import json
 import sys

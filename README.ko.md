@@ -96,7 +96,7 @@ codex plugin marketplace upgrade oh-no-harness
 
 - `SessionStart` 훅 하나만 사용 — `UserPromptSubmit`/`PreToolUse`/`PostToolUse` 미사용.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
-- 플러그인 디렉토리와 `${CLAUDE_PLUGIN_DATA}` (또는 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
+- 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
 - 모든 skill과 agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
 
 ## 산출물

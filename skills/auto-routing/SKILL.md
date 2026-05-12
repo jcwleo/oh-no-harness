@@ -31,13 +31,15 @@ Codex does not run the Claude Code hook. In Codex, this skill can explain the se
 
 The setting is stored outside the plugin cache so updates do not overwrite it.
 
-Preferred location:
+Preferred location (Claude Code):
 
 ```text
-${CLAUDE_PLUGIN_DATA}/config.json
+$HOME/.claude/plugins/data/<oh-no-harness-*>/config.json
 ```
 
-Fallback location when plugin data is unavailable:
+The `<oh-no-harness-*>` directory is the plugin data dir Claude Code creates for oh-no-harness (for example `oh-no-harness-oh-no-harness`). The script writes there directly so the SessionStart hook reads the same file regardless of which plugin's `CLAUDE_PLUGIN_DATA` happened to be set when the toggle ran.
+
+Fallback location when that directory is unavailable (Cursor, Copilot, etc.):
 
 ```text
 ${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json
