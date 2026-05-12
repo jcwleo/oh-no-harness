@@ -55,14 +55,14 @@ ralph
   -> verification-before-completion before final completion claims
 
 autopilot
-  -> deep-interview when requirements are vague
+  -> deep-interview stage when requirements are vague
   -> ralplan for planning
   -> ralph for execution and verification
   -> test-driven-development when execution is handled inline and behavior changes
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report
   -> docs/shared/parallel-subagents.md when inline phases can safely run in parallel
-  -> analyst / architect / critic / executor when phases are handled inline
+  -> explore / analyst / planner / architect / critic / executor when phases are handled inline
   -> inline QA loop with debugger, verifier, qa-tester, code-reviewer, security-reviewer
 
 test-driven-development
@@ -86,7 +86,9 @@ systematic-debugging
 
 ## Agent Relationship Summary
 
-| Agent | Main inbound use | Main outbound references |
+Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+
+| Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
 | `explore` | `deep-interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `architect`, `debugger`, `verifier` |
 | `analyst` | `ralplan`, `autopilot` | `deep-interview`, `ralplan`, `planner`, `architect`, `critic` |

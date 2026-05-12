@@ -14,9 +14,9 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 ## Highlights
 
 - **Minimal external dependencies.** No tmux, no daemon, no extra CLIs. Claude Code uses a single `SessionStart` hook; Codex uses the standard skill cache. That's it.
-- **Skills _plus_ specialized agents.** Beyond plain skill harnesses: 10 workflow skills paired with 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) for deeper consensus and review.
-- **Auto-routing picks the skill for you.** Flip `/auto-routing on` once and the harness routes vague requests to the right workflow on its own — no need to remember slash commands.
-- **Just describe the task.** Plain natural-language input is enough. The harness clarifies, plans, executes, and verifies without manual hand-off between skills.
+- **Skills _plus_ specialized agents.** Ten public workflow skills own the software-development stages; 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) supply focused analysis, execution, and review inside those skills.
+- **Auto-routing adds skill-first guidance.** Flip `/auto-routing on` once and Claude Code is reminded to check the right skill before raw clarification questions or edits. It does not add hidden mode state or skip approval gates.
+- **Just describe the task.** Plain natural-language input is enough to start. The harness keeps skill handoffs explicit, and `/autopilot` is the opt-in end-to-end path when you want one request to span interview, planning, execution, and validation.
 
 ## Install
 
@@ -80,7 +80,7 @@ After install, invoke a skill as a slash command. Pick by what you have in hand:
 | `/auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
 | `/using-oh-no-harness` | Top-level index — start here if you forget the others. |
 
-Not sure which to pick? Just describe the task; the harness routes itself based on the request shape.
+Not sure which to pick? Just describe the task; the harness will guide skill selection based on the request shape while keeping workflow handoffs explicit unless you chose `/autopilot`.
 
 ## Auto Routing (Claude Code)
 

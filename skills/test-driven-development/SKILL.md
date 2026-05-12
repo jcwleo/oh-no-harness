@@ -8,6 +8,12 @@ argument-hint: "<feature, bugfix, refactor, or behavior change>"
 
 Write the test first. Watch it fail. Write the smallest production change that makes it pass. Refactor only after green.
 
+## Software Development Stage
+
+Test Driven Development is the behavior-change discipline inside implementation and bug-fix work.
+
+Use it inside `ralph`, `systematic-debugging`, or a direct implementation path before changing production behavior. It is not a requirements, planning, cleanup, or final-verification substitute.
+
 ## When To Use
 
 Use before editing production code for:

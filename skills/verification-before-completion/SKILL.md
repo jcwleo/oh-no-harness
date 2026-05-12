@@ -8,7 +8,13 @@ argument-hint: "<claim, task, plan, or changed-file scope>"
 
 Do not claim success without fresh evidence.
 
-This skill is the lightweight final gate for work that does not already run through `ralph` or `autopilot`. When those skills are active, preserve their stronger verification and review requirements.
+This skill is both a standalone lightweight final gate and the final evidence gate inside `ralph` and `autopilot`. When those stronger workflows are active, use this skill to verify the final claim without weakening their PRD, review, cleanup, or QA requirements.
+
+## Software Development Stage
+
+Verification Before Completion is the final evidence stage.
+
+Use it after implementation, debugging, cleanup, and relevant review are done, immediately before claiming the work is complete, fixed, passing, ready, or safe to deliver.
 
 ## When To Use
 

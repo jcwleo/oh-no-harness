@@ -22,6 +22,10 @@ Use base agent names and choose the amount of scrutiny the task needs. This is n
 
 On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), dispatch is the default — pick the lightest credible tier from the matrix above and dispatch a subagent at that tier rather than performing the role inline. Inline execution is the exception (no subagent support, user opted out, or a trivially-light single-line check the `verifier` tier already covers). The Escalation Rules below still govern when to climb tiers.
 
+## Skill Boundary
+
+Agent tier selection does not select or invoke a workflow skill. The active skill decides the software-development stage, owns approvals, and controls any next-skill handoff. Agents return facts, edits, reviews, or recommendations to the caller; recommended next roles or skills are proposals for the caller to route.
+
 ## Escalation Rules
 
 - Start with the lightest involvement that can produce credible evidence.

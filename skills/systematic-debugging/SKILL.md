@@ -10,6 +10,12 @@ Find the root cause before changing behavior.
 
 This skill is the direct debugging entry point for failures that do not need the full `ralph` execution loop.
 
+## Software Development Stage
+
+Systematic Debugging is the failure-investigation and repair stage.
+
+Use it when tests, builds, runtime behavior, installs, hooks, or user reports show a concrete failure. It should establish reproduction and root cause before returning to implementation or verification.
+
 ## When To Use
 
 Use for:
@@ -25,6 +31,8 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 ## Agent Roles
 
 Dispatch the listed subagents in the order shown. Inline execution is the exception per `ralph`'s `## Subagent Dispatch Default` (no subagent support, explicit user opt-out, or a verifier-tier single-line check).
+
+Respect the platform policy from `using-oh-no-harness`: on Codex, use `spawn_agent` only when the user explicitly requested subagents or parallel delegation; otherwise perform each role inline and preserve the same order.
 
 | Agent | Dispatch (when) |
 |---|---|

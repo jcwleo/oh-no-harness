@@ -10,6 +10,12 @@ Ralplan is the public consensus planning entry point.
 
 It owns the consensus planning workflow directly and keeps planning separate from execution.
 
+## Software Development Stage
+
+Ralplan is the design and implementation-planning stage for LLM software development.
+
+Use it after `deep-interview` has produced an approved spec, or when the user already gave a clear but broad engineering task. Ralplan should decide scope, sequencing, file ownership, TDD expectations, verification, rollout, and risk handling before `ralph` executes.
+
 ## Goal
 
 Create a concrete implementation plan that survives Analyst, Planner, Architect, and Critic review before execution begins.
@@ -55,7 +61,7 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 8. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
 9. Present the plan to the user with the Plan Approval Brief format below.
 10. Mark the plan `pending approval` unless the user explicitly approves execution.
-11. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill via the Skill tool after the user answers. Skip the question only when running under `autopilot`.
+11. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
 On platforms without subagent support, or when the user has not authorized subagent dispatch on Codex per `using-oh-no-harness`, perform each role inline and record the exception in the plan.
 
@@ -212,7 +218,7 @@ Ask the user which next skill to invoke. On Claude Code, ask through `AskUserQue
 
 End the question with "Which approach?".
 
-Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill via the Skill tool with the plan path as the task definition.
+Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the plan path as the task definition.
 
 ### Autopilot exception
 

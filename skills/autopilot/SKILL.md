@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span clarification, planning, execution, QA, cleanup, and validation.
+description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span deep-interview, planning, execution, QA, cleanup, and validation.
 argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 ---
 
@@ -8,13 +8,19 @@ argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 
 Autopilot is a written orchestration checklist for moving from idea to verified result with retained Oh No Harness skills.
 
-Each phase is chosen from this Markdown workflow. There is no automatic next-step selector.
+Each phase is chosen explicitly from this Markdown workflow. There is no hidden next-step selector.
+
+## Software Development Stage
+
+Autopilot is the end-to-end orchestration stage for LLM software development.
+
+Use it when one request should drive the full sequence: `deep-interview` for requirements, `ralplan` for planning, `ralph` for execution, QA/debugging, cleanup, final verification, and report.
 
 ## When To Use
 
 Use when:
 
-- the task spans clarification, planning, implementation, and validation
+- the task spans deep-interview, planning, implementation, and validation
 - the user asks for autonomous delivery
 - existing specs or plans can drive execution
 - the work is too broad for a single direct edit
@@ -30,9 +36,9 @@ Before asking new questions, check:
 .oh-no/plans/
 ```
 
-If a relevant deep-interview spec exists, use it as the clarified requirement and move to planning.
+If a relevant deep-interview spec exists, use it as the approved requirement source and move to planning.
 
-If a relevant consensus plan exists, skip clarification and planning, then move to execution.
+If a relevant consensus plan exists, skip deep-interview and planning, then move to execution.
 
 Write transient orchestration notes under:
 
@@ -46,17 +52,17 @@ Autopilot normally reaches most roles by reading and following `deep-interview`,
 
 | Phase | Agents |
 |---|---|
-| Clarify | Dispatch `analyst`, `architect`, and `explore` when codebase facts are needed. |
-| Plan | Dispatch `planner`, `architect`, and `critic`; Architect always completes before Critic. |
-| Execute | Dispatch `executor`, with scope and scrutiny chosen from `docs/shared/agent-tiers.md`. |
-| QA | Dispatch `debugger`, `verifier`, and `qa-tester`. |
-| Final validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires. |
+| Deep Interview | Follow `deep-interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
+| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then `analyst`, `planner`, `architect`, and `critic`. Architect always completes before Critic. |
+| Execute | Follow `ralph`; dispatch `explore`, `executor`, `verifier`, and review agents according to the approved plan and risk. |
+| QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
+| Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 
 When inline work can run in parallel, read `docs/shared/parallel-subagents.md` and use the same ownership and integration rules as `ralph`.
 
 ## Phases
 
-### Phase 0: Clarify
+### Phase 0: Deep Interview
 
 If the request is vague, read and follow `deep-interview` as the next skill, then resume from the resulting spec.
 
@@ -133,7 +139,7 @@ Content-approval gates inside the sub-skills still run:
 - `ralplan` still has the user approve the plan.
 - `ralph` still runs `verification-before-completion` before any final completion claim.
 
-What autopilot skips is only the "which next skill?" question — never the content gate.
+What autopilot skips is only the "which next skill?" question between phases. It does not skip content review, plan approval, verification, or final evidence gates.
 
 If the user invokes `deep-interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
 

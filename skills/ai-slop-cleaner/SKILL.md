@@ -10,6 +10,12 @@ This skill removes AI-generated code slop without changing behavior.
 
 It is a skill, not an agent. In Oh No Harness, `ralph` lists it as the next skill to use after reviewer approval and before final verification. Users may also use it directly.
 
+## Software Development Stage
+
+AI Slop Cleaner is the post-implementation cleanup stage.
+
+Use it after behavior is locked and functional review has passed. It should improve clarity and remove AI residue without changing behavior, adding scope, or replacing implementation review.
+
 ## Agent Roles
 
 This skill has no required agent dependency. If a cleanup change needs independent evidence, return that need to the caller so `verifier` or `code-reviewer` can review the result after the cleanup pass.

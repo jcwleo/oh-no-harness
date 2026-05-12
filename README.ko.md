@@ -14,9 +14,9 @@
 ## 특징
 
 - **외부 의존성 최소화.** tmux도, 데몬도, 별도 CLI도 필요 없습니다. Claude Code는 `SessionStart` 훅 하나, Codex는 표준 skill 캐시만 사용합니다.
-- **Skill _+_ 전문 에이전트.** 단순 skill 모음을 넘어, 10개 워크플로우 skill과 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)를 함께 제공해 더 깊은 합의·리뷰가 가능합니다.
-- **Auto-routing이 알아서 skill을 선택.** `/auto-routing on` 한 번이면 모호한 요청에서도 적절한 워크플로우로 자동 라우팅 — 슬래시 명령을 외울 필요가 없습니다.
-- **자연어로 작업만 적으면 끝.** 일반 문장으로 작업을 설명하면 harness가 알아서 정리·계획·실행·검증까지 진행합니다.
+- **Skill _+_ 전문 에이전트.** 10개 공개 워크플로우 skill이 소프트웨어 개발 단계를 소유하고, 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)가 그 안에서 분석·실행·리뷰를 담당합니다.
+- **Auto-routing은 skill-first 가이드를 강화.** `/auto-routing on` 한 번이면 Claude Code가 응답, 질문, 수정 전에 적절한 skill을 먼저 확인하도록 안내합니다. 숨겨진 모드 상태를 만들거나 승인 게이트를 건너뛰지는 않습니다.
+- **자연어로 작업을 시작.** 일반 문장으로 작업을 설명하면 시작할 수 있습니다. skill 간 전환은 명시적으로 유지되고, `/autopilot`은 인터뷰·계획·실행·검증을 한 요청으로 묶고 싶을 때 쓰는 opt-in 경로입니다.
 
 ## 설치
 
@@ -80,7 +80,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/auto-routing on\|off\|status` | skill 선택 가이드 강도를 토글 (Claude Code 한정). |
 | `/using-oh-no-harness` | 최상위 인덱스 — 다른 skill이 기억나지 않을 때 여기서 시작. |
 
-어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요. 요청 형태에 맞춰 harness가 알아서 라우팅합니다.
+어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요. 요청 형태에 맞춰 skill 선택을 안내하되, `/autopilot`을 고른 경우가 아니라면 워크플로우 전환은 명시적으로 진행됩니다.
 
 ## Auto Routing (Claude Code)
 

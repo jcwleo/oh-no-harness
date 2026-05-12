@@ -10,6 +10,12 @@ Auto Routing controls whether the Claude Code bootstrap hook adds stronger skill
 
 It does not add hidden runtime routing. It only changes persistent user preference for the SessionStart prompt.
 
+## Software Development Stage
+
+Auto Routing is a workflow-entry configuration stage, not a software development stage.
+
+Use it to make future sessions more likely to choose the right skill before work starts. It should not gather requirements, plan, edit code, debug failures, clean code, or verify completion.
+
 ## When To Use
 
 Use when the user asks to:

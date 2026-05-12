@@ -1,6 +1,6 @@
 # Oh No Harness Design
 
-> Superseded artifact policy: generated Oh No Harness specs now belong under `.oh-no/specs/`, generated plans under `.oh-no/plans/`, and session state under `.oh-no/sessions/`. Any older `docs/oh-no/` references in this historical design document are no longer runtime guidance.
+> Current artifact policy: generated Oh No Harness specs belong under `.oh-no/specs/`, generated plans under `.oh-no/plans/`, and session state under `.oh-no/sessions/`.
 
 ## Goal
 
@@ -216,7 +216,7 @@ Derived from OMC `deep-interview`, but simplified:
 - Keep `explore` agent usage for brownfield context.
 - Remove `autoresearch` path.
 - Remove `team` path.
-- Replace `.omc/specs/deep-interview-{slug}.md` with `docs/oh-no/specs/deep-interview-{slug}.md` for durable specs.
+- Replace `.omc/specs/deep-interview-{slug}.md` with `.oh-no/specs/deep-interview-{slug}.md` for durable specs.
 - Replace `state_write` persistence with lightweight written artifacts only.
 - Handoff options:
   - refine with `ralplan`
@@ -327,16 +327,15 @@ Required agents:
 The agent prompts should be adapted from OMC, but all OMC-specific references must be normalized:
 
 - Replace `/oh-my-claudecode:*` commands with local skill references.
-- Replace `.omc/` artifact paths with `.oh-no/` or `docs/oh-no/`.
+- Replace `.omc/` artifact paths with `.oh-no/`.
 - Remove `team`, `ultrawork`, and external advisor handoffs.
-- Replace OMC tier-specific agent names such as `executor-low`, `executor-high`, `architect-medium`, and `explore-high` with model hints on the base agent where possible.
+- Replace OMC tier-specific agent names such as `executor-low`, `executor-high`, `architect-medium`, and `explore-high` with base agent names plus task scope, risk level, and evidence expectations.
 
 Example:
 
 ```text
-Task(subagent_type="executor", model="haiku", prompt="...")
-Task(subagent_type="executor", model="sonnet", prompt="...")
-Task(subagent_type="executor", model="opus", prompt="...")
+Dispatch `executor` through the current platform's subagent mechanism with light, standard, or high-scrutiny scope.
+If the platform does not support or allow subagents, perform the same role inline and preserve the role boundary in the report.
 ```
 
 ## Shared References
@@ -347,10 +346,10 @@ Adapt from OMC `docs/shared/agent-tiers.md`.
 
 The new version should preserve the decision guidance but simplify names:
 
-- `executor` + model hint instead of `executor-low/high`
-- `architect` + model hint instead of `architect-low/medium`
-- `security-reviewer` + model hint instead of `security-reviewer-low`
-- `explore` + model hint instead of `explore-high`
+- `executor` + scope/risk/evidence prompt instead of `executor-low/high`
+- `architect` + scope/risk/evidence prompt instead of `architect-low/medium`
+- `security-reviewer` + scope/risk/evidence prompt instead of `security-reviewer-low`
+- `explore` + scope/risk/evidence prompt instead of `explore-high`
 
 ### `verification-tiers.md`
 
@@ -372,17 +371,13 @@ Use:
 
 ```text
 .oh-no/
+  specs/
+  plans/
   sessions/
-  plans/
-  specs/
-  logs/
-
-docs/oh-no/
-  specs/
-  plans/
+  test-runs/
 ```
 
-Durable user-facing specs/plans should prefer `docs/oh-no/`. Transient session state should use `.oh-no/`.
+Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transient workflow state should use `.oh-no/sessions/`. Harness test logs should use `.oh-no/test-runs/`.
 
 ## Hook Design
 
@@ -409,7 +404,7 @@ When copying OMC files, apply these rules:
 
 1. Rename commands and skill references.
    - `/oh-my-claudecode:ralph` -> `oh-no-harness:ralph`
-   - `Skill("oh-my-claudecode:ralph")` -> `Skill("oh-no-harness:ralph")` or local equivalent
+   - OMC runtime skill calls -> explicit Markdown handoff to the local skill name
 
 2. Remove unsupported skills.
    - `team`
@@ -426,7 +421,8 @@ When copying OMC files, apply these rules:
 
 4. Normalize artifacts.
    - `.omc/` -> `.oh-no/` for transient state
-   - `docs/oh-no/` for durable specs/plans
+   - `.oh-no/specs/` for specs
+   - `.oh-no/plans/` for plans
 
 5. Simplify agent tiers.
    - tiered agent names become model hints on one base agent prompt.

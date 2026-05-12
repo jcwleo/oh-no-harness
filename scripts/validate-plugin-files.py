@@ -84,6 +84,11 @@ DISPATCH_STRUCTURAL_MARKERS = {
     "systematic-debugging": "Dispatch the listed subagents in the order shown",
     "autopilot": "fallback, not the default",
 }
+AGENT_SKILL_RELATIONSHIP_MARKERS = (
+    "## Skill Relationship",
+    "not a public workflow skill",
+    "calling skill",
+)
 
 
 def die(message: str) -> None:
@@ -162,6 +167,11 @@ def assert_agent(root: Path, agent: str) -> None:
     expected_model = "sonnet" if agent == "explore" else "inherit"
     if fm.get("model") != expected_model:
         die(f"{path} model={fm.get('model')!r}, expected {expected_model!r}")
+
+    body = read_text(path)
+    for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
+        if marker not in body:
+            die(f"{path} is missing required agent-skill boundary marker: {marker!r}")
 
 
 def assert_expected_references(root: Path) -> None:

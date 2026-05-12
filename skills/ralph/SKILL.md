@@ -8,6 +8,12 @@ argument-hint: "<approved plan, PRD path, spec path, or concrete task>"
 
 Ralph is a PRD-driven execution loop. It keeps working until each story is complete, verification passes, review is resolved, cleanup has run or been explicitly disabled, and the final report is written.
 
+## Software Development Stage
+
+Ralph is the implementation and integration stage for LLM software development.
+
+Use it after requirements are clear enough to execute: an approved `deep-interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns story execution, TDD enforcement, debugging handoff, verification, review, cleanup, and final reporting.
+
 ## When To Use
 
 Use when:

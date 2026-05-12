@@ -10,6 +10,12 @@ Deep Interview turns a vague idea into a prompt-safe, approval-gated spec.
 
 The skill does not implement code. It may recommend a next skill only after explicit user approval.
 
+## Software Development Stage
+
+Deep Interview is the requirements-discovery stage for LLM software development.
+
+Use it to understand the problem, users or callers, constraints, acceptance criteria, risks, and brownfield facts before design or implementation. Do not use it to design the implementation plan, write production code, debug failures, clean code, or claim completion.
+
 ## When To Use
 
 Use when:
@@ -128,11 +134,11 @@ This handoff has two phases. On platforms with task tracking (Claude Code `TodoW
 
 ### Phase 1: Spec review
 
-Post a separate, single-purpose message — no other content combined:
+For interactive spec approval, post a separate, single-purpose review request:
 
 > "Spec written to `<spec-path>`. Please review it and let me know if you want changes before we move on."
 
-You may use a free-text prompt or `AskUserQuestion` (e.g., "Reviewed?" / "Want changes" / "Not yet"). Whichever shape you use, wait for the user's response. If they request changes, revise the spec and re-post the review message. Only after the user confirms the spec proceed to Phase 2.
+You may use a free-text prompt or `AskUserQuestion` (e.g., "Reviewed?" / "Want changes" / "Not yet"). Whichever shape you use, wait for the user's response. If they request changes, revise the spec and re-post the review request. Only after the user confirms the spec proceed to Phase 2.
 
 ### Phase 2: Next skill choice
 
@@ -145,7 +151,7 @@ Ask the user which next step to take. On Claude Code, ask through `AskUserQuesti
 
 End the question with "Which approach?".
 
-Do not invoke any next skill until the user has answered. When the user picks one, then invoke that skill via the Skill tool with the spec path as context. If the user picks `ralplan`, keep the resulting plan pending approval. If the user picks `ralph`, pass the spec path as the task definition. If the user picks `autopilot`, hand off with the spec path as context and let autopilot start from its planning phase.
+Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the spec path as context. If the user picks `ralplan`, keep the resulting plan pending approval. If the user picks `ralph`, pass the spec path as the task definition. If the user picks `autopilot`, hand off with the spec path as context and let autopilot start from its planning phase.
 
 ### Autopilot exception
 
