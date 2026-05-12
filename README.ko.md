@@ -11,6 +11,13 @@
 
 > ⚠️ **베타 단계** — skill 동작, 명령 형태, 설정 레이아웃이 `0.x` 릴리즈 사이에 바뀔 수 있습니다. 안정성이 필요하다면 태그를 고정하세요 (`--ref v0.2.x`).
 
+## 특징
+
+- **외부 의존성 최소화.** tmux도, 데몬도, 별도 CLI도 필요 없습니다. Claude Code는 `SessionStart` 훅 하나, Codex는 표준 skill 캐시만 사용합니다.
+- **Skill _+_ 전문 에이전트.** 단순 skill 모음을 넘어, 10개 워크플로우 skill과 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)를 함께 제공해 더 깊은 합의·리뷰가 가능합니다.
+- **Auto-routing이 알아서 skill을 선택.** `/auto-routing on` 한 번이면 모호한 요청에서도 적절한 워크플로우로 자동 라우팅 — 슬래시 명령을 외울 필요가 없습니다.
+- **자연어로 작업만 적으면 끝.** 일반 문장으로 작업을 설명하면 harness가 알아서 정리·계획·실행·검증까지 진행합니다.
+
 ## 설치
 
 이 저장소는 플러그인이자 동시에 플러그인을 배포하는 마켓플레이스입니다.

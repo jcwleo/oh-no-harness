@@ -11,6 +11,13 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 
 > ⚠️ **Beta** — Skill behavior, command shapes, and config layout may change between `0.x` releases. Pin a tag (`--ref v0.2.x`) if you need stability.
 
+## Highlights
+
+- **Minimal external dependencies.** No tmux, no daemon, no extra CLIs. Claude Code uses a single `SessionStart` hook; Codex uses the standard skill cache. That's it.
+- **Skills _plus_ specialized agents.** Beyond plain skill harnesses: 10 workflow skills paired with 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) for deeper consensus and review.
+- **Auto-routing picks the skill for you.** Flip `/auto-routing on` once and the harness routes vague requests to the right workflow on its own — no need to remember slash commands.
+- **Just describe the task.** Plain natural-language input is enough. The harness clarifies, plans, executes, and verifies without manual hand-off between skills.
+
 ## Install
 
 The repo doubles as the plugin and the marketplace.
