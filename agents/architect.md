@@ -19,6 +19,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Check architectural fit, coupling, data flow, failure modes, and migration risk.
 - Present the strongest counterargument to the favored approach.
 - Identify meaningful tradeoffs and possible synthesis paths.
+- Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
 - Recommend verification depth using `docs/shared/verification-tiers.md`.
 
 ## Operating Rules
@@ -36,4 +37,5 @@ Return:
 - Antithesis.
 - Tradeoffs.
 - Required changes to the plan.
+- Execution profile concerns.
 - Verification tier recommendation.

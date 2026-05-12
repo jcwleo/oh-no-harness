@@ -735,13 +735,13 @@ deep_prompt_for_skill() {
       printf '/deep-interview --quick Deep smoke test only. Read the linked Optional Company Context reference before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, and whether remote/global systems should be searched for it. End with OH_NO_CLAUDE_DEEP_OK deep-interview.'
       ;;
     ralplan)
-      printf '/ralplan Deep smoke test only. Read the embedded consensus planning workflow before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, and Architect/Critic ordering rule from the ralplan workflow. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
+      printf '/ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf '/ralph Deep smoke test only. Read the execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the base agent naming rule, all verification tier names, the parallel dispatch scope phrase, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.'
+      printf '/ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.'
       ;;
     autopilot)
-      printf '/autopilot Deep smoke test only. Read the linked phase skills and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the parallel dispatch scope phrase, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.'
+      printf '/autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.'
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -774,9 +774,14 @@ expected = {
         "five complete loops",
         "pending approval",
         "sequential",
+        "Overall Ralph mode",
+        "Task sizing",
+        "Execution profile recap",
     ],
     "ralph": [
         "OH_NO_CLAUDE_DEEP_OK ralph",
+        "Execution Mode Decision Prompt",
+        "Mode-Gated Agent Dispatch",
         "Use base agent names",
         "LIGHT",
         "STANDARD",
@@ -787,6 +792,7 @@ expected = {
         "OH_NO_CLAUDE_DEEP_OK autopilot",
         ".oh-no/specs/deep-interview-{slug}.md",
         "five complete loops",
+        "execution mode and mode source",
         "Cleanup And Final Verification",
     ],
 }
@@ -795,23 +801,20 @@ missing = [needle for needle in expected[skill] if needle not in text]
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
 
-parallel_markers = {
+linked_doc_markers = {
     "ralph": [
-        "owned files, directories, or read-only scope",
-        "Scope: {owned files/directories, or read-only areas}",
-        "executor write scopes are disjoint",
-        "Use parallel subagents only when the work can be isolated",
+        "Execution Mode Decision Prompt",
+        "Mode-Gated Agent Dispatch",
+        "Required Behavior Lock",
     ],
     "autopilot": [
-        "owned files, directories, or read-only scope",
-        "Scope: {owned files/directories, or read-only areas}",
-        "executor write scopes are disjoint",
-        "Use parallel subagents only when the work can be isolated",
+        "execution mode and mode source",
+        "Cleanup And Final Verification",
     ],
 }
 
-if skill in parallel_markers and not any(marker in text for marker in parallel_markers[skill]):
-    raise SystemExit(f"{skill} deep smoke missing parallel coordination marker; got {text!r}")
+if skill in linked_doc_markers and not all(marker in text for marker in linked_doc_markers[skill]):
+    raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
 
 print(f"ok - deep Claude linked-doc smoke: {skill} cost={data.get('total_cost_usd')}")
 PY

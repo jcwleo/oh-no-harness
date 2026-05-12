@@ -24,6 +24,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Operating Rules
 
 - Read the relevant plan and acceptance criteria before editing.
+- Read and follow the assigned Ralph execution mode, task sizing, artifact policy, and agent policy before editing.
 - Ask the calling skill for `explore` discovery when needed.
 - For behavior-changing production edits, follow the assigned TDD steps and do not report completion without RED/GREEN evidence or a documented exception.
 - Escalate to the caller for `architect` review when the plan is technically invalid.
@@ -36,6 +37,7 @@ Return:
 
 - Files changed.
 - Implementation summary.
+- Execution mode followed.
 - TDD evidence or exception.
 - Verification commands and results.
 - Remaining risks.

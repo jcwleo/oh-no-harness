@@ -39,14 +39,17 @@ For LLM software development, prefer this order when the request is not already 
 
 1. `using-oh-no-harness`: route the request and choose the right workflow surface.
 2. `deep-interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
-3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, risk handling, and verification strategy.
-4. `ralph`: execute the approved plan or concrete PRD story by story.
+3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, required Ralph execution mode, risk handling, and verification strategy.
+4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside implementation before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
 7. `ai-slop-cleaner`: clean AI-generated residue only after behavior is locked and functional review has passed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
-Small concrete tasks may skip `deep-interview` and `ralplan`, but they still need the relevant TDD, debugging, cleanup, and verification gates for their risk.
+Small concrete tasks may skip `deep-interview` and `ralplan`, but `ralph` still
+must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
+must follow the relevant TDD, debugging, cleanup, and verification gates for
+that mode.
 
 When describing the staged workflow, call the requirements-discovery stage `deep-interview`, not a generic clarify phase.
 

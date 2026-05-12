@@ -6,13 +6,16 @@ argument-hint: "<approved plan, PRD path, spec path, or concrete task>"
 
 # Ralph
 
-Ralph is a PRD-driven execution loop. It keeps working until each story is complete, verification passes, review is resolved, cleanup has run or been explicitly disabled, and the final report is written.
+Ralph is a mode-gated execution loop. It keeps working according to the selected
+execution mode until acceptance criteria are satisfied, verification evidence is
+recorded, required review and cleanup gates are handled, and the final report is
+written.
 
 ## Software Development Stage
 
 Ralph is the implementation and integration stage for LLM software development.
 
-Use it after requirements are clear enough to execute: an approved `deep-interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns story execution, TDD enforcement, debugging handoff, verification, review, cleanup, and final reporting.
+Use it after requirements are clear enough to execute: an approved `deep-interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns execution mode selection or enforcement, story execution, TDD enforcement, debugging handoff, verification, review, cleanup, and final reporting.
 
 ## When To Use
 
@@ -20,6 +23,7 @@ Use when:
 
 - the user gives an approved plan, PRD, or concrete spec
 - acceptance criteria exist or can be made explicit before editing
+- an execution mode is provided or can be selected before editing
 - the task needs durable progress tracking
 - the work should not stop at "probably done"
 
@@ -27,7 +31,10 @@ Do not use when requirements are still vague. Use `deep-interview` or `ralplan` 
 
 ## Artifacts
 
-Use:
+Use artifacts according to the selected execution mode from
+`docs/shared/execution-modes.md`.
+
+Full session artifacts are:
 
 ```text
 .oh-no/sessions/{sessionId}/prd.json
@@ -35,7 +42,33 @@ Use:
 .oh-no/sessions/{sessionId}/verification.md
 ```
 
-If no session id exists, create a timestamped directory under `.oh-no/sessions/`.
+If the selected mode requires a session and no session id exists, create a
+timestamped directory under `.oh-no/sessions/`. `LIGHT` mode may use a compact
+session note instead of full PRD scaffolding unless the input requires stories.
+
+## Required Execution Mode
+
+Read `docs/shared/execution-modes.md` before editing.
+
+Ralph must set an execution mode before changing files and must follow the
+selected mode during implementation, review, cleanup, and reporting.
+
+Execution mode source priority:
+
+1. approved `ralplan` execution profile
+2. explicit user instruction
+3. approved `deep-interview` provisional sizing hint when direct Ralph was chosen
+4. Ralph-derived mode using the Execution Mode Decision Prompt
+
+If no approved plan profile exists, answer the Execution Mode Decision Prompt
+from `docs/shared/execution-modes.md`, record the result, and continue with the
+lightest credible mode. Ask before editing only when the mode depends on an
+assumption that changes user-visible behavior, architecture, data handling,
+security posture, or delivery scope.
+
+The final report must include the selected mode, mode source, verification tier,
+artifact policy, agent policy, cleanup policy, and any escalation that happened
+while working.
 
 ## PRD Shape
 
@@ -44,10 +77,19 @@ Represent work as stories:
 ```json
 {
   "title": "Task title",
+  "executionMode": {
+    "overallRalphMode": "LIGHT | STANDARD | THOROUGH",
+    "modeSource": "plan | spec | user | derived by Ralph",
+    "verificationTier": "LIGHT | STANDARD | THOROUGH",
+    "artifactPolicy": "compact | session-verification | full-prd-session",
+    "agentPolicy": "inline-only | targeted-subagents | full-review-set",
+    "cleanupPolicy": "not-needed | conditional | required"
+  },
   "stories": [
     {
       "id": "story-1",
       "description": "User-visible or maintainer-visible outcome",
+      "executionMode": "LIGHT | STANDARD | THOROUGH",
       "acceptanceCriteria": [
         "Concrete criterion"
       ],
@@ -58,22 +100,25 @@ Represent work as stories:
 }
 ```
 
-If a PRD does not exist, scaffold one from the approved input before editing.
+If the selected artifact policy requires a PRD and one does not exist, scaffold
+one from the approved input before editing.
 
 ## Agent Roles
 
 Ralph uses these roles while preserving the current platform's rules for agent use:
 
-| Agent | Dispatch (when) |
+| Agent | Use |
 |---|---|
-| `explore` | Dispatch `explore` subagent to find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
-| `executor` | Dispatch `executor` subagent to implement scoped story work using the configured agent model. |
-| `architect` | Dispatch `architect` subagent to review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
-| `critic` | Dispatch `critic` subagent for adversarial review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. |
-| `verifier` | Dispatch `verifier` subagent to package evidence against acceptance criteria and verification tiers. |
-| `code-reviewer` | Dispatch `code-reviewer` subagent to review correctness, maintainability, regressions, and missing tests. |
-| `security-reviewer` | Dispatch `security-reviewer` subagent to review auth, data, secrets, file system, network, policy, or injection risk. |
-| `qa-tester` | Dispatch `qa-tester` subagent to validate user-facing flows and scenario coverage when applicable. |
+| `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
+| `executor` | Implement scoped story work. |
+| `architect` | Review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
+| `critic` | Adversarially review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers. |
+| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
+| `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
+| `qa-tester` | Validate user-facing flows and scenario coverage when applicable. |
+
+Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
 `ai-slop-cleaner` is a skill, not an agent.
 
@@ -89,6 +134,7 @@ For each story, record:
 
 - expected outcome
 - acceptance criteria
+- story execution mode
 - owned files or investigation targets
 - TDD requirement or exception
 - verification command or evidence type
@@ -96,46 +142,52 @@ For each story, record:
 ## Execution Loop
 
 1. Read the PRD, plan, or spec.
-2. Read `docs/shared/agent-tiers.md` and `docs/shared/verification-tiers.md`.
-3. Select the next incomplete story.
-4. Dispatch the `explore` subagent when files, tests, or integration surfaces are not obvious.
-5. Identify files and checks.
-6. Identify safe parallelization opportunities using the Parallel Subagent Policy below.
-7. Classify the story's TDD requirement:
+2. Read `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, and `docs/shared/verification-tiers.md`.
+3. Set or confirm the required execution mode before editing.
+4. Record the mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
+5. Select the next incomplete story or task.
+6. Apply the task-level mode from the approved profile; if none exists, derive it from the overall mode and story risk.
+7. Use `explore` when files, tests, or integration surfaces are not obvious.
+8. Identify files and checks.
+9. Identify safe parallelization opportunities only when the selected mode and agent policy allow it.
+10. Classify the story's TDD requirement:
    - behavior-changing production code: TDD required
    - bug fix: reproduction test required
    - behavior-preserving refactor: characterization or regression coverage required
    - docs-only, config-only, generated code, throwaway prototype, or unavailable test harness: document the exception
-8. If TDD is required, read and follow `test-driven-development` before editing production code.
-9. Record RED, GREEN, and post-refactor evidence in `.oh-no/sessions/{sessionId}/verification.md`.
-10. Dispatch the `executor` subagent for each story's scoped implementation. Inline implementation is the exception per `## Subagent Dispatch Default` below.
-11. Run the story-specific verification.
-12. Mark the story complete only when acceptance criteria and required TDD evidence pass.
-13. Repeat until all stories pass.
-14. Dispatch `verifier` and `code-reviewer` as separate subagents in parallel after implementation. Dispatch `architect`, `critic`, `security-reviewer`, or `qa-tester` as additional subagents when risk warrants.
-15. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
-16. After functional reviewer approval, read and follow `ai-slop-cleaner` for the changed-file set unless the user explicitly disabled it.
-17. Re-run verification after cleanup.
-18. If cleanup changed non-trivial code or tests, run a focused post-cleanup `code-reviewer` or `verifier` pass.
-19. Read and follow `verification-before-completion` before claiming completion.
-20. Write the final report.
+11. If TDD is required, read and follow `test-driven-development` before editing production code.
+12. Record RED, GREEN, post-refactor, or exception evidence according to the selected artifact policy.
+13. Implement inline or dispatch `executor` according to `## Mode-Gated Agent Dispatch`.
+14. Run the story-specific verification required by the selected mode and verification tier.
+15. Mark the story complete only when acceptance criteria and required TDD or exception evidence pass.
+16. Repeat until all stories or tasks pass.
+17. Run review roles according to the selected mode, agent policy, and risk signals.
+18. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+19. Apply cleanup according to the selected cleanup policy.
+20. Re-run verification after cleanup when cleanup changed files.
+21. If cleanup changed non-trivial code, tests, or prompts, run the focused post-cleanup review required by the selected mode.
+22. Read and follow `verification-before-completion` before claiming completion.
+23. Write the final report.
 
-## Subagent Dispatch Default
+## Mode-Gated Agent Dispatch
 
-This section governs *agent role* dispatch only. Workflow-skill chaining (`deep-interview` → `ralplan` → `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
+This section governs *agent role* dispatch only. Workflow-skill chaining (`deep-interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
 
-On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when the user has authorized delegation per `using-oh-no-harness`), dispatch is the default for every agent role named in this skill. Inline execution is the exception, allowed only when:
+Ralph must follow the selected execution mode and agent policy:
 
-- the platform has no subagent mechanism;
-- the user has explicitly opted out of subagent dispatch for this work;
-- the agent role is `critic` and the approach is not adversarial-review-worthy (the existing "otherwise skip" gate at this skill's table still applies);
-- or the work is a single-line trivially-light check that the `verifier` tier from `docs/shared/agent-tiers.md` already covers without dispatch.
+- `LIGHT`: inline by default. Do not dispatch subagents unless the user requested delegation or a specific check cannot be credibly performed inline.
+- `STANDARD`: inline by default, with targeted subagents only when they clearly improve evidence, reduce risk, or handle an isolated scope. Use `verifier` or `code-reviewer` for behavior-affecting or workflow changes when independent evidence is useful.
+- `THOROUGH`: use the full role set warranted by the risk. Dispatch on subagent-capable platforms when allowed by the platform and user authorization; otherwise perform the roles inline while preserving role boundaries.
 
-Pick the lightest tier from `docs/shared/agent-tiers.md` and dispatch at that tier; do not collapse multiple roles into one mental pass. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
+Respect the platform rules from `using-oh-no-harness`: Claude Code may use its Task/subagent mechanism; Codex may use `spawn_agent` only when the user explicitly requested subagents or parallel delegation.
+
+Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
 ## Parallel Subagent Policy
 
-Use subagents aggressively when the current platform supports them and the work can be safely isolated.
+Use parallel subagents only when the selected execution mode and agent policy
+allow dispatch, the current platform supports it, and the work can be safely
+isolated.
 
 Respect the platform rules from `using-oh-no-harness`: Claude Code may use its Task/subagent mechanism; Codex may use `spawn_agent` only when the user explicitly requested subagents or parallel delegation.
 
@@ -191,7 +243,12 @@ After parallel work completes, integrate sequentially:
 
 Completion requires evidence, not confidence.
 
-The reviewer pass must answer:
+The reviewer pass is mode-gated. `LIGHT` may satisfy review through direct diff
+inspection unless the selected mode or risk requires independence. `STANDARD`
+uses targeted review for behavior-affecting or workflow changes. `THOROUGH`
+uses independent review roles for the applicable risk.
+
+When review is required, the reviewer pass must answer:
 
 - Do all stories satisfy their acceptance criteria?
 - Is there a simpler or safer approach that still satisfies the PRD?
@@ -205,6 +262,12 @@ If review rejects the work, return to the relevant story and continue.
 
 Cleanup happens only after functional review approval.
 
+Cleanup is mode-gated:
+
+- `LIGHT`: run `ai-slop-cleaner` only when changed files show actual cleanup candidates; otherwise record cleanup as not needed.
+- `STANDARD`: run cleanup when behavior is locked and the changed files show cleanup candidates; rerun relevant verification afterward.
+- `THOROUGH`: run `ai-slop-cleaner` after functional review unless explicitly disabled, then rerun verification and any focused post-cleanup review required by risk.
+
 The post-cleanup pass must answer:
 
 - Did cleanup preserve behavior?
@@ -216,12 +279,13 @@ The post-cleanup pass must answer:
 
 Continue until:
 
-- every story has `passes: true`
+- the selected execution mode is recorded and followed
+- every story or task has `passes: true`
 - verification evidence exists
 - required TDD evidence exists, or each exception is documented
-- review is approved or a blocking reason is documented
-- `ai-slop-cleaner` ran or was explicitly disabled
-- post-cleanup verification passed
+- review required by the selected mode is approved or a blocking reason is documented
+- `ai-slop-cleaner` ran, was explicitly disabled, or was recorded as not needed by the selected mode
+- post-cleanup verification passed when cleanup changed files
 - `verification-before-completion` ran for the final completion claim
 - final report was written
 
@@ -231,6 +295,7 @@ Return:
 
 - Session directory.
 - PRD path.
+- Execution mode, mode source, and policy decisions.
 - Stories completed.
 - Files changed.
 - Cleanup status.

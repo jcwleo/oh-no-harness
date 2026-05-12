@@ -19,6 +19,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Map acceptance criteria to evidence.
 - Run or inspect the exact checks needed for the requested claim.
 - Confirm output, exit codes, and residual risk.
+- Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
 - Choose LIGHT, STANDARD, or THOROUGH using `docs/shared/verification-tiers.md`.
 
 ## Operating Rules
@@ -35,6 +36,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 Return:
 
 - Verification tier.
+- Execution mode compliance when applicable.
 - Commands run.
 - Results.
 - Acceptance criteria status.

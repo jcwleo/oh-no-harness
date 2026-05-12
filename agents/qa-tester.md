@@ -19,6 +19,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Turn acceptance criteria into realistic scenarios.
 - Identify smoke tests, edge cases, and regression checks.
 - Validate that user-facing flows are coherent and complete.
+- Check whether user-facing risk requires a heavier Ralph execution mode or QA role coverage than the current plan selected.
 - Report gaps that automated tests may miss.
 
 ## Operating Rules

@@ -53,15 +53,16 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 
 1. Dispatch `explore` subagent when repository context is needed.
 2. Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions before the planner drafts.
-3. Dispatch `planner` subagent to draft the plan.
-4. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, and antithesis.
-5. Dispatch `critic` subagent only after Architect completes.
-6. Dispatch `planner` subagent to revise with accepted feedback.
-7. Repeat until Critic approves or five complete loops have run.
-8. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
-9. Present the plan to the user with the Plan Approval Brief format below.
-10. Mark the plan `pending approval` unless the user explicitly approves execution.
-11. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
+3. Read `docs/shared/execution-modes.md` so the plan can set a required Ralph execution profile.
+4. Dispatch `planner` subagent to draft the plan.
+5. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, execution mode, and antithesis.
+6. Dispatch `critic` subagent only after Architect completes.
+7. Dispatch `planner` subagent to revise with accepted feedback.
+8. Repeat until Critic approves or five complete loops have run.
+9. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
+10. Present the plan to the user with the Plan Approval Brief format below.
+11. Mark the plan `pending approval` unless the user explicitly approves execution.
+12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
 On platforms without subagent support, or when the user has not authorized subagent dispatch on Codex per `using-oh-no-harness`, perform each role inline and record the exception in the plan.
 
@@ -77,6 +78,7 @@ Before presenting the plan, check that it includes:
 - files, modules, commands, or investigation targets where known
 - acceptance criteria that can be verified
 - TDD expectations for each behavior-changing task
+- an `Execution profile` that sets the required overall Ralph mode and task-level modes
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
 - Architect and Critic feedback with disposition: accepted, rejected, deferred, or blocking
@@ -93,6 +95,7 @@ Every plan must include:
 - files to create or modify
 - task sequence
 - acceptance criteria
+- execution profile
 - verification commands
 - rollout or recovery notes when risk warrants them
 - approval status
@@ -112,6 +115,45 @@ For bug fixes, require a reproduction test before the fix. For behavior-preservi
 
 If TDD does not apply, the plan must say why: docs-only, config-only, generated code, throwaway prototype, no practical test harness, or explicit user instruction.
 
+## Execution Profile
+
+Before presenting a plan, set the execution profile by applying the Execution
+Mode Decision Prompt from `docs/shared/execution-modes.md`.
+
+Every plan that recommends `ralph` must include:
+
+```text
+Execution profile:
+- Overall Ralph mode: LIGHT | STANDARD | THOROUGH
+- Mode source: ralplan
+- Verification tier: LIGHT | STANDARD | THOROUGH
+- Artifact policy: compact | session-verification | full-prd-session
+- Agent policy: inline-only | targeted-subagents | full-review-set
+- Cleanup policy: not-needed | conditional | required
+- Task sizing:
+  - T1: LIGHT | STANDARD | THOROUGH - reason
+- Escalation triggers:
+```
+
+The overall Ralph mode is the highest mode needed by any task or cross-task
+risk, but task sizing should still mark lighter subtasks when they can be
+executed with less process. Ralph must follow this profile during execution.
+
+End every Plan Approval Brief with a separate `Execution profile recap:` block
+immediately before `Approval needed`. This final recap is required even when the
+same profile already appears earlier in the plan. The goal is to keep the
+selected Ralph mode visible at the exact approval boundary.
+
+Use `LIGHT` only when direct implementation and light verification can prove the
+acceptance criteria without durable PRD tracking. Use `STANDARD` for localized
+behavior, prompt, skill, config, or workflow changes with bounded risk. Use
+`THOROUGH` for security, data, permissions, public contracts, release-critical
+surfaces, broad architecture changes, or multi-subsystem work.
+
+If the execution mode is unclear after repository exploration, choose the higher
+credible mode and list the uncertainty under risks or open questions. Do not
+hide a mode-changing uncertainty inside a casual assumption.
+
 ## Plan Approval Brief
 
 After the consensus plan is written, stop and get user confirmation before execution.
@@ -124,8 +166,10 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - numbered task sequence
 - key files or modules affected
 - TDD expectations for behavior-changing tasks
+- selected Ralph execution mode and why that mode is enough
 - verification commands or evidence plan
 - major risks, assumptions, and open questions
+- a final `Execution profile recap` immediately before the approval question
 - explicit approval status
 
 Use this shape:
@@ -142,6 +186,13 @@ Scope:
 {in scope}
 Not in scope:
 {out of scope}
+
+Execution profile:
+Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
+Verification tier: {LIGHT|STANDARD|THOROUGH}
+Agent policy: {inline-only|targeted-subagents|full-review-set}
+Cleanup policy: {not-needed|conditional|required}
+Task sizing: {short task-mode summary}
 
 Structure:
 ```text
@@ -160,6 +211,15 @@ Verification:
 
 Risks and open questions:
 {short list, or "None blocking"}
+
+Execution profile recap:
+- Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
+- Why this mode is enough: {one sentence}
+- Verification tier: {LIGHT|STANDARD|THOROUGH}
+- Agent policy: {inline-only|targeted-subagents|full-review-set}
+- Cleanup policy: {not-needed|conditional|required}
+- Task sizing: {short task-mode summary}
+- Escalation triggers: {short list or "None expected"}
 
 Approval needed:
 Choose `ralph`, `autopilot`, request changes, or leave the plan pending.
@@ -228,7 +288,7 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 Ralplan uses these roles directly.
 
-This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents per `ralph`'s `## Subagent Dispatch Default`. On Codex, follow the `using-oh-no-harness` Codex policy.
+This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it. On Codex, follow the `using-oh-no-harness` Codex policy.
 
 | Agent | Dispatch (when) |
 |---|---|
@@ -263,6 +323,7 @@ Return:
 - Consensus loop summary.
 - Architect concerns and disposition.
 - Critic verdict and disposition.
+- Execution profile.
 - Plan approval brief.
 - Approval status.
 - Recommended next skill for execution.

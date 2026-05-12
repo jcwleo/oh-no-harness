@@ -15,6 +15,7 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 
 - **Minimal external dependencies.** No tmux, no daemon, no extra CLIs. Claude Code uses a single `SessionStart` hook; Codex uses the standard skill cache. That's it.
 - **Skills _plus_ specialized agents.** Ten public workflow skills own the software-development stages; 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) supply focused analysis, execution, and review inside those skills.
+- **Mode-gated execution.** Specs and plans size work as `LIGHT`, `STANDARD`, or `THOROUGH`; Ralph must record the selected mode and follow that mode instead of applying the heaviest loop to every task.
 - **Auto-routing adds skill-first guidance.** Flip `/auto-routing on` once and Claude Code is reminded to check the right skill before raw clarification questions or edits. It does not add hidden mode state or skip approval gates.
 - **Just describe the task.** Plain natural-language input is enough to start. The harness keeps skill handoffs explicit, and `/autopilot` is the opt-in end-to-end path when you want one request to span interview, planning, execution, and validation.
 
@@ -69,9 +70,9 @@ After install, invoke a skill as a slash command. Pick by what you have in hand:
 
 | Skill | Use when |
 |---|---|
-| `/deep-interview <vague task>` | Request is vague or requirement-light. Produces a spec under `.oh-no/specs/`. |
-| `/ralplan <task or spec>` | Broad, risky, or cross-file work that needs a plan + approval before coding. Saves to `.oh-no/plans/`. |
-| `/ralph <plan or ticket>` | Concrete task with clear acceptance criteria. Executes to verification. |
+| `/deep-interview <vague task>` | Request is vague or requirement-light. Produces a spec with a provisional Ralph mode under `.oh-no/specs/`. |
+| `/ralplan <task or spec>` | Broad, risky, or cross-file work that needs a plan + approval before coding. Saves an execution profile to `.oh-no/plans/`. |
+| `/ralph <plan or ticket>` | Concrete task with clear acceptance criteria. Sets or reads the execution mode, then executes to verification. |
 | `/autopilot <request>` | End-to-end delivery: deep-interview → ralplan → ralph → verification in one flow. |
 | `/test-driven-development <change>` | Any behavior-changing edit. Enforces RED/GREEN/REFACTOR. |
 | `/systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |

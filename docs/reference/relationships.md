@@ -26,12 +26,14 @@ auto-routing
 
 deep-interview
   -> explore for brownfield context
+  -> docs/shared/execution-modes.md for provisional Ralph sizing
   -> ralplan after approval for consensus planning
   -> ralph after approval for direct execution
   -> autopilot after approval for end-to-end orchestration
 
 ralplan
   -> embedded consensus planning workflow
+  -> docs/shared/execution-modes.md for required Ralph execution profile
   -> explore when codebase context is needed
   -> analyst for hidden requirements, risks, and constraints
   -> planner
@@ -40,6 +42,7 @@ ralplan
   -> ralph or autopilot after approval
 
 ralph
+  -> docs/shared/execution-modes.md before editing
   -> explore when files, tests, or integration surfaces are not obvious
   -> docs/shared/parallel-subagents.md before parallel dispatch
   -> test-driven-development before behavior-changing production edits
@@ -57,7 +60,7 @@ ralph
 autopilot
   -> deep-interview stage when requirements are vague
   -> ralplan for planning
-  -> ralph for execution and verification
+  -> ralph for mode-gated execution and verification
   -> test-driven-development when execution is handled inline and behavior changes
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report

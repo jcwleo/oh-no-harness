@@ -18,9 +18,20 @@ Use base agent names and choose the amount of scrutiny the task needs. This is n
 | Security review | `security-reviewer` | check a narrow sensitive path | review data, auth, and policy risk | assess security-critical or externally exposed behavior |
 | QA testing | `qa-tester` | run smoke scenarios | validate user-facing workflows | design scenario coverage for complex flows |
 
-## Invocation Default
+## Invocation Policy
 
-On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), dispatch is the default — pick the lightest credible tier from the matrix above and dispatch a subagent at that tier rather than performing the role inline. Inline execution is the exception (no subagent support, user opted out, or a trivially-light single-line check the `verifier` tier already covers). The Escalation Rules below still govern when to climb tiers.
+The active skill decides whether a role should be handled inline or dispatched.
+For Ralph-driven work, follow the selected execution mode and agent policy from
+`docs/shared/execution-modes.md`.
+
+On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when
+authorized per `using-oh-no-harness`), dispatch a subagent only when the active
+skill's mode, risk, and platform policy call for it. When a role is used, pick
+the lightest credible tier from the matrix above. Inline execution is
+appropriate for LIGHT work, for platforms without subagents, when the user has
+not authorized Codex delegation, or when a small check can be credibly handled
+inside the current pass. The Escalation Rules below still govern when to climb
+tiers.
 
 ## Skill Boundary
 

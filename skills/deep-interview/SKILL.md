@@ -77,6 +77,27 @@ Interview the weakest dimension first.
 
 Do not recommend a next skill until the important dimensions are clear enough to produce testable acceptance criteria.
 
+## Execution Sizing Hint
+
+Read `docs/shared/execution-modes.md` before writing the final spec.
+
+Deep Interview only writes a provisional sizing hint. Do not decide the final
+Ralph execution profile here; that belongs to `ralplan` unless the user chooses
+direct execution.
+
+Use the Execution Mode Decision Prompt from `docs/shared/execution-modes.md` to
+identify:
+
+- the likely Ralph mode: `LIGHT`, `STANDARD`, `THOROUGH`, or `UNKNOWN`
+- whether direct `ralph` execution is credible without a plan
+- whether `ralplan` is required before execution
+- risk signals that would force escalation during planning or execution
+
+Prefer `UNKNOWN` over a false confident mode when repository facts or user
+intent are still missing. Direct `ralph` is allowed only when the request is
+small, concrete, acceptance criteria are testable, and the provisional mode is
+`LIGHT`.
+
 ## Interview Rules
 
 - Read and apply this skill before asking clarification questions about vague work.
@@ -115,6 +136,7 @@ The spec must include:
 - constraints
 - risks
 - open questions
+- execution sizing hint with `Provisional Ralph mode`, reason, direct-Ralph decision, planning decision, and escalation triggers
 - recommended next step
 - approval status
 
@@ -145,7 +167,7 @@ You may use a free-text prompt or `AskUserQuestion` (e.g., "Reviewed?" / "Want c
 Ask the user which next step to take. On Claude Code, ask through `AskUserQuestion`. Use this option shape:
 
 - `oh-no-harness:ralplan` (recommended) — produce a consensus implementation plan before execution
-- `oh-no-harness:ralph` — execute directly when the spec is small and concrete enough to skip planning
+- `oh-no-harness:ralph` — execute directly only when the spec's provisional Ralph mode is `LIGHT` and direct Ralph is allowed
 - `oh-no-harness:autopilot` — orchestrate planning, execution, QA, and validation end-to-end
 - stop with the spec pending approval
 
@@ -165,6 +187,7 @@ Return:
 - Ambiguity score summary.
 - Key decisions.
 - Open questions.
+- Execution sizing hint.
 - Approval status.
 - Next skill question asked: yes / no (skipped under autopilot).
 - Selected next skill, if approved.

@@ -40,6 +40,9 @@ If a relevant deep-interview spec exists, use it as the approved requirement sou
 
 If a relevant consensus plan exists, skip deep-interview and planning, then move to execution.
 
+If the existing plan lacks an execution profile, read
+`docs/shared/execution-modes.md` and set the missing profile before execution.
+
 Write transient orchestration notes under:
 
 ```text
@@ -48,13 +51,13 @@ Write transient orchestration notes under:
 
 ## Agent Roles
 
-Autopilot normally reaches most roles by reading and following `deep-interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), per `ralph`'s `## Subagent Dispatch Default`. The phase boundaries below still hold either way.
+Autopilot normally reaches most roles by reading and following `deep-interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), according to Ralph's selected execution mode and `## Mode-Gated Agent Dispatch`. The phase boundaries below still hold either way.
 
 | Phase | Agents |
 |---|---|
 | Deep Interview | Follow `deep-interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
-| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then `analyst`, `planner`, `architect`, and `critic`. Architect always completes before Critic. |
-| Execute | Follow `ralph`; dispatch `explore`, `executor`, `verifier`, and review agents according to the approved plan and risk. |
+| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then `analyst`, `planner`, `architect`, and `critic`. Architect always completes before Critic. The plan must set the Ralph execution profile. |
+| Execute | Follow `ralph`; dispatch or inline `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk. |
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
 | Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 
@@ -78,9 +81,9 @@ The plan remains pending approval unless the user has already approved execution
 
 Read and follow `ralph` with the approved plan or spec.
 
-Execution must preserve Ralph's PRD, verification, review, cleanup, and final report requirements.
+Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
 
-If execution is handled inline instead of through `ralph`, apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
+If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
 
 ### Phase 3: QA Loop
 
@@ -112,6 +115,7 @@ Write a final report with:
 
 - spec or plan path
 - session directory
+- execution mode and mode source
 - phases completed
 - files changed
 - commands run

@@ -19,6 +19,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Review authentication, authorization, input handling, output encoding, secrets, file system access, network calls, data retention, and policy-sensitive behavior.
 - Explain exploitability and impact.
 - Recommend concrete mitigations.
+- Recommend Ralph execution mode escalation when sensitive behavior makes the selected mode too light.
 - Escalate verification tier when sensitive behavior is touched.
 
 ## Operating Rules

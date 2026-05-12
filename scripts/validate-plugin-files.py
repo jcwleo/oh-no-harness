@@ -65,30 +65,88 @@ NEXT_SKILL_GATE_MARKERS = (
 )
 AUTOPILOT_EXCEPTION_HEADING = "## Autopilot Exception"
 
-# Skills whose body must instruct subagent dispatch as the default. Each
-# skill gets one structural marker (heading- or sentinel-phrase-anchored)
-# plus a count threshold for the imperative verb so wording can still
-# evolve without breaking the validator. Mirrors the NEXT_SKILL_GATE
-# design just above.
-DISPATCH_DEFAULT_REQUIRED = {
-    "ralph",
-    "ralplan",
-    "systematic-debugging",
-    "autopilot",
-}
-DISPATCH_VERB_MARKER = "Dispatch "
-DISPATCH_VERB_MIN_OCCURRENCES = 3
-DISPATCH_STRUCTURAL_MARKERS = {
-    "ralph": "## Subagent Dispatch Default",
+ROLE_POLICY_MARKERS = {
+    "ralph": "## Mode-Gated Agent Dispatch",
     "ralplan": "Dispatch (when)",
-    "systematic-debugging": "Dispatch the listed subagents in the order shown",
-    "autopilot": "fallback, not the default",
+    "systematic-debugging": "## Agent Roles",
+    "autopilot": "## Agent Roles",
+}
+EXECUTION_MODE_SHARED_MARKERS = (
+    "# Execution Modes",
+    "Mode is required for every handoff to `ralph`.",
+    "## Execution Mode Decision Prompt",
+    "## LIGHT",
+    "## STANDARD",
+    "## THOROUGH",
+    "`ralph` must read the execution profile before editing.",
+    "What observable behavior, artifact, prompt, config, or documentation will",
+    "Could the change affect runtime behavior",
+    "Does the change alter agent behavior",
+    "Can a lighter mode produce credible evidence",
+    "What would force escalation while working",
+)
+EXECUTION_MODE_SKILL_MARKERS = {
+    "using-oh-no-harness": (
+        "required Ralph execution mode",
+        "must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode",
+    ),
+    "deep-interview": (
+        "## Execution Sizing Hint",
+        "Provisional Ralph mode",
+        "docs/shared/execution-modes.md",
+    ),
+    "ralplan": (
+        "## Execution Profile",
+        "Overall Ralph mode",
+        "Task sizing",
+        "Execution profile recap",
+        "immediately before `Approval needed`",
+        "Ralph must follow this profile",
+    ),
+    "ralph": (
+        "## Required Execution Mode",
+        "## Mode-Gated Agent Dispatch",
+        "Ralph must set an execution mode",
+        "must follow the",
+    ),
+    "autopilot": (
+        "docs/shared/execution-modes.md",
+        "execution mode and mode source",
+    ),
 }
 AGENT_SKILL_RELATIONSHIP_MARKERS = (
     "## Skill Relationship",
     "not a public workflow skill",
     "calling skill",
 )
+EXECUTION_MODE_AGENT_MARKERS = {
+    "planner": (
+        "execution profile",
+        "task sizing",
+    ),
+    "architect": (
+        "Ralph execution profile",
+        "too light, too heavy",
+    ),
+    "critic": (
+        "execution profile recap",
+        "too light",
+    ),
+    "executor": (
+        "assigned Ralph execution mode",
+        "Execution mode followed",
+    ),
+    "verifier": (
+        "selected execution mode",
+        "Execution mode compliance",
+    ),
+    "security-reviewer": (
+        "execution mode escalation",
+    ),
+    "qa-tester": (
+        "heavier Ralph execution mode",
+    ),
+}
 
 
 def die(message: str) -> None:
@@ -142,17 +200,16 @@ def assert_skill(root: Path, skill: str) -> None:
         body = read_text(path)
         if AUTOPILOT_EXCEPTION_HEADING not in body:
             die(f"{path} is missing required heading: {AUTOPILOT_EXCEPTION_HEADING!r}")
-    if skill in DISPATCH_DEFAULT_REQUIRED:
+    if skill in ROLE_POLICY_MARKERS:
         body = read_text(path)
-        count = body.count(DISPATCH_VERB_MARKER)
-        if count < DISPATCH_VERB_MIN_OCCURRENCES:
-            die(
-                f"{path} has {count} occurrences of {DISPATCH_VERB_MARKER!r}; "
-                f"requires at least {DISPATCH_VERB_MIN_OCCURRENCES}"
-            )
-        marker = DISPATCH_STRUCTURAL_MARKERS[skill]
+        marker = ROLE_POLICY_MARKERS[skill]
         if marker not in body:
-            die(f"{path} is missing required Subagent-Dispatch marker: {marker!r}")
+            die(f"{path} is missing required role-policy marker: {marker!r}")
+    if skill in EXECUTION_MODE_SKILL_MARKERS:
+        body = read_text(path)
+        for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
+            if marker not in body:
+                die(f"{path} is missing required Execution-Mode marker: {marker!r}")
 
 
 def assert_agent(root: Path, agent: str) -> None:
@@ -172,6 +229,10 @@ def assert_agent(root: Path, agent: str) -> None:
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
         if marker not in body:
             die(f"{path} is missing required agent-skill boundary marker: {marker!r}")
+    if agent in EXECUTION_MODE_AGENT_MARKERS:
+        for marker in EXECUTION_MODE_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Execution-Mode agent marker: {marker!r}")
 
 
 def assert_expected_references(root: Path) -> None:
@@ -182,6 +243,14 @@ def assert_expected_references(root: Path) -> None:
     for agent in AGENTS:
         if not has_token(relationships, agent):
             die(f"relationships.md does not mention agent `{agent}`")
+
+
+def assert_execution_mode_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "execution-modes.md"
+    text = read_text(path)
+    for marker in EXECUTION_MODE_SHARED_MARKERS:
+        if marker not in text:
+            die(f"{path} is missing required Execution-Mode contract marker: {marker!r}")
 
 
 def assert_claude_manifest_skills(root: Path) -> None:
@@ -243,6 +312,7 @@ def main() -> None:
         assert_skill(root, skill)
     for agent in AGENTS:
         assert_agent(root, agent)
+    assert_execution_mode_contract(root)
     assert_claude_manifest_skills(root)
     assert_expected_references(root)
     assert_no_omc_runtime_coupling(root)

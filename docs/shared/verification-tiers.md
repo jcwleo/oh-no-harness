@@ -2,6 +2,10 @@
 
 Use the lightest tier that gives credible evidence for the change.
 
+Verification tier is not the same as Ralph execution mode. Use
+`docs/shared/execution-modes.md` to decide artifacts, dispatch, review, cleanup,
+and persistence; use this file to decide evidence strength.
+
 If risk is unclear, choose the higher tier. If a check cannot be run, say why and record the residual risk.
 
 ## LIGHT

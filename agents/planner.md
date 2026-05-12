@@ -18,6 +18,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Break work into ordered tasks with file ownership, verification, and acceptance criteria.
 - Use `explore` findings and `analyst` requirements when available.
+- When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
 
@@ -34,6 +35,7 @@ Return:
 
 - Plan path.
 - Task list.
+- Execution profile when the plan can hand off to `ralph`.
 - Verification commands.
 - Approval status.
 - Recommended next role or skill for the caller: `architect`, `critic`, `ralph`, or `autopilot`.

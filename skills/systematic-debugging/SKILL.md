@@ -30,7 +30,9 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Agent Roles
 
-Dispatch the listed subagents in the order shown. Inline execution is the exception per `ralph`'s `## Subagent Dispatch Default` (no subagent support, explicit user opt-out, or a verifier-tier single-line check).
+Use the listed roles in the order shown. Dispatch is governed by the active
+skill's platform policy and Ralph's `## Mode-Gated Agent Dispatch` when this
+debugging pass is inside Ralph.
 
 Respect the platform policy from `using-oh-no-harness`: on Codex, use `spawn_agent` only when the user explicitly requested subagents or parallel delegation; otherwise perform each role inline and preserve the same order.
 

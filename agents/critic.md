@@ -18,6 +18,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Review plans and completed work for contradictions, shallow alternatives, vague risks, and weak acceptance criteria.
 - Verify that the proposed evidence would actually prove the claim.
+- Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
+- Challenge execution profiles that are heavier than needed or too light for the stated risk.
 - Reject plans that skip meaningful options or ignore the user's constraints.
 - Confirm that `architect` has reviewed consensus plans before you critique them.
 

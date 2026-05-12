@@ -36,6 +36,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/verification-tiers.md` | `omc/raw/docs/shared/verification-tiers.md` |
 | `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
 | `docs/shared/parallel-subagents.md` | local adaptation of OMC and Superpowers parallel-agent coordination guidance |
+| `docs/shared/execution-modes.md` | local execution-intensity contract for Deep Interview, Ralplan, Ralph, and Autopilot |
 
 ## Superpowers-Derived Runtime Pattern
 
