@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Cuts an Oh No Harness release for the Claude Code and Codex plugin layouts.
+#
+# What it does:
+#   1. Validates the version arg (semver: 0.2.0 or v0.2.0).
+#   2. Refuses to run when not on main, when the tree is dirty, or when the
+#      tag already exists locally or on origin.
+#   3. Rewrites the version field in .claude-plugin/plugin.json and
+#      .codex-plugin/plugin.json (no-op if already correct).
+#   4. Runs scripts/validate-plugin-files.py and the local Claude Code and
+#      Codex install/update test scripts. Live model smoke is skipped.
+#   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
+#      then an annotated tag `v{X.Y.Z}` on the same commit.
+#   6. With --push: pushes main and the tag to origin, then publishes a
+#      GitHub Release via gh CLI if available.
+#
+# Usage:
+#   scripts/release 0.2.1
+#   scripts/release v0.2.1 --push
+#   scripts/release 0.2.1 --skip-tests       # skip plugin install tests
+#   scripts/release 0.2.1 --skip-tests --push
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/release <version|vversion> [--push] [--skip-tests]
+
+Updates plugin version files, runs validators and local install tests, then
+creates a release commit and annotated tag. With --push, pushes main and the
+tag to origin and publishes a GitHub Release via gh CLI.
+
+Examples:
+  scripts/release v0.2.1
+  scripts/release 0.2.1 --push
+  scripts/release 0.2.1 --skip-tests
+USAGE
+}
+
+fail() {
+  printf 'release: %s\n' "$1" >&2
+  exit 1
+}
+
+run() {
+  printf '+ %s\n' "$*"
+  "$@"
+}
+
+version_arg=""
+push="false"
+skip_tests="false"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --push)
+      push="true"
+      shift
+      ;;
+    --skip-tests)
+      skip_tests="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      fail "unknown argument: $1"
+      ;;
+    *)
+      [ -z "$version_arg" ] || fail "multiple versions provided"
+      version_arg="$1"
+      shift
+      ;;
+  esac
+done
+
+[ -n "$version_arg" ] || { usage >&2; exit 2; }
+
+version="${version_arg#v}"
+tag="v${version}"
+
+printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+  || fail "version must look like 0.2.1 or v0.2.1"
+
+cd "$REPO_ROOT"
+
+current_branch="$(git branch --show-current || true)"
+[ "$current_branch" = "main" ] \
+  || fail "run from main; current branch is ${current_branch:-detached}"
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  fail "tracked working tree changes exist; commit or stash them first"
+fi
+
+if git rev-parse --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+  fail "tag already exists locally: $tag"
+fi
+if git remote get-url origin >/dev/null 2>&1; then
+  if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+    fail "tag already exists on origin: $tag"
+  fi
+fi
+
+"$PYTHON_BIN" - "$version" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+version = sys.argv[1]
+for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+    path = Path(rel)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("version") != version:
+        data["version"] = version
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+PY
+
+run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT"
+
+if [ "$skip_tests" = "true" ]; then
+  printf 'release: skipping local install tests (--skip-tests)\n'
+else
+  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-claude-plugin.sh
+  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh
+fi
+
+if git diff --quiet -- .claude-plugin/plugin.json .codex-plugin/plugin.json; then
+  printf 'release: version files already at %s; no release commit needed\n' "$tag"
+else
+  run git add .claude-plugin/plugin.json .codex-plugin/plugin.json
+  run git commit -m "chore: release ${tag}"
+fi
+
+run git tag -a "$tag" -m "$tag"
+
+if [ "$push" = "true" ]; then
+  run git push origin main
+  run git push origin "$tag"
+  if command -v gh >/dev/null 2>&1; then
+    run gh release create "$tag" --title "$tag" --latest --generate-notes
+  else
+    cat <<EOF
+release: gh CLI not found; publish the GitHub Release manually:
+  gh release create $tag --title $tag --latest --generate-notes
+EOF
+  fi
+else
+  cat <<EOF
+release: created local commit (if needed) and tag $tag
+release: publish with:
+  git push origin main
+  git push origin $tag
+  gh release create $tag --title $tag --latest --generate-notes
+EOF
+fi
