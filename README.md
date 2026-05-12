@@ -100,15 +100,4 @@ Work products go under `.oh-no/`:
 
 ## Development
 
-Maintainer-only — running locally requires `claude`, `codex`, `python3`, and `rsync`.
-
-```sh
-# Static + local install/update tests for both runtimes
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
-
-# Cut a release: bump version, validate, commit, tag, push, GitHub Release
-scripts/release 0.2.1 --push
-```
-
-Live model smoke tests (cost real budget) live behind `--live` / `--deep-live` flags on the same scripts.
+Maintainers and contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) for the install-from-local-checkout flow, validation steps, live smoke tests, and the release workflow.

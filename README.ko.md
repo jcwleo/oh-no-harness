@@ -100,15 +100,4 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## 개발
 
-유지보수자 전용 — 로컬에서 돌리려면 `claude`, `codex`, `python3`, `rsync`가 필요합니다.
-
-```sh
-# 두 런타임에 대한 정적 검증 + 로컬 install/update 테스트
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
-
-# 릴리스 발행: 버전 갱신, 검증, 커밋, 태깅, push, GitHub Release 생성
-scripts/release 0.2.1 --push
-```
-
-라이브 모델 스모크 테스트(실제 비용 발생)는 같은 스크립트의 `--live` / `--deep-live` 옵션으로 따로 실행합니다.
+유지보수자와 기여자는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요. 로컬 체크아웃을 직접 설치하는 방법, 검증 단계, 라이브 스모크 테스트, 릴리스 워크플로우가 정리돼 있습니다.
