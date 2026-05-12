@@ -22,7 +22,7 @@ using-oh-no-harness
 
 auto-routing
   -> writes persistent user preference for stronger SessionStart skill-selection guidance
-  -> hooks/session-start reads the setting and appends OH_NO_AUTO_ROUTING when enabled
+  -> hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
 
 deep-interview
   -> explore for brownfield context

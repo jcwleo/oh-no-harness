@@ -321,8 +321,10 @@ import sys
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     data = json.load(fh)
 text = json.dumps(data)
+if "OH_NO_FORCED_ROUTING" in text:
+    raise SystemExit("forced-routing policy was present while config is unset")
 if "OH_NO_AUTO_ROUTING" in text:
-    raise SystemExit("auto-routing policy was present while config is unset")
+    raise SystemExit("legacy auto-routing tag was present while config is unset")
 if "Before any response or action, including clarification questions" not in text:
     raise SystemExit("base bootstrap is missing skill-before-clarification guidance")
 if "Do not ask raw clarification questions for vague work before reading `deep-interview`" not in text:
@@ -337,10 +339,14 @@ import sys
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     data = json.load(fh)
 text = json.dumps(data)
-if "OH_NO_AUTO_ROUTING" not in text:
-    raise SystemExit("auto-routing policy missing while config is enabled")
-if "Needing more context is not a reason to skip skill selection" not in text:
-    raise SystemExit("auto-routing policy is missing the clarification-first guard")
+if "OH_NO_FORCED_ROUTING" not in text:
+    raise SystemExit("forced-routing policy missing while config is enabled")
+if "1%" not in text:
+    raise SystemExit("forced-routing policy is missing the 1% directive")
+if "Routing map" not in text:
+    raise SystemExit("forced-routing policy is missing the routing map")
+if "Red flags" not in text:
+    raise SystemExit("forced-routing policy is missing the red-flags table")
 PY
   rm -rf "$temp_data"
   ok "session-start respects auto-routing config"
@@ -610,7 +616,7 @@ run_live_auto_routing_case() {
   local config_dir="$2"
   local expected="$3"
   local out_file="$RUN_DIR/auto-routing-${state}-${LIVE_LOAD_MODE}.jsonl"
-  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If those instructions include an active Oh No Harness auto-routing policy, reply exactly OH_NO_AUTO_ROUTING_PRESENT. Otherwise reply exactly OH_NO_AUTO_ROUTING_MISSING."
+  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If those instructions include an active Oh No Harness forced-routing policy, reply exactly OH_NO_FORCED_ROUTING_PRESENT. Otherwise reply exactly OH_NO_FORCED_ROUTING_MISSING."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -653,7 +659,7 @@ with open(path, "r", encoding="utf-8") as fh:
         if data.get("type") == "system" and data.get("subtype") == "hook_started" and data.get("hook_event") == "SessionStart":
             session_start_hooks += 1
         if data.get("type") == "system" and data.get("subtype") == "hook_response" and data.get("hook_event") == "SessionStart":
-            if "OH_NO_AUTO_ROUTING" in data.get("output", ""):
+            if "OH_NO_FORCED_ROUTING" in data.get("output", ""):
                 hook_policy_present = True
         if data.get("type") == "assistant":
             text = "".join(
@@ -661,9 +667,9 @@ with open(path, "r", encoding="utf-8") as fh:
                 for part in data.get("message", {}).get("content", [])
                 if part.get("type") == "text"
             )
-            if "OH_NO_AUTO_ROUTING_PRESENT" in text:
+            if "OH_NO_FORCED_ROUTING_PRESENT" in text:
                 assistant_present = True
-            if "OH_NO_AUTO_ROUTING_MISSING" in text:
+            if "OH_NO_FORCED_ROUTING_MISSING" in text:
                 assistant_missing = True
         if data.get("type") == "result":
             result = data.get("result")
@@ -674,12 +680,12 @@ if session_start_hooks < 1:
 
 if expected == "present":
     if not hook_policy_present:
-        raise SystemExit("auto-routing enabled but hook output did not contain OH_NO_AUTO_ROUTING")
+        raise SystemExit("auto-routing enabled but hook output did not contain OH_NO_FORCED_ROUTING")
     if not assistant_present or assistant_missing:
         raise SystemExit(f"auto-routing enabled but assistant did not report PRESENT; result={result!r}")
 else:
     if hook_policy_present:
-        raise SystemExit("auto-routing disabled but hook output contained OH_NO_AUTO_ROUTING")
+        raise SystemExit("auto-routing disabled but hook output contained OH_NO_FORCED_ROUTING")
     if not assistant_missing or assistant_present:
         raise SystemExit(f"auto-routing disabled but assistant did not report MISSING; result={result!r}")
 
