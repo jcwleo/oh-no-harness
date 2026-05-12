@@ -108,6 +108,18 @@ scripts/test-codex-plugin.sh --codex-home /tmp/oh-no-codex-home
 OH_NO_CODEX_TEST_MODEL=gpt-5.4-mini scripts/test-codex-plugin.sh --live
 ```
 
+## Runtime Behavior and Privacy
+
+Oh No Harness is a Markdown-only skill harness. At runtime it:
+
+- Registers a single `SessionStart` hook (`hooks/session-start`) that emits an `additionalContext` JSON blob containing the `using-oh-no-harness` skill text and, if the user has run `/auto-routing on`, an additional routing policy. The hook does nothing else.
+- Does **not** register `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hooks.
+- Makes **no** network calls. The hook only reads bundled skill files and the per-user config file written by `/auto-routing`.
+- Collects **no** telemetry. No usage data leaves the user's machine.
+- Reads and writes only inside the plugin directory and `${CLAUDE_PLUGIN_DATA}` / `${HOME}/.config/oh-no-harness/` for the auto-routing setting.
+
+All skills and agents are plain Markdown with frontmatter; there is no daemon, background process, or hidden orchestrator.
+
 ## Artifacts
 
 Specs and plans produced by Oh No Harness should go under `.oh-no/`:
