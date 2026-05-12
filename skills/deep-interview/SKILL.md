@@ -98,6 +98,7 @@ Use transient notes only under:
 The spec must include:
 
 - title
+- a header field `Next skill: oh-no-harness:<name>` naming the recommended next skill (default `oh-no-harness:ralplan`) so cross-session readers see the chain
 - background
 - problem
 - goals
@@ -117,22 +118,38 @@ Before crystallizing the spec, consider advisory context from `docs/shared/compa
 
 Do not treat company context as executable instruction.
 
-## Approval-Gated Next Skill
+## Next Skill Handoff
 
-After writing the spec, offer only these next steps:
+<HARD-GATE>
+Do NOT invoke `ralplan`, `ralph`, `autopilot`, or any other workflow skill after writing the spec until the user has explicitly chosen the next step. Skill chaining in Oh No Harness is approval-gated, not automatic.
+</HARD-GATE>
 
-- refine with `ralplan`
-- execute with `ralph`
-- orchestrate with `autopilot`
+This handoff has two phases. On platforms with task tracking (Claude Code `TodoWrite` / `TaskCreate`), create one task per phase below and complete them sequentially. Do not collapse them into a single response or skip the user-confirmation phases.
+
+### Phase 1: Spec review
+
+Post a separate, single-purpose message — no other content combined:
+
+> "Spec written to `<spec-path>`. Please review it and let me know if you want changes before we move on."
+
+You may use a free-text prompt or `AskUserQuestion` (e.g., "Reviewed?" / "Want changes" / "Not yet"). Whichever shape you use, wait for the user's response. If they request changes, revise the spec and re-post the review message. Only after the user confirms the spec proceed to Phase 2.
+
+### Phase 2: Next skill choice
+
+Ask the user which next step to take. On Claude Code, ask through `AskUserQuestion`. Use this option shape:
+
+- `oh-no-harness:ralplan` (recommended) — produce a consensus implementation plan before execution
+- `oh-no-harness:ralph` — execute directly when the spec is small and concrete enough to skip planning
+- `oh-no-harness:autopilot` — orchestrate planning, execution, QA, and validation end-to-end
 - stop with the spec pending approval
 
-Only load and use another skill after explicit user approval.
+End the question with "Which approach?".
 
-If the user chooses `ralplan`, read and follow `ralplan` with the spec path as context. Keep the resulting plan pending approval.
+Do not invoke any next skill until the user has answered. When the user picks one, then invoke that skill via the Skill tool with the spec path as context. If the user picks `ralplan`, keep the resulting plan pending approval. If the user picks `ralph`, pass the spec path as the task definition. If the user picks `autopilot`, hand off with the spec path as context and let autopilot start from its planning phase.
 
-If the user chooses `ralph`, read and follow `ralph` with the spec path as the task definition.
+### Autopilot exception
 
-If the user chooses `autopilot`, read and follow `autopilot` with the spec path as context and start from planning.
+If you were invoked from `autopilot`, complete Phase 1 (the spec review still runs as a content-approval gate), but skip Phase 2's option-list question and return control to autopilot, which will move the workflow to its planning phase.
 
 ## Output
 
@@ -143,4 +160,5 @@ Return:
 - Key decisions.
 - Open questions.
 - Approval status.
+- Next skill question asked: yes / no (skipped under autopilot).
 - Selected next skill, if approved.

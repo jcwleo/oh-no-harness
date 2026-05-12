@@ -41,7 +41,15 @@ Do not ask raw clarification questions for vague work before reading `deep-inter
 
 Skill chaining is explicit Markdown guidance, not hidden automation.
 
-When a skill recommends another skill, read that skill and follow it directly. No hidden automation will select or enforce the next skill for you. If the user overrides the recommendation, follow the user's instruction unless it would violate safety or repository constraints.
+When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the user and wait for an explicit choice before invoking the next workflow skill. Do not auto-invoke the next workflow skill, even when a single recommended choice is named. The user's answer is the trigger.
+
+Workflow skills (`deep-interview`, `ralplan`, `ralph`) currently define this handoff. The recommended path is `deep-interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
+
+Internal mid-loop skills used inside an already-invoked workflow skill — for example `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop — are part of that skill's documented procedure and do not require a separate per-step transition question.
+
+The single exception is `autopilot`. When the user invokes `autopilot`, autopilot may move between `deep-interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
+
+If the user overrides any recommendation, follow the user's instruction unless it would violate safety or repository constraints.
 
 ## Platform Notes
 

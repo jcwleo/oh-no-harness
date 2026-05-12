@@ -28,10 +28,10 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 1. Read `skills/internal/plan/SKILL.md`.
 2. Follow the consensus planning workflow.
 3. Ensure Architect completes before Critic begins.
-4. Save the plan under `.oh-no/plans/`.
+4. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
 5. Present the plan to the user with the Plan Approval Brief format below.
 6. Mark the plan `pending approval` unless the user explicitly approves execution.
-7. After approval, use `ralph` or `autopilot` as the next skill.
+7. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill via the Skill tool after the user answers. Skip the question only when running under `autopilot`.
 
 ## Planning Quality Bar
 
@@ -70,6 +70,7 @@ Use this shape:
 ````markdown
 Plan: .oh-no/plans/{slug}.md
 Status: pending approval
+Next skill: oh-no-harness:{recommended-next-skill}
 
 Goal:
 {one or two sentences}
@@ -130,6 +131,35 @@ Approval choices should be:
 - approve orchestration with `autopilot`
 - request plan changes
 - stop with the plan pending approval
+
+## Next Skill Handoff
+
+<HARD-GATE>
+Do NOT invoke `ralph`, `autopilot`, or any other workflow skill after presenting the plan until the user has explicitly approved the plan AND chosen the next step. Skill chaining in Oh No Harness is approval-gated, not automatic.
+</HARD-GATE>
+
+This handoff has two phases. On platforms with task tracking (Claude Code `TodoWrite` / `TaskCreate`), create one task per phase below and complete them sequentially. Do not collapse them into a single response or skip the user-confirmation phases.
+
+### Phase 1: Plan content approval
+
+The Plan Approval Brief above is the user-facing review request. Wait for the user's explicit approval of the plan content before proceeding to Phase 2. If the user requests changes, revise the plan and re-present the brief. Keep the plan marked `pending approval` until the user approves.
+
+### Phase 2: Next skill choice
+
+Ask the user which next skill to invoke. On Claude Code, ask through `AskUserQuestion`. Use this option shape:
+
+- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with verification, review, cleanup, and final report
+- `oh-no-harness:autopilot` — orchestrate execution, QA, and final validation end-to-end
+- request plan changes — go back and revise the plan
+- stop with the plan pending approval
+
+End the question with "Which approach?".
+
+Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill via the Skill tool with the plan path as the task definition.
+
+### Autopilot exception
+
+If you were invoked from `autopilot`, complete Phase 1 (plan content approval still runs as a content-approval gate), but skip Phase 2's option-list question and return control to autopilot, which will move the workflow to its execute phase.
 
 ## Agent Roles
 

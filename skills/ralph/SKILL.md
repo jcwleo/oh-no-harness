@@ -218,3 +218,9 @@ Return:
 - Verification commands and results.
 - Review verdict.
 - Residual risk.
+
+## Final Handoff
+
+Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`deep-interview`, `ralplan`, `autopilot`). Further work needs a fresh user request and a new skill selection.
+
+Internal mid-loop skills used during the execution loop — `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, `systematic-debugging` — are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.

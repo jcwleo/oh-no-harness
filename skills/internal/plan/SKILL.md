@@ -55,6 +55,7 @@ Architect and Critic are sequential. Do not run them in parallel.
 
 Every plan must include:
 
+- a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
 - goal
 - scope and non-goals
 - files to create or modify
@@ -83,10 +84,7 @@ If TDD does not apply, the plan must say why: docs-only, config-only, generated 
 
 Without explicit user approval, planning stops with a pending plan.
 
-After approval, use one of these next skills:
-
-- `ralph` for concrete execution with verification and cleanup
-- `autopilot` for larger end-to-end orchestration
+After approval, follow `ralplan`'s Next Skill Handoff: ask the user which next skill to invoke (recommended `ralph`, alternative `autopilot`, request plan changes, or stop). Do not invoke any next skill until the user answers. The autopilot exception applies the same way as in `ralplan`: when invoked from `autopilot`, skip the per-step question and return control to autopilot.
 
 Do not implement directly from this internal planning skill unless the user explicitly changes the task scope.
 

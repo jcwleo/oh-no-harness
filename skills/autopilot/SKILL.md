@@ -123,6 +123,20 @@ Start with `deep-interview` when the prompt lacks:
 - constraints
 - concrete examples
 
+## Autopilot Exception
+
+Autopilot is the only context that may invoke `deep-interview`, `ralplan`, or `ralph` without the per-step transition question those skills normally require. The user opted into orchestration when they invoked autopilot, so each phase boundary moves automatically once the prior phase's content gate is satisfied.
+
+Content-approval gates inside the sub-skills still run:
+
+- `deep-interview` still has the user review the spec.
+- `ralplan` still has the user approve the plan.
+- `ralph` still runs `verification-before-completion` before any final completion claim.
+
+What autopilot skips is only the "which next skill?" question — never the content gate.
+
+If the user invokes `deep-interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
+
 ## Output
 
 Return:

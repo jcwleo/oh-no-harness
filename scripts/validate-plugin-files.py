@@ -52,6 +52,19 @@ WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
     "systematic-debugging",
 }
 
+# Skills whose body must declare a Next Skill Handoff section. The markers are
+# structural: the heading tags the section, "HARD-GATE" tags the negative
+# framing that forbids auto-invocation, and "Autopilot exception" tags the
+# escape hatch documented for autopilot orchestration. Keep this contract in
+# lockstep with skills/autopilot/SKILL.md and skills/using-oh-no-harness/SKILL.md.
+NEXT_SKILL_GATE_REQUIRED = {"deep-interview", "ralplan"}
+NEXT_SKILL_GATE_MARKERS = (
+    "## Next Skill Handoff",
+    "HARD-GATE",
+    "Autopilot exception",
+)
+AUTOPILOT_EXCEPTION_HEADING = "## Autopilot Exception"
+
 
 def die(message: str) -> None:
     raise SystemExit(f"ERROR: {message}")
@@ -97,6 +110,15 @@ def assert_skill(root: Path, skill: str) -> None:
         die(f"{path} should define argument-hint")
     if skill == "internal/plan" and fm.get("user-invocable") != "false":
         die(f"{path} should set user-invocable: false")
+    if skill in NEXT_SKILL_GATE_REQUIRED:
+        body = read_text(path)
+        for marker in NEXT_SKILL_GATE_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Next-Skill-Gate marker: {marker!r}")
+    if skill == "autopilot":
+        body = read_text(path)
+        if AUTOPILOT_EXCEPTION_HEADING not in body:
+            die(f"{path} is missing required heading: {AUTOPILOT_EXCEPTION_HEADING!r}")
 
 
 def assert_agent(root: Path, agent: str) -> None:
