@@ -1,0 +1,14 @@
+{
+  "name": "oh-no-harness",
+  "description": "Self-hosted marketplace for the oh-no-harness coding workflow plugin (deep-interview, ralplan, ralph, autopilot, TDD, debugging, verification, cleanup).",
+  "owner": {
+    "name": "jcwleo"
+  },
+  "plugins": [
+    {
+      "name": "oh-no-harness",
+      "description": "Lightweight Markdown-first coding workflow harness for Claude Code.",
+      "source": "./"
+    }
+  ]
+}

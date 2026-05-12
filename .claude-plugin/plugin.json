@@ -1,0 +1,31 @@
+{
+  "name": "oh-no-harness",
+  "description": "Lightweight Markdown-first coding workflow harness for Claude Code (deep-interview, ralplan, ralph, autopilot, TDD, debugging, verification, cleanup).",
+  "version": "0.2.0",
+  "author": {
+    "name": "oh-no-harness maintainers"
+  },
+  "homepage": "https://github.com/jcwleo/oh-no-harness",
+  "repository": "https://github.com/jcwleo/oh-no-harness",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "planning",
+    "tdd",
+    "debugging",
+    "verification",
+    "coding-workflow"
+  ],
+  "skills": [
+    "./skills/using-oh-no-harness/",
+    "./skills/deep-interview/",
+    "./skills/ralplan/",
+    "./skills/ralph/",
+    "./skills/autopilot/",
+    "./skills/auto-routing/",
+    "./skills/test-driven-development/",
+    "./skills/ai-slop-cleaner/",
+    "./skills/verification-before-completion/",
+    "./skills/systematic-debugging/"
+  ]
+}
