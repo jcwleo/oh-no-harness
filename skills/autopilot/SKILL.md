@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span deep-interview, planning, execution, QA, cleanup, and validation.
+description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span interview, planning, execution, QA, cleanup, and validation.
 argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 ---
 
@@ -14,13 +14,13 @@ Each phase is chosen explicitly from this Markdown workflow. There is no hidden 
 
 Autopilot is the end-to-end orchestration stage for LLM software development.
 
-Use it when one request should drive the full sequence: `deep-interview` for requirements, `ralplan` for planning, `ralph` for execution, QA/debugging, cleanup, final verification, and report.
+Use it when one request should drive the full sequence: `interview` for requirements, `ralplan` for planning, `ralph` for execution, QA/debugging, cleanup, final verification, and report.
 
 ## When To Use
 
 Use when:
 
-- the task spans deep-interview, planning, implementation, and validation
+- the task spans interview, planning, implementation, and validation
 - the user asks for autonomous delivery
 - existing specs or plans can drive execution
 - the work is too broad for a single direct edit
@@ -36,9 +36,9 @@ Before asking new questions, check:
 .oh-no/plans/
 ```
 
-If a relevant deep-interview spec exists, use it as the approved requirement source and move to planning.
+If a relevant interview spec exists, use it as the approved requirement source and move to planning.
 
-If a relevant consensus plan exists, skip deep-interview and planning, then move to execution.
+If a relevant consensus plan exists, skip interview and planning, then move to execution.
 
 If the existing plan lacks an execution profile, read
 `docs/shared/execution-modes.md` and set the missing profile before execution.
@@ -51,11 +51,11 @@ Write transient orchestration notes under:
 
 ## Agent Roles
 
-Autopilot normally reaches most roles by reading and following `deep-interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), according to Ralph's selected execution mode and `## Mode-Gated Agent Dispatch`. The phase boundaries below still hold either way.
+Autopilot normally reaches most roles by reading and following `interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when authorized per `using-oh-no-harness`), according to Ralph's selected execution mode and `## Mode-Gated Agent Dispatch`. The phase boundaries below still hold either way.
 
 | Phase | Agents |
 |---|---|
-| Deep Interview | Follow `deep-interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
+| Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then `analyst`, `planner`, `architect`, and `critic`. Architect always completes before Critic. The plan must set the Ralph execution profile. |
 | Execute | Follow `ralph`; dispatch or inline `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk. |
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
@@ -65,9 +65,9 @@ When inline work can run in parallel, read `docs/shared/parallel-subagents.md` a
 
 ## Phases
 
-### Phase 0: Deep Interview
+### Phase 0: Interview
 
-If the request is vague, read and follow `deep-interview` as the next skill, then resume from the resulting spec.
+If the request is vague, read and follow `interview` as the next skill, then resume from the resulting spec.
 
 If the request already has a clear spec, record the spec path and move to planning.
 
@@ -124,7 +124,7 @@ Write a final report with:
 
 ## Vague Request Signals
 
-Start with `deep-interview` when the prompt lacks:
+Start with `interview` when the prompt lacks:
 
 - target files or subsystem
 - acceptance criteria
@@ -135,17 +135,17 @@ Start with `deep-interview` when the prompt lacks:
 
 ## Autopilot Exception
 
-Autopilot is the only context that may invoke `deep-interview`, `ralplan`, or `ralph` without the per-step transition question those skills normally require. The user opted into orchestration when they invoked autopilot, so each phase boundary moves automatically once the prior phase's content gate is satisfied.
+Autopilot is the only context that may invoke `interview`, `ralplan`, or `ralph` without the per-step transition question those skills normally require. The user opted into orchestration when they invoked autopilot, so each phase boundary moves automatically once the prior phase's content gate is satisfied.
 
 Content-approval gates inside the sub-skills still run:
 
-- `deep-interview` still has the user review the spec.
+- `interview` still has the user review the spec.
 - `ralplan` still has the user approve the plan.
 - `ralph` still runs `verification-before-completion` before any final completion claim.
 
 What autopilot skips is only the "which next skill?" question between phases. It does not skip content review, plan approval, verification, or final evidence gates.
 
-If the user invokes `deep-interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
+If the user invokes `interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
 
 ## Output
 

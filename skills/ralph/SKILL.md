@@ -15,7 +15,7 @@ written.
 
 Ralph is the implementation and integration stage for LLM software development.
 
-Use it after requirements are clear enough to execute: an approved `deep-interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns execution mode selection or enforcement, story execution, TDD enforcement, debugging handoff, verification, review, cleanup, and final reporting.
+Use it after requirements are clear enough to execute: an approved `interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns execution mode selection or enforcement, story execution, TDD enforcement, debugging handoff, verification, review, cleanup, and final reporting.
 
 ## When To Use
 
@@ -27,7 +27,7 @@ Use when:
 - the task needs durable progress tracking
 - the work should not stop at "probably done"
 
-Do not use when requirements are still vague. Use `deep-interview` or `ralplan` first.
+Do not use when requirements are still vague. Use `interview` or `ralplan` first.
 
 ## Artifacts
 
@@ -57,7 +57,7 @@ Execution mode source priority:
 
 1. approved `ralplan` execution profile
 2. explicit user instruction
-3. approved `deep-interview` provisional sizing hint when direct Ralph was chosen
+3. approved `interview` provisional sizing hint when direct Ralph was chosen
 4. Ralph-derived mode using the Execution Mode Decision Prompt
 
 If no approved plan profile exists, answer the Execution Mode Decision Prompt
@@ -171,7 +171,7 @@ For each story, record:
 
 ## Mode-Gated Agent Dispatch
 
-This section governs *agent role* dispatch only. Workflow-skill chaining (`deep-interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
+This section governs *agent role* dispatch only. Workflow-skill chaining (`interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
 
 Ralph must follow the selected execution mode and agent policy:
 
@@ -305,6 +305,6 @@ Return:
 
 ## Final Handoff
 
-Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`deep-interview`, `ralplan`, `autopilot`). Further work needs a fresh user request and a new skill selection.
+Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`interview`, `ralplan`, `autopilot`). Further work needs a fresh user request and a new skill selection.
 
 Internal mid-loop skills used during the execution loop — `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, `systematic-debugging` — are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.

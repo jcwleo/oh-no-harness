@@ -12,7 +12,7 @@ Oh No Harness is a lightweight skill harness. Claude Code may receive this skill
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `deep-interview`, `ralplan`, `ralph`, debugging, TDD, cleanup, verification, or a direct small edit.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, debugging, TDD, cleanup, verification, or a direct small edit.
 
 ## Core Rule
 
@@ -20,11 +20,11 @@ Before any response or action, including clarification questions, check whether 
 
 If there is even a small chance that a local skill applies, read that skill before responding and follow it directly. If the selected skill turns out not to apply, say so briefly and continue with the next best path.
 
-Needing more context is not a reason to skip skill selection. It is often the signal that `deep-interview`, `ralplan`, `systematic-debugging`, or another local skill should be read first.
+Needing more context is not a reason to skip skill selection. It is often the signal that `interview`, `ralplan`, `systematic-debugging`, or another local skill should be read first.
 
 The available public skills are:
 
-- `deep-interview`: clarify vague product, design, or engineering requests into an approved spec.
+- `interview`: clarify vague product, design, or engineering requests into an approved spec.
 - `ralplan`: create a consensus implementation plan before execution.
 - `ralph`: execute a concrete PRD or approved plan until acceptance criteria and verification are satisfied.
 - `autopilot`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
@@ -39,7 +39,7 @@ The available public skills are:
 For LLM software development, prefer this order when the request is not already a small, concrete edit:
 
 1. `using-oh-no-harness`: route the request and choose the right workflow surface.
-2. `deep-interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
+2. `interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
 3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, required Ralph execution mode, risk handling, and verification strategy.
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside implementation before behavior-changing production edits and bug fixes.
@@ -47,22 +47,22 @@ For LLM software development, prefer this order when the request is not already 
 7. `ai-slop-cleaner`: clean AI-generated residue only after behavior is locked and functional review has passed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
-Small concrete tasks may skip `deep-interview` and `ralplan`, but `ralph` still
+Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
 must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
 
-When describing the staged workflow, call the requirements-discovery stage `deep-interview`, not a generic clarify phase.
+When describing the staged workflow, call the requirements-discovery stage `interview`, not a generic clarify phase.
 
-## Deep Interview Gate
+## Interview Gate
 
 Before asking the user a clarification, scope, preference, or approval question:
 
-1. Check whether the question exists because the request is broad, vague, ambiguous, or missing requirements, constraints, acceptance criteria, or user intent. If yes, read and follow `deep-interview` first.
+1. Check whether the question exists because the request is broad, vague, ambiguous, or missing requirements, constraints, acceptance criteria, or user intent. If yes, read and follow `interview` first.
 2. Check whether the question exists because the implementation strategy, sequencing, architecture, risk, or tradeoff is unclear. If yes, read and follow `ralplan` first.
 3. Check whether the question is part of an already-selected workflow skill. If yes, ask it through that skill's rules.
 
-Do not ask raw clarification questions for vague work before reading `deep-interview`, unless the user explicitly tells you not to use the skill.
+Do not ask raw clarification questions for vague work before reading `interview`, unless the user explicitly tells you not to use the skill.
 
 ## Skill Chaining
 
@@ -70,11 +70,11 @@ Skill chaining is explicit Markdown guidance, not hidden automation.
 
 When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the user and wait for an explicit choice before invoking the next workflow skill. Do not auto-invoke the next workflow skill, even when a single recommended choice is named. The user's answer is the trigger.
 
-Workflow skills (`deep-interview`, `ralplan`, `ralph`) currently define this handoff. The recommended path is `deep-interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
+Workflow skills (`interview`, `ralplan`, `ralph`) currently define this handoff. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
 
 Internal mid-loop skills used inside an already-invoked workflow skill — for example `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop — are part of that skill's documented procedure and do not require a separate per-step transition question.
 
-The single exception is `autopilot`. When the user invokes `autopilot`, autopilot may move between `deep-interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
+The single exception is `autopilot`. When the user invokes `autopilot`, autopilot may move between `interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
 
 If the user overrides any recommendation, follow the user's instruction unless it would violate safety or repository constraints.
 

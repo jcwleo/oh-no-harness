@@ -18,7 +18,7 @@ RUN_DIR="${OH_NO_TEST_RUN_DIR:-${PLUGIN_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
-  deep-interview
+  interview
   ralplan
   ralph
   autopilot
@@ -271,8 +271,8 @@ live_prompt_for_skill() {
     using-oh-no-harness)
       printf 'Use the oh-no-harness:using-oh-no-harness skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK using-oh-no-harness.'
       ;;
-    deep-interview)
-      printf 'Use the oh-no-harness:deep-interview skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK deep-interview.'
+    interview)
+      printf 'Use the oh-no-harness:interview skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK interview.'
       ;;
     ralplan)
       printf 'Use the oh-no-harness:ralplan skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan.'
@@ -359,8 +359,8 @@ run_live_tests() {
 
 deep_prompt_for_skill() {
   case "$1" in
-    deep-interview)
-      printf 'Use the oh-no-harness:deep-interview skill. Deep smoke test only. Read the linked Optional Company Context reference before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, and whether remote/global systems should be searched for it. End with OH_NO_CODEX_DEEP_OK deep-interview.'
+    interview)
+      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
       printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CODEX_DEEP_OK ralplan.'
@@ -385,11 +385,15 @@ path, skill = sys.argv[1], sys.argv[2]
 text = open(path, "r", encoding="utf-8").read()
 
 expected = {
-    "deep-interview": [
-        "OH_NO_CODEX_DEEP_OK deep-interview",
+    "interview": [
+        "OH_NO_CODEX_DEEP_OK interview",
         "already available",
         "advisory",
         "Do not search remote systems",
+        "Question Routing",
+        "Answer Capture",
+        "Spec Readiness Guard",
+        "Goal Restatement Gate",
     ],
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
@@ -412,7 +416,7 @@ expected = {
     ],
     "autopilot": [
         "OH_NO_CODEX_DEEP_OK autopilot",
-        ".oh-no/specs/deep-interview-{slug}.md",
+        ".oh-no/specs/interview-{slug}.md",
         "five complete loops",
         "execution mode and mode source",
         "Cleanup And Final Verification",
@@ -478,7 +482,7 @@ run_deep_live_tests() {
 
   log "Running deep Codex linked-doc smoke tests"
   mkdir -p "$RUN_DIR"
-  for skill in deep-interview ralplan ralph autopilot; do
+  for skill in interview ralplan ralph autopilot; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"

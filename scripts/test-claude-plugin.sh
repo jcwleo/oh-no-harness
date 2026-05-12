@@ -22,7 +22,7 @@ RUN_DIR="${OH_NO_TEST_RUN_DIR:-${PLUGIN_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
-  deep-interview
+  interview
   ralplan
   ralph
   autopilot
@@ -326,8 +326,8 @@ if "OH_NO_AUTO_ROUTING" in text:
     raise SystemExit("legacy auto-routing tag was present while config is unset")
 if "Before any response or action, including clarification questions" not in text:
     raise SystemExit("base bootstrap is missing skill-before-clarification guidance")
-if "Do not ask raw clarification questions for vague work before reading `deep-interview`" not in text:
-    raise SystemExit("base bootstrap is missing deep-interview-before-clarification guidance")
+if "Do not ask raw clarification questions for vague work before reading `interview`" not in text:
+    raise SystemExit("base bootstrap is missing interview-before-clarification guidance")
 PY
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-on.json"
@@ -445,8 +445,8 @@ live_prompt_for_skill() {
     using-oh-no-harness)
       printf '/using-oh-no-harness Smoke test only. Do not use tools or edit files. Reply in one short sentence that names this harness.'
       ;;
-    deep-interview)
-      printf '/deep-interview --quick Build a tiny note-taking feature. Smoke test only; do not use tools or edit files. Reply with the first clarification question you would ask.'
+    interview)
+      printf '/interview --quick Build a tiny note-taking feature. Smoke test only; do not use tools or edit files. Reply with the first clarification question you would ask.'
       ;;
     ralplan)
       printf '/ralplan Add a small smoke-test feature to an existing app. Smoke test only; do not use tools or edit files. Reply with the planning artifact you would create and the approval gate.'
@@ -524,7 +524,7 @@ PY
 
 run_live_hook_test() {
   local out_file="$RUN_DIR/hook-policy-${LIVE_LOAD_MODE}.jsonl"
-  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If they include both a Claude Code-only policy telling you to use AskUserQuestion for clarification, preference, scope, or approval questions when available, and Oh No Harness guidance to check local skills before clarification questions and read deep-interview before raw vague-work clarifications, reply exactly OH_NO_HOOK_POLICY_PRESENT. Otherwise reply exactly OH_NO_HOOK_POLICY_MISSING."
+  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If they include both a Claude Code-only policy telling you to use AskUserQuestion for clarification, preference, scope, or approval questions when available, and Oh No Harness guidance to check local skills before clarification questions and read interview before raw vague-work clarifications, reply exactly OH_NO_HOOK_POLICY_PRESENT. Otherwise reply exactly OH_NO_HOOK_POLICY_MISSING."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -572,7 +572,7 @@ with open(path, "r", encoding="utf-8") as fh:
             has_question_policy = "CLAUDE_CODE_ONLY" in output and "AskUserQuestion" in output
             has_skill_first_policy = (
                 "Before any response or action, including clarification questions" in output
-                and "Do not ask raw clarification questions for vague work before reading `deep-interview`" in output
+                and "Do not ask raw clarification questions for vague work before reading `interview`" in output
             )
             if data.get("outcome") == "success" and has_question_policy and has_skill_first_policy:
                 successful_policy_hook_responses += 1
@@ -731,8 +731,8 @@ run_live_tests() {
 
 deep_prompt_for_skill() {
   case "$1" in
-    deep-interview)
-      printf '/deep-interview --quick Deep smoke test only. Read the linked Optional Company Context reference before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, and whether remote/global systems should be searched for it. End with OH_NO_CLAUDE_DEEP_OK deep-interview.'
+    interview)
+      printf '/interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.'
       ;;
     ralplan)
       printf '/ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
@@ -763,11 +763,15 @@ if data.get("is_error"):
 
 text = str(data.get("result", ""))
 expected = {
-    "deep-interview": [
-        "OH_NO_CLAUDE_DEEP_OK deep-interview",
+    "interview": [
+        "OH_NO_CLAUDE_DEEP_OK interview",
         "already available",
         "advisory",
         "Do not search remote systems",
+        "Question Routing",
+        "Answer Capture",
+        "Spec Readiness Guard",
+        "Goal Restatement Gate",
     ],
     "ralplan": [
         "OH_NO_CLAUDE_DEEP_OK ralplan",
@@ -790,7 +794,7 @@ expected = {
     ],
     "autopilot": [
         "OH_NO_CLAUDE_DEEP_OK autopilot",
-        ".oh-no/specs/deep-interview-{slug}.md",
+        ".oh-no/specs/interview-{slug}.md",
         "five complete loops",
         "execution mode and mode source",
         "Cleanup And Final Verification",
@@ -856,7 +860,7 @@ run_deep_live_tests() {
 
   log "Running deep Claude linked-doc smoke tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
-  for skill in deep-interview ralplan ralph autopilot; do
+  for skill in interview ralplan ralph autopilot; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"

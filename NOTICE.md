@@ -7,7 +7,7 @@ Oh No Harness adapts selected Markdown skill and agent content from:
 
 The first version intentionally keeps only the workflow content needed for:
 
-- `deep-interview`
+- `interview`
 - `ralplan`
 - `ralph`
 - `autopilot`

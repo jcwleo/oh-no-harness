@@ -5,7 +5,7 @@ This repository is a Markdown-first skill harness.
 Keep the external skill surface limited to:
 
 - `using-oh-no-harness`
-- `deep-interview`
+- `interview`
 - `ralplan`
 - `ralph`
 - `autopilot`

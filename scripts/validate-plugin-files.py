@@ -11,7 +11,7 @@ from pathlib import Path
 
 PUBLIC_SKILLS = [
     "using-oh-no-harness",
-    "deep-interview",
+    "interview",
     "ralplan",
     "ralph",
     "autopilot",
@@ -43,7 +43,7 @@ REQUIRED_SKILL_FIELDS = {"name", "description"}
 REQUIRED_COMMAND_FIELDS = {"description", "argument-hint"}
 WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
     "using-oh-no-harness",
-    "deep-interview",
+    "interview",
     "ralplan",
     "ralph",
     "autopilot",
@@ -64,7 +64,7 @@ COMMAND_DELEGATION_MARKER = (
 # framing that forbids auto-invocation, and "Autopilot exception" tags the
 # escape hatch documented for autopilot orchestration. Keep this contract in
 # lockstep with skills/autopilot/SKILL.md and skills/using-oh-no-harness/SKILL.md.
-NEXT_SKILL_GATE_REQUIRED = {"deep-interview", "ralplan"}
+NEXT_SKILL_GATE_REQUIRED = {"interview", "ralplan"}
 NEXT_SKILL_GATE_MARKERS = (
     "## Next Skill Handoff",
     "HARD-GATE",
@@ -97,8 +97,14 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "required Ralph execution mode",
         "must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode",
     ),
-    "deep-interview": (
+    "interview": (
         "## Execution Sizing Hint",
+        "## Socratic Interview Method",
+        "## Question Routing",
+        "## Answer Capture",
+        "## Dialectic Rhythm Guard",
+        "## Spec Readiness Guard",
+        "## Goal Restatement Gate",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
     ),

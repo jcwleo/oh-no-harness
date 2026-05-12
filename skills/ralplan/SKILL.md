@@ -14,7 +14,7 @@ It owns the consensus planning workflow directly and keeps planning separate fro
 
 Ralplan is the design and implementation-planning stage for LLM software development.
 
-Use it after `deep-interview` has produced an approved spec, or when the user already gave a clear but broad engineering task. Ralplan should decide scope, sequencing, file ownership, TDD expectations, verification, rollout, and risk handling before `ralph` executes.
+Use it after `interview` has produced an approved spec, or when the user already gave a clear but broad engineering task. Ralplan should decide scope, sequencing, file ownership, TDD expectations, verification, rollout, and risk handling before `ralph` executes.
 
 ## Goal
 

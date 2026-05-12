@@ -11,7 +11,7 @@ Mode is required for every handoff to `ralph`.
 
 ## Ownership
 
-`deep-interview` may write only a provisional sizing hint. It should identify
+`interview` may write only a provisional sizing hint. It should identify
 scope and risk signals, but it must not turn requirements discovery into an
 implementation plan.
 
@@ -161,7 +161,7 @@ risk surface.
 
 ## Artifact Fields
 
-Deep Interview specs should include:
+Interview specs should include:
 
 ```text
 Execution sizing hint:

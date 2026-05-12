@@ -28,7 +28,7 @@ auto-routing
   -> writes persistent user preference for stronger SessionStart skill-selection guidance
   -> hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
 
-deep-interview
+interview
   -> explore for brownfield context
   -> docs/shared/execution-modes.md for provisional Ralph sizing
   -> ralplan after approval for consensus planning
@@ -62,7 +62,7 @@ ralph
   -> verification-before-completion before final completion claims
 
 autopilot
-  -> deep-interview stage when requirements are vague
+  -> interview stage when requirements are vague
   -> ralplan for planning
   -> ralph for mode-gated execution and verification
   -> test-driven-development when execution is handled inline and behavior changes
@@ -97,8 +97,8 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
-| `explore` | `deep-interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `architect`, `debugger`, `verifier` |
-| `analyst` | `ralplan`, `autopilot` | `deep-interview`, `ralplan`, `planner`, `architect`, `critic` |
+| `explore` | `interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `architect`, `debugger`, `verifier` |
+| `analyst` | `ralplan`, `autopilot` | `interview`, `ralplan`, `planner`, `architect`, `critic` |
 | `planner` | `ralplan` | `explore`, `analyst`, `architect`, `critic` |
 | `architect` | `ralplan`, `ralph`, `autopilot` | `critic`, `qa-tester`, `verifier` |
 | `critic` | `ralplan`, optional Ralph review, review gates | `planner`, `analyst`, `architect`, `executor`, `security-reviewer` |

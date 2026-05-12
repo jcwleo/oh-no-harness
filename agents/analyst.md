@@ -19,7 +19,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Identify user goals, non-goals, constraints, stakeholders, and acceptance signals.
 - Detect ambiguity, missing data, hidden coupling, and risk.
 - Convert vague requests into concrete decision points.
-- Recommend to the calling skill when `deep-interview` or `ralplan` should be used before execution.
+- Recommend to the calling skill when `interview` or `ralplan` should be used before execution.
 
 ## Operating Rules
 
@@ -35,4 +35,4 @@ Return:
 - Clarified objective.
 - Ambiguities and questions.
 - Risks and constraints.
-- Suggested next step for the caller: `deep-interview`, `ralplan`, `planner`, `architect`, or `critic`.
+- Suggested next step for the caller: `interview`, `ralplan`, `planner`, `architect`, or `critic`.

@@ -20,7 +20,7 @@ The project will not port OMC's keyword detector, persistent mode hooks, PreTool
 The external skill surface is intentionally small:
 
 - `using-oh-no-harness`
-- `deep-interview`
+- `interview`
 - `ralplan`
 - `ralph`
 - `autopilot`
@@ -123,7 +123,7 @@ oh-no-harness/
   skills/
     using-oh-no-harness/
       SKILL.md
-    deep-interview/
+    interview/
       SKILL.md
     ralplan/
       SKILL.md
@@ -168,7 +168,7 @@ oh-no-harness/
 SessionStart
   -> using-oh-no-harness
 
-deep-interview
+interview
   -> ralplan
   -> ralph
   -> autopilot
@@ -180,7 +180,7 @@ ralplan
   -> ralph or autopilot
 
 autopilot
-  -> deep-interview when requirements are vague
+  -> interview when requirements are vague
   -> ralplan for planning
   -> ralph for execution and verification
   -> inline QA loop
@@ -208,15 +208,16 @@ Bootstrap skill. It establishes:
 - OMC-derived skill names in this project are local `oh-no-harness` skills, not `/oh-my-claudecode:*` commands.
 - There is no runtime persistent mode safety net; if a skill says to continue, the agent must continue by following the Markdown workflow.
 
-### `deep-interview`
+### `interview`
 
-Derived from OMC `deep-interview`, but simplified:
+Derived from OMC requirements-discovery workflow content, but simplified:
 
 - Keep Socratic interview, ambiguity scoring, prompt-safe summaries, brownfield exploration, and approval-gated handoff.
+- Add lightweight Socratic safeguards from Ouroboros-style interview flows: route code facts, research facts, and user-judgment questions separately; preserve material answers as decisions, reasoning, constraints, non-goals, and code context; require a spec-readiness check and one-sentence goal restatement before handoff.
 - Keep `explore` agent usage for brownfield context.
 - Remove `autoresearch` path.
 - Remove `team` path.
-- Replace `.omc/specs/deep-interview-{slug}.md` with `.oh-no/specs/deep-interview-{slug}.md` for durable specs.
+- Use `.oh-no/specs/interview-{slug}.md` for durable specs.
 - Replace `state_write` persistence with lightweight written artifacts only.
 - Handoff options:
   - refine with `ralplan`
@@ -290,13 +291,13 @@ Remove:
 
 Keep:
 
-- vague request expansion through `deep-interview`
+- vague request expansion through `interview`
 - planning through `ralplan`
 - execution/verification through `ralph`
 - analyst/architect/critic/executor/debugger/reviewer agent roles
 - build/lint/test QA loop, inline inside `autopilot`
 
-Autopilot should detect existing `deep-interview` specs and `ralplan` plans using the new artifact paths, not `.omc/` paths.
+Autopilot should detect existing `interview` specs and `ralplan` plans using the new artifact paths, not `.omc/` paths.
 
 ### `ai-slop-cleaner`
 
@@ -453,7 +454,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
 - No keyword detector, persistent-mode hook, bridge hook, or Stop hook exists.
 - External skills are limited to:
   - `using-oh-no-harness`
-  - `deep-interview`
+  - `interview`
   - `ralplan`
   - `ralph`
   - `autopilot`
@@ -483,7 +484,7 @@ The implementation should proceed in small stages:
 5. Copy/adapt skills in dependency order:
    - `ai-slop-cleaner`
    - `ralplan`
-   - `deep-interview`
+   - `interview`
    - `ralph`
    - `autopilot`
 6. Run unsupported-reference scans.

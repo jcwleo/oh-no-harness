@@ -16,6 +16,8 @@
 - **외부 의존성 최소화.** tmux도, 데몬도, 별도 CLI도 필요 없습니다. Claude Code는 `SessionStart` 훅 하나, Codex는 표준 skill 캐시만 사용합니다.
 - **Skill _+_ 전문 에이전트.** 10개 공개 워크플로우 skill이 소프트웨어 개발 단계를 소유하고, 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)가 그 안에서 분석·실행·리뷰를 담당합니다.
 - **Claude 슬래시 명령은 skill을 그대로 감쌉니다.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출하고, 실제 지시는 canonical `skills/<name>/SKILL.md`로 위임합니다.
+- **소크라테스식 요구사항 발견.** `/interview`는 코드 사실, 리서치 사실, 사용자 판단 질문을 분리하고, 스펙 작성 전에 결정·제약·비범위를 보존합니다.
+- **Mode-gated 실행.** 스펙과 계획은 작업을 `LIGHT`, `STANDARD`, `THOROUGH`로 산정하고, Ralph는 선택된 모드를 기록한 뒤 그 모드에 맞춰 실행합니다.
 - **Auto-routing은 skill-first 가이드를 강화.** `/auto-routing on` 한 번이면 Claude Code가 응답, 질문, 수정 전에 적절한 skill을 먼저 확인하도록 안내합니다. 숨겨진 모드 상태를 만들거나 승인 게이트를 건너뛰지는 않습니다.
 - **자연어로 작업을 시작.** 일반 문장으로 작업을 설명하면 시작할 수 있습니다. skill 간 전환은 명시적으로 유지되고, `/autopilot`은 인터뷰·계획·실행·검증을 한 요청으로 묶고 싶을 때 쓰는 opt-in 경로입니다.
 
@@ -70,10 +72,10 @@ codex plugin marketplace upgrade oh-no-harness
 
 | Skill | 언제 쓰면 좋은가 |
 |---|---|
-| `/deep-interview <모호한 작업>` | 요청이 막연하거나 요구사항이 부족할 때. `.oh-no/specs/`에 스펙이 저장됩니다. |
+| `/interview <모호한 작업>` | 요청이 막연하거나 요구사항이 부족할 때. 소크라테스식 인터뷰 후 `.oh-no/specs/`에 임시 Ralph 모드가 포함된 스펙이 저장됩니다. |
 | `/ralplan <작업 또는 스펙>` | 광범위하거나 위험도가 높고, 여러 파일에 걸치는 작업이라 코딩 전 계획·승인이 필요할 때. `.oh-no/plans/`에 계획이 저장됩니다. |
-| `/ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업. 검증까지 실행합니다. |
-| `/autopilot <요청>` | end-to-end 전달: deep-interview → ralplan → ralph → verification을 한 흐름으로. |
+| `/ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업. 실행 모드를 설정하거나 읽은 뒤 검증까지 실행합니다. |
+| `/autopilot <요청>` | end-to-end 전달: interview → ralplan → ralph → verification을 한 흐름으로. |
 | `/test-driven-development <변경>` | 동작이 바뀌는 모든 수정. RED/GREEN/REFACTOR 사이클을 강제합니다. |
 | `/systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/verification-before-completion` | "완료" / "수정됨" / "준비됨"을 선언하기 전에. 새 증거를 요구합니다. |
@@ -104,7 +106,7 @@ codex plugin marketplace upgrade oh-no-harness
 
 작업 결과물은 `.oh-no/` 아래에 저장됩니다:
 
-- `.oh-no/specs/` — deep-interview 산출물
+- `.oh-no/specs/` — interview 산출물
 - `.oh-no/plans/` — ralplan 산출물
 - `.oh-no/sessions/` — 일시적인 워크플로우 상태
 - `.oh-no/test-runs/` — harness 테스트 로그

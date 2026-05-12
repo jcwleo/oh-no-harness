@@ -4,7 +4,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 
 ## Kept
 
-- `deep-interview`
+- `interview`
 - `ralplan`
 - `ralph`
 - `autopilot`

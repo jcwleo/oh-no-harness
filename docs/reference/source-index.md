@@ -8,7 +8,7 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `skills/ai-slop-cleaner/SKILL.md` | `omc/raw/skills/ai-slop-cleaner/SKILL.md` |
 | `skills/ralplan/SKILL.md` | `omc/raw/skills/ralplan/SKILL.md` plus `omc/raw/skills/plan/SKILL.md` consensus workflow content |
-| `skills/deep-interview/SKILL.md` | `omc/raw/skills/deep-interview/SKILL.md` |
+| `skills/interview/SKILL.md` | OMC requirements-discovery skill content, renamed locally |
 | `skills/ralph/SKILL.md` | `omc/raw/skills/ralph/SKILL.md` |
 | `skills/autopilot/SKILL.md` | `omc/raw/skills/autopilot/SKILL.md` |
 
@@ -36,7 +36,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/verification-tiers.md` | `omc/raw/docs/shared/verification-tiers.md` |
 | `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
 | `docs/shared/parallel-subagents.md` | local adaptation of OMC and Superpowers parallel-agent coordination guidance |
-| `docs/shared/execution-modes.md` | local execution-intensity contract for Deep Interview, Ralplan, Ralph, and Autopilot |
+| `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Autopilot |
 
 ## Superpowers-Derived Runtime Pattern
 
