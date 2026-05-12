@@ -13,13 +13,19 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 
 ## Highlights
 
-- **Minimal external dependencies.** No tmux, no daemon, no extra CLIs. Claude Code uses a single `SessionStart` hook; Codex uses the standard skill cache. That's it.
-- **Skills _plus_ specialized agents.** Ten public workflow skills own the software-development stages; 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`) supply focused analysis, execution, and review inside those skills.
-- **Claude slash commands mirror skills.** `commands/*.md` exposes the same 10 names with argument hints, then delegates to the canonical `skills/<name>/SKILL.md` instructions.
-- **Socratic requirements discovery.** `/interview` routes code facts, research facts, and user-judgment questions separately, preserving decisions, constraints, and non-goals before writing a spec.
-- **Mode-gated execution.** Specs and plans size work as `LIGHT`, `STANDARD`, or `THOROUGH`; Ralph must record the selected mode and follow that mode instead of applying the heaviest loop to every task.
-- **Auto-routing adds skill-first guidance.** Flip `/auto-routing on` once and Claude Code is reminded to check the right skill before raw clarification questions or edits. It does not add hidden mode state or skip approval gates.
-- **Just describe the task.** Plain natural-language input is enough to start. The harness keeps skill handoffs explicit, and `/autopilot` is the opt-in end-to-end path when you want one request to span interview, planning, execution, and validation.
+**🛠 Architecture**
+- **Minimal deps.** No tmux, no daemon — just one `SessionStart` hook (Claude Code) or the standard skill cache (Codex).
+- **Skills + agents.** 10 workflow skills backed by 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`).
+- **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to `skills/<name>/SKILL.md`.
+
+**🔁 Workflow**
+- **Socratic interview.** `/interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
+- **Mode-gated execution.** Specs and plans size work as `LIGHT` / `STANDARD` / `THOROUGH`; Ralph follows the recorded mode instead of always running the heaviest loop.
+- **Auto-routing.** `/auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
+
+**✨ Experience**
+- **Plain-language input.** Just describe the task; the harness keeps handoffs explicit.
+- **`/autopilot` for end-to-end.** Opt-in single command spanning interview → plan → execute → validate.
 
 ## Install
 
@@ -32,19 +38,27 @@ claude plugin marketplace add jcwleo/oh-no-harness
 claude plugin install oh-no-harness@oh-no-harness
 ```
 
-Or interactively:
+After install, run `/auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
+
+<details>
+<summary>Interactive install (inside Claude Code)</summary>
 
 ```text
 /plugin marketplace add jcwleo/oh-no-harness
 /plugin install oh-no-harness@oh-no-harness
 ```
 
-Update later:
+</details>
+
+<details>
+<summary>Update later</summary>
 
 ```sh
 claude plugin marketplace update oh-no-harness
 claude plugin update oh-no-harness@oh-no-harness
 ```
+
+</details>
 
 ### Codex
 
@@ -68,24 +82,22 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## Usage
 
-After install, invoke the same workflow names as slash commands. In Claude Code,
-thin `commands/*.md` wrappers provide autocomplete argument hints and then load
-the matching skill. Pick by what you have in hand:
+Each workflow is a slash command. In Claude Code, `commands/*.md` wrappers add autocomplete hints, then load the matching skill. Pick by what you have in hand:
 
 | Skill | Use when |
 |---|---|
-| `/interview <vague task>` | Request is vague or requirement-light. Runs a Socratic interview, then produces a spec with a provisional Ralph mode under `.oh-no/specs/`. |
-| `/ralplan <task or spec>` | Broad, risky, or cross-file work that needs a plan + approval before coding. Saves an execution profile to `.oh-no/plans/`. |
-| `/ralph <plan or ticket>` | Concrete task with clear acceptance criteria. Sets or reads the execution mode, then executes to verification. |
-| `/autopilot <request>` | End-to-end delivery: interview → ralplan → ralph → verification in one flow. |
-| `/test-driven-development <change>` | Any behavior-changing edit. Enforces RED/GREEN/REFACTOR. |
+| `/interview <vague task>` | Vague or requirement-light request — produces a spec with a provisional Ralph mode in `.oh-no/specs/`. |
+| `/ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
+| `/ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
+| `/autopilot <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
+| `/test-driven-development <change>` | Any behavior-changing edit — enforces RED / GREEN / REFACTOR. |
 | `/systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
-| `/verification-before-completion` | Before claiming "done"/"fixed"/"ready". Demands fresh evidence. |
-| `/ai-slop-cleaner` | After implementation, before delivery. Removes throwaway artifacts. |
+| `/verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
+| `/ai-slop-cleaner` | Post-implementation cleanup — removes throwaway artifacts. |
 | `/auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
 | `/using-oh-no-harness` | Top-level index — start here if you forget the others. |
 
-Not sure which to pick? Just describe the task; the harness will guide skill selection based on the request shape while keeping workflow handoffs explicit unless you chose `/autopilot`.
+Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/autopilot` when you want one request to span the full flow.
 
 ## Auto Routing (Claude Code)
 
