@@ -7,16 +7,50 @@
 
 **English** | [한국어](README.ko.md)
 
-A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Ten focused workflows for clarifying vague work, planning, executing with verification, debugging, and cleanup — no daemon, no hidden state.
+Your coding agent does not need another runtime. It needs a workflow it can actually read and follow.
+
+**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 stage skills** plus **11 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, without npm, tmux, MCP, or a terminal-only control plane.
+
+It sits between two extremes:
+
+- Not an `oh-my-*` runtime asking for a corner of your terminal.
+- Not a bare skill drawer where every phase feels like one more thing to pick.
+
+It is a text-native workflow harness: stage skills coordinate the handoffs; role agents handle focused passes for exploration, planning, execution, review, security, QA, and verification.
+
+- No `npm install -g`
+- No `npx` dance
+- No tmux window to keep alive
+- No custom CLI muscle memory
+- No MCP server to wire up before the work can start
+- No terminal-only workflow that falls apart in app or plugin UIs
+
+The runtime is deliberately boring: **text files your agent can read** — `skills/`, `agents/`, thin `commands/`, plugin manifests, and one optional Claude Code `SessionStart` hook.
+
+> [!NOTE]
+> If you can read Markdown, you can audit the harness. If you can follow a handoff, you can understand the workflow.
+
+Ten focused workflows help clarify vague work, plan, execute with verification, debug, and clean up — without a daemon, background service, or hidden state.
 
 Oh No Harness follows semantic versioning from `1.0.0`.
 
 ## Highlights
 
 **🛠 Architecture**
-- **Minimal deps.** No tmux, no daemon — just one `SessionStart` hook (Claude Code) or the standard skill cache (Codex).
+- **Plain text, not a sidecar.** No npm package, no project CLI, no tmux session manager, no MCP server. The behavior is Markdown you can read, diff, fork, and edit.
+- **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
+- **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
+- **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
 - **Skills + agents.** 10 workflow skills backed by 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`).
 - **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to `skills/<name>/SKILL.md`.
+
+| Too much | Too little | Oh No Harness |
+|---|---|---|
+| Start a sidecar runtime | Keep picking from a loose skill shelf | Install a native Claude Code / Codex plugin |
+| Learn a project CLI | Remember every phase by hand | Use a small stage surface: `interview`, `ralplan`, `ralph` |
+| Debug hooks, HUDs, MCP, tmux | Hope one skill has enough context | Let skills hand off to role agents with explicit evidence gates |
+| Stay in terminal-land | Lose structure in GUI hosts | Use the same text skills through native plugin discovery |
+| Operate a platform | Collect prompts | Review the Markdown that drives the workflow |
 
 **🔁 Workflow**
 - **Socratic interview.** `/oh-no-harness:interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
@@ -31,6 +65,11 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 
 The repository root is the marketplace. The plugin source lives under
 `plugins/oh-no-harness/`.
+
+There is no `npm install`, `npx`, tmux bootstrap, standalone `oh-no` binary, MCP server, setup daemon, or runtime doctor to run. The terminal commands below are just install paths; the workflow itself lives inside the host, including GUI/plugin surfaces such as Codex App.
+
+> [!TIP]
+> Install the plugin where your agent already looks, turn on auto-routing in Claude Code if you want stronger guidance, then work inside the host.
 
 ### Claude Code
 
@@ -69,9 +108,9 @@ Add the marketplace:
 codex plugin marketplace add jcwleo/oh-no-harness
 ```
 
-Then open `/plugins` in Codex, select **Oh No Harness** from the
-`oh-no-harness` marketplace, and install it. The plugin appears as
-`oh-no-harness@oh-no-harness`.
+Then open `/plugins` in Codex, or the Codex App plugin sidebar, select
+**Oh No Harness** from the `oh-no-harness` marketplace, and install it. The
+plugin appears as `oh-no-harness@oh-no-harness`.
 
 <details>
 <summary>Update later</summary>
@@ -114,6 +153,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 ## Privacy
 
 - Single `SessionStart` hook that injects skill text — no `UserPromptSubmit`/`PreToolUse`/`PostToolUse`.
+- No npm runtime, no custom CLI process, no tmux process, no MCP server.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
 - All commands, skills, and agents are plain Markdown. No daemon, no background process.
