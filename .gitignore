@@ -1,2 +1,3 @@
 .DS_Store
 .oh-no/
+__pycache__/

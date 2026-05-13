@@ -13,7 +13,8 @@ Claude Code slash command
   -> skills/<skill>/SKILL.md with raw $ARGUMENTS
 
 Codex
-  -> .codex-plugin/plugin.json
+  -> root .agents/plugins/marketplace.json
+  -> plugins/oh-no-harness/.codex-plugin/plugin.json
   -> skills/
   -> using-oh-no-harness through native skill discovery
 ```

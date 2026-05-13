@@ -8,7 +8,7 @@
     {
       "name": "oh-no-harness",
       "description": "Lightweight Markdown-first coding workflow harness for Claude Code.",
-      "source": "./"
+      "source": "./plugins/oh-no-harness"
     }
   ]
 }

@@ -9,18 +9,19 @@ The following CLIs must be on `PATH`:
 - `claude` (Claude Code CLI)
 - `codex` (Codex CLI)
 - `python3`
-- `rsync`
 
 ## Install your local checkout as a plugin
 
 Maintainers do **not** install from GitHub. Instead, register the working tree directly with both runtimes:
 
 ```sh
-# Claude Code: declare local marketplace + install in `local` scope.
+# Run from the repository root.
+
+# Claude Code: declare local marketplace + install in user scope by default.
 # Refreshes the plugin cache whenever the working tree differs from cache.
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
 
-# Codex: verify the generated marketplace bundle and exercise the /plugins install path.
+# Codex: exercise the /plugins install path from the root marketplace wrapper.
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
 ```
 
@@ -33,18 +34,17 @@ After this, both runtimes load skills, agents, and hooks from their installed pl
 
 ## Development cycle
 
-1. Edit `skills/*/SKILL.md`, `agents/*.md`, `hooks/session-start`, `scripts/*`, or docs.
-2. Run `scripts/sync-codex-plugin-bundle --write` if the change affects Codex-visible plugin content.
-3. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
-4. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
-5. Codex picks up changes on the next session.
+1. Edit files under `plugins/oh-no-harness/`: `skills/*/SKILL.md`, `agents/*.md`, `hooks/session-start`, `scripts/oh-no-config`, or docs.
+2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
+3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
+4. Codex picks up changes on the next session.
 
 ## Validate before pushing
 
 Fast static checks only (no installs):
 
 ```sh
-scripts/sync-codex-plugin-bundle --check
+# Run from the repository root.
 python3 scripts/validate-plugin-files.py .
 ```
 
@@ -84,7 +84,7 @@ What `--push` does end-to-end:
 
 1. Validates the version arg (semver: `0.2.2` or `v0.2.2`)
 2. Refuses if tree is dirty, you're not on `main`, or the tag exists locally/remote
-3. Rewrites `version` in `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`, then refreshes `plugins/oh-no-harness`
+3. Rewrites `version` in `plugins/oh-no-harness/.claude-plugin/plugin.json` and `plugins/oh-no-harness/.codex-plugin/plugin.json`
 4. Runs `validate-plugin-files.py` + Claude/Codex install tests
 5. Creates `chore: release v0.2.2` commit if version files changed
 6. Creates annotated tag `v0.2.2`
@@ -99,25 +99,24 @@ Skip flags:
 ## Repository layout
 
 ```text
-.claude-plugin/plugin.json        # Claude Code manifest (lists public skills and commands)
-.claude-plugin/marketplace.json   # Self-hosted marketplace (source: "./")
-.codex-plugin/plugin.json         # Codex manifest (skills: "./skills/")
+README.md                         # Marketplace wrapper README
+.claude-plugin/marketplace.json   # Claude marketplace manifest (source: "./plugins/oh-no-harness")
 .agents/plugins/marketplace.json  # Codex marketplace manifest (source: "./plugins/oh-no-harness")
-plugins/oh-no-harness/            # Generated Codex /plugins install bundle
-hooks/session-start               # SessionStart bootstrap (Claude Code only)
-hooks/run-hook.cmd                # Cross-platform polyglot wrapper
-commands/<name>.md                # Claude slash-command wrapper delegating to the matching skill
-skills/<name>/SKILL.md            # Public skill (10 total)
-agents/<name>.md                  # Subagent prompts (Claude-native, Codex-routable)
+plugins/oh-no-harness/.claude-plugin/plugin.json  # Claude Code plugin manifest
+plugins/oh-no-harness/.codex-plugin/plugin.json   # Codex plugin manifest
+plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap (Claude Code only)
+plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
+plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
+plugins/oh-no-harness/skills/<name>/SKILL.md       # Public skill (10 total)
+plugins/oh-no-harness/agents/<name>.md             # Subagent prompts
 scripts/release                   # Release helper
 scripts/test-claude-plugin.sh     # Claude Code install + smoke tests
 scripts/test-codex-plugin.sh      # Codex install + prompt-exposure + smoke tests
-scripts/sync-codex-plugin-bundle  # Refresh/check plugins/oh-no-harness
 scripts/validate-plugin-files.py  # Frontmatter and manifest static checks
-scripts/oh-no-config              # Auto-routing on/off persistence
-docs/reference/                   # Stable cross-skill references
-docs/shared/                      # Shared docs (agent tiers, parallel coordination, etc.)
-docs/specs/                       # Design specs
+plugins/oh-no-harness/scripts/oh-no-config         # Auto-routing on/off persistence
+plugins/oh-no-harness/docs/reference/              # Stable cross-skill references
+plugins/oh-no-harness/docs/shared/                 # Shared docs
+plugins/oh-no-harness/docs/specs/                  # Design specs
 ```
 
 ## Conventions

@@ -2,12 +2,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
+MARKETPLACE_ROOT="${OH_NO_MARKETPLACE_ROOT:-$REPO_ROOT}"
+PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$MARKETPLACE_ROOT/plugins/$PLUGIN_NAME}"
 PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
 REQUESTED_SCOPE="${OH_NO_PLUGIN_SCOPE:-}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
@@ -18,7 +20,7 @@ LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
 LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-1.00}"
 LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. Do not edit files or use tools.}"
-RUN_DIR="${OH_NO_TEST_RUN_DIR:-${PLUGIN_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
+RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
@@ -65,7 +67,7 @@ Options:
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
   --scope <scope>        Install/update scope: local, project, user, managed.
-                         Default: update existing scope if installed, otherwise local.
+                         Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
   --model <model>        Claude model alias for live tests. Default: sonnet.
   --max-budget-usd <n>   Per-command max budget for live tests. Default: 1.00.
@@ -212,7 +214,7 @@ assert_json_valid() {
 }
 
 validate_frontmatter() {
-  "$PYTHON_BIN" "$PLUGIN_ROOT/scripts/validate-plugin-files.py" "$PLUGIN_ROOT"
+  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/validate-plugin-files.py" "$MARKETPLACE_ROOT" "$PLUGIN_ROOT"
 }
 
 plugin_version() {
@@ -256,7 +258,6 @@ include_files = [
     "README.md",
     "AGENTS.md",
     ".claude-plugin/plugin.json",
-    ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",
 ]
 include_dirs = ["skills", "commands", "agents", "hooks", "scripts", "docs"]
@@ -370,10 +371,10 @@ PY
 validate_manifests() {
   log "Validating plugin manifests"
   assert_json_valid "$PLUGIN_ROOT/.claude-plugin/plugin.json"
-  assert_json_valid "$PLUGIN_ROOT/.claude-plugin/marketplace.json"
+  assert_json_valid "$MARKETPLACE_ROOT/.claude-plugin/marketplace.json"
   assert_json_valid "$PLUGIN_ROOT/.codex-plugin/plugin.json"
   "$CLAUDE_BIN" plugin validate "$PLUGIN_ROOT/.claude-plugin/plugin.json"
-  "$CLAUDE_BIN" plugin validate "$PLUGIN_ROOT/.claude-plugin/marketplace.json"
+  "$CLAUDE_BIN" plugin validate "$MARKETPLACE_ROOT/.claude-plugin/marketplace.json"
 }
 
 install_or_update_plugin() {
@@ -387,7 +388,7 @@ install_or_update_plugin() {
     target_scope="$installed_scope"
     ok "plugin already installed in ${target_scope} scope"
   else
-    target_scope="${REQUESTED_SCOPE:-local}"
+    target_scope="${REQUESTED_SCOPE:-user}"
     ok "plugin not installed; target scope is ${target_scope}"
   fi
 
@@ -403,7 +404,7 @@ install_or_update_plugin() {
     "$CLAUDE_BIN" plugin marketplace update "$MARKETPLACE_NAME"
     ok "marketplace updated: ${MARKETPLACE_NAME}"
   else
-    "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$PLUGIN_ROOT"
+    "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$MARKETPLACE_ROOT"
     ok "marketplace added: ${MARKETPLACE_NAME} (${target_scope})"
   fi
 
@@ -443,34 +444,34 @@ raise SystemExit(f"{plugin_id} not installed in {scope} scope after install/upda
 live_prompt_for_skill() {
   case "$1" in
     using-oh-no-harness)
-      printf '/using-oh-no-harness Smoke test only. Do not use tools or edit files. Reply in one short sentence that names this harness.'
+      printf '/%s:using-oh-no-harness Smoke test only. Do not use tools or edit files. Reply in one short sentence that names this harness.' "$PLUGIN_NAME"
       ;;
     interview)
-      printf '/interview --quick Build a tiny note-taking feature. Smoke test only; do not use tools or edit files. Reply with the first clarification question you would ask.'
+      printf '/%s:interview --quick Build a tiny note-taking feature. Smoke test only; do not use tools or edit files. Reply with the first clarification question you would ask.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/ralplan Add a small smoke-test feature to an existing app. Smoke test only; do not use tools or edit files. Reply with the planning artifact you would create and the approval gate.'
+      printf '/%s:ralplan Add a small smoke-test feature to an existing app. Smoke test only; do not use tools or edit files. Reply with the planning artifact you would create and the approval gate.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; do not use tools or edit files. Reply with how execution would proceed.'
+      printf '/%s:ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; do not use tools or edit files. Reply with how execution would proceed.' "$PLUGIN_NAME"
       ;;
     autopilot)
-      printf '/autopilot Deliver a small smoke-test workflow from vague request to verification. Smoke test only; do not use tools or edit files. Reply with the workflow stages you would orchestrate.'
+      printf '/%s:autopilot Deliver a small smoke-test workflow from vague request to verification. Smoke test only; do not use tools or edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
       ;;
     auto-routing)
-      printf '/auto-routing status Smoke test only. Do not use tools or edit files. Reply with what this skill configures and the three supported actions.'
+      printf '/%s:auto-routing status Smoke test only. Do not use tools or edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
       ;;
     test-driven-development)
-      printf '/test-driven-development Implement a small behavior change. Smoke test only; do not use tools or edit files. Reply with the TDD cycle steps you would follow.'
+      printf '/%s:test-driven-development Implement a small behavior change. Smoke test only; do not use tools or edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
       ;;
     ai-slop-cleaner)
-      printf '/ai-slop-cleaner --review Review a small diff for AI-generated code slop. Smoke test only; do not use tools or edit files. Reply with the cleanup categories you would check.'
+      printf '/%s:ai-slop-cleaner --review Review a small diff for AI-generated code slop. Smoke test only; do not use tools or edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
       ;;
     verification-before-completion)
-      printf '/verification-before-completion Smoke test only; do not use tools or edit files. Reply with the evidence gate you would apply before claiming completion.'
+      printf '/%s:verification-before-completion Smoke test only; do not use tools or edit files. Reply with the evidence gate you would apply before claiming completion.' "$PLUGIN_NAME"
       ;;
     systematic-debugging)
-      printf '/systematic-debugging A smoke test command is failing. Smoke test only; do not use tools or edit files. Reply with the debugging phases you would follow before fixing.'
+      printf '/%s:systematic-debugging A smoke test command is failing. Smoke test only; do not use tools or edit files. Reply with the debugging phases you would follow before fixing.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No live prompt for skill: $1"
@@ -514,8 +515,11 @@ with open(path, "r", encoding="utf-8") as fh:
 
 if data.get("is_error"):
     raise SystemExit(f"{skill} live smoke failed: {data.get('result')}")
-if not str(data.get("result", "")).strip():
+result = str(data.get("result", "")).strip()
+if not result:
     raise SystemExit(f"{skill} live smoke returned an empty result")
+if result.startswith("Unknown command:"):
+    raise SystemExit(f"{skill} live smoke did not resolve the Claude slash command: {result}")
 
 cost = data.get("total_cost_usd")
 print(f"ok - live skill smoke: {skill} cost={cost}")
@@ -718,7 +722,7 @@ run_live_tests() {
   run_live_auto_routing_test
 
   if [[ "$LIVE_HOOK_ONLY" == "1" ]]; then
-    ok "live hook output saved under ${RUN_DIR#$PLUGIN_ROOT/}"
+    ok "live hook output saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
     return
   fi
 
@@ -726,22 +730,22 @@ run_live_tests() {
   for skill in "${PUBLIC_SKILLS[@]}"; do
     run_live_skill_test "$skill"
   done
-  ok "live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"
+  ok "live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 deep_prompt_for_skill() {
   case "$1" in
     interview)
-      printf '/interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.'
+      printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CLAUDE_DEEP_OK ralplan.'
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.'
+      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     autopilot)
-      printf '/autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.'
+      printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -762,12 +766,14 @@ if data.get("is_error"):
     raise SystemExit(f"{skill} deep smoke failed: {data.get('result')}")
 
 text = str(data.get("result", ""))
+if text.strip().startswith("Unknown command:"):
+    raise SystemExit(f"{skill} deep smoke did not resolve the Claude slash command: {text!r}")
 expected = {
     "interview": [
         "OH_NO_CLAUDE_DEEP_OK interview",
         "already available",
         "advisory",
-        "Do not search remote systems",
+        "should not be searched",
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
@@ -780,13 +786,13 @@ expected = {
         "sequential",
         "Overall Ralph mode",
         "Task sizing",
-        "Execution profile recap",
+        "Execution profile",
     ],
     "ralph": [
         "OH_NO_CLAUDE_DEEP_OK ralph",
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
-        "Use base agent names",
+        "Use the base agent",
         "LIGHT",
         "STANDARD",
         "THOROUGH",
@@ -796,7 +802,7 @@ expected = {
         "OH_NO_CLAUDE_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
         "five complete loops",
-        "execution mode and mode source",
+        "Mode source",
         "Cleanup And Final Verification",
     ],
 }
@@ -812,7 +818,7 @@ linked_doc_markers = {
         "Required Behavior Lock",
     ],
     "autopilot": [
-        "execution mode and mode source",
+        "Mode source",
         "Cleanup And Final Verification",
     ],
 }
@@ -828,7 +834,12 @@ run_deep_live_skill_test() {
   local skill="$1"
   local out_file="$RUN_DIR/deep-${skill}.json"
   local prompt
+  local read_root="$PLUGIN_ROOT"
   prompt="$(deep_prompt_for_skill "$skill")"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -836,8 +847,9 @@ run_deep_live_skill_test() {
     --output-format json
     --model "$LIVE_MODEL"
     --max-budget-usd "$LIVE_MAX_BUDGET_USD"
-    --permission-mode dontAsk
+    --permission-mode bypassPermissions
     --tools default
+    --add-dir "$read_root"
     --no-session-persistence
     --system-prompt "You are a read-only deep smoke test runner. You may read local files needed by the invoked skill. Do not edit files or create artifacts."
   )
@@ -863,7 +875,7 @@ run_deep_live_tests() {
   for skill in interview ralplan ralph autopilot; do
     run_deep_live_skill_test "$skill"
   done
-  ok "deep live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"
+  ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 main() {

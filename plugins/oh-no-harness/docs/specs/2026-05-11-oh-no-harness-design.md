@@ -63,9 +63,10 @@ These capabilities can be revisited later as optional extensions if the Markdown
 Claude Code support follows the Superpowers pattern:
 
 ```text
-.claude-plugin/
-  plugin.json
+root .claude-plugin/
   marketplace.json
+plugins/oh-no-harness/.claude-plugin/
+  plugin.json
 hooks/
   hooks.json
   run-hook.cmd
@@ -81,7 +82,8 @@ No skill-to-skill runtime enforcement hook will be installed.
 Codex support follows the Superpowers plugin manifest pattern:
 
 ```text
-.codex-plugin/
+root .agents/plugins/marketplace.json
+plugins/oh-no-harness/.codex-plugin/
   plugin.json
 ```
 
@@ -92,12 +94,11 @@ The manifest will point to `./skills/`. Codex will rely on native skill discover
 ```text
 README.md
 AGENTS.md
-skills/
-agents/
-docs/
+plugins/oh-no-harness/
 ```
 
-`AGENTS.md` will provide repository-level instructions for working on `oh-no-harness` itself. It must not import OMC's full runtime assumptions.
+Root `AGENTS.md` provides marketplace-wrapper instructions. The plugin
+instructions live in `plugins/oh-no-harness/AGENTS.md`.
 
 ## Directory Structure
 
@@ -109,25 +110,30 @@ oh-no-harness/
   AGENTS.md
 
   .claude-plugin/
-    plugin.json
     marketplace.json
 
-  .codex-plugin/
-    plugin.json
+  .agents/plugins/
+    marketplace.json
 
-  hooks/
-    hooks.json
-    run-hook.cmd
-    session-start
+  plugins/
+    oh-no-harness/
+      .claude-plugin/
+        plugin.json
+      .codex-plugin/
+        plugin.json
+      hooks/
+        hooks.json
+        run-hook.cmd
+        session-start
 
-  skills/
-    using-oh-no-harness/
-      SKILL.md
-    interview/
-      SKILL.md
-    ralplan/
-      SKILL.md
-    ralph/
+      skills/
+        using-oh-no-harness/
+          SKILL.md
+        interview/
+          SKILL.md
+        ralplan/
+          SKILL.md
+        ralph/
       SKILL.md
     autopilot/
       SKILL.md
@@ -448,7 +454,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
 
 ## Acceptance Criteria
 
-- `oh-no-harness/` has Claude Code and Codex plugin metadata.
+- `plugins/oh-no-harness/` has Claude Code and Codex plugin metadata.
 - A single bootstrap hook exists for Claude Code.
 - Codex manifest points to `./skills/`.
 - No keyword detector, persistent-mode hook, bridge hook, or Stop hook exists.

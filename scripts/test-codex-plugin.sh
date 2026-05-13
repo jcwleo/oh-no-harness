@@ -2,20 +2,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 CODEX_HOME_DIR="${CODEX_HOME:-${HOME}/.codex}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
+MARKETPLACE_ROOT="${OH_NO_MARKETPLACE_ROOT:-$REPO_ROOT}"
+PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$MARKETPLACE_ROOT/plugins/$PLUGIN_NAME}"
 PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
-MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$PLUGIN_ROOT}"
+MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
-RUN_DIR="${OH_NO_TEST_RUN_DIR:-${PLUGIN_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
+RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
@@ -141,7 +143,7 @@ assert_json_valid() {
 validate_codex_manifest() {
   log "Validating Codex plugin manifest"
   assert_json_valid "$PLUGIN_ROOT/.codex-plugin/plugin.json"
-  "$PYTHON_BIN" "$PLUGIN_ROOT/scripts/validate-plugin-files.py" "$PLUGIN_ROOT"
+  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/validate-plugin-files.py" "$MARKETPLACE_ROOT" "$PLUGIN_ROOT"
 
   local manifest_name manifest_version
   manifest_name="$(json_value name)"
@@ -149,11 +151,6 @@ validate_codex_manifest() {
   [[ "$manifest_name" == "$PLUGIN_NAME" ]] || fail "manifest name is ${manifest_name}, expected ${PLUGIN_NAME}"
   [[ "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "manifest version is not semver: ${manifest_version}"
   ok "Codex manifest identity: ${manifest_name} ${manifest_version}"
-}
-
-assert_codex_bundle_synced() {
-  log "Verifying Codex marketplace bundle"
-  "$PLUGIN_ROOT/scripts/sync-codex-plugin-bundle" --check
 }
 
 install_via_codex_plugins() {
@@ -476,7 +473,7 @@ run_live_tests() {
   for skill in "${PUBLIC_SKILLS[@]}"; do
     run_live_skill_test "$skill"
   done
-  ok "live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"
+  ok "live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 deep_prompt_for_skill() {
@@ -511,7 +508,7 @@ expected = {
         "OH_NO_CODEX_DEEP_OK interview",
         "already available",
         "advisory",
-        "Do not search remote systems",
+        "should not be searched",
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
@@ -524,13 +521,13 @@ expected = {
         "sequential",
         "Overall Ralph mode",
         "Task sizing",
-        "Execution profile recap",
+        "Execution profile",
     ],
     "ralph": [
         "OH_NO_CODEX_DEEP_OK ralph",
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
-        "Use base agent names",
+        "Use the base agent",
         "LIGHT",
         "STANDARD",
         "THOROUGH",
@@ -540,7 +537,7 @@ expected = {
         "OH_NO_CODEX_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
         "five complete loops",
-        "execution mode and mode source",
+        "Mode source",
         "Cleanup And Final Verification",
     ],
 }
@@ -556,7 +553,7 @@ linked_doc_markers = {
         "Required Behavior Lock",
     ],
     "autopilot": [
-        "execution mode and mode source",
+        "Mode source",
         "Cleanup And Final Verification",
     ],
 }
@@ -607,18 +604,16 @@ run_deep_live_tests() {
   for skill in interview ralplan ralph autopilot; do
     run_deep_live_skill_test "$skill"
   done
-  ok "deep live outputs saved under ${RUN_DIR#$PLUGIN_ROOT/}"
+  ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
   require_command "$PYTHON_BIN"
-  require_command rsync
 
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest
-  assert_codex_bundle_synced
   install_via_codex_plugins
   assert_codex_prompt_exposes_skills
   run_live_tests

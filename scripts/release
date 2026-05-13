@@ -5,9 +5,8 @@
 #   1. Validates the version arg (semver: 0.2.0 or v0.2.0).
 #   2. Refuses to run when not on main, when the tree is dirty, or when the
 #      tag already exists locally or on origin.
-#   3. Rewrites the version field in .claude-plugin/plugin.json and
-#      .codex-plugin/plugin.json (no-op if already correct), then refreshes
-#      the generated Codex marketplace bundle.
+#   3. Rewrites the version field in the nested plugin manifests under
+#      plugins/oh-no-harness (no-op if already correct).
 #   4. Runs scripts/validate-plugin-files.py and the local Claude Code and
 #      Codex install/update test scripts. Live model smoke is skipped.
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
@@ -31,6 +30,8 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
+PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
+PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$REPO_ROOT/plugins/$PLUGIN_NAME}"
 
 usage() {
   cat <<'USAGE'
@@ -172,14 +173,15 @@ if git remote get-url origin >/dev/null 2>&1; then
   fi
 fi
 
-"$PYTHON_BIN" - "$version" <<'PY'
+"$PYTHON_BIN" - "$version" "$PLUGIN_ROOT" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 version = sys.argv[1]
+plugin_root = Path(sys.argv[2])
 for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
-    path = Path(rel)
+    path = plugin_root / rel
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("version") != version:
         data["version"] = version
@@ -189,9 +191,7 @@ for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         )
 PY
 
-run scripts/sync-codex-plugin-bundle --write
-
-run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT"
+run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
 
 if [ "$skip_tests" = "true" ]; then
   printf 'release: skipping local install tests (--skip-tests)\n'
@@ -201,10 +201,10 @@ else
   OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh --codex-home "$codex_test_home"
 fi
 
-if git diff --quiet -- .claude-plugin/plugin.json .codex-plugin/plugin.json plugins/oh-no-harness; then
+if git diff --quiet -- plugins/oh-no-harness; then
   printf 'release: version files already at %s; no release commit needed\n' "$tag"
 else
-  run git add .claude-plugin/plugin.json .codex-plugin/plugin.json plugins/oh-no-harness
+  run git add plugins/oh-no-harness
   run git commit -m "chore: release ${tag}"
 fi
 

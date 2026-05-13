@@ -19,17 +19,18 @@ A lightweight Markdown-first skill harness for **Claude Code** and **Codex**. Te
 - **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to `skills/<name>/SKILL.md`.
 
 **🔁 Workflow**
-- **Socratic interview.** `/interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
+- **Socratic interview.** `/oh-no-harness:interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
 - **Mode-gated execution.** Specs and plans size work as `LIGHT` / `STANDARD` / `THOROUGH`; Ralph follows the recorded mode instead of always running the heaviest loop.
-- **Auto-routing.** `/auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
+- **Auto-routing.** `/oh-no-harness:auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
 
 **✨ Experience**
 - **Plain-language input.** Just describe the task; the harness keeps handoffs explicit.
-- **`/autopilot` for end-to-end.** Opt-in single command spanning interview → plan → execute → validate.
+- **`/oh-no-harness:autopilot` for end-to-end.** Opt-in single command spanning interview → plan → execute → validate.
 
 ## Install
 
-The repo doubles as the plugin and the marketplace.
+The repository root is the marketplace. The plugin source lives under
+`plugins/oh-no-harness/`.
 
 ### Claude Code
 
@@ -38,7 +39,7 @@ claude plugin marketplace add jcwleo/oh-no-harness
 claude plugin install oh-no-harness@oh-no-harness
 ```
 
-After install, run `/auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
+After install, run `/oh-no-harness:auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
 
 <details>
 <summary>Interactive install (inside Claude Code)</summary>
@@ -78,29 +79,29 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## Usage
 
-Each workflow is a slash command. In Claude Code, `commands/*.md` wrappers add autocomplete hints, then load the matching skill. Pick by what you have in hand:
+Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.md` wrappers add autocomplete hints, then load the matching skill. Pick by what you have in hand:
 
 | Skill | Use when |
 |---|---|
-| `/interview <vague task>` | Vague or requirement-light request — produces a spec with a provisional Ralph mode in `.oh-no/specs/`. |
-| `/ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
-| `/ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
-| `/autopilot <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
-| `/test-driven-development <change>` | Any behavior-changing edit — enforces RED / GREEN / REFACTOR. |
-| `/systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
-| `/verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
-| `/ai-slop-cleaner` | Post-implementation cleanup — removes throwaway artifacts. |
-| `/auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
-| `/using-oh-no-harness` | Top-level index — start here if you forget the others. |
+| `/oh-no-harness:interview <vague task>` | Vague or requirement-light request — produces a spec with a provisional Ralph mode in `.oh-no/specs/`. |
+| `/oh-no-harness:ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
+| `/oh-no-harness:ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
+| `/oh-no-harness:autopilot <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
+| `/oh-no-harness:test-driven-development <change>` | Any behavior-changing edit — enforces RED / GREEN / REFACTOR. |
+| `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
+| `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
+| `/oh-no-harness:ai-slop-cleaner` | Post-implementation cleanup — removes throwaway artifacts. |
+| `/oh-no-harness:auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
+| `/oh-no-harness:using-oh-no-harness` | Top-level index — start here if you forget the others. |
 
-Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/autopilot` when you want one request to span the full flow.
+Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:autopilot` when you want one request to span the full flow.
 
 ## Auto Routing (Claude Code)
 
 Off by default. Turn it on once and the `SessionStart` hook tells Claude to always consult these skills before responding, asking clarifications, or editing files:
 
 ```text
-/auto-routing on
+/oh-no-harness:auto-routing on
 ```
 
 Restart Claude Code or `/clear` after toggling. Setting persists across plugin updates.
