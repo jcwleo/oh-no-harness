@@ -1,7 +1,7 @@
 ---
 description: "Clean AI-generated code residue after behavior is locked."
 argument-hint: "[--review|--no-deslop] <files, paths, or changed-file scope>"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/ai-slop-cleaner/SKILL.md` using the Read tool and follow its instructions exactly.

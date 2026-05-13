@@ -233,8 +233,8 @@ def assert_command(root: Path, skill: str) -> None:
     missing = REQUIRED_COMMAND_FIELDS - set(fm)
     if missing:
         die(f"{path} missing frontmatter fields: {sorted(missing)}")
-    if fm.get("disable-model-invocation") != "true":
-        die(f"{path} should set disable-model-invocation: true")
+    if fm.get("disable-model-invocation") != "false":
+        die(f"{path} should set disable-model-invocation: false")
 
     skill_fm = parse_frontmatter(root / "skills" / skill / "SKILL.md")
     if fm["argument-hint"] != skill_fm.get("argument-hint"):

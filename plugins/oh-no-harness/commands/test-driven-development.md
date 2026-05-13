@@ -1,7 +1,7 @@
 ---
 description: "Use RED/GREEN/REFACTOR for behavior-changing work."
 argument-hint: "<feature, bugfix, refactor, or behavior change>"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/test-driven-development/SKILL.md` using the Read tool and follow its instructions exactly.
