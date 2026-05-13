@@ -12,7 +12,8 @@
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
 #      then an annotated tag `v{X.Y.Z}` on the same commit.
 #   6. With --push: pushes main and the tag to origin, then publishes a
-#      GitHub Release via gh CLI if available. Release notes are built from
+#      GitHub Release via gh CLI if available. 0.x releases are prereleases;
+#      1.x and later are stable releases. Release notes are built from
 #      `git log <prev-tag>..<new-tag>`, grouped by conventional-commit
 #      prefix (Features / Fixes / Documentation / Other), with the standard
 #      "Full Changelog" compare link appended.
@@ -39,7 +40,8 @@ Usage: scripts/release <version|vversion> [--push] [--skip-tests]
 
 Updates plugin version files, runs validators and local install tests, then
 creates a release commit and annotated tag. With --push, pushes main and the
-tag to origin and publishes a GitHub Release via gh CLI.
+tag to origin and publishes a GitHub Release via gh CLI. 0.x releases are
+marked prerelease; 1.x and later are stable releases.
 
 Examples:
   scripts/release v0.2.1
@@ -150,6 +152,7 @@ done
 
 version="${version_arg#v}"
 tag="v${version}"
+major="${version%%.*}"
 
 printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
   || fail "version must look like 0.2.1 or v0.2.1"
@@ -218,23 +221,33 @@ if [ "$push" = "true" ]; then
   run git push origin main
   run git push origin "$tag"
   if command -v gh >/dev/null 2>&1; then
-    run gh release create "$tag" --title "$tag" --prerelease --notes-file "$notes_file"
+    gh_release_cmd=(gh release create "$tag" --title "$tag" --notes-file "$notes_file")
+    if [ "$major" = "0" ]; then
+      gh_release_cmd+=(--prerelease)
+    else
+      gh_release_cmd+=(--latest)
+    fi
+    run "${gh_release_cmd[@]}"
   else
+    release_kind_flag="--latest"
+    [ "$major" = "0" ] && release_kind_flag="--prerelease"
     cat <<EOF
 release: gh CLI not found; publish the GitHub Release manually:
-  gh release create $tag --title $tag --prerelease --notes-file <(cat <<'NOTES'
+  gh release create $tag --title $tag $release_kind_flag --notes-file <(cat <<'NOTES'
 $(cat "$notes_file")
 NOTES
 )
 EOF
   fi
 else
+  release_kind_flag="--latest"
+  [ "$major" = "0" ] && release_kind_flag="--prerelease"
   cat <<EOF
 release: created local commit (if needed) and tag $tag
 release: publish with:
   git push origin main
   git push origin $tag
-  gh release create $tag --title $tag --prerelease --notes-file <(cat <<'NOTES'
+  gh release create $tag --title $tag $release_kind_flag --notes-file <(cat <<'NOTES'
 $(cat "$notes_file")
 NOTES
 )

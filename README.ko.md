@@ -1,7 +1,7 @@
 # Oh No Harness
 
 [![GitHub release](https://img.shields.io/github/v/release/jcwleo/oh-no-harness?include_prereleases&color=blue)](https://github.com/jcwleo/oh-no-harness/releases)
-[![Status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/jcwleo/oh-no-harness/releases)
+[![Status: Stable](https://img.shields.io/badge/status-stable-green.svg)](https://github.com/jcwleo/oh-no-harness/releases)
 [![GitHub stars](https://img.shields.io/github/stars/jcwleo/oh-no-harness?style=flat&color=yellow)](https://github.com/jcwleo/oh-no-harness/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -9,7 +9,7 @@
 
 **Claude Code**와 **Codex**를 위한 경량 Markdown 기반 skill harness. 모호한 요청 정리부터 계획, 실행·검증, 디버깅, 정리까지 10개의 워크플로우를 제공하며, 데몬이나 숨겨진 상태 없이 동작합니다.
 
-> ⚠️ **베타 단계** — skill 동작, 명령 형태, 설정 레이아웃이 `0.x` 릴리즈 사이에 바뀔 수 있습니다. 안정성이 필요하다면 태그를 고정하세요 (`--ref v0.2.x`).
+Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 
 ## 특징
 
