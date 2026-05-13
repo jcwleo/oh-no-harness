@@ -159,8 +159,12 @@ assert_codex_bundle_synced() {
 install_via_codex_plugins() {
   [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex marketplace install (--no-install)"; return; }
 
-  log "Installing through Codex marketplace/app-server path"
+  log "Adding marketplace through Codex CLI"
   mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  CODEX_HOME="$CODEX_HOME_DIR" "$CODEX_BIN" plugin marketplace add "$MARKETPLACE_SOURCE"
+  ok "Codex marketplace added from ${MARKETPLACE_SOURCE}"
+
+  log "Installing through Codex /plugins app-server path"
   local app_log="$RUN_DIR/app-server-plugin-install.jsonl"
   local app_err="$RUN_DIR/app-server-plugin-install.err"
 
@@ -281,23 +285,12 @@ send(
 wait_response(1, timeout=30.0)
 send({"method": "initialized"})
 
-# Give the app-server time to prepare the default plugin marketplace before
-# adding and listing this marketplace. This mirrors the TUI's startup path.
+# Give the app-server time to load configured marketplaces. This mirrors the
+# TUI startup path before the user opens /plugins.
 time.sleep(4.0)
 
-send(
-    {
-        "id": 2,
-        "method": "marketplace/add",
-        "params": {"source": marketplace_source, "refName": None, "sparsePaths": None},
-    }
-)
-marketplace_add = wait_response(2, timeout=90.0)
-marketplace_path = str(Path(marketplace_add["installedRoot"]) / ".agents/plugins/marketplace.json")
-
-time.sleep(2.0)
-send({"id": 3, "method": "plugin/list", "params": {"cwds": None, "marketplaceKinds": None}})
-plugin_list = wait_response(3, timeout=60.0)
+send({"id": 2, "method": "plugin/list", "params": {"cwds": None, "marketplaceKinds": None}})
+plugin_list = wait_response(2, timeout=60.0)
 
 marketplaces = plugin_list.get("marketplaces", [])
 marketplace = next((item for item in marketplaces if item.get("name") == marketplace_name), None)
@@ -312,15 +305,18 @@ if summary.get("installPolicy") != "AVAILABLE":
     fail(f"{plugin_id} installPolicy={summary.get('installPolicy')!r}, expected AVAILABLE")
 if summary.get("availability") != "AVAILABLE":
     fail(f"{plugin_id} availability={summary.get('availability')!r}, expected AVAILABLE")
+marketplace_path = marketplace.get("path")
+if not marketplace_path:
+    fail(f"{marketplace_name} marketplace did not include a marketplace path")
 
 send(
     {
-        "id": 4,
+        "id": 3,
         "method": "plugin/read",
         "params": {"marketplacePath": marketplace_path, "remoteMarketplaceName": None, "pluginName": plugin_name},
     }
 )
-plugin_read = wait_response(4, timeout=60.0)
+plugin_read = wait_response(3, timeout=60.0)
 detail = plugin_read["plugin"]
 actual_skills = [skill["name"] for skill in detail.get("skills", [])]
 expected_skills = [f"{plugin_name}:{skill}" for skill in skills]
@@ -330,12 +326,12 @@ if missing_skills:
 
 send(
     {
-        "id": 5,
+        "id": 4,
         "method": "plugin/install",
         "params": {"marketplacePath": marketplace_path, "remoteMarketplaceName": None, "pluginName": plugin_name},
     }
 )
-install = wait_response(5, timeout=60.0)
+install = wait_response(4, timeout=60.0)
 if install.get("authPolicy") != "ON_INSTALL":
     fail(f"plugin/install authPolicy={install.get('authPolicy')!r}, expected ON_INSTALL")
 
@@ -347,7 +343,7 @@ except subprocess.TimeoutExpired:
     proc.terminate()
     proc.wait(timeout=5)
 
-print(f"ok - Codex /plugins lists and installs {plugin_id} from {marketplace_source}")
+print(f"ok - Codex CLI marketplace add plus /plugins lists and installs {plugin_id} from {marketplace_source}")
 PY
 }
 
