@@ -63,19 +63,24 @@ claude plugin update oh-no-harness@oh-no-harness
 
 ### Codex
 
+Add the marketplace:
+
 ```sh
 codex plugin marketplace add jcwleo/oh-no-harness
 ```
 
-Then open `/plugins`, select **Oh No Harness**, and install it. The plugin
-appears as `oh-no-harness@oh-no-harness`.
+Then open `/plugins` in Codex, select **Oh No Harness** from the
+`oh-no-harness` marketplace, and install it. The plugin appears as
+`oh-no-harness@oh-no-harness`.
 
-Pin to a tag or refresh:
+<details>
+<summary>Update later</summary>
 
 ```sh
-codex plugin marketplace add jcwleo/oh-no-harness --ref v0.2.0
 codex plugin marketplace upgrade oh-no-harness
 ```
+
+</details>
 
 ## Usage
 

@@ -63,19 +63,24 @@ claude plugin update oh-no-harness@oh-no-harness
 
 ### Codex
 
+마켓플레이스를 추가합니다:
+
 ```sh
 codex plugin marketplace add jcwleo/oh-no-harness
 ```
 
-그 다음 `/plugins`를 열고 **Oh No Harness**를 선택해 설치합니다. 플러그인은
+그 다음 Codex에서 `/plugins`를 열고, `oh-no-harness` 마켓플레이스의
+**Oh No Harness**를 선택해 설치합니다. 플러그인은
 `oh-no-harness@oh-no-harness`로 표시됩니다.
 
-특정 태그로 고정하거나 갱신:
+<details>
+<summary>이후 업데이트</summary>
 
 ```sh
-codex plugin marketplace add jcwleo/oh-no-harness --ref v0.2.0
 codex plugin marketplace upgrade oh-no-harness
 ```
+
+</details>
 
 ## 사용법
 
