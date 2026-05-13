@@ -8,7 +8,7 @@
       "name": "oh-no-harness",
       "source": {
         "source": "local",
-        "path": "./"
+        "path": "./plugins/oh-no-harness"
       },
       "policy": {
         "installation": "AVAILABLE",

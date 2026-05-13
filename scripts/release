@@ -6,7 +6,8 @@
 #   2. Refuses to run when not on main, when the tree is dirty, or when the
 #      tag already exists locally or on origin.
 #   3. Rewrites the version field in .claude-plugin/plugin.json and
-#      .codex-plugin/plugin.json (no-op if already correct).
+#      .codex-plugin/plugin.json (no-op if already correct), then refreshes
+#      the generated Codex marketplace bundle.
 #   4. Runs scripts/validate-plugin-files.py and the local Claude Code and
 #      Codex install/update test scripts. Live model smoke is skipped.
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
@@ -188,19 +189,22 @@ for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         )
 PY
 
+run scripts/sync-codex-plugin-bundle --write
+
 run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT"
 
 if [ "$skip_tests" = "true" ]; then
   printf 'release: skipping local install tests (--skip-tests)\n'
 else
   OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-claude-plugin.sh
-  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh
+  codex_test_home="$(mktemp -d)"
+  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh --codex-home "$codex_test_home"
 fi
 
-if git diff --quiet -- .claude-plugin/plugin.json .codex-plugin/plugin.json; then
+if git diff --quiet -- .claude-plugin/plugin.json .codex-plugin/plugin.json plugins/oh-no-harness; then
   printf 'release: version files already at %s; no release commit needed\n' "$tag"
 else
-  run git add .claude-plugin/plugin.json .codex-plugin/plugin.json
+  run git add .claude-plugin/plugin.json .codex-plugin/plugin.json plugins/oh-no-harness
   run git commit -m "chore: release ${tag}"
 fi
 

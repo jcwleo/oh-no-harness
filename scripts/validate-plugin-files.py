@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -58,6 +59,7 @@ COMMAND_DELEGATION_MARKER = (
     "Read the file at `${{CLAUDE_PLUGIN_ROOT}}/skills/{skill}/SKILL.md` using the Read tool "
     "and follow its instructions exactly."
 )
+CODEX_MARKETPLACE_PLUGIN_PATH = "./plugins/oh-no-harness"
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
 # structural: the heading tags the section, "HARD-GATE" tags the negative
@@ -307,6 +309,49 @@ def assert_claude_manifest_skills(root: Path) -> None:
         die(f"{path} should declare commands='./commands/' for Claude slash-command wrappers")
 
 
+def assert_codex_marketplace(root: Path) -> None:
+    path = root / ".agents/plugins/marketplace.json"
+    try:
+        manifest = json.loads(read_text(path))
+    except json.JSONDecodeError as exc:
+        die(f"{path} is not valid JSON: {exc}")
+
+    plugins = manifest.get("plugins")
+    if not isinstance(plugins, list):
+        die(f"{path} should define a plugins array")
+
+    matches = [plugin for plugin in plugins if plugin.get("name") == "oh-no-harness"]
+    if len(matches) != 1:
+        die(f"{path} should define exactly one oh-no-harness plugin entry")
+
+    entry = matches[0]
+    source = entry.get("source")
+    if source != {"source": "local", "path": CODEX_MARKETPLACE_PLUGIN_PATH}:
+        die(
+            f"{path} oh-no-harness source should point to "
+            f"{CODEX_MARKETPLACE_PLUGIN_PATH!r}, actual={source!r}"
+        )
+    if entry.get("policy", {}).get("installation") != "AVAILABLE":
+        die(f"{path} oh-no-harness should be installable with policy.installation=AVAILABLE")
+    if entry.get("policy", {}).get("authentication") != "ON_INSTALL":
+        die(f"{path} oh-no-harness should use policy.authentication=ON_INSTALL")
+
+
+def assert_codex_bundle_synced(root: Path) -> None:
+    sync_script = root / "scripts/sync-codex-plugin-bundle"
+    if not sync_script.exists():
+        die(f"missing file: {sync_script}")
+    result = subprocess.run(
+        [str(sync_script), "--check"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).strip()
+        die(message or "Codex plugin bundle is out of sync")
+
+
 def has_token(text: str, token: str) -> bool:
     return re.search(rf"(^|[^A-Za-z0-9_-]){re.escape(token)}([^A-Za-z0-9_-]|$)", text) is not None
 
@@ -359,6 +404,8 @@ def main() -> None:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)
     assert_claude_manifest_skills(root)
+    assert_codex_marketplace(root)
+    assert_codex_bundle_synced(root)
     assert_expected_references(root)
     assert_no_omc_runtime_coupling(root)
     assert_no_deprecated_artifact_paths(root)

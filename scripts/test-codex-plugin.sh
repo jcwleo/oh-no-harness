@@ -10,6 +10,7 @@ CODEX_HOME_DIR="${CODEX_HOME:-${HOME}/.codex}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
 PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
+MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$PLUGIN_ROOT}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
@@ -33,29 +34,24 @@ usage() {
   cat <<USAGE
 Usage: scripts/test-codex-plugin.sh [options]
 
-Installs or updates the local Codex plugin cache, enables the plugin in
-\$CODEX_HOME/config.toml, then verifies that Codex exposes the plugin skills.
-
-Codex CLI currently has marketplace add/upgrade commands, but no public
-plugin install/list command equivalent to Claude Code. This script mirrors
-Codex's enabled plugin cache layout directly:
-
-  \$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/
-  [plugins."<plugin>@<marketplace>"]
-  enabled = true
+Adds the Codex marketplace, exercises the same app-server plugin list/install
+path used by /plugins, then verifies that Codex exposes the plugin skills.
 
 Options:
   --live             Run live codex exec smoke tests after prompt exposure checks.
   --deep-live        Run live deep smoke tests that require linked support docs.
   --skip-live        Skip live codex exec smoke tests. Default.
-  --no-install       Do not sync the plugin cache or edit Codex config.
+  --no-install       Skip the marketplace/app-server install step.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
   --model <model>    Model for live codex exec tests. Default: Codex config default.
+  --marketplace-source <source>
+                     Marketplace source passed to app-server marketplace/add.
+                     Default: this checkout. Use jcwleo/oh-no-harness to test GitHub.
   -h, --help         Show this help.
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_RUN_DIR
+  OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -85,6 +81,11 @@ while [[ $# -gt 0 ]]; do
     --model)
       LIVE_MODEL="${2:-}"
       [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }
+      shift 2
+      ;;
+    --marketplace-source)
+      MARKETPLACE_SOURCE="${2:-}"
+      [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }
       shift 2
       ;;
     -h|--help)
@@ -150,79 +151,204 @@ validate_codex_manifest() {
   ok "Codex manifest identity: ${manifest_name} ${manifest_version}"
 }
 
-sync_plugin_cache() {
-  [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex install/update (--no-install)"; return; }
-
-  local version cache_parent target
-  version="$(json_value version)"
-  cache_parent="${CODEX_HOME_DIR}/plugins/cache/${MARKETPLACE_NAME}/${PLUGIN_NAME}"
-  target="${cache_parent}/${version}"
-  [[ -n "$version" ]] || fail "plugin version is empty"
-  [[ "$target" == "${CODEX_HOME_DIR}/plugins/cache/${MARKETPLACE_NAME}/${PLUGIN_NAME}/"* ]] \
-    || fail "refusing to sync outside Codex plugin cache: ${target}"
-
-  log "Installing/updating Codex plugin cache"
-  mkdir -p "$cache_parent"
-  rm -rf "$target"
-  mkdir -p "$target"
-
-  rsync -a --delete \
-    --exclude '.git/' \
-    --exclude '.oh-no/' \
-    --exclude '.claude/' \
-    "$PLUGIN_ROOT/" "$target/"
-
-  find "$cache_parent" -mindepth 1 -maxdepth 1 -type d ! -name "$version" -exec rm -rf {} +
-  ok "plugin cache synced: ${target}"
+assert_codex_bundle_synced() {
+  log "Verifying Codex marketplace bundle"
+  "$PLUGIN_ROOT/scripts/sync-codex-plugin-bundle" --check
 }
 
-enable_codex_plugin() {
-  [[ "$INSTALL_MODE" == "1" ]] || return 0
+install_via_codex_plugins() {
+  [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex marketplace install (--no-install)"; return; }
 
-  log "Enabling Codex plugin in config"
-  mkdir -p "$CODEX_HOME_DIR"
-  local config_path="${CODEX_HOME_DIR}/config.toml"
+  log "Installing through Codex marketplace/app-server path"
+  mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  local app_log="$RUN_DIR/app-server-plugin-install.jsonl"
+  local app_err="$RUN_DIR/app-server-plugin-install.err"
 
-  "$PYTHON_BIN" - "$config_path" "$PLUGIN_ID" <<'PY'
+  "$PYTHON_BIN" - \
+    "$CODEX_BIN" \
+    "$CODEX_HOME_DIR" \
+    "$MARKETPLACE_SOURCE" \
+    "$PLUGIN_NAME" \
+    "$MARKETPLACE_NAME" \
+    "$app_log" \
+    "$app_err" \
+    "${PUBLIC_SKILLS[@]}" <<'PY'
 from __future__ import annotations
 
-import re
-import shutil
+import json
+import os
+import queue
+import subprocess
 import sys
-from datetime import datetime, timezone
+import threading
+import time
 from pathlib import Path
 
-config_path = Path(sys.argv[1])
-plugin_id = sys.argv[2]
+codex_bin, codex_home, marketplace_source, plugin_name, marketplace_name, app_log, app_err, *skills = sys.argv[1:]
+plugin_id = f"{plugin_name}@{marketplace_name}"
 
-text = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
-original = text
-section = f'[plugins."{plugin_id}"]'
-header_re = re.compile(r'^\[.*\]\s*$', re.MULTILINE)
+env = os.environ.copy()
+env["CODEX_HOME"] = codex_home
 
-if section in text:
-    start = text.index(section)
-    match = header_re.search(text, start + len(section))
-    end = match.start() if match else len(text)
-    body = text[start:end]
-    if re.search(r'(?m)^enabled\s*=', body):
-        body = re.sub(r'(?m)^enabled\s*=.*$', 'enabled = true', body)
-    else:
-        body = body.rstrip() + "\nenabled = true\n"
-    text = text[:start] + body + text[end:]
-else:
-    separator = "\n" if text.endswith("\n") or not text else "\n\n"
-    text = text + separator + f'{section}\nenabled = true\n'
+proc = subprocess.Popen(
+    [codex_bin, "app-server", "--listen", "stdio://", "--enable", "remote_plugin"],
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+    bufsize=1,
+    env=env,
+)
 
-if text != original:
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    if config_path.exists():
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        shutil.copy2(config_path, config_path.with_suffix(config_path.suffix + f".bak-{stamp}"))
-    config_path.write_text(text, encoding="utf-8")
+stdout_queue: queue.Queue[str | None] = queue.Queue()
+stderr_lines: list[str] = []
+log_path = Path(app_log)
+err_path = Path(app_err)
+
+
+def read_stdout() -> None:
+    assert proc.stdout is not None
+    with log_path.open("w", encoding="utf-8") as log:
+        for line in proc.stdout:
+            log.write(line)
+            log.flush()
+            stdout_queue.put(line)
+    stdout_queue.put(None)
+
+
+def read_stderr() -> None:
+    assert proc.stderr is not None
+    with err_path.open("w", encoding="utf-8") as err:
+        for line in proc.stderr:
+            stderr_lines.append(line)
+            err.write(line)
+            err.flush()
+
+
+threading.Thread(target=read_stdout, daemon=True).start()
+threading.Thread(target=read_stderr, daemon=True).start()
+
+
+def fail(message: str) -> None:
+    try:
+        if proc.stdin:
+            proc.stdin.close()
+    finally:
+        proc.terminate()
+    raise SystemExit(message)
+
+
+def send(message: dict) -> None:
+    if proc.stdin is None:
+        fail("app-server stdin is closed")
+    proc.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
+    proc.stdin.flush()
+
+
+def wait_response(request_id: int, timeout: float = 60.0) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        remaining = max(0.1, deadline - time.monotonic())
+        try:
+            line = stdout_queue.get(timeout=min(0.5, remaining))
+        except queue.Empty:
+            if proc.poll() is not None:
+                fail(f"app-server exited before response id={request_id}; stderr={''.join(stderr_lines)!r}")
+            continue
+        if line is None:
+            fail(f"app-server stdout closed before response id={request_id}; stderr={''.join(stderr_lines)!r}")
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if payload.get("id") == request_id:
+            if "error" in payload:
+                fail(f"app-server request id={request_id} failed: {payload['error']}")
+            return payload["result"]
+    fail(f"timed out waiting for app-server response id={request_id}; stderr={''.join(stderr_lines)!r}")
+
+
+send(
+    {
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "clientInfo": {"name": "oh-no-harness-test", "title": None, "version": "0"},
+            "capabilities": {"experimentalApi": True},
+        },
+    }
+)
+wait_response(1, timeout=30.0)
+send({"method": "initialized"})
+
+# Give the app-server time to prepare the default plugin marketplace before
+# adding and listing this marketplace. This mirrors the TUI's startup path.
+time.sleep(4.0)
+
+send(
+    {
+        "id": 2,
+        "method": "marketplace/add",
+        "params": {"source": marketplace_source, "refName": None, "sparsePaths": None},
+    }
+)
+marketplace_add = wait_response(2, timeout=90.0)
+marketplace_path = str(Path(marketplace_add["installedRoot"]) / ".agents/plugins/marketplace.json")
+
+time.sleep(2.0)
+send({"id": 3, "method": "plugin/list", "params": {"cwds": None, "marketplaceKinds": None}})
+plugin_list = wait_response(3, timeout=60.0)
+
+marketplaces = plugin_list.get("marketplaces", [])
+marketplace = next((item for item in marketplaces if item.get("name") == marketplace_name), None)
+if marketplace is None:
+    names = [item.get("name") for item in marketplaces]
+    fail(f"{marketplace_name} marketplace was not listed by plugin/list; listed={names!r}")
+
+summary = next((item for item in marketplace.get("plugins", []) if item.get("id") == plugin_id), None)
+if summary is None:
+    fail(f"{plugin_id} was not listed in marketplace {marketplace_name}")
+if summary.get("installPolicy") != "AVAILABLE":
+    fail(f"{plugin_id} installPolicy={summary.get('installPolicy')!r}, expected AVAILABLE")
+if summary.get("availability") != "AVAILABLE":
+    fail(f"{plugin_id} availability={summary.get('availability')!r}, expected AVAILABLE")
+
+send(
+    {
+        "id": 4,
+        "method": "plugin/read",
+        "params": {"marketplacePath": marketplace_path, "remoteMarketplaceName": None, "pluginName": plugin_name},
+    }
+)
+plugin_read = wait_response(4, timeout=60.0)
+detail = plugin_read["plugin"]
+actual_skills = [skill["name"] for skill in detail.get("skills", [])]
+expected_skills = [f"{plugin_name}:{skill}" for skill in skills]
+missing_skills = [skill for skill in expected_skills if skill not in actual_skills]
+if missing_skills:
+    fail(f"plugin/read missing public skills: {missing_skills}; actual={actual_skills}")
+
+send(
+    {
+        "id": 5,
+        "method": "plugin/install",
+        "params": {"marketplacePath": marketplace_path, "remoteMarketplaceName": None, "pluginName": plugin_name},
+    }
+)
+install = wait_response(5, timeout=60.0)
+if install.get("authPolicy") != "ON_INSTALL":
+    fail(f"plugin/install authPolicy={install.get('authPolicy')!r}, expected ON_INSTALL")
+
+if proc.stdin:
+    proc.stdin.close()
+try:
+    proc.wait(timeout=10)
+except subprocess.TimeoutExpired:
+    proc.terminate()
+    proc.wait(timeout=5)
+
+print(f"ok - Codex /plugins lists and installs {plugin_id} from {marketplace_source}")
 PY
-
-  ok "plugin enabled: ${PLUGIN_ID}"
 }
 
 assert_codex_prompt_exposes_skills() {
@@ -496,8 +622,8 @@ main() {
 
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest
-  sync_plugin_cache
-  enable_codex_plugin
+  assert_codex_bundle_synced
+  install_via_codex_plugins
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
