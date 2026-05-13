@@ -1,0 +1,20 @@
+{
+  "name": "oh-no-harness",
+  "interface": {
+    "displayName": "Oh No Harness"
+  },
+  "plugins": [
+    {
+      "name": "oh-no-harness",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}
