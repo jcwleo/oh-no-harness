@@ -20,6 +20,14 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Verify that the proposed evidence would actually prove the claim.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
 - Challenge execution profiles that are heavier than needed or too light for the stated risk.
+- Reject speculative abstraction, configurability, dependencies, or broad
+  refactors unless they are tied to current acceptance criteria.
+- Apply the senior-engineer overcomplication check: if a senior engineer
+  reviewing this plan or diff would call it overcomplicated for the stated
+  acceptance criteria, flag it as a blocking finding with the simpler path.
+- Reject untraceable changes that do not map to the request, approved plan,
+  verification requirement, unused-code removal, or behavior-preserving cleanup
+  lock.
 - Reject plans that skip meaningful options or ignore the user's constraints.
 - Confirm that `architect` has reviewed consensus plans before you critique them.
 

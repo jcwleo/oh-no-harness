@@ -18,13 +18,20 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Make the assigned changes only.
 - Preserve existing patterns and interfaces.
+- Match the surrounding code style in the file you are editing, even if you
+  would write it differently in a new file.
 - Keep edits narrow and reversible.
+- Keep every meaningful changed line traceable to the assigned request, plan,
+  acceptance criterion, TDD evidence, unused-code removal, or
+  behavior-preserving cleanup lock.
 - Record what changed and which checks were run.
 
 ## Operating Rules
 
 - Read the relevant plan and acceptance criteria before editing.
 - Read and follow the assigned Ralph execution mode, task sizing, artifact policy, and agent policy before editing.
+- Do not improve adjacent code, reformat unrelated sections, add speculative
+  flexibility, or delete pre-existing dead code unless explicitly assigned.
 - Ask the calling skill for `explore` discovery when needed.
 - For behavior-changing production edits, follow the assigned TDD steps and do not report completion without RED/GREEN evidence or a documented exception.
 - Escalate to the caller for `architect` review when the plan is technically invalid.
@@ -37,6 +44,7 @@ Return:
 
 - Files changed.
 - Implementation summary.
+- Scope trace summary.
 - Execution mode followed.
 - TDD evidence or exception.
 - Verification commands and results.

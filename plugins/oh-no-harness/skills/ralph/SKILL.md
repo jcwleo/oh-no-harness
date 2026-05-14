@@ -136,8 +136,29 @@ For each story, record:
 - acceptance criteria
 - story execution mode
 - owned files or investigation targets
+- scope trace: how each intended file or change class maps to the request,
+  approved plan, acceptance criterion, TDD evidence, or cleanup behavior lock
 - TDD requirement or exception
 - verification command or evidence type
+
+## Scope Trace Gate
+
+Before editing and before marking a story complete, Ralph must keep the change
+set traceable to the approved work.
+
+Every changed file and every meaningful changed line should map to at least one
+of:
+
+- the user's concrete request
+- an approved `interview` spec, `ralplan` plan, PRD story, or ticket
+- a test, acceptance criterion, or verification requirement
+- removal of code made unused by the current change
+- behavior-preserving cleanup protected by the current behavior lock
+
+Do not improve adjacent code, reformat unrelated sections, add speculative
+configuration, or delete pre-existing dead code unless that work is explicitly
+in scope. If an unrelated problem is found, report it as residual risk or a
+follow-up instead of folding it into the current diff.
 
 ## Execution Loop
 
@@ -150,24 +171,26 @@ For each story, record:
 7. Use `explore` when files, tests, or integration surfaces are not obvious.
 8. Identify files and checks.
 9. Identify safe parallelization opportunities only when the selected mode and agent policy allow it.
-10. Classify the story's TDD requirement:
+10. Apply the Scope Trace Gate and record why the intended edits are in scope.
+11. Classify the story's TDD requirement:
    - behavior-changing production code: TDD required
    - bug fix: reproduction test required
    - behavior-preserving refactor: characterization or regression coverage required
    - docs-only, config-only, generated code, throwaway prototype, or unavailable test harness: document the exception
-11. If TDD is required, read and follow `test-driven-development` before editing production code.
-12. Record RED, GREEN, post-refactor, or exception evidence according to the selected artifact policy.
-13. Implement inline or dispatch `executor` according to `## Mode-Gated Agent Dispatch`.
-14. Run the story-specific verification required by the selected mode and verification tier.
-15. Mark the story complete only when acceptance criteria and required TDD or exception evidence pass.
-16. Repeat until all stories or tasks pass.
-17. Run review roles according to the selected mode, agent policy, and risk signals.
-18. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
-19. Apply cleanup according to the selected cleanup policy.
-20. Re-run verification after cleanup when cleanup changed files.
-21. If cleanup changed non-trivial code, tests, or prompts, run the focused post-cleanup review required by the selected mode.
-22. Read and follow `verification-before-completion` before claiming completion.
-23. Write the final report.
+12. If TDD is required, read and follow `test-driven-development` before editing production code.
+13. Record RED, GREEN, post-refactor, or exception evidence according to the selected artifact policy.
+14. Implement inline or dispatch `executor` according to `## Mode-Gated Agent Dispatch`.
+15. Run the story-specific verification required by the selected mode and verification tier.
+16. Recheck the Scope Trace Gate against the actual diff.
+17. Mark the story complete only when acceptance criteria, required TDD or exception evidence, and scope trace evidence pass.
+18. Repeat until all stories or tasks pass.
+19. Run review roles according to the selected mode, agent policy, and risk signals.
+20. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+21. Apply cleanup according to the selected cleanup policy.
+22. Re-run verification after cleanup when cleanup changed files.
+23. If cleanup changed non-trivial code, tests, or prompts, run the focused post-cleanup review required by the selected mode.
+24. Read and follow `verification-before-completion` before claiming completion.
+25. Write the final report.
 
 ## Mode-Gated Agent Dispatch
 
@@ -252,6 +275,12 @@ When review is required, the reviewer pass must answer:
 
 - Do all stories satisfy their acceptance criteria?
 - Is there a simpler or safer approach that still satisfies the PRD?
+- Does every changed file and meaningful changed line trace to the approved
+  scope, verification requirement, unused-code removal, or behavior-preserving
+  cleanup lock?
+- Did the implementation avoid speculative abstraction, configurability,
+  dependencies, or generalization not required by the current acceptance
+  criteria?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist or is an exception documented?
 - Are TDD exceptions specific and justified rather than vague convenience claims?
 - Are tests or verification sufficient for the risk?

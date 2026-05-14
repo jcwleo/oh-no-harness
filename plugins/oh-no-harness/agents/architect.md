@@ -17,8 +17,12 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Check architectural fit, coupling, data flow, failure modes, and migration risk.
+- Compare the favored approach with the simplest approach that could still
+  satisfy the acceptance criteria.
 - Present the strongest counterargument to the favored approach.
 - Identify meaningful tradeoffs and possible synthesis paths.
+- Challenge abstractions, dependencies, configuration surfaces, or generalized
+  paths that are not required by the current scope.
 - Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
 - Recommend verification depth using `docs/shared/verification-tiers.md`.
 
@@ -34,6 +38,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 Return:
 
 - Feasibility verdict.
+- Simplest sufficient approach assessment.
 - Antithesis.
 - Tradeoffs.
 - Required changes to the plan.

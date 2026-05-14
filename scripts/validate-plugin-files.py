@@ -163,6 +163,43 @@ EXECUTION_MODE_AGENT_MARKERS = {
     ),
 }
 
+SIMPLICITY_SCOPE_SKILL_MARKERS = {
+    "ralplan": (
+        "minimal viable approach",
+        "rejected speculative complexity",
+    ),
+    "ralph": (
+        "## Scope Trace Gate",
+        "Every changed file and every meaningful changed line",
+        "speculative abstraction",
+    ),
+    "ai-slop-cleaner": (
+        "Speculative abstraction",
+    ),
+}
+SIMPLICITY_SCOPE_AGENT_MARKERS = {
+    "planner": (
+        "smallest approach",
+        "Rejected speculative complexity",
+    ),
+    "architect": (
+        "Simplest sufficient approach assessment",
+    ),
+    "critic": (
+        "speculative abstraction",
+        "untraceable changes",
+        "senior-engineer overcomplication check",
+    ),
+    "executor": (
+        "Scope trace summary",
+        "Match the surrounding code style",
+    ),
+    "code-reviewer": (
+        "untraceable changes",
+        "drive-by formatting",
+    ),
+}
+
 
 def die(message: str) -> None:
     raise SystemExit(f"ERROR: {message}")
@@ -225,6 +262,11 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
+    if skill in SIMPLICITY_SCOPE_SKILL_MARKERS:
+        body = read_text(path)
+        for marker in SIMPLICITY_SCOPE_SKILL_MARKERS[skill]:
+            if marker not in body:
+                die(f"{path} is missing required Simplicity-Scope marker: {marker!r}")
 
 
 def assert_command(root: Path, skill: str) -> None:
@@ -271,6 +313,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in EXECUTION_MODE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode agent marker: {marker!r}")
+    if agent in SIMPLICITY_SCOPE_AGENT_MARKERS:
+        for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Simplicity-Scope agent marker: {marker!r}")
 
 
 def assert_expected_references(root: Path) -> None:

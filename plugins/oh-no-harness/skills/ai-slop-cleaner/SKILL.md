@@ -29,6 +29,8 @@ Use for code that works but shows signs of AI-generated residue:
 - defensive branches that cannot happen
 - generic naming
 - unnecessary wrappers
+- speculative abstractions or configuration options not required by current
+  behavior
 - broad try/catch blocks that hide errors
 - stale comments
 - test code that asserts implementation details rather than behavior
@@ -74,6 +76,7 @@ Do not expand scope because nearby code looks messy.
 | One-use wrappers | Inline unless the wrapper names a real concept. |
 | Duplicate helpers | Consolidate only when signatures and semantics truly match. |
 | Generic names | Rename to domain terms already used nearby. |
+| Speculative abstraction | Inline or remove abstractions, configuration, or generalization that current behavior does not need. |
 | Speculative branches | Delete unreachable branches when the invariant is already enforced. |
 | Catch-all handling | Narrow or remove if it hides actionable failures. |
 | Test overfitting | Prefer behavior assertions over implementation detail assertions. |

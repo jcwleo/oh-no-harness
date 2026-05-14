@@ -18,6 +18,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Break work into ordered tasks with file ownership, verification, and acceptance criteria.
 - Use `explore` findings and `analyst` requirements when available.
+- Choose the smallest approach that can satisfy the approved acceptance criteria.
+- Justify any new abstraction, configurability, dependency, or generalized path
+  with a current requirement, not a possible future need.
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
@@ -27,6 +30,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Plans must be executable by a skilled agent with little prior context.
 - Each task should be independently reviewable.
 - Include exact files to create or modify when known.
+- Include a minimal viable approach and list rejected speculative complexity
+  when planning through `ralplan`.
 - Mark plans as pending approval unless the user has explicitly approved execution.
 
 ## Output
@@ -35,6 +40,8 @@ Return:
 
 - Plan path.
 - Task list.
+- Minimal viable approach.
+- Rejected speculative complexity.
 - Execution profile when the plan can hand off to `ralph`.
 - Verification commands.
 - Approval status.

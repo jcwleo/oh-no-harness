@@ -75,6 +75,8 @@ The plan must be concrete enough for `ralph` to execute without inventing scope.
 Before presenting the plan, check that it includes:
 
 - explicit in-scope and out-of-scope boundaries
+- the smallest approach that can satisfy the acceptance criteria
+- any added abstraction, configurability, dependency, or generalization justified by a current requirement
 - files, modules, commands, or investigation targets where known
 - acceptance criteria that can be verified
 - TDD expectations for each behavior-changing task
@@ -92,6 +94,12 @@ Every plan must include:
 - a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
 - goal
 - scope and non-goals
+- minimal viable approach
+- rejected speculative complexity, or `none`
+- for `LIGHT` execution profile, the minimal viable approach may be a single
+  sentence and rejected speculative complexity may be `none` when the task is
+  trivially scoped; `STANDARD` and `THOROUGH` plans must justify both fields
+  explicitly
 - files to create or modify
 - task sequence
 - acceptance criteria
@@ -165,6 +173,7 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - text diagram of the implementation structure or flow
 - numbered task sequence
 - key files or modules affected
+- minimal viable approach and any rejected speculative complexity
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
 - verification commands or evidence plan
@@ -186,6 +195,11 @@ Scope:
 {in scope}
 Not in scope:
 {out of scope}
+
+Minimal approach:
+{smallest approach that satisfies the acceptance criteria}
+Rejected speculative complexity:
+{unneeded abstraction, configurability, dependency, or generalization, or "None"}
 
 Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
