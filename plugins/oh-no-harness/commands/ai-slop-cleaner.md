@@ -1,6 +1,6 @@
 ---
 description: "Clean AI-generated code residue after behavior is locked."
-argument-hint: "[--review|--no-deslop] <files, paths, or changed-file scope>"
+argument-hint: "<files, paths, or changed-file scope>"
 disable-model-invocation: false
 ---
 

@@ -2,7 +2,7 @@
 name: explore
 description: Codebase exploration agent for locating files, symbols, dependencies, and factual implementation context.
 tools: Read, Glob, Grep, Bash
-model: inherit
+model: sonnet
 color: cyan
 ---
 
