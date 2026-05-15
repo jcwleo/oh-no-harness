@@ -58,7 +58,7 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 5. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, execution mode, and antithesis.
 6. Dispatch `critic` subagent only after Architect completes.
 7. Dispatch `planner` subagent to revise with accepted feedback.
-8. Repeat until Critic approves or five complete loops have run.
+8. Repeat until Critic approves or five complete loops have run. If Critic still rejects after the fifth loop, present the plan to the user with `pending approval` status, the unresolved Critic findings, and an explicit request to accept the residual concerns, revise scope, or stop. Do not silently advance past blocking critic feedback.
 9. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
 10. Present the plan to the user with the Plan Approval Brief format below.
 11. Mark the plan `pending approval` unless the user explicitly approves execution.
@@ -196,7 +196,7 @@ Scope:
 Not in scope:
 {out of scope}
 
-Minimal approach:
+Minimal viable approach:
 {smallest approach that satisfies the acceptance criteria}
 Rejected speculative complexity:
 {unneeded abstraction, configurability, dependency, or generalization, or "None"}
@@ -310,7 +310,7 @@ This table governs *agent role* dispatch only — workflow-skill chaining (`ralp
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions. |
 | `planner` | Dispatch `planner` subagent to draft and revise the implementation plan. |
 | `architect` | Dispatch `architect` subagent to review feasibility, architecture fit, sequencing, and tradeoffs. |
-| `critic` | Dispatch `critic` subagent to review quality only after Architect completes. |
+| `critic` | Dispatch `critic` subagent to review quality only after Architect completes. Critic applies the senior-engineer overcomplication check and may block on speculative abstraction, configurability, dependencies, or broad refactors not tied to current acceptance criteria. |
 
 Architect and Critic remain sequential. Do not run them in parallel.
 

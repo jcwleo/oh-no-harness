@@ -1,7 +1,7 @@
 ---
 name: ai-slop-cleaner
 description: Use when AI-generated code, generated tests, or assistant-written diffs need behavior-preserving cleanup after implementation approval, before review, or before final delivery.
-argument-hint: "[--review|--no-deslop] <files, paths, or changed-file scope>"
+argument-hint: "<files, paths, or changed-file scope>"
 ---
 
 # AI Slop Cleaner
@@ -90,3 +90,7 @@ Return:
 - Slop categories removed.
 - Verification commands and results.
 - Any skipped cleanup and why.
+
+## Next Skill Handoff
+
+None — this is a post-implementation mid-loop skill. Return control to the caller (`ralph` or direct invocation). If the cleanup pass changed structure, tests, or control flow, recommend `code-reviewer` or `verifier` to the caller; do not invoke them yourself.

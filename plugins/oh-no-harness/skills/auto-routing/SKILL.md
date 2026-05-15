@@ -25,6 +25,8 @@ Use when the user asks to:
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
 
+Do not use as a substitute for skill selection inside the current session. This skill only changes persistent bootstrap behavior — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
+
 ## Platform Behavior
 
 Claude Code reads this setting from plugin data during `SessionStart`.

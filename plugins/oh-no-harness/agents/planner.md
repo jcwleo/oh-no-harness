@@ -33,6 +33,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Include a minimal viable approach and list rejected speculative complexity
   when planning through `ralplan`.
 - Mark plans as pending approval unless the user has explicitly approved execution.
+- Use `Write` only to create or update files under `.oh-no/plans/`. Escalate any other write to the calling skill.
 
 ## Output
 

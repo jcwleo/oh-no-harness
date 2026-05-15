@@ -35,4 +35,5 @@ Return:
 - Clarified objective.
 - Ambiguities and questions.
 - Risks and constraints.
-- Suggested next step for the caller: `interview`, `ralplan`, `planner`, `architect`, or `critic`.
+- Suggested next role for the caller (agent): `planner`, `architect`, or `critic`.
+- Suggested next skill (when requirements or planning escalation is needed): `interview` or `ralplan`.

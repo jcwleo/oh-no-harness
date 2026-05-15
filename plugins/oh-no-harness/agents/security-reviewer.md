@@ -3,7 +3,7 @@ name: security-reviewer
 description: Security review agent for auth, secrets, data handling, injection, file system, network, and policy risks.
 tools: Read, Bash, Grep, Glob
 model: inherit
-color: red
+color: gray
 ---
 
 # Security Reviewer Agent
@@ -21,6 +21,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Recommend concrete mitigations.
 - Recommend Ralph execution mode escalation when sensitive behavior makes the selected mode too light.
 - Escalate verification tier when sensitive behavior is touched.
+- Not in scope: general line-level defects unrelated to security (see `code-reviewer`), plan- or evidence-level adversarial critique (see `critic`), command-level acceptance-to-evidence mapping (see `verifier`), user-facing scenario validation (see `qa-tester`).
 
 ## Operating Rules
 

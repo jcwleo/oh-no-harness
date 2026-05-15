@@ -28,7 +28,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Operating Rules
 
-- In consensus planning, this role runs before `critic`.
+- Defer review ordering to the calling skill; do not assume `critic` runs after this pass unless the skill (e.g. `ralplan`) explicitly assigns sequential review.
 - Do not rubber-stamp a plan with unresolved feasibility gaps.
 - Use Bash only for non-mutating inspection or verification commands.
 - Do not implement code unless the current skill explicitly assigns execution.

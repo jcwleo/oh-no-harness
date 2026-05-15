@@ -68,3 +68,7 @@ Return:
 - Acceptance criteria status.
 - Skipped checks and reason.
 - Residual risk.
+
+## Next Skill Handoff
+
+None — this is the final evidence gate. Return the result to the caller (`ralph`, `autopilot`, or direct invocation). Do not chain to another workflow skill.

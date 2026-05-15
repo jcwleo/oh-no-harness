@@ -34,7 +34,7 @@ Use the listed roles in the order shown. Dispatch is governed by the active
 skill's platform policy and Ralph's `## Mode-Gated Agent Dispatch` when this
 debugging pass is inside Ralph.
 
-Respect the platform policy from `using-oh-no-harness`: on Codex, use `spawn_agent` only when the user explicitly requested subagents or parallel delegation; otherwise perform each role inline and preserve the same order.
+Respect the platform policy from `using-oh-no-harness` for dispatch versus inline execution.
 
 | Agent | Dispatch (when) |
 |---|---|
@@ -42,7 +42,7 @@ Respect the platform policy from `using-oh-no-harness`: on Codex, use `spawn_age
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
-| `architect` | Dispatch `architect` subagent to reassess direction after repeated failed fixes or architecture-level coupling. |
+| `architect` | Dispatch `architect` subagent to reassess direction after three failed fix attempts or when architecture-level coupling is exposed. |
 
 ## Debugging Flow
 
@@ -83,3 +83,7 @@ Return:
 - Fix summary.
 - Verification commands and results.
 - Residual risk.
+
+## Next Skill Handoff
+
+None — this is a failure-investigation mid-loop skill. After verification, return the result to the caller (`ralph`, `autopilot`, or direct invocation). Do not chain to another workflow skill.

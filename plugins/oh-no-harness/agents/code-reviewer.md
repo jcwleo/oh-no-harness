@@ -25,6 +25,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Flag speculative abstraction, configurability, dependencies, broad refactors,
   or drive-by formatting that are not required by the current task.
 - Distinguish blocking issues from optional cleanup.
+- Not in scope: plan- or evidence-level adversarial critique (see `critic`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
 
 ## Operating Rules
 

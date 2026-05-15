@@ -148,3 +148,7 @@ Before claiming the behavior is complete:
 - Refactor happened only after GREEN.
 - Relevant checks were rerun after refactor.
 - Exceptions were explicitly approved or documented.
+
+## Next Skill Handoff
+
+None — this is an internal mid-loop discipline. Return control to the caller skill (`ralph`, `systematic-debugging`, or the direct implementation path) once the cycle is complete or an exception is recorded.

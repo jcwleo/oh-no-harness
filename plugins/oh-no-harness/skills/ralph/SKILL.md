@@ -29,6 +29,8 @@ Use when:
 
 Do not use when requirements are still vague. Use `interview` or `ralplan` first.
 
+When entering directly from `interview`, accept the path only if the spec's provisional Ralph mode is `LIGHT`. If a non-LIGHT spec arrives without a `ralplan` plan, re-confirm with the user before editing — the interview-side gate should have routed to `ralplan` first.
+
 ## Artifacts
 
 Use artifacts according to the selected execution mode from
@@ -111,8 +113,8 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
 | `executor` | Implement scoped story work. |
-| `architect` | Review architecture-sensitive, security-sensitive, broad, or multi-system completion evidence. |
-| `critic` | Adversarially review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. |
+| `architect` | Review architecture-sensitive, broad, or multi-system completion evidence. Security-specific risks go to `security-reviewer`. |
+| `critic` | Adversarially review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. Applies the senior-engineer overcomplication check against the current acceptance criteria. |
 | `verifier` | Package evidence against acceptance criteria and verification tiers. |
 | `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
 | `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
@@ -162,35 +164,18 @@ follow-up instead of folding it into the current diff.
 
 ## Execution Loop
 
-1. Read the PRD, plan, or spec.
-2. Read `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, and `docs/shared/verification-tiers.md`.
-3. Set or confirm the required execution mode before editing.
-4. Record the mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
-5. Select the next incomplete story or task.
-6. Apply the task-level mode from the approved profile; if none exists, derive it from the overall mode and story risk.
-7. Use `explore` when files, tests, or integration surfaces are not obvious.
-8. Identify files and checks.
-9. Identify safe parallelization opportunities only when the selected mode and agent policy allow it.
-10. Apply the Scope Trace Gate and record why the intended edits are in scope.
-11. Classify the story's TDD requirement:
-   - behavior-changing production code: TDD required
-   - bug fix: reproduction test required
-   - behavior-preserving refactor: characterization or regression coverage required
-   - docs-only, config-only, generated code, throwaway prototype, or unavailable test harness: document the exception
-12. If TDD is required, read and follow `test-driven-development` before editing production code.
-13. Record RED, GREEN, post-refactor, or exception evidence according to the selected artifact policy.
-14. Implement inline or dispatch `executor` according to `## Mode-Gated Agent Dispatch`.
-15. Run the story-specific verification required by the selected mode and verification tier.
-16. Recheck the Scope Trace Gate against the actual diff.
-17. Mark the story complete only when acceptance criteria, required TDD or exception evidence, and scope trace evidence pass.
-18. Repeat until all stories or tasks pass.
-19. Run review roles according to the selected mode, agent policy, and risk signals.
-20. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
-21. Apply cleanup according to the selected cleanup policy.
-22. Re-run verification after cleanup when cleanup changed files.
-23. If cleanup changed non-trivial code, tests, or prompts, run the focused post-cleanup review required by the selected mode.
-24. Read and follow `verification-before-completion` before claiming completion.
-25. Write the final report.
+This loop is the top-level shape. Detail for review, cleanup, agent dispatch, parallelism, and persistence lives in the dedicated sections below; do not duplicate it here.
+
+1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`.
+2. Set or confirm the required execution mode before editing. Record mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
+3. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
+4. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
+5. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
+6. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
+7. Recheck the `Scope Trace Gate` against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence (or documented exception), and scope-trace evidence all pass.
+8. Repeat steps 3–7 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+9. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
+10. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
 ## Mode-Gated Agent Dispatch
 
@@ -212,7 +197,7 @@ Use parallel subagents only when the selected execution mode and agent policy
 allow dispatch, the current platform supports it, and the work can be safely
 isolated.
 
-Respect the platform rules from `using-oh-no-harness`: Claude Code may use its Task/subagent mechanism; Codex may use `spawn_agent` only when the user explicitly requested subagents or parallel delegation.
+Respect the same `using-oh-no-harness` platform policy noted in `## Mode-Gated Agent Dispatch`.
 
 Read and apply `docs/shared/parallel-subagents.md` before dispatching parallel work.
 
@@ -238,6 +223,7 @@ Do not parallelize when:
 - TDD RED/GREEN order for a behavior would be split across agents
 - the plan does not define file ownership clearly enough
 - a reviewer has found unresolved issues that an implementer is still fixing
+- `architect` and `critic` would review the same plan or completion evidence — these are sequential with `architect` first
 
 Implementation subagents must know they are not alone in the codebase. Tell them not to revert or overwrite others' work and to stay inside their assigned write scope.
 

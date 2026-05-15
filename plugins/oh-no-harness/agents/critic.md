@@ -29,7 +29,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   verification requirement, unused-code removal, or behavior-preserving cleanup
   lock.
 - Reject plans that skip meaningful options or ignore the user's constraints.
-- Confirm that `architect` has reviewed consensus plans before you critique them.
+- When the calling skill assigns sequential review (e.g. `ralplan`), critique only after `architect` completes; defer ordering to the calling skill otherwise.
+- Not in scope: line-level defects in changed code (see `code-reviewer`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
 
 ## Operating Rules
 

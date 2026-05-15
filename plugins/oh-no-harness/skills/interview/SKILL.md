@@ -33,9 +33,9 @@ Do not use when the user provides a concrete task with files, failing commands, 
 
 | Mode | Use |
 |---|---|
-| quick | 1-2 focused rounds for small ambiguity. |
-| standard | default; enough rounds to clarify objective, constraints, and acceptance. |
-| deep | multi-component systems, high risk, or major product uncertainty. |
+| Quick | 1-2 focused rounds for small ambiguity. |
+| Standard | default; enough rounds to clarify objective, constraints, and acceptance. |
+| Deep | multi-component systems, high risk, or major product uncertainty. |
 
 ## Brownfield First
 

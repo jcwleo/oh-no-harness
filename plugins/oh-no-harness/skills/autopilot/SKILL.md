@@ -145,6 +145,8 @@ Content-approval gates inside the sub-skills still run:
 
 What autopilot skips is only the "which next skill?" question between phases. It does not skip content review, plan approval, verification, or final evidence gates.
 
+Under autopilot, content gates pause the workflow and forward the sub-skill's user-facing review request verbatim — `interview`'s Phase 1 spec review and `ralplan`'s Plan Approval Brief both surface to the user as written. Autopilot does not auto-approve, paraphrase, or revise on the user's behalf. It advances to the next phase only after the user explicitly approves the spec, plan, or final-evidence claim.
+
 If the user invokes `interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
 
 ## Output

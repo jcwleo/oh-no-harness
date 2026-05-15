@@ -60,7 +60,8 @@ Before asking the user a clarification, scope, preference, or approval question:
 
 1. Check whether the question exists because the request is broad, vague, ambiguous, or missing requirements, constraints, acceptance criteria, or user intent. If yes, read and follow `interview` first.
 2. Check whether the question exists because the implementation strategy, sequencing, architecture, risk, or tradeoff is unclear. If yes, read and follow `ralplan` first.
-3. Check whether the question is part of an already-selected workflow skill. If yes, ask it through that skill's rules.
+3. Check whether the question exists because a failing command, regression, flaky behavior, or unknown root cause is blocking progress. If yes, read and follow `systematic-debugging` first.
+4. Check whether the question is part of an already-selected workflow skill. If yes, ask it through that skill's rules.
 
 Do not ask raw clarification questions for vague work before reading `interview`, unless the user explicitly tells you not to use the skill.
 
