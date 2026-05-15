@@ -24,14 +24,19 @@ The active skill decides whether a role should be handled inline or dispatched.
 For Ralph-driven work, follow the selected execution mode and agent policy from
 `docs/shared/execution-modes.md`.
 
-On subagent-capable platforms (Claude Code Task tool, Codex `spawn_agent` when
-authorized per `using-oh-no-harness`), dispatch a subagent only when the active
-skill's mode, risk, and platform policy call for it. When a role is used, pick
-the lightest credible tier from the matrix above. Inline execution is
-appropriate for LIGHT work, for platforms without subagents, when the user has
-not authorized Codex delegation, or when a small check can be credibly handled
-inside the current pass. The Escalation Rules below still govern when to climb
-tiers.
+On subagent-capable platforms, dispatch a subagent only when the active skill's
+mode, risk, and platform policy call for it. Ralph dispatch uses
+`docs/shared/ralph-subagent-policy.md` plus the active platform adapter:
+`docs/platforms/claude-code-ralph.md` for Claude Code or
+`docs/platforms/codex-ralph.md` for Codex. Claude Code should use the available
+Task/Agent/subagent mechanism with plugin agent names such as
+`oh-no-harness:<agent>` when available. Codex should use `spawn_agent` only when
+the user request or approved plan contains an explicit subagent or parallel
+agent trigger. When a role is used, pick the lightest credible tier from the
+matrix above. Inline execution is appropriate for LIGHT work, for platforms
+without subagents, when Codex has no explicit subagent trigger, or when a small
+check can be credibly handled inside the current pass. The Escalation Rules
+below still govern when to climb tiers.
 
 ## Skill Boundary
 

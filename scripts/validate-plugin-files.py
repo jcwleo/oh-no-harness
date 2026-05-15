@@ -80,6 +80,69 @@ ROLE_POLICY_MARKERS = {
     "systematic-debugging": "## Agent Roles",
     "autopilot": "## Agent Roles",
 }
+PLATFORM_SUBAGENT_MARKERS = {
+    "using-oh-no-harness": (
+        "Codex only starts subagents when the user",
+        "@agent-oh-no-harness:<agent>",
+        "independent non-blocking agents",
+    ),
+    "ralph": (
+        "Parallel trigger",
+        "@agent-oh-no-harness:<agent>",
+        "whole eligible batch",
+        "Platform invocation",
+    ),
+    "ralplan": (
+        "ralph with parallel subagents",
+        "Run ralph with parallel subagents",
+        "parallel subagent dispatch plan",
+    ),
+    "autopilot": (
+        "oh-no-harness:<agent>",
+        "approved plan explicitly asks for subagents",
+        "preserve that phrase in the Ralph handoff",
+    ),
+}
+PLATFORM_SUBAGENT_DOC_MARKERS = {
+    "agent-tiers.md": (
+        "docs/shared/ralph-subagent-policy.md",
+        "docs/platforms/codex-ralph.md",
+    ),
+    "execution-modes.md": (
+        "Parallel trigger",
+        "docs/shared/ralph-subagent-policy.md",
+    ),
+    "parallel-subagents.md": (
+        "## Platform Invocation",
+        "docs/shared/ralph-subagent-policy.md",
+        "docs/platforms/claude-code-ralph.md",
+        "docs/platforms/codex-ralph.md",
+    ),
+}
+RALPH_SUBAGENT_POLICY_MARKERS = (
+    "# Ralph Subagent Policy",
+    "## Batch Rule",
+    "eligible batch first",
+    "They must not revert, overwrite, reformat, or broaden work outside their",
+)
+PLATFORM_ADAPTER_DOC_MARKERS = {
+    "claude-code-ralph.md": (
+        "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
+        "oh-no-harness:<agent>",
+        "@agent-oh-no-harness:<agent>",
+        "background subagents",
+    ),
+    "codex-ralph.md": (
+        "CODEX_ONLY_RALPH_ADAPTER",
+        "spawn_agent",
+        "wait_agent",
+        "Parallel trigger: none",
+    ),
+}
+PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
+    "claude-code-ralph.md": ("spawn_agent", "CODEX_ONLY_RALPH_ADAPTER"),
+    "codex-ralph.md": ("@agent-oh-no-harness:<agent>", "CLAUDE_CODE_ONLY_RALPH_ADAPTER"),
+}
 EXECUTION_MODE_SHARED_MARKERS = (
     "# Execution Modes",
     "Mode is required for every handoff to `ralph`.",
@@ -267,6 +330,11 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in SIMPLICITY_SCOPE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope marker: {marker!r}")
+    if skill in PLATFORM_SUBAGENT_MARKERS:
+        body = read_text(path)
+        for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
+            if marker not in body:
+                die(f"{path} is missing required Platform-Subagent marker: {marker!r}")
 
 
 def assert_command(root: Path, skill: str) -> None:
@@ -306,6 +374,8 @@ def assert_agent(root: Path, agent: str) -> None:
         die(f"{path} model={fm.get('model')!r}, expected {expected_model!r}")
 
     body = read_text(path)
+    if not fm["description"].startswith("Use proactively"):
+        die(f"{path} description should start with 'Use proactively' to encourage Claude Code delegation")
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
         if marker not in body:
             die(f"{path} is missing required agent-skill boundary marker: {marker!r}")
@@ -335,6 +405,77 @@ def assert_execution_mode_contract(root: Path) -> None:
     for marker in EXECUTION_MODE_SHARED_MARKERS:
         if marker not in text:
             die(f"{path} is missing required Execution-Mode contract marker: {marker!r}")
+    shared_root = root / "docs" / "shared"
+    for filename, markers in PLATFORM_SUBAGENT_DOC_MARKERS.items():
+        doc = shared_root / filename
+        doc_text = read_text(doc)
+        for marker in markers:
+            if marker not in doc_text:
+                die(f"{doc} is missing required Platform-Subagent marker: {marker!r}")
+    policy_path = shared_root / "ralph-subagent-policy.md"
+    policy_text = read_text(policy_path)
+    for marker in RALPH_SUBAGENT_POLICY_MARKERS:
+        if marker not in policy_text:
+            die(f"{policy_path} is missing required Ralph-Subagent-Policy marker: {marker!r}")
+    platform_root = root / "docs" / "platforms"
+    for filename, markers in PLATFORM_ADAPTER_DOC_MARKERS.items():
+        doc = platform_root / filename
+        doc_text = read_text(doc)
+        for marker in markers:
+            if marker not in doc_text:
+                die(f"{doc} is missing required Platform-Adapter marker: {marker!r}")
+        for marker in PLATFORM_ADAPTER_FORBIDDEN_MARKERS[filename]:
+            if marker in doc_text:
+                die(f"{doc} contains forbidden cross-platform adapter marker: {marker!r}")
+
+
+def assert_hook_contract(root: Path) -> None:
+    hooks_path = root / "hooks" / "hooks.json"
+    try:
+        hooks = json.loads(read_text(hooks_path))
+    except json.JSONDecodeError as exc:
+        die(f"{hooks_path} is not valid JSON: {exc}")
+
+    events = hooks.get("hooks")
+    if not isinstance(events, dict):
+        die(f"{hooks_path} should define a hooks object")
+
+    required_events = {"SessionStart", "UserPromptSubmit"}
+    actual_events = set(events)
+    missing = required_events - actual_events
+    if missing:
+        die(f"{hooks_path} is missing hook events: {sorted(missing)}")
+
+    user_prompt_groups = events.get("UserPromptSubmit")
+    if not isinstance(user_prompt_groups, list) or len(user_prompt_groups) != 1:
+        die(f"{hooks_path} should define exactly one UserPromptSubmit group")
+    group = user_prompt_groups[0]
+    if "matcher" in group:
+        die(f"{hooks_path} UserPromptSubmit should omit matcher because the event ignores it")
+    handlers = group.get("hooks")
+    if not isinstance(handlers, list) or len(handlers) != 1:
+        die(f"{hooks_path} UserPromptSubmit should define exactly one hook handler")
+    handler = handlers[0]
+    if handler.get("type") != "command":
+        die(f"{hooks_path} UserPromptSubmit handler should be type=command")
+    if "ralph-platform-adapter" not in handler.get("command", ""):
+        die(f"{hooks_path} UserPromptSubmit should invoke ralph-platform-adapter")
+    if handler.get("async") is not False:
+        die(f"{hooks_path} UserPromptSubmit handler should set async=false")
+
+    script_path = root / "hooks" / "ralph-platform-adapter"
+    script_text = read_text(script_path)
+    for marker in (
+        "OH_NO_RALPH_PLATFORM_ADAPTER",
+        "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
+        "CODEX_ONLY_RALPH_ADAPTER",
+        "docs/shared/ralph-subagent-policy.md",
+        "docs/platforms/claude-code-ralph.md",
+        "docs/platforms/codex-ralph.md",
+        "hookEventName\": \"UserPromptSubmit",
+    ):
+        if marker not in script_text:
+            die(f"{script_path} is missing required hook marker: {marker!r}")
 
 
 def assert_claude_manifest_skills(root: Path) -> None:
@@ -406,6 +547,19 @@ def assert_codex_marketplace(root: Path) -> None:
         die(f"{path} {PLUGIN_NAME} should use policy.authentication=ON_INSTALL")
 
 
+def assert_codex_manifest(root: Path) -> None:
+    path = root / ".codex-plugin/plugin.json"
+    try:
+        manifest = json.loads(read_text(path))
+    except json.JSONDecodeError as exc:
+        die(f"{path} is not valid JSON: {exc}")
+
+    if manifest.get("skills") != "./skills/":
+        die(f"{path} should declare skills='./skills/'")
+    if manifest.get("hooks") != "./hooks/hooks.json":
+        die(f"{path} should declare hooks='./hooks/hooks.json' for Codex plugin hooks")
+
+
 def has_token(text: str, token: str) -> bool:
     return re.search(rf"(^|[^A-Za-z0-9_-]){re.escape(token)}([^A-Za-z0-9_-]|$)", text) is not None
 
@@ -463,7 +617,9 @@ def main() -> None:
     for agent in AGENTS:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)
+    assert_hook_contract(root)
     assert_claude_manifest_skills(root)
+    assert_codex_manifest(root)
     assert_claude_marketplace(marketplace_root)
     assert_codex_marketplace(marketplace_root)
     assert_expected_references(root)

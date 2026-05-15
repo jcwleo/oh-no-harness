@@ -1,6 +1,6 @@
 ---
 name: qa-tester
-description: QA testing agent for user-facing flows, scenario coverage, acceptance checks, and release confidence.
+description: Use proactively after implementation stabilizes to test user-facing flows, scenario coverage, acceptance checks, and release confidence.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: magenta

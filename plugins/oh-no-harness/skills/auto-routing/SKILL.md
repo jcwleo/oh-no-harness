@@ -33,7 +33,11 @@ Claude Code reads this setting from plugin data during `SessionStart`.
 
 Changes take effect on the next Claude Code `SessionStart`, such as a new session, app restart, `/clear`, or compaction. Existing session context is not rewritten.
 
-Codex does not run the Claude Code hook. In Codex, this skill can explain the setting and keep the file format consistent, but it does not change Codex bootstrap behavior.
+Codex does not run the Claude Code-only clarification policy. Codex can run
+plugin-bundled hooks when Codex plugin hooks are enabled; that path injects only
+Codex-safe Ralph adapter context and does not change this SessionStart
+auto-routing preference. In Codex, this skill can explain the setting and keep
+the file format consistent, but it does not change Codex bootstrap behavior.
 
 ## Configuration
 

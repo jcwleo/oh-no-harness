@@ -17,10 +17,11 @@
     "coding-workflow"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "oh-no harness",
     "shortDescription": "Lightweight clarify, plan, execute, debug, and verify workflows for coding agents",
-    "longDescription": "oh-no harness provides Markdown-first workflow skills and role prompts without a default runtime daemon or hidden state. Codex registers only the canonical workflow skills; bootstrap guidance should be supplied through repository guidance when first-turn injection is unavailable.",
+    "longDescription": "oh-no harness provides Markdown-first workflow skills and role prompts without a default runtime daemon or hidden state. Codex registers only the canonical workflow skills; when plugin hooks are enabled, a narrow Ralph prompt hook injects the Codex-specific subagent adapter.",
     "developerName": "oh-no-harness maintainers",
     "category": "Coding",
     "capabilities": [

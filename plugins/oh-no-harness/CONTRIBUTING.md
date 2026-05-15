@@ -34,10 +34,10 @@ After this, both runtimes load skills, agents, and hooks from their installed pl
 
 ## Development cycle
 
-1. Edit files under `plugins/oh-no-harness/`: `skills/*/SKILL.md`, `agents/*.md`, `hooks/session-start`, `scripts/oh-no-config`, or docs.
+1. Edit files under `plugins/oh-no-harness/`: `skills/*/SKILL.md`, `agents/*.md`, hooks, `scripts/oh-no-config`, or docs.
 2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
-3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
-4. Codex picks up changes on the next session.
+3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook. Ralph-specific `UserPromptSubmit` adapter changes apply on the next Ralph prompt.
+4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, the Ralph `UserPromptSubmit` adapter injects the Codex-specific dispatch prompt.
 
 ## Validate before pushing
 
@@ -104,7 +104,8 @@ README.md                         # Marketplace wrapper README
 .agents/plugins/marketplace.json  # Codex marketplace manifest (source: "./plugins/oh-no-harness")
 plugins/oh-no-harness/.claude-plugin/plugin.json  # Claude Code plugin manifest
 plugins/oh-no-harness/.codex-plugin/plugin.json   # Codex plugin manifest
-plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap (Claude Code only)
+plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
+plugins/oh-no-harness/hooks/ralph-platform-adapter # Ralph UserPromptSubmit platform adapter
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
 plugins/oh-no-harness/skills/<name>/SKILL.md       # Public skill (10 total)

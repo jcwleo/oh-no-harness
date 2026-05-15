@@ -72,8 +72,8 @@ Ralph behavior:
 - record the selected mode and reason before editing
 - keep implementation inline by default
 - skip PRD scaffolding unless the user or input explicitly requires it
-- do not dispatch subagents unless the user requested delegation or a check
-  cannot be credibly performed inline
+- do not dispatch subagents unless the current platform policy allows it and
+  the user requested delegation or a check cannot be credibly performed inline
 - document TDD as not applicable or as an exception when there is no behavior
   change
 - run LIGHT verification from `docs/shared/verification-tiers.md`
@@ -104,8 +104,9 @@ Ralph behavior:
   or a plan/spec already uses story structure
 - use TDD for behavior-changing production edits and bug fixes; document narrow
   exceptions for docs-only, config-only, generated, or prompt-only work
-- implement inline unless the platform policy and user authorization allow a
-  targeted subagent that clearly reduces risk or latency
+- implement inline unless the platform policy allows a targeted subagent that
+  clearly reduces risk or latency; on Codex this requires an explicit subagent
+  or parallel-agent trigger in the user request or approved handoff
 - use `verifier` or `code-reviewer` only for behavior-affecting or workflow
   changes where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
@@ -134,8 +135,11 @@ Ralph behavior:
   `verification.md`
 - execute story by story and keep task-level modes visible inside the PRD
 - use TDD or explicit approved exceptions for behavior changes
-- dispatch or inline every required role according to platform policy, user
-  delegation authorization, and `docs/shared/agent-tiers.md`
+- dispatch or inline every required role according to platform policy,
+  available host subagent support, `docs/shared/agent-tiers.md`,
+  `docs/shared/ralph-subagent-policy.md`, and the active platform adapter; on
+  Codex, use `spawn_agent` only when the user request or approved handoff
+  explicitly asks for subagents or parallel agent work
 - run reviewer roles for correctness and maintainability; add architect,
   security, QA, or critic review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
@@ -181,6 +185,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
+- Parallel trigger: none | explicit-user-request | approved-plan-handoff
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -196,6 +201,7 @@ Execution mode:
 - Verification tier:
 - Artifact policy:
 - Agent policy:
+- Parallel trigger:
 - Cleanup policy:
 - Task sizing:
 - Escalation triggers:

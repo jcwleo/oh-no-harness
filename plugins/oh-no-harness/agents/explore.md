@@ -1,6 +1,6 @@
 ---
 name: explore
-description: Codebase exploration agent for locating files, symbols, dependencies, and factual implementation context.
+description: Use proactively for read-only codebase exploration, file and symbol discovery, dependency tracing, and factual implementation context.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 color: cyan

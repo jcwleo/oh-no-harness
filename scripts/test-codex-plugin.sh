@@ -16,6 +16,7 @@ MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
+RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 
@@ -42,6 +43,7 @@ path used by /plugins, then verifies that Codex exposes the plugin skills.
 Options:
   --live             Run live codex exec smoke tests after prompt exposure checks.
   --deep-live        Run live deep smoke tests that require linked support docs.
+  --parallel-live    Run live Ralph parallel-subagent smoke test.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Skip the marketplace/app-server install step.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
@@ -53,7 +55,8 @@ Options:
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
+  OH_NO_PARALLEL_LIVE, OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_RUN_DIR,
+  OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -65,6 +68,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --deep-live)
       RUN_DEEP_LIVE=1
+      shift
+      ;;
+    --parallel-live)
+      RUN_PARALLEL_LIVE=1
       shift
       ;;
     --skip-live)
@@ -151,6 +158,74 @@ validate_codex_manifest() {
   [[ "$manifest_name" == "$PLUGIN_NAME" ]] || fail "manifest name is ${manifest_name}, expected ${PLUGIN_NAME}"
   [[ "$manifest_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "manifest version is not semver: ${manifest_version}"
   ok "Codex manifest identity: ${manifest_name} ${manifest_version}"
+}
+
+validate_codex_hooks() {
+  log "Validating Codex hook separation"
+  assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
+  bash -n "$PLUGIN_ROOT/hooks/session-start"
+  bash -n "$PLUGIN_ROOT/hooks/ralph-platform-adapter"
+
+  local temp_data
+  temp_data="$(mktemp -d)"
+
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start.json"
+  "$PYTHON_BIN" - "$temp_data/session-start.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "SessionStart":
+    raise SystemExit("Codex SessionStart emitted the wrong hook event")
+text = output.get("additionalContext", "")
+if "Before any response or action, including clarification questions" not in text:
+    raise SystemExit("Codex SessionStart is missing the base oh-no guidance")
+for forbidden in ("CLAUDE_CODE_ONLY", "AskUserQuestion"):
+    if forbidden in text:
+        raise SystemExit(f"Codex SessionStart leaked Claude-only policy: {forbidden}")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Run ralph with parallel subagents. Spawn one agent per independent task."}\n' >"$temp_data/ralph-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "UserPromptSubmit":
+    raise SystemExit("Codex Ralph adapter emitted the wrong hook event")
+text = output.get("additionalContext", "")
+required = [
+    "OH_NO_RALPH_PLATFORM_ADAPTER",
+    "CODEX_ONLY_RALPH_ADAPTER",
+    "docs/shared/ralph-subagent-policy.md",
+    "docs/platforms/codex-ralph.md",
+    "spawn_agent",
+    "wait_agent",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Codex Ralph adapter missing markers: {missing}")
+for forbidden in ("CLAUDE_CODE_ONLY_RALPH_ADAPTER", "docs/platforms/claude-code-ralph.md", "@agent-oh-no-harness:<agent>"):
+    if forbidden in text:
+        raise SystemExit(f"Codex Ralph adapter leaked Claude marker: {forbidden}")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Explain the repository layout."}\n' >"$temp_data/non-ralph-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/non-ralph-prompt.json" >"$temp_data/non-ralph-adapter.out"
+  if [[ -s "$temp_data/non-ralph-adapter.out" ]]; then
+    fail "Ralph adapter emitted context for a non-Ralph Codex prompt"
+  fi
+
+  rm -rf "$temp_data"
+  ok "Codex hooks inject only Codex-specific Ralph context"
 }
 
 install_via_codex_plugins() {
@@ -482,10 +557,10 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, the required Ralph execution profile fields, and the Codex phrase for approving Ralph with parallel subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent trigger rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     autopilot)
       printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
@@ -502,13 +577,13 @@ import sys
 
 path, skill = sys.argv[1], sys.argv[2]
 text = open(path, "r", encoding="utf-8").read()
+text_lower = text.lower()
 
 expected = {
     "interview": [
         "OH_NO_CODEX_DEEP_OK interview",
         "already available",
         "advisory",
-        "should not be searched",
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
@@ -516,40 +591,48 @@ expected = {
     ],
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
-        "five complete loops",
+        "five complete",
         "pending approval",
         "sequential",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
+        "Run ralph with parallel subagents",
     ],
     "ralph": [
         "OH_NO_CODEX_DEEP_OK ralph",
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
-        "Use the base agent",
         "LIGHT",
         "STANDARD",
         "THOROUGH",
+        "Parallel trigger",
+        "spawn",
         "Required Behavior Lock",
     ],
     "autopilot": [
         "OH_NO_CODEX_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
-        "five complete loops",
+        "five complete",
         "Mode source",
         "Cleanup And Final Verification",
     ],
 }
 
-missing = [needle for needle in expected[skill] if needle not in text]
+missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
+
+if skill == "interview" and not (
+    "do not search remote" in text_lower or "should not be searched" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
+        "Parallel trigger",
         "Required Behavior Lock",
     ],
     "autopilot": [
@@ -558,7 +641,7 @@ linked_doc_markers = {
     ],
 }
 
-if skill in linked_doc_markers and not all(marker in text for marker in linked_doc_markers[skill]):
+if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
     raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
 
 print(f"ok - deep Codex linked-doc smoke: {skill}")
@@ -607,6 +690,81 @@ run_deep_live_tests() {
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
+run_parallel_live_test() {
+  if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
+    log "Skipping live Codex parallel-subagent smoke test"
+    printf 'Run with --parallel-live or OH_NO_PARALLEL_LIVE=1 to verify actual Codex spawn_agent use.\n' >&2
+    return
+  fi
+
+  log "Running live Codex parallel-subagent smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/parallel-subagents.jsonl"
+  local err_file="$RUN_DIR/parallel-subagents.err"
+  local prompt
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request: spawn exactly two independent read-only subagents before waiting for either result. For Codex spawn_agent calls, omit agent_type/model/reasoning overrides and do not fork full history. Subagent A: inspect docs/platforms/codex-ralph.md and report whether CODEX_ONLY_RALPH_ADAPTER and spawn_agent are present. Subagent B: inspect docs/shared/ralph-subagent-policy.md and report whether Batch Rule says the eligible batch starts before waiting. Do not edit files. After both subagents finish, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the two results.'
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+successful_spawns = []
+first_wait_index = None
+marker = False
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if (
+            item.get("type") == "collab_tool_call"
+            and item.get("tool") in {"wait", "wait_agent"}
+            and first_wait_index is None
+        ):
+            first_wait_index = index
+        if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            if receivers:
+                successful_spawns.append((index, tuple(receivers)))
+        text = item.get("text") or data.get("result", "")
+        if "OH_NO_CODEX_PARALLEL_SUBAGENTS_OK" in text:
+            marker = True
+
+if len(successful_spawns) < 2:
+    raise SystemExit(f"expected at least two completed spawn_agent calls with receiver threads, got {successful_spawns!r}")
+receiver_ids = {rid for _, receivers in successful_spawns[:2] for rid in receivers}
+if len(receiver_ids) < 2:
+    raise SystemExit(f"expected two distinct spawned receiver threads, got {receiver_ids!r}")
+if first_wait_index is not None and not all(index < first_wait_index for index, _ in successful_spawns[:2]):
+    raise SystemExit("two spawn_agent calls did not both complete before the first wait")
+if not marker:
+    raise SystemExit("Codex live parallel smoke did not return success marker")
+
+print("ok - live Codex parallel subagents spawned")
+PY
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
@@ -614,10 +772,12 @@ main() {
 
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest
+  validate_codex_hooks
   install_via_codex_plugins
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
+  run_parallel_live_test
   log "All requested Codex checks passed"
 }
 

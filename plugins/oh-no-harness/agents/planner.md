@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Implementation planning agent for turning approved requirements into sequenced, verifiable work.
+description: Use proactively after requirements are understood to turn approved scope into sequenced, verifiable implementation work.
 tools: Read, Glob, Grep, Bash, Write
 model: inherit
 color: purple

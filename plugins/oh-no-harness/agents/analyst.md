@@ -1,6 +1,6 @@
 ---
 name: analyst
-description: Requirements and risk analysis agent for clarifying intent, hidden constraints, and product implications.
+description: Use proactively before planning to analyze requirements, hidden constraints, risk, and product implications.
 tools: Read, Glob, Grep
 model: inherit
 color: blue

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# UserPromptSubmit hook that injects Ralph subagent guidance for the active platform.
+# Adapter markers loaded by this hook: CLAUDE_CODE_ONLY_RALPH_ADAPTER,
+# CODEX_ONLY_RALPH_ADAPTER.
+
+set -euo pipefail
+
+ENV_PLUGIN_ROOT="${PLUGIN_ROOT:-}"
+ENV_CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+OH_NO_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+stdin_payload="$(cat || true)"
+lowered_payload="$(printf '%s' "$stdin_payload" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+
+is_ralph_prompt=0
+case "$lowered_payload" in
+  *"oh-no-harness:ralph"*|*"use ralph"*|*"run ralph"*|*"ralph with parallel subagents"*|*"/ralph"*|*'$ralph'*|*" ralph "*|*"ralph로"*|*"랄프"*)
+    is_ralph_prompt=1
+    ;;
+esac
+
+if [ "$is_ralph_prompt" -ne 1 ]; then
+  exit 0
+fi
+
+platform="unknown"
+platform_name="Unknown"
+adapter_path=""
+
+if [ -n "$ENV_PLUGIN_ROOT" ]; then
+  platform="codex"
+  platform_name="Codex"
+  adapter_path="${OH_NO_PLUGIN_ROOT}/docs/platforms/codex-ralph.md"
+elif [ -n "$ENV_CLAUDE_PLUGIN_ROOT" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  platform="claude"
+  platform_name="Claude Code"
+  adapter_path="${OH_NO_PLUGIN_ROOT}/docs/platforms/claude-code-ralph.md"
+fi
+
+if [ "$platform" = "unknown" ]; then
+  exit 0
+fi
+
+shared_path="${OH_NO_PLUGIN_ROOT}/docs/shared/ralph-subagent-policy.md"
+shared_policy="$(cat "$shared_path" 2>&1 || echo "Error reading $shared_path")"
+platform_adapter="$(cat "$adapter_path" 2>&1 || echo "Error reading $adapter_path")"
+
+context="<OH_NO_RALPH_PLATFORM_ADAPTER>
+Platform: ${platform_name}
+
+Ralph is being invoked. Apply the shared Ralph subagent policy and the active
+platform adapter below. Do not apply another platform's invocation syntax.
+
+Shared policy source: docs/shared/ralph-subagent-policy.md
+
+${shared_policy}
+
+Active platform adapter source: ${adapter_path#${OH_NO_PLUGIN_ROOT}/}
+
+${platform_adapter}
+</OH_NO_RALPH_PLATFORM_ADAPTER>"
+
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+context_escaped="$(escape_for_json "$context")"
+
+printf '{\n'
+printf '  "hookSpecificOutput": {\n'
+printf '    "hookEventName": "UserPromptSubmit",\n'
+printf '    "additionalContext": "%s"\n' "$context_escaped"
+printf '  }\n'
+printf '}\n'

@@ -35,7 +35,7 @@ if %ERRORLEVEL% equ 0 (
 )
 
 REM No bash found - exit silently rather than error
-REM (plugin still works, just without SessionStart context injection)
+REM (plugin still works, just without hook context injection)
 exit /b 0
 CMDBLOCK
 

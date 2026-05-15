@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Architecture review agent for feasibility, tradeoffs, sequencing, and system design risks.
+description: Use proactively for architecture-sensitive plans or changes to review feasibility, tradeoffs, sequencing, and system design risks.
 tools: Read, Glob, Grep, Bash
 model: inherit
 color: orange

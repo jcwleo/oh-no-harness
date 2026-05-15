@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Verification agent for checking acceptance criteria, commands, artifacts, and completion evidence.
+description: Use proactively before completion claims to check acceptance criteria, commands, artifacts, and verification evidence.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: white

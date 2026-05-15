@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Security review agent for auth, secrets, data handling, injection, file system, network, and policy risks.
+description: Use proactively for auth, secrets, data handling, injection, file system, network, and policy risk review.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: gray

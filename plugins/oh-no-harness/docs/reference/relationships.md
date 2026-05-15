@@ -8,6 +8,12 @@ Claude Code SessionStart
   -> hooks/session-start
   -> skills/using-oh-no-harness/SKILL.md
 
+Claude Code UserPromptSubmit for Ralph
+  -> hooks/run-hook.cmd ralph-platform-adapter
+  -> hooks/ralph-platform-adapter
+  -> docs/shared/ralph-subagent-policy.md
+  -> docs/platforms/claude-code-ralph.md
+
 Claude Code slash command
   -> commands/<skill>.md
   -> skills/<skill>/SKILL.md with raw $ARGUMENTS
@@ -17,6 +23,12 @@ Codex
   -> plugins/oh-no-harness/.codex-plugin/plugin.json
   -> skills/
   -> using-oh-no-harness through native skill discovery
+
+Codex UserPromptSubmit for Ralph when plugin hooks are enabled
+  -> hooks/run-hook.cmd ralph-platform-adapter
+  -> hooks/ralph-platform-adapter
+  -> docs/shared/ralph-subagent-policy.md
+  -> docs/platforms/codex-ralph.md
 ```
 
 ## Skill Graph
@@ -49,7 +61,10 @@ ralplan
 ralph
   -> docs/shared/execution-modes.md before editing
   -> explore when files, tests, or integration surfaces are not obvious
+  -> docs/shared/ralph-subagent-policy.md before subagent dispatch
   -> docs/shared/parallel-subagents.md before parallel dispatch
+  -> docs/platforms/claude-code-ralph.md on Claude Code
+  -> docs/platforms/codex-ralph.md on Codex
   -> test-driven-development before behavior-changing production edits
   -> systematic-debugging for failing checks, regressions, or unexpected behavior
   -> executor
@@ -112,6 +127,10 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 
 ## Hook Boundary
 
-Oh No Harness includes only the bootstrap hook.
+Oh No Harness includes a SessionStart bootstrap hook and a narrow Ralph
+UserPromptSubmit adapter hook.
 
-No hook inspects prompts, activates workflow state, bridges skill calls, prevents stopping, or mutates a mode ledger.
+The Ralph adapter hook inspects only the submitted prompt text for a Ralph
+invocation, injects shared Ralph subagent policy plus the current platform's
+adapter, and exits without output for non-Ralph prompts. It does not activate
+workflow state, bridge skill calls, prevent stopping, or mutate a mode ledger.

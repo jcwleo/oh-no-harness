@@ -15,6 +15,7 @@ REQUESTED_SCOPE="${OH_NO_PLUGIN_SCOPE:-}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
+RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
@@ -63,6 +64,7 @@ Live Claude Code skill smoke tests are opt-in because they spend model budget.
 Options:
   --live                 Run live /skill smoke tests after static checks.
   --deep-live            Run live deep smoke tests that require linked support docs.
+  --parallel-live        Run live Ralph parallel-subagent smoke test.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
@@ -75,7 +77,8 @@ Options:
 
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_TEST_MODEL, OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
+  OH_NO_PARALLEL_LIVE, OH_NO_TEST_MODEL, OH_NO_MAX_BUDGET_USD,
+  OH_NO_LIVE_LOAD_MODE
 USAGE
 }
 
@@ -87,6 +90,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --deep-live)
       RUN_DEEP_LIVE=1
+      shift
+      ;;
+    --parallel-live)
+      RUN_PARALLEL_LIVE=1
       shift
       ;;
     --live-hook-only)
@@ -304,8 +311,10 @@ validate_hooks() {
   log "Validating hook wiring"
   assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
   bash -n "$PLUGIN_ROOT/hooks/session-start"
+  bash -n "$PLUGIN_ROOT/hooks/ralph-platform-adapter"
   bash -n "$PLUGIN_ROOT/scripts/oh-no-config"
   ok "shell syntax: hooks/session-start"
+  ok "shell syntax: hooks/ralph-platform-adapter"
   ok "shell syntax: scripts/oh-no-config"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     | "$PYTHON_BIN" -m json.tool >/dev/null
@@ -351,6 +360,43 @@ PY
   rm -rf "$temp_data"
   ok "session-start respects auto-routing config"
 
+  temp_data="$(mktemp -d)"
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with parallel subagents."}\n' >"$temp_data/ralph-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "UserPromptSubmit":
+    raise SystemExit("Claude Ralph adapter emitted the wrong hook event")
+text = output.get("additionalContext", "")
+required = [
+    "OH_NO_RALPH_PLATFORM_ADAPTER",
+    "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
+    "docs/shared/ralph-subagent-policy.md",
+    "docs/platforms/claude-code-ralph.md",
+    "@agent-oh-no-harness:<agent>",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Claude Ralph adapter missing markers: {missing}")
+for forbidden in ("CODEX_ONLY_RALPH_ADAPTER", "docs/platforms/codex-ralph.md", "spawn_agent"):
+    if forbidden in text:
+        raise SystemExit(f"Claude Ralph adapter leaked Codex marker: {forbidden}")
+PY
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Explain the repository layout."}\n' >"$temp_data/non-ralph-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/non-ralph-prompt.json" >"$temp_data/non-ralph-adapter.out"
+  if [[ -s "$temp_data/non-ralph-adapter.out" ]]; then
+    fail "Ralph adapter emitted context for a non-Ralph Claude prompt"
+  fi
+  rm -rf "$temp_data"
+  ok "Claude Ralph adapter injects only Claude-specific context"
+
   "$PYTHON_BIN" - "$PLUGIN_ROOT/hooks/hooks.json" <<'PY'
 import json
 import sys
@@ -358,14 +404,22 @@ import sys
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     hooks = json.load(fh)
 
-allowed = {"SessionStart"}
+allowed = {"SessionStart", "UserPromptSubmit"}
 actual = set(hooks.get("hooks", {}).keys())
 extra = actual - allowed
 missing = allowed - actual
 if extra or missing:
     raise SystemExit(f"Unexpected hook events. missing={sorted(missing)} extra={sorted(extra)}")
+groups = hooks["hooks"].get("UserPromptSubmit", [])
+if len(groups) != 1:
+    raise SystemExit("UserPromptSubmit should have exactly one matcher group")
+if "matcher" in groups[0]:
+    raise SystemExit("UserPromptSubmit should not set matcher")
+handlers = groups[0].get("hooks", [])
+if len(handlers) != 1 or "ralph-platform-adapter" not in handlers[0].get("command", ""):
+    raise SystemExit("UserPromptSubmit should invoke ralph-platform-adapter")
 PY
-  ok "only SessionStart hook is configured"
+  ok "SessionStart and Ralph UserPromptSubmit hooks are configured"
 }
 
 validate_manifests() {
@@ -739,10 +793,10 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, and the required Ralph execution profile fields. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, the required Ralph execution profile fields, and the Codex phrase for approving Ralph with parallel subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
+      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     autopilot)
       printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
@@ -768,12 +822,12 @@ if data.get("is_error"):
 text = str(data.get("result", ""))
 if text.strip().startswith("Unknown command:"):
     raise SystemExit(f"{skill} deep smoke did not resolve the Claude slash command: {text!r}")
+text_lower = text.lower()
 expected = {
     "interview": [
         "OH_NO_CLAUDE_DEEP_OK interview",
         "already available",
         "advisory",
-        "should not be searched",
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
@@ -781,40 +835,48 @@ expected = {
     ],
     "ralplan": [
         "OH_NO_CLAUDE_DEEP_OK ralplan",
-        "five complete loops",
+        "five complete",
         "pending approval",
         "sequential",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
+        "Run ralph with parallel subagents",
     ],
     "ralph": [
         "OH_NO_CLAUDE_DEEP_OK ralph",
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
-        "Use the base agent",
         "LIGHT",
         "STANDARD",
         "THOROUGH",
+        "Parallel trigger",
+        "oh-no-harness:<agent>",
         "Required Behavior Lock",
     ],
     "autopilot": [
         "OH_NO_CLAUDE_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
-        "five complete loops",
+        "five complete",
         "Mode source",
         "Cleanup And Final Verification",
     ],
 }
 
-missing = [needle for needle in expected[skill] if needle not in text]
+missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
+
+if skill == "interview" and not (
+    "do not search remote" in text_lower or "should not be searched" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
+        "Parallel trigger",
         "Required Behavior Lock",
     ],
     "autopilot": [
@@ -823,7 +885,7 @@ linked_doc_markers = {
     ],
 }
 
-if skill in linked_doc_markers and not all(marker in text for marker in linked_doc_markers[skill]):
+if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
     raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
 
 print(f"ok - deep Claude linked-doc smoke: {skill} cost={data.get('total_cost_usd')}")
@@ -878,6 +940,97 @@ run_deep_live_tests() {
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
+run_parallel_live_test() {
+  if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
+    log "Skipping live Claude parallel-subagent smoke test"
+    printf 'Run with --parallel-live or OH_NO_PARALLEL_LIVE=1 to verify actual Claude background subagents.\n' >&2
+    return
+  fi
+
+  log "Running live Claude parallel-subagent smoke test (${LIVE_LOAD_MODE})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/parallel-subagents.jsonl"
+  local err_file="$RUN_DIR/parallel-subagents.err"
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Dispatch exactly two independent background subagents before integrating: one oh-no-harness:explore subagent should inspect docs/platforms/claude-code-ralph.md and report whether CLAUDE_CODE_ONLY_RALPH_ADAPTER and @agent-oh-no-harness:<agent> are present. A second oh-no-harness:explore subagent should inspect docs/shared/ralph-subagent-policy.md and report whether Batch Rule says the eligible batch starts before waiting. Do not edit files. After both subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the two results."
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$LIVE_MODEL"
+    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+    --permission-mode dontAsk
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. You may use background subagents only for the requested verification. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+task_tool_uses = []
+task_starts = []
+task_notifications = []
+marker = False
+init_ok = False
+first_task_notification_index = None
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_ok = "Task" in data.get("tools", []) and "oh-no-harness:explore" in data.get("agents", [])
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    task_tool_uses.append((index, part.get("input", {})))
+                if part.get("type") == "text" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in part.get("text", ""):
+                    marker = True
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            task_starts.append((index, data.get("task_id")))
+        if data.get("type") == "system" and data.get("subtype") == "task_notification":
+            if first_task_notification_index is None:
+                first_task_notification_index = index
+            if data.get("status") == "completed":
+                task_notifications.append((index, data.get("summary", "")))
+        if data.get("type") == "result" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in data.get("result", ""):
+            marker = True
+
+if not init_ok:
+    raise SystemExit("Claude live parallel smoke did not expose Task tool and oh-no-harness:explore agent")
+
+background_uses = [
+    (index, payload)
+    for index, payload in task_tool_uses
+    if payload.get("subagent_type") == "oh-no-harness:explore" and payload.get("run_in_background") is True
+]
+if len(background_uses) < 2:
+    raise SystemExit(f"expected at least two background oh-no-harness:explore task tool uses, got {background_uses!r}")
+if len(task_starts) < 2:
+    raise SystemExit(f"expected at least two task_started events, got {task_starts!r}")
+if len(task_notifications) < 2:
+    raise SystemExit(f"expected at least two completed task notifications, got {task_notifications!r}")
+if first_task_notification_index is not None and not all(index < first_task_notification_index for index, _ in background_uses[:2]):
+    raise SystemExit("two background task tool uses did not both occur before the first task completion notification")
+if not marker:
+    raise SystemExit("Claude live parallel smoke did not return success marker")
+
+print("ok - live Claude parallel subagents spawned and completed")
+PY
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
@@ -890,6 +1043,7 @@ main() {
   install_or_update_plugin
   run_live_tests
   run_deep_live_tests
+  run_parallel_live_test
   log "All requested checks passed"
 }
 

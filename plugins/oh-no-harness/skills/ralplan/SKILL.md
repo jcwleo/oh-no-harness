@@ -64,7 +64,11 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 11. Mark the plan `pending approval` unless the user explicitly approves execution.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
-On platforms without subagent support, or when the user has not authorized subagent dispatch on Codex per `using-oh-no-harness`, perform each role inline and record the exception in the plan.
+On platforms without subagent support, perform each role inline and record the
+exception in the plan. On Codex, dispatch planning subagents only when the
+current user request explicitly asks for subagents or parallel agent work;
+otherwise perform the consensus roles inline and preserve the same role
+boundaries.
 
 Architect and Critic are sequential. Do not run them in parallel.
 
@@ -104,6 +108,7 @@ Every plan must include:
 - task sequence
 - acceptance criteria
 - execution profile
+- parallel subagent dispatch plan, or `none`
 - verification commands
 - rollout or recovery notes when risk warrants them
 - approval status
@@ -137,6 +142,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
+- Parallel trigger: none | explicit-user-request | approved-plan-handoff
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -176,6 +182,7 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - minimal viable approach and any rejected speculative complexity
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
+- parallel subagent dispatch plan, including how to explicitly approve it on Codex
 - verification commands or evidence plan
 - major risks, assumptions, and open questions
 - a final `Execution profile recap` immediately before the approval question
@@ -205,6 +212,7 @@ Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
 Verification tier: {LIGHT|STANDARD|THOROUGH}
 Agent policy: {inline-only|targeted-subagents|full-review-set}
+Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
 Cleanup policy: {not-needed|conditional|required}
 Task sizing: {short task-mode summary}
 
@@ -220,6 +228,9 @@ Tasks:
 TDD:
 {which tasks require RED/GREEN/REFACTOR and which are exceptions}
 
+Parallel subagent dispatch:
+{None, or one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner}
+
 Verification:
 {commands or evidence plan}
 
@@ -231,12 +242,16 @@ Execution profile recap:
 - Why this mode is enough: {one sentence}
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
+- Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
 - Cleanup policy: {not-needed|conditional|required}
 - Task sizing: {short task-mode summary}
 - Escalation triggers: {short list or "None expected"}
 
 Approval needed:
-Choose `ralph`, `autopilot`, request changes, or leave the plan pending.
+Choose `ralph`, `ralph with parallel subagents`, `autopilot`, request changes,
+or leave the plan pending. For Codex parallel execution, reply with:
+"Run ralph with parallel subagents. Spawn one agent per independent task, wait
+for all agents, then integrate and verify."
 ````
 
 Use a simple text diagram when it helps the user understand the structure. Examples:
@@ -265,6 +280,7 @@ End the brief with a direct approval question. Do not begin implementation until
 Approval choices should be:
 
 - approve execution with `ralph`
+- approve execution with `ralph with parallel subagents` when the plan lists independent scopes and the extra token cost is acceptable
 - approve orchestration with `autopilot`
 - request plan changes
 - stop with the plan pending approval
@@ -286,13 +302,14 @@ The Plan Approval Brief above is the user-facing review request. Wait for the us
 Ask the user which next skill to invoke. On Claude Code, ask through `AskUserQuestion`. Use this option shape:
 
 - `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with verification, review, cleanup, and final report
+- `oh-no-harness:ralph` with `parallel subagents` — execute with Ralph and explicitly authorize parallel subagent dispatch for the independent scopes listed in the plan
 - `oh-no-harness:autopilot` — orchestrate execution, QA, and final validation end-to-end
 - request plan changes — go back and revise the plan
 - stop with the plan pending approval
 
 End the question with "Which approach?".
 
-Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the plan path as the task definition.
+Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the plan path as the task definition. If the user picks the parallel-subagent Ralph option, preserve the phrase `parallel subagents` in the Ralph invocation so Codex sees an explicit subagent trigger.
 
 ### Autopilot exception
 
@@ -302,7 +319,7 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 Ralplan uses these roles directly.
 
-This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it. On Codex, follow the `using-oh-no-harness` Codex policy.
+This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it, using the Claude Ralph adapter when handing off to execution. On Codex, use `spawn_agent` only when the user request explicitly asks for subagents or parallel agent work; otherwise run the roles inline and include a Codex-ready explicit approval phrase when parallel execution would help downstream Ralph. Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the active platform adapter.
 
 | Agent | Dispatch (when) |
 |---|---|

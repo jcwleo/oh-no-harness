@@ -81,14 +81,32 @@ If the user overrides any recommendation, follow the user's instruction unless i
 
 ## Platform Notes
 
-Claude Code may expose skills through its own skill mechanism.
+Claude Code may expose skills through its own skill mechanism and plugin
+subagents from this plugin's `agents/` directory.
 
-Codex exposes skills through native skill loading and may use subagents only when the user explicitly authorizes delegation.
+Codex exposes skills through native skill loading and supports subagent
+workflows through `spawn_agent`, but Codex only starts subagents when the user
+explicitly asks for subagents, delegation, or parallel agent work. Do not treat
+ordinary skill invocation as a Codex subagent trigger.
 
 When a skill names an agent role, adapt it to the current harness:
 
-- Claude Code: use the available Task/subagent mechanism.
-- Codex: use `spawn_agent` only when the user explicitly requested subagents or parallel delegation; otherwise perform the work inline and preserve the same role boundaries.
+- Claude Code: use the available Task/Agent/subagent mechanism. Prefer the
+  plugin-scoped agent names `oh-no-harness:<agent>` when they are available. In
+  user-facing or explicit-invocation text, use the manual mention form
+  `@agent-oh-no-harness:<agent>`. For Ralph execution, the
+  `docs/platforms/claude-code-ralph.md` adapter is injected by the Ralph
+  `UserPromptSubmit` hook when plugin hooks are active; otherwise read it
+  directly. For independent read-only or review work, ask for background
+  subagents so multiple agents can run concurrently.
+- Codex: use `spawn_agent` only when the current user request or an approved
+  plan handoff contains an explicit subagent trigger, such as `subagent`,
+  `spawn`, `delegate`, `parallel agents`, `parallel subagents`, or `one agent
+  per`. For Ralph execution, the `docs/platforms/codex-ralph.md` adapter is
+  injected by the Ralph `UserPromptSubmit` hook when Codex plugin hooks are
+  enabled; otherwise read it directly. When the trigger is present, spawn all
+  independent non-blocking agents before waiting for results. When the trigger
+  is absent, perform the role inline and preserve the same role boundaries.
 
 Agents are role prompts inside a selected skill, not workflow entrypoints. An agent can recommend another role or workflow skill to the caller, but it does not own artifact gates, approval gates, or next-skill handoffs.
 

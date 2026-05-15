@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Debugging agent for failing commands, regressions, unexpected behavior, and root-cause analysis.
+description: Use proactively when commands fail, regressions appear, behavior is unexpected, or root-cause analysis is needed.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: yellow

@@ -1,6 +1,6 @@
 ---
 name: critic
-description: Quality gate agent for adversarial review of plans, assumptions, risks, and verification evidence.
+description: Use proactively as an adversarial quality gate for plans, assumptions, risks, overcomplication, and verification evidence.
 tools: Read, Glob, Grep, Bash
 model: inherit
 color: red

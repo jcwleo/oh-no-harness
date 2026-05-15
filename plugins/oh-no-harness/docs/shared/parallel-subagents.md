@@ -4,6 +4,21 @@ Use parallel subagents only when the work can be isolated and integrated deliber
 
 If user instructions or the current platform restrict delegation, follow those restrictions first.
 
+## Platform Invocation
+
+This file is platform-neutral. Ralph's shared dispatch policy lives in
+`docs/shared/ralph-subagent-policy.md`; platform-specific invocation lives in
+the active adapter:
+
+- Claude Code: `docs/platforms/claude-code-ralph.md`
+- Codex: `docs/platforms/codex-ralph.md`
+
+Keep the role plan the same, but use only the active platform's adapter when
+actually dispatching subagents.
+
+When a parallel batch is allowed, spawn the whole eligible batch first. Do not
+spawn one subagent, wait for it, and only then decide whether to spawn the rest.
+
 ## Dispatch Requirements
 
 Before dispatching parallel work, write down:
@@ -15,6 +30,8 @@ Before dispatching parallel work, write down:
 - verification responsibility
 - dependencies on other agents
 - integration owner
+- platform invocation: Claude Code agent name or Codex agent type
+- start timing: foreground, background, or sequential after another role
 
 Implementation subagents must be told that they are not alone in the codebase and must not revert, overwrite, or reformat work outside their assigned scope.
 

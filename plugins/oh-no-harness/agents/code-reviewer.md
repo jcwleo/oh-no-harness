@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Code review agent for correctness, maintainability, regressions, and missing tests.
+description: Use proactively after code or prompt changes to review correctness, maintainability, regressions, and missing tests.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: pink

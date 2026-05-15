@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Implementation agent for concrete, scoped code or documentation changes with acceptance criteria.
+description: Use proactively for concrete, scoped implementation tasks with clear ownership, acceptance criteria, and verification responsibility.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 color: green

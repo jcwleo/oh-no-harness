@@ -71,9 +71,15 @@ hooks/
   hooks.json
   run-hook.cmd
   session-start
+  ralph-platform-adapter
 ```
 
-`hooks/hooks.json` will register a single `SessionStart` hook. The hook will invoke `hooks/session-start`, which reads `skills/using-oh-no-harness/SKILL.md` and injects it as additional context.
+`hooks/hooks.json` registers a `SessionStart` hook and a narrow
+`UserPromptSubmit` Ralph adapter hook. The SessionStart hook invokes
+`hooks/session-start`, which reads `skills/using-oh-no-harness/SKILL.md` and
+injects it as additional context. The Ralph adapter hook invokes
+`hooks/ralph-platform-adapter`, detects Ralph prompts, and injects only the
+active platform's subagent-dispatch adapter.
 
 No skill-to-skill runtime enforcement hook will be installed.
 
@@ -388,15 +394,16 @@ Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transien
 
 ## Hook Design
 
-Only one hook class is included:
+Two hook classes are included:
 
 ```text
 SessionStart -> using-oh-no-harness bootstrap injection
+UserPromptSubmit -> Ralph platform adapter injection
 ```
 
 No hook should:
 
-- inspect user prompts for keywords
+- inspect user prompts except for the narrow Ralph adapter trigger
 - activate skill state
 - prevent Stop
 - persist workflow mode authority

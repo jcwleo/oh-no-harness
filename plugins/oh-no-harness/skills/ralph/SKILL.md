@@ -69,8 +69,8 @@ assumption that changes user-visible behavior, architecture, data handling,
 security posture, or delivery scope.
 
 The final report must include the selected mode, mode source, verification tier,
-artifact policy, agent policy, cleanup policy, and any escalation that happened
-while working.
+artifact policy, agent policy, parallel trigger, cleanup policy, and any
+escalation that happened while working.
 
 ## PRD Shape
 
@@ -85,6 +85,7 @@ Represent work as stories:
     "verificationTier": "LIGHT | STANDARD | THOROUGH",
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
+    "parallelTrigger": "none | explicit-user-request | approved-plan-handoff",
     "cleanupPolicy": "not-needed | conditional | required"
   },
   "stories": [
@@ -166,7 +167,7 @@ follow-up instead of folding it into the current diff.
 
 This loop is the top-level shape. Detail for review, cleanup, agent dispatch, parallelism, and persistence lives in the dedicated sections below; do not duplicate it here.
 
-1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`.
+1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, and `docs/shared/ralph-subagent-policy.md`.
 2. Set or confirm the required execution mode before editing. Record mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
 3. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
 4. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
@@ -185,9 +186,20 @@ Ralph must follow the selected execution mode and agent policy:
 
 - `LIGHT`: inline by default. Do not dispatch subagents unless the user requested delegation or a specific check cannot be credibly performed inline.
 - `STANDARD`: inline by default, with targeted subagents only when they clearly improve evidence, reduce risk, or handle an isolated scope. Use `verifier` or `code-reviewer` for behavior-affecting or workflow changes when independent evidence is useful.
-- `THOROUGH`: use the full role set warranted by the risk. Dispatch on subagent-capable platforms when allowed by the platform and user authorization; otherwise perform the roles inline while preserving role boundaries.
+- `THOROUGH`: use the full role set warranted by the risk. Dispatch on subagent-capable platforms when allowed by the platform policy; otherwise perform the roles inline while preserving role boundaries.
 
-Respect the platform rules from `using-oh-no-harness`: Claude Code may use its Task/subagent mechanism; Codex may use `spawn_agent` only when the user explicitly requested subagents or parallel delegation.
+Respect the platform rules from `using-oh-no-harness` and the Ralph platform
+adapter. A `UserPromptSubmit` hook injects the active adapter immediately before
+Ralph runs when plugin hooks are enabled; if no hook context is visible, read
+the active platform document directly:
+
+- Claude Code: `docs/platforms/claude-code-ralph.md`. Use
+  `oh-no-harness:<agent>` when plugin agents are available; explicit manual
+  mention text uses `@agent-oh-no-harness:<agent>`.
+- Codex: `docs/platforms/codex-ralph.md`. Use `spawn_agent` only when the
+  current user request or approved plan handoff explicitly asks for subagents
+  or parallel agent work. Without a trigger, perform roles inline and record
+  `Parallel trigger: none`.
 
 Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
@@ -199,7 +211,15 @@ isolated.
 
 Respect the same `using-oh-no-harness` platform policy noted in `## Mode-Gated Agent Dispatch`.
 
-Read and apply `docs/shared/parallel-subagents.md` before dispatching parallel work.
+Read and apply `docs/shared/ralph-subagent-policy.md` and
+`docs/shared/parallel-subagents.md` before dispatching parallel work. Then use
+only the active platform adapter: `docs/platforms/claude-code-ralph.md` on
+Claude Code or `docs/platforms/codex-ralph.md` on Codex.
+
+If two or more roles or scopes are independent and the platform policy allows
+subagents, create a dispatch batch and start the whole eligible batch before
+waiting for any one result. Continue local critical-path work only when it does
+not overlap with the dispatched scopes.
 
 Before dispatching parallel subagents, partition the work and write down:
 
@@ -208,6 +228,9 @@ Before dispatching parallel subagents, partition the work and write down:
 - expected output
 - verification responsibility
 - dependencies on other subagents
+- platform invocation: active adapter, either Claude Code
+  `oh-no-harness:<agent>` or Codex `explorer` / `worker` / `default`
+- start timing: foreground, background, or sequential after another role
 
 Parallelize only when write scopes are disjoint or read-only:
 
@@ -237,6 +260,7 @@ Do not touch: {files/directories owned by other agents}
 Expected output: {patch, findings, evidence, or test result}
 TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
 Verification responsibility: {command/evidence}
+Platform invocation: {Claude Code oh-no-harness:<agent> background|foreground, or Codex explorer|worker|default via spawn_agent}
 Coordination: You are not alone in the codebase. Do not revert, overwrite, or reformat work outside your scope. Report conflicts instead of resolving them silently.
 ````
 
@@ -310,7 +334,7 @@ Return:
 
 - Session directory.
 - PRD path.
-- Execution mode, mode source, and policy decisions.
+- Execution mode, mode source, parallel trigger, and policy decisions.
 - Stories completed.
 - Files changed.
 - Cleanup status.
