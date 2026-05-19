@@ -545,6 +545,16 @@ def assert_hook_contract(root: Path) -> None:
         if marker not in script_text:
             die(f"{script_path} is missing required hook marker: {marker!r}")
 
+    session_start_path = root / "hooks" / "session-start"
+    session_start_text = read_text(session_start_path)
+    for marker in (
+        "OH_NO_RG_SEARCH_TOOLING",
+        "command -v rg",
+        "rg --files",
+    ):
+        if marker not in session_start_text:
+            die(f"{session_start_path} is missing required rg-search marker: {marker!r}")
+
 
 def assert_claude_manifest_skills(root: Path) -> None:
     path = root / ".claude-plugin/plugin.json"

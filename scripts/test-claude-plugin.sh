@@ -361,6 +361,48 @@ PY
   ok "session-start respects auto-routing config"
 
   temp_data="$(mktemp -d)"
+  local temp_path
+  temp_path="$temp_data/bin"
+  mkdir -p "$temp_path"
+  ln -s "$(command -v bash)" "$temp_path/bash"
+  ln -s "$(command -v cat)" "$temp_path/cat"
+  ln -s "$(command -v dirname)" "$temp_path/dirname"
+
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" PATH="$temp_path" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-no-rg.json"
+  "$PYTHON_BIN" - "$temp_data/hook-no-rg.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = json.dumps(data)
+if "OH_NO_RG_SEARCH_TOOLING" in text:
+    raise SystemExit("rg search tooling policy was present while rg is unavailable")
+PY
+
+  cat >"$temp_path/rg" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$temp_path/rg"
+
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" PATH="$temp_path" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-with-rg.json"
+  "$PYTHON_BIN" - "$temp_data/hook-with-rg.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = json.dumps(data)
+if "OH_NO_RG_SEARCH_TOOLING" not in text:
+    raise SystemExit("rg search tooling policy missing while rg is available")
+if "rg --files" not in text:
+    raise SystemExit("rg search tooling policy is missing rg --files guidance")
+PY
+  rm -rf "$temp_data"
+  ok "session-start adds rg search guidance only when rg is available"
+
+  temp_data="$(mktemp -d)"
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with parallel subagents."}\n' >"$temp_data/ralph-prompt.json"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
     <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
