@@ -826,7 +826,6 @@ text_lower = text.lower()
 expected = {
     "interview": [
         "OH_NO_CLAUDE_DEEP_OK interview",
-        "already available",
         "advisory",
         "Question Routing",
         "Answer Capture",
@@ -837,7 +836,6 @@ expected = {
         "OH_NO_CLAUDE_DEEP_OK ralplan",
         "five complete",
         "pending approval",
-        "sequential",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
@@ -868,9 +866,27 @@ if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
 
 if skill == "interview" and not (
-    "do not search remote" in text_lower or "should not be searched" in text_lower
+    "already available" in text_lower or "already in session" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
+
+if skill == "interview" and not (
+    "do not search remote" in text_lower
+    or "should not be searched" in text_lower
+    or ("remote" in text_lower and "not" in text_lower and "search" in text_lower)
 ):
     raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    ("architect" in text_lower and "critic" in text_lower)
+    and (
+        "sequential" in text_lower
+        or "only after architect" in text_lower
+        or "architect first" in text_lower
+        or "never run them in parallel" in text_lower
+    )
+):
+    raise SystemExit(f"{skill} deep smoke missing Architect/Critic ordering marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [

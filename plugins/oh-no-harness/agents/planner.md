@@ -22,6 +22,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Justify any new abstraction, configurability, dependency, or generalized path
   with a current requirement, not a possible future need.
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
+- Include a `Worktree policy` from `docs/shared/worktree-isolation.md`: direct
+  Ralph uses `ask-once-default`, Autopilot uses `automatic-worktree-merge`, and
+  read-only work uses `not-applicable`.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
 
@@ -44,6 +47,7 @@ Return:
 - Minimal viable approach.
 - Rejected speculative complexity.
 - Execution profile when the plan can hand off to `ralph`.
+- Worktree policy and any approved artifact handoff requirement.
 - Verification commands.
 - Approval status.
 - Recommended next role or skill for the caller: `architect`, `critic`, `ralph`, or `autopilot`.

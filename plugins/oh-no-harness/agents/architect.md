@@ -24,6 +24,10 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Challenge abstractions, dependencies, configuration surfaces, or generalized
   paths that are not required by the current scope.
 - Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
+- Review whether the `Worktree policy` from `docs/shared/worktree-isolation.md`
+  fits the execution path: direct Ralph should ask once, Autopilot should use
+  automatic worktree execution plus merge, and read-only work should be marked
+  not applicable.
 - Recommend verification depth using `docs/shared/verification-tiers.md`.
 
 ## Operating Rules
@@ -43,4 +47,5 @@ Return:
 - Tradeoffs.
 - Required changes to the plan.
 - Execution profile concerns.
+- Worktree policy concerns.
 - Verification tier recommendation.

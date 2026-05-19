@@ -6,6 +6,7 @@ agent selection tiers and verification tiers:
 - execution mode decides artifacts, dispatch, review, cleanup, and persistence
 - verification tier decides what evidence is enough for the claim
 - agent tier decides how much scrutiny a role needs when a role is used
+- worktree isolation decides where write-capable execution may edit files
 
 Mode is required for every handoff to `ralph`.
 
@@ -48,6 +49,8 @@ plan, repository facts, and known verification commands:
 8. What would force escalation while working: broader files, failing checks,
    unexpected behavior, security/data risk, unclear ownership, or reviewer
    rejection?
+9. For write-capable execution, what `Worktree policy` applies from
+   `docs/shared/worktree-isolation.md`?
 
 Choose the lightest mode that gives credible evidence. If risk remains unclear
 after reading the relevant files, choose the higher mode and record why.
@@ -77,6 +80,7 @@ Ralph behavior:
 - document TDD as not applicable or as an exception when there is no behavior
   change
 - run LIGHT verification from `docs/shared/verification-tiers.md`
+- record the `Worktree decision` before editing when the task is write-capable
 - run `verification-before-completion` before the final claim
 - run `ai-slop-cleaner` only when the diff shows actual AI residue; otherwise
   record cleanup as not needed
@@ -110,6 +114,7 @@ Ralph behavior:
 - use `verifier` or `code-reviewer` only for behavior-affecting or workflow
   changes where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
+- record the `Worktree decision` before editing when the task is write-capable
 - run cleanup only after the behavior lock exists and the changed files show
   cleanup candidates; rerun the relevant verification after cleanup
 - run `verification-before-completion` before the final claim
@@ -144,6 +149,7 @@ Ralph behavior:
   security, QA, or critic review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
+- record the `Worktree decision` before editing when the task is write-capable
 - run `ai-slop-cleaner` after functional review unless explicitly disabled,
   then rerun verification and any needed focused review
 - run `verification-before-completion` before the final claim
@@ -186,6 +192,7 @@ Execution profile:
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
 - Parallel trigger: none | explicit-user-request | approved-plan-handoff
+- Worktree policy: ask-once-default | automatic-worktree-merge | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -202,6 +209,7 @@ Execution mode:
 - Artifact policy:
 - Agent policy:
 - Parallel trigger:
+- Worktree decision:
 - Cleanup policy:
 - Task sizing:
 - Escalation triggers:

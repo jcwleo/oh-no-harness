@@ -19,6 +19,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Review plans and completed work for contradictions, shallow alternatives, vague risks, and weak acceptance criteria.
 - Verify that the proposed evidence would actually prove the claim.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
+- Reject write-capable execution plans that skip `Worktree policy`, skip the
+  direct-Ralph ask-once gate without user approval, or fail to make Autopilot's
+  automatic worktree execution and merge responsibility explicit.
 - Challenge execution profiles that are heavier than needed or too light for the stated risk.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.

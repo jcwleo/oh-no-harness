@@ -143,6 +143,55 @@ PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
     "claude-code-ralph.md": ("spawn_agent", "CODEX_ONLY_RALPH_ADAPTER"),
     "codex-ralph.md": ("@agent-oh-no-harness:<agent>", "CLAUDE_CODE_ONLY_RALPH_ADAPTER"),
 }
+WORKTREE_SHARED_MARKERS = (
+    "# Worktree Isolation",
+    "## HARD-GATE",
+    "`interview` and `ralplan` do not need to run inside a worktree by default",
+    "`Worktree decision`",
+    "`autopilot` does not ask the one-time direct-Ralph worktree question",
+    "integration checkout",
+    "post-merge verification",
+)
+WORKTREE_SKILL_MARKERS = {
+    "using-oh-no-harness": (
+        "## Worktree Isolation Default",
+        "docs/shared/worktree-isolation.md",
+        "Worktree decision: autopilot automatic worktree",
+    ),
+    "ralplan": (
+        "Worktree policy",
+        "docs/shared/worktree-isolation.md",
+    ),
+    "ralph": (
+        "## Worktree Isolation Gate",
+        "<HARD-GATE>",
+        "Worktree decision: autopilot automatic worktree",
+        "integration checkout and post-merge verification",
+    ),
+    "autopilot": (
+        "## Automatic Worktree Execution",
+        "Worktree decision: autopilot automatic worktree",
+        "post-merge verification",
+    ),
+}
+WORKTREE_AGENT_MARKERS = {
+    "planner": (
+        "Worktree policy",
+        "automatic-worktree-merge",
+    ),
+    "architect": (
+        "Worktree policy",
+        "automatic worktree execution plus merge",
+    ),
+    "critic": (
+        "Worktree policy",
+        "automatic worktree execution and merge responsibility",
+    ),
+    "executor": (
+        "Worktree decision",
+        "docs/shared/worktree-isolation.md",
+    ),
+}
 EXECUTION_MODE_SHARED_MARKERS = (
     "# Execution Modes",
     "Mode is required for every handoff to `ralph`.",
@@ -156,6 +205,8 @@ EXECUTION_MODE_SHARED_MARKERS = (
     "Does the change alter agent behavior",
     "Can a lighter mode produce credible evidence",
     "What would force escalation while working",
+    "Worktree policy",
+    "Worktree decision",
 )
 EXECUTION_MODE_SKILL_MARKERS = {
     "using-oh-no-harness": (
@@ -335,6 +386,11 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Platform-Subagent marker: {marker!r}")
+    if skill in WORKTREE_SKILL_MARKERS:
+        body = read_text(path)
+        for marker in WORKTREE_SKILL_MARKERS[skill]:
+            if marker not in body:
+                die(f"{path} is missing required Worktree marker: {marker!r}")
 
 
 def assert_command(root: Path, skill: str) -> None:
@@ -387,6 +443,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope agent marker: {marker!r}")
+    if agent in WORKTREE_AGENT_MARKERS:
+        for marker in WORKTREE_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Worktree agent marker: {marker!r}")
 
 
 def assert_expected_references(root: Path) -> None:
@@ -427,6 +487,14 @@ def assert_execution_mode_contract(root: Path) -> None:
         for marker in PLATFORM_ADAPTER_FORBIDDEN_MARKERS[filename]:
             if marker in doc_text:
                 die(f"{doc} contains forbidden cross-platform adapter marker: {marker!r}")
+
+
+def assert_worktree_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "worktree-isolation.md"
+    text = read_text(path)
+    for marker in WORKTREE_SHARED_MARKERS:
+        if marker not in text:
+            die(f"{path} is missing required Worktree contract marker: {marker!r}")
 
 
 def assert_hook_contract(root: Path) -> None:
@@ -617,6 +685,7 @@ def main() -> None:
     for agent in AGENTS:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)
+    assert_worktree_contract(root)
     assert_hook_contract(root)
     assert_claude_manifest_skills(root)
     assert_codex_manifest(root)

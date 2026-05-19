@@ -53,9 +53,11 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 
 1. Dispatch `explore` subagent when repository context is needed.
 2. Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions before the planner drafts.
-3. Read `docs/shared/execution-modes.md` so the plan can set a required Ralph execution profile.
+3. Read `docs/shared/execution-modes.md` and
+   `docs/shared/worktree-isolation.md` so the plan can set a required Ralph
+   execution profile and worktree policy.
 4. Dispatch `planner` subagent to draft the plan.
-5. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, execution mode, and antithesis.
+5. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, execution mode, worktree policy, and antithesis.
 6. Dispatch `critic` subagent only after Architect completes.
 7. Dispatch `planner` subagent to revise with accepted feedback.
 8. Repeat until Critic approves or five complete loops have run. If Critic still rejects after the fifth loop, present the plan to the user with `pending approval` status, the unresolved Critic findings, and an explicit request to accept the residual concerns, revise scope, or stop. Do not silently advance past blocking critic feedback.
@@ -85,6 +87,7 @@ Before presenting the plan, check that it includes:
 - acceptance criteria that can be verified
 - TDD expectations for each behavior-changing task
 - an `Execution profile` that sets the required overall Ralph mode and task-level modes
+- a `Worktree policy` from `docs/shared/worktree-isolation.md`
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
 - Architect and Critic feedback with disposition: accepted, rejected, deferred, or blocking
@@ -108,6 +111,7 @@ Every plan must include:
 - task sequence
 - acceptance criteria
 - execution profile
+- worktree policy
 - parallel subagent dispatch plan, or `none`
 - verification commands
 - rollout or recovery notes when risk warrants them
@@ -143,6 +147,7 @@ Execution profile:
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
 - Parallel trigger: none | explicit-user-request | approved-plan-handoff
+- Worktree policy: ask-once-default | automatic-worktree-merge | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -182,6 +187,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - minimal viable approach and any rejected speculative complexity
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
+- worktree policy, including whether direct Ralph should ask once or Autopilot
+  should use automatic worktree execution
 - parallel subagent dispatch plan, including how to explicitly approve it on Codex
 - verification commands or evidence plan
 - major risks, assumptions, and open questions
@@ -213,6 +220,7 @@ Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
 Verification tier: {LIGHT|STANDARD|THOROUGH}
 Agent policy: {inline-only|targeted-subagents|full-review-set}
 Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
+Worktree policy: {ask-once-default|automatic-worktree-merge|not-applicable}
 Cleanup policy: {not-needed|conditional|required}
 Task sizing: {short task-mode summary}
 
@@ -231,6 +239,9 @@ TDD:
 Parallel subagent dispatch:
 {None, or one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner}
 
+Worktree policy:
+{Direct Ralph asks once before creating or using a task worktree; Autopilot automatically uses a task worktree and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans.}
+
 Verification:
 {commands or evidence plan}
 
@@ -243,6 +254,7 @@ Execution profile recap:
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
 - Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
+- Worktree policy: {ask-once-default|automatic-worktree-merge|not-applicable}
 - Cleanup policy: {not-needed|conditional|required}
 - Task sizing: {short task-mode summary}
 - Escalation triggers: {short list or "None expected"}

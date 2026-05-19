@@ -70,7 +70,8 @@ security posture, or delivery scope.
 
 The final report must include the selected mode, mode source, verification tier,
 artifact policy, agent policy, parallel trigger, cleanup policy, and any
-escalation that happened while working.
+escalation that happened while working. It must also include the `Worktree
+decision` from `docs/shared/worktree-isolation.md`.
 
 ## PRD Shape
 
@@ -86,6 +87,7 @@ Represent work as stories:
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
     "parallelTrigger": "none | explicit-user-request | approved-plan-handoff",
+    "worktreeDecision": "approved worktree | already in approved worktree | user declined/current checkout | autopilot automatic worktree | read-only/not applicable | blocked",
     "cleanupPolicy": "not-needed | conditional | required"
   },
   "stories": [
@@ -142,7 +144,47 @@ For each story, record:
 - scope trace: how each intended file or change class maps to the request,
   approved plan, acceptance criterion, TDD evidence, or cleanup behavior lock
 - TDD requirement or exception
+- Worktree decision or the fact that the worktree gate has not yet been resolved
 - verification command or evidence type
+
+## Worktree Isolation Gate
+
+<HARD-GATE>
+For write-capable execution, do not edit source files until a `Worktree
+decision` is recorded.
+</HARD-GATE>
+
+Read `docs/shared/worktree-isolation.md` before editing.
+
+`interview` and `ralplan` artifacts do not require a worktree by default, but
+Ralph execution does. If the task will edit files, record exactly one allowed
+decision before the first edit:
+
+- `approved worktree`
+- `already in approved worktree`
+- `user declined/current checkout`
+- `autopilot automatic worktree`
+- `read-only/not applicable`
+- `blocked`
+
+For direct Ralph execution, ask the user once before creating or using a task
+worktree unless the current checkout is already an approved task worktree or the
+task is read-only. Recommend worktree use as the default. If the user declines,
+record `Worktree decision: user declined/current checkout` before editing.
+
+When invoked from `autopilot`, do not ask the one-time direct-Ralph question.
+Record `Worktree decision: autopilot automatic worktree`, create or select a
+task worktree, execute there, then return control to Autopilot for merge into
+the integration checkout and post-merge verification.
+
+When execution moves to a worktree, preserve access to the approved `.oh-no`
+spec, plan, or PRD before editing. Copy the relevant artifact into the worktree,
+record an explicit absolute artifact path, or quote the approved task definition
+inside the execution artifact. Do not assume untracked `.oh-no` files appear in a
+new git worktree.
+
+If the worktree decision is missing, ambiguous, or cannot be recorded, stop and
+report the blocker instead of editing.
 
 ## Scope Trace Gate
 
@@ -167,16 +209,17 @@ follow-up instead of folding it into the current diff.
 
 This loop is the top-level shape. Detail for review, cleanup, agent dispatch, parallelism, and persistence lives in the dedicated sections below; do not duplicate it here.
 
-1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, and `docs/shared/ralph-subagent-policy.md`.
+1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, and `docs/shared/ralph-subagent-policy.md`.
 2. Set or confirm the required execution mode before editing. Record mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
-3. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
-4. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
-5. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
-6. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
-7. Recheck the `Scope Trace Gate` against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence (or documented exception), and scope-trace evidence all pass.
-8. Repeat steps 3–7 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
-9. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
-10. Read and follow `verification-before-completion` before any completion claim, then write the final report.
+3. Resolve the `## Worktree Isolation Gate` before editing. Record the `Worktree decision`, preserve approved artifact access when moving to a worktree, and stop if the decision is missing or blocked.
+4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
+5. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
+6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
+7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
+8. Recheck the `Scope Trace Gate` against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence (or documented exception), and scope-trace evidence all pass.
+9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
+11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
 ## Mode-Gated Agent Dispatch
 
@@ -335,6 +378,7 @@ Return:
 - Session directory.
 - PRD path.
 - Execution mode, mode source, parallel trigger, and policy decisions.
+- Worktree decision and integration checkout status.
 - Stories completed.
 - Files changed.
 - Cleanup status.

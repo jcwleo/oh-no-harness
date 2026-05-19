@@ -54,6 +54,21 @@ that mode.
 
 When describing the staged workflow, call the requirements-discovery stage `interview`, not a generic clarify phase.
 
+## Worktree Isolation Default
+
+For write-capable coding work, apply `docs/shared/worktree-isolation.md` before
+editing source files.
+
+`interview` and `ralplan` do not need to run inside a worktree by default because
+they produce pre-execution artifacts. The worktree gate starts at execution:
+direct `ralph` asks once before creating or using a task worktree, records the
+`Worktree decision`, and does not edit files until that decision is visible.
+
+`autopilot` is the orchestration exception. When it reaches write-capable
+execution, it records `Worktree decision: autopilot automatic worktree`, creates
+or selects a task worktree without asking, executes there, merges into the
+integration checkout, and runs post-merge verification.
+
 ## Interview Gate
 
 Before asking the user a clarification, scope, preference, or approval question:

@@ -85,6 +85,28 @@ Execution must preserve Ralph's selected execution mode, PRD or compact artifact
 
 If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
 
+## Automatic Worktree Execution
+
+For write-capable execution, read and follow
+`docs/shared/worktree-isolation.md`. Autopilot does not ask the one-time direct
+Ralph worktree question because the user has delegated end-to-end orchestration.
+
+Before editing files, Autopilot must:
+
+1. Create or select a task worktree.
+2. Record `Worktree decision: autopilot automatic worktree`.
+3. Preserve access to the approved `.oh-no` spec, plan, or PRD in the task
+   worktree by copying the relevant artifact, recording an absolute artifact
+   path, or quoting the approved task definition.
+
+After the implementation passes verification in the task worktree, Autopilot
+must merge the completed work into the integration checkout, run post-merge
+verification, and record whether the worktree was cleaned up or left for
+inspection.
+
+If worktree creation, merge, or post-merge verification fails, report the blocker
+instead of silently editing the original checkout.
+
 ### Phase 3: QA Loop
 
 Run build, lint, test, or scenario checks relevant to the repository.
@@ -116,6 +138,8 @@ Write a final report with:
 - spec or plan path
 - session directory
 - execution mode and mode source
+- Worktree decision, integration checkout, post-merge verification, and cleanup
+  status
 - phases completed
 - files changed
 - commands run
