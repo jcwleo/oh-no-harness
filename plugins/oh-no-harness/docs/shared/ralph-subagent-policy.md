@@ -10,12 +10,18 @@ Ralph may dispatch subagents only when all of these are true:
 
 - the selected execution mode and agent policy allow delegation
 - the active platform supports subagents
-- the current request or approved plan allows the platform-specific dispatch
+- the active skill, current request, or approved plan allows the
+  platform-specific dispatch
 - the work can be isolated by file ownership, read-only scope, or review role
 - the main agent can integrate the results deliberately
 
-`LIGHT` work stays inline unless the user requested delegation or a specific
-check cannot be credibly completed inline.
+Explicit user or plan requests are sufficient but not required. Natural
+dispatch is allowed when the selected mode, task risk, scope isolation, and
+context-window benefit justify it.
+
+`LIGHT` work stays inline unless the user requested delegation, a specific
+check cannot be credibly completed inline, or a narrow isolated task clearly
+benefits from context separation.
 
 `STANDARD` work may use targeted subagents for isolated exploration,
 implementation, review, verification, QA, or security checks.

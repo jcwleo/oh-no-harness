@@ -37,6 +37,12 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 | `security-reviewer` | Review auth, data, file system, network, secrets, or policy-sensitive changes. |
 | `qa-tester` | Validate user-facing flows or scenario coverage. |
 
+When any verification role is dispatched on Codex, the spawned-agent message
+must embed the matching `agents/<role>.md` prompt content. Include
+`Agent prompt source: agents/<role>.md` and `Agent prompt content:` before the
+claim, evidence scope, expected output, and no-edit instruction for read-only
+review roles.
+
 ## Required Gate
 
 Before making a completion claim:

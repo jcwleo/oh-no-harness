@@ -249,6 +249,8 @@ required = [
     "CODEX_ONLY_RALPH_ADAPTER",
     "docs/shared/ralph-subagent-policy.md",
     "docs/platforms/codex-ralph.md",
+    "Agent prompt source: agents/<role>.md",
+    "Agent prompt content:",
     "spawn_agent",
     "wait_agent",
 ]
@@ -600,10 +602,10 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, the required Ralph execution profile fields, and the Codex phrase for approving Ralph with parallel subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, and the Codex natural-dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent trigger rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent natural-dispatch rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     autopilot)
       printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
@@ -638,7 +640,9 @@ expected = {
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
-        "Run ralph with parallel subagents",
+        "Analyst",
+        "Planner",
+        "natural-dispatch",
     ],
     "ralph": [
         "OH_NO_CODEX_DEEP_OK ralph",
@@ -648,7 +652,7 @@ expected = {
         "STANDARD",
         "THOROUGH",
         "Parallel trigger",
-        "spawn",
+        "natural-dispatch",
         "Required Behavior Lock",
     ],
     "autopilot": [
@@ -675,6 +679,25 @@ if skill == "interview" and not (
     or ("remote" in text_lower and "not" in text_lower and "search" in text_lower)
 ):
     raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "analyst" in text_lower
+    and "planner" in text_lower
+    and "architect" in text_lower
+    and "critic" in text_lower
+    and (
+        "analyst -> planner -> architect -> critic" in text_lower
+        or "analyst, planner, architect, critic" in text_lower
+        or "analyst, planner, architect, and critic" in text_lower
+        or (
+            "analyst first" in text_lower
+            and "planner second" in text_lower
+            and "architect third" in text_lower
+            and "critic fourth" in text_lower
+        )
+    )
+):
+    raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
 
 if skill == "ralplan" and not (
     ("architect" in text_lower and "critic" in text_lower)
@@ -752,7 +775,7 @@ run_deep_live_tests() {
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Codex parallel-subagent smoke test"
-    printf 'Run with --parallel-live or OH_NO_PARALLEL_LIVE=1 to verify actual Codex spawn_agent use.\n' >&2
+    printf 'Run with --parallel-live or OH_NO_PARALLEL_LIVE=1 to verify actual Codex spawn_agent use and agent-prompt embedding.\n' >&2
     return
   fi
 
@@ -761,7 +784,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request: spawn exactly two independent read-only subagents before waiting for either result. For Codex spawn_agent calls, omit agent_type/model/reasoning overrides and do not fork full history. Subagent A: inspect docs/platforms/codex-ralph.md and report whether CODEX_ONLY_RALPH_ADAPTER and spawn_agent are present. Subagent B: inspect docs/shared/ralph-subagent-policy.md and report whether Batch Rule says the eligible batch starts before waiting. Do not edit files. After both subagents finish, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the two results.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close finished agents before starting the next wave, and do not continue if any spawn fails. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -781,15 +804,80 @@ run_parallel_live_test() {
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
 import json
 import sys
+from collections import defaultdict
 
 path = sys.argv[1]
+err_path = sys.argv[2]
 successful_spawns = []
+failed_spawns = []
+spawn_texts = []
+spawn_texts_by_role = defaultdict(list)
 first_wait_index = None
 marker = False
 
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex live parallel smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+expected_roles = [
+    "explore",
+    "analyst",
+    "planner",
+    "architect",
+    "critic",
+    "executor",
+    "debugger",
+    "verifier",
+    "code-reviewer",
+    "security-reviewer",
+    "qa-tester",
+]
+role_headings = {
+    "explore": "# Explore Agent",
+    "analyst": "# Analyst Agent",
+    "planner": "# Planner Agent",
+    "architect": "# Architect Agent",
+    "critic": "# Critic Agent",
+    "executor": "# Executor Agent",
+    "debugger": "# Debugger Agent",
+    "verifier": "# Verifier Agent",
+    "code-reviewer": "# Code Reviewer Agent",
+    "security-reviewer": "# Security Reviewer Agent",
+    "qa-tester": "# QA Tester Agent",
+}
+role_waves = [
+    ("explore", "analyst", "planner"),
+    ("architect", "critic", "executor"),
+    ("debugger", "verifier", "code-reviewer"),
+    ("security-reviewer", "qa-tester"),
+]
+required_prompt_markers = [
+    "## Skill Relationship",
+    "## Responsibilities",
+    "## Operating Rules",
+    "## Output",
+]
+
+def roles_in_text(text):
+    return [
+        role for role in expected_roles
+        if f"Agent prompt source: agents/{role}.md".lower() in text.lower()
+    ]
+
+events = []
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
         if not line.strip():
@@ -806,21 +894,66 @@ with open(path, "r", encoding="utf-8") as fh:
             receivers = item.get("receiver_thread_ids") or []
             if receivers:
                 successful_spawns.append((index, tuple(receivers)))
+                spawn_text = collect_text(item)
+                spawn_texts.append(spawn_text)
+                matched_roles = roles_in_text(spawn_text)
+                if len(matched_roles) != 1:
+                    raise SystemExit(
+                        "expected each completed spawn_agent payload to contain exactly one role prompt source; "
+                        f"line={index} roles={matched_roles!r} text={spawn_text[:2000]!r}"
+                    )
+                role = matched_roles[0]
+                spawn_texts_by_role[role].append(spawn_text)
+                events.append((index, "spawn", role))
+        if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
         text = item.get("text") or data.get("result", "")
         if "OH_NO_CODEX_PARALLEL_SUBAGENTS_OK" in text:
             marker = True
 
-if len(successful_spawns) < 2:
-    raise SystemExit(f"expected at least two completed spawn_agent calls with receiver threads, got {successful_spawns!r}")
-receiver_ids = {rid for _, receivers in successful_spawns[:2] for rid in receivers}
-if len(receiver_ids) < 2:
-    raise SystemExit(f"expected two distinct spawned receiver threads, got {receiver_ids!r}")
-if first_wait_index is not None and not all(index < first_wait_index for index, _ in successful_spawns[:2]):
-    raise SystemExit("two spawn_agent calls did not both complete before the first wait")
+if failed_spawns:
+    raise SystemExit(f"Codex live parallel smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(successful_spawns) < len(expected_roles):
+    raise SystemExit(
+        f"expected at least {len(expected_roles)} completed spawn_agent calls with receiver threads, "
+        f"got {len(successful_spawns)}: {successful_spawns!r}"
+    )
+receiver_ids = {rid for _, receivers in successful_spawns[:len(expected_roles)] for rid in receivers}
+if len(receiver_ids) < len(expected_roles):
+    raise SystemExit(f"expected {len(expected_roles)} distinct spawned receiver threads, got {receiver_ids!r}")
+if first_wait_index is not None:
+    first_wave = set(role_waves[0])
+    roles_before_first_wait = {
+        role for index, event_type, role in events
+        if event_type == "spawn" and index < first_wait_index
+    }
+    if not first_wave.issubset(roles_before_first_wait):
+        raise SystemExit(
+            "first Codex spawn wave did not complete before the first wait; "
+            f"expected={sorted(first_wave)!r} got={sorted(roles_before_first_wait)!r}"
+        )
+for role in expected_roles:
+    role_payloads = spawn_texts_by_role.get(role, [])
+    if len(role_payloads) != 1:
+        raise SystemExit(f"expected exactly one successful spawn_agent payload for {role}, got {len(role_payloads)}")
+    role_text = role_payloads[0]
+    missing_prompt_markers = [
+        marker for marker in [
+            f"Agent prompt source: agents/{role}.md",
+            role_headings[role],
+            *required_prompt_markers,
+        ]
+        if marker.lower() not in role_text.lower()
+    ]
+    if missing_prompt_markers:
+        raise SystemExit(
+            f"Codex spawn_agent payload for {role} did not embed required agent prompt content: "
+            f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+        )
 if not marker:
     raise SystemExit("Codex live parallel smoke did not return success marker")
 
-print("ok - live Codex parallel subagents spawned")
+print("ok - live Codex role subagents spawned with per-role prompt embedding")
 PY
 }
 

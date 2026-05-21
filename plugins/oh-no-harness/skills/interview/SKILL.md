@@ -74,6 +74,11 @@ Interview has one required agent role:
 |---|---|
 | `explore` | Gather brownfield repository facts before asking codebase questions. |
 
+When `explore` is dispatched on Codex, the spawned-agent message must embed the
+matching `agents/explore.md` prompt content. Include
+`Agent prompt source: agents/explore.md` and `Agent prompt content:` so the role
+prompt, not the display name, defines the agent's behavior.
+
 Do not use execution, review, or planning agents inside this skill. Once the spec is approved, use the next skill selected by the user.
 
 ## Ambiguity Ledger

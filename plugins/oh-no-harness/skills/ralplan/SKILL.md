@@ -51,28 +51,87 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 
 ## Required Flow
 
-1. Dispatch `explore` subagent when repository context is needed.
-2. Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions before the planner drafts.
+1. Dispatch `explore` subagent when repository context is needed. Exploration
+   may run before the consensus loop, but it does not replace any consensus
+   role.
+2. Complete `analyst` first to identify hidden requirements, risks,
+   constraints, and open questions before the planner drafts.
 3. Read `docs/shared/execution-modes.md` and
    `docs/shared/worktree-isolation.md` so the plan can set a required Ralph
    execution profile and worktree policy.
-4. Dispatch `planner` subagent to draft the plan.
-5. Dispatch `architect` subagent to review feasibility, sequencing, architecture fit, tradeoffs, execution mode, worktree policy, and antithesis.
-6. Dispatch `critic` subagent only after Architect completes.
-7. Dispatch `planner` subagent to revise with accepted feedback.
-8. Repeat until Critic approves or five complete loops have run. If Critic still rejects after the fifth loop, present the plan to the user with `pending approval` status, the unresolved Critic findings, and an explicit request to accept the residual concerns, revise scope, or stop. Do not silently advance past blocking critic feedback.
+4. Complete `planner` second to draft the plan from the Analyst output and
+   repository evidence.
+5. Complete `architect` third to review feasibility, sequencing, architecture
+   fit, tradeoffs, execution mode, worktree policy, and antithesis.
+6. Complete `critic` fourth, only after Architect completes.
+7. Complete a `planner` revision pass with accepted feedback when Architect or
+   Critic requires changes.
+8. Repeat until Critic approves or five complete loops have run. If Architect
+   or Critic feedback would change the approved interview spec, user-approved
+   plan direction, scope, non-goals, or acceptance criteria, record it as a
+   requested direction change and ask for explicit user approval before
+   incorporating it. If Critic still rejects after the fifth loop, present the
+   plan to the user with `pending approval` status, the unresolved Critic
+   findings, and an explicit request to accept the residual concerns, revise
+   scope, or stop. Do not silently advance past blocking critic feedback.
 9. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
 10. Present the plan to the user with the Plan Approval Brief format below.
 11. Mark the plan `pending approval` unless the user explicitly approves execution.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
 On platforms without subagent support, perform each role inline and record the
-exception in the plan. On Codex, dispatch planning subagents only when the
-current user request explicitly asks for subagents or parallel agent work;
-otherwise perform the consensus roles inline and preserve the same role
-boundaries.
+exception in the plan. On Codex, dispatch planning subagents when the active
+planning scope, risk, and context-window pressure make delegation useful; an
+explicit subagent or parallel-agent request is sufficient but not required.
+When a Codex planning role is dispatched, embed the matching
+`agents/<role>.md` prompt content in the spawned-agent message. When a role is
+inline, write an inline role block instead of collapsing the role into the
+planner's narrative.
 
+Analyst, Planner, Architect, and Critic are strictly sequential in that order.
 Architect and Critic are sequential. Do not run them in parallel.
+
+## Consensus Order Gate
+
+Before saving a plan, presenting a Plan Approval Brief, or asking for execution
+approval, verify that the consensus loop has visible evidence for all required
+roles in order:
+
+```text
+Consensus loop:
+- Analyst: completed | inline completed | dispatched completed
+- Planner draft: completed | inline completed | dispatched completed
+- Architect: completed | inline completed | dispatched completed
+- Critic: approved | rejected | blocking
+- Planner revision: not needed | completed after Architect/Critic feedback
+```
+
+The plan is invalid if it contains only Planner output, if Planner drafts before
+Analyst finishes, if Architect is skipped, or if Critic runs before Architect.
+If a platform cannot dispatch one of these roles, keep the same role boundary
+inline and record the exception. Do not move to the approval brief until the
+gate passes or the plan is explicitly marked `pending approval` with the
+blocking role-order issue.
+
+## Direction Preservation Gate
+
+Architect and Critic improve the plan inside the approved direction. They must
+not silently override the approved interview spec, user-approved plan direction,
+scope, non-goals, or acceptance criteria.
+
+If Architect or Critic believes the approved direction is unsafe, infeasible,
+internally inconsistent, or materially suboptimal:
+
+- record the concern as `blocking` or `requested direction change`
+- keep the current approved direction visible
+- do not incorporate the new direction into the plan unless the user explicitly
+  approves the direction change
+- if approval is missing, mark the plan `pending approval` and present the
+  direction-change request in the Plan Approval Brief
+
+Planner may accept Architect or Critic feedback only when the feedback preserves
+the approved direction or when the user has explicitly approved the direction
+change.
 
 ## Planning Quality Bar
 
@@ -90,7 +149,10 @@ Before presenting the plan, check that it includes:
 - a `Worktree policy` from `docs/shared/worktree-isolation.md`
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
-- Architect and Critic feedback with disposition: accepted, rejected, deferred, or blocking
+- Analyst findings, Planner draft or revision summary, Architect feedback, and
+  Critic verdict with disposition: accepted, rejected, deferred, or blocking
+- any Architect or Critic request that would change approved direction, scope,
+  non-goals, or acceptance criteria, with explicit user-approval status
 
 Do not hide blocking uncertainty inside assumptions. If an unresolved question changes architecture, product behavior, data handling, security, or delivery scope, mark the plan `pending approval` and ask before execution.
 
@@ -110,6 +172,7 @@ Every plan must include:
 - files to create or modify
 - task sequence
 - acceptance criteria
+- consensus loop log showing Analyst -> Planner -> Architect -> Critic in order
 - execution profile
 - worktree policy
 - parallel subagent dispatch plan, or `none`
@@ -146,7 +209,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
-- Parallel trigger: none | explicit-user-request | approved-plan-handoff
+- Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
 - Worktree policy: ask-once-default | automatic-worktree-merge | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
@@ -187,6 +250,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - minimal viable approach and any rejected speculative complexity
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
+- consensus loop summary, including Analyst findings, Architect disposition,
+  and Critic verdict
 - worktree policy, including whether direct Ralph should ask once or Autopilot
   should use automatic worktree execution
 - parallel subagent dispatch plan, including how to explicitly approve it on Codex
@@ -219,7 +284,7 @@ Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
 Verification tier: {LIGHT|STANDARD|THOROUGH}
 Agent policy: {inline-only|targeted-subagents|full-review-set}
-Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
+Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
 Worktree policy: {ask-once-default|automatic-worktree-merge|not-applicable}
 Cleanup policy: {not-needed|conditional|required}
 Task sizing: {short task-mode summary}
@@ -239,6 +304,9 @@ TDD:
 Parallel subagent dispatch:
 {None, or one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner}
 
+Consensus loop:
+Analyst -> Planner -> Architect -> Critic: {completed in order, with one-line disposition for each}
+
 Worktree policy:
 {Direct Ralph asks once before creating or using a task worktree; Autopilot automatically uses a task worktree and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans.}
 
@@ -253,7 +321,7 @@ Execution profile recap:
 - Why this mode is enough: {one sentence}
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
-- Parallel trigger: {none|explicit-user-request|approved-plan-handoff}
+- Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
 - Worktree policy: {ask-once-default|automatic-worktree-merge|not-applicable}
 - Cleanup policy: {not-needed|conditional|required}
 - Task sizing: {short task-mode summary}
@@ -321,7 +389,7 @@ Ask the user which next skill to invoke. On Claude Code, ask through `AskUserQue
 
 End the question with "Which approach?".
 
-Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the plan path as the task definition. If the user picks the parallel-subagent Ralph option, preserve the phrase `parallel subagents` in the Ralph invocation so Codex sees an explicit subagent trigger.
+Do not invoke any next skill until the user has answered. When the user picks one, invoke that skill through the current platform's skill mechanism with the plan path as the task definition. If the user picks the parallel-subagent Ralph option, preserve the phrase `parallel subagents` in the Ralph invocation as an explicit dispatch signal; if the plan selects natural dispatch, preserve `Parallel trigger: natural-dispatch`.
 
 ### Autopilot exception
 
@@ -331,7 +399,7 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 Ralplan uses these roles directly.
 
-This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it, using the Claude Ralph adapter when handing off to execution. On Codex, use `spawn_agent` only when the user request explicitly asks for subagents or parallel agent work; otherwise run the roles inline and include a Codex-ready explicit approval phrase when parallel execution would help downstream Ralph. Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the active platform adapter.
+This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it, using the Claude Ralph adapter when handing off to execution. On Codex, use `spawn_agent` when the active planning scope has isolated role work that benefits from context separation, independent scrutiny, or latency reduction; each Codex spawn must embed the matching `agents/<role>.md` prompt content. Otherwise run the roles inline while preserving the same role blocks. Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the active platform adapter.
 
 | Agent | Dispatch (when) |
 |---|---|
@@ -341,6 +409,7 @@ This table governs *agent role* dispatch only — workflow-skill chaining (`ralp
 | `architect` | Dispatch `architect` subagent to review feasibility, architecture fit, sequencing, and tradeoffs. |
 | `critic` | Dispatch `critic` subagent to review quality only after Architect completes. Critic applies the senior-engineer overcomplication check and may block on speculative abstraction, configurability, dependencies, or broad refactors not tied to current acceptance criteria. |
 
+Analyst, Planner, Architect, and Critic remain sequential in that order.
 Architect and Critic remain sequential. Do not run them in parallel.
 
 ## Concrete Request Signals

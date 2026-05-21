@@ -86,7 +86,7 @@ Represent work as stories:
     "verificationTier": "LIGHT | STANDARD | THOROUGH",
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
-    "parallelTrigger": "none | explicit-user-request | approved-plan-handoff",
+    "parallelTrigger": "none | natural-dispatch | explicit-user-request | approved-plan-handoff",
     "worktreeDecision": "approved worktree | already in approved worktree | user declined/current checkout | autopilot automatic worktree | read-only/not applicable | blocked",
     "cleanupPolicy": "not-needed | conditional | required"
   },
@@ -227,7 +227,7 @@ This section governs *agent role* dispatch only. Workflow-skill chaining (`inter
 
 Ralph must follow the selected execution mode and agent policy:
 
-- `LIGHT`: inline by default. Do not dispatch subagents unless the user requested delegation or a specific check cannot be credibly performed inline.
+- `LIGHT`: inline by default. Do not dispatch subagents unless the user requested delegation, a specific check cannot be credibly performed inline, or a narrow isolated task clearly benefits from context separation.
 - `STANDARD`: inline by default, with targeted subagents only when they clearly improve evidence, reduce risk, or handle an isolated scope. Use `verifier` or `code-reviewer` for behavior-affecting or workflow changes when independent evidence is useful.
 - `THOROUGH`: use the full role set warranted by the risk. Dispatch on subagent-capable platforms when allowed by the platform policy; otherwise perform the roles inline while preserving role boundaries.
 
@@ -239,10 +239,14 @@ the active platform document directly:
 - Claude Code: `docs/platforms/claude-code-ralph.md`. Use
   `oh-no-harness:<agent>` when plugin agents are available; explicit manual
   mention text uses `@agent-oh-no-harness:<agent>`.
-- Codex: `docs/platforms/codex-ralph.md`. Use `spawn_agent` only when the
-  current user request or approved plan handoff explicitly asks for subagents
-  or parallel agent work. Without a trigger, perform roles inline and record
-  `Parallel trigger: none`.
+- Codex: `docs/platforms/codex-ralph.md`. Use `spawn_agent` when the selected
+  execution mode, agent policy, task risk, and isolated scope make delegation
+  useful for context-window management, independent evidence, or latency.
+  Explicit user or plan wording is sufficient but not required. Without a
+  dispatch-worthy role or scope, perform roles inline and record
+  `Parallel trigger: none`; when dispatch is selected naturally, record
+  `Parallel trigger: natural-dispatch`. Every Codex dispatch must embed the
+  matching `agents/<role>.md` prompt content in the spawned-agent message.
 
 Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
@@ -296,8 +300,11 @@ Implementation subagents must know they are not alone in the codebase. Tell them
 Use this dispatch shape for every parallel subagent:
 
 ````markdown
-Role: {explore|executor|verifier|code-reviewer|security-reviewer|qa-tester}
+Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}
 Story/task: {id and short title}
+Agent prompt source: agents/{role}.md
+Agent prompt content:
+{matching agents/{role}.md prompt content}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
 Expected output: {patch, findings, evidence, or test result}

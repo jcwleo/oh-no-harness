@@ -76,7 +76,8 @@ Ralph behavior:
 - keep implementation inline by default
 - skip PRD scaffolding unless the user or input explicitly requires it
 - do not dispatch subagents unless the current platform policy allows it and
-  the user requested delegation or a check cannot be credibly performed inline
+  the user requested delegation, a check cannot be credibly performed inline, or
+  a narrow isolated task clearly benefits from context separation
 - document TDD as not applicable or as an exception when there is no behavior
   change
 - run LIGHT verification from `docs/shared/verification-tiers.md`
@@ -109,8 +110,7 @@ Ralph behavior:
 - use TDD for behavior-changing production edits and bug fixes; document narrow
   exceptions for docs-only, config-only, generated, or prompt-only work
 - implement inline unless the platform policy allows a targeted subagent that
-  clearly reduces risk or latency; on Codex this requires an explicit subagent
-  or parallel-agent trigger in the user request or approved handoff
+  clearly reduces risk, context pressure, or latency
 - use `verifier` or `code-reviewer` only for behavior-affecting or workflow
   changes where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
@@ -142,9 +142,7 @@ Ralph behavior:
 - use TDD or explicit approved exceptions for behavior changes
 - dispatch or inline every required role according to platform policy,
   available host subagent support, `docs/shared/agent-tiers.md`,
-  `docs/shared/ralph-subagent-policy.md`, and the active platform adapter; on
-  Codex, use `spawn_agent` only when the user request or approved handoff
-  explicitly asks for subagents or parallel agent work
+  `docs/shared/ralph-subagent-policy.md`, and the active platform adapter
 - run reviewer roles for correctness and maintainability; add architect,
   security, QA, or critic review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
@@ -191,7 +189,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
-- Parallel trigger: none | explicit-user-request | approved-plan-handoff
+- Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
 - Worktree policy: ask-once-default | automatic-worktree-merge | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:

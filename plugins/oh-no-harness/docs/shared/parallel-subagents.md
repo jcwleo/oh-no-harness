@@ -1,6 +1,8 @@
 # Parallel Subagent Coordination
 
 Use parallel subagents only when the work can be isolated and integrated deliberately.
+Parallel dispatch may be explicitly requested or selected naturally by the
+active workflow when it improves context use, evidence quality, or latency.
 
 If user instructions or the current platform restrict delegation, follow those restrictions first.
 

@@ -51,17 +51,17 @@ Write transient orchestration notes under:
 
 ## Agent Roles
 
-Autopilot normally reaches most roles by reading and following `interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms according to Ralph's selected execution mode, `## Mode-Gated Agent Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy in `using-oh-no-harness`. On Claude Code, use the Ralph hook-injected Claude adapter or `docs/platforms/claude-code-ralph.md`, prefer plugin agents such as `oh-no-harness:<agent>`, and use background subagents for independent read-only or review scopes. On Codex, use the Ralph hook-injected Codex adapter or `docs/platforms/codex-ralph.md`, and use `spawn_agent` only when the user's autopilot request or an approved plan explicitly asks for subagents or parallel agent work. The phase boundaries below still hold either way.
+Autopilot normally reaches most roles by reading and following `interview`, `ralplan`, and `ralph`. Inline phase handling is the fallback, not the default. Dispatch each phase's listed agents as separate subagents on subagent-capable platforms according to Ralph's selected execution mode, `## Mode-Gated Agent Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy in `using-oh-no-harness`. On Claude Code, use the Ralph hook-injected Claude adapter or `docs/platforms/claude-code-ralph.md`, prefer plugin agents such as `oh-no-harness:<agent>`, and use background subagents for independent read-only or review scopes. On Codex, use the Ralph hook-injected Codex adapter or `docs/platforms/codex-ralph.md`, and use `spawn_agent` when the active phase has isolated work that benefits from context-window separation, independent evidence, or latency reduction. Every Codex phase-agent dispatch must embed the matching `agents/<role>.md` prompt content with `Agent prompt source: agents/<role>.md` and `Agent prompt content:`. Explicit user or plan wording is sufficient but not required. The phase boundaries below still hold either way.
 
 | Phase | Agents |
 |---|---|
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
-| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then `analyst`, `planner`, `architect`, and `critic`. Architect always completes before Critic. The plan must set the Ralph execution profile. |
+| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `architect` -> `critic` in that order. Architect always completes before Critic. The plan must set the Ralph execution profile and include the four role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch or inline `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk. |
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
 | Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 
-When inline work can run in parallel, read `docs/shared/parallel-subagents.md` and use the same ownership and integration rules as `ralph`. If the user invoked autopilot with `parallel`, `subagents`, `spawn`, `delegate`, or `one agent per` language, preserve that phrase in the Ralph handoff so Codex treats execution as an explicit subagent request.
+When inline work can run in parallel, read `docs/shared/parallel-subagents.md` and use the same ownership and integration rules as `ralph`. If the user invoked autopilot with `parallel`, `subagents`, `spawn`, `delegate`, or `one agent per` language, preserve that phrase in the Ralph handoff as an explicit dispatch signal. If the plan selects natural dispatch instead, preserve `Parallel trigger: natural-dispatch` in the Ralph handoff.
 
 ## Phases
 

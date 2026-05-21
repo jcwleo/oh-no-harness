@@ -30,11 +30,20 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Agent Roles
 
-Use the listed roles in the order shown. Dispatch is governed by the active
-skill's platform policy and Ralph's `## Mode-Gated Agent Dispatch` when this
-debugging pass is inside Ralph.
+Use the listed roles as the failure requires. The default flow is diagnostic
+first (`debugger` and, when context is missing, `explore`), then the minimal fix
+(`executor` or inline work), then evidence (`verifier`). `architect` is a
+conditional escalation role, not a required final step: use it immediately when
+three fix attempts fail, architecture-level coupling appears, or the apparent
+fix would change broad APIs, product behavior, data handling, security, or
+delivery scope. Dispatch is governed by the active skill's platform policy and
+Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
 
 Respect the platform policy from `using-oh-no-harness` for dispatch versus inline execution.
+When any listed role is dispatched on Codex, the spawned-agent message must
+embed the matching `agents/<role>.md` prompt content. Include
+`Agent prompt source: agents/<role>.md` and `Agent prompt content:` before the
+task-specific failure, scope, expected output, and verification responsibility.
 
 | Agent | Dispatch (when) |
 |---|---|
@@ -42,7 +51,7 @@ Respect the platform policy from `using-oh-no-harness` for dispatch versus inlin
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
-| `architect` | Dispatch `architect` subagent to reassess direction after three failed fix attempts or when architecture-level coupling is exposed. |
+| `architect` | Dispatch `architect` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. |
 
 ## Debugging Flow
 

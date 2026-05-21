@@ -835,7 +835,7 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, Architect/Critic ordering rule, the required Ralph execution profile fields, and the Codex phrase for approving Ralph with parallel subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, and the Codex natural-dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
@@ -881,7 +881,9 @@ expected = {
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
-        "Run ralph with parallel subagents",
+        "Analyst",
+        "Planner",
+        "natural-dispatch",
     ],
     "ralph": [
         "OH_NO_CLAUDE_DEEP_OK ralph",
@@ -918,6 +920,25 @@ if skill == "interview" and not (
     or ("remote" in text_lower and "not" in text_lower and "search" in text_lower)
 ):
     raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "analyst" in text_lower
+    and "planner" in text_lower
+    and "architect" in text_lower
+    and "critic" in text_lower
+    and (
+        "analyst -> planner -> architect -> critic" in text_lower
+        or "analyst, planner, architect, critic" in text_lower
+        or "analyst, planner, architect, and critic" in text_lower
+        or (
+            "analyst first" in text_lower
+            and "planner second" in text_lower
+            and "architect third" in text_lower
+            and "critic fourth" in text_lower
+        )
+    )
+):
+    raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
 
 if skill == "ralplan" and not (
     ("architect" in text_lower and "critic" in text_lower)
@@ -1009,7 +1030,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Dispatch exactly two independent background subagents before integrating: one oh-no-harness:explore subagent should inspect docs/platforms/claude-code-ralph.md and report whether CLAUDE_CODE_ONLY_RALPH_ADAPTER and @agent-oh-no-harness:<agent> are present. A second oh-no-harness:explore subagent should inspect docs/shared/ralph-subagent-policy.md and report whether Batch Rule says the eligible batch starts before waiting. Do not edit files. After both subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the two results."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, and do not continue if any task fails. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:architect, oh-no-harness:critic, oh-no-harness:executor. Wave 3: oh-no-harness:debugger, oh-no-harness:verifier, oh-no-harness:code-reviewer. Wave 4: oh-no-harness:security-reviewer, oh-no-harness:qa-tester. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1036,12 +1057,29 @@ import json
 import sys
 
 path = sys.argv[1]
+expected_roles = [
+    "explore",
+    "analyst",
+    "planner",
+    "architect",
+    "critic",
+    "executor",
+    "debugger",
+    "verifier",
+    "code-reviewer",
+    "security-reviewer",
+    "qa-tester",
+]
+first_wave = {"explore", "analyst", "planner"}
 task_tool_uses = []
+background_uses_by_role = {}
 task_starts = []
 task_notifications = []
 marker = False
 init_ok = False
 first_task_notification_index = None
+errors = []
+summary_text = []
 
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -1049,13 +1087,24 @@ with open(path, "r", encoding="utf-8") as fh:
             continue
         data = json.loads(line)
         if data.get("type") == "system" and data.get("subtype") == "init":
-            init_ok = "Task" in data.get("tools", []) and "oh-no-harness:explore" in data.get("agents", [])
+            available_agents = set(data.get("agents", []))
+            init_ok = "Task" in data.get("tools", []) and all(
+                f"oh-no-harness:{role}" in available_agents for role in expected_roles
+            )
         if data.get("type") == "assistant":
             for part in data.get("message", {}).get("content", []):
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
-                    task_tool_uses.append((index, part.get("input", {})))
+                    payload = part.get("input", {})
+                    task_tool_uses.append((index, payload))
+                    subagent_type = payload.get("subagent_type")
+                    if subagent_type and subagent_type.startswith("oh-no-harness:"):
+                        role = subagent_type.split(":", 1)[1]
+                        if payload.get("run_in_background") is True:
+                            background_uses_by_role.setdefault(role, []).append((index, payload))
                 if part.get("type") == "text" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in part.get("text", ""):
                     marker = True
+                if part.get("type") == "text":
+                    summary_text.append(part.get("text", ""))
         if data.get("type") == "system" and data.get("subtype") == "task_started":
             task_starts.append((index, data.get("task_id")))
         if data.get("type") == "system" and data.get("subtype") == "task_notification":
@@ -1065,27 +1114,52 @@ with open(path, "r", encoding="utf-8") as fh:
                 task_notifications.append((index, data.get("summary", "")))
         if data.get("type") == "result" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in data.get("result", ""):
             marker = True
+        if data.get("type") == "result":
+            summary_text.append(data.get("result", ""))
+        if data.get("type") == "result" and data.get("is_error") is True:
+            errors.append((index, data.get("result", "")[:1000]))
 
 if not init_ok:
-    raise SystemExit("Claude live parallel smoke did not expose Task tool and oh-no-harness:explore agent")
+    raise SystemExit("Claude live parallel smoke did not expose Task tool and all oh-no-harness role agents")
+if errors:
+    raise SystemExit(f"Claude live parallel smoke returned errors: {errors!r}")
 
-background_uses = [
-    (index, payload)
-    for index, payload in task_tool_uses
-    if payload.get("subagent_type") == "oh-no-harness:explore" and payload.get("run_in_background") is True
-]
-if len(background_uses) < 2:
-    raise SystemExit(f"expected at least two background oh-no-harness:explore task tool uses, got {background_uses!r}")
-if len(task_starts) < 2:
-    raise SystemExit(f"expected at least two task_started events, got {task_starts!r}")
-if len(task_notifications) < 2:
-    raise SystemExit(f"expected at least two completed task notifications, got {task_notifications!r}")
-if first_task_notification_index is not None and not all(index < first_task_notification_index for index, _ in background_uses[:2]):
-    raise SystemExit("two background task tool uses did not both occur before the first task completion notification")
+missing_roles = [role for role in expected_roles if role not in background_uses_by_role]
+if missing_roles:
+    raise SystemExit(f"missing background task uses for roles: {missing_roles!r}; got={sorted(background_uses_by_role)!r}")
+duplicate_roles = {
+    role: uses for role, uses in background_uses_by_role.items()
+    if role in expected_roles and len(uses) != 1
+}
+if duplicate_roles:
+    raise SystemExit(f"expected exactly one background task use per role, got duplicates: {duplicate_roles!r}")
+if len(task_starts) < len(expected_roles):
+    raise SystemExit(f"expected at least {len(expected_roles)} task_started events, got {task_starts!r}")
+if first_task_notification_index is not None:
+    roles_before_first_notification = {
+        role
+        for role, uses in background_uses_by_role.items()
+        if uses[0][0] < first_task_notification_index
+    }
+    if not first_wave.issubset(roles_before_first_notification):
+        raise SystemExit(
+            "first Claude subagent wave did not start before the first task completion notification; "
+            f"expected={sorted(first_wave)!r} got={sorted(roles_before_first_notification)!r}"
+        )
 if not marker:
     raise SystemExit("Claude live parallel smoke did not return success marker")
+combined_summary_text = "\n".join(summary_text).lower()
+missing_summary_roles = [
+    role for role in expected_roles
+    if role.lower() not in combined_summary_text
+]
+if missing_summary_roles:
+    raise SystemExit(
+        "Claude live parallel smoke success summary did not mention every role: "
+        f"{missing_summary_roles!r}"
+    )
 
-print("ok - live Claude parallel subagents spawned and completed")
+print("ok - live Claude role subagents spawned and completed")
 PY
 }
 

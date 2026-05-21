@@ -82,8 +82,9 @@ ROLE_POLICY_MARKERS = {
 }
 PLATFORM_SUBAGENT_MARKERS = {
     "using-oh-no-harness": (
-        "Codex only starts subagents when the user",
+        "Codex may start subagents when the active",
         "@agent-oh-no-harness:<agent>",
+        "agents/<role>.md",
         "independent non-blocking agents",
     ),
     "ralph": (
@@ -91,16 +92,19 @@ PLATFORM_SUBAGENT_MARKERS = {
         "@agent-oh-no-harness:<agent>",
         "whole eligible batch",
         "Platform invocation",
+        "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
+        "Agent prompt source: agents/{role}.md",
     ),
     "ralplan": (
         "ralph with parallel subagents",
         "Run ralph with parallel subagents",
         "parallel subagent dispatch plan",
+        "agents/<role>.md",
     ),
     "autopilot": (
         "oh-no-harness:<agent>",
-        "approved plan explicitly asks for subagents",
-        "preserve that phrase in the Ralph handoff",
+        "context-window separation",
+        "Parallel trigger: natural-dispatch",
     ),
 }
 PLATFORM_SUBAGENT_DOC_MARKERS = {
@@ -134,9 +138,14 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
     ),
     "codex-ralph.md": (
         "CODEX_ONLY_RALPH_ADAPTER",
+        "## Dispatch Decision",
+        "## Role Prompt Embedding",
+        "Agent prompt source: agents/<role>.md",
+        "Agent prompt content:",
         "spawn_agent",
         "wait_agent",
         "Parallel trigger: none",
+        "Parallel trigger: natural-dispatch",
     ),
 }
 PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
@@ -223,6 +232,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Goal Restatement Gate",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
+        "Agent prompt source: agents/explore.md",
     ),
     "ralplan": (
         "## Execution Profile",
@@ -241,7 +251,77 @@ EXECUTION_MODE_SKILL_MARKERS = {
     "autopilot": (
         "docs/shared/execution-modes.md",
         "execution mode and mode source",
+        "Agent prompt source: agents/<role>.md",
     ),
+}
+CODEX_AGENT_PROMPT_SKILL_MARKERS = {
+    "interview": (
+        "Agent prompt source: agents/explore.md",
+        "Agent prompt content:",
+    ),
+    "ralplan": (
+        "agents/<role>.md",
+        "prompt content in the spawned-agent message",
+    ),
+    "ralph": (
+        "Agent prompt source: agents/{role}.md",
+        "Agent prompt content:",
+    ),
+    "autopilot": (
+        "Agent prompt source: agents/<role>.md",
+        "Agent prompt content:",
+    ),
+    "systematic-debugging": (
+        "Agent prompt source: agents/<role>.md",
+        "Agent prompt content:",
+    ),
+    "verification-before-completion": (
+        "Agent prompt source: agents/<role>.md",
+        "Agent prompt content:",
+    ),
+}
+SKILL_REQUIRED_AGENT_ROLES = {
+    "interview": ("explore",),
+    "ralplan": ("explore", "analyst", "planner", "architect", "critic"),
+    "ralph": (
+        "explore",
+        "executor",
+        "architect",
+        "critic",
+        "verifier",
+        "code-reviewer",
+        "security-reviewer",
+        "qa-tester",
+    ),
+    "autopilot": (
+        "explore",
+        "analyst",
+        "planner",
+        "architect",
+        "critic",
+        "executor",
+        "debugger",
+        "verifier",
+        "code-reviewer",
+        "security-reviewer",
+        "qa-tester",
+    ),
+    "systematic-debugging": (
+        "debugger",
+        "explore",
+        "executor",
+        "verifier",
+        "architect",
+    ),
+    "verification-before-completion": (
+        "verifier",
+        "code-reviewer",
+        "security-reviewer",
+        "qa-tester",
+    ),
+}
+SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY = {
+    "ai-slop-cleaner",
 }
 AGENT_SKILL_RELATIONSHIP_MARKERS = (
     "## Skill Relationship",
@@ -313,6 +393,29 @@ SIMPLICITY_SCOPE_AGENT_MARKERS = {
         "drive-by formatting",
     ),
 }
+APPROVED_DIRECTION_AGENT_MARKERS = {
+    "architect": (
+        "approved interview spec",
+        "user-approved plan direction",
+        "Direction-preservation concerns",
+        "silently replace it with your own direction",
+    ),
+    "critic": (
+        "interview spec",
+        "user-approved plan direction",
+        "Direction-preservation findings",
+        "do not replace it with your own direction",
+    ),
+}
+RALPLAN_CONSENSUS_MARKERS = (
+    "## Consensus Order Gate",
+    "## Direction Preservation Gate",
+    "Analyst -> Planner -> Architect -> Critic",
+    "The plan is invalid if it contains only Planner output",
+    "consensus loop log showing Analyst -> Planner -> Architect -> Critic in order",
+    "requested direction change",
+    "do not incorporate the new direction into the plan unless the user explicitly",
+)
 
 
 def die(message: str) -> None:
@@ -346,6 +449,25 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     die(f"{path} has unterminated YAML frontmatter")
 
 
+def markdown_section(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() == heading:
+            start = index + 1
+            break
+    if start is None:
+        return ""
+
+    end = len(lines)
+    for index in range(start, len(lines)):
+        stripped = lines[index].strip()
+        if stripped.startswith("## ") and stripped != heading:
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
 def assert_skill(root: Path, skill: str) -> None:
     path = root / "skills" / skill / "SKILL.md"
     fm = parse_frontmatter(path)
@@ -376,6 +498,24 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
+    if skill in CODEX_AGENT_PROMPT_SKILL_MARKERS:
+        body = read_text(path)
+        for marker in CODEX_AGENT_PROMPT_SKILL_MARKERS[skill]:
+            if marker not in body:
+                die(f"{path} is missing required Codex-Agent-Prompt marker: {marker!r}")
+    if skill in SKILL_REQUIRED_AGENT_ROLES:
+        body = read_text(path)
+        agent_roles_section = markdown_section(body, "## Agent Roles")
+        if not agent_roles_section:
+            die(f"{path} is missing required Agent Roles section")
+        for role in SKILL_REQUIRED_AGENT_ROLES[skill]:
+            if not has_token(agent_roles_section, role):
+                die(f"{path} Agent Roles section is missing required role reference: {role!r}")
+    if skill in SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY:
+        body = read_text(path)
+        agent_roles_section = markdown_section(body, "## Agent Roles")
+        if "no required agent dependency" not in agent_roles_section:
+            die(f"{path} Agent Roles section should explicitly declare no required agent dependency")
     if skill in SIMPLICITY_SCOPE_SKILL_MARKERS:
         body = read_text(path)
         for marker in SIMPLICITY_SCOPE_SKILL_MARKERS[skill]:
@@ -386,6 +526,11 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Platform-Subagent marker: {marker!r}")
+    if skill == "ralplan":
+        body = read_text(path)
+        for marker in RALPLAN_CONSENSUS_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Ralplan-Consensus marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
         body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
@@ -443,6 +588,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope agent marker: {marker!r}")
+    if agent in APPROVED_DIRECTION_AGENT_MARKERS:
+        for marker in APPROVED_DIRECTION_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Approved-Direction agent marker: {marker!r}")
     if agent in WORKTREE_AGENT_MARKERS:
         for marker in WORKTREE_AGENT_MARKERS[agent]:
             if marker not in body:

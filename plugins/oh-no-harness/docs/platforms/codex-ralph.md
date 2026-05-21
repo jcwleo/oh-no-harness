@@ -5,13 +5,14 @@ CODEX_ONLY_RALPH_ADAPTER
 Use this adapter only on Codex. Do not apply it on Claude Code or other
 platforms.
 
-## Explicit Trigger
+## Dispatch Decision
 
 Codex must not start subagents merely because Ralph is active. Codex should use
-subagents only when the current user request or approved plan explicitly asks
-for subagents, delegation, or parallel agent work.
+subagents when Ralph's selected execution mode, agent policy, task risk, and
+scope isolation make delegation useful for context-window management,
+independent evidence, or latency.
 
-Treat these phrases as explicit triggers:
+Explicit phrases are sufficient dispatch signals:
 
 - `subagent`
 - `spawn`
@@ -21,12 +22,15 @@ Treat these phrases as explicit triggers:
 - `one agent per`
 - `ralph with parallel subagents`
 
-When no explicit trigger is present, Ralph must perform roles inline and record
-`Parallel trigger: none`.
+They are not required when the active skill policy already allows natural
+dispatch and the work has a concrete isolated scope. When no dispatch-worthy
+role or scope exists, Ralph must perform roles inline and record
+`Parallel trigger: none`. When dispatch is selected without an explicit user or
+plan trigger, record `Parallel trigger: natural-dispatch`.
 
 ## Invocation
 
-When a trigger is present, use Codex `spawn_agent`.
+When dispatch is selected, use Codex `spawn_agent`.
 
 Prefer:
 
@@ -38,13 +42,37 @@ Prefer:
 Spawn every independent non-blocking agent in the eligible batch before calling
 `wait_agent`. Do not spawn one agent, wait, then spawn the rest.
 
-## Ralph Prompt Shape
+## Role Prompt Embedding
 
-Every Codex Ralph dispatch should include:
+Codex display names are not stable role identifiers. The dispatch message is
+the source of truth.
+
+Before every Codex `spawn_agent` call for an Oh No Harness role, read the
+matching `agents/<role>.md` file and embed that prompt content in the spawned
+agent message. Do not rely on the role name alone. The embedded prompt must
+preserve the role's `Skill Relationship`, `Responsibilities`, `Operating
+Rules`, and `Output` sections so the spawned agent receives the same behavioral
+contract as the Claude Code plugin-scoped agent.
+
+If the role is handled inline, keep the same role boundary in the caller's
+notes. If the role is dispatched, the spawned-agent message must include:
 
 ```text
-Role: <explore|executor|verifier|code-reviewer|security-reviewer|qa-tester>
+Agent prompt source: agents/<role>.md
+Agent prompt content:
+<paste the matching agents/<role>.md prompt content>
+```
+
+## Prompt Shape
+
+Every Codex role dispatch should include:
+
+```text
+Role: <explore|analyst|planner|architect|critic|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
 Codex agent type: <explorer|worker|default>
+Agent prompt source: agents/<role>.md
+Agent prompt content:
+<matching agents/<role>.md prompt content>
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>
 Do not touch: <other agents' scopes>
