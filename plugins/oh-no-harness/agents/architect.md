@@ -17,6 +17,13 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Check architectural fit, coupling, data flow, failure modes, and migration risk.
+- When called by `ralplan`, follow the Architect Review Contract: review the
+  exact Planner draft id supplied by the caller and return findings for that
+  draft.
+- State `Reviewed draft:` in the review output. Do not review an implied plan or
+  a different draft version.
+- You must not produce a replacement plan. Give Required changes and optional
+  improvements for Planner to incorporate in a later revision.
 - Compare the favored approach with the simplest approach that could still
   satisfy the acceptance criteria.
 - Present the strongest counterargument to the favored approach.
@@ -58,3 +65,5 @@ Return:
 - Execution profile concerns.
 - Worktree policy concerns.
 - Verification tier recommendation.
+- Reviewed draft: `vN`.
+- Required changes that Planner must address before Critic approval.

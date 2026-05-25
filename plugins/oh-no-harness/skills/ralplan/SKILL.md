@@ -1,14 +1,14 @@
 ---
 name: ralplan
-description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs an implementation plan, execution strategy, sequencing, tradeoff review, or user approval before coding.
-argument-hint: "<task, spec path, or plan request>"
+description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs consensus implementation planning before coding.
+argument-hint: "[--subagents] <task, spec path, or plan request>"
 ---
 
 # Ralplan
 
 Ralplan is the public consensus planning entry point.
 
-It owns the consensus planning workflow directly and keeps planning separate from execution.
+It owns the consensus planning workflow directly and keeps planning separate from execution. Ralplan has no basic planning mode. Every invocation runs the consensus workflow; if the task is too small for consensus planning, use `ralph` or a direct small edit path instead.
 
 ## Software Development Stage
 
@@ -18,7 +18,7 @@ Use it after `interview` has produced an approved spec, or when the user already
 
 ## Goal
 
-Create a concrete implementation plan that survives Analyst, Planner, Architect, and Critic review before execution begins.
+Create a concrete implementation plan that is drafted by Planner, reviewed by Architect, reviewed by Critic, and revised by Planner until the accepted feedback is reflected in the plan body before execution begins.
 
 ## Artifacts
 
@@ -54,64 +54,225 @@ Do not use when the task is a single obvious edit with clear acceptance criteria
 1. Dispatch `explore` subagent when repository context is needed. Exploration
    may run before the consensus loop, but it does not replace any consensus
    role.
-2. Complete `analyst` first to identify hidden requirements, risks,
-   constraints, and open questions before the planner drafts.
+2. Apply `## Requirements Source And Analyst Gate`. If an approved `interview`
+   spec already covers the needed requirements, record `Analyst: satisfied by
+   approved interview spec`; otherwise complete `analyst` before Planner drafts.
 3. Read `docs/shared/execution-modes.md` and
    `docs/shared/worktree-isolation.md` so the plan can set a required Ralph
    execution profile and worktree policy.
-4. Complete `planner` second to draft the plan from the Analyst output and
-   repository evidence.
-5. Complete `architect` third to review feasibility, sequencing, architecture
-   fit, tradeoffs, execution mode, worktree policy, and antithesis.
-6. Complete `critic` fourth, only after Architect completes.
-7. Complete a `planner` revision pass with accepted feedback when Architect or
-   Critic requires changes.
-8. Repeat until Critic approves or five complete loops have run. If Architect
-   or Critic feedback would change the approved interview spec, user-approved
-   plan direction, scope, non-goals, or acceptance criteria, record it as a
-   requested direction change and ask for explicit user approval before
-   incorporating it. If Critic still rejects after the fifth loop, present the
-   plan to the user with `pending approval` status, the unresolved Critic
-   findings, and an explicit request to accept the residual concerns, revise
-   scope, or stop. Do not silently advance past blocking critic feedback.
-9. Save the plan under `.oh-no/plans/` with a `Next skill: oh-no-harness:<name>` header field.
+4. Complete `planner` to create `Planner draft v1` from the requirements source,
+   Analyst or gap-check output, and repository evidence.
+5. Complete `architect` only after `Planner draft v1` exists. Architect reviews
+   that exact draft and returns `Architect review v1`; Architect does not create
+   a replacement plan.
+6. Complete `critic` only after `Architect review v1` exists. Critic reviews the
+   same Planner draft plus the matching Architect review and returns
+   `Critic review v1`.
+7. When Architect or Critic requires changes, complete `planner` revision.
+   Planner must turn accepted feedback into `Planner revision v2`, record
+   feedback disposition, and update the plan body instead of only appending
+   comments.
+8. Repeat the full review loop for every revision:
+   `Planner revision vN -> Architect review vN -> Critic review vN`. Stop when
+   Critic approves or five complete loops have run. If Architect or Critic
+   feedback would change the approved interview spec, user-approved plan
+   direction, scope, non-goals, or acceptance criteria, record it as a requested
+   direction change and ask for explicit user approval before incorporating it.
+   If Critic still rejects after the fifth loop, present the plan to the user
+   with `pending approval` status, the unresolved Critic findings, and an
+   explicit request to accept the residual concerns, revise scope, or stop. Do
+   not silently advance past blocking critic feedback.
+9. Save the final reflected plan under `.oh-no/plans/` with a
+   `Next skill: oh-no-harness:<name>` header field.
 10. Present the plan to the user with the Plan Approval Brief format below.
 11. Mark the plan `pending approval` unless the user explicitly approves execution.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
-On platforms without subagent support, perform each role inline and record the
-exception in the plan. On Codex, dispatch planning subagents when the active
-planning scope, risk, and context-window pressure make delegation useful; an
-explicit subagent or parallel-agent request is sufficient but not required.
-When a Codex planning role is dispatched, embed the matching
-`agents/<role>.md` prompt content in the spawned-agent message. When a role is
-inline, write an inline role block instead of collapsing the role into the
+On platforms without subagent support or without host authorization to call
+subagents, perform each role inline and record the inline fallback reason in the
+plan. On Claude Code, use separate role agents for Planner, Architect, and Critic
+when plugin agents or task agents are available; they are sequential, never
+parallel. On Codex, use `spawn_agent` for planning roles only when the host tool
+policy and user wording authorize subagents, for example `ralplan --subagents`,
+`ralplan with subagents`, `use subagents`, `delegate the planning roles`, or
+`run planner/architect/critic as subagents`. When a Codex planning role is
+dispatched, embed the matching `agents/<role>.md` prompt content in the spawned-agent message. When a role is inline, write a separate inline role block
+with the draft id and fallback reason instead of collapsing the role into the
 planner's narrative.
 
-Analyst, Planner, Architect, and Critic are strictly sequential in that order.
-Architect and Critic are sequential. Do not run them in parallel.
+Analyst, Planner, Architect, and Critic are strictly sequential in that order
+unless Analyst is satisfied by an approved interview spec. Architect and Critic
+are sequential. Do not run them in parallel.
+
+## Requirements Source And Analyst Gate
+
+Use the most specific approved requirements source available:
+
+- approved `interview` spec
+- approved user-provided PRD, issue, or ticket
+- current user request plus repository evidence
+
+If an approved `interview` spec covers goal, scope, non-goals, constraints,
+risks, and acceptance criteria, do not repeat a full Analyst pass. Record:
+
+```text
+Analyst: satisfied by approved interview spec
+Requirements source: <path or summary>
+Gap check: none blocking
+```
+
+If any of those fields are missing, inconsistent, or materially affect
+architecture, product behavior, data handling, security, or delivery scope, run
+Analyst or a limited Analyst gap check before Planner drafts. The Analyst output
+must feed the Planner draft; it must not replace the Planner draft.
+
+## Planner Draft Contract
+
+Planner owns the draft plan and every revision. The first Planner output is
+`Planner draft v1`.
+
+Planner draft v1 must include:
+
+```text
+Planner draft v1:
+- Draft id: v1
+- Requirements source:
+- Analyst status: satisfied by approved interview spec | completed | gap check completed
+- Goal:
+- Scope:
+- Non-goals:
+- Minimal viable approach:
+- Rejected speculative complexity:
+- Files/modules likely affected:
+- Task sequence:
+- TDD expectations:
+- Execution profile:
+- Worktree policy:
+- Verification plan:
+- Risks/open questions:
+```
+
+Architect and Critic review the Planner draft. They do not replace it. Planner
+must keep the plan body as the source of truth and use the consensus log only as
+evidence of review and revision.
+
+## Architect Review Contract
+
+Architect reviews a specific Planner draft and returns structured review
+feedback. Architect must not produce a replacement plan.
+
+Architect input must include:
+
+```text
+- Planner draft id: vN
+- Full Planner draft or plan path:
+- Requirements source:
+```
+
+Architect output must include:
+
+```text
+Architect review vN:
+- Reviewed draft: vN
+- Verdict: approve | changes_requested | blocking | requested_direction_change
+- Architecture fit:
+- Sequencing concerns:
+- Strongest antithesis:
+- Tradeoff tension:
+- Required changes:
+- Optional improvements:
+- Execution profile concerns:
+- Worktree policy concerns:
+- Direction-change requests:
+```
+
+Architect may improve the plan only inside the approved direction. Direction
+changes must stay unincorporated until the user approves them.
+
+## Critic Review Contract
+
+Critic reviews the same Planner draft plus the matching Architect review. Critic
+does not run before Architect and does not review a draft version Architect has
+not reviewed.
+
+Critic input must include:
+
+```text
+- Planner draft id: vN
+- Architect review for draft id: vN
+- Full Planner draft or plan path:
+```
+
+Critic output must include:
+
+```text
+Critic review vN:
+- Reviewed draft: vN
+- Architect review consumed: yes
+- Verdict: APPROVE | ITERATE | REJECT
+- Blocking issues:
+- Overcomplexity/speculative abstraction check:
+- Acceptance criteria quality:
+- Verification weakness:
+- Missing feedback disposition:
+- Evidence required for approval:
+```
+
+Critic must reject when Architect feedback is ignored without disposition, when
+accepted feedback is only logged and not reflected in the plan body, when
+verification cannot prove the acceptance criteria, or when speculative
+complexity is not tied to current requirements.
+
+## Planner Revision Contract
+
+When Architect or Critic returns `changes_requested`, `blocking`, `ITERATE`, or
+`REJECT`, Planner revises the draft before any further Architect or Critic pass.
+
+Planner revision output must include:
+
+```text
+Planner revision vN:
+- From draft: vN-1
+- New draft: vN
+- Accepted feedback:
+- Rejected feedback with reason:
+- Deferred feedback with reason:
+- Direction-change feedback waiting for user approval:
+- Sections changed:
+```
+
+Accepted feedback must be reflected in the plan body. If feedback is rejected or
+deferred, Planner must give a concrete reason tied to approved scope,
+constraints, or direction-preservation rules. A revision is invalid if it only
+adds comments while leaving the plan body unchanged.
 
 ## Consensus Order Gate
 
 Before saving a plan, presenting a Plan Approval Brief, or asking for execution
 approval, verify that the consensus loop has visible evidence for all required
-roles in order:
+roles, draft ids, review ids, and revision ids in order:
 
 ```text
 Consensus loop:
-- Analyst: completed | inline completed | dispatched completed
-- Planner draft: completed | inline completed | dispatched completed
-- Architect: completed | inline completed | dispatched completed
-- Critic: approved | rejected | blocking
-- Planner revision: not needed | completed after Architect/Critic feedback
+- Analyst: satisfied by approved interview spec | completed | inline fallback with reason | dispatched completed
+- Planner draft v1: completed | inline fallback with reason | dispatched completed
+- Architect review v1: completed after Planner draft v1 | inline fallback with reason | dispatched completed
+- Critic review v1: APPROVE | ITERATE | REJECT after Architect review v1
+- Planner revision v2: not needed | completed from Architect/Critic feedback
+- Architect review v2: not needed | completed after Planner revision v2
+- Critic review v2: not needed | APPROVE | ITERATE | REJECT
 ```
 
 The plan is invalid if it contains only Planner output, if Planner drafts before
-Analyst finishes, if Architect is skipped, or if Critic runs before Architect.
-If a platform cannot dispatch one of these roles, keep the same role boundary
-inline and record the exception. Do not move to the approval brief until the
-gate passes or the plan is explicitly marked `pending approval` with the
-blocking role-order issue.
+Analyst finishes when Analyst is required, if Architect is skipped, or if Critic
+runs before Architect. The plan is invalid if Architect or Critic only add comments instead of reviewing a specific Planner draft, if Critic reviews a draft
+that Architect did not review, if accepted feedback is logged but not reflected
+in the final plan body, or if Planner revision skips the
+`Planner revision vN -> Architect review vN -> Critic review vN` loop. If a
+platform cannot dispatch one of these roles, keep the same role boundary inline
+and record the platform, role, missing capability or authorization, draft id, and
+fallback reason. Do not move to the approval brief until the gate passes or the
+plan is explicitly marked `pending approval` with the blocking role-order issue.
 
 ## Direction Preservation Gate
 
@@ -149,8 +310,10 @@ Before presenting the plan, check that it includes:
 - a `Worktree policy` from `docs/shared/worktree-isolation.md`
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
-- Analyst findings, Planner draft or revision summary, Architect feedback, and
-  Critic verdict with disposition: accepted, rejected, deferred, or blocking
+- the final reflected plan body after accepted Architect and Critic feedback
+- Analyst findings or `satisfied by approved interview spec`, Planner draft and
+  revision ids, Architect review ids, and Critic review ids with disposition:
+  accepted, rejected, deferred, requested direction change, or blocking
 - any Architect or Critic request that would change approved direction, scope,
   non-goals, or acceptance criteria, with explicit user-approval status
 
@@ -172,7 +335,11 @@ Every plan must include:
 - files to create or modify
 - task sequence
 - acceptance criteria
-- consensus loop log showing Analyst -> Planner -> Architect -> Critic in order
+- consensus loop log showing Analyst -> Planner -> Architect -> Critic in order,
+  including draft/review/revision ids
+- feedback disposition showing which Architect and Critic findings were accepted,
+  rejected, deferred, or blocked as requested direction changes
+- evidence that accepted feedback is reflected in the final plan body
 - execution profile
 - worktree policy
 - parallel subagent dispatch plan, or `none`
@@ -251,7 +418,7 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
 - consensus loop summary, including Analyst findings, Architect disposition,
-  and Critic verdict
+  Critic verdict, draft/review/revision ids, and Planner feedback disposition
 - worktree policy, including whether direct Ralph should ask once or Autopilot
   should use automatic worktree execution
 - parallel subagent dispatch plan, including how to explicitly approve it on Codex
@@ -306,6 +473,12 @@ Parallel subagent dispatch:
 
 Consensus loop:
 Analyst -> Planner -> Architect -> Critic: {completed in order, with one-line disposition for each}
+- Requirements source: {approved interview spec | user request | PRD/ticket}
+- Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
+- Planner draft v1: {completed, with source/path}
+- Architect review v1: {verdict and required changes}
+- Critic review v1: {APPROVE|ITERATE|REJECT}
+- Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 
 Worktree policy:
 {Direct Ralph asks once before creating or using a task worktree; Autopilot automatically uses a task worktree and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans.}
@@ -399,18 +572,19 @@ If you were invoked from `autopilot`, complete Phase 1 (plan content approval st
 
 Ralplan uses these roles directly.
 
-This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when the active platform and plan risk call for it, using the Claude Ralph adapter when handing off to execution. On Codex, use `spawn_agent` when the active planning scope has isolated role work that benefits from context separation, independent scrutiny, or latency reduction; each Codex spawn must embed the matching `agents/<role>.md` prompt content. Otherwise run the roles inline while preserving the same role blocks. Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the active platform adapter.
+This table governs *agent role* dispatch only — workflow-skill chaining (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. On Claude Code, dispatch the consensus roles below as separate subagents when plugin agents or task agents are available. On Codex, `spawn_agent` availability is host-policy controlled: use it only when the user or active plan explicitly authorizes subagents, for example `ralplan --subagents`, `ralplan with subagents`, `use subagents`, `delegate the planning roles`, or `run planner/architect/critic as subagents`. Each Codex spawn must embed the matching `agents/<role>.md` prompt content in the spawned-agent message. Otherwise run the roles inline while preserving the same role blocks and record the inline fallback reason. Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the active platform adapter.
 
 | Agent | Dispatch (when) |
 |---|---|
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. |
-| `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions. |
-| `planner` | Dispatch `planner` subagent to draft and revise the implementation plan. |
-| `architect` | Dispatch `architect` subagent to review feasibility, architecture fit, sequencing, and tradeoffs. |
-| `critic` | Dispatch `critic` subagent to review quality only after Architect completes. Critic applies the senior-engineer overcomplication check and may block on speculative abstraction, configurability, dependencies, or broad refactors not tied to current acceptance criteria. |
+| `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
+| `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
+| `architect` | Dispatch `architect` subagent to review the exact Planner draft for feasibility, architecture fit, sequencing, and tradeoffs. Architect does not produce a replacement plan. |
+| `critic` | Dispatch `critic` subagent to review the exact Planner draft plus matching Architect review only after Architect completes. Critic applies the senior-engineer overcomplication check and may block on speculative abstraction, configurability, dependencies, broad refactors not tied to current acceptance criteria, or accepted feedback that is only logged instead of reflected in the plan body. |
 
-Analyst, Planner, Architect, and Critic remain sequential in that order.
-Architect and Critic remain sequential. Do not run them in parallel.
+Analyst, Planner, Architect, and Critic remain sequential in that order unless
+Analyst is satisfied by an approved `interview` spec. Architect and Critic remain
+sequential. Do not run them in parallel.
 
 ## Concrete Request Signals
 

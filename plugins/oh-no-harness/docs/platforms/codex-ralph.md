@@ -7,10 +7,11 @@ platforms.
 
 ## Dispatch Decision
 
-Codex must not start subagents merely because Ralph is active. Codex should use
-subagents when Ralph's selected execution mode, agent policy, task risk, and
-scope isolation make delegation useful for context-window management,
-independent evidence, or latency.
+Codex must not start subagents merely because Ralph is active. `spawn_agent`
+availability is host-policy controlled. Use subagents only when the current
+Codex host tool definition permits dispatch and Ralph's selected execution mode,
+agent policy, task risk, and scope isolation make delegation useful for
+context-window management, independent evidence, or latency.
 
 Explicit phrases are sufficient dispatch signals:
 
@@ -22,11 +23,13 @@ Explicit phrases are sufficient dispatch signals:
 - `one agent per`
 - `ralph with parallel subagents`
 
-They are not required when the active skill policy already allows natural
-dispatch and the work has a concrete isolated scope. When no dispatch-worthy
-role or scope exists, Ralph must perform roles inline and record
+They are not required only on hosts whose tool definition permits natural
+dispatch and when the active skill policy already allows it for a concrete
+isolated scope. When no dispatch-worthy role or scope exists, or when host policy
+does not authorize dispatch, Ralph must perform roles inline and record
 `Parallel trigger: none`. When dispatch is selected without an explicit user or
-plan trigger, record `Parallel trigger: natural-dispatch`.
+plan trigger on a host that allows natural dispatch, record
+`Parallel trigger: natural-dispatch`.
 
 ## Invocation
 

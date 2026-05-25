@@ -30,9 +30,10 @@ risk, scope isolation, and platform policy call for it. Ralph dispatch uses
 `docs/platforms/claude-code-ralph.md` for Claude Code or
 `docs/platforms/codex-ralph.md` for Codex. Claude Code should use the available
 Task/Agent/subagent mechanism with plugin agent names such as
-`oh-no-harness:<agent>` when available. Codex should use `spawn_agent` when the
-active skill allows dispatch and the role has a concrete isolated scope;
-explicit subagent or parallel-agent wording is sufficient but not required.
+`oh-no-harness:<agent>` when available. Codex should use `spawn_agent` only when
+the current host tool definition permits dispatch, the active skill allows
+dispatch, and the role has a concrete isolated scope; explicit subagent or
+parallel-agent wording is sufficient when host policy allows it.
 When a role is used, pick the lightest credible tier from the matrix above.
 Inline execution is appropriate for LIGHT work, for platforms without
 subagents, when there is no concrete dispatch-worthy scope, or when a small

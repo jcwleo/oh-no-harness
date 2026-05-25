@@ -82,7 +82,7 @@ ROLE_POLICY_MARKERS = {
 }
 PLATFORM_SUBAGENT_MARKERS = {
     "using-oh-no-harness": (
-        "Codex may start subagents when the active",
+        "Codex `spawn_agent` availability is host-policy controlled",
         "@agent-oh-no-harness:<agent>",
         "agents/<role>.md",
         "independent non-blocking agents",
@@ -100,6 +100,10 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Run ralph with parallel subagents",
         "parallel subagent dispatch plan",
         "agents/<role>.md",
+        "Planner Draft Contract",
+        "Architect Review Contract",
+        "Critic Review Contract",
+        "Planner Revision Contract",
     ),
     "autopilot": (
         "oh-no-harness:<agent>",
@@ -410,12 +414,43 @@ APPROVED_DIRECTION_AGENT_MARKERS = {
 RALPLAN_CONSENSUS_MARKERS = (
     "## Consensus Order Gate",
     "## Direction Preservation Gate",
+    "Ralplan has no basic planning mode",
+    "## Requirements Source And Analyst Gate",
+    "## Planner Draft Contract",
+    "## Architect Review Contract",
+    "## Critic Review Contract",
+    "## Planner Revision Contract",
+    "Planner draft v1",
+    "Architect review v1",
+    "Critic review v1",
+    "Planner revision v2",
     "Analyst -> Planner -> Architect -> Critic",
     "The plan is invalid if it contains only Planner output",
+    "The plan is invalid if Architect or Critic only add comments",
     "consensus loop log showing Analyst -> Planner -> Architect -> Critic in order",
     "requested direction change",
     "do not incorporate the new direction into the plan unless the user explicitly",
 )
+RALPLAN_AGENT_CONTRACT_MARKERS = {
+    "planner": (
+        "Planner Draft Contract",
+        "Planner Revision Contract",
+        "Feedback disposition",
+        "Accepted feedback must be reflected in the plan body",
+    ),
+    "architect": (
+        "Reviewed draft:",
+        "must not produce a replacement plan",
+        "Required changes",
+        "Architect Review Contract",
+    ),
+    "critic": (
+        "Architect review consumed",
+        "APPROVE | ITERATE | REJECT",
+        "reject when accepted feedback is only logged",
+        "Critic Review Contract",
+    ),
+}
 
 
 def die(message: str) -> None:
@@ -596,6 +631,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in WORKTREE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Worktree agent marker: {marker!r}")
+    if agent in RALPLAN_AGENT_CONTRACT_MARKERS:
+        for marker in RALPLAN_AGENT_CONTRACT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Ralplan-Agent-Contract marker: {marker!r}")
 
 
 def assert_expected_references(root: Path) -> None:

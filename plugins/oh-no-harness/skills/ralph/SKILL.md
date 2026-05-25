@@ -240,11 +240,13 @@ the active platform document directly:
   `oh-no-harness:<agent>` when plugin agents are available; explicit manual
   mention text uses `@agent-oh-no-harness:<agent>`.
 - Codex: `docs/platforms/codex-ralph.md`. Use `spawn_agent` when the selected
-  execution mode, agent policy, task risk, and isolated scope make delegation
-  useful for context-window management, independent evidence, or latency.
-  Explicit user or plan wording is sufficient but not required. Without a
-  dispatch-worthy role or scope, perform roles inline and record
-  `Parallel trigger: none`; when dispatch is selected naturally, record
+  execution mode, agent policy, task risk, isolated scope, and current host tool
+  definition authorize delegation for context-window management, independent
+  evidence, or latency. Explicit user or plan wording is sufficient when the
+  host permits dispatch. Natural dispatch is allowed only on Codex hosts whose
+  tool definition permits it. Without a dispatch-worthy role or scope, or without
+  host authorization, perform roles inline and record `Parallel trigger: none`;
+  when dispatch is selected naturally on a host that permits it, record
   `Parallel trigger: natural-dispatch`. Every Codex dispatch must embed the
   matching `agents/<role>.md` prompt content in the spawned-agent message.
 

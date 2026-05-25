@@ -1,6 +1,6 @@
 ---
-description: "Create an implementation plan with execution profile and approval."
-argument-hint: "<task, spec path, or plan request>"
+description: "Create a consensus implementation plan with execution profile and approval."
+argument-hint: "[--subagents] <task, spec path, or plan request>"
 disable-model-invocation: false
 ---
 

@@ -99,14 +99,13 @@ If the user overrides any recommendation, follow the user's instruction unless i
 Claude Code may expose skills through its own skill mechanism and plugin
 subagents from this plugin's `agents/` directory.
 
-Codex exposes skills through native skill loading and supports subagent
-workflows through `spawn_agent`. Codex may start subagents when the active
-skill's dispatch policy, execution mode, risk, and scope make delegation useful
-for context-window management, independent evidence, or latency. Explicit user
-phrases are sufficient dispatch signals, but they are not the only valid reason
-to delegate. Do not treat ordinary skill invocation by itself as a Codex
+Codex exposes skills through native skill loading. Codex `spawn_agent` availability is host-policy controlled: some Codex hosts permit natural
+dispatch when the active skill, execution mode, risk, and scope justify it, while
+other hosts permit `spawn_agent` only after the user explicitly asks for
+subagents, delegation, or parallel agent work. Treat the host tool definition as
+authoritative. Do not treat ordinary skill invocation by itself as a Codex
 subagent trigger; there must be a concrete role, isolated scope, expected
-output, and integration plan.
+output, integration plan, and host authorization.
 
 When a skill names an agent role, adapt it to the current harness:
 
@@ -118,20 +117,21 @@ When a skill names an agent role, adapt it to the current harness:
   `UserPromptSubmit` hook when plugin hooks are active; otherwise read it
   directly. For independent read-only or review work, ask for background
   subagents so multiple agents can run concurrently.
-- Codex: use `spawn_agent` when the active skill's documented dispatch policy
-  allows the role and the work has an isolated read-only scope, disjoint write
-  ownership, or an independent review/verification responsibility. Explicit
-  phrases such as `subagent`, `spawn`, `delegate`, `parallel agents`,
-  `parallel subagents`, or `one agent per` are sufficient, but natural dispatch
-  is also allowed when it clearly improves context use, evidence quality, or
-  wall-clock latency. For Ralph execution, the
+- Codex: use `spawn_agent` only when the current host tool definition allows it,
+  the active skill's documented dispatch policy allows the role, and the work has
+  an isolated read-only scope, disjoint write ownership, or an independent
+  review/verification responsibility. Explicit phrases such as `subagent`,
+  `spawn`, `delegate`, `parallel agents`, `parallel subagents`, or `one agent
+  per` are sufficient dispatch signals. Natural dispatch is allowed only on hosts
+  whose tool definition permits it. For Ralph execution, the
   `docs/platforms/codex-ralph.md` adapter is injected by the Ralph
   `UserPromptSubmit` hook when Codex plugin hooks are enabled; otherwise read
   it directly. Every Codex role dispatch must embed the matching
-  `agents/<role>.md` prompt content in the spawned-agent message. Spawn all
-  independent non-blocking agents in an eligible batch before waiting for
-  results. When no concrete dispatch-worthy scope exists, perform the role
-  inline and preserve the same role boundaries.
+  `agents/<role>.md` prompt content in the spawned-agent message. When host
+  policy permits dispatch and an eligible batch exists, spawn all independent non-blocking agents in the batch before waiting for results. When no concrete
+  dispatch-worthy scope exists or the host policy does not authorize dispatch,
+  perform the role inline, preserve the same role boundaries, and record the
+  inline fallback reason when the active skill requires it.
 
 Agents are role prompts inside a selected skill, not workflow entrypoints. An agent can recommend another role or workflow skill to the caller, but it does not own artifact gates, approval gates, or next-skill handoffs.
 

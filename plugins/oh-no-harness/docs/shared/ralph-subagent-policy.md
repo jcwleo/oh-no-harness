@@ -15,9 +15,10 @@ Ralph may dispatch subagents only when all of these are true:
 - the work can be isolated by file ownership, read-only scope, or review role
 - the main agent can integrate the results deliberately
 
-Explicit user or plan requests are sufficient but not required. Natural
-dispatch is allowed when the selected mode, task risk, scope isolation, and
-context-window benefit justify it.
+Explicit user or plan requests are sufficient when the host platform permits
+dispatch. Natural dispatch is allowed only when the host tool definition permits
+it and the selected mode, task risk, scope isolation, and context-window benefit
+justify it.
 
 `LIGHT` work stays inline unless the user requested delegation, a specific
 check cannot be credibly completed inline, or a narrow isolated task clearly
