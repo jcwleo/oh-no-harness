@@ -7,8 +7,8 @@ platforms.
 
 ## Invocation
 
-When Ralph dispatches a role, use Claude Code's Task/Agent/subagent mechanism
-with the plugin-scoped agents from `agents/`.
+When Ralph dispatches a role, use Claude Code's Task, Agent, Workflow `agent()`,
+or subagent mechanism with the plugin-scoped agents from `agents/`.
 
 Use `oh-no-harness:<agent>` as the agent name when the tool lists plugin agents.
 When explicit prompt text or a user-facing manual mention is needed, use

@@ -190,7 +190,7 @@ Execution profile:
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
 - Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
-- Worktree policy: ask-once-default | automatic-worktree-merge | not-applicable
+- Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason

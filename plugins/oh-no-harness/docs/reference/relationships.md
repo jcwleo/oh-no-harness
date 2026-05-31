@@ -6,7 +6,8 @@
 Claude Code SessionStart
   -> hooks/run-hook.cmd session-start
   -> hooks/session-start
-  -> skills/using-oh-no-harness/SKILL.md
+  -> skills-claude/using-oh-no-harness/SKILL.md
+  -> docs/skill-core/using-oh-no-harness.md
 
 Claude Code UserPromptSubmit for Ralph
   -> hooks/run-hook.cmd ralph-platform-adapter
@@ -16,13 +17,17 @@ Claude Code UserPromptSubmit for Ralph
 
 Claude Code slash command
   -> commands/<skill>.md
-  -> skills/<skill>/SKILL.md with raw $ARGUMENTS
+  -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
+  -> docs/skill-core/<skill>.md
+  -> docs/platforms/claude-code.md
 
 Codex
   -> root .agents/plugins/marketplace.json
   -> plugins/oh-no-harness/.codex-plugin/plugin.json
   -> skills/
   -> using-oh-no-harness through native skill discovery
+  -> docs/skill-core/<skill>.md through the Codex-facing wrapper
+  -> docs/platforms/codex.md
 
 Codex UserPromptSubmit for Ralph when plugin hooks are enabled
   -> hooks/run-hook.cmd ralph-platform-adapter
@@ -62,7 +67,7 @@ ralph
   -> docs/shared/execution-modes.md before editing
   -> explore when files, tests, or integration surfaces are not obvious
   -> docs/shared/ralph-subagent-policy.md before subagent dispatch
-  -> docs/shared/parallel-subagents.md before parallel dispatch
+  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
   -> docs/platforms/claude-code-ralph.md on Claude Code
   -> docs/platforms/codex-ralph.md on Codex
   -> test-driven-development before behavior-changing production edits
@@ -84,7 +89,8 @@ autopilot
   -> test-driven-development when execution is handled inline and behavior changes
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report
-  -> docs/shared/parallel-subagents.md when inline phases can safely run in parallel
+  -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
+  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
   -> explore / analyst / planner / architect / critic / executor when phases are handled inline
   -> inline QA loop with debugger, verifier, qa-tester, code-reviewer, security-reviewer
 
@@ -106,6 +112,26 @@ systematic-debugging
   -> executor for the minimal fix after root cause is known
   -> verifier and verification-before-completion for fix evidence
 ```
+
+## Provider Guidance
+
+Provider guidance is a maintenance reference, not an extra runtime layer:
+
+```text
+Codex runtime
+  -> docs/skill-core/<skill>.md
+  -> docs/platforms/codex.md
+  -> summarized OpenAI guidance from docs/providers/openai.md
+
+Claude Code runtime
+  -> docs/skill-core/<skill>.md
+  -> docs/platforms/claude-code.md
+  -> summarized Anthropic guidance from docs/providers/anthropic.md
+```
+
+Do not make skill wrappers load `docs/providers/*.md` directly. Update provider
+docs first when official company guidance changes, then copy only stable,
+runtime-critical rules into the matching platform doc.
 
 ## Agent Relationship Summary
 

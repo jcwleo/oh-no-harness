@@ -7,7 +7,18 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_CODEX_PLUGIN_ROOT="${PLUGIN_ROOT:-}"
 OH_NO_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-using_oh_no_content=$(cat "${OH_NO_PLUGIN_ROOT}/skills/using-oh-no-harness/SKILL.md" 2>&1 || echo "Error reading using-oh-no-harness skill")
+skill_root="skills"
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ] && [ -z "$ENV_CODEX_PLUGIN_ROOT" ]; then
+  skill_root="skills-claude"
+fi
+
+using_oh_no_wrapper=$(cat "${OH_NO_PLUGIN_ROOT}/${skill_root}/using-oh-no-harness/SKILL.md" 2>&1 || echo "Error reading using-oh-no-harness skill wrapper")
+using_oh_no_core=$(cat "${OH_NO_PLUGIN_ROOT}/docs/skill-core/using-oh-no-harness.md" 2>&1 || echo "Error reading using-oh-no-harness skill core")
+using_oh_no_content="${using_oh_no_wrapper}
+
+<OH_NO_SKILL_CORE source=\"docs/skill-core/using-oh-no-harness.md\">
+${using_oh_no_core}
+</OH_NO_SKILL_CORE>"
 
 escape_for_json() {
     local s="$1"

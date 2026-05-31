@@ -4,7 +4,7 @@ argument-hint: "<failure, command, bug report, or unexpected behavior>"
 disable-model-invocation: false
 ---
 
-Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/systematic-debugging/SKILL.md` using the Read tool and follow its instructions exactly.
+Read the file at `${CLAUDE_PLUGIN_ROOT}/skills-claude/systematic-debugging/SKILL.md` using the Read tool and follow its instructions exactly.
 
 ## User Input
 

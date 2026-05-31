@@ -25,7 +25,11 @@ It is a text-native workflow harness: stage skills coordinate the handoffs; role
 - No MCP server to wire up before the work can start
 - No terminal-only workflow that falls apart in app or plugin UIs
 
-The runtime is deliberately boring: **text files your agent can read** — `skills/`, `agents/`, thin `commands/`, plugin manifests, and one optional Claude Code `SessionStart` hook.
+The runtime is deliberately boring: **text files your agent can read** —
+platform skill wrappers in `skills/` and `skills-claude/`, shared workflow core
+in `docs/skill-core/`, maintenance-only company prompt references in
+`docs/providers/`, `agents/`, thin `commands/`, plugin manifests, and one
+optional Claude Code `SessionStart` hook.
 
 > [!NOTE]
 > If you can read Markdown, you can audit the harness. If you can follow a handoff, you can understand the workflow.
@@ -42,7 +46,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
 - **Skills + agents.** 10 workflow skills backed by 11 role agents (`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`).
-- **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to `skills/<name>/SKILL.md`.
+- **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md`.
 
 | Too much | Too little | Oh No Harness |
 |---|---|---|
@@ -139,6 +143,13 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:using-oh-no-harness` | Top-level index — start here if you forget the others. |
 
 Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:autopilot` when you want one request to span the full flow.
+
+Typical staged flow:
+
+1. You describe the work; Claude Code or Codex chooses `interview` when the goal is still fuzzy.
+2. You approve the spec; the host agent invokes `ralplan` if implementation planning is needed.
+3. You approve the plan; the host agent asks whether it should run `ralph`, `ralph with parallel subagents`, or `autopilot`.
+4. `ralph` executes, verifies, reviews, and reports back. You do not need to choose internal role agents such as Planner, Architect, Critic, Executor, or Verifier; the host agent uses them when the selected workflow allows it.
 
 ## Auto Routing (Claude Code)
 

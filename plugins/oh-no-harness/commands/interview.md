@@ -4,7 +4,7 @@ argument-hint: "[--quick|--standard|--deep] <idea or vague request>"
 disable-model-invocation: false
 ---
 
-Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/interview/SKILL.md` using the Read tool and follow its instructions exactly.
+Read the file at `${CLAUDE_PLUGIN_ROOT}/skills-claude/interview/SKILL.md` using the Read tool and follow its instructions exactly.
 
 ## User Input
 

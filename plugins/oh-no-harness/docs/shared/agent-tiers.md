@@ -24,17 +24,13 @@ The active skill decides whether a role should be handled inline or dispatched.
 For Ralph-driven work, follow the selected execution mode and agent policy from
 `docs/shared/execution-modes.md`.
 
-On subagent-capable platforms, dispatch a subagent when the active skill's mode,
-risk, scope isolation, and platform policy call for it. Ralph dispatch uses
+This file is not a dispatch contract. Ralph dispatch uses
 `docs/shared/ralph-subagent-policy.md` plus the active platform adapter:
 `docs/platforms/claude-code-ralph.md` for Claude Code or
-`docs/platforms/codex-ralph.md` for Codex. Claude Code should use the available
-Task/Agent/subagent mechanism with plugin agent names such as
-`oh-no-harness:<agent>` when available. Codex should use `spawn_agent` only when
-the current host tool definition permits dispatch, the active skill allows
-dispatch, and the role has a concrete isolated scope; explicit subagent or
-parallel-agent wording is sufficient when host policy allows it.
-When a role is used, pick the lightest credible tier from the matrix above.
+`docs/platforms/codex-ralph.md` for Codex. Use this file only to choose the
+lightest credible level of scrutiny for a role after the active skill has
+decided that the role is needed.
+
 Inline execution is appropriate for LIGHT work, for platforms without
 subagents, when there is no concrete dispatch-worthy scope, or when a small
 check can be credibly handled inside the current pass. The Escalation Rules

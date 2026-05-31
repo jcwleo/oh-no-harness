@@ -11,12 +11,15 @@ Plugin development conventions live next to this package:
 
 - [Contributing](CONTRIBUTING.md)
 
-This package contains the plugin manifests and runtime surface used by Claude
-Code and Codex:
+This package contains the plugin manifests, runtime surface, and maintenance
+references used by Claude Code and Codex:
 
 - `.claude-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `skills/`
+- `skills/` (Codex-facing wrappers)
+- `skills-claude/` (Claude Code-facing wrappers)
+- `docs/skill-core/` (shared workflow core)
+- `docs/providers/` (maintenance-only company prompt guidance for platform docs)
 - `commands/`
 - `agents/`
 - `hooks/`

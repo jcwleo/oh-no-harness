@@ -34,7 +34,7 @@ After this, both runtimes load skills, agents, and hooks from their installed pl
 
 ## Development cycle
 
-1. Edit files under `plugins/oh-no-harness/`: `skills/*/SKILL.md`, `agents/*.md`, hooks, `scripts/oh-no-config`, or docs.
+1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform wrappers in `skills/*/SKILL.md` or `skills-claude/*/SKILL.md`, `agents/*.md`, hooks, `scripts/oh-no-config`, or docs.
 2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
 3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook. Ralph-specific `UserPromptSubmit` adapter changes apply on the next Ralph prompt.
 4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, the Ralph `UserPromptSubmit` adapter injects the Codex-specific dispatch prompt.
@@ -108,7 +108,9 @@ plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
 plugins/oh-no-harness/hooks/ralph-platform-adapter # Ralph UserPromptSubmit platform adapter
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
-plugins/oh-no-harness/skills/<name>/SKILL.md       # Public skill (10 total)
+plugins/oh-no-harness/skills/<name>/SKILL.md       # Codex-facing public skill wrapper (10 total)
+plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Claude Code-facing public skill wrapper (10 total)
+plugins/oh-no-harness/docs/skill-core/<name>.md    # Shared workflow source of truth
 plugins/oh-no-harness/agents/<name>.md             # Subagent prompts
 scripts/release                   # Release helper
 scripts/test-claude-plugin.sh     # Claude Code install + smoke tests
@@ -117,13 +119,16 @@ scripts/validate-plugin-files.py  # Frontmatter and manifest static checks
 plugins/oh-no-harness/scripts/oh-no-config         # Auto-routing on/off persistence
 plugins/oh-no-harness/docs/reference/              # Stable cross-skill references
 plugins/oh-no-harness/docs/shared/                 # Shared docs
+plugins/oh-no-harness/docs/providers/              # Company prompt guide maintenance references
 plugins/oh-no-harness/docs/specs/                  # Design specs
 ```
 
 ## Conventions
 
 - Public skill surface is the 10 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
-- Claude Code command wrappers must mirror those same 10 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching skill file.
+- Claude Code command wrappers must mirror those same 10 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file.
+- Keep platform wrappers thin. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax belongs in `docs/platforms/` or the wrapper.
+- Keep provider docs out of the runtime wrapper chain. Use `docs/providers/openai.md` and `docs/providers/anthropic.md` as company-scoped maintenance references, then summarize only stable runtime rules in the matching platform doc.
 - Skills route to each other via Markdown links, not via runtime orchestration. No `Task(...)` / `Skill(...)` calls in skill bodies — the validator rejects them.
 - Generated artifacts live under `.oh-no/` and are gitignored.
 - Commit messages follow the existing prefixes: `chore:`, `docs:`, `fix:`, `feat:`, `refactor:`, `build:`. Keep first line under ~72 chars.

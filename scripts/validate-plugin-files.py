@@ -55,11 +55,15 @@ WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
 }
 COMMAND_WRAPPERS = PUBLIC_SKILLS
 COMMAND_DELEGATION_MARKER = (
-    "Read the file at `${{CLAUDE_PLUGIN_ROOT}}/skills/{skill}/SKILL.md` using the Read tool "
+    "Read the file at `${{CLAUDE_PLUGIN_ROOT}}/skills-claude/{skill}/SKILL.md` using the Read tool "
     "and follow its instructions exactly."
 )
 PLUGIN_NAME = "oh-no-harness"
 MARKETPLACE_PLUGIN_PATH = f"./plugins/{PLUGIN_NAME}"
+CODEX_SKILL_ROOT = "skills"
+CLAUDE_SKILL_ROOT = "skills-claude"
+SKILL_CORE_ROOT = "docs/skill-core"
+PROVIDER_DOC_ROOT = "docs/providers"
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
 # structural: the heading tags the section, "HARD-GATE" tags the negative
@@ -82,33 +86,85 @@ ROLE_POLICY_MARKERS = {
 }
 PLATFORM_SUBAGENT_MARKERS = {
     "using-oh-no-harness": (
-        "Codex `spawn_agent` availability is host-policy controlled",
-        "@agent-oh-no-harness:<agent>",
-        "agents/<role>.md",
-        "independent non-blocking agents",
+        "This core file does not define platform invocation syntax",
+        "matching platform file named by that wrapper",
+        "Agents remain role prompts inside a selected skill",
     ),
     "ralph": (
         "Parallel trigger",
-        "@agent-oh-no-harness:<agent>",
+        "prefer targeted subagents",
         "whole eligible batch",
-        "Platform invocation",
+        "active adapter invocation syntax",
         "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
         "Agent prompt source: agents/{role}.md",
     ),
     "ralplan": (
         "ralph with parallel subagents",
         "Run ralph with parallel subagents",
+        "preferred sequential subagent",
         "parallel subagent dispatch plan",
-        "agents/<role>.md",
+        "active platform wrapper's dispatch policy",
         "Planner Draft Contract",
         "Architect Review Contract",
         "Critic Review Contract",
         "Planner Revision Contract",
     ),
     "autopilot": (
-        "oh-no-harness:<agent>",
-        "context-window separation",
+        "preserve independent",
         "Parallel trigger: natural-dispatch",
+    ),
+}
+PLATFORM_RULE_DOC_MARKERS = {
+    "codex.md": (
+        "# Codex Platform Rules",
+        "## Skill Loading",
+        "## User Approval",
+        "## Auto Routing",
+        "## OpenAI-Aligned Prompting",
+        "docs/providers/openai.md",
+        "outcome-first",
+        "## Role Dispatch",
+        "spawn_agent",
+        "## Role Prompt Embedding",
+        "Agent prompt source: agents/<role>.md",
+        "docs/platforms/codex-ralph.md",
+    ),
+    "claude-code.md": (
+        "# Claude Code Platform Rules",
+        "## Skill Loading",
+        "skills-claude/",
+        "## User Approval",
+        "## Auto Routing",
+        "CLAUDE_PLUGIN_ROOT",
+        "## Task Tracking",
+        "## Anthropic-Aligned Prompting",
+        "docs/providers/anthropic.md",
+        "sectioned",
+        "## Role Dispatch",
+        "Workflow `agent()`",
+        "oh-no-harness:<role>",
+        "docs/platforms/claude-code-ralph.md",
+    ),
+}
+PROVIDER_DOC_MARKERS = {
+    "openai.md": (
+        "# OpenAI Provider Prompt Guidance",
+        "maintenance reference",
+        "company-scoped, not model-scoped",
+        "docs/platforms/codex.md",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
+        "Do not create model-named provider files",
+    ),
+    "anthropic.md": (
+        "# Anthropic Provider Prompt Guidance",
+        "maintenance reference",
+        "company-scoped, not model-scoped",
+        "docs/platforms/claude-code.md",
+        "https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8",
+        "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices",
+        "https://code.claude.com/docs/en/subagents",
+        "Do not create model-named provider files",
     ),
 }
 PLATFORM_SUBAGENT_DOC_MARKERS = {
@@ -129,6 +185,9 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
 }
 RALPH_SUBAGENT_POLICY_MARKERS = (
     "# Ralph Subagent Policy",
+    "## Subagent-Unavailable Environments",
+    "prefer dispatch over silently compressing every role",
+    "platform's subagent",
     "## Batch Rule",
     "eligible batch first",
     "They must not revert, overwrite, reformat, or broaden work outside their",
@@ -136,6 +195,7 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
 PLATFORM_ADAPTER_DOC_MARKERS = {
     "claude-code-ralph.md": (
         "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
+        "Workflow `agent()`",
         "oh-no-harness:<agent>",
         "@agent-oh-no-harness:<agent>",
         "background subagents",
@@ -161,7 +221,9 @@ WORKTREE_SHARED_MARKERS = (
     "## HARD-GATE",
     "`interview` and `ralplan` do not need to run inside a worktree by default",
     "`Worktree decision`",
-    "`autopilot` does not ask the one-time direct-Ralph worktree question",
+    "Profile policy values:",
+    "`direct-automatic-worktree`",
+    "`autopilot` also uses automatic worktree execution",
     "integration checkout",
     "post-merge verification",
 )
@@ -169,6 +231,7 @@ WORKTREE_SKILL_MARKERS = {
     "using-oh-no-harness": (
         "## Worktree Isolation Default",
         "docs/shared/worktree-isolation.md",
+        "Worktree decision: direct automatic worktree",
         "Worktree decision: autopilot automatic worktree",
     ),
     "ralplan": (
@@ -178,6 +241,7 @@ WORKTREE_SKILL_MARKERS = {
     "ralph": (
         "## Worktree Isolation Gate",
         "<HARD-GATE>",
+        "Worktree decision: direct automatic worktree",
         "Worktree decision: autopilot automatic worktree",
         "integration checkout and post-merge verification",
     ),
@@ -190,6 +254,7 @@ WORKTREE_SKILL_MARKERS = {
 WORKTREE_AGENT_MARKERS = {
     "planner": (
         "Worktree policy",
+        "direct-automatic-worktree",
         "automatic-worktree-merge",
     ),
     "architect": (
@@ -236,10 +301,10 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Goal Restatement Gate",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
-        "Agent prompt source: agents/explore.md",
     ),
     "ralplan": (
         "## Execution Profile",
+        "## Test Case Design Quality",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile recap",
@@ -255,33 +320,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
     "autopilot": (
         "docs/shared/execution-modes.md",
         "execution mode and mode source",
-        "Agent prompt source: agents/<role>.md",
-    ),
-}
-CODEX_AGENT_PROMPT_SKILL_MARKERS = {
-    "interview": (
-        "Agent prompt source: agents/explore.md",
-        "Agent prompt content:",
-    ),
-    "ralplan": (
-        "agents/<role>.md",
-        "prompt content in the spawned-agent message",
-    ),
-    "ralph": (
-        "Agent prompt source: agents/{role}.md",
-        "Agent prompt content:",
-    ),
-    "autopilot": (
-        "Agent prompt source: agents/<role>.md",
-        "Agent prompt content:",
-    ),
-    "systematic-debugging": (
-        "Agent prompt source: agents/<role>.md",
-        "Agent prompt content:",
-    ),
-    "verification-before-completion": (
-        "Agent prompt source: agents/<role>.md",
-        "Agent prompt content:",
+        "active platform wrapper",
     ),
 }
 SKILL_REQUIRED_AGENT_ROLES = {
@@ -414,6 +453,7 @@ APPROVED_DIRECTION_AGENT_MARKERS = {
 RALPLAN_CONSENSUS_MARKERS = (
     "## Consensus Order Gate",
     "## Direction Preservation Gate",
+    "## Test Case Design Quality",
     "Ralplan has no basic planning mode",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
@@ -430,6 +470,11 @@ RALPLAN_CONSENSUS_MARKERS = (
     "consensus loop log showing Analyst -> Planner -> Architect -> Critic in order",
     "requested direction change",
     "do not incorporate the new direction into the plan unless the user explicitly",
+    "must-fail-before-implementation",
+    "must-pass-after-implementation",
+    "negative or forbidden-behavior case",
+    "edge, boundary, or regression case",
+    "only check marker strings",
 )
 RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
@@ -437,6 +482,8 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "Planner Revision Contract",
         "Feedback disposition",
         "Accepted feedback must be reflected in the plan body",
+        "smallest meaningful test set",
+        "must-fail before implementation",
     ),
     "architect": (
         "Reviewed draft:",
@@ -449,6 +496,8 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "APPROVE | ITERATE | REJECT",
         "reject when accepted feedback is only logged",
         "Critic Review Contract",
+        "AI-slop",
+        "would pass against the old broken behavior",
     ),
 }
 
@@ -503,8 +552,7 @@ def markdown_section(text: str, heading: str) -> str:
     return "\n".join(lines[start:end])
 
 
-def assert_skill(root: Path, skill: str) -> None:
-    path = root / "skills" / skill / "SKILL.md"
+def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
     fm = parse_frontmatter(path)
     missing = REQUIRED_SKILL_FIELDS - set(fm)
     if missing:
@@ -514,6 +562,53 @@ def assert_skill(root: Path, skill: str) -> None:
         die(f"{path} name={fm['name']!r}, expected {expected_name!r}")
     if skill in WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT and "argument-hint" not in fm:
         die(f"{path} should define argument-hint")
+    return fm
+
+
+def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str) -> None:
+    path = root / skill_root / skill / "SKILL.md"
+    assert_skill_frontmatter(path, skill)
+    body = read_text(path)
+    core_marker = f"../../{SKILL_CORE_ROOT}/{skill}.md"
+    if core_marker not in body:
+        die(f"{path} should reference shared skill core: {core_marker!r}")
+
+    if platform == "codex":
+        required = "docs/platforms/codex.md"
+        forbidden = (
+            "docs/platforms/claude-code.md",
+            "docs/platforms/claude-code-ralph.md",
+            "docs/providers/",
+            "CLAUDE_PLUGIN_ROOT",
+        )
+        if skill == "ralph" and "docs/platforms/codex-ralph.md" not in body:
+            die(f"{path} should reference Codex Ralph adapter")
+    elif platform == "claude":
+        required = "docs/platforms/claude-code.md"
+        forbidden = (
+            "docs/platforms/codex.md",
+            "docs/platforms/codex-ralph.md",
+            "docs/providers/",
+            "spawn_agent",
+        )
+        if skill == "ralph" and "docs/platforms/claude-code-ralph.md" not in body:
+            die(f"{path} should reference Claude Code Ralph adapter")
+    else:
+        die(f"unknown platform for wrapper validation: {platform}")
+
+    if required not in body:
+        die(f"{path} should reference platform rules: {required!r}")
+    for marker in forbidden:
+        if marker in body:
+            die(f"{path} contains forbidden cross-platform wrapper marker: {marker!r}")
+
+
+def assert_skill(root: Path, skill: str) -> None:
+    assert_skill_wrapper(root, skill, CODEX_SKILL_ROOT, "codex")
+    assert_skill_wrapper(root, skill, CLAUDE_SKILL_ROOT, "claude")
+
+    path = root / SKILL_CORE_ROOT / f"{skill}.md"
+    assert_skill_frontmatter(path, skill)
     if skill in NEXT_SKILL_GATE_REQUIRED:
         body = read_text(path)
         for marker in NEXT_SKILL_GATE_MARKERS:
@@ -533,11 +628,6 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
-    if skill in CODEX_AGENT_PROMPT_SKILL_MARKERS:
-        body = read_text(path)
-        for marker in CODEX_AGENT_PROMPT_SKILL_MARKERS[skill]:
-            if marker not in body:
-                die(f"{path} is missing required Codex-Agent-Prompt marker: {marker!r}")
     if skill in SKILL_REQUIRED_AGENT_ROLES:
         body = read_text(path)
         agent_roles_section = markdown_section(body, "## Agent Roles")
@@ -582,10 +672,10 @@ def assert_command(root: Path, skill: str) -> None:
     if fm.get("disable-model-invocation") != "false":
         die(f"{path} should set disable-model-invocation: false")
 
-    skill_fm = parse_frontmatter(root / "skills" / skill / "SKILL.md")
+    skill_fm = parse_frontmatter(root / CLAUDE_SKILL_ROOT / skill / "SKILL.md")
     if fm["argument-hint"] != skill_fm.get("argument-hint"):
         die(
-            f"{path} argument-hint should mirror skills/{skill}/SKILL.md. "
+            f"{path} argument-hint should mirror {CLAUDE_SKILL_ROOT}/{skill}/SKILL.md. "
             f"expected={skill_fm.get('argument-hint')!r} actual={fm['argument-hint']!r}"
         )
 
@@ -666,6 +756,12 @@ def assert_execution_mode_contract(root: Path) -> None:
         if marker not in policy_text:
             die(f"{policy_path} is missing required Ralph-Subagent-Policy marker: {marker!r}")
     platform_root = root / "docs" / "platforms"
+    for filename, markers in PLATFORM_RULE_DOC_MARKERS.items():
+        doc = platform_root / filename
+        doc_text = read_text(doc)
+        for marker in markers:
+            if marker not in doc_text:
+                die(f"{doc} is missing required Platform-Rules marker: {marker!r}")
     for filename, markers in PLATFORM_ADAPTER_DOC_MARKERS.items():
         doc = platform_root / filename
         doc_text = read_text(doc)
@@ -675,6 +771,27 @@ def assert_execution_mode_contract(root: Path) -> None:
         for marker in PLATFORM_ADAPTER_FORBIDDEN_MARKERS[filename]:
             if marker in doc_text:
                 die(f"{doc} contains forbidden cross-platform adapter marker: {marker!r}")
+
+
+def assert_provider_guidance(root: Path) -> None:
+    provider_root = root / PROVIDER_DOC_ROOT
+    if not provider_root.is_dir():
+        die(f"{provider_root} should exist for company-scoped provider guidance")
+
+    expected = set(PROVIDER_DOC_MARKERS)
+    actual = {path.name for path in provider_root.glob("*.md")}
+    if actual != expected:
+        die(
+            f"{provider_root} should contain only company-scoped provider docs. "
+            f"expected={sorted(expected)!r} actual={sorted(actual)!r}"
+        )
+
+    for filename, markers in PROVIDER_DOC_MARKERS.items():
+        doc = provider_root / filename
+        doc_text = read_text(doc)
+        for marker in markers:
+            if marker not in doc_text:
+                die(f"{doc} is missing required Provider-Guidance marker: {marker!r}")
 
 
 def assert_worktree_contract(root: Path) -> None:
@@ -739,6 +856,10 @@ def assert_hook_contract(root: Path) -> None:
         "OH_NO_RG_SEARCH_TOOLING",
         "command -v rg",
         "rg --files",
+        "skill_root=\"skills\"",
+        "skill_root=\"skills-claude\"",
+        "docs/skill-core/using-oh-no-harness.md",
+        "OH_NO_SKILL_CORE",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required rg-search marker: {marker!r}")
@@ -751,7 +872,7 @@ def assert_claude_manifest_skills(root: Path) -> None:
     except json.JSONDecodeError as exc:
         die(f"{path} is not valid JSON: {exc}")
 
-    expected = [f"./skills/{skill}/" for skill in PUBLIC_SKILLS]
+    expected = [f"./{CLAUDE_SKILL_ROOT}/{skill}/" for skill in PUBLIC_SKILLS]
     actual = manifest.get("skills")
     if actual != expected:
         die(
@@ -820,8 +941,8 @@ def assert_codex_manifest(root: Path) -> None:
     except json.JSONDecodeError as exc:
         die(f"{path} is not valid JSON: {exc}")
 
-    if manifest.get("skills") != "./skills/":
-        die(f"{path} should declare skills='./skills/'")
+    if manifest.get("skills") != f"./{CODEX_SKILL_ROOT}/":
+        die(f"{path} should declare skills='./{CODEX_SKILL_ROOT}/'")
     if manifest.get("hooks") != "./hooks/hooks.json":
         die(f"{path} should declare hooks='./hooks/hooks.json' for Codex plugin hooks")
 
@@ -836,7 +957,9 @@ def assert_no_omc_runtime_coupling(root: Path) -> None:
         r"\bSkill\(",
     ]
     checked_paths = (
-        list((root / "skills").glob("**/*.md"))
+        list((root / CODEX_SKILL_ROOT).glob("**/*.md"))
+        + list((root / CLAUDE_SKILL_ROOT).glob("**/*.md"))
+        + list((root / SKILL_CORE_ROOT).glob("*.md"))
         + list((root / "agents").glob("*.md"))
         + list((root / "commands").glob("*.md"))
     )
@@ -849,7 +972,9 @@ def assert_no_omc_runtime_coupling(root: Path) -> None:
 
 def assert_no_deprecated_artifact_paths(root: Path) -> None:
     checked_paths = (
-        list((root / "skills").glob("**/*.md"))
+        list((root / CODEX_SKILL_ROOT).glob("**/*.md"))
+        + list((root / CLAUDE_SKILL_ROOT).glob("**/*.md"))
+        + list((root / SKILL_CORE_ROOT).glob("*.md"))
         + list((root / "agents").glob("*.md"))
         + list((root / "commands").glob("*.md"))
         + [
@@ -883,6 +1008,7 @@ def main() -> None:
     for agent in AGENTS:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)
+    assert_provider_guidance(root)
     assert_worktree_contract(root)
     assert_hook_contract(root)
     assert_claude_manifest_skills(root)

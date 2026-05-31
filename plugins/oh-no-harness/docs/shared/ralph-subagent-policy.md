@@ -20,6 +20,10 @@ dispatch. Natural dispatch is allowed only when the host tool definition permits
 it and the selected mode, task risk, scope isolation, and context-window benefit
 justify it.
 
+When the host is subagent-capable and the work has concrete isolated roles,
+prefer dispatch over silently compressing every role into the main context. The
+goal is independent evidence and context separation, not merely parallelism.
+
 `LIGHT` work stays inline unless the user requested delegation, a specific
 check cannot be credibly completed inline, or a narrow isolated task clearly
 benefits from context separation.
@@ -29,6 +33,28 @@ implementation, review, verification, QA, or security checks.
 
 `THOROUGH` work should use the role set warranted by the risk whenever the
 active platform and approved plan allow it.
+
+## Subagent-Unavailable Environments
+
+Perform roles inline and record the fallback reason when any of these apply:
+
+- the current host tool definition does not expose the platform's subagent,
+  background task, spawn, or wait mechanism
+- the plugin or host environment does not expose the required role agents or
+  prompt files
+- host policy, approval mode, organization policy, or sandbox settings block
+  subagent creation
+- the subagent tool exists but spawning fails, the agent/thread limit is reached,
+  or the host reports that background tasks are unavailable
+- the active skill, selected execution mode, or approved plan requires inline-only
+  execution
+- the work cannot be isolated by file ownership, read-only scope, review role, or
+  expected output
+- the main agent cannot inspect and integrate the subagent result deliberately
+
+These are fallback conditions, not permission to collapse role boundaries. When
+subagents are unavailable, keep the same role blocks inline and state why
+dispatch was unavailable.
 
 ## Batch Rule
 

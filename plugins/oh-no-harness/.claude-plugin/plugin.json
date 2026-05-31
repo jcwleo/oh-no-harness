@@ -17,16 +17,16 @@
     "coding-workflow"
   ],
   "skills": [
-    "./skills/using-oh-no-harness/",
-    "./skills/interview/",
-    "./skills/ralplan/",
-    "./skills/ralph/",
-    "./skills/autopilot/",
-    "./skills/auto-routing/",
-    "./skills/test-driven-development/",
-    "./skills/ai-slop-cleaner/",
-    "./skills/verification-before-completion/",
-    "./skills/systematic-debugging/"
+    "./skills-claude/using-oh-no-harness/",
+    "./skills-claude/interview/",
+    "./skills-claude/ralplan/",
+    "./skills-claude/ralph/",
+    "./skills-claude/autopilot/",
+    "./skills-claude/auto-routing/",
+    "./skills-claude/test-driven-development/",
+    "./skills-claude/ai-slop-cleaner/",
+    "./skills-claude/verification-before-completion/",
+    "./skills-claude/systematic-debugging/"
   ],
   "commands": "./commands/"
 }

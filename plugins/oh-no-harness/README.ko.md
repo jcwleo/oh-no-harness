@@ -11,12 +11,15 @@
 
 - [Contributing](CONTRIBUTING.md)
 
-이 패키지는 Claude Code와 Codex가 사용하는 플러그인 manifest와 runtime
-surface를 담고 있습니다.
+이 패키지는 Claude Code와 Codex가 사용하는 플러그인 manifest, runtime
+surface, 유지보수 참고 문서를 담고 있습니다.
 
 - `.claude-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `skills/`
+- `skills/` (Codex-facing wrapper)
+- `skills-claude/` (Claude Code-facing wrapper)
+- `docs/skill-core/` (공용 workflow core)
+- `docs/providers/` (platform 문서를 유지보수하기 위한 회사별 prompt guide 참고 문서, 실행 경로 아님)
 - `commands/`
 - `agents/`
 - `hooks/`

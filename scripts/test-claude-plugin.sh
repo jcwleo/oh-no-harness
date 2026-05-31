@@ -16,11 +16,12 @@ INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
+RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
 LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-1.00}"
-LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. Do not edit files or use tools.}"
+LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files.}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
 
 PUBLIC_SKILLS=(
@@ -65,6 +66,7 @@ Options:
   --live                 Run live /skill smoke tests after static checks.
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
+  --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
@@ -77,8 +79,8 @@ Options:
 
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_TEST_MODEL, OH_NO_MAX_BUDGET_USD,
-  OH_NO_LIVE_LOAD_MODE
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
+  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
 USAGE
 }
 
@@ -94,6 +96,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --parallel-live)
       RUN_PARALLEL_LIVE=1
+      shift
+      ;;
+    --ralplan-live)
+      RUN_RALPLAN_LIVE=1
       shift
       ;;
     --live-hook-only)
@@ -267,7 +273,7 @@ include_files = [
     ".claude-plugin/plugin.json",
     ".codex-plugin/plugin.json",
 ]
-include_dirs = ["skills", "commands", "agents", "hooks", "scripts", "docs"]
+include_dirs = ["skills", "skills-claude", "commands", "agents", "hooks", "scripts", "docs"]
 
 paths: list[Path] = [Path(item) for item in include_files]
 for dirname in include_dirs:
@@ -540,34 +546,34 @@ raise SystemExit(f"{plugin_id} not installed in {scope} scope after install/upda
 live_prompt_for_skill() {
   case "$1" in
     using-oh-no-harness)
-      printf '/%s:using-oh-no-harness Smoke test only. Do not use tools or edit files. Reply in one short sentence that names this harness.' "$PLUGIN_NAME"
+      printf '/%s:using-oh-no-harness Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply in one short sentence that names this harness.' "$PLUGIN_NAME"
       ;;
     interview)
-      printf '/%s:interview --quick Build a tiny note-taking feature. Smoke test only; do not use tools or edit files. Reply with the first clarification question you would ask.' "$PLUGIN_NAME"
+      printf '/%s:interview --quick Build a tiny note-taking feature. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the first clarification question you would ask.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Add a small smoke-test feature to an existing app. Smoke test only; do not use tools or edit files. Reply with the planning artifact you would create and the approval gate.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Add a small smoke-test feature to an existing app. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the planning artifact you would create and the approval gate.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; do not use tools or edit files. Reply with how execution would proceed.' "$PLUGIN_NAME"
+      printf '/%s:ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with how execution would proceed.' "$PLUGIN_NAME"
       ;;
     autopilot)
-      printf '/%s:autopilot Deliver a small smoke-test workflow from vague request to verification. Smoke test only; do not use tools or edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
+      printf '/%s:autopilot Deliver a small smoke-test workflow from vague request to verification. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
       ;;
     auto-routing)
-      printf '/%s:auto-routing status Smoke test only. Do not use tools or edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
+      printf '/%s:auto-routing status Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
       ;;
     test-driven-development)
-      printf '/%s:test-driven-development Implement a small behavior change. Smoke test only; do not use tools or edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
+      printf '/%s:test-driven-development Implement a small behavior change. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
       ;;
     ai-slop-cleaner)
-      printf '/%s:ai-slop-cleaner --review Review a small diff for AI-generated code slop. Smoke test only; do not use tools or edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
+      printf '/%s:ai-slop-cleaner --review Review a small diff for AI-generated code slop. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
       ;;
     verification-before-completion)
-      printf '/%s:verification-before-completion Smoke test only; do not use tools or edit files. Reply with the evidence gate you would apply before claiming completion.' "$PLUGIN_NAME"
+      printf '/%s:verification-before-completion Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the evidence gate you would apply before claiming completion.' "$PLUGIN_NAME"
       ;;
     systematic-debugging)
-      printf '/%s:systematic-debugging A smoke test command is failing. Smoke test only; do not use tools or edit files. Reply with the debugging phases you would follow before fixing.' "$PLUGIN_NAME"
+      printf '/%s:systematic-debugging A smoke test command is failing. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the debugging phases you would follow before fixing.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No live prompt for skill: $1"
@@ -835,7 +841,7 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
@@ -867,7 +873,6 @@ if text.strip().startswith("Unknown command:"):
 text_lower = text.lower()
 expected = {
     "interview": [
-        "OH_NO_CLAUDE_DEEP_OK interview",
         "advisory",
         "Question Routing",
         "Answer Capture",
@@ -875,7 +880,6 @@ expected = {
         "Goal Restatement Gate",
     ],
     "ralplan": [
-        "OH_NO_CLAUDE_DEEP_OK ralplan",
         "five complete",
         "pending approval",
         "Overall Ralph mode",
@@ -883,11 +887,15 @@ expected = {
         "Execution profile",
         "Analyst",
         "Planner",
+        "must-fail",
+        "must-pass",
+        "negative",
+        "edge",
+        "old broken behavior",
         "host",
         "policy",
     ],
     "ralph": [
-        "OH_NO_CLAUDE_DEEP_OK ralph",
         "Execution Mode Decision Prompt",
         "Mode-Gated Agent Dispatch",
         "LIGHT",
@@ -898,7 +906,6 @@ expected = {
         "Required Behavior Lock",
     ],
     "autopilot": [
-        "OH_NO_CLAUDE_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
         "five complete",
         "Mode source",
@@ -910,8 +917,23 @@ missing = [needle for needle in expected[skill] if needle.lower() not in text_lo
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
 
+if (
+    "oh_no_claude_deep_ok" not in text_lower
+    and f"oh_no_claude_deep_ok {skill}".lower() not in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing success marker; got {text!r}")
+
+def terms_appear_in_order(*terms: str) -> bool:
+    cursor = -1
+    for term in terms:
+        cursor = text_lower.find(term, cursor + 1)
+        if cursor == -1:
+            return False
+    return True
+
 if skill == "interview" and not (
     "already available" in text_lower or "already in session" in text_lower
+    or "already in the session" in text_lower
 ):
     raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
 
@@ -931,6 +953,10 @@ if skill == "ralplan" and not (
         "analyst -> planner -> architect -> critic" in text_lower
         or "analyst, planner, architect, critic" in text_lower
         or "analyst, planner, architect, and critic" in text_lower
+        or (
+            terms_appear_in_order("analyst", "planner", "architect", "critic")
+            and ("first" in text_lower or "then" in text_lower or "sequential" in text_lower)
+        )
         or (
             "analyst first" in text_lower
             and "planner second" in text_lower
@@ -1020,6 +1046,270 @@ run_deep_live_tests() {
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
+run_ralplan_live_test() {
+  if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
+    log "Skipping live Claude ralplan sequential-subagent smoke test"
+    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Architect -> Critic sequential agent review.\n' >&2
+    return
+  fi
+
+  log "Running live Claude ralplan sequential-subagent smoke test (${LIVE_LOAD_MODE})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
+  local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except oh-no-harness:planner, oh-no-harness:architect, and oh-no-harness:critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly three times in this strict order: oh-no-harness:planner, wait until that task completes before starting architect; oh-no-harness:architect, wait until that task completes before starting critic; oh-no-harness:critic, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1."
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$LIVE_MODEL"
+    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+    # Subagent smoke tests are non-interactive; dontAsk can auto-deny Workflow.
+    --permission-mode bypassPermissions
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. You may use subagents only for the requested sequential ralplan verification. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+expected_roles = ["planner", "architect", "critic"]
+expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
+dependency_prompt_markers = {
+    "architect": ["Planner draft v1"],
+    "critic": ["Planner draft v1", "Architect review v1"],
+}
+output_markers = {
+    "planner": ["Planner draft v1"],
+    "architect": ["Architect review v1", "Reviewed draft", "Planner draft v1"],
+    "critic": ["Critic review v1", "Architect review consumed"],
+}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+init_ok = False
+tool_uses = []
+task_started = {}
+task_role_by_id = {}
+task_completion = {}
+role_outputs = defaultdict(list)
+marker = False
+errors = []
+all_task_roles = []
+workflow_tool_ids = set()
+workflow_scripts = []
+workflow_completed = False
+workflow_evidence_parts = []
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if "OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK" in collect_text(data):
+            marker = True
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            available_agents = set(data.get("agents", []))
+            init_ok = "Task" in data.get("tools", []) and all(
+                agent in available_agents for agent in expected_agent_names
+            )
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    subagent_type = payload.get("subagent_type", "")
+                    if subagent_type.startswith("oh-no-harness:"):
+                        role = subagent_type.split(":", 1)[1]
+                        all_task_roles.append((index, role, payload))
+                        if role in expected_roles:
+                            tool_uses.append((index, role, payload))
+                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
+                    workflow_tool_ids.add(part.get("id"))
+                    script = collect_text(part.get("input", {}).get("script", ""))
+                    if script:
+                        workflow_scripts.append((index, script))
+                if part.get("type") == "text":
+                    workflow_evidence_parts.append(part.get("text", ""))
+                    subagent_type = data.get("subagent_type", "")
+                    if subagent_type.startswith("oh-no-harness:"):
+                        role = subagent_type.split(":", 1)[1]
+                        if role in expected_roles:
+                            role_outputs[role].append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            subagent_type = data.get("subagent_type", "")
+            if subagent_type.startswith("oh-no-harness:"):
+                role = subagent_type.split(":", 1)[1]
+                task_id = data.get("task_id")
+                if role in expected_roles and task_id:
+                    task_started[role] = index
+                    task_role_by_id[task_id] = role
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            task_id = data.get("task_id")
+            role = task_role_by_id.get(task_id)
+            status = data.get("status") or (data.get("patch") or {}).get("status")
+            if (
+                data.get("subtype") == "task_notification"
+                and data.get("status") == "completed"
+                and (
+                    data.get("tool_use_id") in workflow_tool_ids
+                    or "workflow" in str(data.get("summary", "")).lower()
+                )
+            ):
+                workflow_completed = True
+            if role in expected_roles:
+                text = collect_text(data)
+                if text:
+                    role_outputs[role].append(text)
+                if status == "completed":
+                    task_completion.setdefault(role, index)
+        tool_result = data.get("tool_use_result") or {}
+        if not isinstance(tool_result, dict):
+            tool_result = {}
+        agent_type = tool_result.get("agentType", "")
+        if agent_type.startswith("oh-no-harness:"):
+            role = agent_type.split(":", 1)[1]
+            if role in expected_roles:
+                text = collect_text(tool_result.get("content", tool_result))
+                if text:
+                    role_outputs[role].append(text)
+                if tool_result.get("status") == "completed":
+                    task_completion.setdefault(role, index)
+        if data.get("type") == "result" and data.get("is_error") is True:
+            errors.append((index, str(data.get("result", ""))[:1000]))
+        if data.get("type") == "result":
+            workflow_evidence_parts.append(str(data.get("result", "")))
+
+if not init_ok:
+    raise SystemExit("Claude ralplan sequential smoke did not expose Task tool and required planning agents")
+if errors:
+    raise SystemExit(f"Claude ralplan sequential smoke returned errors: {errors!r}")
+
+unexpected_roles = [
+    role for _, role, _ in all_task_roles
+    if role not in expected_roles
+]
+if unexpected_roles:
+    raise SystemExit(f"unexpected Claude planning smoke subagents were started: {unexpected_roles!r}")
+
+if not tool_uses and workflow_scripts:
+    workflow_script = "\n".join(script for _, script in workflow_scripts)
+    workflow_roles = re.findall(r"agentType:\s*['\"]oh-no-harness:([^'\"]+)['\"]", workflow_script)
+    if workflow_roles != expected_roles:
+        raise SystemExit(
+            "Claude ralplan Workflow agent() order did not match expected planning roles: "
+            f"expected={expected_roles!r} got={workflow_roles!r}"
+        )
+    workflow_required_script_markers = [
+        "Planner draft v1",
+        "Architect review v1",
+        "Critic review v1",
+    ]
+    workflow_missing_script_markers = [
+        marker for marker in workflow_required_script_markers
+        if marker not in workflow_script
+    ]
+    if workflow_missing_script_markers:
+        raise SystemExit(
+            "Claude ralplan Workflow agent() script did not prove sequential review chaining: "
+            f"{workflow_missing_script_markers}"
+        )
+    if workflow_script.count("await agent") < len(expected_roles):
+        raise SystemExit("Claude ralplan Workflow did not await three planning agent calls")
+    if not re.search(r"\$\{[^}]*planner[^}]*\}", workflow_script, re.IGNORECASE):
+        raise SystemExit("Claude ralplan Workflow architect/critic prompt did not include planner output")
+    if not re.search(r"\$\{[^}]*architect[^}]*\}", workflow_script, re.IGNORECASE):
+        raise SystemExit("Claude ralplan Workflow critic prompt did not include architect output")
+    if not workflow_completed:
+        raise SystemExit("Claude ralplan Workflow agent() task did not report completion")
+    workflow_evidence = "\n".join(workflow_evidence_parts)
+    for role, markers in output_markers.items():
+        missing_output_markers = [
+            marker for marker in markers
+            if marker.lower() not in workflow_evidence.lower()
+        ]
+        if missing_output_markers:
+            raise SystemExit(
+                f"Claude ralplan Workflow output did not prove {role} review chain: "
+                f"{missing_output_markers}; output={workflow_evidence[:2000]!r}"
+            )
+    if not marker:
+        raise SystemExit("Claude ralplan sequential smoke did not return success marker")
+    print("ok - live Claude ralplan planning subagents reviewed sequentially")
+    sys.exit(0)
+
+if len(tool_uses) != len(expected_roles):
+    raise SystemExit(f"expected exactly three planning task uses, got {len(tool_uses)}: {tool_uses!r}")
+
+actual_order = [role for _, role, _ in tool_uses]
+if actual_order != expected_roles:
+    raise SystemExit(f"expected sequential task order {expected_roles!r}, got {actual_order!r}")
+
+for index, role, payload in tool_uses:
+    prompt = collect_text(payload)
+    missing_prompt_markers = [
+        marker for marker in dependency_prompt_markers.get(role, [])
+        if marker.lower() not in prompt.lower()
+    ]
+    if missing_prompt_markers:
+        raise SystemExit(
+            f"Claude ralplan task prompt for {role} did not include required review input markers: "
+            f"{missing_prompt_markers}; prompt={prompt[:2000]!r}"
+        )
+
+for previous, following in zip(tool_uses, tool_uses[1:]):
+    _, previous_role, _ = previous
+    following_index, following_role, _ = following
+    completion_index = task_completion.get(previous_role)
+    if completion_index is None:
+        raise SystemExit(f"no completion event captured for {previous_role}")
+    if completion_index >= following_index:
+        raise SystemExit(
+            f"expected {previous_role} completion before starting {following_role}; "
+            f"completion={completion_index} following_start={following_index}"
+        )
+
+for role, markers in output_markers.items():
+    output_text = "\n".join(role_outputs.get(role, []))
+    if not output_text:
+        raise SystemExit(f"no output captured for {role}")
+    missing_output_markers = [
+        marker for marker in markers
+        if marker.lower() not in output_text.lower()
+    ]
+    if missing_output_markers:
+        raise SystemExit(
+            f"Claude ralplan {role} output did not prove the review chain: "
+            f"{missing_output_markers}; output={output_text[:2000]!r}"
+        )
+
+if not marker:
+    raise SystemExit("Claude ralplan sequential smoke did not return success marker")
+
+print("ok - live Claude ralplan planning subagents reviewed sequentially")
+PY
+}
+
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Claude parallel-subagent smoke test"
@@ -1041,7 +1331,8 @@ run_parallel_live_test() {
     --include-hook-events
     --model "$LIVE_MODEL"
     --max-budget-usd "$LIVE_MAX_BUDGET_USD"
-    --permission-mode dontAsk
+    # Subagent smoke tests are non-interactive; dontAsk can auto-deny Workflow.
+    --permission-mode bypassPermissions
     --tools default
     --no-session-persistence
     --system-prompt "You are a read-only live smoke test runner. You may use background subagents only for the requested verification. Do not edit files."
@@ -1055,6 +1346,7 @@ run_parallel_live_test() {
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
+import re
 import sys
 
 path = sys.argv[1]
@@ -1081,6 +1373,9 @@ init_ok = False
 first_task_notification_index = None
 errors = []
 summary_text = []
+workflow_tool_ids = set()
+workflow_scripts = []
+workflow_completed = False
 
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -1102,6 +1397,11 @@ with open(path, "r", encoding="utf-8") as fh:
                         role = subagent_type.split(":", 1)[1]
                         if payload.get("run_in_background") is True:
                             background_uses_by_role.setdefault(role, []).append((index, payload))
+                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
+                    workflow_tool_ids.add(part.get("id"))
+                    script = part.get("input", {}).get("script", "")
+                    if script:
+                        workflow_scripts.append((index, script))
                 if part.get("type") == "text" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in part.get("text", ""):
                     marker = True
                 if part.get("type") == "text":
@@ -1113,6 +1413,11 @@ with open(path, "r", encoding="utf-8") as fh:
                 first_task_notification_index = index
             if data.get("status") == "completed":
                 task_notifications.append((index, data.get("summary", "")))
+                if (
+                    data.get("tool_use_id") in workflow_tool_ids
+                    or "workflow" in str(data.get("summary", "")).lower()
+                ):
+                    workflow_completed = True
         if data.get("type") == "result" and "OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK" in data.get("result", ""):
             marker = True
         if data.get("type") == "result":
@@ -1124,6 +1429,40 @@ if not init_ok:
     raise SystemExit("Claude live parallel smoke did not expose Task tool and all oh-no-harness role agents")
 if errors:
     raise SystemExit(f"Claude live parallel smoke returned errors: {errors!r}")
+
+if not background_uses_by_role and workflow_scripts:
+    workflow_script = "\n".join(script for _, script in workflow_scripts)
+    workflow_roles = re.findall(r"agentType:\s*['\"]oh-no-harness:([^'\"]+)['\"]", workflow_script)
+    missing_workflow_roles = [role for role in expected_roles if role not in workflow_roles]
+    unexpected_workflow_roles = [role for role in workflow_roles if role not in expected_roles]
+    duplicate_workflow_roles = {
+        role for role in expected_roles if workflow_roles.count(role) != 1
+    }
+    if missing_workflow_roles or unexpected_workflow_roles or duplicate_workflow_roles:
+        raise SystemExit(
+            "Claude live parallel Workflow agent() roles did not match expected role set: "
+            f"missing={missing_workflow_roles!r} unexpected={unexpected_workflow_roles!r} "
+            f"duplicates={sorted(duplicate_workflow_roles)!r} got={workflow_roles!r}"
+        )
+    workflow_script_lower = workflow_script.lower()
+    if "wave" not in workflow_script_lower or "promise.all" not in workflow_script_lower:
+        raise SystemExit("Claude live parallel Workflow did not prove batched parallel wave dispatch")
+    if not workflow_completed:
+        raise SystemExit("Claude live parallel Workflow task did not report completion")
+    if not marker:
+        raise SystemExit("Claude live parallel smoke did not return success marker")
+    combined_summary_text = "\n".join(summary_text).lower()
+    missing_summary_roles = [
+        role for role in expected_roles
+        if role.lower() not in combined_summary_text
+    ]
+    if missing_summary_roles:
+        raise SystemExit(
+            "Claude live parallel Workflow success summary did not mention every role: "
+            f"{missing_summary_roles!r}"
+        )
+    print("ok - live Claude role subagents spawned and completed")
+    sys.exit(0)
 
 missing_roles = [role for role in expected_roles if role not in background_uses_by_role]
 if missing_roles:
@@ -1176,6 +1515,7 @@ main() {
   install_or_update_plugin
   run_live_tests
   run_deep_live_tests
+  run_ralplan_live_test
   run_parallel_live_test
   log "All requested checks passed"
 }

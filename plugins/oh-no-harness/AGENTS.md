@@ -23,8 +23,20 @@ act as hidden workflow automation.
 
 `commands/*.md` may exist only as thin Claude Code slash-command wrappers for
 the same public skill names above. Each command must delegate to its matching
-`skills/<name>/SKILL.md`, preserve the user's raw arguments, and must not add a
-new workflow, hidden automation, or separate source of truth.
+`skills-claude/<name>/SKILL.md`, preserve the user's raw arguments, and must not
+add a new workflow, hidden automation, or separate source of truth.
+
+Shared workflow behavior lives in `docs/skill-core/<name>.md`. Codex-facing
+public skill wrappers live in `skills/<name>/SKILL.md`; Claude Code-facing
+public skill wrappers live in `skills-claude/<name>/SKILL.md`. Keep wrappers
+thin and platform-specific. Do not duplicate the full workflow body in both
+platform skill directories.
+
+Company-specific prompt guidance lives in `docs/providers/openai.md` and
+`docs/providers/anthropic.md` as maintenance reference only. Do not add provider
+docs to the runtime wrapper chain. Summarize stable OpenAI guidance in
+`docs/platforms/codex.md` and stable Anthropic guidance in
+`docs/platforms/claude-code.md`.
 
 When adapting OMC content:
 

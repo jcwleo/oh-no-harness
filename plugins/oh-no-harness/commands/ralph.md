@@ -4,7 +4,7 @@ argument-hint: "<approved plan, PRD path, spec path, or concrete task>"
 disable-model-invocation: false
 ---
 
-Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/ralph/SKILL.md` using the Read tool and follow its instructions exactly.
+Read the file at `${CLAUDE_PLUGIN_ROOT}/skills-claude/ralph/SKILL.md` using the Read tool and follow its instructions exactly.
 
 ## User Input
 

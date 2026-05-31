@@ -27,6 +27,8 @@ Allowed decisions:
 - `approved worktree`: the user approved creating or using a task worktree.
 - `already in approved worktree`: the current checkout is already the approved
   task worktree.
+- `direct automatic worktree`: direct `ralph` created or selected a task
+  worktree by default without asking a worktree approval question.
 - `user declined/current checkout`: the user explicitly declined worktree use
   for this task, so execution continues in the current checkout.
 - `autopilot automatic worktree`: `autopilot` created or selected a task
@@ -38,25 +40,41 @@ Allowed decisions:
 If the decision is missing, ambiguous, or not one of the allowed decisions, stop
 before editing and resolve the gate.
 
+Profile policy values:
+
+- `direct-automatic-worktree`: direct `ralph` creates or selects a task worktree
+  by default before write-capable execution.
+- `automatic-worktree-merge`: `autopilot` creates or selects a task worktree by
+  default, then merges completed work back into the integration checkout.
+- `not-applicable`: read-only work or pre-execution artifacts that do not edit
+  task-owned files.
+
 ## Direct Ralph
 
-For direct `ralph` execution, ask the user once before creating or switching to a
-task worktree. Recommend worktree use as the default.
+For direct `ralph` execution, create or select a task worktree by default before
+editing. Do not ask a worktree approval question. Skip automatic worktree
+creation only when the user explicitly asks to decide the execution location,
+the current checkout is already an approved task worktree, the task is read-only,
+or the repository cannot support a worktree.
 
-After the user answers, record the `Worktree decision` in the session note or
-PRD and do not ask again for the same task/session unless the user changes the
-scope or the recorded decision becomes invalid.
+Record `Worktree decision: direct automatic worktree` in the session note or PRD
+before editing. If the current checkout is already the approved task worktree,
+record `already in approved worktree`. If the user explicitly declines worktree
+use, record `user declined/current checkout` and continue only after that
+decision is visible in the execution artifact.
+If the repository cannot support a worktree and no explicit current-checkout
+fallback is approved, record `blocked` and stop before editing.
 
-If the user approves, create or select a task worktree before editing. If the
-user declines, record `user declined/current checkout` and continue only after
-that decision is visible in the execution artifact.
+Once a direct-Ralph worktree decision is recorded, do not ask again for the same
+task/session unless the user changes the scope or the recorded decision becomes
+invalid.
 
 ## Autopilot Automatic Worktree
 
-`autopilot` does not ask the one-time direct-Ralph worktree question. For
-write-capable execution, it must create or select a task worktree automatically,
-record `Worktree decision: autopilot automatic worktree`, and run implementation
-inside that worktree.
+`autopilot` also uses automatic worktree execution. Its distinct responsibility
+is post-execution integration: for write-capable execution, it must create or
+select a task worktree automatically, record `Worktree decision: autopilot automatic worktree`,
+and run implementation inside that worktree.
 
 After execution passes verification in the task worktree, `autopilot` must merge
 the completed work back into the integration checkout, run post-merge

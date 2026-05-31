@@ -26,12 +26,16 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Accepted feedback must be reflected in the plan body, not only listed in a
   consensus log or comment section.
 - Choose the smallest approach that can satisfy the approved acceptance criteria.
+- Design the smallest meaningful test set for each behavior-changing task:
+  must-fail before implementation, must-pass after implementation,
+  negative/forbidden behavior when relevant, edge or regression coverage when
+  relevant, and evidence mapping to acceptance criteria.
 - Justify any new abstraction, configurability, dependency, or generalized path
   with a current requirement, not a possible future need.
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Include a `Worktree policy` from `docs/shared/worktree-isolation.md`: direct
-  Ralph uses `ask-once-default`, Autopilot uses `automatic-worktree-merge`, and
-  read-only work uses `not-applicable`.
+  Ralph uses `direct-automatic-worktree`, Autopilot uses
+  `automatic-worktree-merge`, and read-only work uses `not-applicable`.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
 
@@ -42,6 +46,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Include exact files to create or modify when known.
 - Include a minimal viable approach and list rejected speculative complexity
   when planning through `ralplan`.
+- Do not pad plans with exhaustive test matrices. Pick the few tests that would
+  actually catch the old failure or prove the new contract.
+- Do not propose shallow tests that only check exit status, marker strings,
+  broad snapshots, implementation details, or mocks that bypass the behavior
+  being tested.
 - Mark plans as pending approval unless the user has explicitly approved execution.
 - Do not treat Architect or Critic output as comments to append. Incorporate
   accepted feedback into the draft body and return the revised draft for another
@@ -59,6 +68,8 @@ Return:
 - Rejected speculative complexity.
 - Feedback disposition when this is a revision.
 - Execution profile when the plan can hand off to `ralph`.
+- Test case design with must-fail, must-pass, negative/forbidden when relevant,
+  edge/regression when relevant, and evidence mapping.
 - Worktree policy and any approved artifact handoff requirement.
 - Verification commands.
 - Approval status.

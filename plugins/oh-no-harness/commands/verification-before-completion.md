@@ -4,7 +4,7 @@ argument-hint: "<claim, task, plan, or changed-file scope>"
 disable-model-invocation: false
 ---
 
-Read the file at `${CLAUDE_PLUGIN_ROOT}/skills/verification-before-completion/SKILL.md` using the Read tool and follow its instructions exactly.
+Read the file at `${CLAUDE_PLUGIN_ROOT}/skills-claude/verification-before-completion/SKILL.md` using the Read tool and follow its instructions exactly.
 
 ## User Input
 

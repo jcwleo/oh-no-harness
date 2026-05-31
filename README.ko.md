@@ -25,7 +25,11 @@ stage skill이 handoff를 조율하고, role agent가 탐색, 계획, 실행, �
 - 일을 시작하기 전에 붙여야 할 MCP 서버 없음
 - app/plugin UI로 가면 무너지는 terminal-only workflow 없음
 
-런타임에서는 일부러 심심합니다. **에이전트가 읽을 수 있는 텍스트 파일**이 전부입니다 — `skills/`, `agents/`, 얇은 `commands/`, plugin manifest, 그리고 선택적인 Claude Code `SessionStart` 훅 하나.
+런타임에서는 일부러 심심합니다. **에이전트가 읽을 수 있는 텍스트 파일**이
+전부입니다 — `skills/`와 `skills-claude/`의 플랫폼별 skill wrapper,
+`docs/skill-core/`의 공용 workflow core, `docs/providers/`의 유지보수용
+회사별 prompt 참고 문서, `agents/`, 얇은 `commands/`, plugin manifest,
+그리고 선택적인 Claude Code `SessionStart` 훅 하나.
 
 > [!NOTE]
 > Markdown을 읽을 수 있다면 harness의 동작도 확인할 수 있습니다. handoff를 따라갈 수 있다면 workflow도 이해할 수 있습니다.
@@ -42,7 +46,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 - **터미널은 선택 사항.** 설치는 shell에서 할 수 있지만, 일상 workflow는 터미널에 묶이지 않습니다. 같은 Markdown skill이 Claude Code 세션과 Codex App 스타일 plugin UI에서도 맞게 동작합니다.
 - **Workflow spine.** 공개 skill은 소프트웨어 개발 단계를 맡고, 내부 agent는 사용자가 외울 새 명령이 아니라 전문 판단 패스로 붙습니다.
 - **Skill + 에이전트.** 10개 워크플로우 skill을 11명 역할 에이전트(`explore`, `analyst`, `planner`, `architect`, `critic`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)가 떠받칩니다.
-- **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출한 뒤, 실제 지시는 `skills/<name>/SKILL.md`로 위임합니다.
+- **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 `skills/<name>/SKILL.md` wrapper를 읽습니다.
 
 | 너무 무거움 | 너무 헐거움 | Oh No Harness |
 |---|---|---|
@@ -139,6 +143,13 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:using-oh-no-harness` | 최상위 인덱스 — 다른 skill이 기억나지 않을 때 여기서 시작. |
 
 어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요 — harness가 요청 형태에 맞춰 라우팅합니다. 한 요청으로 전 과정을 묶고 싶을 때만 `/oh-no-harness:autopilot`을 쓰면 됩니다.
+
+일반적인 단계 흐름:
+
+1. 사용자가 작업을 설명하면, 목표가 아직 흐릿할 때 Claude Code나 Codex가 `interview`를 선택합니다.
+2. 사용자가 스펙을 승인하면, 구현 계획이 필요한 경우 호스트 에이전트가 `ralplan`을 호출합니다.
+3. 사용자가 계획을 승인하면, 호스트 에이전트가 `ralph`, `ralph with parallel subagents`, `autopilot` 중 무엇으로 진행할지 묻습니다.
+4. `ralph`가 실행, 검증, 리뷰, 완료 보고를 진행합니다. 사용자가 Planner, Architect, Critic, Executor, Verifier 같은 내부 역할 에이전트를 직접 고를 필요는 없습니다. 선택된 workflow가 허용할 때 호스트 에이전트가 알아서 사용합니다.
 
 ## Auto Routing (Claude Code)
 

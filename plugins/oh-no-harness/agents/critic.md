@@ -26,9 +26,19 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - You must reject when accepted feedback is only logged and not reflected in the plan
   body.
 - Verify that the proposed evidence would actually prove the claim.
+- Reject test case designs that are AI-slop: tests that would pass against the
+  old broken behavior, only check command exit status, only check marker
+  strings, snapshot broad output without behavioral assertions, mock away the
+  behavior under test, or assert implementation details instead of
+  user-visible behavior or public contracts.
+- Use this exact rejection rule: a test that would pass against the old broken behavior is not a valid behavior-change test.
+- Reject behavior-changing plans that lack a smallest meaningful test set:
+  must-fail-before-implementation, must-pass-after-implementation,
+  negative/forbidden behavior when relevant, edge or regression coverage when
+  relevant, and evidence mapping to acceptance criteria.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
-- Reject write-capable execution plans that skip `Worktree policy`, skip the
-  direct-Ralph ask-once gate without user approval, or fail to make Autopilot's
+- Reject write-capable execution plans that skip `Worktree policy`, skip direct
+  Ralph's automatic task worktree execution, or fail to make Autopilot's
   automatic worktree execution and merge responsibility explicit.
 - Challenge execution profiles that are heavier than needed or too light for the stated risk.
 - Reject speculative abstraction, configurability, dependencies, or broad
@@ -70,3 +80,4 @@ Return:
 - Non-blocking improvements.
 - Direction-preservation findings.
 - Evidence required for approval.
+- Test design findings.

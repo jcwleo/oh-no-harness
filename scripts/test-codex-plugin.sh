@@ -17,6 +17,7 @@ INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
+RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 
@@ -44,6 +45,7 @@ Options:
   --live             Run live codex exec smoke tests after prompt exposure checks.
   --deep-live        Run live deep smoke tests that require linked support docs.
   --parallel-live    Run live Ralph parallel-subagent smoke test.
+  --ralplan-live     Run live Ralplan sequential planning-subagent smoke test.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Skip the marketplace/app-server install step.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
@@ -55,8 +57,8 @@ Options:
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_RUN_DIR,
-  OH_NO_MARKETPLACE_SOURCE
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
+  OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -72,6 +74,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --parallel-live)
       RUN_PARALLEL_LIVE=1
+      shift
+      ;;
+    --ralplan-live)
+      RUN_RALPLAN_LIVE=1
       shift
       ;;
     --skip-live)
@@ -602,7 +608,7 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
@@ -642,6 +648,11 @@ expected = {
         "Execution profile",
         "Analyst",
         "Planner",
+        "must-fail",
+        "must-pass",
+        "negative",
+        "edge",
+        "old broken behavior",
         "host",
         "policy",
     ],
@@ -670,8 +681,17 @@ missing = [needle for needle in expected[skill] if needle.lower() not in text_lo
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
 
+def terms_appear_in_order(*terms: str) -> bool:
+    cursor = -1
+    for term in terms:
+        cursor = text_lower.find(term, cursor + 1)
+        if cursor == -1:
+            return False
+    return True
+
 if skill == "interview" and not (
     "already available" in text_lower or "already in session" in text_lower
+    or "already in the session" in text_lower
 ):
     raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
 
@@ -691,6 +711,10 @@ if skill == "ralplan" and not (
         "analyst -> planner -> architect -> critic" in text_lower
         or "analyst, planner, architect, critic" in text_lower
         or "analyst, planner, architect, and critic" in text_lower
+        or (
+            terms_appear_in_order("analyst", "planner", "architect", "critic")
+            and ("first" in text_lower or "then" in text_lower or "sequential" in text_lower)
+        )
         or (
             "analyst first" in text_lower
             and "planner second" in text_lower
@@ -772,6 +796,210 @@ run_deep_live_tests() {
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+}
+
+run_ralplan_live_test() {
+  if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
+    log "Skipping live Codex ralplan sequential-subagent smoke test"
+    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Architect -> Critic sequential spawn_agent review.\n' >&2
+    return
+  fi
+
+  log "Running live Codex ralplan sequential-subagent smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
+  local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
+  local prompt
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1.'
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+import json
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+err_path = sys.argv[2]
+expected_roles = ["planner", "architect", "critic"]
+role_headings = {
+    "planner": "# Planner Agent",
+    "architect": "# Architect Agent",
+    "critic": "# Critic Agent",
+}
+required_prompt_markers = [
+    "## Skill Relationship",
+    "## Responsibilities",
+    "## Operating Rules",
+    "## Output",
+]
+dependency_prompt_markers = {
+    "architect": ["Planner draft v1"],
+    "critic": ["Planner draft v1", "Architect review v1"],
+}
+output_markers = {
+    "planner": ["Planner draft v1"],
+    "architect": ["Architect review v1", "Reviewed draft", "Planner draft v1"],
+    "critic": ["Critic review v1", "Architect review consumed"],
+}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def roles_in_text(text):
+    lower = text.lower()
+    return [
+        role for role in expected_roles
+        if f"Agent prompt source: agents/{role}.md".lower() in lower
+    ]
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex ralplan sequential smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+successful_spawns = []
+failed_spawns = []
+events = []
+receiver_to_role = {}
+role_outputs = defaultdict(list)
+marker = False
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if "OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK" in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            if not receivers:
+                continue
+            spawn_text = collect_text(item)
+            matched_roles = roles_in_text(spawn_text)
+            if len(matched_roles) != 1:
+                raise SystemExit(
+                    "expected each completed spawn_agent payload to contain exactly one planning role prompt source; "
+                    f"line={index} roles={matched_roles!r} text={spawn_text[:2000]!r}"
+                )
+            role = matched_roles[0]
+            successful_spawns.append((index, role, tuple(receivers), spawn_text))
+            for receiver in receivers:
+                receiver_to_role[receiver] = role
+            events.append((index, "spawn", role))
+        if tool in {"wait", "wait_agent", "close_agent"} and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            roles = {receiver_to_role.get(receiver) for receiver in receivers}
+            for role in roles:
+                if role:
+                    events.append((index, tool, role))
+            for receiver, state in (item.get("agents_states") or {}).items():
+                role = receiver_to_role.get(receiver)
+                if role:
+                    state_message = state.get("message", state) if isinstance(state, dict) else state
+                    message = collect_text(state_message)
+                    if message:
+                        role_outputs[role].append(message)
+
+if failed_spawns:
+    raise SystemExit(f"Codex ralplan sequential smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(successful_spawns) != len(expected_roles):
+    raise SystemExit(
+        f"expected exactly {len(expected_roles)} completed planning spawn_agent calls, "
+        f"got {len(successful_spawns)}: {successful_spawns!r}"
+    )
+
+actual_order = [role for _, role, _, _ in successful_spawns]
+if actual_order != expected_roles:
+    raise SystemExit(f"expected sequential spawn order {expected_roles!r}, got {actual_order!r}")
+
+for role, payloads in {
+    role: [spawn for spawn in successful_spawns if spawn[1] == role]
+    for role in expected_roles
+}.items():
+    if len(payloads) != 1:
+        raise SystemExit(f"expected exactly one successful spawn_agent payload for {role}, got {len(payloads)}")
+    _, _, _, role_text = payloads[0]
+    missing_prompt_markers = [
+        marker for marker in [
+            f"Agent prompt source: agents/{role}.md",
+            role_headings[role],
+            *required_prompt_markers,
+            *dependency_prompt_markers.get(role, []),
+        ]
+        if marker.lower() not in role_text.lower()
+    ]
+    if missing_prompt_markers:
+        raise SystemExit(
+            f"Codex ralplan spawn_agent payload for {role} did not embed required prompt/review markers: "
+            f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+        )
+
+for previous, following in zip(successful_spawns, successful_spawns[1:]):
+    previous_index, previous_role, _, _ = previous
+    following_index, following_role, _, _ = following
+    has_barrier = any(
+        previous_index < event_index < following_index
+        and event_type in {"wait", "wait_agent", "close_agent"}
+        and role == previous_role
+        for event_index, event_type, role in events
+    )
+    if not has_barrier:
+        raise SystemExit(
+            f"expected wait/close for {previous_role} between {previous_role} spawn and "
+            f"{following_role} spawn; events={events!r}"
+        )
+
+for role, markers in output_markers.items():
+    output_text = "\n".join(role_outputs.get(role, []))
+    if not output_text:
+        raise SystemExit(f"no completed wait/close output captured for {role}")
+    missing_output_markers = [
+        marker for marker in markers
+        if marker.lower() not in output_text.lower()
+    ]
+    if missing_output_markers:
+        raise SystemExit(
+            f"Codex ralplan {role} output did not prove the review chain: "
+            f"{missing_output_markers}; output={output_text[:2000]!r}"
+        )
+
+if not marker:
+    raise SystemExit("Codex ralplan sequential smoke did not return success marker")
+
+print("ok - live Codex ralplan planning subagents reviewed sequentially")
+PY
 }
 
 run_parallel_live_test() {
@@ -971,6 +1199,7 @@ main() {
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
+  run_ralplan_live_test
   run_parallel_live_test
   log "All requested Codex checks passed"
 }
