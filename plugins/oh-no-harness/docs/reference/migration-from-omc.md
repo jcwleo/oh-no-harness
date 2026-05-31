@@ -44,4 +44,4 @@ Tier-specific OMC agent names become base agent names with task scope and scruti
 
 ## Runtime Policy
 
-The bootstrap hook may inject `using-oh-no-harness` at session start. No other hook participates in skill selection or workflow persistence.
+The bootstrap hook injects a compact native skill-loading reminder at session start. It does not embed the full `using-oh-no-harness` core body. No other hook participates in skill selection or workflow persistence.

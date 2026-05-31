@@ -18,8 +18,10 @@ when the skill handoff expects the host agent to invoke the next skill.
 ## Auto Routing
 
 The `auto-routing` skill can explain and preserve the config file shape in
-Codex, but it does not change Codex bootstrap behavior. Codex-facing hooks are
-limited to Codex-safe plugin context such as the Ralph platform adapter.
+Codex, but it does not add forced routing to Codex SessionStart. Codex native
+skill loading remains the primary routing surface. If Codex-facing
+SessionStart hooks run, they must stay compact and must not embed full skill
+core bodies.
 
 ## OpenAI-Aligned Prompting
 

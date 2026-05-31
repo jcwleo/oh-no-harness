@@ -187,11 +187,31 @@ output = data.get("hookSpecificOutput", {})
 if output.get("hookEventName") != "SessionStart":
     raise SystemExit("Codex SessionStart emitted the wrong hook event")
 text = output.get("additionalContext", "")
-if "Before any response or action, including clarification questions" not in text:
-    raise SystemExit("Codex SessionStart is missing the base oh-no guidance")
+if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
+    raise SystemExit("Codex SessionStart is missing compact native skill-loading guidance")
+for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
+    if forbidden in text:
+        raise SystemExit(f"Codex SessionStart embedded full using-oh-no-harness core content: {forbidden}")
+if len(text) > 4000:
+    raise SystemExit(f"Codex SessionStart default context is too large: {len(text)} chars")
 for forbidden in ("CLAUDE_CODE_ONLY", "AskUserQuestion"):
     if forbidden in text:
         raise SystemExit(f"Codex SessionStart leaked Claude-only policy: {forbidden}")
+PY
+
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start-codex-routing-on.json"
+  "$PYTHON_BIN" - "$temp_data/session-start-codex-routing-on.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+text = output.get("additionalContext", "")
+if "OH_NO_FORCED_ROUTING" in text:
+    raise SystemExit("Codex SessionStart should not add forced routing when auto-routing is enabled")
 PY
 
   local temp_path

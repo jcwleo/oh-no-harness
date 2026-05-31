@@ -856,13 +856,19 @@ def assert_hook_contract(root: Path) -> None:
         "OH_NO_RG_SEARCH_TOOLING",
         "command -v rg",
         "rg --files",
-        "skill_root=\"skills\"",
-        "skill_root=\"skills-claude\"",
-        "docs/skill-core/using-oh-no-harness.md",
-        "OH_NO_SKILL_CORE",
+        "Use native skill loading",
+        "using-oh-no-harness",
+        "OH_NO_FORCED_ROUTING",
     ):
         if marker not in session_start_text:
-            die(f"{session_start_path} is missing required rg-search marker: {marker!r}")
+            die(f"{session_start_path} is missing required session-start marker: {marker!r}")
+    for forbidden in (
+        "OH_NO_SKILL_CORE",
+        "Below is the full content",
+        "using_oh_no_core",
+    ):
+        if forbidden in session_start_text:
+            die(f"{session_start_path} still embeds full using-oh-no-harness core content: {forbidden!r}")
 
 
 def assert_claude_manifest_skills(root: Path) -> None:

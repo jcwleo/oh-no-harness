@@ -7,19 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_CODEX_PLUGIN_ROOT="${PLUGIN_ROOT:-}"
 OH_NO_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-skill_root="skills"
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ] && [ -z "$ENV_CODEX_PLUGIN_ROOT" ]; then
-  skill_root="skills-claude"
-fi
-
-using_oh_no_wrapper=$(cat "${OH_NO_PLUGIN_ROOT}/${skill_root}/using-oh-no-harness/SKILL.md" 2>&1 || echo "Error reading using-oh-no-harness skill wrapper")
-using_oh_no_core=$(cat "${OH_NO_PLUGIN_ROOT}/docs/skill-core/using-oh-no-harness.md" 2>&1 || echo "Error reading using-oh-no-harness skill core")
-using_oh_no_content="${using_oh_no_wrapper}
-
-<OH_NO_SKILL_CORE source=\"docs/skill-core/using-oh-no-harness.md\">
-${using_oh_no_core}
-</OH_NO_SKILL_CORE>"
-
 escape_for_json() {
     local s="$1"
     s="${s//\\/\\\\}"
@@ -30,34 +17,103 @@ escape_for_json() {
     printf '%s' "$s"
 }
 
-using_oh_no_escaped=$(escape_for_json "$using_oh_no_content")
+is_claude_code=false
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ] && [ -z "$ENV_CODEX_PLUGIN_ROOT" ]; then
+  is_claude_code=true
+fi
+
+bootstrap_policy='<OH_NO_BOOTSTRAP>
+You have Oh No Harness installed. Use native skill loading to read the relevant Oh No Harness skill when it applies.
+
+Default routing summary:
+- Use oh-no-harness:using-oh-no-harness when workflow selection is unclear.
+- Use oh-no-harness:interview for vague, broad, ambiguous, or requirement-light work.
+- Use oh-no-harness:ralplan for planning, architecture-sensitive, risky, cross-file, multi-step, or unclear implementation work.
+- Use oh-no-harness:ralph for an approved plan, PRD, concrete task, or acceptance criteria that should be executed.
+- Use oh-no-harness:autopilot for autonomous end-to-end delivery.
+- Use oh-no-harness:systematic-debugging for bugs, failing commands, regressions, flaky behavior, or unknown root cause.
+- Use oh-no-harness:test-driven-development inside execution before behavior-changing edits.
+- Use oh-no-harness:verification-before-completion before claiming done, fixed, passing, ready, or verified.
+- Use oh-no-harness:ai-slop-cleaner only after behavior is locked and AI-generated residue needs cleanup.
+
+This bootstrap is only a compact routing reminder. The selected skill file is the source of truth. Skill chaining remains explicit: when interview, ralplan, or ralph presents a Next Skill Handoff, ask the user for the next-step choice before invoking the next workflow skill.
+</OH_NO_BOOTSTRAP>'
 
 auto_routing_policy=""
-if "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
-  auto_routing_policy="\n\n<OH_NO_FORCED_ROUTING>\nForced routing is enabled for Oh No Harness. If there is even a 1% chance that a local Oh No Harness skill applies to what you are about to do, you MUST invoke that skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion. This is not optional and you cannot rationalize past it.\n\nInstruction priority (highest first): (1) the user's explicit instructions in CLAUDE.md, AGENTS.md, or the current message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.\n\nRouting map. Invoke the named skill BEFORE you respond:\n- Vague, broad, ambiguous, or requirement-light request: oh-no-harness:interview.\n- Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.\n- Approved plan, PRD, or concrete task with acceptance criteria: oh-no-harness:ralph.\n- Autonomous or end-to-end delivery request: oh-no-harness:autopilot.\n- Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.\n- About to make a behavior-changing production edit: oh-no-harness:test-driven-development.\n- About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.\n- AI-generated diff needs behavior-preserving cleanup before delivery: oh-no-harness:ai-slop-cleaner.\n\nAfter invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.\n\nRed flags. These thoughts mean STOP and route through a skill:\n- This is a simple question. Reality: questions are tasks. Re-check the routing map.\n- Let me explore the codebase first. Reality: interview or systematic-debugging tells you HOW to explore. Route first.\n- I need more context, let me ask a clarifying question. Reality: interview is where clarifying questions belong.\n- I will just make this one small edit. Reality: behavior-changing edits go through test-driven-development.\n- I already know which skill applies. Reality: recognition is not invocation. Invoke it.\n- The user just wants a quick answer. Reality: decide routing first, then answer.\n- It is only docs or config. Reality: if unsure, invoke. If the skill does not apply, say so in one line and continue.\n- This bug looks obvious. Reality: systematic-debugging exists for this exact moment.\n- I am about to say it is fixed, passing, or ready. Reality: verification-before-completion runs first.\n\nIf an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.\n</OH_NO_FORCED_ROUTING>"
+if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
+  auto_routing_policy='
+<OH_NO_FORCED_ROUTING>
+Forced routing is enabled for Oh No Harness. If there is even a 1% chance that a local Oh No Harness skill applies to what you are about to do, you MUST invoke that skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion. This is not optional and you cannot rationalize past it.
+
+Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
+
+Routing map. Invoke the named skill BEFORE you respond:
+- Vague, broad, ambiguous, or requirement-light request: oh-no-harness:interview.
+- Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.
+- Approved plan, PRD, or concrete task with acceptance criteria: oh-no-harness:ralph.
+- Autonomous or end-to-end delivery request: oh-no-harness:autopilot.
+- Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.
+- About to make a behavior-changing production edit: oh-no-harness:test-driven-development.
+- About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.
+- AI-generated diff needs behavior-preserving cleanup before delivery: oh-no-harness:ai-slop-cleaner.
+
+After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
+
+Red flags. These thoughts mean STOP and route through a skill:
+- This is a simple question. Reality: questions are tasks. Re-check the routing map.
+- Let me explore the codebase first. Reality: interview or systematic-debugging tells you HOW to explore. Route first.
+- I need more context, let me ask a clarifying question. Reality: interview is where clarifying questions belong.
+- I will just make this one small edit. Reality: behavior-changing edits go through test-driven-development.
+- I already know which skill applies. Reality: recognition is not invocation. Invoke it.
+- The user just wants a quick answer. Reality: decide routing first, then answer.
+- It is only docs or config. Reality: if unsure, invoke. If the skill does not apply, say so in one line and continue.
+- This bug looks obvious. Reality: systematic-debugging exists for this exact moment.
+- I am about to say it is fixed, passing, or ready. Reality: verification-before-completion runs first.
+
+If an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
+</OH_NO_FORCED_ROUTING>'
 fi
 
 rg_search_policy=""
 if command -v rg >/dev/null 2>&1; then
-  rg_search_policy="\n\n<OH_NO_RG_SEARCH_TOOLING>\nRipgrep is available in this session. Prefer \`rg\` and \`rg --files\` over \`grep\`, \`find\`, or slower recursive search commands for repository search. Use a fallback only if \`rg\` cannot answer the query.\n</OH_NO_RG_SEARCH_TOOLING>"
+  rg_search_policy='
+<OH_NO_RG_SEARCH_TOOLING>
+Ripgrep is available in this session. Prefer `rg` and `rg --files` over `grep`, `find`, or slower recursive search commands for repository search. Use a fallback only if `rg` cannot answer the query.
+</OH_NO_RG_SEARCH_TOOLING>'
 fi
 
-base_session_context="<EXTREMELY_IMPORTANT>\nYou have oh-no-harness.${auto_routing_policy}${rg_search_policy}\n\n**Below is the full content of your 'oh-no-harness:using-oh-no-harness' skill. Use it to select and follow the local skills in this plugin:**\n\n${using_oh_no_escaped}\n</EXTREMELY_IMPORTANT>"
+base_session_context="<EXTREMELY_IMPORTANT>
+You have oh-no-harness.${auto_routing_policy}${rg_search_policy}
 
-claude_code_question_policy="<CLAUDE_CODE_ONLY>\nThis platform is Claude Code. When asking the user a clarification, preference, scope, or approval question, use AskUserQuestion when that tool is available.\n\nPrefer one focused question at a time. For option questions, provide 2-4 mutually exclusive choices and put the recommended option first when there is a clear recommendation. Use plain text only when AskUserQuestion is unavailable or the answer needs free-form detail that does not fit structured options.\n\nThis instruction is Claude Code-only. Do not apply it on Codex or other platforms.\n</CLAUDE_CODE_ONLY>"
+${bootstrap_policy}
+</EXTREMELY_IMPORTANT>"
+
+claude_code_question_policy='<CLAUDE_CODE_ONLY>
+This platform is Claude Code. When asking the user a clarification, preference, scope, or approval question, use AskUserQuestion when that tool is available.
+
+Prefer one focused question at a time. For option questions, provide 2-4 mutually exclusive choices and put the recommended option first when there is a clear recommendation. Use plain text only when AskUserQuestion is unavailable or the answer needs free-form detail that does not fit structured options.
+
+This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
+</CLAUDE_CODE_ONLY>'
 
 if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
   session_context="$base_session_context"
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+  session_context_escaped=$(escape_for_json "$session_context")
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
 elif [ -n "$ENV_CODEX_PLUGIN_ROOT" ]; then
   session_context="$base_session_context"
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+  session_context_escaped=$(escape_for_json "$session_context")
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
-  session_context="${base_session_context}\n\n${claude_code_question_policy}"
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+  session_context="${base_session_context}
+
+${claude_code_question_policy}"
+  session_context_escaped=$(escape_for_json "$session_context")
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 else
   session_context="$base_session_context"
-  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
+  session_context_escaped=$(escape_for_json "$session_context")
+  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context_escaped"
 fi
 
 exit 0

@@ -6,8 +6,8 @@
 Claude Code SessionStart
   -> hooks/run-hook.cmd session-start
   -> hooks/session-start
-  -> skills-claude/using-oh-no-harness/SKILL.md
-  -> docs/skill-core/using-oh-no-harness.md
+  -> compact native skill-loading bootstrap
+  -> OH_NO_FORCED_ROUTING only when auto-routing is enabled
 
 Claude Code UserPromptSubmit for Ralph
   -> hooks/run-hook.cmd ralph-platform-adapter
@@ -44,7 +44,7 @@ using-oh-no-harness
 
 auto-routing
   -> writes persistent user preference for stronger SessionStart skill-selection guidance
-  -> hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
+  -> Claude Code hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
 
 interview
   -> explore for brownfield context

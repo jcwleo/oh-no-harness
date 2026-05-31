@@ -340,10 +340,13 @@ if "OH_NO_FORCED_ROUTING" in text:
     raise SystemExit("forced-routing policy was present while config is unset")
 if "OH_NO_AUTO_ROUTING" in text:
     raise SystemExit("legacy auto-routing tag was present while config is unset")
-if "Before any response or action, including clarification questions" not in text:
-    raise SystemExit("base bootstrap is missing skill-before-clarification guidance")
-if "Do not ask raw clarification questions for vague work before reading `interview`" not in text:
-    raise SystemExit("base bootstrap is missing interview-before-clarification guidance")
+if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
+    raise SystemExit("base bootstrap is missing compact native skill-loading guidance")
+for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
+    if forbidden in text:
+        raise SystemExit(f"base bootstrap embedded full using-oh-no-harness core content: {forbidden}")
+if len(text) > 4500:
+    raise SystemExit(f"Claude SessionStart default context is too large: {len(text)} chars")
 PY
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-on.json"
@@ -630,7 +633,7 @@ PY
 
 run_live_hook_test() {
   local out_file="$RUN_DIR/hook-policy-${LIVE_LOAD_MODE}.jsonl"
-  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If they include both a Claude Code-only policy telling you to use AskUserQuestion for clarification, preference, scope, or approval questions when available, and Oh No Harness guidance to check local skills before clarification questions and read interview before raw vague-work clarifications, reply exactly OH_NO_HOOK_POLICY_PRESENT. Otherwise reply exactly OH_NO_HOOK_POLICY_MISSING."
+  local prompt="Smoke test only. Inspect your session-start instructions, not this user message. If they include both a Claude Code-only policy telling you to use AskUserQuestion for clarification, preference, scope, or approval questions when available, and compact Oh No Harness guidance telling you to use native skill loading for relevant Oh No Harness skills, reply exactly OH_NO_HOOK_POLICY_PRESENT. Otherwise reply exactly OH_NO_HOOK_POLICY_MISSING."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -676,11 +679,12 @@ with open(path, "r", encoding="utf-8") as fh:
         if data.get("type") == "system" and data.get("subtype") == "hook_response" and data.get("hook_event") == "SessionStart":
             output = data.get("output", "")
             has_question_policy = "CLAUDE_CODE_ONLY" in output and "AskUserQuestion" in output
-            has_skill_first_policy = (
-                "Before any response or action, including clarification questions" in output
-                and "Do not ask raw clarification questions for vague work before reading `interview`" in output
+            has_compact_bootstrap = (
+                "OH_NO_BOOTSTRAP" in output
+                and "Use native skill loading to read the relevant Oh No Harness skill when it applies." in output
+                and "OH_NO_SKILL_CORE" not in output
             )
-            if data.get("outcome") == "success" and has_question_policy and has_skill_first_policy:
+            if data.get("outcome") == "success" and has_question_policy and has_compact_bootstrap:
                 successful_policy_hook_responses += 1
         if data.get("type") == "system" and data.get("subtype") == "init":
             for plugin in data.get("plugins", []):
@@ -704,7 +708,7 @@ with open(path, "r", encoding="utf-8") as fh:
 if session_start_hooks < 1:
     raise SystemExit("no SessionStart hook was observed")
 if successful_policy_hook_responses < 1:
-    raise SystemExit("SessionStart hook did not emit both the AskUserQuestion and skill-before-clarification policies")
+    raise SystemExit("SessionStart hook did not emit both the AskUserQuestion policy and compact native skill-loading bootstrap")
 if not loaded_oh_no_plugin:
     raise SystemExit("oh-no-harness plugin was not reported as loaded")
 if not ask_user_question_available:

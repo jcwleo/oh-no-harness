@@ -76,8 +76,8 @@ hooks/
 
 `hooks/hooks.json` registers a `SessionStart` hook and a narrow
 `UserPromptSubmit` Ralph adapter hook. The SessionStart hook invokes
-`hooks/session-start`, which reads `skills/using-oh-no-harness/SKILL.md` and
-injects it as additional context. The Ralph adapter hook invokes
+`hooks/session-start`, which injects a compact native skill-loading reminder
+instead of the full `using-oh-no-harness` body. The Ralph adapter hook invokes
 `hooks/ralph-platform-adapter`, detects Ralph prompts, and injects only the
 active platform's subagent-dispatch adapter.
 
@@ -397,7 +397,7 @@ Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transien
 Two hook classes are included:
 
 ```text
-SessionStart -> using-oh-no-harness bootstrap injection
+SessionStart -> compact native skill-loading bootstrap
 UserPromptSubmit -> Ralph platform adapter injection
 ```
 
