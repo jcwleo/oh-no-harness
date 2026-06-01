@@ -1,6 +1,6 @@
 ---
 name: using-oh-no-harness
-description: Use when starting a session with Oh No Harness, deciding whether a local skill applies, selecting between interview, planning, execution, debugging, TDD, cleanup, or verification skills, handling a request that may need one, or asking a clarification question.
+description: Use when starting a session with Oh No Harness, deciding whether a local skill applies, selecting between interview, planning, Ralph execution, debugging, cleanup, or verification, and recognizing TDD as an internal guardrail.
 argument-hint: "[task, question, or routing need]"
 ---
 
@@ -14,7 +14,7 @@ wrappers load this shared core and then apply the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, debugging, TDD, cleanup, verification, or a direct small edit.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, debugging, cleanup, verification, or a direct small edit. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -31,7 +31,7 @@ The available public skills are:
 - `ralph`: execute a concrete PRD or approved plan until acceptance criteria and verification are satisfied.
 - `autopilot`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
 - `auto-routing`: toggle stronger SessionStart skill-selection guidance for users who want it.
-- `test-driven-development`: enforce RED/GREEN/REFACTOR before behavior-changing production edits.
+- `test-driven-development`: internal guardrail discipline for RED/GREEN/REFACTOR before behavior-changing production edits; not a generic implementation entrypoint.
 - `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
 - `verification-before-completion`: verify evidence before claiming work is complete, fixed, passing, or ready.
 - `systematic-debugging`: investigate bugs, failing commands, regressions, and unexpected behavior before fixing.
@@ -44,7 +44,7 @@ For LLM software development, prefer this order when the request is not already 
 2. `interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
 3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, required Ralph execution mode, risk handling, and verification strategy.
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
-5. `test-driven-development`: run inside implementation before behavior-changing production edits and bug fixes.
+5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `autopilot`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
 7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and functional review has passed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
@@ -53,6 +53,13 @@ Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
 must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
+
+Default ordinary implementation requests to `ralph`, not
+`test-driven-development`. If a request says add, fix, refactor, or implement
+and does not explicitly ask for TDD, test-first, RED/GREEN/REFACTOR, or a
+failing test first, select `ralph` for concrete implementation (or
+`systematic-debugging` when failure/root-cause investigation is still needed)
+and let that workflow invoke TDD internally when behavior changes.
 
 The host agent, not the user, operates the workflow. The active platform wrapper
 reads the selected skill core, invokes any allowed role agents, writes

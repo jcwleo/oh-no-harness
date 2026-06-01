@@ -1,7 +1,7 @@
 ---
 name: test-driven-development
-description: Use when implementing a feature, bugfix, behavior change, regression fix, or behavior-preserving refactor before editing production code or changing observable behavior.
-argument-hint: "<feature, bugfix, refactor, or behavior change>"
+description: Use inside ralph-owned execution to enforce RED/GREEN/REFACTOR before behavior-changing production edits, or when explicitly asked for TDD/test-first work; not a top-level implementation route.
+argument-hint: "<explicit TDD/test-first change>"
 ---
 
 # Test Driven Development
@@ -10,9 +10,31 @@ Write the test first. Watch it fail. Write the smallest production change that m
 
 ## Software Development Stage
 
-Test Driven Development is the behavior-change discipline inside implementation and bug-fix work.
+Test Driven Development is the internal mid-loop discipline for behavior-change work inside implementation and bug-fix execution.
 
-Use it inside `ralph`, `systematic-debugging`, or a direct implementation path before changing production behavior. It is not a requirements, planning, cleanup, or final-verification substitute.
+Use it inside `ralph`, `systematic-debugging`, or an explicitly chosen tiny direct edit path before changing production behavior. It is not a requirements, planning, cleanup, or final-verification substitute.
+
+## Top-Level Routing Boundary
+
+Do not use this skill as the top-level route for ordinary implementation
+requests such as "add this feature", "fix this bug", "refactor this module",
+or "implement this behavior". This is not a top-level implementation skill.
+Use `ralph` for those concrete implementation requests so execution mode,
+worktree isolation, review, cleanup, verification, and final reporting stay
+attached to the work.
+
+Use this skill as a top-level entry only when:
+
+- the user explicitly asked for TDD, test-first, RED/GREEN/REFACTOR, or
+  "write the failing test first"
+- an already-selected workflow (`ralph`, `systematic-debugging`, or
+  `autopilot`) reaches its internal TDD gate
+- the active host is intentionally taking a tiny direct edit path and only
+  needs the TDD discipline before a behavior-changing edit
+
+After the cycle completes, return control to `ralph`, `systematic-debugging`,
+`autopilot`, or the explicitly chosen tiny direct edit path. Do not continue as
+a substitute for `ralph`.
 
 ## When To Use
 
@@ -151,4 +173,4 @@ Before claiming the behavior is complete:
 
 ## Next Skill Handoff
 
-None — this is an internal mid-loop discipline. Return control to the caller skill (`ralph`, `systematic-debugging`, or the direct implementation path) once the cycle is complete or an exception is recorded.
+None — this is an internal mid-loop discipline. Return control to the caller skill (`ralph`, `systematic-debugging`, or the tiny direct edit path) once the cycle is complete or an exception is recorded. Do not continue as a substitute for `ralph`.

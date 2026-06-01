@@ -135,7 +135,7 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
 | `/oh-no-harness:ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
 | `/oh-no-harness:autopilot <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
-| `/oh-no-harness:test-driven-development <change>` | Any behavior-changing edit — enforces RED / GREEN / REFACTOR. |
+| `/oh-no-harness:test-driven-development <change>` | Explicit TDD/test-first request, or an internal gate inside Ralph/debugging execution — ordinary implementation routes through Ralph. |
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
 | `/oh-no-harness:simplify` | Post-implementation quality cleanup for reuse, simplification, efficiency, and altitude. |

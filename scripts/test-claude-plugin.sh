@@ -348,9 +348,21 @@ if "OH_NO_AUTO_ROUTING" in text:
     raise SystemExit("legacy auto-routing tag was present while config is unset")
 if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
     raise SystemExit("base bootstrap is missing compact native skill-loading guidance")
+required = [
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Claude SessionStart missing default Ralph/TDD routing markers: {missing}")
 for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
     if forbidden in text:
         raise SystemExit(f"base bootstrap embedded full using-oh-no-harness core content: {forbidden}")
+for forbidden in (
+    "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
+    "behavior-changing edits go through test-driven-development",
+):
+    if forbidden in text:
+        raise SystemExit(f"Claude SessionStart still routes ordinary implementation to TDD: {forbidden}")
 if len(text) > 4500:
     raise SystemExit(f"Claude SessionStart default context is too large: {len(text)} chars")
 PY
@@ -371,6 +383,20 @@ if "Routing map" not in text:
     raise SystemExit("forced-routing policy is missing the routing map")
 if "Red flags" not in text:
     raise SystemExit("forced-routing policy is missing the red-flags table")
+required = [
+    "Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.",
+    "Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.",
+    "ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"forced-routing policy missing Ralph/TDD routing markers: {missing}")
+for forbidden in (
+    "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
+    "behavior-changing edits go through test-driven-development",
+):
+    if forbidden in text:
+        raise SystemExit(f"forced-routing policy still routes ordinary implementation to TDD: {forbidden}")
 PY
   rm -rf "$temp_data"
   ok "session-start respects auto-routing config"
@@ -573,7 +599,7 @@ live_prompt_for_skill() {
       printf '/%s:auto-routing status Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
       ;;
     test-driven-development)
-      printf '/%s:test-driven-development Implement a small behavior change. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
+      printf '/%s:test-driven-development Explicit TDD/test-first smoke request. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
       ;;
     simplify)
       printf '/%s:simplify --review Review a small diff for reuse, simplification, efficiency, and altitude cleanup. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
@@ -854,7 +880,7 @@ deep_prompt_for_skill() {
       printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, and execution mode contract before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
+      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     autopilot)
       printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
@@ -916,6 +942,9 @@ expected = {
         "THOROUGH",
         "Parallel trigger",
         "oh-no-harness:<agent>",
+        "test-driven-development",
+        "internal mid-loop",
+        "not a top-level implementation",
         "Required Behavior Lock",
     ],
     "autopilot": [
@@ -935,7 +964,6 @@ expected = {
         "Altitude",
         "subagents",
         "host",
-        "policy",
         "one batch",
         "before waiting",
         "inline",

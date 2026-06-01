@@ -1,7 +1,7 @@
 ---
 name: test-driven-development
-description: Use when implementing a feature, bugfix, behavior change, regression fix, or behavior-preserving refactor before editing production code or changing observable behavior.
-argument-hint: "<feature, bugfix, refactor, or behavior change>"
+description: Use inside ralph-owned execution to enforce RED/GREEN/REFACTOR before behavior-changing production edits, or when explicitly asked for TDD/test-first work; not a top-level implementation route.
+argument-hint: "<explicit TDD/test-first change>"
 ---
 
 # Test Driven Development for Claude Code

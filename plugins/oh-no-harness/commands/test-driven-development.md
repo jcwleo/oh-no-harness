@@ -1,6 +1,6 @@
 ---
-description: "Use RED/GREEN/REFACTOR for behavior-changing work."
-argument-hint: "<feature, bugfix, refactor, or behavior change>"
+description: "Use explicit TDD/test-first RED/GREEN/REFACTOR discipline; ordinary implementation routes through ralph."
+argument-hint: "<explicit TDD/test-first change>"
 disable-model-invocation: false
 ---
 

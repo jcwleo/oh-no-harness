@@ -195,9 +195,21 @@ if output.get("hookEventName") != "SessionStart":
 text = output.get("additionalContext", "")
 if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
     raise SystemExit("Codex SessionStart is missing compact native skill-loading guidance")
+required = [
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Codex SessionStart missing Ralph/TDD routing markers: {missing}")
 for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
     if forbidden in text:
         raise SystemExit(f"Codex SessionStart embedded full using-oh-no-harness core content: {forbidden}")
+for forbidden in (
+    "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
+    "behavior-changing edits go through test-driven-development",
+):
+    if forbidden in text:
+        raise SystemExit(f"Codex SessionStart still routes ordinary implementation to TDD: {forbidden}")
 if len(text) > 4000:
     raise SystemExit(f"Codex SessionStart default context is too large: {len(text)} chars")
 for forbidden in ("CLAUDE_CODE_ONLY", "AskUserQuestion"):
@@ -558,7 +570,7 @@ live_prompt_for_skill() {
       printf 'Use the oh-no-harness:auto-routing skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK auto-routing.'
       ;;
     test-driven-development)
-      printf 'Use the oh-no-harness:test-driven-development skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK test-driven-development.'
+      printf 'Use the oh-no-harness:test-driven-development skill for an explicit TDD/test-first smoke request. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK test-driven-development.'
       ;;
     simplify)
       printf 'Use the oh-no-harness:simplify skill for reuse, simplification, efficiency, and altitude cleanup. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK simplify.'
@@ -637,7 +649,7 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     autopilot)
       printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
@@ -695,6 +707,9 @@ expected = {
         "Parallel trigger",
         "host",
         "policy",
+        "test-driven-development",
+        "internal mid-loop",
+        "not a top-level implementation",
         "Required Behavior Lock",
     ],
     "autopilot": [
@@ -716,7 +731,6 @@ expected = {
         "Altitude",
         "subagents",
         "host",
-        "policy",
         "one batch",
         "before waiting",
         "inline",

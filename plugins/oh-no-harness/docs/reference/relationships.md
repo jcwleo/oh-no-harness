@@ -96,6 +96,8 @@ autopilot
 
 test-driven-development
   -> no outbound skill dependency
+  -> internal mid-loop discipline, not a top-level implementation skill
+  -> ordinary implementation requests route through `ralph`, which invokes TDD internally when behavior changes
   -> evidence consumed by ralph, verifier, code-reviewer, debugger, and qa-tester
 
 simplify

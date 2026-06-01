@@ -519,6 +519,62 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "would pass against the old broken behavior",
     ),
 }
+TDD_SKILL_DESCRIPTION_MARKERS = (
+    "ralph-owned execution",
+    "RED/GREEN/REFACTOR",
+    "explicitly asked for TDD/test-first work",
+    "not a top-level implementation route",
+)
+TDD_COMMAND_DESCRIPTION_MARKERS = (
+    "explicit TDD/test-first",
+    "RED/GREEN/REFACTOR",
+    "ordinary implementation routes through ralph",
+)
+TDD_CORE_ROUTING_MARKERS = (
+    "internal mid-loop discipline",
+    "not a top-level implementation skill",
+    "Use `ralph` for those concrete implementation requests",
+    "explicitly asked for TDD",
+    "already-selected workflow",
+    "tiny direct edit path",
+    "return control to `ralph`, `systematic-debugging`",
+    "Do not continue as a substitute for `ralph`",
+)
+TDD_ROUTING_DOC_MARKERS = {
+    "docs/skill-core/using-oh-no-harness.md": (
+        "Treat TDD as an internal guardrail discipline",
+        "not a generic implementation entrypoint",
+        "Default ordinary implementation requests to `ralph`, not",
+        "does not explicitly ask for TDD",
+        "let that workflow invoke TDD internally when behavior changes",
+    ),
+    "docs/skill-core/ralph.md": (
+        "Ralph owns execution mode selection or enforcement",
+        "Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`",
+        "Ralph invokes TDD internally",
+        "Classify the story's TDD requirement",
+    ),
+    "docs/reference/relationships.md": (
+        "internal mid-loop discipline, not a top-level implementation skill",
+        "ordinary implementation requests route through `ralph`",
+    ),
+    "hooks/session-start": (
+        "ordinary implementation request: oh-no-harness:ralph",
+        "Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development",
+        "ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work",
+        "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+    ),
+}
+TDD_FORBIDDEN_DOC_MARKERS = (
+    "Use when implementing a feature, bugfix",
+    "Any behavior-changing edit",
+    "동작이 바뀌는 모든 수정",
+    "Use RED/GREEN/REFACTOR for behavior-changing work.",
+    "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
+    "behavior-changing edits go through test-driven-development",
+    "direct implementation path",
+    "<feature, bugfix, refactor, or behavior change>",
+)
 
 
 def die(message: str) -> None:
@@ -832,6 +888,93 @@ def assert_worktree_contract(root: Path) -> None:
             die(f"{path} is missing required Worktree contract marker: {marker!r}")
 
 
+def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
+    description_paths = [
+        root / SKILL_CORE_ROOT / "test-driven-development.md",
+        root / CODEX_SKILL_ROOT / "test-driven-development" / "SKILL.md",
+        root / CLAUDE_SKILL_ROOT / "test-driven-development" / "SKILL.md",
+    ]
+    for path in description_paths:
+        description = parse_frontmatter(path).get("description", "")
+        for marker in TDD_SKILL_DESCRIPTION_MARKERS:
+            if marker not in description:
+                die(f"{path} description is missing TDD routing marker: {marker!r}")
+
+    command_path = root / "commands" / "test-driven-development.md"
+    command_description = parse_frontmatter(command_path).get("description", "")
+    for marker in TDD_COMMAND_DESCRIPTION_MARKERS:
+        if marker not in command_description:
+            die(f"{command_path} description is missing TDD command routing marker: {marker!r}")
+
+    tdd_core_path = root / SKILL_CORE_ROOT / "test-driven-development.md"
+    tdd_core = read_text(tdd_core_path)
+    for marker in TDD_CORE_ROUTING_MARKERS:
+        if marker not in tdd_core:
+            die(f"{tdd_core_path} is missing TDD routing boundary marker: {marker!r}")
+
+    for relative_path, markers in TDD_ROUTING_DOC_MARKERS.items():
+        path = root / relative_path
+        text = read_text(path)
+        for marker in markers:
+            if marker not in text:
+                die(f"{path} is missing TDD routing contract marker: {marker!r}")
+
+    readme_markers = {
+        "README.md": "ordinary implementation routes through Ralph",
+        "README.ko.md": "일반 구현은 Ralph로 라우팅합니다",
+    }
+    for filename, marker in readme_markers.items():
+        path = marketplace_root / filename
+        if not path.exists():
+            continue
+        text = read_text(path)
+        if "test-driven-development" in text and marker not in text:
+            die(f"{path} is missing README TDD/Ralph routing marker: {marker!r}")
+
+    test_script_markers = {
+        "scripts/test-codex-plugin.sh": (
+            "explicit TDD/test-first smoke request",
+            "internal mid-loop discipline",
+            "not a top-level implementation route",
+        ),
+        "scripts/test-claude-plugin.sh": (
+            "Explicit TDD/test-first smoke request",
+            "internal mid-loop discipline",
+            "not a top-level implementation route",
+        ),
+    }
+    for relative_path, markers in test_script_markers.items():
+        path = marketplace_root / relative_path
+        text = read_text(path)
+        for marker in markers:
+            if marker not in text:
+                die(f"{path} is missing live-test TDD routing marker: {marker!r}")
+        if "Implement a small behavior change. Smoke test only" in text:
+            die(f"{path} still uses a generic implementation prompt for TDD smoke tests")
+
+    checked_paths = (
+        description_paths
+        + [
+            command_path,
+            root / SKILL_CORE_ROOT / "using-oh-no-harness.md",
+            root / CODEX_SKILL_ROOT / "using-oh-no-harness" / "SKILL.md",
+            root / CLAUDE_SKILL_ROOT / "using-oh-no-harness" / "SKILL.md",
+            root / SKILL_CORE_ROOT / "ralph.md",
+            root / "docs" / "reference" / "relationships.md",
+            root / "hooks" / "session-start",
+            marketplace_root / "README.md",
+            marketplace_root / "README.ko.md",
+        ]
+    )
+    for path in checked_paths:
+        if not path.exists():
+            continue
+        text = read_text(path)
+        for marker in TDD_FORBIDDEN_DOC_MARKERS:
+            if marker in text:
+                die(f"{path} contains forbidden legacy TDD routing marker: {marker!r}")
+
+
 def assert_hook_contract(root: Path) -> None:
     hooks_path = root / "hooks" / "hooks.json"
     try:
@@ -1046,6 +1189,7 @@ def main() -> None:
     assert_execution_mode_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(root)
+    assert_tdd_routing_contract(marketplace_root, root)
     assert_hook_contract(root)
     assert_claude_manifest_skills(root)
     assert_codex_manifest(root)

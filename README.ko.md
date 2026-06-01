@@ -135,7 +135,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:ralplan <작업 또는 스펙>` | 광범위·고위험·다파일 작업이라 코딩 전 계획·승인이 필요할 때 — `.oh-no/plans/`에 저장됩니다. |
 | `/oh-no-harness:ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업 — 모드를 읽고 검증까지 실행합니다. |
 | `/oh-no-harness:autopilot <요청>` | End-to-end: interview → ralplan → ralph → verification 한 흐름. |
-| `/oh-no-harness:test-driven-development <변경>` | 동작이 바뀌는 모든 수정 — RED / GREEN / REFACTOR 강제. |
+| `/oh-no-harness:test-driven-development <변경>` | 명시적인 TDD/test-first 요청 또는 Ralph/debugging 실행 내부 게이트 — 일반 구현은 Ralph로 라우팅합니다. |
 | `/oh-no-harness:systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/oh-no-harness:verification-before-completion` | "완료" / "수정됨" / "준비됨" 선언 전 — 새 증거를 요구합니다. |
 | `/oh-no-harness:simplify` | 구현 후 품질 정리 - 재사용, 단순화, 효율, 적절한 추상화 깊이를 점검합니다. |
