@@ -1,6 +1,6 @@
 # Oh No Harness Design
 
-> Current artifact policy: generated Oh No Harness specs belong under `.oh-no/specs/`, generated plans under `.oh-no/plans/`, and session state under `.oh-no/sessions/`.
+> Current artifact policy: generated Oh No Harness specs belong under `.oh-no/specs/`, generated plans under `.oh-no/plans/`, session state under `.oh-no/sessions/`, and task worktrees under `.oh-no/worktrees/`.
 
 ## Goal
 
@@ -387,10 +387,11 @@ Use:
   specs/
   plans/
   sessions/
+  worktrees/
   test-runs/
 ```
 
-Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transient workflow state should use `.oh-no/sessions/`. Harness test logs should use `.oh-no/test-runs/`.
+Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transient workflow state should use `.oh-no/sessions/`. Task worktrees should use `.oh-no/worktrees/`. Harness test logs should use `.oh-no/test-runs/`.
 
 ## Hook Design
 
@@ -437,6 +438,7 @@ When copying OMC files, apply these rules:
    - `.omc/` -> `.oh-no/` for transient state
    - `.oh-no/specs/` for specs
    - `.oh-no/plans/` for plans
+   - `.oh-no/worktrees/` for task worktrees
 
 5. Simplify agent tiers.
    - tiered agent names become model hints on one base agent prompt.

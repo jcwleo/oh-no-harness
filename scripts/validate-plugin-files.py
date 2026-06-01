@@ -223,34 +223,63 @@ PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
 WORKTREE_SHARED_MARKERS = (
     "# Worktree Isolation",
     "## HARD-GATE",
+    "## Default Location",
     "`interview` and `ralplan` do not need to run inside a worktree by default",
     "`Worktree decision`",
     "Profile policy values:",
+    "registered Git worktrees",
+    "Do not substitute `git clone`",
+    "cannot support `git worktree add`",
+    ".oh-no/worktrees/<task-slug>",
+    "parent-directory siblings",
+    "git -C .oh-no/worktrees/<task-slug> status",
+    "git worktree remove .oh-no/worktrees/<task-slug>",
+    "recursive nested worktree",
+    "integration checkout's untracked",
+    "git worktree add .oh-no/worktrees/<task-slug>",
     "`direct-automatic-worktree`",
     "`autopilot` also uses automatic worktree execution",
     "integration checkout",
     "post-merge verification",
 )
+WORKTREE_FORBIDDEN_MARKERS = (
+    "git worktree add ../<repo>-<task-slug>",
+    "../<repo>-<task-slug>",
+)
 WORKTREE_SKILL_MARKERS = {
     "using-oh-no-harness": (
         "## Worktree Isolation Default",
         "docs/shared/worktree-isolation.md",
+        ".oh-no/worktrees/<task-slug>",
+        "parent-directory siblings",
+        "git clone",
         "Worktree decision: direct automatic worktree",
         "Worktree decision: autopilot automatic worktree",
     ),
     "ralplan": (
         "Worktree policy",
+        "Worktree location",
         "docs/shared/worktree-isolation.md",
+        ".oh-no/worktrees/<task-slug>",
     ),
     "ralph": (
         "## Worktree Isolation Gate",
         "<HARD-GATE>",
+        ".oh-no/worktrees/<task-slug>",
+        "git worktree add .oh-no/worktrees/<task-slug>",
+        "parent workspace directory",
+        "git clone",
+        "worktreeLocation",
+        "Worktree decision and location",
         "Worktree decision: direct automatic worktree",
         "Worktree decision: autopilot automatic worktree",
         "integration checkout and post-merge verification",
     ),
     "autopilot": (
         "## Automatic Worktree Execution",
+        ".oh-no/worktrees/<task-slug>",
+        "using `git worktree add`",
+        "not valid substitutes",
         "Worktree decision: autopilot automatic worktree",
         "post-merge verification",
     ),
@@ -260,14 +289,21 @@ WORKTREE_AGENT_MARKERS = {
         "Worktree policy",
         "direct-automatic-worktree",
         "automatic-worktree-merge",
+        "registered Git worktree",
+        ".oh-no/worktrees/<task-slug>",
+        "plain directories",
     ),
     "architect": (
         "Worktree policy",
-        "automatic worktree execution plus merge",
+        "registered project-local Git worktree execution plus merge",
+        ".oh-no/worktrees/<task-slug>",
+        "invalid substitutes",
     ),
     "critic": (
         "Worktree policy",
-        "automatic worktree execution and merge responsibility",
+        "automatic registered Git worktree execution",
+        "registered project-local worktree execution and merge responsibility",
+        ".oh-no/worktrees/<task-slug>",
     ),
     "executor": (
         "Worktree decision",
@@ -288,6 +324,7 @@ EXECUTION_MODE_SHARED_MARKERS = (
     "Can a lighter mode produce credible evidence",
     "What would force escalation while working",
     "Worktree policy",
+    "Worktree location",
     "Worktree decision",
 )
 EXECUTION_MODE_SKILL_MARKERS = {
@@ -880,12 +917,21 @@ def assert_provider_guidance(root: Path) -> None:
                 die(f"{doc} is missing required Provider-Guidance marker: {marker!r}")
 
 
-def assert_worktree_contract(root: Path) -> None:
+def assert_worktree_contract(marketplace_root: Path, root: Path) -> None:
     path = root / "docs" / "shared" / "worktree-isolation.md"
     text = read_text(path)
     for marker in WORKTREE_SHARED_MARKERS:
         if marker not in text:
             die(f"{path} is missing required Worktree contract marker: {marker!r}")
+
+    forbidden_scan_paths = list(root.rglob("*.md"))
+    forbidden_scan_paths.extend(marketplace_root.glob("README*.md"))
+    forbidden_scan_paths.extend((marketplace_root / "scripts").glob("test-*.sh"))
+    for scan_path in forbidden_scan_paths:
+        scan_text = read_text(scan_path)
+        for marker in WORKTREE_FORBIDDEN_MARKERS:
+            if marker in scan_text:
+                die(f"{scan_path} contains forbidden old Worktree guidance: {marker!r}")
 
 
 def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
@@ -1188,7 +1234,7 @@ def main() -> None:
         assert_agent(root, agent)
     assert_execution_mode_contract(root)
     assert_provider_guidance(root)
-    assert_worktree_contract(root)
+    assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)
     assert_hook_contract(root)
     assert_claude_manifest_skills(root)

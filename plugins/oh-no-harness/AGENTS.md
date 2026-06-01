@@ -44,6 +44,7 @@ When adapting OMC content:
 - Use `.oh-no/specs/` for generated specs.
 - Use `.oh-no/plans/` for generated plans.
 - Use `.oh-no/sessions/` for transient workflow state.
+- Use `.oh-no/worktrees/` for project-local task worktrees.
 - Do not add OMC keyword detection, persistent mode hooks, bridge hooks, or state ledger behavior.
 - Do not reintroduce `team`, `ultrawork`, `ultraqa`, `cancel`, `ask`, or `autoresearch`.
 

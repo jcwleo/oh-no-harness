@@ -76,15 +76,19 @@ editing source files.
 
 `interview` and `ralplan` do not need to run inside a worktree by default because
 they produce pre-execution artifacts. The worktree gate starts at execution:
-direct `ralph` creates or selects a task worktree by default, records
+direct `ralph` creates or selects a registered Git worktree under
+`.oh-no/worktrees/<task-slug>` by default, records
 `Worktree decision: direct automatic worktree`, and does not edit files until
 that decision is visible.
+Automatic task worktrees should stay inside the project rather than appearing as
+parent-directory siblings unless an explicit fallback is recorded. Do not treat
+`git clone`, `cp -R`, or a plain directory as a valid Ralph task worktree.
 
 `autopilot` is the orchestration exception because it also owns integration back
 into the original checkout. When it reaches write-capable execution, it records
 `Worktree decision: autopilot automatic worktree`, creates or selects a task
-worktree, executes there, merges into the integration checkout, and runs
-post-merge verification.
+registered Git worktree under `.oh-no/worktrees/<task-slug>`, executes there,
+merges into the integration checkout, and runs post-merge verification.
 
 ## Interview Gate
 
@@ -129,6 +133,8 @@ Use `.oh-no/specs/` for generated specs.
 Use `.oh-no/plans/` for generated plans.
 
 Use `.oh-no/sessions/` for transient session artifacts.
+
+Use `.oh-no/worktrees/` for project-local Ralph and Autopilot task worktrees.
 
 Do not use legacy harness artifact paths.
 

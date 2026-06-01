@@ -49,13 +49,54 @@ Profile policy values:
 - `not-applicable`: read-only work or pre-execution artifacts that do not edit
   task-owned files.
 
+## Default Location
+
+Automatic task worktrees must be registered Git worktrees created with
+`git worktree add`. Do not substitute `git clone`, `cp -R`, a plain directory,
+or a manual checkout; those are not task worktrees for this contract.
+
+Automatic task worktrees are project-local by default. Create registered Git
+worktrees under:
+
+```text
+.oh-no/worktrees/<task-slug>
+```
+
+from the integration checkout, using a task-specific branch. This keeps task
+directories managed inside the project instead of scattering sibling worktrees
+through the parent workspace directory.
+
+Do not create automatic Ralph or Autopilot task worktrees as
+parent-directory siblings unless the project-local path is impossible or the
+user explicitly requests another location. If project-local worktree creation
+fails, record the blocker or explicit fallback decision before editing.
+
+Because `.oh-no/` is normally ignored by the repository, project-local worktree
+directories should not pollute the integration checkout's status. Still inspect
+`git worktree list` before reusing a task slug, and inspect task changes from
+inside the task worktree with `git -C .oh-no/worktrees/<task-slug> status` or an
+equivalent command. The integration checkout's `git status` may not show edits
+inside the ignored task worktree directory.
+
+Remove completed task worktrees with
+`git worktree remove .oh-no/worktrees/<task-slug>` only after integration and
+post-merge verification are complete. Do not clean up active task worktrees with
+manual deletion or broad cleanup commands that remove `.oh-no/`.
+
+If Ralph or Autopilot is invoked from inside an existing
+`.oh-no/worktrees/<task-slug>` checkout, do not create a
+recursive nested worktree under that task checkout. Treat the current checkout as
+`already in approved worktree` when it matches the task, or resolve worktree
+creation from the integration checkout and record the explicit path.
+
 ## Direct Ralph
 
-For direct `ralph` execution, create or select a task worktree by default before
-editing. Do not ask a worktree approval question. Skip automatic worktree
-creation only when the user explicitly asks to decide the execution location,
-the current checkout is already an approved task worktree, the task is read-only,
-or the repository cannot support a worktree.
+For direct `ralph` execution, create or select a registered Git worktree under
+`.oh-no/worktrees/<task-slug>` by default before editing. Do not ask a worktree
+approval question. Skip automatic worktree creation only when the user
+explicitly asks to decide the execution location, the current checkout is
+already an approved task worktree, the task is read-only, or the repository
+cannot support `git worktree add`.
 
 Record `Worktree decision: direct automatic worktree` in the session note or PRD
 before editing. If the current checkout is already the approved task worktree,
@@ -73,8 +114,9 @@ invalid.
 
 `autopilot` also uses automatic worktree execution. Its distinct responsibility
 is post-execution integration: for write-capable execution, it must create or
-select a task worktree automatically, record `Worktree decision: autopilot automatic worktree`,
-and run implementation inside that worktree.
+select a registered Git worktree under `.oh-no/worktrees/<task-slug>`
+automatically, record `Worktree decision: autopilot automatic worktree`, and run
+implementation inside that worktree.
 
 After execution passes verification in the task worktree, `autopilot` must merge
 the completed work back into the integration checkout, run post-merge
@@ -87,7 +129,10 @@ instead of silently editing the original checkout.
 ## Artifact Handoff
 
 When execution moves from the planning checkout into a worktree, preserve access
-to the approved `.oh-no` spec, plan, or PRD before editing. Use one of:
+to the approved `.oh-no` spec, plan, or PRD before editing. A project-local
+worktree under `.oh-no/worktrees/<task-slug>` does not automatically make the
+integration checkout's untracked `.oh-no/specs/`, `.oh-no/plans/`, or
+`.oh-no/sessions/` content available inside the task worktree. Use one of:
 
 - copy the relevant artifact into the worktree's `.oh-no` path
 - record an explicit absolute artifact path in the execution artifact
@@ -100,10 +145,12 @@ worktree.
 ## Command Shape
 
 Prefer ordinary git worktrees and task-specific branches. The exact names may
-follow the host project's conventions.
+follow the host project's conventions, but automatic task worktrees should stay
+under `.oh-no/worktrees/` unless an explicit fallback is recorded.
 
 ```sh
-git worktree add ../<repo>-<task-slug> -b <branch-name>
+mkdir -p .oh-no/worktrees
+git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>
 ```
 
 Before integrating, inspect the worktree diff. After integrating, run the

@@ -176,6 +176,7 @@ Work products go under `.oh-no/`:
 - `.oh-no/specs/` — interview output
 - `.oh-no/plans/` — ralplan output
 - `.oh-no/sessions/` — transient workflow state
+- `.oh-no/worktrees/` — project-local Ralph/Autopilot task worktrees
 - `.oh-no/test-runs/` — harness test logs
 
 ## Development

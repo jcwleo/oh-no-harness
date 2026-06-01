@@ -428,6 +428,7 @@ Execution profile:
 - Agent policy: inline-only | targeted-subagents | full-review-set
 - Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
+- Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -505,6 +506,7 @@ Verification tier: {LIGHT|STANDARD|THOROUGH}
 Agent policy: {inline-only|targeted-subagents|full-review-set}
 Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
 Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
+Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
 Cleanup policy: {not-needed|conditional|required}
 Task sizing: {short task-mode summary}
 
@@ -540,7 +542,7 @@ Analyst -> Planner -> Architect -> Critic: {completed in order, with one-line di
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 
 Worktree policy:
-{Direct Ralph automatically creates or selects a task worktree before editing; Autopilot automatically uses a task worktree and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans.}
+{Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Autopilot automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
 
 Verification:
 {commands or evidence plan}
@@ -555,6 +557,7 @@ Execution profile recap:
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
 - Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
 - Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
+- Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
 - Cleanup policy: {not-needed|conditional|required}
 - Task sizing: {short task-mode summary}
 - Escalation triggers: {short list or "None expected"}

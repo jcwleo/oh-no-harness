@@ -19,6 +19,7 @@ RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
+RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 
@@ -48,6 +49,7 @@ Options:
   --parallel-live    Run live Ralph parallel-subagent smoke test.
   --ralplan-live     Run live Ralplan sequential planning-subagent smoke test.
   --simplify-live    Run live simplify cleanup-subagent smoke test.
+  --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Skip the marketplace/app-server install step.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
@@ -60,7 +62,8 @@ Options:
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_SIMPLIFY_LIVE, OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
+  OH_NO_SIMPLIFY_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
+  OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -84,6 +87,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --simplify-live)
       RUN_SIMPLIFY_LIVE=1
+      shift
+      ;;
+    --worktree-live)
+      RUN_WORKTREE_LIVE=1
       shift
       ;;
     --skip-live)
@@ -594,6 +601,8 @@ run_live_skill_test() {
   local prompt
   prompt="$(live_prompt_for_skill "$skill")"
 
+  # `git worktree add` writes Git metadata under `.git/refs` and `.git/worktrees`;
+  # Codex workspace-write sandbox may block those writes even in this disposable repo.
   local cmd=(
     "$CODEX_BIN"
     --ask-for-approval never
@@ -646,13 +655,13 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, and execution mode contract before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     autopilot)
-      printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
+      printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
       ;;
     simplify)
       printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not run inline and simplify cannot run as designed if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
@@ -694,6 +703,7 @@ expected = {
         "negative",
         "edge",
         "old broken behavior",
+        ".oh-no/worktrees/<task-slug>",
         "host",
         "policy",
     ],
@@ -707,6 +717,8 @@ expected = {
         "Parallel trigger",
         "host",
         "policy",
+        ".oh-no/worktrees/<task-slug>",
+        "parent-directory",
         "test-driven-development",
         "internal mid-loop",
         "not a top-level implementation",
@@ -716,6 +728,7 @@ expected = {
         "OH_NO_CODEX_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
         "five complete",
+        ".oh-no/worktrees/<task-slug>",
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1416,6 +1429,102 @@ print("ok - live Codex simplify cleanup subagents spawned in one batch")
 PY
 }
 
+run_worktree_live_test() {
+  if [[ "$RUN_WORKTREE_LIVE" != "1" ]]; then
+    log "Skipping live Codex Ralph worktree-creation smoke test"
+    printf 'Run with --worktree-live or OH_NO_WORKTREE_LIVE=1 to verify Ralph creates a project-local task worktree.\n' >&2
+    return 0
+  fi
+
+  log "Running live Codex Ralph worktree-creation smoke test"
+  mkdir -p "$RUN_DIR"
+
+  local repo="$RUN_DIR/worktree-live-repo"
+  local out_file="$RUN_DIR/worktree-live.txt"
+  local log_file="$RUN_DIR/worktree-live.log"
+  rm -rf "$repo"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  git -C "$repo" config user.email "oh-no-harness@example.invalid"
+  git -C "$repo" config user.name "Oh No Harness Test"
+  printf '.oh-no/\n' >"$repo/.gitignore"
+  printf '# Worktree Live Fixture\n' >"$repo/README.md"
+  git -C "$repo" add .gitignore README.md
+  git -C "$repo" commit -q -m "initial fixture"
+
+  local prompt
+  prompt='Use the oh-no-harness:ralph skill. Live worktree creation smoke test. This repository is disposable. Concrete task: create src/worktree-live.txt containing exactly OH_NO_CODEX_WORKTREE_CONTENT and a trailing newline. Acceptance criteria: the file exists in a registered Git worktree created by git worktree add, the content matches exactly, and the original integration checkout is not edited. Follow Ralph worktree isolation before any source edit: run git worktree add .oh-no/worktrees/<task-slug> -b <branch-name> or select an already registered project-local Git worktree under .oh-no/worktrees/<task-slug>, record Worktree decision: direct automatic worktree, and do not create a parent-directory sibling worktree. git clone, cp -R, mkdir-only directories, and manual checkouts are invalid for this test. Do not merge back; leave the task worktree in place for external inspection. Run verification from the task worktree, including git worktree list --porcelain from the integration checkout. End the final response with OH_NO_CODEX_WORKTREE_LIVE_OK and include the exact Worktree location.'
+
+  local cmd=(
+    "$CODEX_BIN"
+    --ask-for-approval never
+    exec
+    --cd "$repo"
+    --sandbox danger-full-access
+    --output-last-message "$out_file"
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$log_file" 2>&1
+
+  "$PYTHON_BIN" - "$repo" "$out_file" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1]).resolve()
+out_file = Path(sys.argv[2])
+text = out_file.read_text(encoding="utf-8") if out_file.exists() else ""
+
+if "OH_NO_CODEX_WORKTREE_LIVE_OK" not in text:
+    raise SystemExit(f"worktree live smoke missing success marker; got {text!r}")
+
+root_file = repo / "src" / "worktree-live.txt"
+if root_file.exists():
+    raise SystemExit(f"Ralph edited integration checkout instead of only task worktree: {root_file}")
+
+worktree_root = repo / ".oh-no" / "worktrees"
+candidates = sorted(worktree_root.rglob("src/worktree-live.txt")) if worktree_root.exists() else []
+if not candidates:
+    raise SystemExit(f"no task worktree file found under {worktree_root}")
+
+valid_candidates = [
+    path for path in candidates
+    if path.read_text(encoding="utf-8") == "OH_NO_CODEX_WORKTREE_CONTENT\n"
+]
+if not valid_candidates:
+    details = {str(path): path.read_text(encoding="utf-8", errors="replace") for path in candidates}
+    raise SystemExit(f"task worktree file content did not match: {details!r}")
+
+porcelain = subprocess.check_output(
+    ["git", "-C", str(repo), "worktree", "list", "--porcelain"],
+    text=True,
+)
+registered = [
+    Path(line.split(" ", 1)[1]).resolve()
+    for line in porcelain.splitlines()
+    if line.startswith("worktree ")
+]
+project_local = [
+    path for path in registered
+    if path != repo and str(path).startswith(str(worktree_root.resolve()) + "/")
+]
+if not project_local:
+    raise SystemExit(f"no registered project-local task worktree in git worktree list: {porcelain!r}")
+
+if not any(any(str(candidate.resolve()).startswith(str(worktree) + "/") for worktree in project_local) for candidate in valid_candidates):
+    raise SystemExit(
+        "matching file was not inside a registered project-local worktree; "
+        f"candidates={valid_candidates!r} registered={project_local!r}"
+    )
+
+print("ok - live Codex Ralph created project-local task worktree")
+PY
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
@@ -1431,6 +1540,7 @@ main() {
   run_ralplan_live_test
   run_parallel_live_test
   run_simplify_live_test
+  run_worktree_live_test
   log "All requested Codex checks passed"
 }
 

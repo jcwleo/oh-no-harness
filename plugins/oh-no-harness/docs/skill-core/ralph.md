@@ -88,6 +88,7 @@ Represent work as stories:
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
     "parallelTrigger": "none | natural-dispatch | explicit-user-request | approved-plan-handoff",
     "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | autopilot automatic worktree | read-only/not applicable | blocked",
+    "worktreeLocation": ".oh-no/worktrees/<task-slug> | not-applicable | explicit fallback path",
     "cleanupPolicy": "not-needed | conditional | required"
   },
   "stories": [
@@ -146,7 +147,7 @@ For each story, record:
 - scope trace: how each intended file or change class maps to the request,
   approved plan, acceptance criterion, TDD evidence, or cleanup behavior lock
 - TDD requirement or exception
-- Worktree decision or the fact that the worktree gate has not yet been resolved
+- Worktree decision and location, or the fact that the worktree gate has not yet been resolved
 - verification command or evidence type
 
 ## Worktree Isolation Gate
@@ -170,19 +171,27 @@ decision before the first edit:
 - `read-only/not applicable`
 - `blocked`
 
-For direct Ralph execution, create or select a task worktree by default before
-editing and record `Worktree decision: direct automatic worktree`. Do not ask a
-worktree approval question. Skip automatic worktree creation only when the user
-explicitly asks to decide the execution location, the current checkout is already
-an approved task worktree, the task is read-only, or the repository cannot
-support a worktree. If the user explicitly declines worktree use, record
-`Worktree decision: user declined/current checkout` before editing. If the
-repository cannot support a worktree and no explicit current-checkout fallback is
-approved, record `Worktree decision: blocked` and stop before editing.
+For direct Ralph execution, create or select a registered Git worktree using
+`git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default
+before editing and record
+`Worktree decision: direct automatic worktree`. Do not ask a worktree approval
+question.
+Do not scatter automatic task worktrees into the parent workspace directory as
+sibling directories unless the project-local path is impossible or the user
+explicitly requests that location. Skip automatic worktree creation only when
+the user explicitly asks to decide the execution location, the current checkout
+is already an approved task worktree, the task is read-only, or the repository
+cannot support `git worktree add`. Do not use `git clone`, `cp -R`, a plain
+directory, or a manual checkout as a substitute. If the user explicitly declines
+worktree use, record `Worktree decision: user declined/current checkout` before
+editing. If the repository cannot support `git worktree add` and no explicit
+current-checkout fallback is approved, record `Worktree decision: blocked` and
+stop before editing.
 
 When invoked from `autopilot`, record `Worktree decision: autopilot automatic worktree`,
-create or select a task worktree, execute there, then return control to
-Autopilot for merge into the integration checkout and post-merge verification.
+create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
+execute there, then return control to Autopilot for merge into the
+integration checkout and post-merge verification.
 
 When execution moves to a worktree, preserve access to the approved `.oh-no`
 spec, plan, or PRD before editing. Copy the relevant artifact into the worktree,
@@ -381,7 +390,7 @@ Return:
 - Session directory.
 - PRD path.
 - Execution mode, mode source, parallel trigger, and policy decisions.
-- Worktree decision and integration checkout status.
+- Worktree decision, worktree location, and integration checkout status.
 - Stories completed.
 - Files changed.
 - Cleanup status.

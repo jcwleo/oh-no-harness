@@ -37,9 +37,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   silently replace it with your own direction.
 - Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
 - Review whether the `Worktree policy` from `docs/shared/worktree-isolation.md`
-  fits the execution path: direct Ralph should use automatic task worktree
-  execution, Autopilot should use automatic worktree execution plus merge, and
-  read-only work should be marked not applicable.
+  fits the execution path: direct Ralph should use a registered Git worktree
+  under `.oh-no/worktrees/<task-slug>`, Autopilot should use
+  registered project-local Git worktree execution plus merge, and read-only work should be
+  marked not applicable. Flag `git clone`, `cp -R`, or plain-directory plans as
+  invalid substitutes.
 - Recommend verification depth using `docs/shared/verification-tiers.md`.
 
 ## Operating Rules

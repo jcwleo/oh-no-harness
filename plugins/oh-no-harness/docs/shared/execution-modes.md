@@ -195,6 +195,7 @@ Execution profile:
 - Agent policy: inline-only | targeted-subagents | full-review-set
 - Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
+- Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
 - Cleanup policy: not-needed | conditional | required
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
@@ -212,6 +213,7 @@ Execution mode:
 - Agent policy:
 - Parallel trigger:
 - Worktree decision:
+- Worktree location:
 - Cleanup policy:
 - Task sizing:
 - Escalation triggers:

@@ -176,6 +176,7 @@ codex plugin marketplace upgrade oh-no-harness
 - `.oh-no/specs/` — interview 산출물
 - `.oh-no/plans/` — ralplan 산출물
 - `.oh-no/sessions/` — 일시적인 워크플로우 상태
+- `.oh-no/worktrees/` — 프로젝트 내부 Ralph/Autopilot 작업 worktree
 - `.oh-no/test-runs/` — harness 테스트 로그
 
 ## 개발

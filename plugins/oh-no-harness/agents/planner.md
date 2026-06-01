@@ -34,8 +34,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   with a current requirement, not a possible future need.
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Include a `Worktree policy` from `docs/shared/worktree-isolation.md`: direct
-  Ralph uses `direct-automatic-worktree`, Autopilot uses
-  `automatic-worktree-merge`, and read-only work uses `not-applicable`.
+  Ralph uses `direct-automatic-worktree` as a registered Git worktree under
+  `.oh-no/worktrees/<task-slug>`, Autopilot uses `automatic-worktree-merge` as a
+  registered Git worktree under `.oh-no/worktrees/<task-slug>`, and read-only
+  work uses `not-applicable`. Do not plan `git clone`, `cp -R`, or
+  plain directories as task worktree substitutes.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
 

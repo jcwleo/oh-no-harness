@@ -38,8 +38,10 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   relevant, and evidence mapping to acceptance criteria.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
 - Reject write-capable execution plans that skip `Worktree policy`, skip direct
-  Ralph's automatic task worktree execution, or fail to make Autopilot's
-  automatic worktree execution and merge responsibility explicit.
+  Ralph's automatic registered Git worktree execution under
+  `.oh-no/worktrees/<task-slug>`, substitute `git clone`, `cp -R`, or a plain
+  directory for a task worktree, or fail to make Autopilot's automatic
+  registered project-local worktree execution and merge responsibility explicit.
 - Challenge execution profiles that are heavier than needed or too light for the stated risk.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.

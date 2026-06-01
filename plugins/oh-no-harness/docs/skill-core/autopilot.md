@@ -106,12 +106,15 @@ If execution is handled inline instead of through `ralph`, first read `docs/shar
 
 For write-capable execution, read and follow
 `docs/shared/worktree-isolation.md`. Autopilot's distinct responsibility is
-end-to-end orchestration: it uses a task worktree automatically and then merges
-the completed work back into the integration checkout.
+end-to-end orchestration: it uses a registered Git worktree under
+`.oh-no/worktrees/<task-slug>` automatically and then merges the completed work
+back into the integration checkout. `git clone`, `cp -R`, and plain directories
+are not valid substitutes.
 
 Before editing files, Autopilot must:
 
-1. Create or select a task worktree.
+1. Create or select a registered Git worktree under
+   `.oh-no/worktrees/<task-slug>` using `git worktree add`.
 2. Record `Worktree decision: autopilot automatic worktree`.
 3. Preserve access to the approved `.oh-no` spec, plan, or PRD in the task
    worktree by copying the relevant artifact, recording an absolute artifact
