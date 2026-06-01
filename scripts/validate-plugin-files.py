@@ -17,7 +17,7 @@ PUBLIC_SKILLS = [
     "autopilot",
     "auto-routing",
     "test-driven-development",
-    "ai-slop-cleaner",
+    "simplify",
     "verification-before-completion",
     "systematic-debugging",
 ]
@@ -49,7 +49,7 @@ WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
     "autopilot",
     "auto-routing",
     "test-driven-development",
-    "ai-slop-cleaner",
+    "simplify",
     "verification-before-completion",
     "systematic-debugging",
 }
@@ -92,7 +92,7 @@ PLATFORM_SUBAGENT_MARKERS = {
     ),
     "ralph": (
         "Parallel trigger",
-        "prefer targeted subagents",
+        "dispatch targeted subagents by default",
         "whole eligible batch",
         "active adapter invocation syntax",
         "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
@@ -101,7 +101,7 @@ PLATFORM_SUBAGENT_MARKERS = {
     "ralplan": (
         "ralph with parallel subagents",
         "Run ralph with parallel subagents",
-        "preferred sequential subagent",
+        "must run as sequential subagents",
         "parallel subagent dispatch plan",
         "active platform wrapper's dispatch policy",
         "Planner Draft Contract",
@@ -110,7 +110,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Planner Revision Contract",
     ),
     "autopilot": (
-        "preserve independent",
+        "independent context",
         "Parallel trigger: natural-dispatch",
     ),
 }
@@ -179,12 +179,16 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
     "parallel-subagents.md": (
         "## Platform Invocation",
         "docs/shared/ralph-subagent-policy.md",
+        "batch dispatch, subagent",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
     ),
 }
 RALPH_SUBAGENT_POLICY_MARKERS = (
     "# Ralph Subagent Policy",
+    "## Subagent Bias",
+    "use subagents as much as possible",
+    "dispatch by default",
     "## Subagent-Unavailable Environments",
     "prefer dispatch over silently compressing every role",
     "platform's subagent",
@@ -363,9 +367,7 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "qa-tester",
     ),
 }
-SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY = {
-    "ai-slop-cleaner",
-}
+SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY: set[str] = set()
 AGENT_SKILL_RELATIONSHIP_MARKERS = (
     "## Skill Relationship",
     "not a public workflow skill",
@@ -410,10 +412,27 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
         "Every changed file and every meaningful changed line",
         "speculative abstraction",
     ),
-    "ai-slop-cleaner": (
+    "simplify": (
         "Speculative abstraction",
     ),
 }
+SIMPLIFY_PARALLEL_MARKERS = (
+    "requires four cleanup subagents",
+    "Always launch the Reuse",
+    "subagents in parallel",
+    "Do not replace this with an inline review pass",
+    "cannot dispatch",
+    "stop and report",
+    "Launch four independent cleanup subagents in parallel",
+    "in one batch before",
+    "Do not run these four review angles inline",
+    "Wait for all four cleanup subagents to complete",
+)
+SIMPLIFY_WRAPPER_MARKERS = (
+    "requires four parallel cleanup subagents",
+    "Do not replace them",
+    "cannot run as designed",
+)
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
         "smallest approach",
@@ -646,6 +665,17 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in SIMPLICITY_SCOPE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope marker: {marker!r}")
+    if skill == "simplify":
+        body = read_text(path)
+        for marker in SIMPLIFY_PARALLEL_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Simplify-Parallel marker: {marker!r}")
+        for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
+            wrapper_path = root / wrapper_root / skill / "SKILL.md"
+            wrapper_body = read_text(wrapper_path)
+            for marker in SIMPLIFY_WRAPPER_MARKERS:
+                if marker not in wrapper_body:
+                    die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:

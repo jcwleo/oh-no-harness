@@ -1,8 +1,8 @@
 # Parallel Subagent Pointer
 
 This file is a short pointer, not a second policy. The source of truth for
-parallel eligibility, isolation, fallback conditions, batch dispatch, and
-integration is `docs/shared/ralph-subagent-policy.md`.
+parallel eligibility, isolation, fallback conditions, batch dispatch, subagent
+bias, and integration is `docs/shared/ralph-subagent-policy.md`.
 
 Use this file only when a skill wants a quick reminder that parallel work still
 uses Ralph's shared subagent policy plus the active platform adapter.
@@ -20,8 +20,9 @@ actually dispatching subagents. If the active platform cannot dispatch, preserve
 the same role boundary inline and record the fallback reason required by
 `docs/shared/ralph-subagent-policy.md`.
 
-When a parallel batch is allowed, spawn the whole eligible batch first. Do not
-spawn one subagent, wait for it, and only then decide whether to spawn the rest.
+When a parallel batch is useful and allowed, spawn the whole eligible batch
+first. Do not spawn one subagent, wait for it, and only then decide whether to
+spawn the rest.
 
 ## Quick Checklist
 

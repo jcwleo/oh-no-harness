@@ -17,6 +17,7 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
+RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
@@ -32,7 +33,7 @@ PUBLIC_SKILLS=(
   autopilot
   auto-routing
   test-driven-development
-  ai-slop-cleaner
+  simplify
   verification-before-completion
   systematic-debugging
 )
@@ -67,6 +68,7 @@ Options:
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
+  --simplify-live        Run live simplify cleanup-subagent smoke test.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
@@ -80,7 +82,7 @@ Options:
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
-  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
+  OH_NO_SIMPLIFY_LIVE, OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
 USAGE
 }
 
@@ -100,6 +102,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
+      shift
+      ;;
+    --simplify-live)
+      RUN_SIMPLIFY_LIVE=1
       shift
       ;;
     --live-hook-only)
@@ -569,8 +575,8 @@ live_prompt_for_skill() {
     test-driven-development)
       printf '/%s:test-driven-development Implement a small behavior change. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
       ;;
-    ai-slop-cleaner)
-      printf '/%s:ai-slop-cleaner --review Review a small diff for AI-generated code slop. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
+    simplify)
+      printf '/%s:simplify --review Review a small diff for reuse, simplification, efficiency, and altitude cleanup. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the cleanup categories you would check.' "$PLUGIN_NAME"
       ;;
     verification-before-completion)
       printf '/%s:verification-before-completion Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the evidence gate you would apply before claiming completion.' "$PLUGIN_NAME"
@@ -853,6 +859,9 @@ deep_prompt_for_skill() {
     autopilot)
       printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
       ;;
+    simplify)
+      printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not run inline and simplify cannot run as designed if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
+      ;;
     *)
       fail "No deep live prompt for skill: $1"
       ;;
@@ -915,6 +924,25 @@ expected = {
         "Mode source",
         "Cleanup And Final Verification",
     ],
+    "simplify": [
+        "Required Behavior Lock",
+        "Phase 0 - Gather The Diff",
+        "Phase 1 - Review",
+        "Phase 2 - Apply The Fixes",
+        "Reuse",
+        "Simplification",
+        "Efficiency",
+        "Altitude",
+        "subagents",
+        "host",
+        "policy",
+        "one batch",
+        "before waiting",
+        "inline",
+        "cannot run as designed",
+        "false positive",
+        "intended behavior",
+    ],
 }
 
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
@@ -938,6 +966,7 @@ def terms_appear_in_order(*terms: str) -> bool:
 if skill == "interview" and not (
     "already available" in text_lower or "already in session" in text_lower
     or "already in the session" in text_lower
+    or "already present" in text_lower
 ):
     raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
 
@@ -1044,7 +1073,7 @@ run_deep_live_tests() {
 
   log "Running deep Claude linked-doc smoke tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph autopilot; do
+  for skill in interview ralplan ralph autopilot simplify; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
@@ -1507,6 +1536,248 @@ print("ok - live Claude role subagents spawned and completed")
 PY
 }
 
+run_simplify_live_test() {
+  if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
+    log "Skipping live Claude simplify cleanup-subagent smoke test"
+    printf 'Run with --simplify-live or OH_NO_SIMPLIFY_LIVE=1 to verify actual Claude simplify cleanup subagents.\n' >&2
+    return
+  fi
+
+  log "Running live Claude simplify cleanup-subagent smoke test (${LIVE_LOAD_MODE})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
+  local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
+  local prompt
+  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Claude background subagents exactly four times in one batch before any task completion notification. Direct Task or Agent background tasks are preferred. If you use Workflow instead, use Promise.all with four agent() calls. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes."
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$LIVE_MODEL"
+    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+    # Subagent smoke tests are non-interactive; dontAsk can auto-deny Workflow.
+    --permission-mode bypassPermissions
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. You may use background subagents only for the requested simplify verification. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
+required_payload_markers = [
+    "Scope: current diff",
+    "Do not edit files",
+    "Do not create artifacts",
+    "Do not apply cleanup fixes",
+    "Do not run Phase 2",
+    "Expected output: findings with file, line, summary, concrete cost",
+]
+angle_markers = {
+    "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
+    "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
+    "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
+    "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def angles_in_payload(text):
+    matches = []
+    for angle in expected_angles:
+        if re.search(rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$", text):
+            matches.append(angle)
+    return matches
+
+init_ok = False
+task_tool_uses = []
+tasks_by_angle = defaultdict(list)
+bad_background_payloads = []
+task_starts = []
+first_task_notification_index = None
+workflow_tool_ids = set()
+workflow_scripts = []
+workflow_completed = False
+summary_text = []
+marker = False
+errors = []
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if "OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK" in collect_text(data):
+            marker = True
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            tools = set(data.get("tools", []))
+            init_ok = bool({"Task", "Agent", "Workflow"} & tools)
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    matched_angles = angles_in_payload(payload_text)
+                    if len(matched_angles) == 1:
+                        if payload.get("run_in_background") is not True:
+                            bad_background_payloads.append((index, payload_text[:1000]))
+                        angle = matched_angles[0]
+                        task_tool_uses.append((index, angle, payload))
+                        tasks_by_angle[angle].append((index, payload_text))
+                    elif "Angle:" in payload_text:
+                        raise SystemExit(
+                            "expected each Claude simplify task prompt to contain exactly one Angle line; "
+                            f"line={index} angles={matched_angles!r} payload={payload_text[:2000]!r}"
+                        )
+                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
+                    workflow_tool_ids.add(part.get("id"))
+                    script = collect_text(part.get("input", {}).get("script", ""))
+                    if script:
+                        workflow_scripts.append((index, script))
+                if part.get("type") == "text":
+                    summary_text.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            task_starts.append((index, data.get("task_id")))
+        if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
+            if first_task_notification_index is None:
+                first_task_notification_index = index
+            if (
+                data.get("status") == "completed"
+                and (
+                    data.get("tool_use_id") in workflow_tool_ids
+                    or "workflow" in str(data.get("summary", "")).lower()
+                )
+            ):
+                workflow_completed = True
+        if data.get("type") == "result" and data.get("is_error") is True:
+            errors.append((index, str(data.get("result", ""))[:1000]))
+        if data.get("type") == "result":
+            summary_text.append(str(data.get("result", "")))
+
+if not init_ok:
+    raise SystemExit("Claude simplify cleanup smoke did not expose Task, Agent, or Workflow tooling")
+if errors:
+    raise SystemExit(f"Claude simplify cleanup smoke returned errors: {errors!r}")
+if bad_background_payloads:
+    raise SystemExit(
+        "Claude simplify cleanup task prompts were not marked as background tasks: "
+        f"{bad_background_payloads!r}"
+    )
+
+if not task_tool_uses and workflow_scripts:
+    workflow_script = "\n".join(script for _, script in workflow_scripts)
+    workflow_script_lower = workflow_script.lower()
+    missing_angles = [
+        angle for angle in expected_angles
+        if angle.lower() not in workflow_script_lower
+    ]
+    missing_markers = [
+        marker for marker in ["Angle:", *angle_markers.values(), *required_payload_markers]
+        if marker.lower() not in workflow_script_lower
+    ]
+    agent_calls = re.findall(r"\bagent\s*\(", workflow_script)
+    if missing_angles or missing_markers:
+        raise SystemExit(
+            "Claude simplify Workflow script did not include required cleanup angle prompt markers: "
+            f"missing_angles={missing_angles!r} missing_markers={missing_markers!r}"
+        )
+    if "promise.all" not in workflow_script_lower or len(agent_calls) < len(expected_angles):
+        raise SystemExit("Claude simplify Workflow did not prove four batched parallel agent() calls")
+    if re.search(r"\bawait\s+agent\s*\(", workflow_script):
+        raise SystemExit("Claude simplify Workflow used serial await agent() instead of a Promise.all batch")
+    if not workflow_completed:
+        raise SystemExit("Claude simplify Workflow task did not report completion")
+    if not marker:
+        raise SystemExit("Claude simplify cleanup smoke did not return success marker")
+    combined_summary_text = "\n".join(summary_text).lower()
+    missing_summary_angles = [
+        angle for angle in expected_angles
+        if angle.lower() not in combined_summary_text
+    ]
+    if missing_summary_angles:
+        raise SystemExit(
+            "Claude simplify Workflow success summary did not mention every cleanup angle: "
+            f"{missing_summary_angles!r}"
+        )
+    print("ok - live Claude simplify cleanup subagents spawned in one Workflow batch")
+    sys.exit(0)
+
+if len(task_tool_uses) != len(expected_angles):
+    raise SystemExit(
+        f"expected exactly {len(expected_angles)} Claude simplify task uses, "
+        f"got {len(task_tool_uses)}: {task_tool_uses!r}"
+    )
+missing_angles = [angle for angle in expected_angles if angle not in tasks_by_angle]
+duplicate_angles = {
+    angle: payloads for angle, payloads in tasks_by_angle.items()
+    if len(payloads) != 1
+}
+if missing_angles or duplicate_angles:
+    raise SystemExit(
+        "Claude simplify cleanup angles did not match the required set: "
+        f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
+    )
+if len(task_starts) < len(expected_angles):
+    raise SystemExit(f"expected at least {len(expected_angles)} task_started events, got {task_starts!r}")
+if first_task_notification_index is not None:
+    angles_before_first_notification = {
+        angle for index, angle, _ in task_tool_uses
+        if index < first_task_notification_index
+    }
+    if set(expected_angles) != angles_before_first_notification:
+        raise SystemExit(
+            "Claude simplify cleanup tasks were not launched as one batch before the first completion notification; "
+            f"expected={expected_angles!r} got={sorted(angles_before_first_notification)!r}"
+        )
+for angle, payloads in tasks_by_angle.items():
+    _, payload = payloads[0]
+    missing_payload_markers = [
+        marker for marker in [f"Angle: {angle}", f"Marker: {angle_markers[angle]}", *required_payload_markers]
+        if marker.lower() not in payload.lower()
+    ]
+    if missing_payload_markers:
+        raise SystemExit(
+            f"Claude simplify task prompt for {angle} missed required markers: "
+            f"{missing_payload_markers}; payload={payload[:2000]!r}"
+        )
+if not marker:
+    raise SystemExit("Claude simplify cleanup smoke did not return success marker")
+combined_summary_text = "\n".join(summary_text).lower()
+missing_summary_angles = [
+    angle for angle in expected_angles
+    if angle.lower() not in combined_summary_text
+]
+if missing_summary_angles:
+    raise SystemExit(
+        "Claude simplify cleanup success summary did not mention every cleanup angle: "
+        f"{missing_summary_angles!r}"
+    )
+
+print("ok - live Claude simplify cleanup subagents spawned in one batch")
+PY
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
@@ -1521,6 +1792,7 @@ main() {
   run_deep_live_tests
   run_ralplan_live_test
   run_parallel_live_test
+  run_simplify_live_test
   log "All requested checks passed"
 }
 

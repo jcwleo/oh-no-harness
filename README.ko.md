@@ -138,7 +138,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:test-driven-development <변경>` | 동작이 바뀌는 모든 수정 — RED / GREEN / REFACTOR 강제. |
 | `/oh-no-harness:systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/oh-no-harness:verification-before-completion` | "완료" / "수정됨" / "준비됨" 선언 전 — 새 증거를 요구합니다. |
-| `/oh-no-harness:ai-slop-cleaner` | 구현 후 정리 — 일회용 산출물을 제거합니다. |
+| `/oh-no-harness:simplify` | 구현 후 품질 정리 - 재사용, 단순화, 효율, 적절한 추상화 깊이를 점검합니다. |
 | `/oh-no-harness:auto-routing on\|off\|status` | skill 선택 가이드 강도를 토글 (Claude Code 한정). |
 | `/oh-no-harness:using-oh-no-harness` | 최상위 인덱스 — 다른 skill이 기억나지 않을 때 여기서 시작. |
 

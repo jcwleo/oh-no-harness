@@ -15,6 +15,22 @@ Ralph may dispatch subagents only when all of these are true:
 - the work can be isolated by file ownership, read-only scope, or review role
 - the main agent can integrate the results deliberately
 
+## Subagent Bias
+
+OpenAI Codex subagent guidance emphasizes that subagents keep noisy
+intermediate work out of the main thread, preserve focus on requirements and
+decisions, run independent exploration, tests, and log analysis in parallel, and
+return distilled summaries instead of raw context-heavy output.
+
+Oh No Harness should use subagents as much as possible when those benefits
+apply. Treat a standing user or plan preference to use subagents aggressively as
+explicit authorization for eligible isolated roles. On subagent-capable hosts,
+dispatch by default for read-heavy exploration, triage, test/log analysis,
+summarization, verification, QA, security review, code review, and other
+independent review roles. Inline execution is the exception for work that is too
+small to benefit, cannot be isolated, requires tight TDD sequencing, lacks host
+support, or has been explicitly made inline-only.
+
 Explicit user or plan requests are sufficient when the host platform permits
 dispatch. Natural dispatch is allowed only when the host tool definition permits
 it and the selected mode, task risk, scope isolation, and context-window benefit
@@ -24,15 +40,16 @@ When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The
 goal is independent evidence and context separation, not merely parallelism.
 
-`LIGHT` work stays inline unless the user requested delegation, a specific
-check cannot be credibly completed inline, or a narrow isolated task clearly
-benefits from context separation.
+`LIGHT` work may stay inline only when it is a tiny, direct edit or inspection
+with no meaningful context-separation benefit. Dispatch isolated read-heavy,
+review, or verification checks when they would keep the main thread cleaner.
 
-`STANDARD` work may use targeted subagents for isolated exploration,
-implementation, review, verification, QA, or security checks.
+`STANDARD` work should use targeted subagents for isolated exploration,
+implementation, review, verification, QA, or security checks whenever the active
+platform supports them and coordination cost is reasonable.
 
-`THOROUGH` work should use the role set warranted by the risk whenever the
-active platform and approved plan allow it.
+`THOROUGH` work must use the role set warranted by the risk whenever the active
+platform supports dispatch and the roles can be isolated.
 
 ## Subagent-Unavailable Environments
 

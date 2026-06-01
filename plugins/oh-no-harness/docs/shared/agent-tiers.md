@@ -31,10 +31,12 @@ This file is not a dispatch contract. Ralph dispatch uses
 lightest credible level of scrutiny for a role after the active skill has
 decided that the role is needed.
 
-Inline execution is appropriate for LIGHT work, for platforms without
-subagents, when there is no concrete dispatch-worthy scope, or when a small
-check can be credibly handled inside the current pass. The Escalation Rules
-below still govern when to climb tiers.
+Inline execution is appropriate only for tiny LIGHT work, platforms without
+subagents, missing dispatch-worthy scope, tight sequencing, or checks that have
+no meaningful context-separation benefit. Prefer dispatch for read-heavy,
+review, verification, QA, security, and exploration roles whenever the active
+skill and host policy allow it. The Escalation Rules below still govern when to
+climb tiers.
 
 ## Skill Boundary
 

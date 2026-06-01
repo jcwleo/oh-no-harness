@@ -35,7 +35,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Treat untraceable changes outside the approved scope as defects, not style preferences.
 - Use Bash only for non-mutating inspection or verification commands.
 - Do not repeat implementation summaries before findings.
-- Recommend `ai-slop-cleaner` only for behavior-preserving cleanup after functional approval.
+- Recommend `simplify` only for behavior-preserving quality cleanup after functional approval.
 
 ## Output
 

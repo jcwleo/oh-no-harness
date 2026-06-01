@@ -74,9 +74,11 @@ Interview has one required agent role:
 |---|---|
 | `explore` | Gather brownfield repository facts before asking codebase questions. |
 
-When `explore` is dispatched, use the active platform wrapper's role-dispatch
-rules. The role prompt, not the display name alone, defines the agent's
-behavior.
+When repository facts are needed, dispatch `explore` on subagent-capable hosts
+so exploratory output stays outside the main interview thread. Use inline
+exploration only when dispatch is unavailable or the lookup is too small to
+benefit from context separation. The role prompt, not the display name alone,
+defines the agent's behavior.
 
 Do not use execution, review, or planning agents inside this skill. Once the spec is approved, use the next skill selected by the user.
 

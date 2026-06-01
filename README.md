@@ -138,7 +138,7 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:test-driven-development <change>` | Any behavior-changing edit — enforces RED / GREEN / REFACTOR. |
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
-| `/oh-no-harness:ai-slop-cleaner` | Post-implementation cleanup — removes throwaway artifacts. |
+| `/oh-no-harness:simplify` | Post-implementation quality cleanup for reuse, simplification, efficiency, and altitude. |
 | `/oh-no-harness:auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
 | `/oh-no-harness:using-oh-no-harness` | Top-level index — start here if you forget the others. |
 

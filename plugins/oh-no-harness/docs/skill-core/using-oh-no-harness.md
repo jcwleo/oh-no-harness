@@ -32,7 +32,7 @@ The available public skills are:
 - `autopilot`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
 - `auto-routing`: toggle stronger SessionStart skill-selection guidance for users who want it.
 - `test-driven-development`: enforce RED/GREEN/REFACTOR before behavior-changing production edits.
-- `ai-slop-cleaner`: remove AI-generated code slop while preserving behavior.
+- `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
 - `verification-before-completion`: verify evidence before claiming work is complete, fixed, passing, or ready.
 - `systematic-debugging`: investigate bugs, failing commands, regressions, and unexpected behavior before fixing.
 
@@ -46,7 +46,7 @@ For LLM software development, prefer this order when the request is not already 
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside implementation before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
-7. `ai-slop-cleaner`: clean AI-generated residue only after behavior is locked and functional review has passed.
+7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and functional review has passed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
 Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
@@ -98,7 +98,7 @@ When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the
 
 Workflow skills (`interview`, `ralplan`, `ralph`) currently define this handoff. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
 
-Internal mid-loop skills used inside an already-invoked workflow skill — for example `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop — are part of that skill's documented procedure and do not require a separate per-step transition question.
+Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
 The single exception is `autopilot`. When the user invokes `autopilot`, autopilot may move between `interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
 

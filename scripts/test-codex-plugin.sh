@@ -18,6 +18,7 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
+RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 
@@ -29,7 +30,7 @@ PUBLIC_SKILLS=(
   autopilot
   auto-routing
   test-driven-development
-  ai-slop-cleaner
+  simplify
   verification-before-completion
   systematic-debugging
 )
@@ -46,6 +47,7 @@ Options:
   --deep-live        Run live deep smoke tests that require linked support docs.
   --parallel-live    Run live Ralph parallel-subagent smoke test.
   --ralplan-live     Run live Ralplan sequential planning-subagent smoke test.
+  --simplify-live    Run live simplify cleanup-subagent smoke test.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Skip the marketplace/app-server install step.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
@@ -58,7 +60,7 @@ Options:
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
+  OH_NO_SIMPLIFY_LIVE, OH_NO_TEST_RUN_DIR, OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -78,6 +80,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
+      shift
+      ;;
+    --simplify-live)
+      RUN_SIMPLIFY_LIVE=1
       shift
       ;;
     --skip-live)
@@ -554,8 +560,8 @@ live_prompt_for_skill() {
     test-driven-development)
       printf 'Use the oh-no-harness:test-driven-development skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK test-driven-development.'
       ;;
-    ai-slop-cleaner)
-      printf 'Use the oh-no-harness:ai-slop-cleaner skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ai-slop-cleaner.'
+    simplify)
+      printf 'Use the oh-no-harness:simplify skill for reuse, simplification, efficiency, and altitude cleanup. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK simplify.'
       ;;
     verification-before-completion)
       printf 'Use the oh-no-harness:verification-before-completion skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK verification-before-completion.'
@@ -636,6 +642,9 @@ deep_prompt_for_skill() {
     autopilot)
       printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
       ;;
+    simplify)
+      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not run inline and simplify cannot run as designed if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
+      ;;
     *)
       fail "No deep live prompt for skill: $1"
       ;;
@@ -695,6 +704,26 @@ expected = {
         "Mode source",
         "Cleanup And Final Verification",
     ],
+    "simplify": [
+        "OH_NO_CODEX_DEEP_OK simplify",
+        "Required Behavior Lock",
+        "Phase 0 - Gather The Diff",
+        "Phase 1 - Review",
+        "Phase 2 - Apply The Fixes",
+        "Reuse",
+        "Simplification",
+        "Efficiency",
+        "Altitude",
+        "subagents",
+        "host",
+        "policy",
+        "one batch",
+        "before waiting",
+        "inline",
+        "cannot run as designed",
+        "false positive",
+        "intended behavior",
+    ],
 }
 
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
@@ -712,6 +741,7 @@ def terms_appear_in_order(*terms: str) -> bool:
 if skill == "interview" and not (
     "already available" in text_lower or "already in session" in text_lower
     or "already in the session" in text_lower
+    or "already present" in text_lower
 ):
     raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
 
@@ -812,7 +842,7 @@ run_deep_live_tests() {
 
   log "Running deep Codex linked-doc smoke tests"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph autopilot; do
+  for skill in interview ralplan ralph autopilot simplify; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
@@ -1207,6 +1237,171 @@ print("ok - live Codex role subagents spawned with per-role prompt embedding")
 PY
 }
 
+run_simplify_live_test() {
+  if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
+    log "Skipping live Codex simplify cleanup-subagent smoke test"
+    printf 'Run with --simplify-live or OH_NO_SIMPLIFY_LIVE=1 to verify actual Codex simplify cleanup subagents.\n' >&2
+    return
+  fi
+
+  log "Running live Codex simplify cleanup-subagent smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
+  local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
+  local prompt
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After all four cleanup subagents finish, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes.'
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+err_path = sys.argv[2]
+expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
+required_payload_markers = [
+    "Scope: current diff",
+    "Do not edit files",
+    "Do not create artifacts",
+    "Do not apply cleanup fixes",
+    "Do not run Phase 2",
+    "Expected output: findings with file, line, summary, concrete cost",
+]
+angle_markers = {
+    "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
+    "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
+    "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
+    "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def angles_in_payload(text):
+    matches = []
+    for angle in expected_angles:
+        if re.search(rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$", text):
+            matches.append(angle)
+    return matches
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex simplify cleanup smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+successful_spawns = []
+failed_spawns = []
+spawns_by_angle = defaultdict(list)
+wait_or_close_indexes = []
+marker = False
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if "OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK" in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool in {"wait", "wait_agent", "close_agent"}:
+            wait_or_close_indexes.append(index)
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            spawn_text = collect_text(item)
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"completed Codex simplify spawn_agent call must have exactly one receiver thread id; "
+                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
+                )
+            matched_angles = angles_in_payload(spawn_text)
+            if len(matched_angles) != 1:
+                raise SystemExit(
+                    "expected each completed simplify spawn_agent payload to contain exactly one Angle line; "
+                    f"line={index} angles={matched_angles!r} text={spawn_text[:2000]!r}"
+                )
+            angle = matched_angles[0]
+            successful_spawns.append((index, angle, tuple(receivers), spawn_text))
+            spawns_by_angle[angle].append((index, spawn_text))
+
+if failed_spawns:
+    raise SystemExit(f"Codex simplify cleanup smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(successful_spawns) != len(expected_angles):
+    raise SystemExit(
+        f"expected exactly {len(expected_angles)} completed simplify spawn_agent calls, "
+        f"got {len(successful_spawns)}: {successful_spawns!r}"
+    )
+missing_angles = [angle for angle in expected_angles if angle not in spawns_by_angle]
+duplicate_angles = {
+    angle: payloads for angle, payloads in spawns_by_angle.items()
+    if len(payloads) != 1
+}
+if missing_angles or duplicate_angles:
+    raise SystemExit(
+        "Codex simplify cleanup angles did not match the required set: "
+        f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
+    )
+receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
+if len(receiver_ids) != len(expected_angles):
+    raise SystemExit(f"expected {len(expected_angles)} distinct simplify receiver threads, got {receiver_ids!r}")
+if not wait_or_close_indexes:
+    raise SystemExit("Codex simplify cleanup smoke did not wait for or close spawned cleanup subagents")
+first_wait_or_close = min(wait_or_close_indexes)
+last_spawn = max(index for index, _, _, _ in successful_spawns)
+if first_wait_or_close < last_spawn:
+    raise SystemExit(
+        "Codex simplify cleanup subagents were not launched as one batch before waiting; "
+        f"first_wait_or_close={first_wait_or_close} last_spawn={last_spawn}"
+    )
+for angle, payloads in spawns_by_angle.items():
+    _, payload = payloads[0]
+    missing_markers = [
+        marker for marker in [f"Angle: {angle}", f"Marker: {angle_markers[angle]}", *required_payload_markers]
+        if marker.lower() not in payload.lower()
+    ]
+    if missing_markers:
+        raise SystemExit(
+            f"Codex simplify spawn_agent payload for {angle} missed required prompt markers: "
+            f"{missing_markers}; payload={payload[:2000]!r}"
+        )
+if not marker:
+    raise SystemExit("Codex simplify cleanup smoke did not return success marker")
+
+print("ok - live Codex simplify cleanup subagents spawned in one batch")
+PY
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
@@ -1221,6 +1416,7 @@ main() {
   run_deep_live_tests
   run_ralplan_live_test
   run_parallel_live_test
+  run_simplify_live_test
   log "All requested Codex checks passed"
 }
 

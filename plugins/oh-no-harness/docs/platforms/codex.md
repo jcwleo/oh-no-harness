@@ -59,8 +59,13 @@ the host permits dispatch. Natural dispatch is allowed only when the host tool
 definition permits it and the active skill explicitly allows natural dispatch
 for the role.
 
-For `ralplan`, Planner, Architect, and Critic are preferred sequential subagent
-candidates whenever dispatch is available because independent context improves
+When the user, plan, or skill states a standing preference to maximize
+subagents, treat that as explicit authorization for eligible isolated roles
+inside the active workflow. Keep Codex host-policy limits, but do not require
+the user to repeat literal subagent wording on every step.
+
+For `ralplan`, Planner, Architect, and Critic should run as sequential
+subagents whenever dispatch is available because independent context improves
 planning, review, and critique. Architect waits for Planner. Critic waits for
 Architect.
 

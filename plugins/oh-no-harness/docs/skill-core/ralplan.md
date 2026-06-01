@@ -95,7 +95,7 @@ acceptance criteria.
 11. Mark the plan `pending approval` unless the user explicitly approves execution.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
-Prefer real role subagents for the consensus roles on subagent-capable hosts.
+Use real role subagents for the consensus roles on subagent-capable hosts.
 Planner, Architect, and Critic are not decorative labels; their separated
 context is part of the planning quality bar. Run them inline only when the
 platform cannot dispatch subagents, the host policy does not authorize dispatch,
@@ -644,10 +644,10 @@ Ralplan uses these roles directly.
 This table governs *agent role* dispatch only — workflow-skill chaining
 (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. Use
 the active platform wrapper's dispatch policy. Planner, Architect, and Critic
-are preferred sequential subagent candidates on subagent-capable hosts because
-they benefit from independent context windows. Otherwise run the roles inline
-while preserving the same role blocks and record the inline fallback reason and
-the subagent-unavailable condition from `docs/shared/ralph-subagent-policy.md`.
+must run as sequential subagents on subagent-capable hosts because they benefit
+from independent context windows. Otherwise run the roles inline while
+preserving the same role blocks and record the inline fallback reason and the
+subagent-unavailable condition from `docs/shared/ralph-subagent-policy.md`.
 Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the
 active platform adapter.
 

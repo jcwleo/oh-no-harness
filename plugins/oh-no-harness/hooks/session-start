@@ -34,7 +34,7 @@ Default routing summary:
 - Use oh-no-harness:systematic-debugging for bugs, failing commands, regressions, flaky behavior, or unknown root cause.
 - Use oh-no-harness:test-driven-development inside execution before behavior-changing edits.
 - Use oh-no-harness:verification-before-completion before claiming done, fixed, passing, ready, or verified.
-- Use oh-no-harness:ai-slop-cleaner only after behavior is locked and AI-generated residue needs cleanup.
+- Use oh-no-harness:simplify only after behavior is locked and changed code needs reuse, simplification, efficiency, or altitude cleanup.
 
 This bootstrap is only a compact routing reminder. The selected skill file is the source of truth. Skill chaining remains explicit: when interview, ralplan, or ralph presents a Next Skill Handoff, ask the user for the next-step choice before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
@@ -55,7 +55,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 - Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.
 - About to make a behavior-changing production edit: oh-no-harness:test-driven-development.
 - About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.
-- AI-generated diff needs behavior-preserving cleanup before delivery: oh-no-harness:ai-slop-cleaner.
+- Changed diff needs behavior-preserving quality cleanup before delivery: oh-no-harness:simplify.
 
 After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
 

@@ -6,11 +6,16 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Source file |
 |---|---|
-| `docs/skill-core/ai-slop-cleaner.md` | `omc/raw/skills/ai-slop-cleaner/SKILL.md` |
 | `docs/skill-core/ralplan.md` | `omc/raw/skills/ralplan/SKILL.md` plus `omc/raw/skills/plan/SKILL.md` consensus workflow content |
 | `docs/skill-core/interview.md` | OMC requirements-discovery skill content, renamed locally |
 | `docs/skill-core/ralph.md` | `omc/raw/skills/ralph/SKILL.md` |
 | `docs/skill-core/autopilot.md` | `omc/raw/skills/autopilot/SKILL.md` |
+
+## Claude Code Built-In Skill Parity
+
+| Oh No Harness file | Source file |
+|---|---|
+| `docs/skill-core/simplify.md` | Claude Code built-in `simplify` skill, adapted for Codex and Oh No Harness cleanup gates |
 
 ## OMC-Derived Agents
 

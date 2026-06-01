@@ -8,7 +8,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 - `ralplan`
 - `ralph`
 - `autopilot`
-- `ai-slop-cleaner`
+- `simplify` cleanup, adapted from Claude Code's built-in skill for Codex parity
 - `plan --consensus` behavior embedded directly in `ralplan`
 - `test-driven-development`, `verification-before-completion`, and `systematic-debugging` as Superpowers-derived safety workflows
 - selected agents needed by those skills

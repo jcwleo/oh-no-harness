@@ -24,7 +24,7 @@
     "./skills-claude/autopilot/",
     "./skills-claude/auto-routing/",
     "./skills-claude/test-driven-development/",
-    "./skills-claude/ai-slop-cleaner/",
+    "./skills-claude/simplify/",
     "./skills-claude/verification-before-completion/",
     "./skills-claude/systematic-debugging/"
   ],

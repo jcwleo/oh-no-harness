@@ -11,7 +11,7 @@ Keep the external skill surface limited to:
 - `autopilot`
 - `auto-routing`
 - `test-driven-development`
-- `ai-slop-cleaner`
+- `simplify`
 - `verification-before-completion`
 - `systematic-debugging`
 

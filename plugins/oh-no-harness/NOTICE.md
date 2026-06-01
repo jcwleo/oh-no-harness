@@ -11,6 +11,6 @@ The first version intentionally keeps only the workflow content needed for:
 - `ralplan`
 - `ralph`
 - `autopilot`
-- `ai-slop-cleaner`
+- `simplify`
 
 The OMC keyword detector, persistent mode hook, bridge hook, runtime state ledger, and removed skills are not included.

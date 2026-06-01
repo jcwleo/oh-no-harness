@@ -26,7 +26,7 @@ The external skill surface is intentionally small:
 - `autopilot`
 - `auto-routing`
 - `test-driven-development`
-- `ai-slop-cleaner`
+- `simplify`
 - `verification-before-completion`
 - `systematic-debugging`
 
@@ -143,7 +143,7 @@ oh-no-harness/
       SKILL.md
     autopilot/
       SKILL.md
-    ai-slop-cleaner/
+    simplify/
       SKILL.md
     internal/
       plan/
@@ -202,7 +202,7 @@ ralph
   -> PRD/story loop
   -> executor agents
   -> verifier/reviewer agents
-  -> ai-slop-cleaner
+  -> simplify
   -> final verification report
 ```
 
@@ -276,7 +276,7 @@ Keep:
 - executor delegation
 - verification tiers
 - reviewer approval before completion
-- mandatory `ai-slop-cleaner` pass unless explicitly disabled
+- mandatory `simplify` pass unless explicitly disabled
 - final verification report
 
 Ralph should use project-local artifacts, for example:
@@ -311,11 +311,11 @@ Keep:
 
 Autopilot should detect existing `interview` specs and `ralplan` plans using the new artifact paths, not `.omc/` paths.
 
-### `ai-slop-cleaner`
+### `simplify`
 
-Derived from OMC `ai-slop-cleaner`.
+Adapted from Claude Code's built-in `simplify` skill for Codex parity.
 
-Keep it as a skill, not an agent. `ralph` calls it through normal skill handoff after reviewer approval and before final verification.
+Keep it as a skill, not an agent. `ralph` calls it as a mid-loop cleanup skill after reviewer approval and before final verification.
 
 No hook detection is included. Users can also invoke it directly as a normal skill.
 
@@ -473,7 +473,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
   - `autopilot`
   - `auto-routing`
   - `test-driven-development`
-  - `ai-slop-cleaner`
+  - `simplify`
   - `verification-before-completion`
   - `systematic-debugging`
 - The plan consensus workflow is fully embedded into `ralplan`.
@@ -495,7 +495,7 @@ The implementation should proceed in small stages:
 3. Copy/adapt shared docs.
 4. Copy/adapt agents.
 5. Copy/adapt skills in dependency order:
-   - `ai-slop-cleaner`
+   - `simplify`
    - `ralplan`
    - `interview`
    - `ralph`

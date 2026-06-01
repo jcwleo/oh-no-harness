@@ -30,17 +30,21 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Agent Roles
 
-Use the listed roles as the failure requires. The default flow is diagnostic
-first (`debugger` and, when context is missing, `explore`), then the minimal fix
-(`executor` or inline work), then evidence (`verifier`). `architect` is a
+Use the listed roles as the failure requires. On subagent-capable hosts, dispatch
+isolated diagnostic and evidence roles by default so logs, traces, and exploratory
+output do not pollute the main thread. The default flow is diagnostic first
+(`debugger` and, when context is missing, `explore`), then the minimal fix
+(`executor` subagent when the write scope is isolated, otherwise inline with a
+recorded reason), then evidence (`verifier`). `architect` is a
 conditional escalation role, not a required final step: use it immediately when
 three fix attempts fail, architecture-level coupling appears, or the apparent
 fix would change broad APIs, product behavior, data handling, security, or
 delivery scope. Dispatch is governed by the active skill's platform policy and
 Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
 
-Respect the active platform wrapper for dispatch versus inline execution. When
-any listed role is dispatched, apply the active platform's role prompt and
+Respect the active platform wrapper for dispatch versus inline execution. Do not
+collapse diagnostic or evidence roles inline when the host can dispatch them
+with an isolated scope. When any listed role is dispatched, apply the active platform's role prompt and
 dispatch requirements before the task-specific failure, scope, expected output,
 and verification responsibility.
 
@@ -61,7 +65,7 @@ and verification responsibility.
 5. State one root-cause hypothesis with evidence.
 6. Test the hypothesis with the smallest diagnostic step.
 7. For behavior fixes, read and follow `test-driven-development` to create a failing reproduction test before changing production code.
-8. Apply the minimal fix with `executor` or inline work.
+8. Apply the minimal fix with `executor` when the write scope is isolated; use inline work only with a recorded reason.
 9. Run the reproduction check, relevant regression checks, and `verification-before-completion` before claiming the failure is fixed.
 
 ## Stop Conditions

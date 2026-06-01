@@ -31,6 +31,12 @@ does not authorize dispatch, Ralph must perform roles inline and record
 plan trigger on a host that allows natural dispatch, record
 `Parallel trigger: natural-dispatch`.
 
+A standing user or plan preference to maximize subagents is an explicit dispatch
+signal for the whole eligible Ralph run. Use it to dispatch isolated roles as
+much as possible within Codex host-policy limits, especially read-heavy
+exploration, test/log analysis, verification, QA, security, code review, and
+other independent review roles.
+
 ## Invocation
 
 When dispatch is selected, use Codex `spawn_agent`.

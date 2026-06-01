@@ -79,7 +79,7 @@ ralph
   -> code-reviewer
   -> security-reviewer when risk requires
   -> qa-tester when workflow testing is required
-  -> ai-slop-cleaner after functional reviewer approval
+  -> simplify after functional reviewer approval
   -> verification-before-completion before final completion claims
 
 autopilot
@@ -98,7 +98,7 @@ test-driven-development
   -> no outbound skill dependency
   -> evidence consumed by ralph, verifier, code-reviewer, debugger, and qa-tester
 
-ai-slop-cleaner
+simplify
   -> no outbound skill dependency
 
 verification-before-completion
@@ -147,7 +147,7 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `executor` | `ralph`, implementation phases | `explore`, `architect`, `debugger`, `verifier` |
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `architect`, `executor`, `verifier` |
 | `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, final evidence | `code-reviewer`, `security-reviewer`, `qa-tester` |
-| `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation | `verifier`, `security-reviewer`, `ai-slop-cleaner` recommendation |
+| `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation | `verifier`, `security-reviewer`, `simplify` recommendation |
 | `security-reviewer` | security-sensitive validation | `verifier`, `code-reviewer` |
 | `qa-tester` | user-facing validation | `debugger`, `verifier` |
 

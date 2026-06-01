@@ -125,7 +125,9 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-`ai-slop-cleaner` is a skill, not an agent.
+`simplify` is a skill, not an agent. On Claude Code, use the host built-in
+`simplify` skill when available; on Codex, use the Oh No Harness `simplify`
+skill.
 
 `verification-before-completion` and `systematic-debugging` are skills, not agents.
 
@@ -232,16 +234,16 @@ This section governs *agent role* dispatch only. Workflow-skill chaining (`inter
 
 Ralph must follow the selected execution mode and agent policy:
 
-- `LIGHT`: inline by default. Dispatch subagents only when the user requested
-  delegation, a specific check cannot be credibly performed inline, or a narrow
-  isolated task clearly benefits from context separation.
-- `STANDARD`: prefer targeted subagents on subagent-capable hosts when they
-  clearly improve evidence, reduce risk, save context window, reduce latency, or
-  handle an isolated scope. Use `verifier` or `code-reviewer` for
+- `LIGHT`: stay inline only for tiny direct edits or checks with no meaningful
+  context-separation benefit. Dispatch isolated read-heavy, review, or
+  verification checks when they would keep the main thread cleaner.
+- `STANDARD`: dispatch targeted subagents by default on subagent-capable hosts
+  when they improve evidence, reduce risk, save context window, reduce latency,
+  or handle an isolated scope. Use `verifier` or `code-reviewer` for
   behavior-affecting or workflow changes when independent evidence is useful.
-- `THOROUGH`: use the full role set warranted by the risk. Dispatch on
-  subagent-capable platforms when allowed by the platform policy; otherwise
-  perform the roles inline while preserving role boundaries.
+- `THOROUGH`: use the full role set warranted by the risk. Dispatch every
+  required role that can be isolated on subagent-capable platforms; inline only
+  for documented subagent-unavailable or unsafe-to-isolate cases.
 
 Respect the platform rules from the active public skill wrapper and the Ralph
 platform adapter. A `UserPromptSubmit` hook injects the active adapter
@@ -345,9 +347,9 @@ Cleanup happens only after functional review approval.
 
 Cleanup is mode-gated:
 
-- `LIGHT`: run `ai-slop-cleaner` only when changed files show actual cleanup candidates; otherwise record cleanup as not needed.
+- `LIGHT`: run `simplify` only when changed files show actual reuse, simplification, efficiency, or altitude cleanup candidates; otherwise record cleanup as not needed.
 - `STANDARD`: run cleanup when behavior is locked and the changed files show cleanup candidates; rerun relevant verification afterward.
-- `THOROUGH`: run `ai-slop-cleaner` after functional review unless explicitly disabled, then rerun verification and any focused post-cleanup review required by risk.
+- `THOROUGH`: run `simplify` after functional review unless explicitly disabled, then rerun verification and any focused post-cleanup review required by risk.
 
 The post-cleanup pass must answer:
 
@@ -365,7 +367,7 @@ Continue until:
 - verification evidence exists
 - required TDD evidence exists, or each exception is documented
 - review required by the selected mode is approved or a blocking reason is documented
-- `ai-slop-cleaner` ran, was explicitly disabled, or was recorded as not needed by the selected mode
+- `simplify` ran, was explicitly disabled, or was recorded as not needed by the selected mode
 - post-cleanup verification passed when cleanup changed files
 - `verification-before-completion` ran for the final completion claim
 - final report was written
@@ -389,4 +391,4 @@ Return:
 
 Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`interview`, `ralplan`, `autopilot`). Further work needs a fresh user request and a new skill selection.
 
-Internal mid-loop skills used during the execution loop — `test-driven-development`, `ai-slop-cleaner`, `verification-before-completion`, `systematic-debugging` — are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.
+Internal mid-loop skills used during the execution loop - `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging` - are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.

@@ -57,8 +57,8 @@ Dispatch each phase's listed agents as separate subagents on subagent-capable
 platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
 Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
 active platform wrapper. For the `ralplan` phase, Planner, Architect, and Critic
-are sequential but may still run as separate subagents to preserve independent
-context when the active host supports dispatch. Explicit user or plan wording is
+are sequential but should still run as separate subagents to preserve
+independent context when the active host supports dispatch. Explicit user or plan wording is
 sufficient when the host permits dispatch; natural dispatch is allowed when the
 active skill permits it and the host tool definition allows it. The phase
 boundaries below still hold either way.
@@ -67,7 +67,7 @@ boundaries below still hold either way.
 |---|---|
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `architect` -> `critic` in that order. Architect always completes before Critic. The plan must set the Ralph execution profile and include the four role outputs or inline role blocks. |
-| Execute | Follow `ralph`; dispatch or inline `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk. |
+| Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
 | Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 

@@ -73,17 +73,19 @@ Typical signals:
 Ralph behavior:
 
 - record the selected mode and reason before editing
-- keep implementation inline by default
+- keep direct implementation inline only for tiny edits or checks
+  with no meaningful context-separation benefit
 - skip PRD scaffolding unless the user or input explicitly requires it
-- do not dispatch subagents unless the current platform policy allows it and
-  the user requested delegation, a check cannot be credibly performed inline, or
-  a narrow isolated task clearly benefits from context separation
+- dispatch subagents for isolated read-heavy, review, or verification checks
+  when the current platform policy allows it and context separation would keep
+  the main thread cleaner
 - document TDD as not applicable or as an exception when there is no behavior
   change
 - run LIGHT verification from `docs/shared/verification-tiers.md`
 - record the `Worktree decision` before editing when the task is write-capable
 - run `verification-before-completion` before the final claim
-- run `ai-slop-cleaner` only when the diff shows actual AI residue; otherwise
+- run `simplify` only when the diff shows actual reuse, simplification,
+  efficiency, or altitude cleanup candidates; otherwise
   record cleanup as not needed
 
 ## STANDARD
@@ -109,10 +111,11 @@ Ralph behavior:
   or a plan/spec already uses story structure
 - use TDD for behavior-changing production edits and bug fixes; document narrow
   exceptions for docs-only, config-only, generated, or prompt-only work
-- implement inline unless the platform policy allows a targeted subagent that
-  clearly reduces risk, context pressure, or latency
-- use `verifier` or `code-reviewer` only for behavior-affecting or workflow
-  changes where independent evidence is useful
+- dispatch targeted subagents by default for isolated exploration, review,
+  verification, QA, security, or log/test analysis when the platform supports
+  them and coordination cost is reasonable
+- use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
+  where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
 - record the `Worktree decision` before editing when the task is write-capable
 - run cleanup only after the behavior lock exists and the changed files show
@@ -140,15 +143,16 @@ Ralph behavior:
   `verification.md`
 - execute story by story and keep task-level modes visible inside the PRD
 - use TDD or explicit approved exceptions for behavior changes
-- dispatch or inline every required role according to platform policy,
-  available host subagent support, `docs/shared/agent-tiers.md`,
-  `docs/shared/ralph-subagent-policy.md`, and the active platform adapter
+- dispatch every required role that can be isolated according to platform
+  policy, available host subagent support, `docs/shared/agent-tiers.md`,
+  `docs/shared/ralph-subagent-policy.md`, and the active platform adapter;
+  inline only for documented subagent-unavailable or unsafe-to-isolate cases
 - run reviewer roles for correctness and maintainability; add architect,
   security, QA, or critic review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
 - record the `Worktree decision` before editing when the task is write-capable
-- run `ai-slop-cleaner` after functional review unless explicitly disabled,
+- run `simplify` after functional review unless explicitly disabled,
   then rerun verification and any needed focused review
 - run `verification-before-completion` before the final claim
 
