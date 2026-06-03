@@ -57,11 +57,11 @@ Dispatch each phase's listed agents as separate subagents on subagent-capable
 platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
 Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
 active platform wrapper. For the `ralplan` phase, Planner, Architect, and Critic
-are sequential but should still run as separate subagents to preserve
-independent context when the active host supports dispatch. Explicit user or plan wording is
-sufficient when the host permits dispatch; natural dispatch is allowed when the
-active skill permits it and the host tool definition allows it. The phase
-boundaries below still hold either way.
+are sequential but must still run as separate subagents when the active host
+supports dispatch so each role keeps independent context. Explicit user or plan wording is sufficient when the host
+permits dispatch; natural dispatch is allowed when the active skill permits it
+and the host tool definition allows it. The phase boundaries below still hold
+either way.
 
 | Phase | Agents |
 |---|---|
@@ -71,14 +71,18 @@ boundaries below still hold either way.
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
 | Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 
-When inline work can run in parallel, read `docs/shared/ralph-subagent-policy.md`;
-`docs/shared/parallel-subagents.md` is only a short pointer back to that policy.
-Use the same ownership and integration rules as `ralph`. If the user invoked
-autopilot with `parallel`, `subagents`, `spawn`, `delegate`, or `one agent per`
-language, preserve that phrase in the Ralph handoff as an explicit dispatch
-signal. If the plan selects natural dispatch instead, preserve
-`Parallel trigger: natural-dispatch` in the Ralph handoff only on hosts whose
-tool definition permits natural dispatch.
+When independent delegated phase work can run in parallel, or when inline
+fallback role blocks need the same isolation plan, read
+`docs/shared/ralph-subagent-policy.md`; `docs/shared/parallel-subagents.md` is
+only a short pointer back to that policy.
+Use the same ownership and integration rules as `ralph`. If the approved plan
+selects `Parallel trigger: approved-plan-handoff`, preserve that trigger in the
+Ralph handoff and treat it as the default parallel-capable execution path. If
+the user invoked autopilot with `parallel`, `subagents`, `spawn`, `delegate`, or
+`one agent per` language outside an approved plan profile, preserve that phrase
+as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
+only for direct Ralph execution on hosts whose tool definition permits natural
+dispatch.
 
 ## Phases
 

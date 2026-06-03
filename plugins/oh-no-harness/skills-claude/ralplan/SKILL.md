@@ -1,7 +1,7 @@
 ---
 name: ralplan
 description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs consensus implementation planning before coding.
-argument-hint: "[--subagents] <task, spec path, or plan request>"
+argument-hint: "<task, spec path, or plan request>"
 ---
 
 # Ralplan for Claude Code

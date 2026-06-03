@@ -37,6 +37,14 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 | `security-reviewer` | Review auth, data, file system, network, secrets, or policy-sensitive changes. |
 | `qa-tester` | Validate user-facing flows or scenario coverage. |
 
+On subagent-capable hosts, dispatch `verifier` by default for nontrivial
+completion claims so evidence mapping stays independent from the implementation
+thread. Add `code-reviewer`, `security-reviewer`, or `qa-tester` subagents when
+the changed scope, selected verification tier, or user-facing risk warrants
+them. Inline verification is appropriate only for tiny direct checks with no
+context-separation benefit or when dispatch is unavailable; record that fallback
+or no-benefit reason before making the claim.
+
 When any verification role is dispatched, apply the active platform's role
 prompt and dispatch requirements before the claim, evidence scope, expected
 output, and no-edit instruction for read-only review roles.

@@ -28,15 +28,16 @@ behavior, adding scope, or replacing implementation review.
 
 ## Agent Roles
 
-This skill requires four cleanup subagents. Always launch the Reuse,
+This skill requires four cleanup role passes. Always launch the Reuse,
 Simplification, Efficiency, and Altitude review passes as independent
 subagents in parallel through the active platform's approved subagent or task
-mechanism. Do not replace this with an inline review pass; the context
-separation is part of the skill's value. If the active host cannot dispatch
-subagents, stop and report that `simplify` cannot run as designed in that
-environment. If a cleanup change needs additional independent evidence after
-the fixes, return that need to the caller so `verifier` or `code-reviewer` can
-review the result after the cleanup pass.
+mechanism when dispatch is available. Do not collapse this into a single
+undifferentiated review; the separated viewpoints are part of the skill's value.
+If the active host cannot dispatch subagents, preserve the same four role
+boundaries as separate inline fallback blocks and record the dispatch-unavailable
+reason before continuing. If a cleanup change needs additional independent
+evidence after the fixes, return that need to the caller so `verifier` or
+`code-reviewer` can review the result after the cleanup pass.
 
 ## When To Use
 
@@ -92,11 +93,14 @@ Launch four independent cleanup subagents in parallel, in one batch before
 waiting for any result. Pass each subagent the review diff and assign exactly
 one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
 platform's approved mechanism, such as Claude Code's Task tool or Codex
-subagent dispatch when available.
+subagent dispatch when available. The caller owns lifecycle: after each cleanup
+subagent result is captured, close or clean up the completed subagent using the
+active platform mechanism.
 
-Do not run these four review angles inline. If subagent dispatch is unavailable,
-stop and report the blocker rather than degrading the skill into a single-agent
-review.
+Do not degrade these four review angles into one generic inline pass. If
+subagent dispatch is unavailable, run Reuse, Simplification, Efficiency, and
+Altitude as four separate inline fallback blocks with the same assigned scope,
+expected output, and fallback reason.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -129,9 +133,10 @@ the reviewed scope.
 
 ## Phase 2 - Apply The Fixes
 
-Wait for all four cleanup subagents to complete. Deduplicate findings that
-point at the same line or mechanism, then fix each remaining
-behavior-preserving cleanup directly.
+Wait for all four cleanup subagents to complete. Capture every result, close or
+clean up each completed cleanup subagent, deduplicate findings that point at the
+same line or mechanism, then fix each remaining behavior-preserving cleanup
+directly.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather

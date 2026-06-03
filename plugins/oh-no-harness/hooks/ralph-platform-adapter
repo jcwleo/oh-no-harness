@@ -11,12 +11,32 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OH_NO_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 stdin_payload="$(cat || true)"
-lowered_payload="$(printf '%s' "$stdin_payload" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+prompt_text=""
+if command -v python3 >/dev/null 2>&1; then
+  prompt_text="$(printf '%s' "$stdin_payload" | python3 -c 'import json, sys
+raw = sys.stdin.read()
+try:
+    print(json.loads(raw).get("prompt", ""))
+except Exception:
+    pass
+' 2>/dev/null || true)"
+fi
+if [ -z "$prompt_text" ]; then
+  prompt_text="$(printf '%s' "$stdin_payload" | sed -n 's/.*"prompt"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+fi
+if [ -z "$prompt_text" ]; then
+  prompt_text="$stdin_payload"
+fi
+lowered_prompt="$(printf '%s' "$prompt_text" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+lowered_prompt="${lowered_prompt#"${lowered_prompt%%[![:space:]]*}"}"
 
 is_ralph_prompt=0
-case "$lowered_payload" in
-  *"oh-no-harness:ralph"*|*"use ralph"*|*"run ralph"*|*"ralph with parallel subagents"*|*"/ralph"*|*'$ralph'*|*" ralph "*|*"ralph로"*|*"랄프"*)
+case "$lowered_prompt" in
+  "oh-no-harness:ralph"*|"use oh-no-harness:ralph"*|"run oh-no-harness:ralph"*|"execute oh-no-harness:ralph"*|"invoke oh-no-harness:ralph"*|"start oh-no-harness:ralph"*|"use ralph to"*|"use ralph on"*|"use ralph with"*|"run ralph"*|"please run ralph"*|"please use ralph"*|"could you run ralph"*|"can you run ralph"*|"could you use ralph"*|"can you use ralph"*|*"then run ralph"*|*"then use ralph"*|*"and run ralph"*|*"and use ralph"*|*"execute ralph"*|*"invoke ralph"*|*"start ralph"*|"ralph with parallel subagents"*|"/ralph"*|'$ralph'*|"ralph로 구현"*|"ralph로 진행"*|"ralph로 실행"*|"ralph 로 구현"*|"ralph 로 진행"*|"ralph 로 실행"*|"ralph 해줘"*|"랄프로 구현"*|"랄프로 진행"*|"랄프로 실행"*|"랄프 로 구현"*|"랄프 로 진행"*|"랄프 로 실행"*|"랄프 해줘"*)
     is_ralph_prompt=1
+    ;;
+  "what "*|"what's "*|"how "*|"explain "*|"compare "*|"review "*|"tell me about "*|"describe "*|"why "*)
+    is_ralph_prompt=0
     ;;
 esac
 

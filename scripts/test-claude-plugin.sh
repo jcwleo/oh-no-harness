@@ -444,7 +444,7 @@ PY
   ok "session-start adds rg search guidance only when rg is available"
 
   temp_data="$(mktemp -d)"
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with parallel subagents."}\n' >"$temp_data/ralph-prompt.json"
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph on the approved plan."}\n' >"$temp_data/ralph-prompt.json"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
     <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
   "$PYTHON_BIN" - "$temp_data/ralph-adapter.json" <<'PY'
@@ -463,6 +463,9 @@ required = [
     "docs/shared/ralph-subagent-policy.md",
     "docs/platforms/claude-code-ralph.md",
     "@agent-oh-no-harness:<agent>",
+    "Parallel trigger:",
+    "approved-plan-handoff",
+    "close or cleanup",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -471,6 +474,118 @@ for forbidden in ("CODEX_ONLY_RALPH_ADAPTER", "docs/platforms/codex-ralph.md", "
     if forbidden in text:
         raise SystemExit(f"Claude Ralph adapter leaked Codex marker: {forbidden}")
 PY
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff"}\n' >"$temp_data/ralph-approved-handoff-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-approved-handoff-prompt.json" >"$temp_data/ralph-approved-handoff-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-approved-handoff-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+required = ["CLAUDE_CODE_ONLY_RALPH_ADAPTER", "approved-plan-handoff"]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Claude approved-plan-handoff Ralph adapter missing markers: {missing}")
+PY
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"What does Parallel trigger: approved-plan-handoff mean?"}\n' >"$temp_data/approved-handoff-discussion-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/approved-handoff-discussion-prompt.json" >"$temp_data/approved-handoff-discussion.out"
+  if [[ -s "$temp_data/approved-handoff-discussion.out" ]]; then
+    fail "Ralph adapter emitted context for marker-only Claude prompt"
+  fi
+
+  discussion_index=0
+  for discussion_prompt in \
+    "What is oh-no-harness:ralph?" \
+    "Explain oh-no-harness:ralph before I choose it." \
+    "What does Ralph do in the final review step?" \
+    "Review the current diff, especially the ralph hook adapter." \
+    "Compare ralplan and ralph before implementation." \
+    "Should I run ralph?" \
+    "Do not run ralph yet." \
+    "When would you run ralph?" \
+    "Can you explain how to run ralph?"; do
+    discussion_index=$((discussion_index + 1))
+    printf '{"hook_event_name":"UserPromptSubmit","prompt":"%s"}\n' "$discussion_prompt" >"$temp_data/ralph-discussion-$discussion_index.json"
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+      <"$temp_data/ralph-discussion-$discussion_index.json" >"$temp_data/ralph-discussion-$discussion_index.out"
+    if [[ -s "$temp_data/ralph-discussion-$discussion_index.out" ]]; then
+      fail "Ralph adapter emitted context for generic Claude Ralph discussion prompt $discussion_index"
+    fi
+  done
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Please run ralph now."}\n' >"$temp_data/ralph-please-run-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-please-run-prompt.json" >"$temp_data/ralph-please-run-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-please-run-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude explicit please-run Ralph prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 구현해줘"}\n' >"$temp_data/ralph-korean-implementation-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-korean-implementation-prompt.json" >"$temp_data/ralph-korean-implementation-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-korean-implementation-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude Korean Ralph implementation prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"랄프로 구현해줘"}\n' >"$temp_data/ralph-hangul-implementation-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-hangul-implementation-prompt.json" >"$temp_data/ralph-hangul-implementation-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-hangul-implementation-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude Hangul Ralph implementation prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"oh-no-harness:ralph implement the approved plan"}\n' >"$temp_data/ralph-direct-command-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-direct-command-prompt.json" >"$temp_data/ralph-direct-command-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-direct-command-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude direct oh-no-harness:ralph command did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Review the approved plan, then run ralph on it"}\n' >"$temp_data/ralph-review-then-run-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-review-then-run-prompt.json" >"$temp_data/ralph-review-then-run-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-review-then-run-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude review-then-run Ralph prompt did not inject adapter")
+PY
+
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"Explain the repository layout."}\n' >"$temp_data/non-ralph-prompt.json"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
     <"$temp_data/non-ralph-prompt.json" >"$temp_data/non-ralph-adapter.out"
@@ -886,7 +1001,7 @@ deep_prompt_for_skill() {
       printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
       ;;
     simplify)
-      printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not run inline and simplify cannot run as designed if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
+      printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -970,8 +1085,8 @@ expected = {
         "host",
         "one batch",
         "before waiting",
-        "inline",
-        "cannot run as designed",
+        "inline fallback",
+        "fallback reason",
         "false positive",
         "intended behavior",
     ],
@@ -1386,7 +1501,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, and do not continue if any task fails. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:architect, oh-no-harness:critic, oh-no-harness:executor. Wave 3: oh-no-harness:debugger, oh-no-harness:verifier, oh-no-harness:code-reviewer. Wave 4: oh-no-harness:security-reviewer, oh-no-harness:qa-tester. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:architect, oh-no-harness:critic, oh-no-harness:executor. Wave 3: oh-no-harness:debugger, oh-no-harness:verifier, oh-no-harness:code-reviewer. Wave 4: oh-no-harness:security-reviewer, oh-no-harness:qa-tester. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1580,7 +1695,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Claude background subagents exactly four times in one batch before any task completion notification. Direct Task or Agent background tasks are preferred. If you use Workflow instead, use Promise.all with four agent() calls. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes."
+  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Claude background subagents exactly four times in one batch before any task completion notification. Direct Task or Agent background tasks are preferred. If you use Workflow instead, use Promise.all with four agent() calls. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"

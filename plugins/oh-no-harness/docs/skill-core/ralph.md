@@ -86,7 +86,7 @@ Represent work as stories:
     "verificationTier": "LIGHT | STANDARD | THOROUGH",
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
-    "parallelTrigger": "none | natural-dispatch | explicit-user-request | approved-plan-handoff",
+    "parallelTrigger": "approved-plan-handoff | explicit-user-request | natural-dispatch | none",
     "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | autopilot automatic worktree | read-only/not applicable | blocked",
     "worktreeLocation": ".oh-no/worktrees/<task-slug> | not-applicable | explicit fallback path",
     "cleanupPolicy": "not-needed | conditional | required"
@@ -228,7 +228,12 @@ This loop is the top-level shape. Detail for review, cleanup, agent dispatch, pa
 Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
 
 1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, and `docs/shared/ralph-subagent-policy.md`.
-2. Set or confirm the required execution mode before editing. Record mode source, verification tier, artifact policy, agent policy, cleanup policy, task sizing, and escalation triggers.
+2. Set or confirm the required execution mode before editing. Record mode
+   source, verification tier, artifact policy, agent policy, parallel trigger,
+   cleanup policy, task sizing, and escalation triggers. When the input is an
+   approved `ralplan` plan and the user chooses ordinary `oh-no-harness:ralph`,
+   treat that handoff as `Parallel trigger: approved-plan-handoff`; no separate
+   "parallel Ralph" wording is needed.
 3. Resolve the `## Worktree Isolation Gate` before editing. Record the `Worktree decision`, preserve approved artifact access when moving to a worktree, and stop if the decision is missing or blocked.
 4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
@@ -256,23 +261,33 @@ Ralph must follow the selected execution mode and agent policy:
   required role that can be isolated on subagent-capable platforms; inline only
   for documented subagent-unavailable or unsafe-to-isolate cases.
 
+Default Ralph execution is parallel-capable. An approved ralplan handoff to
+ordinary `oh-no-harness:ralph` authorizes every eligible isolated role in the
+plan's dispatch profile. Ralph should actively look for safe parallel batches
+for exploration, disjoint executors, test/log analysis, verification, QA,
+security review, code review, and other independent review roles. Inline
+execution is the fallback, not the default, when `agentPolicy` is not
+`inline-only`.
+
 Respect the platform rules from the active public skill wrapper and the Ralph
 platform adapter. A `UserPromptSubmit` hook injects the active adapter
 immediately before Ralph runs when plugin hooks are enabled; if no hook context
 is visible, read the active platform document named by the wrapper directly.
 Without a dispatch-worthy role or scope, without host authorization, or in a
 subagent-unavailable environment from `docs/shared/ralph-subagent-policy.md`,
-perform roles inline and record `Parallel trigger: none`; when dispatch is
-selected naturally on a host that permits it, record `Parallel trigger:
+perform roles inline and record `Parallel trigger: none` plus the fallback
+reason. When dispatch comes from an approved ralplan handoff, record
+`Parallel trigger: approved-plan-handoff`; when dispatch is selected naturally on
+a host that permits it without a ralplan handoff, record `Parallel trigger:
 natural-dispatch`.
 
 Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
 ## Parallel Subagent Policy
 
-Use parallel subagents only when the selected execution mode and agent policy
-allow dispatch, the current platform supports it, and the work can be safely
-isolated.
+Use parallel subagents by default when the selected execution mode and agent
+policy allow dispatch, the current platform supports it, and the work can be
+safely isolated.
 
 Respect the same active platform dispatch policy noted in
 `## Mode-Gated Agent Dispatch`. Read and apply
@@ -293,6 +308,8 @@ Before dispatching, partition the work and write down:
 - expected output
 - verification responsibility
 - dependencies on other subagents
+- lifecycle owner: who captures output and closes or cleans up the completed
+  subagent
 - platform invocation: active adapter invocation syntax
 - start timing: foreground, background, or sequential after another role
 
@@ -316,6 +333,7 @@ Expected output: {patch, findings, evidence, or test result}
 TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
 Verification responsibility: {command/evidence}
 Platform invocation: {active adapter invocation syntax}
+Lifecycle: caller captures the result, integrates or records it, then closes or cleans up the completed subagent using the active platform mechanism
 Coordination: You are not alone in the codebase. Do not revert, overwrite, or reformat work outside your scope. Report conflicts instead of resolving them silently.
 ````
 
@@ -323,9 +341,11 @@ After parallel work completes, integrate sequentially:
 
 1. Inspect each subagent result and changed-file set.
 2. Resolve conflicts deliberately.
-3. Run story-specific verification.
-4. Run cross-story verification when shared behavior could be affected.
-5. Only then mark stories complete.
+3. Close or clean up each completed subagent after its output has been captured
+   and integrated, rejected, or recorded as blocked.
+4. Run story-specific verification.
+5. Run cross-story verification when shared behavior could be affected.
+6. Only then mark stories complete.
 
 ## Review Gate
 

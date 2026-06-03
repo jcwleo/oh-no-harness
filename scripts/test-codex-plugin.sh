@@ -282,7 +282,7 @@ if "rg --files" not in text:
     raise SystemExit("Codex SessionStart rg guidance is missing rg --files")
 PY
 
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Run ralph with parallel subagents. Spawn one agent per independent task."}\n' >"$temp_data/ralph-prompt.json"
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Run ralph on the approved plan."}\n' >"$temp_data/ralph-prompt.json"
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
     <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
   "$PYTHON_BIN" - "$temp_data/ralph-adapter.json" <<'PY'
@@ -304,6 +304,8 @@ required = [
     "Agent prompt content:",
     "spawn_agent",
     "wait_agent",
+    "close_agent",
+    "Parallel trigger: approved-plan-handoff",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -311,6 +313,119 @@ if missing:
 for forbidden in ("CLAUDE_CODE_ONLY_RALPH_ADAPTER", "docs/platforms/claude-code-ralph.md", "@agent-oh-no-harness:<agent>"):
     if forbidden in text:
         raise SystemExit(f"Codex Ralph adapter leaked Claude marker: {forbidden}")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff"}\n' >"$temp_data/ralph-approved-handoff-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-approved-handoff-prompt.json" >"$temp_data/ralph-approved-handoff-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-approved-handoff-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+required = ["CODEX_ONLY_RALPH_ADAPTER", "Parallel trigger: approved-plan-handoff"]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Codex approved-plan-handoff Ralph adapter missing markers: {missing}")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"What does Parallel trigger: approved-plan-handoff mean?"}\n' >"$temp_data/approved-handoff-discussion-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/approved-handoff-discussion-prompt.json" >"$temp_data/approved-handoff-discussion.out"
+  if [[ -s "$temp_data/approved-handoff-discussion.out" ]]; then
+    fail "Ralph adapter emitted context for marker-only Codex prompt"
+  fi
+
+  discussion_index=0
+  for discussion_prompt in \
+    "What is oh-no-harness:ralph?" \
+    "Explain oh-no-harness:ralph before I choose it." \
+    "What does Ralph do in the final review step?" \
+    "Review the current diff, especially the ralph hook adapter." \
+    "Compare ralplan and ralph before implementation." \
+    "Should I run ralph?" \
+    "Do not run ralph yet." \
+    "When would you run ralph?" \
+    "Can you explain how to run ralph?"; do
+    discussion_index=$((discussion_index + 1))
+    printf '{"hook_event_name":"UserPromptSubmit","prompt":"%s"}\n' "$discussion_prompt" >"$temp_data/ralph-discussion-$discussion_index.json"
+    PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+      <"$temp_data/ralph-discussion-$discussion_index.json" >"$temp_data/ralph-discussion-$discussion_index.out"
+    if [[ -s "$temp_data/ralph-discussion-$discussion_index.out" ]]; then
+      fail "Ralph adapter emitted context for generic Codex Ralph discussion prompt $discussion_index"
+    fi
+  done
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Please run ralph now."}\n' >"$temp_data/ralph-please-run-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-please-run-prompt.json" >"$temp_data/ralph-please-run-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-please-run-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex explicit please-run Ralph prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 구현해줘"}\n' >"$temp_data/ralph-korean-implementation-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-korean-implementation-prompt.json" >"$temp_data/ralph-korean-implementation-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-korean-implementation-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex Korean Ralph implementation prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"랄프로 구현해줘"}\n' >"$temp_data/ralph-hangul-implementation-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-hangul-implementation-prompt.json" >"$temp_data/ralph-hangul-implementation-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-hangul-implementation-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex Hangul Ralph implementation prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"oh-no-harness:ralph implement the approved plan"}\n' >"$temp_data/ralph-direct-command-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-direct-command-prompt.json" >"$temp_data/ralph-direct-command-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-direct-command-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex direct oh-no-harness:ralph command did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Review the approved plan, then run ralph on it"}\n' >"$temp_data/ralph-review-then-run-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-review-then-run-prompt.json" >"$temp_data/ralph-review-then-run-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-review-then-run-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex review-then-run Ralph prompt did not inject adapter")
 PY
 
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"Explain the repository layout."}\n' >"$temp_data/non-ralph-prompt.json"
@@ -664,7 +779,7 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
       ;;
     simplify)
-      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not run inline and simplify cannot run as designed if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
+      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -746,8 +861,8 @@ expected = {
         "host",
         "one batch",
         "before waiting",
-        "inline",
-        "cannot run as designed",
+        "inline fallback",
+        "fallback reason",
         "false positive",
         "intended behavior",
     ],
@@ -887,7 +1002,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -952,6 +1067,14 @@ def roles_in_text(text):
         if f"Agent prompt source: agents/{role}.md".lower() in lower
     ]
 
+def mentioned_receivers(item):
+    text = collect_text(item)
+    return {
+        receiver
+        for receiver in receiver_to_role
+        if receiver in text
+    }
+
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
 if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
@@ -962,6 +1085,8 @@ failed_spawns = []
 events = []
 receiver_to_role = {}
 role_outputs = defaultdict(list)
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
 marker = False
 
 with open(path, "r", encoding="utf-8") as fh:
@@ -996,7 +1121,13 @@ with open(path, "r", encoding="utf-8") as fh:
                 receiver_to_role[receiver] = role
             events.append((index, "spawn", role))
         if tool in {"wait", "wait_agent", "close_agent"} and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
+            receivers = set(item.get("receiver_thread_ids") or []) | mentioned_receivers(item)
+            if tool in {"wait", "wait_agent"}:
+                for receiver in receivers:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in receivers:
+                    close_index_by_receiver.setdefault(receiver, index)
             roles = {receiver_to_role.get(receiver) for receiver in receivers}
             for role in roles:
                 if role:
@@ -1015,6 +1146,23 @@ if len(successful_spawns) != len(expected_roles):
     raise SystemExit(
         f"expected exactly {len(expected_roles)} completed planning spawn_agent calls, "
         f"got {len(successful_spawns)}: {successful_spawns!r}"
+    )
+receiver_ids = {rid for _, _, receivers, _ in successful_spawns for rid in receivers}
+missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
+missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
+if missing_wait_results:
+    raise SystemExit(f"Codex ralplan sequential smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
+if missing_closes:
+    raise SystemExit(f"Codex ralplan sequential smoke did not close spawned receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in receiver_ids
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(
+        "Codex ralplan sequential smoke closed agents before their wait_agent results were captured: "
+        f"{early_closes!r}"
     )
 
 actual_order = [role for _, role, _, _ in successful_spawns]
@@ -1091,7 +1239,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close finished agents before starting the next wave, and do not continue if any spawn fails. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Closed agents: 11.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1123,6 +1271,9 @@ failed_spawns = []
 spawn_texts = []
 spawn_texts_by_role = defaultdict(list)
 first_wait_index = None
+receiver_to_role = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
 marker = False
 
 def collect_text(value):
@@ -1184,6 +1335,14 @@ def roles_in_text(text):
         if f"Agent prompt source: agents/{role}.md".lower() in text.lower()
     ]
 
+def mentioned_receivers(item):
+    text = collect_text(item)
+    return {
+        receiver
+        for receiver in receiver_to_role
+        if receiver in text
+    }
+
 events = []
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -1211,9 +1370,20 @@ with open(path, "r", encoding="utf-8") as fh:
                     )
                 role = matched_roles[0]
                 spawn_texts_by_role[role].append(spawn_text)
+                for receiver in receivers:
+                    receiver_to_role[receiver] = role
                 events.append((index, "spawn", role))
         if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "failed":
             failed_spawns.append((index, collect_text(item)[:2000]))
+        if item.get("type") == "collab_tool_call" and item.get("status") == "completed":
+            tool = item.get("tool")
+            receivers = mentioned_receivers(item)
+            if tool in {"wait", "wait_agent"}:
+                for receiver in receivers:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in receivers:
+                    close_index_by_receiver.setdefault(receiver, index)
         text = item.get("text") or data.get("result", "")
         if "OH_NO_CODEX_PARALLEL_SUBAGENTS_OK" in text:
             marker = True
@@ -1228,6 +1398,22 @@ if len(successful_spawns) < len(expected_roles):
 receiver_ids = {rid for _, receivers in successful_spawns[:len(expected_roles)] for rid in receivers}
 if len(receiver_ids) < len(expected_roles):
     raise SystemExit(f"expected {len(expected_roles)} distinct spawned receiver threads, got {receiver_ids!r}")
+missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
+missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
+if missing_wait_results:
+    raise SystemExit(f"Codex live parallel smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
+if missing_closes:
+    raise SystemExit(f"Codex live parallel smoke did not close spawned receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in receiver_ids
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(
+        "Codex live parallel smoke closed agents before their wait_agent results were captured: "
+        f"{early_closes!r}"
+    )
 if first_wait_index is not None:
     first_wave = set(role_waves[0])
     roles_before_first_wait = {
@@ -1276,7 +1462,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After all four cleanup subagents finish, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After each cleanup subagent result is captured, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Closed cleanup agents: 4.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1336,6 +1522,14 @@ def angles_in_payload(text):
             matches.append(angle)
     return matches
 
+def mentioned_receivers(item):
+    text = collect_text(item)
+    return {
+        receiver
+        for receiver in receiver_to_angle
+        if receiver in text
+    }
+
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
 if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
@@ -1345,6 +1539,9 @@ successful_spawns = []
 failed_spawns = []
 spawns_by_angle = defaultdict(list)
 wait_or_close_indexes = []
+receiver_to_angle = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
 marker = False
 
 with open(path, "r", encoding="utf-8") as fh:
@@ -1362,6 +1559,14 @@ with open(path, "r", encoding="utf-8") as fh:
         status = item.get("status")
         if tool in {"wait", "wait_agent", "close_agent"}:
             wait_or_close_indexes.append(index)
+        if status == "completed":
+            receivers = mentioned_receivers(item)
+            if tool in {"wait", "wait_agent"}:
+                for receiver in receivers:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in receivers:
+                    close_index_by_receiver.setdefault(receiver, index)
         if tool == "spawn_agent" and status == "failed":
             failed_spawns.append((index, collect_text(item)[:2000]))
         if tool == "spawn_agent" and status == "completed":
@@ -1381,6 +1586,8 @@ with open(path, "r", encoding="utf-8") as fh:
             angle = matched_angles[0]
             successful_spawns.append((index, angle, tuple(receivers), spawn_text))
             spawns_by_angle[angle].append((index, spawn_text))
+            for receiver in receivers:
+                receiver_to_angle[receiver] = angle
 
 if failed_spawns:
     raise SystemExit(f"Codex simplify cleanup smoke saw failed spawn_agent calls: {failed_spawns!r}")
@@ -1402,6 +1609,22 @@ if missing_angles or duplicate_angles:
 receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
 if len(receiver_ids) != len(expected_angles):
     raise SystemExit(f"expected {len(expected_angles)} distinct simplify receiver threads, got {receiver_ids!r}")
+missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
+missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
+if missing_wait_results:
+    raise SystemExit(f"Codex simplify cleanup smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
+if missing_closes:
+    raise SystemExit(f"Codex simplify cleanup smoke did not close spawned receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in receiver_ids
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(
+        "Codex simplify cleanup smoke closed agents before their wait_agent results were captured: "
+        f"{early_closes!r}"
+    )
 if not wait_or_close_indexes:
     raise SystemExit("Codex simplify cleanup smoke did not wait for or close spawned cleanup subagents")
 first_wait_or_close = min(wait_or_close_indexes)

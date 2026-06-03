@@ -15,8 +15,8 @@ Follow this order:
 3. Preserve the core skill's artifact paths, approval gates, role boundaries,
    worktree rules, TDD rules, verification rules, and output contract.
 4. Use only the invocation syntax authorized by the active Codex host.
-5. This skill requires four parallel cleanup subagents. Do not replace them
-   with inline review. If Codex subagent dispatch is unavailable, report that
-   `simplify` cannot run as designed in this host instead of continuing inline.
+5. This skill prefers four parallel cleanup subagents. If Codex subagent
+   dispatch is unavailable, preserve the same four cleanup role boundaries as
+   separate inline fallback blocks and record the fallback reason.
 
 Do not apply another platform's invocation syntax.

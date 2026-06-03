@@ -20,9 +20,8 @@ Follow this order:
    worktree rules, TDD rules, verification rules, and output contract.
 4. Use the available Claude Code skill, question, task, agent, or subagent
    mechanisms only when the active host exposes them.
-5. This skill requires four parallel cleanup subagents. Do not replace them
-   with inline review. If Claude Code task or subagent dispatch is unavailable,
-   report that `simplify` cannot run as designed in this host instead of
-   continuing inline.
+5. This skill prefers four parallel cleanup subagents. If Claude Code task or
+   subagent dispatch is unavailable, preserve the same four cleanup role
+   boundaries as separate inline fallback blocks and record the fallback reason.
 
 Do not apply another platform's invocation syntax.

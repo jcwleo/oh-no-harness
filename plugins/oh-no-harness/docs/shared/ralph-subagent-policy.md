@@ -82,6 +82,19 @@ subagent, wait for it, and only then decide whether to start the rest.
 While a batch is running, Ralph may continue only on local work that does not
 overlap with the delegated scopes.
 
+## Subagent Lifecycle
+
+The caller owns subagent lifecycle. After each dispatched subagent reaches a
+final status, capture its result, changed-file set, and any follow-up evidence
+needed for integration. Once that output has been inspected and no further
+input is needed, close or clean up the completed subagent using the active
+platform's mechanism.
+
+Do not leave completed subagents open after their outputs have been integrated,
+rejected, or recorded as blocked. If the active platform does not expose an
+explicit close or cleanup mechanism, record that no close mechanism was
+available.
+
 ## Isolation Contract
 
 Before dispatching, write down:
@@ -128,7 +141,9 @@ After subagents finish:
 1. Inspect each result and changed-file set.
 2. Resolve conflicts deliberately.
 3. Reconcile docs, tests, generated artifacts, and assumptions.
-4. Run story-specific verification.
-5. Run cross-story verification when shared behavior could be affected.
-6. Mark work complete only after acceptance criteria and verification evidence
+4. Close or clean up every completed subagent after its output has been captured
+   and integrated, rejected, or recorded.
+5. Run story-specific verification.
+6. Run cross-story verification when shared behavior could be affected.
+7. Mark work complete only after acceptance criteria and verification evidence
    pass.

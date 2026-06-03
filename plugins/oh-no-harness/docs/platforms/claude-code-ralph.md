@@ -10,6 +10,12 @@ platforms.
 When Ralph dispatches a role, use Claude Code's Task, Agent, Workflow `agent()`,
 or subagent mechanism with the plugin-scoped agents from `agents/`.
 
+An approved `ralplan` handoff to ordinary `oh-no-harness:ralph` is the default
+parallel-capable execution path. Treat `Parallel trigger:
+approved-plan-handoff` as authorization to use every eligible isolated role in
+the approved plan; do not require a separate `ralph with parallel subagents`
+choice.
+
 Use `oh-no-harness:<agent>` as the agent name when the tool lists plugin agents.
 When explicit prompt text or a user-facing manual mention is needed, use
 `@agent-oh-no-harness:<agent>`.
@@ -17,6 +23,12 @@ When explicit prompt text or a user-facing manual mention is needed, use
 For independent read-only, review, verification, QA, security, or exploration
 work, request background subagents and start the whole independent batch before
 waiting for any one result.
+
+After each background subagent reaches a final status, capture its result and
+changed-file set. When no further input is needed, close or clean up that
+completed subagent with the Claude Code mechanism exposed by the host. If the
+host does not expose explicit close or cleanup, record that no close mechanism
+was available.
 
 If a plugin-scoped agent is unavailable, keep the same role boundary by
 embedding the matching `agents/<agent>.md` prompt into the available Claude Code
@@ -34,6 +46,8 @@ Do not touch: <other agents' scopes>
 Expected output: <patch, findings, evidence, or test result>
 Verification responsibility: <command/evidence>
 Background: <yes for independent work, no when sequential>
+Lifecycle: caller captures the result, integrates or records it, then closes or
+cleans up this completed subagent when the host exposes that mechanism
 Coordination: You are not alone in the codebase. Do not revert or overwrite
 other agents' work. Stay inside your assigned scope.
 ```
@@ -42,4 +56,6 @@ other agents' work. Stay inside your assigned scope.
 
 For an eligible independent batch, issue all Claude Code subagent requests
 before waiting. After they return, integrate their outputs in Ralph and run the
-verification required by the selected execution mode.
+verification required by the selected execution mode. Close or clean up each
+completed subagent after its output has been captured and no further input is
+needed.

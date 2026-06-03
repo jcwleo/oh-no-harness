@@ -24,6 +24,11 @@ When a parallel batch is useful and allowed, spawn the whole eligible batch
 first. Do not spawn one subagent, wait for it, and only then decide whether to
 spawn the rest.
 
+After each subagent result has been captured and either integrated, rejected, or
+recorded as blocked, close or clean up the completed subagent with the active
+platform's mechanism. If the platform has no explicit close operation, record
+that fallback.
+
 ## Quick Checklist
 
 Before dispatching parallel work, confirm that
@@ -36,6 +41,8 @@ Before dispatching parallel work, confirm that
 - verification responsibility
 - dependencies on other agents
 - integration owner
+- lifecycle owner: who captures output and closes or cleans up the completed
+  subagent
 - platform invocation: Claude Code agent name or Codex agent type
 - start timing: foreground, background, or sequential after another role
 

@@ -41,6 +41,9 @@ three fix attempts fail, architecture-level coupling appears, or the apparent
 fix would change broad APIs, product behavior, data handling, security, or
 delivery scope. Dispatch is governed by the active skill's platform policy and
 Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
+For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
+and `docs/shared/parallel-subagents.md` for role isolation, fallback reasons, and
+eligible batch dispatch.
 
 Respect the active platform wrapper for dispatch versus inline execution. Do not
 collapse diagnostic or evidence roles inline when the host can dispatch them

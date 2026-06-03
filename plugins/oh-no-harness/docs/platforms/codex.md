@@ -64,10 +64,18 @@ subagents, treat that as explicit authorization for eligible isolated roles
 inside the active workflow. Keep Codex host-policy limits, but do not require
 the user to repeat literal subagent wording on every step.
 
-For `ralplan`, Planner, Architect, and Critic should run as sequential
-subagents whenever dispatch is available because independent context improves
-planning, review, and critique. Architect waits for Planner. Critic waits for
-Architect.
+For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
+`Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
+Do not require a separate `ralph with parallel subagents` option when the plan
+already lists eligible isolated roles.
+
+For `ralplan`, Planner, Architect, and Critic must run as sequential subagents
+whenever dispatch is available because independent context improves planning,
+review, and critique. Architect waits for Planner. Critic waits for Architect.
+
+After `wait_agent` returns a final status for any Codex-dispatched role,
+capture the output and any changed-file set before cleanup. When no further
+input is needed for that subagent, call `close_agent` and record the result.
 
 When dispatch is unavailable, keep the same role boundary inline and record the
 fallback reason when the core skill requires it.

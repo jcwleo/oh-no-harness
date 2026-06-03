@@ -1,7 +1,7 @@
 ---
 name: ralplan
 description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs consensus implementation planning before coding.
-argument-hint: "[--subagents] <task, spec path, or plan request>"
+argument-hint: "<task, spec path, or plan request>"
 ---
 
 # Ralplan
@@ -23,7 +23,9 @@ Create a concrete implementation plan that is drafted by Planner, reviewed by Ar
 The host agent operates the planning roles through the active platform wrapper.
 The user does not need to pick Planner, Architect, or Critic manually; the user
 approves the plan, requests changes, chooses the next workflow step, or approves
-direction changes when a role finds one.
+direction changes when a role finds one. Ralph execution defaults to using
+eligible parallel subagents aggressively; do not split the handoff into a
+separate "parallel Ralph" option.
 
 ## Artifacts
 
@@ -92,7 +94,9 @@ acceptance criteria.
 9. Save the final reflected plan under `.oh-no/plans/` with a
    `Next skill: oh-no-harness:<name>` header field.
 10. Present the plan to the user with the Plan Approval Brief format below.
-11. Mark the plan `pending approval` unless the user explicitly approves execution.
+11. Mark the plan `pending approval` until the user explicitly approves the plan
+   content. Plan content approval does not bypass the Next Skill Handoff unless
+   running under `autopilot`.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
 Use real role subagents for the consensus roles on subagent-capable hosts.
@@ -389,7 +393,8 @@ Every plan must include:
 - evidence that accepted feedback is reflected in the final plan body
 - execution profile
 - worktree policy
-- parallel subagent dispatch plan, or `none`
+- parallel subagent dispatch plan, or the fallback reason if no role can be
+  safely isolated
 - verification commands
 - rollout or recovery notes when risk warrants them
 - approval status
@@ -426,7 +431,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
-- Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
+- Parallel trigger: approved-plan-handoff | explicit-user-request | natural-dispatch | none
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
 - Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
 - Cleanup policy: not-needed | conditional | required
@@ -438,6 +443,15 @@ Execution profile:
 The overall Ralph mode is the highest mode needed by any task or cross-task
 risk, but task sizing should still mark lighter subtasks when they can be
 executed with less process. Ralph must follow this profile during execution.
+
+For plans that recommend direct `ralph`, default to
+`Parallel trigger: approved-plan-handoff` and an agent policy of
+`targeted-subagents` or `full-review-set` whenever at least one Ralph role can be
+isolated by file ownership, read-only scope, review role, verification role, QA,
+security review, or test/log analysis. Use `inline-only` and
+`Parallel trigger: none` only when the plan documents that no dispatch-worthy
+role exists, the active platform cannot dispatch, or the work is unsafe to
+isolate under `docs/shared/ralph-subagent-policy.md`.
 
 End every Plan Approval Brief with a separate `Execution profile recap:` block
 immediately before `Approval needed`. This final recap is required even when the
@@ -473,8 +487,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - worktree policy, including whether direct Ralph should use automatic task
   worktree execution or Autopilot should also merge back to the integration
   checkout
-- parallel subagent dispatch plan, including how to explicitly approve it on
-  the active platform
+- parallel subagent dispatch plan for the default Ralph handoff, including
+  isolated roles/scopes and any fallback reason
 - verification commands or evidence plan
 - major risks, assumptions, and open questions
 - a final `Execution profile recap` immediately before the approval question
@@ -504,7 +518,7 @@ Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
 Verification tier: {LIGHT|STANDARD|THOROUGH}
 Agent policy: {inline-only|targeted-subagents|full-review-set}
-Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
+Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
 Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
 Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
 Cleanup policy: {not-needed|conditional|required}
@@ -530,7 +544,7 @@ Test case design:
 - Evidence mapping: {test case -> acceptance criterion}
 
 Parallel subagent dispatch:
-{None, or one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner}
+{Default Ralph dispatch plan: one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner; or a concrete fallback reason if no eligible role can be isolated}
 
 Consensus loop:
 Analyst -> Planner -> Architect -> Critic: {completed in order, with one-line disposition for each}
@@ -555,7 +569,7 @@ Execution profile recap:
 - Why this mode is enough: {one sentence}
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
-- Parallel trigger: {none|natural-dispatch|explicit-user-request|approved-plan-handoff}
+- Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
 - Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
 - Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
 - Cleanup policy: {not-needed|conditional|required}
@@ -589,8 +603,7 @@ Component A
 ```
 
 End the brief with a direct plan-content approval question. Do not ask the user
-to choose `ralph`, `ralph with parallel subagents`, or `autopilot` until the plan
-content is approved.
+to choose the next workflow until the plan content is approved.
 
 Approval choices should be:
 
@@ -617,24 +630,29 @@ The Plan Approval Brief above is the user-facing review request. Wait for the us
 Ask the user which workflow the host agent should invoke next through the active
 platform's approval mechanism. Use this option shape:
 
-- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with verification, review, cleanup, and final report
-- `oh-no-harness:ralph` with `parallel subagents` — execute with Ralph and explicitly authorize parallel subagent dispatch for the independent scopes listed in the plan
+- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with default eligible parallel subagents, verification, review, cleanup, and final report
 - `oh-no-harness:autopilot` — orchestrate execution, QA, and final validation end-to-end
 - request plan changes — go back and revise the plan
 - stop with the plan pending approval
 
-For platforms that require explicit dispatch authorization, preserve this
-trigger wording in the Ralph invocation: `Run ralph with parallel subagents`.
+The ordinary `oh-no-harness:ralph` choice is the default parallel-capable
+execution handoff. Preserve the plan path plus
+`Parallel trigger: approved-plan-handoff` in the Ralph invocation so Ralph
+treats the approved plan's dispatch plan as authorization to use every eligible
+isolated subagent role. Do not ask for a second "parallel subagents" approval
+unless the user explicitly requested inline-only execution and later changes
+their mind.
 
 End the question with "Which approach?".
 
 Do not invoke any next skill until the user has answered. The user is approving
 the host agent's next action, not being asked to run the command manually. When
 the user picks one, invoke that skill through the current platform's skill
-mechanism with the plan path as the task definition. If the user picks the
-parallel-subagent Ralph option, preserve the phrase `parallel subagents` in the
-Ralph invocation as an explicit dispatch signal; if the plan selects natural
-dispatch, preserve `Parallel trigger: natural-dispatch`.
+mechanism with the plan path as the task definition. For the Ralph option,
+preserve `Parallel trigger: approved-plan-handoff` when the approved plan has an
+eligible dispatch plan. Preserve `Parallel trigger: natural-dispatch` only for
+direct Ralph execution without a ralplan handoff on hosts that allow natural
+dispatch.
 
 ### Autopilot exception
 

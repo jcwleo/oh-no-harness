@@ -84,6 +84,16 @@ For independent read-only, review, verification, QA, security, or exploration
 work, request background subagents and start the whole independent batch before
 waiting for any one result.
 
+After a Claude Code subagent reaches a final status, capture the output and any
+changed-file set before cleanup. When no further input is needed, close or clean
+up the completed subagent with the mechanism exposed by the host; if none is
+available, record that fallback.
+
+For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
+`Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
+Do not require a separate `ralph with parallel subagents` option when the plan
+already lists eligible isolated roles.
+
 If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and

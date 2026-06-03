@@ -95,12 +95,14 @@ PLATFORM_SUBAGENT_MARKERS = {
         "dispatch targeted subagents by default",
         "whole eligible batch",
         "active adapter invocation syntax",
+        "Lifecycle: caller captures",
         "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
         "Agent prompt source: agents/{role}.md",
     ),
     "ralplan": (
-        "ralph with parallel subagents",
-        "Run ralph with parallel subagents",
+        "default eligible parallel subagents",
+        "Parallel trigger: approved-plan-handoff",
+        "ordinary `oh-no-harness:ralph` choice is the default parallel-capable",
         "must run as sequential subagents",
         "parallel subagent dispatch plan",
         "active platform wrapper's dispatch policy",
@@ -111,7 +113,21 @@ PLATFORM_SUBAGENT_MARKERS = {
     ),
     "autopilot": (
         "independent context",
+        "Parallel trigger: approved-plan-handoff",
         "Parallel trigger: natural-dispatch",
+        "must still run as separate subagents",
+        "independent delegated phase work",
+    ),
+    "systematic-debugging": (
+        "isolated diagnostic and evidence roles by default",
+        "collapse diagnostic or evidence roles inline",
+        "docs/shared/ralph-subagent-policy.md",
+        "eligible batch dispatch",
+    ),
+    "verification-before-completion": (
+        "dispatch `verifier` by default",
+        "context-separation benefit",
+        "fallback\nor no-benefit reason",
     ),
 }
 PLATFORM_RULE_DOC_MARKERS = {
@@ -125,6 +141,9 @@ PLATFORM_RULE_DOC_MARKERS = {
         "outcome-first",
         "## Role Dispatch",
         "spawn_agent",
+        "wait_agent",
+        "close_agent",
+        "capture the output and any changed-file set before cleanup",
         "## Role Prompt Embedding",
         "Agent prompt source: agents/<role>.md",
         "docs/platforms/codex-ralph.md",
@@ -143,6 +162,8 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## Role Dispatch",
         "Workflow `agent()`",
         "oh-no-harness:<role>",
+        "close or clean\nup the completed subagent",
+        "record that fallback",
         "docs/platforms/claude-code-ralph.md",
     ),
 }
@@ -180,6 +201,8 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
         "## Platform Invocation",
         "docs/shared/ralph-subagent-policy.md",
         "batch dispatch, subagent",
+        "close or clean up the completed subagent",
+        "lifecycle owner",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
     ),
@@ -194,6 +217,8 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "platform's subagent",
     "## Batch Rule",
     "eligible batch first",
+    "## Subagent Lifecycle",
+    "close or clean up the completed subagent",
     "They must not revert, overwrite, reformat, or broaden work outside their",
 )
 PLATFORM_ADAPTER_DOC_MARKERS = {
@@ -203,6 +228,7 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "oh-no-harness:<agent>",
         "@agent-oh-no-harness:<agent>",
         "background subagents",
+        "close or cleanup",
     ),
     "codex-ralph.md": (
         "CODEX_ONLY_RALPH_ADAPTER",
@@ -212,6 +238,8 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "Agent prompt content:",
         "spawn_agent",
         "wait_agent",
+        "close_agent",
+        "Parallel trigger: approved-plan-handoff",
         "Parallel trigger: none",
         "Parallel trigger: natural-dispatch",
     ),
@@ -454,21 +482,23 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
     ),
 }
 SIMPLIFY_PARALLEL_MARKERS = (
-    "requires four cleanup subagents",
+    "requires four cleanup role passes",
     "Always launch the Reuse",
     "subagents in parallel",
-    "Do not replace this with an inline review pass",
-    "cannot dispatch",
-    "stop and report",
+    "Do not collapse this into a single",
+    "separate inline fallback blocks",
+    "dispatch-unavailable",
     "Launch four independent cleanup subagents in parallel",
     "in one batch before",
-    "Do not run these four review angles inline",
+    "Do not degrade these four review angles into one generic inline pass",
+    "four separate inline fallback blocks",
     "Wait for all four cleanup subagents to complete",
+    "clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
-    "requires four parallel cleanup subagents",
-    "Do not replace them",
-    "cannot run as designed",
+    "prefers four parallel cleanup subagents",
+    "separate inline fallback blocks",
+    "fallback reason",
 )
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
@@ -531,6 +561,13 @@ RALPLAN_CONSENSUS_MARKERS = (
     "negative or forbidden-behavior case",
     "edge, boundary, or regression case",
     "only check marker strings",
+)
+RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
+    "`oh-no-harness:ralph` with `parallel subagents`",
+    "Run ralph with parallel subagents",
+    "parallel-subagent Ralph option",
+    "choose `ralph`, `ralph with parallel subagents`, or `autopilot`",
+    "including how to explicitly approve it on",
 )
 RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
@@ -779,6 +816,9 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in RALPLAN_CONSENSUS_MARKERS:
             if marker not in body:
                 die(f"{path} is missing required Ralplan-Consensus marker: {marker!r}")
+        for marker in RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS:
+            if marker in body:
+                die(f"{path} contains forbidden old Ralph split-option marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
         body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
@@ -1061,6 +1101,11 @@ def assert_hook_contract(root: Path) -> None:
         "OH_NO_RALPH_PLATFORM_ADAPTER",
         "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
         "CODEX_ONLY_RALPH_ADAPTER",
+        "prompt_text=",
+        'json.loads(raw).get("prompt", "")',
+        "lowered_prompt=",
+        '"what "*',
+        '"oh-no-harness:ralph"*',
         "docs/shared/ralph-subagent-policy.md",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
@@ -1068,6 +1113,15 @@ def assert_hook_contract(root: Path) -> None:
     ):
         if marker not in script_text:
             die(f"{script_path} is missing required hook marker: {marker!r}")
+    for forbidden in (
+        '*" ralph "*',
+        '*"run ralph"*',
+        '*"use ralph',
+        '*"ralph 로 구현"*',
+        '*"랄프"*',
+    ):
+        if forbidden in script_text:
+            die(f"{script_path} contains broad Ralph hook matcher: {forbidden!r}")
 
     session_start_path = root / "hooks" / "session-start"
     session_start_text = read_text(session_start_path)
@@ -1088,6 +1142,57 @@ def assert_hook_contract(root: Path) -> None:
     ):
         if forbidden in session_start_text:
             die(f"{session_start_path} still embeds full using-oh-no-harness core content: {forbidden!r}")
+
+
+def assert_hook_test_contract(marketplace_root: Path) -> None:
+    test_markers = {
+        "scripts/test-codex-plugin.sh": (
+            "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
+            "What does Parallel trigger: approved-plan-handoff mean?",
+            "What is oh-no-harness:ralph?",
+            "Explain oh-no-harness:ralph before I choose it.",
+            "What does Ralph do in the final review step?",
+            "Review the current diff, especially the ralph hook adapter.",
+            "Compare ralplan and ralph before implementation.",
+            "Should I run ralph?",
+            "Do not run ralph yet.",
+            "When would you run ralph?",
+            "Can you explain how to run ralph?",
+            "Please run ralph now.",
+            "ralph 로 구현해줘",
+            "랄프로 구현해줘",
+            "oh-no-harness:ralph implement the approved plan",
+            "Review the approved plan, then run ralph on it",
+            "marker-only Codex prompt",
+            "generic Codex Ralph discussion prompt",
+        ),
+        "scripts/test-claude-plugin.sh": (
+            "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
+            "What does Parallel trigger: approved-plan-handoff mean?",
+            "What is oh-no-harness:ralph?",
+            "Explain oh-no-harness:ralph before I choose it.",
+            "What does Ralph do in the final review step?",
+            "Review the current diff, especially the ralph hook adapter.",
+            "Compare ralplan and ralph before implementation.",
+            "Should I run ralph?",
+            "Do not run ralph yet.",
+            "When would you run ralph?",
+            "Can you explain how to run ralph?",
+            "Please run ralph now.",
+            "ralph 로 구현해줘",
+            "랄프로 구현해줘",
+            "oh-no-harness:ralph implement the approved plan",
+            "Review the approved plan, then run ralph on it",
+            "marker-only Claude prompt",
+            "generic Claude Ralph discussion prompt",
+        ),
+    }
+    for relative_path, markers in test_markers.items():
+        path = marketplace_root / relative_path
+        text = read_text(path)
+        for marker in markers:
+            if marker not in text:
+                die(f"{path} is missing approved-plan-handoff hook-test marker: {marker!r}")
 
 
 def assert_claude_manifest_skills(root: Path) -> None:
@@ -1237,6 +1342,7 @@ def main() -> None:
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)
     assert_hook_contract(root)
+    assert_hook_test_contract(marketplace_root)
     assert_claude_manifest_skills(root)
     assert_codex_manifest(root)
     assert_claude_marketplace(marketplace_root)

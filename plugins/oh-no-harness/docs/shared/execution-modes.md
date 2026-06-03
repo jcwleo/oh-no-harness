@@ -18,6 +18,9 @@ implementation plan.
 
 `ralplan` owns the authoritative execution profile. A plan that recommends
 `ralph` must set an overall Ralph mode and task-level modes before approval.
+It should default the direct Ralph handoff to aggressive eligible parallel
+subagent use by recording `Parallel trigger: approved-plan-handoff` whenever an
+isolated Ralph role can safely run as a subagent.
 
 `ralph` must read the execution profile before editing. If no profile exists,
 Ralph must select a mode with the decision prompt below, record `Mode source:
@@ -193,7 +196,7 @@ Execution profile:
 - Verification tier: LIGHT | STANDARD | THOROUGH
 - Artifact policy: compact | session-verification | full-prd-session
 - Agent policy: inline-only | targeted-subagents | full-review-set
-- Parallel trigger: none | natural-dispatch | explicit-user-request | approved-plan-handoff
+- Parallel trigger: approved-plan-handoff | explicit-user-request | natural-dispatch | none
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
 - Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
 - Cleanup policy: not-needed | conditional | required
@@ -201,6 +204,14 @@ Execution profile:
   - T1: LIGHT | STANDARD | THOROUGH - reason
 - Escalation triggers:
 ```
+
+Use `approved-plan-handoff` as the default trigger for approved `ralplan` plans
+that hand off to ordinary `ralph`; this is the normal parallel-capable execution
+path, not a separate advanced option. Use `explicit-user-request` when the user
+directly asks for subagents without an approved plan profile, `natural-dispatch`
+only when the host permits proactive dispatch for a direct Ralph request, and
+`none` only for inline-only plans, missing host support, or documented
+unsafe-to-isolate work.
 
 Ralph session notes or PRDs must include:
 
