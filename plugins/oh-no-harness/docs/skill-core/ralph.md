@@ -277,9 +277,12 @@ Without a dispatch-worthy role or scope, without host authorization, or in a
 subagent-unavailable environment from `docs/shared/ralph-subagent-policy.md`,
 perform roles inline and record `Parallel trigger: none` plus the fallback
 reason. When dispatch comes from an approved ralplan handoff, record
-`Parallel trigger: approved-plan-handoff`; when dispatch is selected naturally on
-a host that permits it without a ralplan handoff, record `Parallel trigger:
-natural-dispatch`.
+`Parallel trigger: approved-plan-handoff`; when dispatch comes from a direct
+user request or standing preference to maximize subagents, record
+`Parallel trigger: explicit-user-request`. Preserve `Parallel trigger:
+natural-dispatch` only when the host permits proactive dispatch and the active
+skill policy itself authorizes eligible isolated roles without a ralplan
+handoff.
 
 Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
@@ -324,9 +327,9 @@ Use this dispatch shape for every parallel subagent:
 ````markdown
 Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}
 Story/task: {id and short title}
-Agent prompt source: agents/{role}.md
+Agent prompt source: docs/agent-core/{role}.md
 Agent prompt content:
-{matching agents/{role}.md prompt content}
+{matching docs/agent-core/{role}.md prompt content}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
 Expected output: {patch, findings, evidence, or test result}

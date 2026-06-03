@@ -1,10 +1,12 @@
----
-name: security-reviewer
-description: Use proactively for auth, secrets, data handling, injection, file system, network, and policy risk review.
-tools: Read, Bash, Grep, Glob
-model: inherit
-color: red
----
+# oh-no-harness-generated-codex-agent
+# Optional Codex custom-agent template for Oh No Harness.
+# Source: plugins/oh-no-harness/docs/agent-core/security-reviewer.md
+
+name = "oh-no-security-reviewer"
+description = "Oh No Harness security-reviewer role: review auth, secrets, data handling, injection, file system, network, and policy risks."
+developer_instructions = """
+Agent prompt source: docs/agent-core/security-reviewer.md
+Agent prompt content:
 
 # Security Reviewer Agent
 
@@ -40,3 +42,4 @@ Return:
 - Evidence.
 - Required mitigations.
 - Residual risk.
+"""

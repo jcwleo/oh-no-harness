@@ -1,0 +1,188 @@
+#!/bin/sh
+set -eu
+
+MARKER="oh-no-harness-generated-codex-agent"
+
+scope="project"
+dry_run="false"
+force="false"
+remove="false"
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/install-codex-agents [--scope project|user] [--dry-run] [--force] [--remove]
+
+Installs optional Oh No Harness Codex custom-agent templates.
+
+Options:
+  --scope project|user  Install under the current Git repo's .codex/agents
+                        directory, or under $HOME/.codex/agents.
+                        Default: project.
+  --dry-run             Print planned changes without writing files.
+  --force               Overwrite existing generated files during install.
+  --remove              Remove installed Oh No Harness agent files.
+                        Removal only deletes files with the generated marker.
+  -h, --help            Show this help.
+USAGE
+}
+
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 2
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --scope)
+      [ "$#" -ge 2 ] || die "--scope requires project or user"
+      scope="$2"
+      shift 2
+      ;;
+    --scope=*)
+      scope="${1#--scope=}"
+      shift
+      ;;
+    --dry-run)
+      dry_run="true"
+      shift
+      ;;
+    --force)
+      force="true"
+      shift
+      ;;
+    --remove)
+      remove="true"
+      shift
+      ;;
+    -h|--help|help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown argument: $1"
+      ;;
+  esac
+done
+
+case "$scope" in
+  project|user)
+    ;;
+  *)
+    die "--scope must be project or user"
+    ;;
+esac
+
+script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd -P)
+plugin_dir=$(dirname "$script_dir")
+template_dir="${plugin_dir}/docs/platforms/codex-agents"
+
+[ -d "$template_dir" ] || die "template directory not found: $template_dir"
+
+project_root() {
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "project scope requires running inside a Git worktree"
+  printf '%s\n' "$git_root"
+}
+
+target_dir() {
+  case "$scope" in
+    project)
+      printf '%s/.codex/agents\n' "$(project_root)"
+      ;;
+    user)
+      [ -n "${HOME:-}" ] || die "HOME is not set"
+      printf '%s/.codex/agents\n' "$HOME"
+      ;;
+  esac
+}
+
+has_marker() {
+  grep -F -q "$MARKER" "$1"
+}
+
+install_one() {
+  src="$1"
+  dest="${target}/$(basename "$src")"
+
+  has_marker "$src" || die "template missing marker: $src"
+
+  if [ -f "$dest" ]; then
+    if cmp -s "$src" "$dest"; then
+      printf 'unchanged: %s\n' "$dest"
+      return 0
+    fi
+
+    if ! has_marker "$dest"; then
+      printf 'skip unmarked existing: %s (not overwritten)\n' "$dest" >&2
+      return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+      printf 'skip existing generated: %s (use --force to overwrite)\n' "$dest" >&2
+      return 1
+    fi
+  fi
+
+  if [ "$dry_run" = "true" ]; then
+    if [ -f "$dest" ]; then
+      printf 'would overwrite: %s\n' "$dest"
+    else
+      printf 'would install: %s\n' "$dest"
+    fi
+    return 0
+  fi
+
+  mkdir -p "$target"
+  cp "$src" "$dest"
+  if [ -f "$dest" ]; then
+    printf 'installed: %s\n' "$dest"
+  else
+    return 1
+  fi
+}
+
+remove_one() {
+  src="$1"
+  dest="${target}/$(basename "$src")"
+
+  if [ ! -f "$dest" ]; then
+    printf 'absent: %s\n' "$dest"
+    return 0
+  fi
+
+  if ! has_marker "$dest"; then
+    printf 'skip unmarked: %s\n' "$dest" >&2
+    return 1
+  fi
+
+  if [ "$dry_run" = "true" ]; then
+    printf 'would remove: %s\n' "$dest"
+    return 0
+  fi
+
+  rm "$dest"
+  printf 'removed: %s\n' "$dest"
+}
+
+target=$(target_dir)
+status=0
+
+if [ "$remove" = "true" ]; then
+  printf 'removing Oh No Harness Codex agents from %s\n' "$target"
+else
+  printf 'installing Oh No Harness Codex agents to %s\n' "$target"
+fi
+
+found="false"
+for src in "$template_dir"/*.toml; do
+  [ -f "$src" ] || continue
+  found="true"
+  if [ "$remove" = "true" ]; then
+    remove_one "$src" || status=1
+  else
+    install_one "$src" || status=1
+  fi
+done
+
+[ "$found" = "true" ] || die "no TOML templates found in $template_dir"
+
+exit "$status"

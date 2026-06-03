@@ -31,10 +31,11 @@ independent review roles. Inline execution is the exception for work that is too
 small to benefit, cannot be isolated, requires tight TDD sequencing, lacks host
 support, or has been explicitly made inline-only.
 
-Explicit user or plan requests are sufficient when the host platform permits
-dispatch. Natural dispatch is allowed only when the host tool definition permits
-it and the selected mode, task risk, scope isolation, and context-window benefit
-justify it.
+Explicit user requests, standing preferences, approved plan triggers, or active
+skill dispatch policies are sufficient when the host platform permits dispatch.
+Natural dispatch is allowed only when the host tool definition permits
+proactive dispatch and the selected mode, task risk, scope isolation, and
+context-window benefit justify it.
 
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The

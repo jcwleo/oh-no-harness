@@ -1,10 +1,12 @@
----
-name: verifier
-description: Use proactively before completion claims to check acceptance criteria, commands, artifacts, and verification evidence.
-tools: Read, Bash, Grep, Glob
-model: inherit
-color: cyan
----
+# oh-no-harness-generated-codex-agent
+# Optional Codex custom-agent template for Oh No Harness.
+# Source: plugins/oh-no-harness/docs/agent-core/verifier.md
+
+name = "oh-no-verifier"
+description = "Oh No Harness verifier role: check acceptance criteria, commands, artifacts, and verification evidence before completion claims."
+developer_instructions = """
+Agent prompt source: docs/agent-core/verifier.md
+Agent prompt content:
 
 # Verifier Agent
 
@@ -43,3 +45,4 @@ Return:
 - Acceptance criteria status.
 - TDD evidence status when applicable.
 - Residual risk.
+"""

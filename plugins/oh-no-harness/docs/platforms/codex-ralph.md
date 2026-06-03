@@ -28,13 +28,16 @@ Explicit user or plan phrases that are sufficient dispatch signals include:
 Explicit subagent phrases are not required for approved `ralplan` handoffs: the
 ordinary `oh-no-harness:ralph` choice should preserve
 `Parallel trigger: approved-plan-handoff` and use the plan's dispatch profile as
-authorization for every eligible isolated role. They are also not required on
-hosts whose tool definition permits natural dispatch and when the active skill
-policy already allows it for a concrete isolated scope. When no dispatch-worthy
-role or scope exists, or when host policy does not authorize dispatch, Ralph
-must perform roles inline and record `Parallel trigger: none`. When dispatch is
-selected without an explicit user or plan trigger on a host that allows natural
-dispatch, record `Parallel trigger: natural-dispatch`.
+authorization for every eligible isolated role. They are also not required when
+the user has stated a standing preference to maximize subagents or when the
+active Oh No Harness skill policy records dispatch-by-default as workflow-level
+authorization for a concrete isolated scope. When no dispatch-worthy role or
+scope exists, or when host policy does not authorize dispatch, Ralph must
+perform roles inline and record `Parallel trigger: none`. When dispatch is
+selected by an active skill dispatch policy without a ralplan handoff or direct
+subagent wording, record `Parallel trigger: natural-dispatch` only if the host
+permits proactive dispatch; otherwise record the explicit standing preference,
+approved profile, or fallback reason.
 
 A standing user or plan preference to maximize subagents is an explicit dispatch
 signal for the whole eligible Ralph run. Use it to dispatch isolated roles as
@@ -57,9 +60,11 @@ Spawn every independent non-blocking agent in the eligible batch before calling
 `wait_agent`. Do not spawn one agent, wait, then spawn the rest.
 
 After `wait_agent` returns a final status, capture the result and inspect any
-changed-file set. When no more input is needed for that subagent, call
-`close_agent` for the completed agent. If `close_agent` reports that the agent
-was already closed or unavailable, record that result instead of retrying.
+changed-file set. When no more input is needed for that subagent and the host
+exposes `close_agent`, call `close_agent` for the completed agent. If
+`close_agent` reports that the agent was already closed or unavailable, record
+that result instead of retrying. If the host does not expose explicit close,
+record that closure is host-managed or unavailable.
 
 ## Role Prompt Embedding
 
@@ -67,19 +72,26 @@ Codex display names are not stable role identifiers. The dispatch message is
 the source of truth.
 
 Before every Codex `spawn_agent` call for an Oh No Harness role, read the
-matching `agents/<role>.md` file and embed that prompt content in the spawned
-agent message. Do not rely on the role name alone. The embedded prompt must
-preserve the role's `Skill Relationship`, `Responsibilities`, `Operating
-Rules`, and `Output` sections so the spawned agent receives the same behavioral
-contract as the Claude Code plugin-scoped agent.
+matching `docs/agent-core/<role>.md` file and embed that platform-neutral prompt
+body in the spawned agent message. Do not rely on the role name alone. The
+embedded prompt must preserve the role's `Skill Relationship`,
+`Responsibilities`, `Operating Rules`, and `Output` sections so the spawned
+agent receives the same behavioral contract as the Claude Code plugin-scoped
+agent.
+
+If `docs/agent-core/<role>.md` is unavailable but `agents/<role>.md` exists,
+strip the Claude Code YAML frontmatter before embedding. Claude-only
+frontmatter such as `tools`, `model`, `background`, `isolation`, or `color` is
+metadata for Claude Code and must not be included in Codex spawned-agent prompt
+content.
 
 If the role is handled inline, keep the same role boundary in the caller's
 notes. If the role is dispatched, the spawned-agent message must include:
 
 ```text
-Agent prompt source: agents/<role>.md
+Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
-<paste the matching agents/<role>.md prompt content>
+<paste the matching docs/agent-core/<role>.md prompt content>
 ```
 
 ## Prompt Shape
@@ -89,16 +101,16 @@ Every Codex role dispatch should include:
 ```text
 Role: <explore|analyst|planner|architect|critic|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
 Codex agent type: <explorer|worker|default>
-Agent prompt source: agents/<role>.md
+Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
-<matching agents/<role>.md prompt content>
+<matching docs/agent-core/<role>.md prompt content>
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>
 Do not touch: <other agents' scopes>
 Expected output: <patch, findings, evidence, or test result>
 Verification responsibility: <command/evidence>
 Lifecycle: caller captures the result, integrates or records it, then calls
-close_agent for this completed subagent
+close_agent for this completed subagent when the host exposes close_agent
 Coordination: You are not alone in the codebase. Do not revert or overwrite
 other agents' work. Stay inside your assigned scope.
 ```

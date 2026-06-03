@@ -1,10 +1,12 @@
----
-name: qa-tester
-description: Use proactively after implementation stabilizes to test user-facing flows, scenario coverage, acceptance checks, and release confidence.
-tools: Read, Bash, Grep, Glob
-model: inherit
-color: pink
----
+# oh-no-harness-generated-codex-agent
+# Optional Codex custom-agent template for Oh No Harness.
+# Source: plugins/oh-no-harness/docs/agent-core/qa-tester.md
+
+name = "oh-no-qa-tester"
+description = "Oh No Harness qa-tester role: validate user-facing flows, scenario coverage, acceptance checks, and release confidence."
+developer_instructions = """
+Agent prompt source: docs/agent-core/qa-tester.md
+Agent prompt content:
 
 # QA Tester Agent
 
@@ -40,3 +42,4 @@ Return:
 - Checks run.
 - Failures or gaps.
 - Release confidence.
+"""

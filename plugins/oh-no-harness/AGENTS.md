@@ -15,11 +15,13 @@ Keep the external skill surface limited to:
 - `verification-before-completion`
 - `systematic-debugging`
 
-Treat `agents/*.md` as internal role prompts, not additional public skills.
-Skills own workflow stage selection, artifact creation, approval gates, and
-next-skill handoffs. Agents may return findings and recommended next roles or
-skills to the calling skill, but they must not bypass skill-chaining gates or
-act as hidden workflow automation.
+Treat `docs/agent-core/*.md` and `agents/*.md` as internal role prompts, not
+additional public skills. `docs/agent-core/*.md` contains platform-neutral role
+bodies. `agents/*.md` is the Claude Code-facing subagent wrapper with YAML
+frontmatter. Skills own workflow stage selection, artifact creation, approval
+gates, and next-skill handoffs. Agents may return findings and recommended next
+roles or skills to the calling skill, but they must not bypass skill-chaining
+gates or act as hidden workflow automation.
 
 `commands/*.md` may exist only as thin Claude Code slash-command wrappers for
 the same public skill names above. Each command must delegate to its matching

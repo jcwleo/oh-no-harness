@@ -651,8 +651,9 @@ the user picks one, invoke that skill through the current platform's skill
 mechanism with the plan path as the task definition. For the Ralph option,
 preserve `Parallel trigger: approved-plan-handoff` when the approved plan has an
 eligible dispatch plan. Preserve `Parallel trigger: natural-dispatch` only for
-direct Ralph execution without a ralplan handoff on hosts that allow natural
-dispatch.
+direct Ralph execution without a ralplan handoff when the host permits
+proactive dispatch and the active skill policy itself authorizes eligible
+isolated roles.
 
 ### Autopilot exception
 

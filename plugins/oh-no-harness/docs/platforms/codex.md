@@ -55,14 +55,20 @@ independent review or verification responsibility.
 
 Explicit user or plan wording such as `subagent`, `spawn`, `delegate`,
 `parallel agents`, `parallel subagents`, or `one agent per` is sufficient when
-the host permits dispatch. Natural dispatch is allowed only when the host tool
-definition permits it and the active skill explicitly allows natural dispatch
-for the role.
+the host permits dispatch. A user standing preference, approved plan profile, or
+active Oh No Harness skill policy to use eligible subagents aggressively is also
+workflow-level authorization, so the user does not need to repeat literal
+subagent wording on every Ralph step.
 
 When the user, plan, or skill states a standing preference to maximize
 subagents, treat that as explicit authorization for eligible isolated roles
 inside the active workflow. Keep Codex host-policy limits, but do not require
 the user to repeat literal subagent wording on every step.
+
+When no explicit request, standing preference, approved plan trigger, or active
+skill dispatch policy exists, do not spawn Codex subagents merely because a role
+could be named. Keep the role inline and record the fallback reason when the
+core skill requires it.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
@@ -83,15 +89,21 @@ fallback reason when the core skill requires it.
 ## Role Prompt Embedding
 
 Before every Codex role dispatch for an Oh No Harness role, read the matching
-`agents/<role>.md` file and embed that prompt content in the spawned-agent
-message. Do not rely on the role name alone.
+`docs/agent-core/<role>.md` file and embed that platform-neutral prompt body in
+the spawned-agent message. Do not rely on the role name alone.
+
+If `docs/agent-core/<role>.md` is unavailable but `agents/<role>.md` exists,
+strip the Claude Code YAML frontmatter before embedding. Claude-only
+frontmatter such as `tools`, `model`, `background`, `isolation`, or `color` is
+metadata for Claude Code and must not be included in Codex spawned-agent prompt
+content.
 
 Every Codex role dispatch must include:
 
 ```text
-Agent prompt source: agents/<role>.md
+Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
-<matching agents/<role>.md prompt content>
+<matching docs/agent-core/<role>.md prompt content>
 ```
 
 For `ralph`, also apply `docs/platforms/codex-ralph.md`.

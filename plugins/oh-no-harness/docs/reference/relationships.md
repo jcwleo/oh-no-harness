@@ -14,6 +14,7 @@ Claude Code UserPromptSubmit for Ralph
   -> hooks/ralph-platform-adapter
   -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/claude-code-ralph.md
+  -> agents/<role>.md as Claude Code plugin-scoped subagents
 
 Claude Code slash command
   -> commands/<skill>.md
@@ -28,12 +29,15 @@ Codex
   -> using-oh-no-harness through native skill discovery
   -> docs/skill-core/<skill>.md through the Codex-facing wrapper
   -> docs/platforms/codex.md
+  -> docs/agent-core/<role>.md for spawned role prompt bodies
+  -> optional docs/platforms/codex-agents/*.toml installed by scripts/install-codex-agents
 
 Codex UserPromptSubmit for Ralph when plugin hooks are enabled
   -> hooks/run-hook.cmd ralph-platform-adapter
   -> hooks/ralph-platform-adapter
   -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/codex-ralph.md
+  -> docs/agent-core/<role>.md for Codex spawn_agent prompt embedding
 ```
 
 ## Skill Graph
@@ -137,7 +141,7 @@ runtime-critical rules into the matching platform doc.
 
 ## Agent Relationship Summary
 
-Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body. `agents/<role>.md` wraps that body with Claude Code YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses optional TOML templates installed by `scripts/install-codex-agents`. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|

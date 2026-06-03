@@ -300,7 +300,7 @@ required = [
     "CODEX_ONLY_RALPH_ADAPTER",
     "docs/shared/ralph-subagent-policy.md",
     "docs/platforms/codex-ralph.md",
-    "Agent prompt source: agents/<role>.md",
+    "Agent prompt source: docs/agent-core/<role>.md",
     "Agent prompt content:",
     "spawn_agent",
     "wait_agent",
@@ -437,6 +437,43 @@ PY
 
   rm -rf "$temp_data"
   ok "Codex hooks inject only Codex-specific Ralph context"
+}
+
+validate_codex_agent_installer() {
+  log "Validating optional Codex custom-agent installer"
+
+  local installer="$PLUGIN_ROOT/scripts/install-codex-agents"
+  sh -n "$installer"
+
+  local temp_data dry_run_count installed_count remaining_count force_status
+  temp_data="$(mktemp -d)"
+
+  "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
+  dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
+  [[ "$dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${dry_run_count} installs, expected 11"
+
+  HOME="$temp_data/home-install" "$installer" --scope user >"$temp_data/user-install.out"
+  installed_count="$(find "$temp_data/home-install/.codex/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
+  HOME="$temp_data/home-install" "$installer" --scope user --remove >"$temp_data/user-remove.out"
+  remaining_count="$(find "$temp_data/home-install" -type f | wc -l | tr -d ' ')"
+  [[ "$remaining_count" == "0" ]] || fail "Codex agent user remove left ${remaining_count} files"
+
+  mkdir -p "$temp_data/home-unmarked/.codex/agents"
+  printf 'user owned\n' >"$temp_data/home-unmarked/.codex/agents/oh-no-code-reviewer.toml"
+  set +e
+  HOME="$temp_data/home-unmarked" "$installer" --scope user --force \
+    >"$temp_data/unmarked-force.out" 2>"$temp_data/unmarked-force.err"
+  force_status=$?
+  set -e
+  [[ "$force_status" != "0" ]] || fail "Codex agent installer overwrote an unmarked file with --force"
+  grep -q 'skip unmarked existing:' "$temp_data/unmarked-force.err" \
+    || fail "Codex agent installer did not report unmarked overwrite protection"
+  [[ "$(cat "$temp_data/home-unmarked/.codex/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
+    || fail "Codex agent installer changed an unmarked user-owned file"
+
+  rm -rf "$temp_data"
+  ok "Codex custom-agent installer installs, removes, and protects unmarked files"
 }
 
 install_via_codex_plugins() {
@@ -858,7 +895,6 @@ expected = {
         "Efficiency",
         "Altitude",
         "subagents",
-        "host",
         "one batch",
         "before waiting",
         "inline fallback",
@@ -944,6 +980,13 @@ linked_doc_markers = {
 if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
     raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
 
+if skill == "simplify" and not (
+    ("host" in text_lower and "policy" in text_lower)
+    or "subagent dispatch is unavailable" in text_lower
+    or ("dispatch" in text_lower and "unavailable" in text_lower)
+):
+    raise SystemExit(f"{skill} deep smoke missing host dispatch/fallback policy marker; got {text!r}")
+
 print(f"ok - deep Codex linked-doc smoke: {skill}")
 PY
 }
@@ -1002,7 +1045,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching docs/agent-core/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1064,7 +1107,7 @@ def roles_in_text(text):
     lower = text.lower()
     return [
         role for role in expected_roles
-        if f"Agent prompt source: agents/{role}.md".lower() in lower
+        if f"Agent prompt source: docs/agent-core/{role}.md".lower() in lower
     ]
 
 def mentioned_receivers(item):
@@ -1178,7 +1221,7 @@ for role, payloads in {
     _, _, _, role_text = payloads[0]
     missing_prompt_markers = [
         marker for marker in [
-            f"Agent prompt source: agents/{role}.md",
+            f"Agent prompt source: docs/agent-core/{role}.md",
             role_headings[role],
             *required_prompt_markers,
             *dependency_prompt_markers.get(role, []),
@@ -1189,6 +1232,13 @@ for role, payloads in {
         raise SystemExit(
             f"Codex ralplan spawn_agent payload for {role} did not embed required prompt/review markers: "
             f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+        )
+    forbidden_frontmatter_markers = ["\n---\n", "\ntools:", "\nmodel:", "\ncolor:"]
+    leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
+    if leaked:
+        raise SystemExit(
+            f"Codex ralplan spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
+            f"{leaked}; spawn_text={role_text[:2000]!r}"
         )
 
 for previous, following in zip(successful_spawns, successful_spawns[1:]):
@@ -1239,7 +1289,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching agents/<role>.md file. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Closed agents: 11.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching docs/agent-core/<role>.md file. Each subagent should inspect its own docs/agent-core/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Wait results captured: 11; Closed agents: 11.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1332,7 +1382,7 @@ required_prompt_markers = [
 def roles_in_text(text):
     return [
         role for role in expected_roles
-        if f"Agent prompt source: agents/{role}.md".lower() in text.lower()
+        if f"Agent prompt source: docs/agent-core/{role}.md".lower() in text.lower()
     ]
 
 def mentioned_receivers(item):
@@ -1432,7 +1482,7 @@ for role in expected_roles:
     role_text = role_payloads[0]
     missing_prompt_markers = [
         marker for marker in [
-            f"Agent prompt source: agents/{role}.md",
+            f"Agent prompt source: docs/agent-core/{role}.md",
             role_headings[role],
             *required_prompt_markers,
         ]
@@ -1442,6 +1492,13 @@ for role in expected_roles:
         raise SystemExit(
             f"Codex spawn_agent payload for {role} did not embed required agent prompt content: "
             f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+        )
+    forbidden_frontmatter_markers = ["\n---\n", "\ntools:", "\nmodel:", "\ncolor:"]
+    leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
+    if leaked:
+        raise SystemExit(
+            f"Codex spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
+            f"{leaked}; spawn_text={role_text[:2000]!r}"
         )
 if not marker:
     raise SystemExit("Codex live parallel smoke did not return success marker")
@@ -1462,7 +1519,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After each cleanup subagent result is captured, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Closed cleanup agents: 4.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1756,6 +1813,7 @@ main() {
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest
   validate_codex_hooks
+  validate_codex_agent_installer
   install_via_codex_plugins
   assert_codex_prompt_exposes_skills
   run_live_tests

@@ -1082,7 +1082,6 @@ expected = {
         "Efficiency",
         "Altitude",
         "subagents",
-        "host",
         "one batch",
         "before waiting",
         "inline fallback",
@@ -1173,6 +1172,13 @@ linked_doc_markers = {
 
 if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
     raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
+
+if skill == "simplify" and not (
+    ("host" in text_lower and "policy" in text_lower)
+    or "subagent dispatch is unavailable" in text_lower
+    or ("dispatch" in text_lower and "unavailable" in text_lower)
+):
+    raise SystemExit(f"{skill} deep smoke missing host dispatch/fallback policy marker; got {text!r}")
 
 print(f"ok - deep Claude linked-doc smoke: {skill} cost={data.get('total_cost_usd')}")
 PY

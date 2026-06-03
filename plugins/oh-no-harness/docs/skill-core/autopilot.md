@@ -81,8 +81,8 @@ Ralph handoff and treat it as the default parallel-capable execution path. If
 the user invoked autopilot with `parallel`, `subagents`, `spawn`, `delegate`, or
 `one agent per` language outside an approved plan profile, preserve that phrase
 as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
-only for direct Ralph execution on hosts whose tool definition permits natural
-dispatch.
+only for direct Ralph execution when the host permits proactive dispatch and the
+active skill policy itself authorizes eligible isolated roles.
 
 ## Phases
 

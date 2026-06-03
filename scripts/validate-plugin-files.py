@@ -8,6 +8,10 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback.
+    tomllib = None
 
 PUBLIC_SKILLS = [
     "using-oh-no-harness",
@@ -39,6 +43,16 @@ AGENTS = [
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
+CLAUDE_AGENT_COLORS = {
+    "red",
+    "blue",
+    "green",
+    "yellow",
+    "purple",
+    "orange",
+    "pink",
+    "cyan",
+}
 REQUIRED_SKILL_FIELDS = {"name", "description"}
 REQUIRED_COMMAND_FIELDS = {"description", "argument-hint"}
 WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
@@ -63,6 +77,8 @@ MARKETPLACE_PLUGIN_PATH = f"./plugins/{PLUGIN_NAME}"
 CODEX_SKILL_ROOT = "skills"
 CLAUDE_SKILL_ROOT = "skills-claude"
 SKILL_CORE_ROOT = "docs/skill-core"
+AGENT_CORE_ROOT = "docs/agent-core"
+CODEX_AGENT_TEMPLATE_ROOT = "docs/platforms/codex-agents"
 PROVIDER_DOC_ROOT = "docs/providers"
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
@@ -97,7 +113,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
         "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
-        "Agent prompt source: agents/{role}.md",
+        "Agent prompt source: docs/agent-core/{role}.md",
     ),
     "ralplan": (
         "default eligible parallel subagents",
@@ -145,7 +161,8 @@ PLATFORM_RULE_DOC_MARKERS = {
         "close_agent",
         "capture the output and any changed-file set before cleanup",
         "## Role Prompt Embedding",
-        "Agent prompt source: agents/<role>.md",
+        "Agent prompt source: docs/agent-core/<role>.md",
+        "Claude-only",
         "docs/platforms/codex-ralph.md",
     ),
     "claude-code.md": (
@@ -175,6 +192,8 @@ PROVIDER_DOC_MARKERS = {
         "docs/platforms/codex.md",
         "https://developers.openai.com/api/docs/guides/latest-model",
         "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
+        "https://developers.openai.com/codex/concepts/subagents",
+        "https://developers.openai.com/codex/subagents",
         "Do not create model-named provider files",
     ),
     "anthropic.md": (
@@ -184,7 +203,7 @@ PROVIDER_DOC_MARKERS = {
         "docs/platforms/claude-code.md",
         "https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8",
         "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices",
-        "https://code.claude.com/docs/en/subagents",
+        "https://code.claude.com/docs/en/sub-agents",
         "Do not create model-named provider files",
     ),
 }
@@ -234,8 +253,9 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "CODEX_ONLY_RALPH_ADAPTER",
         "## Dispatch Decision",
         "## Role Prompt Embedding",
-        "Agent prompt source: agents/<role>.md",
+        "Agent prompt source: docs/agent-core/<role>.md",
         "Agent prompt content:",
+        "strip the Claude Code YAML frontmatter",
         "spawn_agent",
         "wait_agent",
         "close_agent",
@@ -682,6 +702,16 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     die(f"{path} has unterminated YAML frontmatter")
 
 
+def strip_frontmatter(text: str, path: Path) -> str:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        die(f"{path} is missing YAML frontmatter")
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[index + 1 :]).strip() + "\n"
+    die(f"{path} has unterminated YAML frontmatter")
+
+
 def markdown_section(text: str, heading: str) -> str:
     lines = text.splitlines()
     start = None
@@ -857,12 +887,18 @@ def assert_agent(root: Path, agent: str) -> None:
         die(f"{path} missing frontmatter fields: {sorted(missing)}")
     if fm["name"] != agent:
         die(f"{path} name={fm['name']!r}, expected {agent!r}")
+    if fm["color"] not in CLAUDE_AGENT_COLORS:
+        die(
+            f"{path} color={fm['color']!r}, expected one of {sorted(CLAUDE_AGENT_COLORS)}"
+        )
 
     expected_model = "sonnet" if agent == "explore" else "inherit"
     if fm.get("model") != expected_model:
         die(f"{path} model={fm.get('model')!r}, expected {expected_model!r}")
 
     body = read_text(path)
+    agent_body = strip_frontmatter(body, path)
+    assert_agent_core(root, agent, agent_body)
     if not fm["description"].startswith("Use proactively"):
         die(f"{path} description should start with 'Use proactively' to encourage Claude Code delegation")
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
@@ -890,6 +926,105 @@ def assert_agent(root: Path, agent: str) -> None:
                 die(f"{path} is missing required Ralplan-Agent-Contract marker: {marker!r}")
 
 
+def assert_agent_core(root: Path, agent: str, claude_agent_body: str) -> None:
+    path = root / AGENT_CORE_ROOT / f"{agent}.md"
+    body = read_text(path)
+    if body.lstrip().startswith("---"):
+        die(f"{path} must not contain Claude Code YAML frontmatter")
+    if body.strip() != claude_agent_body.strip():
+        die(f"{path} body must match agents/{agent}.md without YAML frontmatter")
+    for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
+        if marker not in body:
+            die(f"{path} is missing required agent-core marker: {marker!r}")
+
+
+def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
+    if tomllib is not None:
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            die(f"{path} is not valid TOML: {exc}")
+        return data
+
+    match = re.fullmatch(
+        r'(?:#[^\n]*\n|\s*\n)*'
+        r'name = "([^"\n]*)"\n'
+        r'description = "([^"\n]*)"\n'
+        r'developer_instructions = """\n'
+        r'(.*)'
+        r'"""\n?',
+        text,
+        re.DOTALL,
+    )
+    if not match:
+        die(f"{path} is not valid strict Codex custom-agent template TOML")
+    return {
+        "name": match.group(1),
+        "description": match.group(2),
+        "developer_instructions": match.group(3),
+    }
+
+
+def assert_codex_agent_template(root: Path, agent: str) -> None:
+    path = root / CODEX_AGENT_TEMPLATE_ROOT / f"oh-no-{agent}.toml"
+    text = read_text(path)
+    data = parse_codex_agent_template(path, text)
+    for key in ("name", "description", "developer_instructions"):
+        if key not in data:
+            die(f"{path} is missing TOML field: {key}")
+        if not isinstance(data[key], str):
+            die(f"{path} TOML field {key} must be a string")
+    if data["name"] != f"oh-no-{agent}":
+        die(f"{path} name={data['name']!r}, expected 'oh-no-{agent}'")
+    agent_core = read_text(root / AGENT_CORE_ROOT / f"{agent}.md")
+    expected_instructions = (
+        f"Agent prompt source: docs/agent-core/{agent}.md\n"
+        f"Agent prompt content:\n\n"
+        f"{agent_core}"
+    )
+    if data["developer_instructions"] != expected_instructions:
+        die(
+            f"{path} developer_instructions must exactly match "
+            f"docs/agent-core/{agent}.md"
+        )
+    for marker in (
+        "oh-no-harness-generated-codex-agent",
+        f'name = "oh-no-{agent}"',
+        'description = "Oh No Harness',
+        'developer_instructions = """',
+        f"Source: plugins/oh-no-harness/docs/agent-core/{agent}.md",
+        f"Agent prompt source: docs/agent-core/{agent}.md",
+        "## Skill Relationship",
+        "## Responsibilities",
+        "## Operating Rules",
+        "## Output",
+    ):
+        if marker not in text:
+            die(f"{path} is missing required Codex custom-agent marker: {marker!r}")
+    for forbidden in ("Agent prompt source: agents/", "\ntools:", "\nmodel:", "\ncolor:"):
+        if forbidden in text:
+            die(f"{path} contains Claude-only or stale agent marker: {forbidden!r}")
+
+
+def assert_codex_agent_installer(root: Path) -> None:
+    path = root / "scripts" / "install-codex-agents"
+    text = read_text(path)
+    for marker in (
+        "#!/bin/sh",
+        "oh-no-harness-generated-codex-agent",
+        "--scope project|user",
+        "--dry-run",
+        "--force",
+        "--remove",
+        "git rev-parse --show-toplevel",
+        ".codex/agents",
+        "skip unmarked",
+        "template directory not found",
+    ):
+        if marker not in text:
+            die(f"{path} is missing required Codex agent installer marker: {marker!r}")
+
+
 def assert_expected_references(root: Path) -> None:
     relationships = read_text(root / "docs/reference/relationships.md")
     for skill in PUBLIC_SKILLS:
@@ -898,6 +1033,13 @@ def assert_expected_references(root: Path) -> None:
     for agent in AGENTS:
         if not has_token(relationships, agent):
             die(f"relationships.md does not mention agent `{agent}`")
+    for marker in (
+        "docs/agent-core/<role>.md",
+        "scripts/install-codex-agents",
+        "docs/platforms/codex-agents/*.toml",
+    ):
+        if marker not in relationships:
+            die(f"relationships.md does not mention required structure marker `{marker}`")
 
 
 def assert_execution_mode_contract(root: Path) -> None:
@@ -1337,6 +1479,8 @@ def main() -> None:
         assert_command(root, skill)
     for agent in AGENTS:
         assert_agent(root, agent)
+        assert_codex_agent_template(root, agent)
+    assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)

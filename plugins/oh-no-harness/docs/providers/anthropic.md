@@ -11,7 +11,7 @@ only the stable, runtime-critical rules into `docs/platforms/claude-code.md`.
 
 ## Source Snapshot
 
-Reviewed on 2026-05-31:
+Reviewed on 2026-06-03:
 
 - Claude Opus 4.8 update:
   `https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8`
@@ -20,7 +20,7 @@ Reviewed on 2026-05-31:
 - Claude prompting best practices:
   `https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices`
 - Claude Code subagents:
-  `https://code.claude.com/docs/en/subagents`
+  `https://code.claude.com/docs/en/sub-agents`
 - Claude Code common workflows:
   `https://code.claude.com/docs/en/common-workflows`
 
@@ -35,6 +35,9 @@ Reviewed on 2026-05-31:
 - For Claude Code role dispatch, prefer plugin-scoped agents when available.
   If they are unavailable, embed the matching `agents/<role>.md` prompt in the
   host's Task, Agent, Workflow `agent()`, or subagent mechanism.
+- Claude Code subagents use Markdown files with YAML frontmatter for metadata
+  such as `tools`, `model`, `background`, `isolation`, and `color`; keep that
+  metadata on the Claude path and do not treat it as Codex prompt content.
 - Preserve long-running state in artifacts before compaction, task handoff, or
   subagent dispatch.
 

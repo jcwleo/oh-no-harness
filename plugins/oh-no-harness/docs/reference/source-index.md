@@ -21,17 +21,17 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Source file |
 |---|---|
-| `agents/explore.md` | `omc/raw/agents/explore.md` |
-| `agents/analyst.md` | `omc/raw/agents/analyst.md` |
-| `agents/planner.md` | `omc/raw/agents/planner.md` |
-| `agents/architect.md` | `omc/raw/agents/architect.md` |
-| `agents/critic.md` | `omc/raw/agents/critic.md` |
-| `agents/executor.md` | `omc/raw/agents/executor.md` |
-| `agents/debugger.md` | `omc/raw/agents/debugger.md` |
-| `agents/verifier.md` | `omc/raw/agents/verifier.md` |
-| `agents/code-reviewer.md` | `omc/raw/agents/code-reviewer.md` |
-| `agents/security-reviewer.md` | `omc/raw/agents/security-reviewer.md` |
-| `agents/qa-tester.md` | `omc/raw/agents/qa-tester.md` |
+| `docs/agent-core/explore.md` and `agents/explore.md` | `omc/raw/agents/explore.md` |
+| `docs/agent-core/analyst.md` and `agents/analyst.md` | `omc/raw/agents/analyst.md` |
+| `docs/agent-core/planner.md` and `agents/planner.md` | `omc/raw/agents/planner.md` |
+| `docs/agent-core/architect.md` and `agents/architect.md` | `omc/raw/agents/architect.md` |
+| `docs/agent-core/critic.md` and `agents/critic.md` | `omc/raw/agents/critic.md` |
+| `docs/agent-core/executor.md` and `agents/executor.md` | `omc/raw/agents/executor.md` |
+| `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
+| `docs/agent-core/verifier.md` and `agents/verifier.md` | `omc/raw/agents/verifier.md` |
+| `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | `omc/raw/agents/code-reviewer.md` |
+| `docs/agent-core/security-reviewer.md` and `agents/security-reviewer.md` | `omc/raw/agents/security-reviewer.md` |
+| `docs/agent-core/qa-tester.md` and `agents/qa-tester.md` | `omc/raw/agents/qa-tester.md` |
 
 ## OMC-Derived Shared Docs
 
@@ -52,6 +52,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter injected by the Ralph hook |
 | `docs/platforms/claude-code.md` | Claude Code-specific public skill wrapper rules |
 | `docs/platforms/codex.md` | Codex-specific public skill wrapper rules |
+| `docs/platforms/codex-agents/*.toml` | Optional Codex custom-agent templates installable through `scripts/install-codex-agents` |
 
 ## Local Provider Guidance
 
@@ -89,6 +90,7 @@ This file records the source material used to build Oh No Harness.
 | `skills-claude/<name>/SKILL.md` | Claude Code-facing public skill wrappers over `docs/skill-core/<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
+| `scripts/install-codex-agents` | optional Codex custom-agent installer for project or user scope |
 
 ## Local Design Documents
 

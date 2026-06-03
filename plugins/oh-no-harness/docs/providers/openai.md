@@ -11,7 +11,7 @@ runtime-critical rules into `docs/platforms/codex.md`.
 
 ## Source Snapshot
 
-Reviewed on 2026-05-31:
+Reviewed on 2026-06-03:
 
 - OpenAI latest model guide:
   `https://developers.openai.com/api/docs/guides/latest-model`
@@ -19,6 +19,10 @@ Reviewed on 2026-05-31:
   `https://developers.openai.com/api/docs/models/gpt-5.5/`
 - OpenAI Codex prompting guide:
   `https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide`
+- Codex subagent concepts:
+  `https://developers.openai.com/codex/concepts/subagents`
+- Codex subagent setup and custom agents:
+  `https://developers.openai.com/codex/subagents`
 
 ## Stable Runtime Rules
 
@@ -30,6 +34,11 @@ Reviewed on 2026-05-31:
   and verification evidence in artifacts before handoff or compaction.
 - For subagents, include role, scope, files or directories, expected output,
   evidence requirement, and integration owner. Role names alone are not enough.
+- Treat approved workflow policy or a user standing preference as the
+  authorization boundary for repeated eligible Codex subagent dispatch; do not
+  require per-step literal `subagent` wording after that boundary is recorded.
+- Codex custom agents are TOML configuration files under `.codex/agents/` or
+  `~/.codex/agents/`; Claude Code YAML frontmatter is not Codex prompt content.
 - Prefer compact final responses. Use longer output only for plan approval,
   review findings, verification evidence, or user-requested detail.
 

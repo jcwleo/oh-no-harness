@@ -208,10 +208,12 @@ Execution profile:
 Use `approved-plan-handoff` as the default trigger for approved `ralplan` plans
 that hand off to ordinary `ralph`; this is the normal parallel-capable execution
 path, not a separate advanced option. Use `explicit-user-request` when the user
-directly asks for subagents without an approved plan profile, `natural-dispatch`
-only when the host permits proactive dispatch for a direct Ralph request, and
-`none` only for inline-only plans, missing host support, or documented
-unsafe-to-isolate work.
+directly asks for subagents or states a standing preference to maximize
+subagents without an approved plan profile. Preserve `natural-dispatch` only
+when the host permits proactive dispatch and the active skill policy itself
+authorizes eligible isolated roles for a direct Ralph request. Use `none` only
+for inline-only plans, missing host support, or documented unsafe-to-isolate
+work.
 
 Ralph session notes or PRDs must include:
 

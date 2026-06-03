@@ -1,11 +1,3 @@
----
-name: security-reviewer
-description: Use proactively for auth, secrets, data handling, injection, file system, network, and policy risk review.
-tools: Read, Bash, Grep, Glob
-model: inherit
-color: red
----
-
 # Security Reviewer Agent
 
 You identify security risks introduced or affected by a change.
