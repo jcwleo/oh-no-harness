@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -1005,6 +1006,8 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         'model = "gpt-5.5"',
         'model_reasoning_effort = "xhigh"',
         'developer_instructions = """',
+        "Generated from docs/agent-core; do not edit by hand.",
+        "python3 scripts/generate-agent-wrappers.py --write",
         f"Source: plugins/oh-no-harness/docs/agent-core/{agent}.md",
         f"Agent prompt source: docs/agent-core/{agent}.md",
         "## Skill Relationship",
@@ -1055,6 +1058,7 @@ def assert_expected_references(root: Path) -> None:
             die(f"relationships.md does not mention agent `{agent}`")
     for marker in (
         "docs/agent-core/<role>.md",
+        "scripts/generate-agent-wrappers.py",
         "scripts/install-codex-agents",
         "docs/platforms/codex-agents/*.toml",
     ):
@@ -1494,6 +1498,31 @@ def assert_no_deprecated_artifact_paths(root: Path) -> None:
             die(f"{path} contains deprecated artifact path `docs/oh-no`; use `.oh-no/specs`, `.oh-no/plans`, or `.oh-no/sessions`")
 
 
+def assert_generated_agent_wrappers(marketplace_root: Path, root: Path) -> None:
+    script_candidates = [
+        marketplace_root / "scripts" / "generate-agent-wrappers.py",
+        root.parent.parent / "scripts" / "generate-agent-wrappers.py",
+    ]
+    if len(root.parents) >= 3:
+        script_candidates.append(root.parents[2] / "scripts" / "generate-agent-wrappers.py")
+    script = next((candidate for candidate in script_candidates if candidate.exists()), None)
+    if script is None:
+        searched = ", ".join(str(candidate) for candidate in script_candidates)
+        die(f"generate-agent-wrappers.py is missing; searched: {searched}")
+    result = subprocess.run(
+        [sys.executable, str(script), "--plugin-root", str(root), "--check"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part
+            for part in (result.stdout.strip(), result.stderr.strip())
+            if part
+        )
+        die(f"generated agent wrappers are stale:\n{details}")
+
+
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         die("usage: validate-plugin-files.py <marketplace-root> [plugin-root]")
@@ -1505,6 +1534,7 @@ def main() -> None:
         nested = marketplace_root / "plugins" / PLUGIN_NAME
         root = nested if nested.exists() else marketplace_root
 
+    assert_generated_agent_wrappers(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)
     for skill in COMMAND_WRAPPERS:

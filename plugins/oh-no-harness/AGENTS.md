@@ -15,13 +15,19 @@ Keep the external skill surface limited to:
 - `verification-before-completion`
 - `systematic-debugging`
 
-Treat `docs/agent-core/*.md` and `agents/*.md` as internal role prompts, not
-additional public skills. `docs/agent-core/*.md` contains platform-neutral role
-bodies. `agents/*.md` is the Claude Code-facing subagent wrapper with YAML
-frontmatter. Skills own workflow stage selection, artifact creation, approval
-gates, and next-skill handoffs. Agents may return findings and recommended next
-roles or skills to the calling skill, but they must not bypass skill-chaining
-gates or act as hidden workflow automation.
+Treat `docs/agent-core/*.md`, `agents/*.md`, and
+`docs/platforms/codex-agents/*.toml` as internal role prompts, not additional
+public skills. `docs/agent-core/*.md` contains the platform-neutral role bodies
+and is the source of truth for agent behavior. Do not hand-edit
+`agents/*.md` or `docs/platforms/codex-agents/*.toml`; regenerate them with
+`python3 scripts/generate-agent-wrappers.py --write` after changing
+`docs/agent-core/*.md` or wrapper metadata in the generator. `agents/*.md` is
+the Claude Code-facing subagent wrapper with YAML frontmatter, and
+`docs/platforms/codex-agents/*.toml` is the Codex custom-agent wrapper. Skills
+own workflow stage selection, artifact creation, approval gates, and next-skill
+handoffs. Agents may return findings and recommended next roles or skills to
+the calling skill, but they must not bypass skill-chaining gates or act as
+hidden workflow automation.
 
 `commands/*.md` may exist only as thin Claude Code slash-command wrappers for
 the same public skill names above. Each command must delegate to its matching

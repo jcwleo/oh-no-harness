@@ -7,8 +7,9 @@
 #      tag already exists locally or on origin.
 #   3. Rewrites the version field in the nested plugin manifests under
 #      plugins/oh-no-harness (no-op if already correct).
-#   4. Runs scripts/validate-plugin-files.py and the local Claude Code and
-#      Codex install/update test scripts. Live model smoke is skipped.
+#   4. Checks generated agent wrappers, then runs scripts/validate-plugin-files.py
+#      and the local Claude Code and Codex install/update test scripts. Live
+#      model smoke is skipped.
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
 #      then an annotated tag `v{X.Y.Z}` on the same commit.
 #   6. With --push: pushes main and the tag to origin, then publishes a
@@ -194,6 +195,7 @@ for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         )
 PY
 
+run "$PYTHON_BIN" scripts/generate-agent-wrappers.py --plugin-root "$PLUGIN_ROOT" --check
 run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
 
 if [ "$skip_tests" = "true" ]; then

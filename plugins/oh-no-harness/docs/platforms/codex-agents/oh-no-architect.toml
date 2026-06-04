@@ -1,5 +1,6 @@
 # oh-no-harness-generated-codex-agent
-# Optional Codex custom-agent template for Oh No Harness.
+# Generated from docs/agent-core; do not edit by hand.
+# Run: python3 scripts/generate-agent-wrappers.py --write
 # Source: plugins/oh-no-harness/docs/agent-core/architect.md
 
 name = "oh-no-architect"

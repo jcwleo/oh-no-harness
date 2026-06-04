@@ -19,11 +19,11 @@ references used by Claude Code and Codex:
 - `skills/` (Codex-facing wrappers)
 - `skills-claude/` (Claude Code-facing wrappers)
 - `docs/skill-core/` (shared workflow core)
-- `docs/agent-core/` (platform-neutral role prompt bodies)
-- `docs/platforms/codex-agents/` (optional Codex custom-agent templates)
+- `docs/agent-core/` (platform-neutral role prompt bodies and agent behavior source of truth)
+- `docs/platforms/codex-agents/` (generated optional Codex custom-agent templates)
 - `docs/providers/` (maintenance-only company prompt guidance for platform docs)
 - `commands/`
-- `agents/` (Claude Code-facing subagent wrappers)
+- `agents/` (generated Claude Code-facing subagent wrappers)
 - `hooks/`
 - `scripts/`
 

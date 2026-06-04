@@ -34,7 +34,7 @@ After this, both runtimes load skills, agents, and hooks from their installed pl
 
 ## Development cycle
 
-1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform wrappers in `skills/*/SKILL.md` or `skills-claude/*/SKILL.md`, shared role bodies in `docs/agent-core/*.md`, Claude agent wrappers in `agents/*.md`, Codex custom-agent templates in `docs/platforms/codex-agents/*.toml`, hooks, `scripts/oh-no-config`, `scripts/install-codex-agents`, or docs.
+1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform wrappers in `skills/*/SKILL.md` or `skills-claude/*/SKILL.md`, shared role bodies in `docs/agent-core/*.md`, hooks, `scripts/oh-no-config`, `scripts/install-codex-agents`, or docs. Do not hand-edit generated role wrappers in `agents/*.md` or `docs/platforms/codex-agents/*.toml`; change `docs/agent-core/*.md` or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
 2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
 3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook. Ralph-specific `UserPromptSubmit` adapter changes apply on the next Ralph prompt.
 4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, the Ralph `UserPromptSubmit` adapter injects the Codex-specific dispatch prompt.
@@ -114,11 +114,12 @@ plugins/oh-no-harness/skills/<name>/SKILL.md       # Codex-facing public skill w
 plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Claude Code-facing public skill wrapper (10 total)
 plugins/oh-no-harness/docs/skill-core/<name>.md    # Shared workflow source of truth
 plugins/oh-no-harness/docs/agent-core/<name>.md    # Platform-neutral role prompt body
-plugins/oh-no-harness/agents/<name>.md             # Claude Code subagent wrapper
-plugins/oh-no-harness/docs/platforms/codex-agents/<name>.toml # Optional Codex custom-agent template
+plugins/oh-no-harness/agents/<name>.md             # Generated Claude Code subagent wrapper
+plugins/oh-no-harness/docs/platforms/codex-agents/<name>.toml # Generated optional Codex custom-agent template
 scripts/release                   # Release helper
 scripts/test-claude-plugin.sh     # Claude Code install + smoke tests
 scripts/test-codex-plugin.sh      # Codex install + prompt-exposure + smoke tests
+scripts/generate-agent-wrappers.py # Regenerates generated agent wrappers
 scripts/validate-plugin-files.py  # Frontmatter and manifest static checks
 plugins/oh-no-harness/scripts/oh-no-config         # Auto-routing on/off persistence
 plugins/oh-no-harness/scripts/install-codex-agents # Optional Codex custom-agent installer
@@ -133,7 +134,8 @@ plugins/oh-no-harness/docs/specs/                  # Design specs
 - Public skill surface is the 10 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
 - Claude Code command wrappers must mirror those same 10 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file.
 - Keep platform wrappers thin. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax belongs in `docs/platforms/` or the wrapper.
-- Keep role behavior in `docs/agent-core/`. Claude Code wrappers in `agents/` may keep YAML frontmatter for tools, model, background, isolation, or color; Codex prompt embedding must use the frontmatter-free agent core body.
+- Keep role behavior in `docs/agent-core/`. Do not hand-edit generated Claude Code wrappers in `agents/` or generated Codex custom-agent templates in `docs/platforms/codex-agents/`; after changing agent-core content or wrapper metadata in `scripts/generate-agent-wrappers.py`, run `python3 scripts/generate-agent-wrappers.py --write`.
+- Use `python3 scripts/generate-agent-wrappers.py --check` before release-facing changes. The validator and release script also run this check and fail when generated wrappers are stale.
 - Do not add a public skill for optional Codex custom-agent installation. Use `plugins/oh-no-harness/scripts/install-codex-agents` and templates under `docs/platforms/codex-agents/`.
 - Keep provider docs out of the runtime wrapper chain. Use `docs/providers/openai.md` and `docs/providers/anthropic.md` as company-scoped maintenance references, then summarize only stable runtime rules in the matching platform doc.
 - Skills route to each other via Markdown links, not via runtime orchestration. No `Task(...)` / `Skill(...)` calls in skill bodies — the validator rejects them.

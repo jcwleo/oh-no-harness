@@ -19,11 +19,11 @@ surface, 유지보수 참고 문서를 담고 있습니다.
 - `skills/` (Codex-facing wrapper)
 - `skills-claude/` (Claude Code-facing wrapper)
 - `docs/skill-core/` (공용 workflow core)
-- `docs/agent-core/` (플랫폼 공통 role prompt 본문)
-- `docs/platforms/codex-agents/` (선택적 Codex custom-agent 템플릿)
+- `docs/agent-core/` (플랫폼 공통 role prompt 본문과 agent 동작 source of truth)
+- `docs/platforms/codex-agents/` (생성된 선택적 Codex custom-agent 템플릿)
 - `docs/providers/` (platform 문서를 유지보수하기 위한 회사별 prompt guide 참고 문서, 실행 경로 아님)
 - `commands/`
-- `agents/` (Claude Code-facing subagent wrapper)
+- `agents/` (생성된 Claude Code-facing subagent wrapper)
 - `hooks/`
 - `scripts/`
 
