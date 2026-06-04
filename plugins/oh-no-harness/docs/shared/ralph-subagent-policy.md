@@ -1,6 +1,8 @@
 # Ralph Subagent Policy
 
-This policy is shared by Claude Code and Codex. It defines when Ralph may split
+This policy is shared by Claude Code and Codex. It began as Ralph's dispatch
+policy and now defines when Ralph, Autopilot, Simplify, Systematic Debugging,
+Interview brownfield exploration, and Verification Before Completion may split
 work into subagents, how to partition the work, and how to integrate results.
 It does not define platform-specific invocation syntax.
 
@@ -36,6 +38,13 @@ skill dispatch policies are sufficient when the host platform permits dispatch.
 Natural dispatch is allowed only when the host tool definition permits
 proactive dispatch and the selected mode, task risk, scope isolation, and
 context-window benefit justify it.
+
+On Codex, a SessionStart block named
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` is the Oh No Harness standing
+preference for sub-agents, delegation, and parallel agent work. Treat it as the
+explicit session-level authorization for eligible isolated roles inside active
+Oh No Harness workflows; do not ask for per-run subagent approval only to satisfy
+that authorization.
 
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The

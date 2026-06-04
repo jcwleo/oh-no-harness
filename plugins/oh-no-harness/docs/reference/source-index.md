@@ -42,7 +42,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
 | `docs/shared/parallel-subagents.md` | local pointer back to `docs/shared/ralph-subagent-policy.md` for parallel dispatch |
 | `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Autopilot |
-| `docs/shared/ralph-subagent-policy.md` | local platform-neutral Ralph subagent dispatch and integration policy |
+| `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
 
 ## Local Platform Adapter Docs
 
@@ -67,7 +67,7 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
-| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap |
+| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap plus Codex-only standing subagent authorization |
 | `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |

@@ -33,6 +33,9 @@ Simplification, Efficiency, and Altitude review passes as independent
 subagents in parallel through the active platform's approved subagent or task
 mechanism when dispatch is available. Do not collapse this into a single
 undifferentiated review; the separated viewpoints are part of the skill's value.
+On Codex, the `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` SessionStart
+context is the standing explicit user request for this cleanup delegation; do
+not ask another approval question merely to launch these four subagents.
 If the active host cannot dispatch subagents, preserve the same four role
 boundaries as separate inline fallback blocks and record the dispatch-unavailable
 reason before continuing. If a cleanup change needs additional independent
@@ -93,9 +96,11 @@ Launch four independent cleanup subagents in parallel, in one batch before
 waiting for any result. Pass each subagent the review diff and assign exactly
 one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
 platform's approved mechanism, such as Claude Code's Task tool or Codex
-subagent dispatch when available. The caller owns lifecycle: after each cleanup
-subagent result is captured, close or clean up the completed subagent using the
-active platform mechanism.
+subagent dispatch when available. For Codex, SessionStart standing authorization
+means this skill may use sub-agents, delegation, and parallel agent work
+proactively for these cleanup roles without per-run approval. The caller owns
+lifecycle: after each cleanup subagent result is captured, close or clean up the
+completed subagent using the active platform mechanism.
 
 Do not degrade these four review angles into one generic inline pass. If
 subagent dispatch is unavailable, run Reuse, Simplification, Efficiency, and

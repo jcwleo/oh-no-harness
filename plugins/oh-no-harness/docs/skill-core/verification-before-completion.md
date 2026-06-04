@@ -45,6 +45,13 @@ them. Inline verification is appropriate only for tiny direct checks with no
 context-separation benefit or when dispatch is unavailable; record that fallback
 or no-benefit reason before making the claim.
 
+On Codex, when SessionStart injects
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
+standing explicit user request for the default `verifier` and risk-gated
+`code-reviewer`, `security-reviewer`, and `qa-tester` roles in this skill. Do
+not ask for per-run subagent approval before dispatching those evidence or
+review roles when the claim is nontrivial or risk warrants them.
+
 When any verification role is dispatched, apply the active platform's role
 prompt and dispatch requirements before the claim, evidence scope, expected
 output, and no-edit instruction for read-only review roles.

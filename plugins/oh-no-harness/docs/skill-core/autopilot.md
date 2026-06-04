@@ -63,6 +63,16 @@ permits dispatch; natural dispatch is allowed when the active skill permits it
 and the host tool definition allows it. The phase boundaries below still hold
 either way.
 
+On Codex, when SessionStart injects
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
+standing explicit user request for eligible Autopilot phase agents without
+per-run subagent approval. Do not pause Autopilot only to ask whether subagents
+may be used. Apply the authorization to the phase-owned roles below:
+`interview`/`explore` for brownfield facts, `ralplan` planning roles, `ralph`
+execution and review roles, QA Loop roles, and Final Validation roles. Preserve
+all content gates, spec review, plan approval, final evidence, role isolation,
+fallback reasons, and lifecycle cleanup requirements.
+
 | Phase | Agents |
 |---|---|
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
@@ -92,15 +102,31 @@ If the request is vague, read and follow `interview` as the next skill, then res
 
 If the request already has a clear spec, record the spec path and move to planning.
 
+Interview is the only user-facing content approval gate for new Autopilot work.
+Before leaving this phase, make sure the requirements source is explicit: either
+the user approved the interview spec, an existing approved spec or plan was
+found, or the original request is already concrete enough to plan without
+inventing product intent.
+
 ### Phase 1: Plan
 
 Read and follow `ralplan` unless an approved or relevant plan already exists.
 
-The plan remains pending approval unless the user has already approved execution.
+Inside Autopilot, the `ralplan` plan is automatically approved for execution
+once the plan satisfies Ralplan's consensus, direction-preservation, execution
+profile, and test-quality gates. Record
+`Plan approval source: autopilot automatic approval after interview/spec`.
+Do not pause for a separate Plan Approval Brief after the requirements source is
+approved or already concrete. Pause only when the plan changes the approved
+scope, exposes a blocking product decision, violates the interview spec, or the
+user explicitly asked for plan review before implementation.
 
 ### Phase 2: Execute
 
-Read and follow `ralph` with the approved plan or spec.
+Read and follow `ralph` with the Autopilot-approved plan or spec. Treat the
+ordinary `ralph` execution handoff as approved by Autopilot; do not ask the user
+for a second implementation approval after Phase 1 unless a pause condition from
+the planning phase was triggered.
 
 Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
 
@@ -186,15 +212,32 @@ Start with `interview` when the prompt lacks:
 
 Autopilot is the only context that may invoke `interview`, `ralplan`, or `ralph` without the per-step transition question those skills normally require. The user opted into orchestration when they invoked autopilot, so each phase boundary moves automatically once the prior phase's content gate is satisfied.
 
-Content-approval gates inside the sub-skills still run:
+Content gates inside the sub-skills still run, but Autopilot owns the approval
+handling after requirements are clear:
 
-- `interview` still has the user review the spec.
-- `ralplan` still has the user approve the plan.
-- `ralph` still runs `verification-before-completion` before any final completion claim.
+- `interview` still has the user review the spec when the request is vague or
+  product intent is missing. Autopilot does not auto-approve the interview spec.
+- After the user approves the interview spec, or when the starting request is
+  already concrete enough to plan, Autopilot automatically approves `ralplan`
+  output that satisfies the required planning gates.
+- Autopilot then automatically invokes `ralph` with that Autopilot-approved
+  plan or spec and treats the implementation handoff as approved.
+- `ralph` still runs `verification-before-completion` before any final
+  completion claim, but that final evidence gate is verification, not a new
+  user approval prompt.
 
-What autopilot skips is only the "which next skill?" question between phases. It does not skip content review, plan approval, verification, or final evidence gates.
+Autopilot skips the "which next skill?" question between phases and the separate
+`ralplan` plan-approval prompt after requirements are approved. It does not skip
+interview/spec approval when requirements are unclear, planning quality gates,
+scope-change pauses, verification, or final evidence.
 
-Under autopilot, content gates pause the workflow and forward the sub-skill's user-facing review request verbatim — `interview`'s Phase 1 spec review and `ralplan`'s Plan Approval Brief both surface to the user as written. Autopilot does not auto-approve, paraphrase, or revise on the user's behalf. It advances to the next phase only after the user explicitly approves the spec, plan, or final-evidence claim.
+Under autopilot, `interview`'s Phase 1 spec review still surfaces to the user
+when an interview was needed. `ralplan`'s Plan Approval Brief is converted into
+an internal execution record unless it reveals a pause condition: changed scope,
+blocking ambiguity, conflict with the approved requirements source, missing
+execution profile, or an explicit user request to review the plan manually.
+When no pause condition exists, record the plan approval source and continue
+directly into `ralph`.
 
 If the user invokes `interview`, `ralplan`, or `ralph` directly without going through autopilot, the per-step Next Skill Handoff in those skills is required.
 

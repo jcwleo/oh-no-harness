@@ -18,5 +18,9 @@ Follow this order:
 5. This skill prefers four parallel cleanup subagents. If Codex subagent
    dispatch is unavailable, preserve the same four cleanup role boundaries as
    separate inline fallback blocks and record the fallback reason.
+6. When the Codex SessionStart context includes the Oh No Harness standing
+   subagent authorization, treat it as the explicit user request for this
+   skill's Reuse, Simplification, Efficiency, and Altitude subagents. Do not ask
+   for additional per-run subagent approval.
 
 Do not apply another platform's invocation syntax.

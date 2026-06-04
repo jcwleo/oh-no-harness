@@ -94,10 +94,21 @@ NEXT_SKILL_GATE_MARKERS = (
     "Autopilot exception",
 )
 AUTOPILOT_EXCEPTION_HEADING = "## Autopilot Exception"
+AUTOPILOT_AUTO_APPROVAL_MARKERS = (
+    "Interview is the only user-facing content approval gate",
+    "Plan approval source: autopilot automatic approval after interview/spec",
+    "Autopilot-approved plan or spec",
+    "automatically approves `ralplan`",
+    "automatically invokes `ralph`",
+    "not a new\n  user approval prompt",
+    "scope-change pauses",
+    "Plan Approval Brief is converted into\nan internal execution record",
+)
 
 ROLE_POLICY_MARKERS = {
     "ralph": "## Mode-Gated Agent Dispatch",
     "ralplan": "Dispatch (when)",
+    "interview": "## Agent Roles",
     "systematic-debugging": "## Agent Roles",
     "autopilot": "## Agent Roles",
 }
@@ -134,17 +145,42 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Parallel trigger: natural-dispatch",
         "must still run as separate subagents",
         "independent delegated phase work",
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "standing explicit user request",
+        "per-run subagent approval",
+        "`interview`/`explore`",
+        "QA Loop roles",
+        "Final Validation roles",
+        "lifecycle cleanup requirements",
+    ),
+    "interview": (
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "standing explicit user request",
+        "per-run subagent approval",
+        "`explore` role",
+        "inline fallback reason",
     ),
     "systematic-debugging": (
         "isolated diagnostic and evidence roles by default",
         "collapse diagnostic or evidence roles inline",
         "docs/shared/ralph-subagent-policy.md",
         "eligible batch dispatch",
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "standing explicit user request",
+        "per-run subagent approval",
+        "post-fix review roles",
+        "`code-reviewer`",
+        "`security-reviewer`",
+        "`qa-tester`",
     ),
     "verification-before-completion": (
         "dispatch `verifier` by default",
         "context-separation benefit",
         "fallback\nor no-benefit reason",
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "standing explicit user request",
+        "per-run subagent approval",
+        "`code-reviewer`, `security-reviewer`, and `qa-tester`",
     ),
 }
 PLATFORM_RULE_DOC_MARKERS = {
@@ -229,9 +265,14 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
 }
 RALPH_SUBAGENT_POLICY_MARKERS = (
     "# Ralph Subagent Policy",
+    "Ralph, Autopilot, Simplify, Systematic Debugging",
+    "Interview brownfield exploration",
     "## Subagent Bias",
     "use subagents as much as possible",
     "dispatch by default",
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "explicit session-level authorization",
+    "per-run subagent approval",
     "## Subagent-Unavailable Environments",
     "prefer dispatch over silently compressing every role",
     "platform's subagent",
@@ -445,6 +486,9 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "executor",
         "verifier",
         "architect",
+        "code-reviewer",
+        "security-reviewer",
+        "qa-tester",
     ),
     "verification-before-completion": (
         "verifier",
@@ -506,6 +550,8 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "requires four cleanup role passes",
     "Always launch the Reuse",
     "subagents in parallel",
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "standing explicit user request",
     "Do not collapse this into a single",
     "separate inline fallback blocks",
     "dispatch-unavailable",
@@ -521,6 +567,37 @@ SIMPLIFY_WRAPPER_MARKERS = (
     "separate inline fallback blocks",
     "fallback reason",
 )
+SIMPLIFY_CODEX_WRAPPER_MARKERS = (
+    "standing\n   subagent authorization",
+    "explicit user request",
+    "per-run subagent approval",
+)
+CODEX_STANDING_WRAPPER_MARKERS = {
+    "interview": (
+        "standing\n   subagent authorization",
+        "explicit user request",
+        "per-run subagent approval",
+        "skill's `explore` role",
+    ),
+    "autopilot": (
+        "standing\n   subagent authorization",
+        "explicit user request",
+        "per-run subagent approval",
+        "Autopilot phase roles",
+    ),
+    "systematic-debugging": (
+        "standing\n   subagent authorization",
+        "explicit user request",
+        "per-run subagent approval",
+        "diagnostic, fix, evidence, and post-fix review roles",
+    ),
+    "verification-before-completion": (
+        "standing\n   subagent authorization",
+        "explicit user request",
+        "per-run subagent approval",
+        "`verifier`, `code-reviewer`, `security-reviewer`, and `qa-tester`",
+    ),
+}
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
         "smallest approach",
@@ -798,6 +875,9 @@ def assert_skill(root: Path, skill: str) -> None:
         body = read_text(path)
         if AUTOPILOT_EXCEPTION_HEADING not in body:
             die(f"{path} is missing required heading: {AUTOPILOT_EXCEPTION_HEADING!r}")
+        for marker in AUTOPILOT_AUTO_APPROVAL_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Autopilot auto-approval marker: {marker!r}")
     if skill in ROLE_POLICY_MARKERS:
         body = read_text(path)
         marker = ROLE_POLICY_MARKERS[skill]
@@ -837,6 +917,16 @@ def assert_skill(root: Path, skill: str) -> None:
             for marker in SIMPLIFY_WRAPPER_MARKERS:
                 if marker not in wrapper_body:
                     die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
+            if wrapper_root == CODEX_SKILL_ROOT:
+                for marker in SIMPLIFY_CODEX_WRAPPER_MARKERS:
+                    if marker not in wrapper_body:
+                        die(f"{wrapper_path} is missing required Codex Simplify-Wrapper marker: {marker!r}")
+    if skill in CODEX_STANDING_WRAPPER_MARKERS:
+        wrapper_path = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
+        wrapper_body = read_text(wrapper_path)
+        for marker in CODEX_STANDING_WRAPPER_MARKERS[skill]:
+            if marker not in wrapper_body:
+                die(f"{wrapper_path} is missing required Codex Standing-Wrapper marker: {marker!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
@@ -1301,6 +1391,8 @@ def assert_hook_contract(root: Path) -> None:
         "Use native skill loading",
         "using-oh-no-harness",
         "OH_NO_FORCED_ROUTING",
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "sub-agents, delegation, and parallel agent work proactively",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")

@@ -45,6 +45,15 @@ For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
 and `docs/shared/parallel-subagents.md` for role isolation, fallback reasons, and
 eligible batch dispatch.
 
+On Codex, when SessionStart injects
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
+standing explicit user request for this skill's diagnostic, fix, evidence, and
+post-fix review roles. Do not ask for per-run subagent approval before
+dispatching `debugger`, `explore`, isolated `executor`, `verifier`,
+conditional `architect`, or warranted post-fix review roles. Use inline fallback
+only when dispatch is unavailable, unsafe to isolate, or too small to benefit,
+and record the fallback reason.
+
 Respect the active platform wrapper for dispatch versus inline execution. Do not
 collapse diagnostic or evidence roles inline when the host can dispatch them
 with an isolated scope. When any listed role is dispatched, apply the active platform's role prompt and
@@ -58,6 +67,9 @@ and verification responsibility.
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
 | `architect` | Dispatch `architect` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. |
+| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive. |
+| `security-reviewer` | Dispatch `security-reviewer` post-fix when auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. |
+| `qa-tester` | Dispatch `qa-tester` post-fix when the failure affects user-facing flows, scenarios, or acceptance criteria. |
 
 ## Debugging Flow
 
@@ -69,7 +81,8 @@ and verification responsibility.
 6. Test the hypothesis with the smallest diagnostic step.
 7. For behavior fixes, read and follow `test-driven-development` to create a failing reproduction test before changing production code.
 8. Apply the minimal fix with `executor` when the write scope is isolated; use inline work only with a recorded reason.
-9. Run the reproduction check, relevant regression checks, and `verification-before-completion` before claiming the failure is fixed.
+9. Dispatch warranted post-fix review roles when the changed scope or risk requires them.
+10. Run the reproduction check, relevant regression checks, and `verification-before-completion` before claiming the failure is fixed.
 
 ## Stop Conditions
 

@@ -20,6 +20,7 @@ RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
+RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
@@ -47,11 +48,14 @@ path used by /plugins, then verifies that Codex exposes the plugin skills.
 Options:
   --live             Run live codex exec smoke tests after prompt exposure checks.
   --deep-live        Run live deep smoke tests that require linked support docs.
-  --parallel-live    Run live Ralph parallel-subagent smoke test.
-  --ralplan-live     Run live Ralplan sequential planning-subagent smoke test.
+  --parallel-live    Run live Ralph explicit and SessionStart-natural subagent smoke tests.
+  --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
   --named-agents-live
                      Run live Codex custom-agent name spawn smoke test.
-  --simplify-live    Run live simplify cleanup-subagent smoke test.
+  --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
+  --natural-session-start-live
+                     Run live natural SessionStart role-worker smoke tests for Interview, Autopilot,
+                     Systematic Debugging, and Verification Before Completion.
   --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
   --skip-live        Skip live codex exec smoke tests. Default.
   --no-install       Skip the marketplace/app-server install step.
@@ -65,7 +69,8 @@ Options:
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_NAMED_AGENTS_LIVE, OH_NO_SIMPLIFY_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
+  OH_NO_NAMED_AGENTS_LIVE, OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE,
+  OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
   OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
@@ -94,6 +99,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --simplify-live)
       RUN_SIMPLIFY_LIVE=1
+      shift
+      ;;
+    --natural-session-start-live)
+      RUN_NATURAL_SESSION_START_LIVE=1
       shift
       ;;
     --worktree-live)
@@ -219,6 +228,9 @@ if "Use native skill loading to read the relevant Oh No Harness skill when it ap
     raise SystemExit("Codex SessionStart is missing compact native skill-loading guidance")
 required = [
     "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "sub-agents, delegation, and parallel agent work proactively",
+    "explicit user request for eligible Oh No Harness workflow",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -951,10 +963,10 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     autopilot)
-      printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
+      printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Autopilot auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Autopilot-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
       ;;
     simplify)
-      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
+      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the Codex SessionStart standing authorization rule that avoids per-run subagent approval; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -1019,6 +1031,11 @@ expected = {
         ".oh-no/specs/interview-{slug}.md",
         "five complete",
         ".oh-no/worktrees/<task-slug>",
+        "auto",
+        "approval",
+        "ralplan",
+        "ralph",
+        "Autopilot-approved",
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1119,11 +1136,19 @@ if skill in linked_doc_markers and not all(marker.lower() in text_lower for mark
     raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
 
 if skill == "simplify" and not (
-    ("host" in text_lower and "policy" in text_lower)
-    or "subagent dispatch is unavailable" in text_lower
-    or ("dispatch" in text_lower and "unavailable" in text_lower)
+    (
+        "standing" in text_lower
+        and "authorization" in text_lower
+        and "per-run" in text_lower
+        and "subagent" in text_lower
+    )
+    and (
+        ("host" in text_lower and "policy" in text_lower)
+        or "subagent dispatch is unavailable" in text_lower
+        or ("dispatch" in text_lower and "unavailable" in text_lower)
+    )
 ):
-    raise SystemExit(f"{skill} deep smoke missing host dispatch/fallback policy marker; got {text!r}")
+    raise SystemExit(f"{skill} deep smoke missing standing authorization or host dispatch/fallback policy marker; got {text!r}")
 
 print(f"ok - deep Codex linked-doc smoke: {skill}")
 PY
@@ -1169,6 +1194,353 @@ run_deep_live_tests() {
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+}
+
+assert_natural_prompt_has_no_explicit_subagent_terms() {
+  local label="$1"
+  local prompt="$2"
+  local prompt_lower
+  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  for forbidden in "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent"; do
+    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
+      fail "${label} natural prompt contains explicit subagent authorization term: ${forbidden}"
+    fi
+  done
+}
+
+assert_natural_spawn_smoke() {
+  local out_file="$1"
+  local err_file="$2"
+  local expected_count="$3"
+  local success_marker="$4"
+  local label="$5"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$expected_count" "$success_marker" "$label" <<'PY'
+import json
+import sys
+
+out_path, err_path, expected_count, success_marker, label = sys.argv[1:6]
+expected_count = int(expected_count)
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"{label} natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+spawn_receivers = []
+failed_spawns = []
+receiver_ids = set()
+waited_receivers = set()
+closed_receivers = set()
+marker = False
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if success_marker in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            spawn_receivers.append((index, tuple(receivers)))
+            receiver_ids.update(receivers)
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            text = collect_text(item)
+            mentioned = set(item.get("receiver_thread_ids") or [])
+            mentioned.update(receiver for receiver in receiver_ids if receiver in text)
+            mentioned.update(
+                receiver for receiver in (item.get("agents_states") or {})
+                if receiver in receiver_ids
+            )
+            if tool in {"wait", "wait_agent"}:
+                waited_receivers.update(mentioned)
+            if tool == "close_agent":
+                closed_receivers.update(mentioned)
+
+if failed_spawns:
+    raise SystemExit(f"{label} natural smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(spawn_receivers) < expected_count:
+    raise SystemExit(
+        f"{label} natural smoke expected at least {expected_count} completed spawn_agent calls from SessionStart authorization, "
+        f"got {len(spawn_receivers)}: {spawn_receivers!r}"
+    )
+if len(receiver_ids) < expected_count:
+    raise SystemExit(f"{label} natural smoke expected at least {expected_count} receiver threads, got {receiver_ids!r}")
+if not waited_receivers:
+    raise SystemExit(f"{label} natural smoke did not capture any wait_agent result")
+if not closed_receivers:
+    raise SystemExit(f"{label} natural smoke did not close any completed receiver")
+if not marker:
+    raise SystemExit(f"{label} natural smoke did not return success marker {success_marker}")
+
+print(f"ok - {label} natural smoke spawned via SessionStart standing authorization")
+PY
+}
+
+natural_session_start_prompt_for_skill() {
+  case "$1" in
+    interview)
+      cat <<'PROMPT'
+Use the oh-no-harness:interview skill. Read-only natural SessionStart smoke test. Vague request: make Codex live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-codex-plugin.sh only. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    autopilot)
+      cat <<'PROMPT'
+Use the oh-no-harness:autopilot skill. Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-codex-plugin.sh has enough live natural smoke coverage for a release handoff. Do not create artifacts, do not edit files, and do not run write-capable execution. Follow a dry-run phase path for repository facts, planning readiness, and final evidence. Required worker messages: Role: explore with Marker: OH_NO_AUTOPILOT_EXPLORE_READONLY; Role: planner with Marker: OH_NO_AUTOPILOT_PLANNER_READONLY; Role: verifier with Marker: OH_NO_AUTOPILOT_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_AUTOPILOT_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
+PROMPT
+      ;;
+    systematic-debugging)
+      cat <<'PROMPT'
+Use the oh-no-harness:systematic-debugging skill. Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-codex-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Required worker messages: Role: debugger with Marker: OH_NO_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    verification-before-completion)
+      cat <<'PROMPT'
+Use the oh-no-harness:verification-before-completion skill. Read-only natural SessionStart smoke test. Claim to verify: ../../scripts/test-codex-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-codex-plugin.sh only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    *)
+      fail "No natural SessionStart prompt for skill: $1"
+      ;;
+  esac
+}
+
+assert_natural_role_spawn_smoke() {
+  local out_file="$1"
+  local err_file="$2"
+  local success_marker="$3"
+  local label="$4"
+  local role_marker_specs="$5"
+  local forbidden_markers="${6:-}"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" <<'PY'
+import json
+import sys
+
+out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers = sys.argv[1:7]
+role_markers = []
+for spec in role_marker_specs.split(","):
+    if not spec:
+        continue
+    role, marker = spec.split(":", 1)
+    role_markers.append((role, marker))
+expected_roles = [role for role, _ in role_markers]
+forbidden = [marker for marker in forbidden_markers.split(",") if marker]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def mentioned_receivers(item, known_receivers):
+    text = collect_text(item)
+    mentioned = set(item.get("receiver_thread_ids") or [])
+    mentioned.update(receiver for receiver in known_receivers if receiver in text)
+    mentioned.update(
+        receiver for receiver in (item.get("agents_states") or {})
+        if receiver in known_receivers
+    )
+    return mentioned
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"{label} natural role smoke saw agent thread limit in stderr: {err_text[:2000]!r}")
+
+successful_role_spawns = []
+failed_spawns = []
+all_spawn_receivers = set()
+receiver_to_role = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+marker = False
+forbidden_hits = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if success_marker in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            receivers = mentioned_receivers(item, all_spawn_receivers)
+            if tool in {"wait", "wait_agent"}:
+                for receiver in receivers:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in receivers:
+                    close_index_by_receiver.setdefault(receiver, index)
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            spawn_text = collect_text(item)
+            all_spawn_receivers.update(receivers)
+            forbidden_hits.extend(
+                (index, forbidden_marker)
+                for forbidden_marker in forbidden
+                if forbidden_marker.lower() in spawn_text.lower()
+            )
+            matched = [
+                (role, role_marker)
+                for role, role_marker in role_markers
+                if role_marker.lower() in spawn_text.lower()
+            ]
+            if not matched:
+                continue
+            if len(matched) != 1:
+                raise SystemExit(
+                    f"{label} natural role smoke expected one role marker per matched spawn; "
+                    f"line={index} matches={matched!r} text={spawn_text[:2000]!r}"
+                )
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"{label} natural role smoke matched spawn must have exactly one receiver; "
+                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
+                )
+            role, role_marker = matched[0]
+            required_lines = [f"Role: {role}", f"Marker: {role_marker}"]
+            missing_lines = [
+                required for required in required_lines
+                if required.lower() not in spawn_text.lower()
+            ]
+            if missing_lines:
+                raise SystemExit(
+                    f"{label} natural role smoke spawn payload missed required role lines: "
+                    f"{missing_lines}; text={spawn_text[:2000]!r}"
+                )
+            successful_role_spawns.append((index, role, receivers[0], spawn_text))
+            receiver_to_role[receivers[0]] = role
+
+if forbidden_hits:
+    raise SystemExit(f"{label} natural role smoke saw forbidden role markers in spawn payloads: {forbidden_hits!r}")
+
+roles_seen = [role for _, role, _, _ in successful_role_spawns]
+if roles_seen != expected_roles:
+    raise SystemExit(
+        f"{label} natural role smoke expected role order {expected_roles!r}, got {roles_seen!r}; "
+        f"spawns={successful_role_spawns!r}"
+    )
+
+for role in expected_roles:
+    if roles_seen.count(role) != 1:
+        raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
+
+required_receivers = set(receiver_to_role)
+missing_wait_results = sorted(required_receivers - set(wait_index_by_receiver))
+missing_closes = sorted(required_receivers - set(close_index_by_receiver))
+if missing_wait_results:
+    raise SystemExit(f"{label} natural role smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
+if missing_closes:
+    raise SystemExit(f"{label} natural role smoke did not close spawned receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in required_receivers
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(
+        f"{label} natural role smoke closed workers before wait_agent results were captured: {early_closes!r}"
+    )
+missing_extra_closes = sorted(all_spawn_receivers - set(close_index_by_receiver))
+if missing_extra_closes:
+    raise SystemExit(f"{label} natural role smoke left completed spawned receivers open: {missing_extra_closes!r}")
+if not marker:
+    raise SystemExit(f"{label} natural role smoke did not return success marker {success_marker}")
+
+print(f"ok - {label} natural SessionStart smoke spawned required role workers")
+PY
+}
+
+run_natural_session_start_live_skill_test() {
+  local skill="$1"
+  local success_marker="$2"
+  local role_marker_specs="$3"
+  local forbidden_markers="${4:-}"
+  local safe_skill="${skill//\//-}"
+  local out_file="$RUN_DIR/natural-session-start-${safe_skill}.jsonl"
+  local err_file="$RUN_DIR/natural-session-start-${safe_skill}.err"
+  local prompt
+  prompt="$(natural_session_start_prompt_for_skill "$skill")"
+  assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
+}
+
+run_natural_session_start_live_tests() {
+  if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
+    log "Skipping live natural SessionStart role-worker smoke tests"
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural SessionStart role-worker dispatch for Interview, Autopilot, Systematic Debugging, and Verification Before Completion.\n' >&2
+    return
+  fi
+
+  log "Running live natural SessionStart role-worker smoke tests"
+  mkdir -p "$RUN_DIR"
+  run_natural_session_start_live_skill_test \
+    interview \
+    OH_NO_CODEX_INTERVIEW_NATURAL_OK \
+    explore:OH_NO_INTERVIEW_EXPLORE_READONLY \
+    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    autopilot \
+    OH_NO_CODEX_AUTOPILOT_NATURAL_OK \
+    explore:OH_NO_AUTOPILOT_EXPLORE_READONLY,planner:OH_NO_AUTOPILOT_PLANNER_READONLY,verifier:OH_NO_AUTOPILOT_VERIFIER_READONLY \
+    "OH_NO_DEBUGGER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    systematic-debugging \
+    OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK \
+    debugger:OH_NO_DEBUGGER_READONLY,verifier:OH_NO_DEBUG_VERIFIER_READONLY \
+    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    verification-before-completion \
+    OH_NO_CODEX_VERIFICATION_NATURAL_OK \
+    verifier:OH_NO_COMPLETION_VERIFIER_READONLY \
+    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY"
+  ok "natural SessionStart live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 run_ralplan_live_test() {
@@ -1413,6 +1785,14 @@ if not marker:
 
 print("ok - live Codex ralplan planning subagents reviewed sequentially")
 PY
+
+  log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
+  out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
+  err_file="$RUN_DIR/ralplan-natural-session-start.err"
+  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner, Architect, and Critic role path. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed workers: yes.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  assert_natural_spawn_smoke "$out_file" "$err_file" 3 "OH_NO_CODEX_RALPLAN_NATURAL_OK" "ralplan"
 }
 
 run_named_agents_live_test() {
@@ -1929,6 +2309,14 @@ if not marker:
 
 print("ok - live Codex role subagents spawned with per-role prompt embedding")
 PY
+
+  log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
+  out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
+  err_file="$RUN_DIR/ralph-natural-session-start.err"
+  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. Each worker message must include Agent prompt source: docs/agent-core/<role>.md and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Wait results captured, and Closed workers.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  assert_natural_spawn_smoke "$out_file" "$err_file" 3 "OH_NO_CODEX_RALPH_NATURAL_OK" "ralph"
 }
 
 run_simplify_live_test() {
@@ -2131,6 +2519,183 @@ if not marker:
 
 print("ok - live Codex simplify cleanup subagents spawned in one batch")
 PY
+
+  log "Running live Codex simplify natural SessionStart-dispatch smoke test"
+  out_file="$RUN_DIR/simplify-natural-session-start.jsonl"
+  err_file="$RUN_DIR/simplify-natural-session-start.err"
+  prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
+
+  local prompt_lower
+  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  for forbidden in "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent"; do
+    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
+      fail "natural simplify prompt contains explicit subagent authorization term: ${forbidden}"
+    fi
+  done
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+
+path = sys.argv[1]
+err_path = sys.argv[2]
+expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
+required_payload_markers = [
+    "Scope: target diff",
+    "Do not edit files",
+    "Do not create artifacts",
+    "Do not apply cleanup fixes",
+    "Do not run Phase 2",
+    "Expected output: findings with file, line, summary, concrete cost",
+]
+angle_markers = {
+    "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
+    "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
+    "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
+    "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def angles_in_payload(text):
+    return [
+        angle for angle in expected_angles
+        if re.search(rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$", text)
+    ]
+
+def mentioned_receivers(item):
+    text = collect_text(item)
+    return {receiver for receiver in receiver_to_angle if receiver in text}
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex simplify natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+successful_spawns = []
+failed_spawns = []
+spawns_by_angle = defaultdict(list)
+wait_or_close_indexes = []
+receiver_to_angle = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+marker = False
+
+with open(path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if "OH_NO_CODEX_SIMPLIFY_NATURAL_OK" in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool in {"wait", "wait_agent", "close_agent"}:
+            wait_or_close_indexes.append(index)
+        if status == "completed":
+            receivers = mentioned_receivers(item)
+            if tool in {"wait", "wait_agent"}:
+                for receiver in receivers:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in receivers:
+                    close_index_by_receiver.setdefault(receiver, index)
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            spawn_text = collect_text(item)
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"completed Codex simplify natural spawn_agent call must have exactly one receiver thread id; "
+                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
+                )
+            matched_angles = angles_in_payload(spawn_text)
+            if len(matched_angles) != 1:
+                raise SystemExit(
+                    "expected each completed natural simplify spawn_agent payload to contain exactly one Angle line; "
+                    f"line={index} angles={matched_angles!r} text={spawn_text[:2000]!r}"
+                )
+            angle = matched_angles[0]
+            successful_spawns.append((index, angle, tuple(receivers), spawn_text))
+            spawns_by_angle[angle].append((index, spawn_text))
+            for receiver in receivers:
+                receiver_to_angle[receiver] = angle
+
+if failed_spawns:
+    raise SystemExit(f"Codex simplify natural smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(successful_spawns) != len(expected_angles):
+    raise SystemExit(
+        f"expected exactly {len(expected_angles)} completed natural simplify spawn_agent calls from SessionStart authorization, "
+        f"got {len(successful_spawns)}: {successful_spawns!r}"
+    )
+missing_angles = [angle for angle in expected_angles if angle not in spawns_by_angle]
+duplicate_angles = {
+    angle: payloads for angle, payloads in spawns_by_angle.items()
+    if len(payloads) != 1
+}
+if missing_angles or duplicate_angles:
+    raise SystemExit(
+        "Codex simplify natural cleanup angles did not match the required set: "
+        f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
+    )
+receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
+missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
+missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
+if missing_wait_results:
+    raise SystemExit(f"Codex simplify natural smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
+if missing_closes:
+    raise SystemExit(f"Codex simplify natural smoke did not close spawned receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in receiver_ids
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(
+        "Codex simplify natural smoke closed agents before their wait_agent results were captured: "
+        f"{early_closes!r}"
+    )
+if not wait_or_close_indexes:
+    raise SystemExit("Codex simplify natural smoke did not wait for or close spawned cleanup workers")
+first_wait_or_close = min(wait_or_close_indexes)
+last_spawn = max(index for index, _, _, _ in successful_spawns)
+if first_wait_or_close < last_spawn:
+    raise SystemExit(
+        "Codex simplify natural cleanup workers were not launched as one batch before waiting; "
+        f"first_wait_or_close={first_wait_or_close} last_spawn={last_spawn}"
+    )
+for angle, payloads in spawns_by_angle.items():
+    _, payload = payloads[0]
+    missing_markers = [
+        marker for marker in [f"Angle: {angle}", f"Marker: {angle_markers[angle]}", *required_payload_markers]
+        if marker.lower() not in payload.lower()
+    ]
+    if missing_markers:
+        raise SystemExit(
+            f"Codex simplify natural spawn_agent payload for {angle} missed required prompt markers: "
+            f"{missing_markers}; payload={payload[:2000]!r}"
+        )
+if not marker:
+    raise SystemExit("Codex simplify natural smoke did not return success marker")
+
+print("ok - live Codex simplify spawned cleanup subagents from SessionStart standing authorization")
+PY
 }
 
 run_worktree_live_test() {
@@ -2247,6 +2812,7 @@ main() {
   run_named_agents_live_test
   run_parallel_live_test
   run_simplify_live_test
+  run_natural_session_start_live_tests
   run_worktree_live_test
   log "All requested Codex checks passed"
 }

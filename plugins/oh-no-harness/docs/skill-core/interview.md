@@ -80,6 +80,13 @@ exploration only when dispatch is unavailable or the lookup is too small to
 benefit from context separation. The role prompt, not the display name alone,
 defines the agent's behavior.
 
+On Codex, when SessionStart injects
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
+standing explicit user request for the `explore` role inside Interview. Do not
+ask for per-run subagent approval before dispatching `explore` for needed
+repository facts. If dispatch is unavailable or not worth the split, keep the
+`explore` role inline and record the inline fallback reason.
+
 Do not use execution, review, or planning agents inside this skill. Once the spec is approved, use the next skill selected by the user.
 
 ## Ambiguity Ledger

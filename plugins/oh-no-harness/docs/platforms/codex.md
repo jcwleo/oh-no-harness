@@ -60,6 +60,13 @@ active Oh No Harness skill policy to use eligible subagents aggressively is also
 workflow-level authorization, so the user does not need to repeat literal
 subagent wording on every Ralph step.
 
+When the Codex SessionStart context includes
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that standing
+authorization as the explicit user request for Oh No Harness sub-agents,
+delegation, and parallel agent work in the current session. Do not ask a
+separate per-run approval question merely to use eligible subagents inside an
+active Oh No Harness workflow.
+
 When the user, plan, or skill states a standing preference to maximize
 subagents, treat that as explicit authorization for eligible isolated roles
 inside the active workflow. Keep Codex host-policy limits, but do not require

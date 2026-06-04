@@ -96,12 +96,26 @@ Prefer one focused question at a time. For option questions, provide 2-4 mutuall
 This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
 </CLAUDE_CODE_ONLY>'
 
+codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
+This platform is Codex. Oh No Harness has a standing user/workflow preference
+to use sub-agents, delegation, and parallel agent work proactively without asking
+for per-run subagent approval when an active Oh No Harness skill permits isolated
+role work and the host exposes subagent tools. Treat this SessionStart standing
+authorization as the explicit user request for eligible Oh No Harness workflow
+subagents in this session. Do not ask an extra approval question merely to use
+subagents. Still respect the active Codex tool policy, file ownership, isolation,
+and lifecycle rules; keep roles inline only when subagent dispatch is unavailable,
+unsafe to isolate, or blocked by the selected skill.
+</CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
+
 if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
   session_context="$base_session_context"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
 elif [ -n "$ENV_CODEX_PLUGIN_ROOT" ]; then
-  session_context="$base_session_context"
+  session_context="${base_session_context}
+
+${codex_subagent_policy}"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then

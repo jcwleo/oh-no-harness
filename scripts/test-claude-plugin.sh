@@ -18,6 +18,7 @@ RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
+RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
@@ -69,6 +70,9 @@ Options:
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
+  --natural-session-start-live
+                         Run live natural role-worker smoke tests for Interview, Autopilot,
+                         Systematic Debugging, and Verification Before Completion.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
@@ -82,7 +86,8 @@ Options:
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
-  OH_NO_SIMPLIFY_LIVE, OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
+  OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE,
+  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
 USAGE
 }
 
@@ -106,6 +111,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --simplify-live)
       RUN_SIMPLIFY_LIVE=1
+      shift
+      ;;
+    --natural-session-start-live)
+      RUN_NATURAL_SESSION_START_LIVE=1
       shift
       ;;
     --live-hook-only)
@@ -357,6 +366,9 @@ if missing:
 for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
     if forbidden in text:
         raise SystemExit(f"base bootstrap embedded full using-oh-no-harness core content: {forbidden}")
+for forbidden in ("CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION", "explicit user request for eligible Oh No Harness workflow"):
+    if forbidden in text:
+        raise SystemExit(f"Claude SessionStart leaked Codex subagent policy: {forbidden}")
 for forbidden in (
     "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
     "behavior-changing edits go through test-driven-development",
@@ -1012,7 +1024,7 @@ deep_prompt_for_skill() {
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     autopilot)
-      printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
+      printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Autopilot auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Autopilot-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
       ;;
     simplify)
       printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
@@ -1083,6 +1095,11 @@ expected = {
         ".oh-no/specs/interview-{slug}.md",
         "five complete",
         ".oh-no/worktrees/<task-slug>",
+        "auto",
+        "approval",
+        "ralplan",
+        "ralph",
+        "Autopilot-approved",
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1244,6 +1261,285 @@ run_deep_live_tests() {
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+}
+
+assert_natural_prompt_has_no_explicit_subagent_terms() {
+  local label="$1"
+  local prompt="$2"
+  local prompt_lower
+  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  for forbidden in "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent"; do
+    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
+      fail "${label} natural prompt contains explicit subagent authorization term: ${forbidden}"
+    fi
+  done
+}
+
+natural_session_start_prompt_for_skill() {
+  case "$1" in
+    interview)
+      cat <<PROMPT
+/${PLUGIN_NAME}:interview --quick Read-only natural role-worker smoke test. Vague request: make Claude live role coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with read-only file tools such as rg, sed, or Read. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    autopilot)
+      cat <<PROMPT
+/${PLUGIN_NAME}:autopilot Read-only natural role-worker smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live role coverage for a release handoff. Do not create artifacts, do not edit files, do not run write-capable execution, and do not run the test script itself. Follow a dry-run phase path for repository facts, planning readiness, and final evidence using read-only file inspection. Required worker messages: Role: explore with Marker: OH_NO_CLAUDE_AUTOPILOT_EXPLORE_READONLY; Role: planner with Marker: OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_AUTOPILOT_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_AUTOPILOT_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
+PROMPT
+      ;;
+    systematic-debugging)
+      cat <<PROMPT
+/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Do not run the test script itself; inspect code paths only with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    verification-before-completion)
+      cat <<PROMPT
+/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers.
+PROMPT
+      ;;
+    *)
+      fail "No natural Claude prompt for skill: $1"
+      ;;
+  esac
+}
+
+assert_claude_natural_role_smoke() {
+  local out_file="$1"
+  local err_file="$2"
+  local success_marker="$3"
+  local label="$4"
+  local role_marker_specs="$5"
+  local forbidden_markers="${6:-}"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" <<'PY'
+import json
+import re
+import sys
+
+out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers = sys.argv[1:7]
+role_markers = []
+for spec in role_marker_specs.split(","):
+    if not spec:
+        continue
+    role, marker = spec.split(":", 1)
+    role_markers.append((role, marker))
+expected_roles = [role for role, _ in role_markers]
+expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"{label} natural role smoke saw agent thread limit in stderr: {err_text[:2000]!r}")
+
+init_ok = False
+tool_role_uses = []
+all_agent_roles = []
+task_started_roles = []
+task_completed_roles = []
+workflow_tool_ids = set()
+workflow_scripts = []
+workflow_completed = False
+summary_text = []
+marker = False
+errors = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text_blob = collect_text(data)
+        if success_marker in text_blob:
+            marker = True
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            available_agents = set(data.get("agents", []))
+            tools = set(data.get("tools", []))
+            init_ok = bool({"Task", "Agent", "Workflow"} & tools) and all(
+                agent in available_agents for agent in expected_agent_names
+            )
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = payload.get("subagent_type", "")
+                    if subagent_type.startswith("oh-no-harness:"):
+                        role = subagent_type.split(":", 1)[1]
+                        all_agent_roles.append((index, role))
+                        marker_for_role = dict(role_markers).get(role)
+                        if marker_for_role and marker_for_role.lower() in payload_text.lower():
+                            required_lines = [f"Role: {role}", f"Marker: {marker_for_role}"]
+                            missing_lines = [
+                                required for required in required_lines
+                                if required.lower() not in payload_text.lower()
+                            ]
+                            if missing_lines:
+                                raise SystemExit(
+                                    f"{label} natural role smoke task payload missed required role lines: "
+                                    f"{missing_lines}; text={payload_text[:2000]!r}"
+                                )
+                            tool_role_uses.append((index, role, payload_text))
+                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
+                    workflow_tool_ids.add(part.get("id"))
+                    script = collect_text(part.get("input", {}).get("script", ""))
+                    if script:
+                        workflow_scripts.append((index, script))
+                if part.get("type") == "text":
+                    summary_text.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            subagent_type = data.get("subagent_type", "")
+            if subagent_type.startswith("oh-no-harness:"):
+                role = subagent_type.split(":", 1)[1]
+                if role in expected_roles:
+                    task_started_roles.append((index, role))
+        if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
+            subagent_type = data.get("subagent_type", "")
+            role = ""
+            if subagent_type.startswith("oh-no-harness:"):
+                role = subagent_type.split(":", 1)[1]
+            if data.get("status") == "completed":
+                if role in expected_roles:
+                    task_completed_roles.append((index, role))
+                if (
+                    data.get("tool_use_id") in workflow_tool_ids
+                    or "workflow" in str(data.get("summary", "")).lower()
+                ):
+                    workflow_completed = True
+        if data.get("type") == "result":
+            result_text = str(data.get("result", ""))
+            summary_text.append(result_text)
+            if data.get("is_error") is True:
+                errors.append((index, result_text[:1000]))
+
+if not init_ok:
+    raise SystemExit(f"{label} natural role smoke did not expose required Claude tools and agents")
+if errors:
+    raise SystemExit(f"{label} natural role smoke returned errors: {errors!r}")
+unexpected_roles = [
+    role for _, role in all_agent_roles
+    if role not in expected_roles
+]
+if unexpected_roles:
+    raise SystemExit(f"{label} natural role smoke started unexpected roles: {unexpected_roles!r}")
+
+if not tool_role_uses and workflow_scripts:
+    workflow_script = "\n".join(script for _, script in workflow_scripts)
+    lower_script = workflow_script.lower()
+    workflow_roles = re.findall(r"agentType:\s*['\"]oh-no-harness:([^'\"]+)['\"]", workflow_script)
+    if workflow_roles != expected_roles:
+        raise SystemExit(
+            f"{label} natural role smoke Workflow agent() order did not match: "
+            f"expected={expected_roles!r} got={workflow_roles!r}"
+        )
+    missing_markers = [
+        marker for role, marker in role_markers
+        if marker.lower() not in lower_script or f"role: {role}".lower() not in lower_script
+    ]
+    if missing_markers:
+        raise SystemExit(
+            f"{label} natural role smoke Workflow script missed required markers: "
+            f"{missing_markers!r}; script={workflow_script[:2000]!r}"
+        )
+    if not workflow_completed:
+        raise SystemExit(f"{label} natural role smoke Workflow task did not report completion")
+else:
+    roles_seen = [role for _, role, _ in tool_role_uses]
+    if roles_seen != expected_roles:
+        raise SystemExit(
+            f"{label} natural role smoke expected task role order {expected_roles!r}, got {roles_seen!r}; "
+            f"uses={tool_role_uses!r}"
+        )
+    for role in expected_roles:
+        if roles_seen.count(role) != 1:
+            raise SystemExit(f"{label} natural role smoke expected exactly one task use for {role}, got {roles_seen!r}")
+    started_roles = [role for _, role in task_started_roles]
+    missing_starts = [role for role in expected_roles if role not in started_roles]
+    if missing_starts:
+        raise SystemExit(f"{label} natural role smoke missing task_started events for roles: {missing_starts!r}")
+
+combined_summary = "\n".join(summary_text).lower()
+if not marker:
+    raise SystemExit(f"{label} natural role smoke did not return success marker {success_marker}")
+if not ("close" in combined_summary or "cleanup" in combined_summary or "closed" in combined_summary):
+    raise SystemExit(f"{label} natural role smoke did not summarize lifecycle close or cleanup status")
+
+print(f"ok - {label} natural Claude smoke started required role workers")
+PY
+}
+
+run_natural_session_start_live_skill_test() {
+  local skill="$1"
+  local success_marker="$2"
+  local role_marker_specs="$3"
+  local forbidden_markers="${4:-}"
+  local safe_skill="${skill//\//-}"
+  local out_file="$RUN_DIR/natural-session-start-${safe_skill}.jsonl"
+  local err_file="$RUN_DIR/natural-session-start-${safe_skill}.err"
+  local prompt
+  prompt="$(natural_session_start_prompt_for_skill "$skill")"
+  assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$LIVE_MODEL"
+    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Follow the invoked Oh No Harness skill and Claude Code platform docs. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  assert_claude_natural_role_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
+}
+
+run_natural_session_start_live_tests() {
+  if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
+    log "Skipping live natural Claude role-worker smoke tests"
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural role-worker dispatch for Interview, Autopilot, Systematic Debugging, and Verification Before Completion.\n' >&2
+    return
+  fi
+
+  log "Running live natural Claude role-worker smoke tests (${LIVE_LOAD_MODE})"
+  mkdir -p "$RUN_DIR"
+  run_natural_session_start_live_skill_test \
+    interview \
+    OH_NO_CLAUDE_INTERVIEW_NATURAL_OK \
+    explore:OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY \
+    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    autopilot \
+    OH_NO_CLAUDE_AUTOPILOT_NATURAL_OK \
+    explore:OH_NO_CLAUDE_AUTOPILOT_EXPLORE_READONLY,planner:OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,verifier:OH_NO_CLAUDE_AUTOPILOT_VERIFIER_READONLY \
+    "OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    systematic-debugging \
+    OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK \
+    debugger:OH_NO_CLAUDE_DEBUGGER_READONLY,verifier:OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY \
+    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+  run_natural_session_start_live_skill_test \
+    verification-before-completion \
+    OH_NO_CLAUDE_VERIFICATION_NATURAL_OK \
+    verifier:OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY \
+    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY"
+  ok "natural Claude live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
 run_ralplan_live_test() {
@@ -1960,6 +2256,7 @@ main() {
   run_ralplan_live_test
   run_parallel_live_test
   run_simplify_live_test
+  run_natural_session_start_live_tests
   log "All requested checks passed"
 }
 
