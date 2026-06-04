@@ -63,6 +63,7 @@ scripts/test-claude-plugin.sh --live-hook-only    # SessionStart + auto-routing 
 scripts/test-claude-plugin.sh --deep-live         # linked support-doc dereferencing
 scripts/test-codex-plugin.sh --live
 scripts/test-codex-plugin.sh --deep-live
+scripts/test-codex-plugin.sh --named-agents-live # user-scope oh-no-* agent_type dispatch
 ```
 
 Useful overrides:
@@ -71,6 +72,7 @@ Useful overrides:
 - `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune live model + budget
 - `--codex-home /tmp/codex-test` — isolate Codex test installs to a throwaway home
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
+- `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Ralph preflight also runs this automatically and refreshes generated files after plugin version changes
 
 ## Release
 

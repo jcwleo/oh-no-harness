@@ -86,11 +86,37 @@ input is needed for that subagent, call `close_agent` and record the result.
 When dispatch is unavailable, keep the same role boundary inline and record the
 fallback reason when the core skill requires it.
 
+## Optional Named Custom Agents
+
+Oh No Harness Codex custom-agent templates are installed in user scope by
+default with `scripts/install-codex-agents`. User scope means
+`$CODEX_HOME/agents` when `CODEX_HOME` is set, otherwise
+`$HOME/.codex/agents`.
+
+When a Codex Ralph prompt is detected, the Ralph platform adapter runs a
+best-effort user-scope preflight install/update before injecting dispatch
+guidance. Generated files include the installed plugin version marker, so a
+later plugin update refreshes stale `oh-no-*` agent definitions on the next
+Ralph invocation. If installation fails or an unmarked user file blocks an
+overwrite, continue with the generic prompt-embedded fallback and record the
+preflight failure reason.
+
+The generated templates pin `gpt-5.5` /
+`model_reasoning_effort = "xhigh"` so custom-agent role files do not depend on
+inheriting a user-specific model layer.
+
+When the active Codex host recognizes a registered custom agent, prefer
+`agent_type = "oh-no-<role>"` for Oh No Harness role dispatch. If the host
+returns an unknown `agent_type`, or if the user-scope templates are not
+installed, fall back to the prompt-embedded dispatch contract below.
+
 ## Role Prompt Embedding
 
-Before every Codex role dispatch for an Oh No Harness role, read the matching
+When using generic Codex agent types, read the matching
 `docs/agent-core/<role>.md` file and embed that platform-neutral prompt body in
-the spawned-agent message. Do not rely on the role name alone.
+the spawned-agent message. Do not rely on the role name alone unless the
+registered `oh-no-<role>` custom agent supplies the role developer
+instructions.
 
 If `docs/agent-core/<role>.md` is unavailable but `agents/<role>.md` exists,
 strip the Claude Code YAML frontmatter before embedding. Claude-only
@@ -98,7 +124,7 @@ frontmatter such as `tools`, `model`, `background`, `isolation`, or `color` is
 metadata for Claude Code and must not be included in Codex spawned-agent prompt
 content.
 
-Every Codex role dispatch must include:
+Every generic Codex role dispatch must include:
 
 ```text
 Agent prompt source: docs/agent-core/<role>.md

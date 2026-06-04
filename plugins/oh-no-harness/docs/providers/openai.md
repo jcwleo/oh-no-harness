@@ -37,8 +37,15 @@ Reviewed on 2026-06-03:
 - Treat approved workflow policy or a user standing preference as the
   authorization boundary for repeated eligible Codex subagent dispatch; do not
   require per-step literal `subagent` wording after that boundary is recorded.
-- Codex custom agents are TOML configuration files under `.codex/agents/` or
-  `~/.codex/agents/`; Claude Code YAML frontmatter is not Codex prompt content.
+- Codex custom agents are TOML configuration files installed under
+  `$CODEX_HOME/agents` or `~/.codex/agents` for personal agents, or under
+  project `.codex/agents/` for project-scoped agents. Oh No Harness uses
+  user-scope install by default for named `agent_type` dispatch. Ralph runs a
+  best-effort user-scope preflight and generated files record the plugin
+  version so updates can refresh stale agent definitions. The generated
+  templates pin `gpt-5.5` with `xhigh` reasoning to avoid relying on
+  user-specific model inheritance. Claude Code YAML frontmatter is not Codex
+  prompt content.
 - Prefer compact final responses. Use longer output only for plan approval,
   review findings, verification evidence, or user-requested detail.
 

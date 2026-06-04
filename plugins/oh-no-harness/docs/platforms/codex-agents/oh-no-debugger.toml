@@ -4,6 +4,8 @@
 
 name = "oh-no-debugger"
 description = "Oh No Harness debugger role: reproduce failures, compare expected and actual behavior, trace root cause, and recommend minimal fixes."
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/debugger.md
 Agent prompt content:

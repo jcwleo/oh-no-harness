@@ -4,6 +4,8 @@
 
 name = "oh-no-qa-tester"
 description = "Oh No Harness qa-tester role: validate user-facing flows, scenario coverage, acceptance checks, and release confidence."
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/qa-tester.md
 Agent prompt content:

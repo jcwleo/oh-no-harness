@@ -544,6 +544,20 @@ if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
     raise SystemExit("Claude Korean Ralph implementation prompt did not inject adapter")
 PY
 
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 진행해줘"}\n' >"$temp_data/ralph-korean-progress-prompt.json"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-korean-progress-prompt.json" >"$temp_data/ralph-korean-progress-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-korean-progress-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Claude Korean Ralph progress prompt did not inject adapter")
+PY
+
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"랄프로 구현해줘"}\n' >"$temp_data/ralph-hangul-implementation-prompt.json"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
     <"$temp_data/ralph-hangul-implementation-prompt.json" >"$temp_data/ralph-hangul-implementation-adapter.json"

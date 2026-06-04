@@ -18,6 +18,7 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
+RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
@@ -48,6 +49,8 @@ Options:
   --deep-live        Run live deep smoke tests that require linked support docs.
   --parallel-live    Run live Ralph parallel-subagent smoke test.
   --ralplan-live     Run live Ralplan sequential planning-subagent smoke test.
+  --named-agents-live
+                     Run live Codex custom-agent name spawn smoke test.
   --simplify-live    Run live simplify cleanup-subagent smoke test.
   --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
   --skip-live        Skip live codex exec smoke tests. Default.
@@ -62,7 +65,7 @@ Options:
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_SIMPLIFY_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
+  OH_NO_NAMED_AGENTS_LIVE, OH_NO_SIMPLIFY_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
   OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
@@ -83,6 +86,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
+      shift
+      ;;
+    --named-agents-live)
+      RUN_NAMED_AGENTS_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -187,6 +194,14 @@ validate_codex_hooks() {
 
   local temp_data
   temp_data="$(mktemp -d)"
+  local had_codex_home previous_codex_home
+  had_codex_home=0
+  previous_codex_home=""
+  if [[ -n "${CODEX_HOME+x}" ]]; then
+    had_codex_home=1
+    previous_codex_home="$CODEX_HOME"
+  fi
+  export CODEX_HOME="$temp_data/codex-home"
 
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     >"$temp_data/session-start.json"
@@ -305,6 +320,7 @@ required = [
     "spawn_agent",
     "wait_agent",
     "close_agent",
+    "Codex custom-agent preflight",
     "Parallel trigger: approved-plan-handoff",
 ]
 missing = [needle for needle in required if needle not in text]
@@ -314,6 +330,55 @@ for forbidden in ("CLAUDE_CODE_ONLY_RALPH_ADAPTER", "docs/platforms/claude-code-
     if forbidden in text:
         raise SystemExit(f"Codex Ralph adapter leaked Claude marker: {forbidden}")
 PY
+
+  local hook_agent_count
+  hook_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  [[ "$hook_agent_count" == "11" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 11"
+  grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex Ralph adapter preflight did not write installed plugin version marker"
+
+  local manifest_version
+  manifest_version="$(json_value version)"
+  {
+    printf '# oh-no-harness-installed-plugin-version: 0.0.0\n'
+    printf '# oh-no-harness-generated-codex-agent\n'
+    printf 'name = "oh-no-code-reviewer"\n'
+    printf 'description = "stale generated file from hook test"\n'
+    printf 'developer_instructions = "stale"\n'
+  } >"$CODEX_HOME/agents/oh-no-code-reviewer.toml"
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Run ralph on the approved plan."}\n' >"$temp_data/ralph-stale-preflight-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-stale-preflight-prompt.json" >"$temp_data/ralph-stale-preflight-adapter.json"
+  grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex Ralph adapter preflight did not refresh stale installed plugin version marker"
+  grep -q '# Code Reviewer Agent' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex Ralph adapter preflight did not refresh stale installed agent prompt"
+
+  local blocked_codex_home
+  blocked_codex_home="$temp_data/codex-home-blocked"
+  mkdir -p "$blocked_codex_home/agents"
+  printf 'user owned\n' >"$blocked_codex_home/agents/oh-no-code-reviewer.toml"
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Run ralph on the approved plan."}\n' >"$temp_data/ralph-blocked-preflight-prompt.json"
+  CODEX_HOME="$blocked_codex_home" PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-blocked-preflight-prompt.json" >"$temp_data/ralph-blocked-preflight-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-blocked-preflight-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+required = [
+    "CODEX_ONLY_RALPH_ADAPTER",
+    "Codex custom-agent preflight: failed",
+    "generic prompt-embedded dispatch fallback",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Codex blocked preflight did not preserve fallback context: {missing}")
+PY
+  [[ "$(cat "$blocked_codex_home/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
+    || fail "Codex Ralph adapter preflight overwrote an unmarked user-owned agent file"
 
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff"}\n' >"$temp_data/ralph-approved-handoff-prompt.json"
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
@@ -348,7 +413,10 @@ PY
     "Should I run ralph?" \
     "Do not run ralph yet." \
     "When would you run ralph?" \
-    "Can you explain how to run ralph?"; do
+    "Can you explain how to run ralph?" \
+    "ralph 로 진행하는 방법 알려줘" \
+    "ralph로 구현하는 방법 알려줘" \
+    "랄프로 진행하는 방법 알려줘"; do
     discussion_index=$((discussion_index + 1))
     printf '{"hook_event_name":"UserPromptSubmit","prompt":"%s"}\n' "$discussion_prompt" >"$temp_data/ralph-discussion-$discussion_index.json"
     PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
@@ -384,6 +452,20 @@ with open(sys.argv[1], "r", encoding="utf-8") as fh:
 text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
 if "CODEX_ONLY_RALPH_ADAPTER" not in text:
     raise SystemExit("Codex Korean Ralph implementation prompt did not inject adapter")
+PY
+
+  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 진행해줘"}\n' >"$temp_data/ralph-korean-progress-prompt.json"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
+    <"$temp_data/ralph-korean-progress-prompt.json" >"$temp_data/ralph-korean-progress-adapter.json"
+  "$PYTHON_BIN" - "$temp_data/ralph-korean-progress-adapter.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+if "CODEX_ONLY_RALPH_ADAPTER" not in text:
+    raise SystemExit("Codex Korean Ralph progress prompt did not inject adapter")
 PY
 
   printf '{"hook_event_name":"UserPromptSubmit","prompt":"랄프로 구현해줘"}\n' >"$temp_data/ralph-hangul-implementation-prompt.json"
@@ -435,6 +517,11 @@ PY
     fail "Ralph adapter emitted context for a non-Ralph Codex prompt"
   fi
 
+  if [[ "$had_codex_home" == "1" ]]; then
+    export CODEX_HOME="$previous_codex_home"
+  else
+    unset CODEX_HOME
+  fi
   rm -rf "$temp_data"
   ok "Codex hooks inject only Codex-specific Ralph context"
 }
@@ -445,35 +532,86 @@ validate_codex_agent_installer() {
   local installer="$PLUGIN_ROOT/scripts/install-codex-agents"
   sh -n "$installer"
 
-  local temp_data dry_run_count installed_count remaining_count force_status
+  local temp_data dry_run_count installed_count project_dry_run_count remaining_count force_status manifest_version
   temp_data="$(mktemp -d)"
+  manifest_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PLUGIN_ROOT/.codex-plugin/plugin.json" | head -n 1)"
+
+  CODEX_HOME="$temp_data/codex-home" "$installer" --dry-run >"$temp_data/default-user-dry-run.out"
+  dry_run_count="$(grep -c '^would install: ' "$temp_data/default-user-dry-run.out")"
+  [[ "$dry_run_count" == "11" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 11"
+  grep -q "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" "$temp_data/default-user-dry-run.out" \
+    || fail "Codex agent default install did not target CODEX_HOME user scope"
+
+  env -u CODEX_HOME HOME="$temp_data/home-default" "$installer" --dry-run >"$temp_data/home-default-dry-run.out"
+  dry_run_count="$(grep -c '^would install: ' "$temp_data/home-default-dry-run.out")"
+  [[ "$dry_run_count" == "11" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 11"
+  grep -q "$temp_data/home-default/.codex/agents/oh-no-code-reviewer.toml" "$temp_data/home-default-dry-run.out" \
+    || fail "Codex agent default install did not target HOME fallback user scope"
 
   "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
-  dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
-  [[ "$dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${dry_run_count} installs, expected 11"
+  project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
+  [[ "$project_dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 11"
 
-  HOME="$temp_data/home-install" "$installer" --scope user >"$temp_data/user-install.out"
-  installed_count="$(find "$temp_data/home-install/.codex/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
+  installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
   [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
-  HOME="$temp_data/home-install" "$installer" --scope user --remove >"$temp_data/user-remove.out"
-  remaining_count="$(find "$temp_data/home-install" -type f | wc -l | tr -d ' ')"
+  grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user install did not write the current plugin version marker"
+  grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user install did not write the custom-agent model default"
+  grep -q 'model_reasoning_effort = "xhigh"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user install did not write the custom-agent reasoning default"
+  {
+    printf '# oh-no-harness-installed-plugin-version: 0.0.0\n'
+    printf '# oh-no-harness-generated-codex-agent\n'
+    printf 'name = "oh-no-code-reviewer"\n'
+    printf 'description = "stale generated file"\n'
+    printf 'developer_instructions = "stale"\n'
+  } >"$temp_data/codex-home/agents/oh-no-code-reviewer.toml"
+  CODEX_HOME="$temp_data/codex-home" "$installer" --force >"$temp_data/user-reinstall.out"
+  grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user reinstall did not refresh stale plugin version marker"
+  grep -q '# Code Reviewer Agent' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user reinstall did not refresh stale agent prompt content"
+  CODEX_HOME="$temp_data/codex-home" "$installer" --remove >"$temp_data/user-remove.out"
+  remaining_count="$(find "$temp_data/codex-home" -type f | wc -l | tr -d ' ')"
   [[ "$remaining_count" == "0" ]] || fail "Codex agent user remove left ${remaining_count} files"
 
-  mkdir -p "$temp_data/home-unmarked/.codex/agents"
-  printf 'user owned\n' >"$temp_data/home-unmarked/.codex/agents/oh-no-code-reviewer.toml"
+  mkdir -p "$temp_data/home-unmarked/agents"
+  printf 'user owned\n' >"$temp_data/home-unmarked/agents/oh-no-code-reviewer.toml"
   set +e
-  HOME="$temp_data/home-unmarked" "$installer" --scope user --force \
+  CODEX_HOME="$temp_data/home-unmarked" "$installer" --scope user --force \
     >"$temp_data/unmarked-force.out" 2>"$temp_data/unmarked-force.err"
   force_status=$?
   set -e
   [[ "$force_status" != "0" ]] || fail "Codex agent installer overwrote an unmarked file with --force"
   grep -q 'skip unmarked existing:' "$temp_data/unmarked-force.err" \
     || fail "Codex agent installer did not report unmarked overwrite protection"
-  [[ "$(cat "$temp_data/home-unmarked/.codex/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
+  [[ "$(cat "$temp_data/home-unmarked/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
     || fail "Codex agent installer changed an unmarked user-owned file"
 
   rm -rf "$temp_data"
   ok "Codex custom-agent installer installs, removes, and protects unmarked files"
+}
+
+install_codex_agents_user_scope() {
+  [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex custom-agent user-scope install (--no-install)"; return; }
+
+  log "Installing optional Codex custom agents into user scope"
+  mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+
+  local out_file="$RUN_DIR/codex-agents-user-install.out"
+  local err_file="$RUN_DIR/codex-agents-user-install.err"
+  CODEX_HOME="$CODEX_HOME_DIR" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
+    >"$out_file" 2>"$err_file" || {
+      cat "$err_file" >&2
+      fail "Codex custom-agent user-scope install failed"
+    }
+
+  local installed_count
+  installed_count="$(find "$CODEX_HOME_DIR/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  [[ "$installed_count" == "11" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 11"
+  ok "Codex custom agents installed into ${CODEX_HOME_DIR}/agents"
 }
 
 install_via_codex_plugins() {
@@ -1277,6 +1415,292 @@ print("ok - live Codex ralplan planning subagents reviewed sequentially")
 PY
 }
 
+run_named_agents_live_test() {
+  if [[ "$RUN_NAMED_AGENTS_LIVE" != "1" ]]; then
+    log "Skipping live Codex named custom-agent smoke test"
+    printf 'Run with --named-agents-live or OH_NO_NAMED_AGENTS_LIVE=1 to verify actual Codex agent_type=oh-no-* custom-agent spawns.\n' >&2
+    return
+  fi
+
+  log "Running live Codex named custom-agent smoke test"
+  mkdir -p "$RUN_DIR"
+
+  local agent_type safe_agent out_file err_file prompt
+  local expected_agents=(
+    oh-no-analyst
+    oh-no-architect
+    oh-no-code-reviewer
+    oh-no-critic
+    oh-no-debugger
+    oh-no-executor
+    oh-no-explore
+    oh-no-planner
+    oh-no-qa-tester
+    oh-no-security-reviewer
+    oh-no-verifier
+  )
+
+  local negative_home="$RUN_DIR/named-agents-negative-home"
+  local negative_project_root="$RUN_DIR/named-agents-negative-project"
+  local negative_out_file="$RUN_DIR/named-agents-negative.jsonl"
+  local negative_err_file="$RUN_DIR/named-agents-negative.err"
+  local negative_prompt
+  rm -rf "$negative_home" "$negative_project_root"
+  mkdir -p "$negative_home" "$negative_project_root"
+  for file in auth.json config.toml config.json; do
+    if [[ -f "$CODEX_HOME_DIR/$file" ]]; then
+      cp -p "$CODEX_HOME_DIR/$file" "$negative_home/$file"
+    fi
+  done
+
+  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with agent_type "oh-no-code-reviewer". Do not omit agent_type. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
+
+  local negative_cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$negative_project_root"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    negative_cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$negative_home" "${negative_cmd[@]}" "$negative_prompt" >"$negative_out_file" 2>"$negative_err_file" || true
+
+  "$PYTHON_BIN" - "$negative_out_file" "$negative_err_file" <<'PY'
+import json
+import sys
+
+out_path = sys.argv[1]
+err_path = sys.argv[2]
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+
+text = ""
+completed_receivers = []
+if out_path:
+    with open(out_path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            item = data.get("item") or {}
+            text += "\n" + (item.get("text") or data.get("result") or "")
+            if (
+                item.get("type") == "collab_tool_call"
+                and item.get("tool") == "spawn_agent"
+                and item.get("status") == "completed"
+            ):
+                completed_receivers.extend(item.get("receiver_thread_ids") or [])
+
+combined = f"{err_text}\n{text}"
+if completed_receivers:
+    raise SystemExit(
+        "Codex named-agent negative control unexpectedly spawned receivers without "
+        f"user-scope or project-scope custom agents: {completed_receivers!r}"
+    )
+if "OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED" in combined:
+    raise SystemExit("Codex named-agent negative control reported unexpected success")
+if "unknown agent_type" not in combined.lower():
+    raise SystemExit(
+        "Codex named-agent negative control did not prove missing custom agents "
+        f"produce unknown agent_type; stderr/text={combined[:2000]!r}"
+    )
+if "OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK" not in combined:
+    raise SystemExit("Codex named-agent negative control did not return success marker")
+
+print("ok - Codex named custom-agent negative control requires an installed custom agent")
+PY
+
+  local live_home="$RUN_DIR/named-agents-live-home"
+  local live_project_root="$RUN_DIR/named-agents-live-project"
+  rm -rf "$live_home" "$live_project_root"
+  mkdir -p "$live_home" "$live_project_root"
+  for file in auth.json config.toml config.json; do
+    if [[ -f "$CODEX_HOME_DIR/$file" ]]; then
+      cp -p "$CODEX_HOME_DIR/$file" "$live_home/$file"
+    fi
+  done
+
+  log "Installing isolated user-scope Codex custom agents for named-agent live test"
+  CODEX_HOME="$live_home" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
+    >"$RUN_DIR/named-agents-live-user-install.out" \
+    2>"$RUN_DIR/named-agents-live-user-install.err" || {
+      cat "$RUN_DIR/named-agents-live-user-install.err" >&2
+      fail "Codex named-agent live test could not install isolated user-scope custom agents"
+    }
+
+  local proof_map_file="$RUN_DIR/named-agent-proof-map.tsv"
+  "$PYTHON_BIN" - "$live_home/agents" "$proof_map_file" "${expected_agents[@]}" <<'PY'
+from pathlib import Path
+import secrets
+import sys
+
+agents_dir = Path(sys.argv[1])
+proof_map = Path(sys.argv[2])
+rows = []
+for agent_type in sys.argv[3:]:
+    path = agents_dir / f"{agent_type}.toml"
+    text = path.read_text(encoding="utf-8")
+    needle = 'developer_instructions = """\n'
+    nonce = secrets.token_hex(12)
+    request = f"OH_NO_NAMED_AGENT_PROOF_REQUEST {nonce}"
+    ok = f"OH_NO_NAMED_AGENT_PROOF_OK {agent_type} {nonce}"
+    proof = (
+        f"Live named-agent proof for {agent_type}.\n"
+        f"If your task message is exactly \"{request}\", return exactly \"{ok}\" "
+        f"and do not inspect files or add explanation.\n\n"
+    )
+    if needle not in text:
+        raise SystemExit(f"{path} is missing developer_instructions header")
+    path.write_text(text.replace(needle, needle + proof, 1), encoding="utf-8")
+    rows.append(f"{agent_type}\t{request}\t{ok}\n")
+proof_map.write_text("".join(rows), encoding="utf-8")
+PY
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$live_project_root"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  for agent_type in "${expected_agents[@]}"; do
+    safe_agent="${agent_type//[^A-Za-z0-9_]/_}"
+    out_file="$RUN_DIR/named-agent-${safe_agent}.jsonl"
+    err_file="$RUN_DIR/named-agent-${safe_agent}.err"
+    proof_request="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $2}' "$proof_map_file")"
+    proof_ok="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $3}' "$proof_map_file")"
+    [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
+    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Call spawn_agent exactly once with agent_type \"${agent_type}\", without fork_context, and with message \"${proof_request}\". Do not omit agent_type. Do not inspect available-role comments before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. Do not use generic/default agents. If spawn_agent fails or the agent_type is unavailable, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after wait_agent and close_agent completed. Do not mention any expected child output."
+
+    CODEX_HOME="$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+    "$PYTHON_BIN" - "$agent_type" "$proof_request" "$proof_ok" "$out_file" "$err_file" <<'PY'
+import json
+import sys
+
+agent_type, proof_request, proof_ok, out_path, err_path = sys.argv[1:6]
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+for marker in ("unknown agent_type", "spawn failed", "agent thread limit reached"):
+    if marker in err_text.lower():
+        raise SystemExit(f"{agent_type} smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+spawn_events = []
+failed_spawns = []
+waited_receivers = {}
+closed_receivers = {}
+final_ok = False
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        text = item.get("text") or data.get("result") or ""
+        if f"OH_NO_CODEX_NAMED_AGENT_OK {agent_type}" in text:
+            final_ok = True
+        if "OH_NO_CODEX_NAMED_AGENT_FAILED" in text:
+            raise SystemExit(f"{agent_type} smoke returned failure marker: {text[:2000]!r}")
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "completed":
+            spawn_events.append(
+                {
+                    "index": index,
+                    "prompt": item.get("prompt"),
+                    "receivers": list(item.get("receiver_thread_ids") or []),
+                }
+            )
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool in {"wait", "wait_agent"} and status == "completed":
+            for receiver, state in (item.get("agents_states") or {}).items():
+                if state.get("status") == "completed":
+                    waited_receivers[receiver] = {
+                        "index": index,
+                        "message": state.get("message"),
+                    }
+        if tool == "close_agent" and status == "completed":
+            for receiver in item.get("receiver_thread_ids") or []:
+                closed_receivers[receiver] = {
+                    "index": index,
+                    "message": None,
+                }
+            for receiver, state in (item.get("agents_states") or {}).items():
+                if state.get("status") == "completed":
+                    closed_receivers[receiver] = {
+                        "index": index,
+                        "message": state.get("message"),
+                    }
+
+if failed_spawns:
+    raise SystemExit(f"{agent_type} smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(spawn_events) != 1:
+    raise SystemExit(f"{agent_type} expected one completed spawn_agent call, got {spawn_events!r}")
+spawn_event = spawn_events[0]
+if spawn_event["prompt"] != proof_request:
+    raise SystemExit(
+        f"{agent_type} spawn prompt was {spawn_event['prompt']!r}, expected {proof_request!r}"
+    )
+spawn_receivers = set(spawn_event["receivers"])
+if len(spawn_receivers) != 1:
+    raise SystemExit(f"{agent_type} expected one spawned receiver, got {spawn_receivers!r}")
+for receiver in sorted(spawn_receivers):
+    wait = waited_receivers.get(receiver)
+    if wait is None:
+        raise SystemExit(f"{agent_type} did not capture wait result for receiver: {receiver}")
+    if wait["message"] != proof_ok:
+        raise SystemExit(
+            f"{agent_type} child message was {wait['message']!r}, expected {proof_ok!r}; "
+            "generic/default agent dispatch would not satisfy this proof"
+        )
+    close = closed_receivers.get(receiver)
+    if close is None:
+        raise SystemExit(f"{agent_type} did not close spawned receiver: {receiver}")
+    if wait["index"] >= close["index"]:
+        raise SystemExit(
+            f"{agent_type} close_agent completed before wait_agent captured the proof result"
+        )
+if not final_ok:
+    raise SystemExit(f"{agent_type} did not return success marker")
+PY
+  done
+
+  print_ok_count="${#expected_agents[@]}"
+  ok "live Codex named custom agents spawned, waited, and closed by ${print_ok_count} oh-no-* agent_type values"
+}
+
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Codex parallel-subagent smoke test"
@@ -1815,10 +2239,12 @@ main() {
   validate_codex_hooks
   validate_codex_agent_installer
   install_via_codex_plugins
+  install_codex_agents_user_scope
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
   run_ralplan_live_test
+  run_named_agents_live_test
   run_parallel_live_test
   run_simplify_live_test
   run_worktree_live_test

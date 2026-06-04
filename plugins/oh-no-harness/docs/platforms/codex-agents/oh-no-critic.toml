@@ -4,6 +4,8 @@
 
 name = "oh-no-critic"
 description = "Oh No Harness critic role: adversarially review plans, assumptions, risks, overcomplication, and verification evidence."
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/critic.md
 Agent prompt content:

@@ -32,7 +32,7 @@ lowered_prompt="${lowered_prompt#"${lowered_prompt%%[![:space:]]*}"}"
 
 is_ralph_prompt=0
 case "$lowered_prompt" in
-  "oh-no-harness:ralph"*|"use oh-no-harness:ralph"*|"run oh-no-harness:ralph"*|"execute oh-no-harness:ralph"*|"invoke oh-no-harness:ralph"*|"start oh-no-harness:ralph"*|"use ralph to"*|"use ralph on"*|"use ralph with"*|"run ralph"*|"please run ralph"*|"please use ralph"*|"could you run ralph"*|"can you run ralph"*|"could you use ralph"*|"can you use ralph"*|*"then run ralph"*|*"then use ralph"*|*"and run ralph"*|*"and use ralph"*|*"execute ralph"*|*"invoke ralph"*|*"start ralph"*|"ralph with parallel subagents"*|"/ralph"*|'$ralph'*|"ralph로 구현"*|"ralph로 진행"*|"ralph로 실행"*|"ralph 로 구현"*|"ralph 로 진행"*|"ralph 로 실행"*|"ralph 해줘"*|"랄프로 구현"*|"랄프로 진행"*|"랄프로 실행"*|"랄프 로 구현"*|"랄프 로 진행"*|"랄프 로 실행"*|"랄프 해줘"*)
+  "oh-no-harness:ralph"*|"use oh-no-harness:ralph"*|"run oh-no-harness:ralph"*|"execute oh-no-harness:ralph"*|"invoke oh-no-harness:ralph"*|"start oh-no-harness:ralph"*|"use ralph to"*|"use ralph on"*|"use ralph with"*|"run ralph"*|"please run ralph"*|"please use ralph"*|"could you run ralph"*|"can you run ralph"*|"could you use ralph"*|"can you use ralph"*|*"then run ralph"*|*"then use ralph"*|*"and run ralph"*|*"and use ralph"*|*"execute ralph"*|*"invoke ralph"*|*"start ralph"*|"ralph with parallel subagents"*|"/ralph"*|'$ralph'*|"ralph로 구현"|"ralph로 구현해"*|"ralph로 구현 해"*|"ralph로 진행"|"ralph로 진행해"*|"ralph로 진행 해"*|"ralph로 실행"|"ralph로 실행해"*|"ralph로 실행 해"*|"ralph 로 구현"|"ralph 로 구현해"*|"ralph 로 구현 해"*|"ralph 로 진행"|"ralph 로 진행해"*|"ralph 로 진행 해"*|"ralph 로 실행"|"ralph 로 실행해"*|"ralph 로 실행 해"*|"ralph 해줘"*|"랄프로 구현"|"랄프로 구현해"*|"랄프로 구현 해"*|"랄프로 진행"|"랄프로 진행해"*|"랄프로 진행 해"*|"랄프로 실행"|"랄프로 실행해"*|"랄프로 실행 해"*|"랄프 로 구현"|"랄프 로 구현해"*|"랄프 로 구현 해"*|"랄프 로 진행"|"랄프 로 진행해"*|"랄프 로 진행 해"*|"랄프 로 실행"|"랄프 로 실행해"*|"랄프 로 실행 해"*|"랄프 해줘"*)
     is_ralph_prompt=1
     ;;
   "what "*|"what's "*|"how "*|"explain "*|"compare "*|"review "*|"tell me about "*|"describe "*|"why "*)
@@ -62,6 +62,29 @@ if [ "$platform" = "unknown" ]; then
   exit 0
 fi
 
+codex_agent_preflight="Codex custom-agent preflight: not applicable on ${platform_name}."
+if [ "$platform" = "codex" ]; then
+  installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
+  if [ -x "$installer_path" ]; then
+    preflight_out="$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent-preflight.XXXXXX")"
+    preflight_err="$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent-preflight.XXXXXX")"
+    if "$installer_path" --scope user --force >"$preflight_out" 2>"$preflight_err"; then
+      codex_agent_preflight="Codex custom-agent preflight: installed-or-updated user-scope oh-no-* agents before Ralph dispatch.
+Preflight output:
+$(cat "$preflight_out")"
+    else
+      codex_agent_preflight="Codex custom-agent preflight: failed; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason.
+Preflight stdout:
+$(cat "$preflight_out")
+Preflight stderr:
+$(cat "$preflight_err")"
+    fi
+    rm -f "$preflight_out" "$preflight_err"
+  else
+    codex_agent_preflight="Codex custom-agent preflight: installer unavailable at ${installer_path}; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason."
+  fi
+fi
+
 shared_path="${OH_NO_PLUGIN_ROOT}/docs/shared/ralph-subagent-policy.md"
 shared_policy="$(cat "$shared_path" 2>&1 || echo "Error reading $shared_path")"
 platform_adapter="$(cat "$adapter_path" 2>&1 || echo "Error reading $adapter_path")"
@@ -71,6 +94,8 @@ Platform: ${platform_name}
 
 Ralph is being invoked. Apply the shared Ralph subagent policy and the active
 platform adapter below. Do not apply another platform's invocation syntax.
+
+${codex_agent_preflight}
 
 Shared policy source: docs/shared/ralph-subagent-policy.md
 

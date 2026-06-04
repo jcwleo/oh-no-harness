@@ -4,6 +4,8 @@
 
 name = "oh-no-security-reviewer"
 description = "Oh No Harness security-reviewer role: review auth, secrets, data handling, injection, file system, network, and policy risks."
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/security-reviewer.md
 Agent prompt content:

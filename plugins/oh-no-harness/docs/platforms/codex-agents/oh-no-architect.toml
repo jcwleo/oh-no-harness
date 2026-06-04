@@ -4,6 +4,8 @@
 
 name = "oh-no-architect"
 description = "Oh No Harness architect role: review architecture-sensitive plans or changes for feasibility, tradeoffs, sequencing, and system design risk."
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/architect.md
 Agent prompt content:

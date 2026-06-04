@@ -49,8 +49,20 @@ other independent review roles.
 
 When dispatch is selected, use Codex `spawn_agent`.
 
+The Codex Ralph adapter performs a best-effort user-scope custom-agent
+preflight before this point by running `scripts/install-codex-agents --scope
+user --force`. The installed files carry the plugin version marker, so Ralph
+refreshes generated `oh-no-*` agents after a plugin update without requiring
+the user to ask for agent installation. Generated templates also pin `gpt-5.5`
+/ `model_reasoning_effort = "xhigh"` so they do not depend on inheriting a
+user-specific model config. If preflight
+fails, named custom-agent dispatch is optional; record the failure and use the
+generic prompt-embedded fallback.
+
 Prefer:
 
+- `oh-no-<role>` when Oh No Harness Codex custom agents are installed in user
+  scope and the host recognizes that `agent_type`
 - `explorer` for read-heavy repository exploration
 - `worker` for scoped implementation with a disjoint write set
 - `default` for specialized reviews, QA, security, verification, or critique
@@ -68,16 +80,17 @@ record that closure is host-managed or unavailable.
 
 ## Role Prompt Embedding
 
-Codex display names are not stable role identifiers. The dispatch message is
-the source of truth.
+Codex display names are not stable role identifiers. Registered Oh No Harness
+custom-agent names and the dispatch message are the source of truth.
 
-Before every Codex `spawn_agent` call for an Oh No Harness role, read the
-matching `docs/agent-core/<role>.md` file and embed that platform-neutral prompt
-body in the spawned agent message. Do not rely on the role name alone. The
-embedded prompt must preserve the role's `Skill Relationship`,
-`Responsibilities`, `Operating Rules`, and `Output` sections so the spawned
-agent receives the same behavioral contract as the Claude Code plugin-scoped
-agent.
+When using a generic Codex agent type, read the matching
+`docs/agent-core/<role>.md` file and embed that platform-neutral prompt body in
+the spawned agent message. Do not rely on the role name alone unless the
+registered `oh-no-<role>` custom agent supplies the role developer
+instructions. The embedded or registered prompt must preserve the role's
+`Skill Relationship`, `Responsibilities`, `Operating Rules`, and `Output`
+sections so the spawned agent receives the same behavioral contract as the
+Claude Code plugin-scoped agent.
 
 If `docs/agent-core/<role>.md` is unavailable but `agents/<role>.md` exists,
 strip the Claude Code YAML frontmatter before embedding. Claude-only
@@ -86,7 +99,8 @@ metadata for Claude Code and must not be included in Codex spawned-agent prompt
 content.
 
 If the role is handled inline, keep the same role boundary in the caller's
-notes. If the role is dispatched, the spawned-agent message must include:
+notes. If the role is dispatched with a generic Codex agent type, the
+spawned-agent message must include:
 
 ```text
 Agent prompt source: docs/agent-core/<role>.md
@@ -96,14 +110,11 @@ Agent prompt content:
 
 ## Prompt Shape
 
-Every Codex role dispatch should include:
+Every registered custom-agent role dispatch should include:
 
 ```text
 Role: <explore|analyst|planner|architect|critic|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
-Codex agent type: <explorer|worker|default>
-Agent prompt source: docs/agent-core/<role>.md
-Agent prompt content:
-<matching docs/agent-core/<role>.md prompt content>
+Codex agent type: oh-no-<role>
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>
 Do not touch: <other agents' scopes>
@@ -113,6 +124,23 @@ Lifecycle: caller captures the result, integrates or records it, then calls
 close_agent for this completed subagent when the host exposes close_agent
 Coordination: You are not alone in the codebase. Do not revert or overwrite
 other agents' work. Stay inside your assigned scope.
+```
+
+When using a registered `oh-no-<role>` custom agent, the TOML
+`developer_instructions` already supplies the role prompt body. Keep the task
+prompt focused on story, scope, expected output, verification, and lifecycle;
+if the host rejects that `agent_type`, retry only through the generic
+prompt-embedded path and record the fallback.
+
+Every generic Codex role dispatch should include the same task shape plus the
+embedded role prompt:
+
+```text
+Role: <explore|analyst|planner|architect|critic|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
+Codex agent type: <explorer|worker|default>
+Agent prompt source: docs/agent-core/<role>.md
+Agent prompt content:
+<matching docs/agent-core/<role>.md prompt content>
 ```
 
 For `worker` tasks, give each agent an explicit ownership boundary. For

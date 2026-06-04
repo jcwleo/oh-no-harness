@@ -2,22 +2,25 @@
 set -eu
 
 MARKER="oh-no-harness-generated-codex-agent"
+VERSION_MARKER="oh-no-harness-installed-plugin-version"
 
-scope="project"
+scope="user"
 dry_run="false"
 force="false"
 remove="false"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/install-codex-agents [--scope project|user] [--dry-run] [--force] [--remove]
+Usage: scripts/install-codex-agents [--scope user|project] [--dry-run] [--force] [--remove]
 
 Installs optional Oh No Harness Codex custom-agent templates.
 
 Options:
-  --scope project|user  Install under the current Git repo's .codex/agents
-                        directory, or under $HOME/.codex/agents.
-                        Default: project.
+  --scope user|project  Install under the Codex user agent directory, or under
+                        the current Git repo's .codex/agents directory.
+                        User scope targets $CODEX_HOME/agents when CODEX_HOME
+                        is set, otherwise $HOME/.codex/agents.
+                        Default: user.
   --dry-run             Print planned changes without writing files.
   --force               Overwrite existing generated files during install.
   --remove              Remove installed Oh No Harness agent files.
@@ -75,8 +78,14 @@ esac
 script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd -P)
 plugin_dir=$(dirname "$script_dir")
 template_dir="${plugin_dir}/docs/platforms/codex-agents"
+manifest_path="${plugin_dir}/.codex-plugin/plugin.json"
 
 [ -d "$template_dir" ] || die "template directory not found: $template_dir"
+
+plugin_version=$(
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest_path" 2>/dev/null | head -n 1
+)
+[ -n "$plugin_version" ] || plugin_version="unknown"
 
 project_root() {
   git_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "project scope requires running inside a Git worktree"
@@ -89,8 +98,12 @@ target_dir() {
       printf '%s/.codex/agents\n' "$(project_root)"
       ;;
     user)
-      [ -n "${HOME:-}" ] || die "HOME is not set"
-      printf '%s/.codex/agents\n' "$HOME"
+      if [ -n "${CODEX_HOME:-}" ]; then
+        printf '%s/agents\n' "$CODEX_HOME"
+      else
+        [ -n "${HOME:-}" ] || die "HOME is not set"
+        printf '%s/.codex/agents\n' "$HOME"
+      fi
       ;;
   esac
 }
@@ -99,25 +112,36 @@ has_marker() {
   grep -F -q "$MARKER" "$1"
 }
 
+render_agent() {
+  src="$1"
+  printf '# %s: %s\n' "$VERSION_MARKER" "$plugin_version"
+  cat "$src"
+}
+
 install_one() {
   src="$1"
   dest="${target}/$(basename "$src")"
 
   has_marker "$src" || die "template missing marker: $src"
+  rendered=$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent.XXXXXX") || return 1
+  render_agent "$src" >"$rendered"
 
   if [ -f "$dest" ]; then
-    if cmp -s "$src" "$dest"; then
+    if cmp -s "$rendered" "$dest"; then
       printf 'unchanged: %s\n' "$dest"
+      rm -f "$rendered"
       return 0
     fi
 
     if ! has_marker "$dest"; then
       printf 'skip unmarked existing: %s (not overwritten)\n' "$dest" >&2
+      rm -f "$rendered"
       return 1
     fi
 
     if [ "$force" != "true" ]; then
       printf 'skip existing generated: %s (use --force to overwrite)\n' "$dest" >&2
+      rm -f "$rendered"
       return 1
     fi
   fi
@@ -128,14 +152,16 @@ install_one() {
     else
       printf 'would install: %s\n' "$dest"
     fi
+    rm -f "$rendered"
     return 0
   fi
 
   mkdir -p "$target"
-  cp "$src" "$dest"
+  mv "$rendered" "$dest"
   if [ -f "$dest" ]; then
-    printf 'installed: %s\n' "$dest"
+    printf 'installed: %s (plugin version %s)\n' "$dest" "$plugin_version"
   else
+    rm -f "$rendered"
     return 1
   fi
 }

@@ -950,6 +950,8 @@ def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
         r'(?:#[^\n]*\n|\s*\n)*'
         r'name = "([^"\n]*)"\n'
         r'description = "([^"\n]*)"\n'
+        r'model = "([^"\n]*)"\n'
+        r'model_reasoning_effort = "([^"\n]*)"\n'
         r'developer_instructions = """\n'
         r'(.*)'
         r'"""\n?',
@@ -961,7 +963,9 @@ def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
     return {
         "name": match.group(1),
         "description": match.group(2),
-        "developer_instructions": match.group(3),
+        "model": match.group(3),
+        "model_reasoning_effort": match.group(4),
+        "developer_instructions": match.group(5),
     }
 
 
@@ -969,13 +973,20 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
     path = root / CODEX_AGENT_TEMPLATE_ROOT / f"oh-no-{agent}.toml"
     text = read_text(path)
     data = parse_codex_agent_template(path, text)
-    for key in ("name", "description", "developer_instructions"):
+    for key in ("name", "description", "model", "model_reasoning_effort", "developer_instructions"):
         if key not in data:
             die(f"{path} is missing TOML field: {key}")
         if not isinstance(data[key], str):
             die(f"{path} TOML field {key} must be a string")
     if data["name"] != f"oh-no-{agent}":
         die(f"{path} name={data['name']!r}, expected 'oh-no-{agent}'")
+    if data["model"] != "gpt-5.5":
+        die(f"{path} model={data['model']!r}, expected 'gpt-5.5'")
+    if data["model_reasoning_effort"] != "xhigh":
+        die(
+            f"{path} model_reasoning_effort={data['model_reasoning_effort']!r}, "
+            "expected 'xhigh'"
+        )
     agent_core = read_text(root / AGENT_CORE_ROOT / f"{agent}.md")
     expected_instructions = (
         f"Agent prompt source: docs/agent-core/{agent}.md\n"
@@ -991,6 +1002,8 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         "oh-no-harness-generated-codex-agent",
         f'name = "oh-no-{agent}"',
         'description = "Oh No Harness',
+        'model = "gpt-5.5"',
+        'model_reasoning_effort = "xhigh"',
         'developer_instructions = """',
         f"Source: plugins/oh-no-harness/docs/agent-core/{agent}.md",
         f"Agent prompt source: docs/agent-core/{agent}.md",
@@ -1012,7 +1025,14 @@ def assert_codex_agent_installer(root: Path) -> None:
     for marker in (
         "#!/bin/sh",
         "oh-no-harness-generated-codex-agent",
-        "--scope project|user",
+        "oh-no-harness-installed-plugin-version",
+        "manifest_path=",
+        "plugin_version=",
+        "render_agent()",
+        'scope="user"',
+        "--scope user|project",
+        "Default: user.",
+        "${CODEX_HOME:-}",
         "--dry-run",
         "--force",
         "--remove",
@@ -1243,6 +1263,9 @@ def assert_hook_contract(root: Path) -> None:
         "OH_NO_RALPH_PLATFORM_ADAPTER",
         "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
         "CODEX_ONLY_RALPH_ADAPTER",
+        "Codex custom-agent preflight",
+        "install-codex-agents",
+        "--scope user --force",
         "prompt_text=",
         'json.loads(raw).get("prompt", "")',
         "lowered_prompt=",
@@ -1300,9 +1323,17 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
             "Do not run ralph yet.",
             "When would you run ralph?",
             "Can you explain how to run ralph?",
+            "ralph 로 진행하는 방법 알려줘",
+            "ralph로 구현하는 방법 알려줘",
+            "랄프로 진행하는 방법 알려줘",
             "Please run ralph now.",
             "ralph 로 구현해줘",
+            "ralph 로 진행해줘",
             "랄프로 구현해줘",
+            "stale installed plugin version marker",
+            "named-agent-proof-map.tsv",
+            "OH_NO_NAMED_AGENT_PROOF_REQUEST",
+            "OH_NO_NAMED_AGENT_PROOF_OK",
             "oh-no-harness:ralph implement the approved plan",
             "Review the approved plan, then run ralph on it",
             "marker-only Codex prompt",
@@ -1322,6 +1353,7 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
             "Can you explain how to run ralph?",
             "Please run ralph now.",
             "ralph 로 구현해줘",
+            "ralph 로 진행해줘",
             "랄프로 구현해줘",
             "oh-no-harness:ralph implement the approved plan",
             "Review the approved plan, then run ralph on it",

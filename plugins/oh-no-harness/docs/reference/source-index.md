@@ -52,7 +52,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter injected by the Ralph hook |
 | `docs/platforms/claude-code.md` | Claude Code-specific public skill wrapper rules |
 | `docs/platforms/codex.md` | Codex-specific public skill wrapper rules |
-| `docs/platforms/codex-agents/*.toml` | Optional Codex custom-agent templates installable through `scripts/install-codex-agents` |
+| `docs/platforms/codex-agents/*.toml` | Optional Codex custom-agent templates installable through `scripts/install-codex-agents`; include explicit model defaults to avoid user-specific inheritance |
 
 ## Local Provider Guidance
 
@@ -90,7 +90,7 @@ This file records the source material used to build Oh No Harness.
 | `skills-claude/<name>/SKILL.md` | Claude Code-facing public skill wrappers over `docs/skill-core/<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
-| `scripts/install-codex-agents` | optional Codex custom-agent installer for project or user scope |
+| `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default and Ralph preflight refreshes generated files by plugin version, project scope is explicit |
 
 ## Local Design Documents
 
