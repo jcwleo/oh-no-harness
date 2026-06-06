@@ -175,10 +175,37 @@ Before writing the final spec, run this local gate:
 - code and research facts are separated from assumptions
 - acceptance criteria are testable enough for `ralplan` or direct `ralph`
 - non-goals and explicit exclusions are present when they affect execution
+- the acceptance criteria are explicit enough that another implementer can tell
+  what success, failure, and out-of-scope behavior look like from the user's or
+  maintainer's point of view
 - the execution sizing hint can be written without inventing repository facts
 
 If the gate fails, do not write the final spec yet. Ask the single highest-value
 follow-up question and continue the interview.
+
+## Acceptance Criteria Alignment Gate
+
+Before finalizing a spec, align the requested outcome with the actual acceptance
+criteria that will validate the work. This is not implementation planning. It
+is the contract that keeps planning and execution from optimizing for the wrong
+proof.
+
+Record:
+
+```text
+Acceptance criteria:
+- Who validates success: user | maintainer | caller | test suite | operator | customer | other
+- Success signal: observable behavior, artifact, metric, or decision that means the work is right
+- Failure signal: observable behavior, artifact, regression, or omission that means the work is wrong
+- Insufficient evidence: checks or outputs that are useful but insufficient proof
+- Scope boundary most likely to be misunderstood:
+- Confirmation status: confirmed by user | inferred from repo | inferred from request | open
+```
+
+If the person, team, or check that validates success is only inferred, and that
+inference changes behavior, delivery scope, data handling, security posture, or
+public support claims, ask one targeted user-judgment question before
+finalizing.
 
 ## Goal Restatement Gate
 
@@ -222,7 +249,8 @@ small, concrete, acceptance criteria are testable, and the provisional mode is
 - Separate facts, assumptions, and open questions.
 - Use `Question Routing` before deciding whether to inspect code, research, or ask the user.
 - Use `Answer Capture` for material answers before they enter the spec.
-- Run the `Spec Readiness Guard` and `Goal Restatement Gate` before Phase 1 review.
+- Run the `Spec Readiness Guard`, `Acceptance Criteria Alignment Gate`, and
+  `Goal Restatement Gate` before Phase 1 review.
 - Avoid leaking prompt or tool details into the spec.
 
 ## Spec Artifact
@@ -250,6 +278,9 @@ The spec must include:
 - users or callers
 - requirements
 - acceptance criteria
+- acceptance criteria details: who validates success, success signal, failure
+  signal, insufficient proofs, likely misunderstood boundary, and confirmation
+  status
 - constraints
 - risks
 - open questions

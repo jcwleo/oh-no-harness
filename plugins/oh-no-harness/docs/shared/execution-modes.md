@@ -45,15 +45,20 @@ plan, repository facts, and known verification commands:
    claims?
 5. Are acceptance criteria and the smallest credible verification command
    already clear?
-6. Is the root cause known, or does the work start from a failing command,
+6. Which acceptance criteria need direct evidence, and which likely edge case
+   would a skeptical maintainer or user test before accepting the work?
+7. Is the root cause known, or does the work start from a failing command,
    flaky behavior, or uncertain bug report?
-7. Can a lighter mode produce credible evidence without skipping a stated
+8. Can a lighter mode produce credible evidence without skipping a stated
    requirement?
-8. What would force escalation while working: broader files, failing checks,
+9. What would force escalation while working: broader files, failing checks,
    unexpected behavior, security/data risk, unclear ownership, or reviewer
    rejection?
-9. For write-capable execution, what `Worktree policy` applies from
+10. For write-capable execution, what `Worktree policy` applies from
    `docs/shared/worktree-isolation.md`?
+11. If measurable evidence influenced the work, what `Validation check` from
+    `docs/shared/validation-check.md` keeps the change tied to a recurring
+    software engineering failure mode instead of a local check?
 
 Choose the lightest mode that gives credible evidence. If risk remains unclear
 after reading the relevant files, choose the higher mode and record why.
@@ -85,6 +90,8 @@ Ralph behavior:
 - document TDD as not applicable or as an exception when there is no behavior
   change
 - run LIGHT verification from `docs/shared/verification-tiers.md`
+- map each acceptance criterion to direct, indirect, manual, or missing
+  evidence before the final claim
 - record the `Worktree decision` before editing when the task is write-capable
 - run `verification-before-completion` before the final claim
 - run `simplify` only when the diff shows actual reuse, simplification,
@@ -120,6 +127,11 @@ Ralph behavior:
 - use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
   where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
+- apply the verification budget policy: focused semantic evidence first, broad
+  suites once after behavior stabilizes unless a patch-related failure requires
+  rerun
+- run the diff-budget gate when changed files, insertions, generated artifacts,
+  public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
 - run cleanup only after the behavior lock exists and the changed files show
   cleanup candidates; rerun the relevant verification after cleanup
@@ -154,8 +166,11 @@ Ralph behavior:
   security, QA, or critic review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
+- require acceptance-to-evidence mapping, risk checks before completion,
+  verification budget decisions, and diff-budget scope review in the final
+  evidence
 - record the `Worktree decision` before editing when the task is write-capable
-- run `simplify` after functional review unless explicitly disabled,
+- run `simplify` after required review is satisfied unless explicitly disabled,
   then rerun verification and any needed focused review
 - run `verification-before-completion` before the final claim
 

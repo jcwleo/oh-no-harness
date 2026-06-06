@@ -141,6 +141,37 @@ architecture, product behavior, data handling, security, or delivery scope, run
 Analyst or a limited Analyst gap check before Planner drafts. The Analyst output
 must feed the Planner draft; it must not replace the Planner draft.
 
+## Acceptance Criteria Contract
+
+Ralplan must keep the plan aligned to the acceptance criteria that will validate
+the work in practice. The plan may refine verification, sequencing, and
+implementation strategy, but it must not silently replace the user's success
+criteria with a test, broad suite, dashboard number, local command, or internal
+shortcut.
+
+When measurable evidence influenced the request, apply
+`docs/shared/validation-check.md`. The plan must treat that evidence as a
+diagnostic signal and map the proposed improvement to a recurring software
+engineering failure mode, not to a case-specific result.
+
+Before Planner draft v1, record:
+
+```text
+Acceptance criteria:
+- Who validates success:
+- Success signal:
+- Failure signal:
+- Insufficient evidence:
+- Scope boundary most likely to be misunderstood:
+- Source: approved interview spec | approved PRD/ticket | user request | analyst gap check
+- Confidence: confirmed | inferred | open
+```
+
+If the acceptance criteria are missing, contradictory, or only inferred for a
+decision that changes behavior, architecture, data handling, security posture,
+or delivery scope, the plan must mark that gap as blocking or pending approval
+instead of hiding it in assumptions.
+
 ## Planner Draft Contract
 
 Planner owns the draft plan and every revision. The first Planner output is
@@ -153,6 +184,7 @@ Planner draft v1:
 - Draft id: v1
 - Requirements source:
 - Analyst status: satisfied by approved interview spec | completed | gap check completed
+- Acceptance criteria:
 - Goal:
 - Scope:
 - Non-goals:
@@ -162,6 +194,7 @@ Planner draft v1:
 - Task sequence:
 - TDD expectations:
 - Test case design:
+- Validation check:
 - Execution profile:
 - Worktree policy:
 - Planning dispatch:
@@ -196,6 +229,8 @@ Architect review vN:
 - Sequencing concerns:
 - Strongest antithesis:
 - Tradeoff tension:
+- Acceptance criteria coverage:
+- Validation coverage:
 - Required changes:
 - Optional improvements:
 - Execution profile concerns:
@@ -229,6 +264,8 @@ Critic review vN:
 - Verdict: APPROVE | ITERATE | REJECT
 - Blocking issues:
 - Overcomplexity/speculative abstraction check:
+- Acceptance criteria mismatch:
+- Validation evidence gap:
 - Acceptance criteria quality:
 - Verification weakness:
 - Missing feedback disposition:
@@ -318,6 +355,9 @@ The plan must be concrete enough for `ralph` to execute without inventing scope.
 Before presenting the plan, check that it includes:
 
 - explicit in-scope and out-of-scope boundaries
+- acceptance criteria alignment: who validates success, success signal, failure
+  signal, insufficient proofs, likely misunderstood boundary, source, and
+  confidence
 - the smallest approach that can satisfy the acceptance criteria
 - any added abstraction, configurability, dependency, or generalization justified by a current requirement
 - files, modules, commands, or investigation targets where known
@@ -373,6 +413,7 @@ Every plan must include:
 - a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
 - goal
 - scope and non-goals
+- acceptance criteria and any blocking or pending-approval gaps
 - minimal viable approach
 - rejected speculative complexity, or `none`
 - for `LIGHT` execution profile, the minimal viable approach may be a single
@@ -480,6 +521,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - numbered task sequence
 - key files or modules affected
 - minimal viable approach and any rejected speculative complexity
+- acceptance criteria alignment and any insufficient measurable evidence
+- validation check when measurable evidence influenced the plan
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
 - consensus loop summary, including Analyst findings, Architect disposition,
@@ -513,6 +556,24 @@ Minimal viable approach:
 {smallest approach that satisfies the acceptance criteria}
 Rejected speculative complexity:
 {unneeded abstraction, configurability, dependency, or generalization, or "None"}
+
+Acceptance criteria:
+- Who validates success: {user | maintainer | caller | test suite | operator | customer | other}
+- Success signal: {observable proof}
+- Failure signal: {observable miss or regression}
+- Insufficient evidence: {checks or outputs that are useful but insufficient}
+- Scope boundary most likely to be misunderstood: {boundary}
+- Source/confidence: {source and confirmed|inferred|open}
+
+Validation check:
+- Evidence used: {local check, broad suite, metric, trace, mock, generated marker, or none}
+- Recurring software engineering failure mode: {category}
+- User or maintainer outcome: {user | maintainer | caller | operator | customer | public contract | other}
+- Acceptance signal: {observable proof}
+- Why this should apply to similar work: {one sentence}
+- Case-specific details deliberately excluded: {details or none}
+- Added process cost or risk: {cost or none}
+- Completion claim: {valid for similar work | likely valid with residual risk | only supported by local checks}
 
 Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}

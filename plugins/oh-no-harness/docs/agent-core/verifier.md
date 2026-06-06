@@ -9,6 +9,19 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Map acceptance criteria to evidence.
+- Classify each acceptance criterion as direct, indirect, manual, or missing
+  evidence; do not approve a claim from command success alone.
+- Review the Risk Check Before Completion: identify the likely edge case,
+  adjacent subsystem, or public contract that local green evidence could still
+  miss.
+- Check the Validation check from `docs/shared/validation-check.md` when
+  measurable evidence influenced the work. Measurable evidence is diagnostic evidence,
+  not completion proof.
+- Check that the verification budget is sensible: focused semantic evidence
+  before broad suites, and no repeated broad-suite reruns without a
+  patch-related reason.
+- Check diff-budget scope review when the patch is broad, generated,
+  multi-package, or public-API heavy.
 - Run or inspect the exact checks needed for the requested claim.
 - Confirm output, exit codes, and residual risk.
 - Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
@@ -19,6 +32,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Evidence before claims.
 - Do not approve work from the same active implementation pass without independent checks.
+- A broad suite pass is supporting evidence, not direct proof of a new semantic
+  contract unless the new behavior is represented in that suite.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception before approval.
 - Use Bash for verification and inspection only. Do not edit files, install dependencies, or run destructive commands unless explicitly assigned by the current skill.
 - Report skipped checks and why they were skipped.
@@ -33,5 +48,9 @@ Return:
 - Commands run.
 - Results.
 - Acceptance criteria status.
+- Acceptance-to-evidence mapping status.
+- Risk check before completion status.
+- Validation check and risk from metric-only evidence status.
+- Verification budget and diff-budget status.
 - TDD evidence status when applicable.
 - Residual risk.

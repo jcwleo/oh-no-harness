@@ -455,7 +455,7 @@ Direct copy could preserve references to removed skills or `.omc/state`. Mitigat
 
 ### Risk: Codex and Claude use different skill invocation semantics
 
-Mitigation: `using-oh-no-harness` should include short platform adaptation notes and avoid overfitting to Claude Code-only tool names.
+Mitigation: `using-oh-no-harness` should include short platform adaptation notes and avoid over-specializing to Claude Code-only tool names.
 
 ### Risk: Too much OMC content leaks back in
 

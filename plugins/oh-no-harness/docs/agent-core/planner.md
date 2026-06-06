@@ -10,6 +10,13 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Break work into ordered tasks with file ownership, verification, and acceptance criteria.
 - Use `explore` findings and `analyst` requirements when available.
+- Preserve the acceptance criteria from the approved spec, PRD, ticket, user
+  request, or analyst gap check. Do not substitute a broad suite, local command,
+  dashboard number, or internal shortcut for the user's or maintainer's success
+  signal.
+- Apply `docs/shared/validation-check.md` when measurable evidence influenced
+  the request. Plans must map the work to a recurring software engineering failure mode, not to
+  a case-specific result.
 - When called by `ralplan`, own the Planner Draft Contract and Planner Revision Contract: create `Planner draft v1`, revise into `Planner revision vN`, and
   keep the plan body as the source of truth.
 - Record Feedback disposition for every Architect and Critic finding: accepted,
@@ -22,6 +29,16 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   must-fail before implementation, must-pass after implementation,
   negative/forbidden behavior when relevant, edge or regression coverage when
   relevant, and evidence mapping to acceptance criteria.
+- Include a story risk check in plans: the likely edge case, adjacent
+  subsystem, or public contract that a skeptical maintainer or user would test.
+- Include acceptance criteria alignment in plans: who validates success, success
+  signal, failure signal, insufficient proofs, likely misunderstood boundary,
+  source, and confidence.
+- Include a verification budget: focused semantic checks first, broad suites
+  only when they add risk-relevant confidence, and a stop rule for noisy or slow
+  broad checks.
+- Include a diff-budget expectation and the scope-review trigger for broad,
+  generated, multi-package, or public-API-heavy patches.
 - Justify any new abstraction, configurability, dependency, or generalized path
   with a current requirement, not a possible future need.
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
@@ -60,6 +77,8 @@ Return:
 - Planner draft id or Planner revision id.
 - Task list.
 - Minimal viable approach.
+- Acceptance criteria alignment, including success signal.
+- Validation check when measurable evidence influenced the plan.
 - Rejected speculative complexity.
 - Feedback disposition when this is a revision.
 - Execution profile when the plan can hand off to `ralph`.
@@ -67,5 +86,8 @@ Return:
   edge/regression when relevant, and evidence mapping.
 - Worktree policy and any approved artifact handoff requirement.
 - Verification commands.
+- Acceptance-to-evidence mapping.
+- Story risk check.
+- Verification budget and diff-budget expectations.
 - Approval status.
 - Recommended next role or skill for the caller: `architect`, `critic`, `ralph`, or `autopilot`.

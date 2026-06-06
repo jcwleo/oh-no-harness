@@ -17,6 +17,10 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Prioritize bugs, behavioral regressions, missing tests, and maintainability risks.
+- Apply the Practical Maintainability Gate: identify changes that make future
+  work harder through unclear ownership, brittle coupling, hidden state,
+  duplicated behavior, fragile tests, generated-handwritten drift, or
+  abstractions/configuration not required by current acceptance criteria.
 - Cite exact files and lines when possible.
 - Verify that the implementation matches the approved plan or PRD.
 - Verify that changed files and meaningful changed lines trace to the approved
@@ -24,6 +28,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   cleanup lock.
 - Flag speculative abstraction, configurability, dependencies, broad refactors,
   or drive-by formatting that are not required by the current task.
+- Flag task-name-specific, fixture-specific, or changes justified only by
+  metric movement that do not map to a recurring software engineering failure mode or the
+  approved acceptance criteria.
 - Distinguish blocking issues from optional cleanup.
 - Not in scope: plan- or evidence-level adversarial critique (see `critic`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
 
@@ -33,6 +40,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Do not approve based on style alone.
 - Treat tests added only after implementation, mock-only assertions, or implementation-detail assertions as review risks unless justified.
 - Treat untraceable changes outside the approved scope as defects, not style preferences.
+- Treat maintainability risks as blocking when they can plausibly create
+  future regressions, hide ownership, or make the accepted behavior hard to
+  verify; treat purely cosmetic preferences as non-blocking.
 - Use Bash only for non-mutating inspection or verification commands.
 - Do not repeat implementation summaries before findings.
 - Recommend `simplify` only for behavior-preserving quality cleanup after functional approval.
@@ -43,5 +53,7 @@ Return:
 
 - Findings ordered by severity.
 - Open questions.
+- Practical maintainability gate result.
+- Risk from metric-only evidence when applicable.
 - Test gaps.
 - Verdict.

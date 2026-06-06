@@ -65,15 +65,85 @@ Before making a completion claim:
 3. Run or inspect the evidence fresh in the current work pass.
 4. Read the output and exit status.
 5. Compare evidence to acceptance criteria.
-6. Report skipped checks and residual risk.
+6. Complete the Risk Check Before Completion below.
+7. Report skipped checks and residual risk.
 
 If no meaningful command exists, inspect the changed files and write a manual verification checklist instead of implying automated confidence.
+
+When measurable evidence influenced the work, also apply
+`docs/shared/validation-check.md`. Treat that evidence as a diagnostic
+signal, not as the acceptance criteria.
+
+## Acceptance-To-Evidence Mapping
+
+Do not treat a command list as proof by itself. Before claiming completion,
+map each acceptance criterion or requested behavior to concrete evidence:
+
+```text
+Acceptance-to-evidence mapping:
+- Criterion:
+  - Evidence:
+  - Coverage strength: direct | indirect | manual | missing
+  - Gap or residual risk:
+```
+
+Direct evidence is a focused test, scenario, or inspection that would fail if
+the requested behavior were absent or wrong. Indirect evidence, broad suites,
+lint, typecheck, formatting, and compile checks are useful support, but they do
+not replace direct acceptance evidence for behavior-changing work.
+
+## Risk Check Before Completion
+
+Before final completion, actively look for the most likely way local green
+evidence could still miss the real user, maintainer, or uncovered behavior.
+Keep the questions category-level and requirements-driven instead of
+case-specific.
+
+Record:
+
+```text
+Risk check before completion:
+- Acceptance criteria covered by direct evidence:
+- Acceptance criteria only covered indirectly:
+- Likely edge case a skeptical maintainer would test:
+- Adjacent subsystem or public contract most likely affected:
+- One more useful failing test I would write if time allowed:
+- Completion claim:
+```
+
+The completion claim should distinguish:
+
+- complete with direct evidence
+- locally verified with explicit residual risk
+- blocked or incomplete because evidence is missing
+
+## Validation Check
+
+For evidence-informed work, record:
+
+```text
+Validation check:
+- Evidence used:
+- Recurring software engineering failure mode:
+- User or maintainer outcome:
+- Acceptance signal:
+- Why this should apply to similar work:
+- Case-specific details deliberately excluded:
+- Added process cost or risk:
+- Completion claim:
+```
+
+Reject completion claims whose only support is metric movement, unseen-check
+guessing, task-name-specific guidance, or a measurable metric that does not match the
+real user, maintainer, operator, or public contract.
 
 ## Evidence Rules
 
 - A previous run is not fresh evidence unless no file or dependency changed since that run.
 - A passing lint check does not prove tests pass.
 - A passing unit test does not prove a user-facing flow works when the acceptance criteria require the flow.
+- A broad suite pass does not prove a new semantic contract unless the new
+  behavior is directly represented in that suite.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception.
 - When an agent reports success, inspect the changed files or artifacts before repeating the claim.
 
@@ -85,6 +155,9 @@ Return:
 - Evidence used.
 - Commands or inspections performed.
 - Acceptance criteria status.
+- Acceptance-to-evidence mapping.
+- Risk check before completion and completion claim.
+- Validation check and risk from metric-only evidence when applicable.
 - Skipped checks and reason.
 - Residual risk.
 

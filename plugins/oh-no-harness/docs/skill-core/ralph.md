@@ -149,6 +149,16 @@ For each story, record:
 - TDD requirement or exception
 - Worktree decision and location, or the fact that the worktree gate has not yet been resolved
 - verification command or evidence type
+- acceptance-to-evidence mapping plan: which evidence will directly prove each
+  criterion, and which criteria only have indirect or manual evidence
+- story risk check: the most likely edge case, adjacent subsystem, or
+  public contract a skeptical maintainer would test
+- validation check when measurable evidence influenced the task: evidence,
+  recurring software engineering failure mode, user or maintainer outcome, similar-work expectation,
+  deliberately excluded case-specific details, and added process cost
+- verification budget: the intended focused checks, broad checks, and stop rule
+- diff-budget expectation: expected changed-file scope and what would trigger a
+  scope review before completion
 
 ## Worktree Isolation Gate
 
@@ -221,13 +231,42 @@ configuration, or delete pre-existing dead code unless that work is explicitly
 in scope. If an unrelated problem is found, report it as residual risk or a
 follow-up instead of folding it into the current diff.
 
+## Validation Gate
+
+Ralph must not treat metric movement or an internal shortcut as the acceptance criteria
+for real software development work.
+
+When measurable evidence influenced the task, apply
+`docs/shared/validation-check.md` before marking the work complete. The
+change is acceptable only if it maps to a recurring software engineering failure mode and
+preserves the user, maintainer, operator, or public contract outcome as the
+source of truth for acceptance.
+
+Record:
+
+```text
+Validation check:
+- Evidence used:
+- Recurring software engineering failure mode:
+- User or maintainer outcome:
+- Acceptance signal:
+- Why this should apply to similar work:
+- Case-specific details deliberately excluded:
+- Added process cost or risk:
+- Completion claim:
+```
+
+Reject or narrow changes whose only justification is metric movement,
+unseen-check guessing, task-name-specific guidance, fixture knowledge, or
+process inflation that would not help a skeptical maintainer on a similar task.
+
 ## Execution Loop
 
 This loop is the top-level shape. Detail for review, cleanup, agent dispatch, parallelism, and persistence lives in the dedicated sections below; do not duplicate it here.
 
 Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
 
-1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, and `docs/shared/ralph-subagent-policy.md`.
+1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, `docs/shared/validation-check.md`, and `docs/shared/ralph-subagent-policy.md`.
 2. Set or confirm the required execution mode before editing. Record mode
    source, verification tier, artifact policy, agent policy, parallel trigger,
    cleanup policy, task sizing, and escalation triggers. When the input is an
@@ -239,7 +278,11 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
-8. Recheck the `Scope Trace Gate` against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence (or documented exception), and scope-trace evidence all pass.
+8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual
+   diff. Mark the story complete only when acceptance criteria, TDD evidence
+   (or documented exception), scope-trace evidence, acceptance-to-evidence
+   mapping, story risk-check evidence, and any required validation check all
+   pass or have explicit residual risk.
 9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
@@ -362,6 +405,10 @@ uses independent review roles for the applicable risk.
 When review is required, the reviewer pass must answer:
 
 - Do all stories satisfy their acceptance criteria?
+- Does the evidence map each acceptance criterion to direct, indirect, manual,
+  or missing evidence instead of only listing commands?
+- Did Ralph complete a story risk check for likely maintainer or user-facing
+  edge cases without adding case-specific solution hints?
 - Is there a simpler or safer approach that still satisfies the PRD?
 - Does every changed file and meaningful changed line trace to the approved
   scope, verification requirement, unused-code removal, or behavior-preserving
@@ -369,21 +416,79 @@ When review is required, the reviewer pass must answer:
 - Did the implementation avoid speculative abstraction, configurability,
   dependencies, or generalization not required by the current acceptance
   criteria?
+- Did code review or cleanup identify practical maintainability risks such as
+  unclear ownership, brittle coupling, hidden state, fragile tests,
+  generated-handwritten drift, or behavior-changing cleanup pressure?
+- If auth, data, secrets, filesystem, shell, network, generated prompts,
+  config, logs, sandbox, or destructive operations were touched, did
+  `security-reviewer` apply the Safety Trigger Checklist or was the risk
+  explicitly ruled out?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist or is an exception documented?
 - Are TDD exceptions specific and justified rather than vague convenience claims?
 - Are tests or verification sufficient for the risk?
+- Did broad-suite verification add meaningful confidence, or should a focused
+  semantic test replace another broad rerun?
 
 If review rejects the work, return to the relevant story and continue.
 
+## Verification Budget Policy
+
+Ralph should be rigorous without confusing repeated broad commands for semantic
+proof. For behavior-changing work:
+
+- Prefer a focused test, scenario, or inspection that directly proves each
+  acceptance criterion before running broad suites.
+- Run a broad suite once after the behavior stabilizes, or when shared code,
+  public APIs, generated artifacts, concurrency, persistence, or cross-package
+  behavior could be affected.
+- Do not rerun the same broad suite repeatedly unless it failed for a reason
+  likely caused by the current patch or the rerun follows a meaningful change
+  that could affect broad behavior.
+- When a broad suite is slow, flaky, external-service-dependent, or noisy,
+  document the limitation and spend the next verification step on a smaller
+  semantic check.
+- Treat lint, typecheck, compile, formatting, and `git diff --check` as support
+  evidence. They do not replace direct behavior evidence.
+
+Record skipped broad checks and residual risk honestly. Do not claim stronger
+coverage than the evidence supports.
+
+## Diff-Budget Gate
+
+Ralph must check blast radius before marking work complete. If the final diff
+crosses any of these thresholds, run a scope review before completion:
+
+- more than 20 changed files
+- more than 500 insertions
+- generated files mixed with handwritten logic
+- public API changes across more than three subsystems
+- multiple packages changed without explicit acceptance-to-evidence mapping
+
+The scope review must answer:
+
+```text
+Diff-budget scope review:
+- Why is this breadth necessary for the current acceptance criteria?
+- Which changed files are essential?
+- Which changed files are collateral or cleanup?
+- Is there a narrower patch that would satisfy the request?
+- What rollback boundary would a maintainer use?
+```
+
+If the breadth is not justified, narrow the patch or record a blocker instead of
+presenting the work as complete.
+
 ## Cleanup And Final Verification
 
-Cleanup happens only after functional review approval.
+Cleanup happens only after the review required by the selected mode is satisfied
+and a behavior lock exists.
 
 Cleanup is mode-gated:
 
 - `LIGHT`: run `simplify` only when changed files show actual reuse, simplification, efficiency, or altitude cleanup candidates; otherwise record cleanup as not needed.
 - `STANDARD`: run cleanup when behavior is locked and the changed files show cleanup candidates; rerun relevant verification afterward.
-- `THOROUGH`: run `simplify` after functional review unless explicitly disabled, then rerun verification and any focused post-cleanup review required by risk.
+- `THOROUGH`: run `simplify` after required review unless explicitly disabled,
+  then rerun verification and any focused post-cleanup review required by risk.
 
 The post-cleanup pass must answer:
 
@@ -404,6 +509,9 @@ Continue until:
 - `simplify` ran, was explicitly disabled, or was recorded as not needed by the selected mode
 - post-cleanup verification passed when cleanup changed files
 - `verification-before-completion` ran for the final completion claim
+- acceptance-to-evidence mapping, story risk checks, and the final risk check
+  before completion were completed or a
+  missing-evidence blocker was recorded
 - final report was written
 
 ## Output
@@ -418,6 +526,10 @@ Return:
 - Files changed.
 - Cleanup status.
 - Verification commands and results.
+- Acceptance-to-evidence mapping.
+- Risk check before completion and completion claim.
+- Validation check and risk from metric-only evidence when applicable.
+- Diff-budget scope review status.
 - Review verdict.
 - Residual risk.
 

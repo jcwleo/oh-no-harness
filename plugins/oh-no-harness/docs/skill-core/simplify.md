@@ -10,10 +10,11 @@ Simplify is the post-implementation quality cleanup stage. It reviews changed
 code for reuse, simplification, efficiency, and altitude issues, then applies
 behavior-preserving fixes.
 
-It is a skill, not an agent. In Oh No Harness, `ralph` uses it after functional
-review approval and before final verification. On Claude Code, Ralph must use
-Claude Code's built-in `simplify` skill when available. On Codex, Oh No Harness
-provides this `simplify` skill so the same cleanup gate exists.
+It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
+selected mode's required review is satisfied and before final verification. On
+Claude Code, Ralph must use Claude Code's built-in `simplify` skill when
+available. On Codex, Oh No Harness provides this `simplify` skill so the same
+cleanup gate exists.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.
@@ -22,9 +23,10 @@ code-review workflow for correctness bugs.
 
 Simplify is the post-implementation cleanup stage.
 
-Use it after behavior is locked and functional review has passed. It should
-improve reuse, clarity, maintainability, and efficiency without changing
-behavior, adding scope, or replacing implementation review.
+Use it after behavior is locked and the review required by the caller has passed
+or has been recorded as not needed. It should improve reuse, clarity,
+maintainability, and efficiency without changing behavior, adding scope, or
+replacing implementation review.
 
 ## Agent Roles
 
@@ -69,6 +71,30 @@ Before editing, establish one of:
 
 If no behavior lock exists, create a verification plan first and state the risk.
 
+## Maintainability Debt Boundary
+
+Simplify may fix behavior-preserving cleanup inside the reviewed diff, but it
+must not hide correctness, scope, security, or architecture concerns inside a
+cleanup pass. When a finding points to maintainability debt that cannot be fixed
+without changing behavior, widening scope, changing public contracts, or
+touching sensitive behavior, record it as deferred reviewer work instead of
+patching around it.
+
+Classify every nontrivial finding as:
+
+```text
+Maintainability finding:
+- Type: behavior-preserving cleanup | reviewer follow-up | out-of-scope
+- Evidence:
+- Cost if ignored:
+- Safe cleanup action:
+- Reviewer needed: none | code-reviewer | security-reviewer | architect | verifier
+```
+
+Use `reviewer follow-up` for brittle coupling, unclear ownership, hidden state,
+cross-boundary special cases, fragile tests, risky generated changes, or cleanup
+that would require a behavior decision.
+
 ## Scope
 
 When called by `ralph`, limit cleanup to files changed in the current Ralph session.
@@ -109,6 +135,8 @@ expected output, and fallback reason.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
+Each pass must also classify whether the finding is behavior-preserving cleanup,
+reviewer follow-up, or out-of-scope under the `Maintainability Debt Boundary`.
 
 ### Reuse
 
@@ -159,6 +187,7 @@ Return:
 - Files changed.
 - Review angles run.
 - Cleanup findings fixed.
+- Reviewer follow-up findings and owner.
 - Findings skipped and why.
 - Verification commands and results.
 - Residual risk.

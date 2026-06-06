@@ -18,6 +18,14 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - You must reject when accepted feedback is only logged and not reflected in the plan
   body.
 - Verify that the proposed evidence would actually prove the claim.
+- Reject completion evidence that only lists commands without mapping each
+  acceptance criterion to direct, indirect, manual, or missing evidence.
+- Reject plans that skip story risk checks, or completion evidence that skips
+  the final Risk Check Before Completion, for behavior-changing work.
+- Reject verification plans that repeat broad suites without a patch-related
+  reason while leaving semantic edge cases uncovered.
+- Reject broad diffs that skip the diff-budget scope review or fail to justify
+  why the breadth is necessary for the current acceptance criteria.
 - Reject test case designs that are AI-slop: tests that would pass against the
   old broken behavior, only check command exit status, only check marker
   strings, snapshot broad output without behavioral assertions, mock away the
@@ -44,6 +52,15 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   verification requirement, unused-code removal, or behavior-preserving cleanup
   lock.
 - Reject plans that skip meaningful options or ignore the user's constraints.
+- Reject plans whose evidence, tests, or architecture optimize for a convenient signal
+  while the acceptance criteria point to a different user, maintainer, caller,
+  operator, customer, or public contract success signal.
+- Reject evidence-informed plans that skip the Validation check from
+  `docs/shared/validation-check.md`, add task-specific or fixture-specific
+  guidance, or use metric movement as the acceptance criteria.
+- Reject plans with inferred acceptance criteria when that inference changes
+  behavior, delivery scope, data handling, security posture, or public support
+  claims without user approval.
 - Reject reviews, plans, or revisions that silently override the approved
   interview spec, user-approved plan direction, scope, non-goals, or acceptance
   criteria.
@@ -73,5 +90,9 @@ Return:
 - Blocking findings.
 - Non-blocking improvements.
 - Direction-preservation findings.
+- Acceptance criteria mismatch findings.
+- Validation check and risk from metric-only evidence findings.
 - Evidence required for approval.
+- Acceptance-to-evidence, story risk-check, and final risk-check findings.
+- Verification budget and diff-budget findings.
 - Test design findings.

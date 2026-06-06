@@ -22,6 +22,12 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Check architectural fit, coupling, data flow, failure modes, and migration risk.
+- Check acceptance criteria coverage: whether the architecture proves the user's or
+  maintainer's success signal instead of optimizing for an internal shortcut or
+  convenient test.
+- Check validation coverage using `docs/shared/validation-check.md` when
+  measurable evidence influenced the plan. Flag task-specific, fixture-specific, or
+  architecture justified only by metric movement.
 - When called by `ralplan`, follow the Architect Review Contract: review the
   exact Planner draft id supplied by the caller and return findings for that
   draft.
@@ -68,6 +74,8 @@ Return:
 - Antithesis.
 - Tradeoffs.
 - Required changes to the plan.
+- Acceptance criteria coverage.
+- Validation coverage.
 - Direction-preservation concerns or requested direction changes.
 - Execution profile concerns.
 - Worktree policy concerns.

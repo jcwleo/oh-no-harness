@@ -177,6 +177,9 @@ PLATFORM_SUBAGENT_MARKERS = {
         "dispatch `verifier` by default",
         "context-separation benefit",
         "fallback\nor no-benefit reason",
+        "## Acceptance-To-Evidence Mapping",
+        "## Risk Check Before Completion",
+        "Completion claim",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "standing explicit user request",
         "per-run subagent approval",
@@ -409,13 +412,50 @@ EXECUTION_MODE_SHARED_MARKERS = (
     "## THOROUGH",
     "`ralph` must read the execution profile before editing.",
     "What observable behavior, artifact, prompt, config, or documentation will",
+    "skeptical maintainer or user test before accepting",
+    "Validation check",
+    "docs/shared/validation-check.md",
     "Could the change affect runtime behavior",
     "Does the change alter agent behavior",
     "Can a lighter mode produce credible evidence",
+    "verification budget policy",
+    "diff-budget gate",
     "What would force escalation while working",
     "Worktree policy",
     "Worktree location",
     "Worktree decision",
+)
+VERIFICATION_TIER_SHARED_MARKERS = (
+    "# Verification Tiers",
+    "docs/shared/validation-check.md",
+    "Measurable evidence is diagnostic evidence",
+    "Every tier uses acceptance-to-evidence mapping",
+    "A command list is not enough",
+    "direct, indirect, manual, or missing",
+    "Every behavior-changing tier also uses a risk check before completion",
+    "category-level risk modeling",
+    "Verification budget policy",
+    "Prefer focused semantic evidence before broad suites",
+    "Avoid repeated broad-suite reruns",
+    "Map every acceptance criterion",
+    "Record the risk check before completion",
+    "Include diff-budget scope review",
+    "`security-reviewer`",
+    "`code-reviewer`",
+)
+VALIDATION_CHECK_SHARED_MARKERS = (
+    "# Validation Check",
+    "Measurable evidence is useful, but it is not the same as satisfying acceptance",
+    "Examples of measurable evidence include local command success",
+    "recurring software engineering failure mode",
+    "## Forbidden Patterns",
+    "task-name, fixture-name, dataset-label, issue-id, or environment-specific",
+    "Validation check:",
+    "Acceptance criteria or user outcome it supports",
+    "Why this should apply to similar work",
+    "Case-specific details deliberately excluded",
+    "only supported by local checks and not acceptable as a harness improvement",
+    "## Similar-Work Expectation",
 )
 EXECUTION_MODE_SKILL_MARKERS = {
     "using-oh-no-harness": (
@@ -429,6 +469,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Answer Capture",
         "## Dialectic Rhythm Guard",
         "## Spec Readiness Guard",
+        "## Acceptance Criteria Alignment Gate",
         "## Goal Restatement Gate",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
@@ -439,12 +480,19 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile recap",
+        "Validation check",
         "immediately before `Approval needed`",
         "Ralph must follow this profile",
     ),
     "ralph": (
         "## Required Execution Mode",
         "## Mode-Gated Agent Dispatch",
+        "## Verification Budget Policy",
+        "## Diff-Budget Gate",
+        "## Validation Gate",
+        "acceptance-to-evidence mapping",
+        "story risk-check evidence",
+        "validation check",
         "Ralph must set an execution mode",
         "must follow the",
     ),
@@ -507,6 +555,11 @@ EXECUTION_MODE_AGENT_MARKERS = {
     "planner": (
         "execution profile",
         "task sizing",
+        "story risk check",
+        "acceptance criteria alignment",
+        "Validation check",
+        "verification budget",
+        "diff-budget",
     ),
     "architect": (
         "Ralph execution profile",
@@ -515,6 +568,9 @@ EXECUTION_MODE_AGENT_MARKERS = {
     "critic": (
         "execution profile recap",
         "too light",
+        "Risk Check Before Completion",
+        "acceptance criteria",
+        "diff-budget scope review",
     ),
     "executor": (
         "assigned Ralph execution mode",
@@ -523,9 +579,14 @@ EXECUTION_MODE_AGENT_MARKERS = {
     "verifier": (
         "selected execution mode",
         "Execution mode compliance",
+        "Acceptance-to-evidence mapping status",
+        "Risk check before completion status",
+        "Validation check",
+        "Verification budget and diff-budget status",
     ),
     "security-reviewer": (
         "execution mode escalation",
+        "Safety Trigger Checklist",
     ),
     "qa-tester": (
         "heavier Ralph execution mode",
@@ -544,6 +605,8 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
     ),
     "simplify": (
         "Speculative abstraction",
+        "## Maintainability Debt Boundary",
+        "reviewer follow-up",
     ),
 }
 SIMPLIFY_PARALLEL_MARKERS = (
@@ -618,6 +681,66 @@ SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "code-reviewer": (
         "untraceable changes",
         "drive-by formatting",
+        "Practical Maintainability Gate",
+        "unclear ownership",
+    ),
+}
+ACCEPTANCE_CRITERIA_AGENT_MARKERS = {
+    "analyst": (
+        "acceptance criteria",
+        "success and failure signals",
+        "useful but insufficient proof",
+    ),
+    "planner": (
+        "acceptance criteria",
+        "success signal",
+        "insufficient proofs",
+        "validation-check",
+    ),
+    "architect": (
+        "acceptance criteria coverage",
+        "internal shortcut",
+        "validation-check",
+    ),
+    "critic": (
+        "acceptance criteria",
+        "convenient signal",
+        "claims without user approval",
+        "Validation check",
+    ),
+}
+VALIDATION_CHECK_AGENT_MARKERS = {
+    "planner": (
+        "docs/shared/validation-check.md",
+        "case-specific result",
+    ),
+    "architect": (
+        "validation coverage",
+        "justified only by metric movement",
+    ),
+    "critic": (
+        "Validation check",
+        "metric movement as the acceptance criteria",
+    ),
+    "verifier": (
+        "Validation check",
+        "Measurable evidence is diagnostic evidence",
+    ),
+    "code-reviewer": (
+        "changes justified only by",
+        "metric movement",
+        "Risk from metric-only evidence",
+    ),
+}
+SAFETY_REVIEW_AGENT_MARKERS = {
+    "security-reviewer": (
+        "Safety Trigger Checklist",
+        "destructive operations",
+        "filesystem traversal",
+        "shell execution",
+        "network egress",
+        "credential",
+        "user data",
     ),
 }
 APPROVED_DIRECTION_AGENT_MARKERS = {
@@ -638,6 +761,7 @@ RALPLAN_CONSENSUS_MARKERS = (
     "## Consensus Order Gate",
     "## Direction Preservation Gate",
     "## Test Case Design Quality",
+    "## Acceptance Criteria Contract",
     "Ralplan has no basic planning mode",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
@@ -659,6 +783,8 @@ RALPLAN_CONSENSUS_MARKERS = (
     "negative or forbidden-behavior case",
     "edge, boundary, or regression case",
     "only check marker strings",
+    "Acceptance criteria coverage",
+    "Acceptance criteria mismatch",
 )
 RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
     "`oh-no-harness:ralph` with `parallel subagents`",
@@ -675,12 +801,14 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "Accepted feedback must be reflected in the plan body",
         "smallest meaningful test set",
         "must-fail before implementation",
+        "acceptance criteria alignment",
     ),
     "architect": (
         "Reviewed draft:",
         "must not produce a replacement plan",
         "Required changes",
         "Architect Review Contract",
+        "Acceptance criteria coverage",
     ),
     "critic": (
         "Architect review consumed",
@@ -689,6 +817,7 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "Critic Review Contract",
         "AI-slop",
         "would pass against the old broken behavior",
+        "Acceptance criteria mismatch",
     ),
 }
 TDD_SKILL_DESCRIPTION_MARKERS = (
@@ -1003,6 +1132,18 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope agent marker: {marker!r}")
+    if agent in ACCEPTANCE_CRITERIA_AGENT_MARKERS:
+        for marker in ACCEPTANCE_CRITERIA_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Acceptance Criteria agent marker: {marker!r}")
+    if agent in VALIDATION_CHECK_AGENT_MARKERS:
+        for marker in VALIDATION_CHECK_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Validation-Check agent marker: {marker!r}")
+    if agent in SAFETY_REVIEW_AGENT_MARKERS:
+        for marker in SAFETY_REVIEW_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Safety-Review agent marker: {marker!r}")
     if agent in APPROVED_DIRECTION_AGENT_MARKERS:
         for marker in APPROVED_DIRECTION_AGENT_MARKERS[agent]:
             if marker not in body:
@@ -1191,6 +1332,21 @@ def assert_execution_mode_contract(root: Path) -> None:
             if marker in doc_text:
                 die(f"{doc} contains forbidden cross-platform adapter marker: {marker!r}")
 
+
+def assert_verification_tier_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "verification-tiers.md"
+    text = read_text(path)
+    for marker in VERIFICATION_TIER_SHARED_MARKERS:
+        if marker not in text:
+            die(f"{path} is missing required Verification-Tier contract marker: {marker!r}")
+
+
+def assert_validation_check_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "validation-check.md"
+    text = read_text(path)
+    for marker in VALIDATION_CHECK_SHARED_MARKERS:
+        if marker not in text:
+            die(f"{path} is missing required Validation-Check contract marker: {marker!r}")
 
 def assert_provider_guidance(root: Path) -> None:
     provider_root = root / PROVIDER_DOC_ROOT
@@ -1636,6 +1792,8 @@ def main() -> None:
         assert_codex_agent_template(root, agent)
     assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)
+    assert_verification_tier_contract(root)
+    assert_validation_check_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

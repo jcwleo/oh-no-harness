@@ -46,7 +46,7 @@ For LLM software development, prefer this order when the request is not already 
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `autopilot`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
-7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and functional review has passed.
+7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
 Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
