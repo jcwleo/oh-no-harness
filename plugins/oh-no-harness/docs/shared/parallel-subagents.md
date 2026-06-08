@@ -24,10 +24,16 @@ When a parallel batch is useful and allowed, spawn the whole eligible batch
 first. Do not spawn one subagent, wait for it, and only then decide whether to
 spawn the rest.
 
-After each subagent result has been captured and either integrated, rejected, or
-recorded as blocked, close or clean up the completed subagent with the active
-platform's mechanism. If the platform has no explicit close operation, record
-that fallback.
+After each subagent reaches a final status and its result has been captured,
+integrated, rejected, or recorded as blocked, close or clean up the completed
+subagent with the active platform's mechanism. A timeout, empty wait result, or
+"no agents completed" response is not a final status. Hard rule: MUST NOT close
+or clean up a running or pending subagent merely because it is slow. Close
+without a captured final result only when the user explicitly cancels or stops
+that subagent, the task scope invalidates the work, the spawn was duplicate or
+mis-scoped, or continuing creates a safety, security, or filesystem risk. Record
+that close as cancelled or abandoned and never use missing output as completion
+evidence. If the platform has no explicit close operation, record that fallback.
 
 ## Quick Checklist
 

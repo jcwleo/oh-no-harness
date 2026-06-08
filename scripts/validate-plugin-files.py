@@ -39,6 +39,10 @@ AGENTS = [
     "debugger",
     "verifier",
     "code-reviewer",
+    "cleanup-reuse",
+    "cleanup-simplification",
+    "cleanup-efficiency",
+    "cleanup-altitude",
     "security-reviewer",
     "qa-tester",
 ]
@@ -125,7 +129,9 @@ PLATFORM_SUBAGENT_MARKERS = {
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
         "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
-        "Agent prompt source: docs/agent-core/{role}.md",
+        "adapter deciding whether the invocation is a registered custom agent",
+        "Platform invocation: {active adapter invocation syntax}",
+        "MUST NOT be used to close a running or pending subagent",
     ),
     "ralplan": (
         "default eligible parallel subagents",
@@ -200,10 +206,19 @@ PLATFORM_RULE_DOC_MARKERS = {
         "wait_agent",
         "close_agent",
         "capture the output and any changed-file set before cleanup",
+        "general user-requested subagent work outside a selected skill",
+        'spawn_agent(agent_type="oh-no-<role>", ...)',
+        "Do not infer unavailability from",
+        "do not treat that failure alone as permission for generic prompt-embedded fallback",
+        "use generic prompt-embedded fallback only after confirmed custom-agent unavailability",
+        '"No agents completed yet" result is not a final status',
+        "MUST NOT call `close_agent` for a running or pending subagent",
+        "never use missing output as completion evidence",
         "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
         "simple read-only repository fact lookup prompts",
         "credential values must be redacted",
         "if that agent is unavailable, answer inline",
+        'If `agent_type =\n"oh-no-explore"` is rejected as unknown or unavailable',
         "Custom agents are standalone TOML files",
         "not defined inside `config.toml`",
         "scripts/install-codex-agents --scope user --ensure --quiet",
@@ -273,6 +288,8 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
         "docs/shared/ralph-subagent-policy.md",
         "batch dispatch, subagent",
         "close or clean up the completed subagent",
+        "MUST NOT close or clean up a running or pending subagent",
+        "never use missing output as completion evidence",
         "lifecycle owner",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
@@ -288,7 +305,8 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
     "credential values must be redacted",
-    "otherwise keep the lookup inline",
+    "only generic/default agents are available",
+    "keep the lookup inline",
     "explicit session-level authorization",
     "per-run subagent approval",
     "## Subagent-Unavailable Environments",
@@ -298,6 +316,8 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "eligible batch first",
     "## Subagent Lifecycle",
     "close or clean up the completed subagent",
+    "MUST NOT close a running or pending subagent",
+    "never use missing output as completion evidence",
     "They must not revert, overwrite, reformat, or broaden work outside their",
 )
 PLATFORM_ADAPTER_DOC_MARKERS = {
@@ -319,6 +339,11 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "SessionStart is the primary custom-agent preparation path",
         "scripts/install-codex-agents --scope user --ensure --quiet",
         'sandbox_mode = "read-only"',
+        "This is required for",
+        "failed `spawn_agent(agent_type=\"oh-no-<role>\", ...)` attempt",
+        '"No agents completed yet"',
+        "MUST NOT call",
+        "never use missing output as completion evidence",
         "spawn_agent",
         "wait_agent",
         "close_agent",
@@ -638,6 +663,10 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "dispatch-unavailable",
     "Launch four independent cleanup subagents in parallel",
     "in one batch before",
+    "oh-no-cleanup-reuse",
+    "oh-no-cleanup-simplification",
+    "oh-no-cleanup-efficiency",
+    "oh-no-cleanup-altitude",
     "Do not degrade these four review angles into one generic inline pass",
     "four separate inline fallback blocks",
     "Wait for all four cleanup subagents to complete",
@@ -652,6 +681,10 @@ SIMPLIFY_CODEX_WRAPPER_MARKERS = (
     "standing\n   subagent authorization",
     "explicit user request",
     "per-run subagent approval",
+    "oh-no-cleanup-reuse",
+    "oh-no-cleanup-simplification",
+    "oh-no-cleanup-efficiency",
+    "oh-no-cleanup-altitude",
 )
 CODEX_STANDING_WRAPPER_MARKERS = {
     "interview": (
@@ -907,6 +940,16 @@ def read_text(path: Path) -> str:
         die(f"missing file: {path}")
 
 
+def has_required_marker(text: str, marker: str) -> bool:
+    if marker in text:
+        return True
+    if not re.search(r"\s", marker):
+        return False
+    normalized_text = re.sub(r"\s+", " ", text).strip()
+    normalized_marker = re.sub(r"\s+", " ", marker).strip()
+    return normalized_marker in normalized_text
+
+
 def parse_frontmatter(path: Path) -> dict[str, str]:
     text = read_text(path)
     lines = text.splitlines()
@@ -1077,7 +1120,7 @@ def assert_skill(root: Path, skill: str) -> None:
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Platform-Subagent marker: {marker!r}")
     if skill == "ralplan":
         body = read_text(path)
@@ -1240,7 +1283,14 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
             "expected 'xhigh'"
         )
     sandbox_mode = data.get("sandbox_mode")
-    if agent == "explore":
+    read_only_agents = {
+        "explore",
+        "cleanup-reuse",
+        "cleanup-simplification",
+        "cleanup-efficiency",
+        "cleanup-altitude",
+    }
+    if agent in read_only_agents:
         if sandbox_mode != "read-only":
             die(f"{path} sandbox_mode={sandbox_mode!r}, expected 'read-only'")
     elif sandbox_mode is not None:
@@ -1334,32 +1384,32 @@ def assert_execution_mode_contract(root: Path) -> None:
     path = root / "docs" / "shared" / "execution-modes.md"
     text = read_text(path)
     for marker in EXECUTION_MODE_SHARED_MARKERS:
-        if marker not in text:
+        if not has_required_marker(text, marker):
             die(f"{path} is missing required Execution-Mode contract marker: {marker!r}")
     shared_root = root / "docs" / "shared"
     for filename, markers in PLATFORM_SUBAGENT_DOC_MARKERS.items():
         doc = shared_root / filename
         doc_text = read_text(doc)
         for marker in markers:
-            if marker not in doc_text:
+            if not has_required_marker(doc_text, marker):
                 die(f"{doc} is missing required Platform-Subagent marker: {marker!r}")
     policy_path = shared_root / "ralph-subagent-policy.md"
     policy_text = read_text(policy_path)
     for marker in RALPH_SUBAGENT_POLICY_MARKERS:
-        if marker not in policy_text:
+        if not has_required_marker(policy_text, marker):
             die(f"{policy_path} is missing required Ralph-Subagent-Policy marker: {marker!r}")
     platform_root = root / "docs" / "platforms"
     for filename, markers in PLATFORM_RULE_DOC_MARKERS.items():
         doc = platform_root / filename
         doc_text = read_text(doc)
         for marker in markers:
-            if marker not in doc_text:
+            if not has_required_marker(doc_text, marker):
                 die(f"{doc} is missing required Platform-Rules marker: {marker!r}")
     for filename, markers in PLATFORM_ADAPTER_DOC_MARKERS.items():
         doc = platform_root / filename
         doc_text = read_text(doc)
         for marker in markers:
-            if marker not in doc_text:
+            if not has_required_marker(doc_text, marker):
                 die(f"{doc} is missing required Platform-Adapter marker: {marker!r}")
         for marker in PLATFORM_ADAPTER_FORBIDDEN_MARKERS[filename]:
             if marker in doc_text:
@@ -1585,6 +1635,8 @@ def assert_hook_contract(root: Path) -> None:
         "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
         "sub-agents, delegation, and parallel agent work proactively",
         "redact credential values",
+        "never allowed for no-skill read-only lookup",
+        "Do not call spawn_agent for",
         "otherwise perform the lookup inline",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",

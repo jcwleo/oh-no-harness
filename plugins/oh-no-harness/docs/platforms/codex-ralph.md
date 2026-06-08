@@ -60,17 +60,27 @@ marker, so stale generated agents can refresh after a plugin update without
 requiring the user to ask for agent installation again. Generated templates
 also pin `gpt-5.5` / `model_reasoning_effort = "xhigh"` so they do not depend
 on inheriting a user-specific model config. If ensure fails, named custom-agent
-dispatch is optional; record the failure and use the generic prompt-embedded
-fallback.
+dispatch remains the default whenever the current host still recognizes
+`agent_type = "oh-no-<role>"`; record the ensure failure and use the generic
+prompt-embedded fallback only after confirmed custom-agent unavailability.
 
-Prefer:
+Use this dispatch order:
 
 - `oh-no-<role>` when Oh No Harness Codex custom agents are installed in user
-  scope and the current host recognizes that `agent_type`
+  scope and the current host recognizes that `agent_type`. This is required for
+  Oh No Harness role dispatch, not just preferred.
 - `explorer` for read-heavy repository exploration
 - `worker` for scoped implementation with a disjoint write set
 - `default` for specialized reviews, QA, security, verification, or critique
   when embedding the role prompt is clearer than a built-in type
+
+Use `explorer`, `worker`, or `default` for an Oh No Harness role only when the
+host rejects `oh-no-<role>` as unknown or unavailable, or the work is not an Oh
+No Harness role. Record the fallback reason. Do not claim custom agents are
+unavailable without a failed `spawn_agent(agent_type="oh-no-<role>", ...)`
+attempt or an equivalent current host rejection. Do not infer unavailability
+from rendered schema text, display comments, or missing shown parameters; the
+first check is the actual `agent_type` call.
 
 The generated `oh-no-explore` custom-agent template sets
 `sandbox_mode = "read-only"`. Other Oh No Harness role templates inherit the
@@ -80,8 +90,19 @@ Spawn every independent non-blocking agent in the eligible batch before calling
 `wait_agent`. Do not spawn one agent, wait, then spawn the rest.
 
 After `wait_agent` returns a final status, capture the result and inspect any
-changed-file set. When no more input is needed for that subagent and the host
-exposes `close_agent`, call `close_agent` for the completed agent. If
+changed-file set. A timeout, empty wait result, or "No agents completed yet"
+result is not a final status and must not be treated as result capture. Do not
+close a running subagent merely because it is slow. Hard rule: MUST NOT call
+`close_agent` for a running or pending Ralph subagent after timeout,
+no-completion, or empty wait output. Leave it running, wait longer when its
+result is needed, continue non-overlapping work, or record the role as pending
+or blocked. Close without a captured final result only when the user explicitly
+cancels or stops that subagent, the task scope invalidates the work, the spawn
+was duplicate or mis-scoped, or continuing creates a safety, security, or
+filesystem risk. Record that close as cancelled or abandoned and never use
+missing output as completion evidence. When no more input is needed for a
+completed, failed, cancelled, user-cancelled, scope-invalidated, or unsafe
+subagent and the host exposes `close_agent`, call `close_agent`. If
 `close_agent` reports that the agent was already closed or unavailable, record
 that result instead of retrying. If the host does not expose explicit close,
 record that closure is host-managed or unavailable.

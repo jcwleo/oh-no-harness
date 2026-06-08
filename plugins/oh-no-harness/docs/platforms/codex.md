@@ -53,6 +53,32 @@ current host tool definition exposes it, the active skill permits dispatch, and
 the role has an isolated read-only scope, disjoint write ownership, or an
 independent review or verification responsibility.
 
+When dispatching an Oh No Harness role in any Codex context, including active
+skills, approved plan handoffs, SessionStart-authorized read-only exploration,
+or general user-requested subagent work outside a selected skill, use the
+registered custom agent first. If the host recognizes or accepts
+`oh-no-<role>`, call
+`spawn_agent(agent_type="oh-no-<role>", ...)`. Do not choose built-in
+`explorer`, `worker`, `default`, or a prompt-embedded generic subagent for an Oh
+No Harness role while the matching registered custom agent is available.
+Do not infer custom-agent unavailability from rendered schema text, display
+comments, or uncertainty. Generic/default fallback is allowed only inside an
+active Oh No Harness workflow or explicit user-requested subagent task after an
+actual `agent_type="oh-no-<role>"` attempt is rejected as unknown or unavailable
+and the confirmed fallback reason is recorded. The no-skill read-only
+exploration lane below must not use generic/default fallback.
+
+Some Oh No Harness roles have exact custom-agent names that are not a plain
+`oh-no-<role>` spelling. When a skill documents an exact mapping, that mapping
+wins. In particular, Codex `simplify` cleanup roles must use
+`agent_type = "oh-no-cleanup-reuse"`, `agent_type =
+"oh-no-cleanup-simplification"`, `agent_type = "oh-no-cleanup-efficiency"`,
+and `agent_type = "oh-no-cleanup-altitude"` for Reuse, Simplification,
+Efficiency, and Altitude. Do not use an untyped cleanup worker for these roles
+while those registered custom agents are accepted by the host. A message line
+such as `Codex agent type: ...` is an audit marker only; it does not replace
+the actual `agent_type` tool argument.
+
 Explicit user or plan wording such as `subagent`, `spawn`, `delegate`,
 `parallel agents`, `parallel subagents`, or `one agent per` is sufficient when
 the host permits dispatch. A user standing preference, approved plan profile, or
@@ -88,7 +114,9 @@ secrets unless the user explicitly asks for that sensitive lookup, and
 credential values must be redacted in subagent output. This no-skill lane may
 dispatch only the registered read-only `oh-no-explore` custom agent when the
 current host recognizes it; if that agent is unavailable, answer inline instead
-of falling back to a generic or prompt-embedded subagent.
+of falling back to a generic or prompt-embedded subagent. If `agent_type =
+"oh-no-explore"` is rejected as unknown or unavailable, do not retry with a
+generic subagent for this lane.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
@@ -100,8 +128,19 @@ whenever dispatch is available because independent context improves planning,
 review, and critique. Architect waits for Planner. Critic waits for Architect.
 
 After `wait_agent` returns a final status for any Codex-dispatched role,
-capture the output and any changed-file set before cleanup. When no further
-input is needed for that subagent, call `close_agent` and record the result.
+capture the output and any changed-file set before cleanup. A timeout, empty
+wait result, or "No agents completed yet" result is not a final status and is
+not permission to close the subagent. Hard rule: MUST NOT call `close_agent`
+for a running or pending subagent merely because it is slow. Leave the subagent
+running, wait longer when its result is still needed, continue with
+non-overlapping local work, or record the role as pending or blocked. Close
+without a captured final result only when the user explicitly cancels or stops
+that subagent, the task scope invalidates the work, the spawn was duplicate or
+mis-scoped, or continuing creates a safety, security, or filesystem risk. Record
+that close as cancelled or abandoned and never use missing output as completion
+evidence. When no further input is needed for a completed, failed, cancelled,
+user-cancelled, scope-invalidated, or unsafe subagent, call `close_agent` and
+record the result.
 
 When dispatch is unavailable, keep the same role boundary inline and record the
 fallback reason when the core skill requires it.
@@ -129,16 +168,21 @@ same quiet ensure as a fallback before injecting dispatch guidance. Generated
 files include the installed plugin version marker, so a later plugin update can
 refresh stale `oh-no-*` agent definitions during SessionStart or Ralph fallback
 without requiring a repeated user prompt. If ensure fails or an unmarked user
-file blocks it, continue with the generic prompt-embedded fallback and record
-the fallback reason.
+file blocks it, record the ensure failure but do not treat that failure alone
+as permission for generic prompt-embedded fallback. Continue with
+`agent_type = "oh-no-<role>"` if the current host recognizes that custom agent;
+use generic prompt-embedded fallback only after confirmed custom-agent
+unavailability and record that fallback reason.
 
 Files ensured on disk are not the same thing as same-session named-agent
-availability. Prefer `agent_type = "oh-no-<role>"` only when the current Codex
-host recognizes that registered custom agent. Inside an active Oh No Harness
-workflow, otherwise use the generic prompt-embedded fallback below or built-in
-`explorer` for read-heavy lookup. Outside an active workflow, the no-skill
-read-only exploration lane must stay inline unless registered `oh-no-explore`
-is available.
+availability. Use `agent_type = "oh-no-<role>"` whenever the current Codex host
+recognizes that registered custom agent. Inside an active Oh No Harness
+workflow, use the generic prompt-embedded fallback below or built-in `explorer`
+only after the host returns `unknown agent_type` or an equivalent explicit
+rejection for `oh-no-<role>`, or the user-scope templates are unavailable and
+the host cannot recognize the custom agent. Outside an active workflow, the
+no-skill read-only exploration lane must stay inline unless registered
+`oh-no-explore` is available.
 The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
 no-skill exploration lane does not rely on prompt text alone for write
 isolation.
@@ -147,10 +191,13 @@ The generated templates pin `gpt-5.5` /
 `model_reasoning_effort = "xhigh"` so custom-agent role files do not depend on
 inheriting a user-specific model layer.
 
-When the active Codex host recognizes a registered custom agent, prefer
-`agent_type = "oh-no-<role>"` for Oh No Harness role dispatch. If the host
-returns an unknown `agent_type`, or if the user-scope templates are not
-installed, fall back to the prompt-embedded dispatch contract below.
+When the active Codex host recognizes a registered custom agent, `agent_type =
+"oh-no-<role>"` is the required path for Oh No Harness role dispatch. If the
+host returns an unknown `agent_type`, or if the user-scope templates are not
+installed and the host cannot recognize the agent, fall back to the
+prompt-embedded dispatch contract below and record the confirmed fallback
+reason. Do not infer unavailability from memory, stale examples, display names,
+rendered schema comments, or uncertainty about the schema.
 
 ## Role Prompt Embedding
 

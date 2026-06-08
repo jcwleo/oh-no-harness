@@ -365,21 +365,20 @@ overlapping write scopes, dependent tasks, one behavior's TDD RED/GREEN order,
 unclear ownership, or `architect` and `critic` reviewing the same plan or
 completion evidence.
 
-Use this dispatch shape for every parallel subagent:
+Use this dispatch shape for every parallel subagent, with the active platform
+adapter deciding whether the invocation is a registered custom agent, a
+plugin-scoped agent, or a documented fallback:
 
 ````markdown
 Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}
 Story/task: {id and short title}
-Agent prompt source: docs/agent-core/{role}.md
-Agent prompt content:
-{matching docs/agent-core/{role}.md prompt content}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
 Expected output: {patch, findings, evidence, or test result}
 TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
 Verification responsibility: {command/evidence}
 Platform invocation: {active adapter invocation syntax}
-Lifecycle: caller captures the result, integrates or records it, then closes or cleans up the completed subagent using the active platform mechanism
+Lifecycle: caller captures a final result, integrates or records it, then closes or cleans up the completed subagent using the active platform mechanism; timeout/no-completion wait results are not final results and MUST NOT be used to close a running or pending subagent merely because it is slow
 Coordination: You are not alone in the codebase. Do not revert, overwrite, or reformat work outside your scope. Report conflicts instead of resolving them silently.
 ````
 

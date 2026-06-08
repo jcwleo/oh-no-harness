@@ -33,6 +33,15 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/security-reviewer.md` and `agents/security-reviewer.md` | `omc/raw/agents/security-reviewer.md` |
 | `docs/agent-core/qa-tester.md` and `agents/qa-tester.md` | `omc/raw/agents/qa-tester.md` |
 
+## Local Cleanup Agents
+
+| Oh No Harness file | Purpose |
+|---|---|
+| `docs/agent-core/cleanup-reuse.md` and `agents/cleanup-reuse.md` | local simplify Reuse cleanup role |
+| `docs/agent-core/cleanup-simplification.md` and `agents/cleanup-simplification.md` | local simplify Simplification cleanup role |
+| `docs/agent-core/cleanup-efficiency.md` and `agents/cleanup-efficiency.md` | local simplify Efficiency cleanup role |
+| `docs/agent-core/cleanup-altitude.md` and `agents/cleanup-altitude.md` | local simplify Altitude cleanup role |
+
 ## OMC-Derived Shared Docs
 
 | Oh No Harness file | Source file |

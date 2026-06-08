@@ -27,16 +27,16 @@ You have Oh No Harness installed. Use native skill loading to read the relevant 
 
 Default routing summary:
 - Use oh-no-harness:using-oh-no-harness when workflow selection is unclear.
-- Use oh-no-harness:interview for vague, broad, ambiguous, or requirement-light work.
-- Use oh-no-harness:ralplan for planning, architecture-sensitive, risky, cross-file, multi-step, or unclear implementation work.
-- Use oh-no-harness:ralph for an approved plan, PRD, concrete task, or acceptance criteria that should be executed.
+- Use oh-no-harness:interview for vague, broad, or requirement-light work.
+- Use oh-no-harness:ralplan for planning, risky, cross-file, multi-step, or unclear implementation work.
+- Use oh-no-harness:ralph for an approved plan, PRD, concrete task, or acceptance criteria.
 - Use oh-no-harness:autopilot for autonomous end-to-end delivery.
 - Use oh-no-harness:systematic-debugging for bugs, failing commands, regressions, flaky behavior, or unknown root cause.
 - Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/autopilot/tiny direct edits before behavior-changing edits.
 - Use oh-no-harness:verification-before-completion before claiming done, fixed, passing, ready, or verified.
 - Use oh-no-harness:simplify only after behavior is locked and changed code needs reuse, simplification, efficiency, or altitude cleanup.
 
-This bootstrap is only a compact routing reminder. The selected skill file is the source of truth. Skill chaining remains explicit: when interview, ralplan, or ralph presents a Next Skill Handoff, ask the user for the next-step choice before invoking the next workflow skill.
+This bootstrap is only a compact routing reminder. Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
 
 auto_routing_policy=""
@@ -78,7 +78,7 @@ rg_search_policy=""
 if command -v rg >/dev/null 2>&1; then
   rg_search_policy='
 <OH_NO_RG_SEARCH_TOOLING>
-Ripgrep is available in this session. Prefer `rg` and `rg --files` over `grep`, `find`, or slower recursive search commands for repository search. Use a fallback only if `rg` cannot answer the query.
+Ripgrep is available. Prefer `rg` and `rg --files` for repository search; use a fallback only if `rg` cannot answer.
 </OH_NO_RG_SEARCH_TOOLING>'
 fi
 
@@ -97,37 +97,48 @@ This instruction is Claude Code-only. Do not apply it on Codex or other platform
 </CLAUDE_CODE_ONLY>'
 
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
-This platform is Codex. Oh No Harness has a standing user/workflow preference
-to use sub-agents, delegation, and parallel agent work proactively without asking
-for per-run subagent approval when an active Oh No Harness skill permits isolated
-role work and the host exposes subagent tools. Treat this SessionStart standing
-authorization as the explicit user request for eligible Oh No Harness workflow
-subagents in this session. Do not ask an extra approval question merely to use
-subagents. Still respect the active Codex tool policy, file ownership, isolation,
-and lifecycle rules; keep roles inline only when subagent dispatch is unavailable,
-unsafe to isolate, or blocked by the selected skill.
+Standing user/workflow preference: use sub-agents, delegation, and parallel agent work proactively.
+Treat this as the explicit user request for eligible Oh No Harness workflow
+subagents when isolated role work is allowed and the host exposes tools. Respect
+tool policy, ownership, isolation, and lifecycle; stay inline only if
+unavailable, unsafe, or skill-blocked.
+
+For any Oh No Harness role inside an active workflow or explicit user-requested
+subagent task, every spawn_agent call MUST include custom agent_type when
+recognized: standard roles "oh-no-<role>"; simplify cleanup
+Reuse/Simplification/Efficiency/Altitude map to "oh-no-cleanup-reuse",
+"oh-no-cleanup-simplification", "oh-no-cleanup-efficiency",
+"oh-no-cleanup-altitude". Omitting agent_type or writing it only in the message
+is generic/default dispatch and violates this contract. Do not infer
+unavailability from rendered schema/display; attempt agent_type first. Generic
+fallback is allowed only after confirmed custom-agent unavailability; never allowed for no-skill read-only lookup.
+Timeout/empty/no agents completed is not final. MUST NOT call close_agent for a
+running or pending subagent. Close without final only on user cancel/stop,
+invalidated scope, duplicate/mis-scoped spawn, or safety/security/file risk.
+Never use missing output as completion evidence.
 </CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
 
 codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
 For simple read-only repository fact lookup prompts, Codex may use one
-exploration sub-agent even when no Oh No Harness workflow skill is active.
-Eligible prompts only ask to locate, trace, or summarize existing code, config,
-tests, or documentation. Do not use this lane for planning, debugging,
-implementation, review, QA, security review, completion verification, ambiguous
-requirements, or any file edit. Do not read or reproduce secrets unless the
-user explicitly asks for that sensitive lookup; redact credential values in
-sub-agent output. Use registered `oh-no-explore` only when the current host
-recognizes that read-only custom agent; otherwise perform the lookup inline
-without subagent dispatch. Capture the result, then close the sub-agent when the
-host exposes close_agent.
+exploration sub-agent without active workflow. Eligible: locate,
+trace, or summarize existing code/config/tests/docs. Do not use this lane for planning, debugging, implementation, review, QA, security, verification,
+ambiguity, or edits. Do not read/reproduce secrets unless asked;
+redact credential values in sub-agent output. Do not call spawn_agent for this
+lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. Capture the result, then
+close the sub-agent when close_agent exists. Timeout/empty/no agents completed
+is not captured. MUST NOT close a running read-only sub-agent; leave open, wait
+longer, or report pending unless user cancels, scope invalidates, spawn was
+duplicate/mis-scoped, or safety/security risk appears.
 </CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
 
 codex_agent_ensure_warning() {
   local installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
   local ensure_output
+  local warning_suffix
+  warning_suffix='oh-no-* custom-agent dispatch remains the default when the host recognizes agent_type, prompt-embedded fallback requires confirmed unavailability, and no-skill exploration stays inline until read-only oh-no-explore is available. MUST NOT call close_agent for a running or pending subagent; never use missing output as completion evidence.'
 
   if [ ! -x "$installer_path" ]; then
-    printf 'Codex custom-agent ensure warning: installer unavailable; active workflow prompt-embedded fallback remains valid, but no-skill exploration stays inline until read-only oh-no-explore is available.'
+    printf 'Codex custom-agent ensure warning: installer unavailable; %s' "$warning_suffix"
     return 0
   fi
 
@@ -135,7 +146,7 @@ codex_agent_ensure_warning() {
     return 0
   fi
 
-  printf 'Codex custom-agent ensure warning: user-scope oh-no-* agents could not be ensured; active workflow prompt-embedded fallback remains valid, but no-skill exploration stays inline until read-only oh-no-explore is available.'
+  printf 'Codex custom-agent ensure warning: user-scope oh-no-* agents could not be ensured; %s' "$warning_suffix"
   if [ -n "$ensure_output" ]; then
     printf ' Run scripts/install-codex-agents --scope user --ensure for details.'
   fi

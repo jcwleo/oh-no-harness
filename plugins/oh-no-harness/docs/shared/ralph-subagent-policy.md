@@ -55,7 +55,9 @@ review, completion verification, ambiguous requirements, or edits. It must not
 read or reproduce secrets unless the user explicitly asks for that sensitive
 lookup, and credential values must be redacted in subagent output. Without an
 active workflow, dispatch only the registered read-only `oh-no-explore` custom
-agent when the host recognizes it; otherwise keep the lookup inline.
+agent when the host recognizes it. If custom-agent dispatch is rejected as
+unknown or unavailable, or only generic/default agents are available, keep the
+lookup inline.
 
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The
@@ -110,6 +112,16 @@ final status, capture its result, changed-file set, and any follow-up evidence
 needed for integration. Once that output has been inspected and no further
 input is needed, close or clean up the completed subagent using the active
 platform's mechanism.
+
+A wait timeout, empty wait result, or "no agents completed" response is not a
+final status. Hard rule: MUST NOT close a running or pending subagent merely
+because it is slow. Wait longer when the result is still needed, continue
+non-overlapping local work, or record the role as pending or blocked. Close
+without a captured final result only when the user explicitly cancels or stops
+that subagent, the task scope invalidates the work, the spawn was duplicate or
+mis-scoped, or continuing creates a safety, security, or filesystem risk. Record
+that close as cancelled or abandoned and never use missing output as completion
+evidence.
 
 Do not leave completed subagents open after their outputs have been integrated,
 rejected, or recorded as blocked. If the active platform does not expose an

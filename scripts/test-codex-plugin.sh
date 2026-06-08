@@ -262,7 +262,7 @@ PY
 
   local session_start_agent_count
   session_start_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$session_start_agent_count" == "11" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 11"
+  [[ "$session_start_agent_count" == "15" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 15"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex SessionStart did not write installed plugin version marker"
 
@@ -300,8 +300,11 @@ text = output.get("additionalContext", "")
 required = [
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "Codex custom-agent ensure warning",
-    "active workflow prompt-embedded fallback remains valid",
+    "oh-no-* custom-agent dispatch remains the default",
+    "prompt-embedded fallback requires confirmed unavailability",
     "no-skill exploration stays inline",
+    "MUST NOT call close_agent for a running or pending subagent",
+    "never use missing output as completion evidence",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -329,8 +332,11 @@ text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
 required = [
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "Codex custom-agent ensure warning",
-    "active workflow prompt-embedded fallback remains valid",
+    "oh-no-* custom-agent dispatch remains the default",
+    "prompt-embedded fallback requires confirmed unavailability",
     "no-skill exploration stays inline",
+    "MUST NOT call close_agent for a running or pending subagent",
+    "never use missing output as completion evidence",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -422,7 +428,7 @@ PY
 
   local hook_agent_count
   hook_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$hook_agent_count" == "11" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 11"
+  [[ "$hook_agent_count" == "15" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 15"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex Ralph adapter preflight did not write installed plugin version marker"
 
@@ -460,7 +466,8 @@ text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
 required = [
     "CODEX_ONLY_RALPH_ADAPTER",
     "Codex custom-agent preflight: failed",
-    "generic prompt-embedded dispatch fallback",
+    "oh-no-* custom-agent dispatch remains required",
+    "confirmed custom-agent unavailability",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -628,19 +635,19 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" --dry-run >"$temp_data/default-user-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/default-user-dry-run.out")"
-  [[ "$dry_run_count" == "11" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 11"
+  [[ "$dry_run_count" == "15" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 15"
   grep -q "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" "$temp_data/default-user-dry-run.out" \
     || fail "Codex agent default install did not target CODEX_HOME user scope"
 
   env -u CODEX_HOME HOME="$temp_data/home-default" "$installer" --dry-run >"$temp_data/home-default-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/home-default-dry-run.out")"
-  [[ "$dry_run_count" == "11" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 11"
+  [[ "$dry_run_count" == "15" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 15"
   grep -q "$temp_data/home-default/.codex/agents/oh-no-code-reviewer.toml" "$temp_data/home-default-dry-run.out" \
     || fail "Codex agent default install did not target HOME fallback user scope"
 
   "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
   project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
-  [[ "$project_dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 11"
+  [[ "$project_dry_run_count" == "15" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 15"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-install.out" 2>"$temp_data/ensure-install.err"
@@ -649,7 +656,7 @@ validate_codex_agent_installer() {
   quiet_size="$(wc -c <"$temp_data/ensure-install.err" | tr -d ' ')"
   [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stderr"
   ensure_count="$(find "$temp_data/ensure-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$ensure_count" == "11" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 11"
+  [[ "$ensure_count" == "15" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 15"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-current.out" 2>"$temp_data/ensure-current.err"
@@ -716,7 +723,7 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
   installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
+  [[ "$installed_count" == "15" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 15"
   grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the current plugin version marker"
   grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
@@ -774,7 +781,7 @@ install_codex_agents_user_scope() {
 
   local installed_count
   installed_count="$(find "$CODEX_HOME_DIR/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "11" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 11"
+  [[ "$installed_count" == "15" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 15"
   ok "Codex custom agents installed into ${CODEX_HOME_DIR}/agents"
 }
 
@@ -1482,11 +1489,12 @@ assert_natural_role_spawn_smoke() {
   local role_marker_specs="$5"
   local forbidden_markers="${6:-}"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" "$CODEX_HOME_DIR" <<'PY'
 import json
 import sys
+from pathlib import Path
 
-out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers = sys.argv[1:7]
+out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers, live_home = sys.argv[1:8]
 role_markers = []
 for spec in role_marker_specs.split(","):
     if not spec:
@@ -1514,6 +1522,28 @@ def mentioned_receivers(item, known_receivers):
         if receiver in known_receivers
     )
     return mentioned
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"{label} natural role smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"{label} natural role smoke transcript for receiver lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -1605,6 +1635,15 @@ for role in expected_roles:
     if roles_seen.count(role) != 1:
         raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
 
+for receiver, role in receiver_to_role.items():
+    expected_agent_role = f"oh-no-{role}"
+    actual_agent_role = receiver_agent_role(receiver)
+    if actual_agent_role != expected_agent_role:
+        raise SystemExit(
+            f"{label} natural role smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
+            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
+        )
+
 required_receivers = set(receiver_to_role)
 missing_wait_results = sorted(required_receivers - set(wait_index_by_receiver))
 missing_closes = sorted(required_receivers - set(close_index_by_receiver))
@@ -1651,7 +1690,6 @@ run_natural_session_start_live_skill_test() {
     --json
     --cd "$PLUGIN_ROOT"
     --sandbox read-only
-    --ephemeral
     --skip-git-repo-check
   )
 
@@ -1663,15 +1701,155 @@ run_natural_session_start_live_skill_test() {
   assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
 }
 
+run_no_skill_readonly_session_start_live_test() {
+  local out_file="$RUN_DIR/no-skill-readonly-session-start.jsonl"
+  local err_file="$RUN_DIR/no-skill-readonly-session-start.err"
+  local prompt
+  prompt='Read-only repository lookup. In this checkout, find the files that define Codex role dispatch policy and summarize each one briefly. Follow AGENTS.md and do not edit files. Finish with the marker OH_NO_CODEX_NOSKILL_READONLY_OK.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "no-skill-readonly" "$prompt"
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+out_path, err_path, live_home = sys.argv[1:4]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"no-skill read-only smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"no-skill read-only smoke transcript lacked session_meta: {receiver}")
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"no-skill read-only smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+
+failed_spawns = []
+receiver_ids = set()
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+marker = False
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        if "OH_NO_CODEX_NOSKILL_READONLY_OK" in collect_text(data):
+            marker = True
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            receivers = item.get("receiver_thread_ids") or []
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"no-skill read-only smoke expected one receiver per spawn, got {receivers!r}"
+                )
+            receiver = receivers[0]
+            receiver_ids.add(receiver)
+            actual_agent_role = receiver_agent_role(receiver)
+            if actual_agent_role != "oh-no-explore":
+                raise SystemExit(
+                    f"no-skill read-only smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}; "
+                    "only registered oh-no-explore is allowed, otherwise the lookup must stay inline"
+                )
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            text = collect_text(item)
+            mentioned = set(item.get("receiver_thread_ids") or [])
+            mentioned.update(receiver for receiver in receiver_ids if receiver in text)
+            mentioned.update(
+                receiver for receiver in (item.get("agents_states") or {})
+                if receiver in receiver_ids
+            )
+            if tool in {"wait", "wait_agent"}:
+                for receiver in mentioned:
+                    wait_index_by_receiver.setdefault(receiver, index)
+            if tool == "close_agent":
+                for receiver in mentioned:
+                    close_index_by_receiver.setdefault(receiver, index)
+
+if failed_spawns:
+    raise SystemExit(f"no-skill read-only smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if not marker:
+    raise SystemExit("no-skill read-only smoke did not return success marker OH_NO_CODEX_NOSKILL_READONLY_OK")
+if receiver_ids:
+    missing_waits = sorted(receiver_ids - set(wait_index_by_receiver))
+    missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
+    if missing_waits:
+        raise SystemExit(f"no-skill read-only smoke did not capture wait_agent results: {missing_waits!r}")
+    if missing_closes:
+        raise SystemExit(f"no-skill read-only smoke did not close completed receivers: {missing_closes!r}")
+    early_closes = {
+        receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+        for receiver in receiver_ids
+        if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+    }
+    if early_closes:
+        raise SystemExit(f"no-skill read-only smoke closed before wait results: {early_closes!r}")
+
+print("ok - no-skill read-only SessionStart smoke used only oh-no-explore or stayed inline")
+PY
+}
+
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
     log "Skipping live natural SessionStart role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural SessionStart role-worker dispatch for Interview, Autopilot, Systematic Debugging, and Verification Before Completion.\n' >&2
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify no-skill read-only and natural SessionStart role-worker dispatch.\n' >&2
     return
   fi
 
   log "Running live natural SessionStart role-worker smoke tests"
   mkdir -p "$RUN_DIR"
+  run_no_skill_readonly_session_start_live_test
   run_natural_session_start_live_skill_test \
     interview \
     OH_NO_CODEX_INTERVIEW_NATURAL_OK \
@@ -1707,7 +1885,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order: planner, then wait for and close planner before architect; architect, then wait for and close architect before critic; critic, then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching docs/agent-core/<role>.md file. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before architect; agent_type "oh-no-architect", then wait for and close architect before critic; agent_type "oh-no-critic", then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Used custom agent types: oh-no-planner -> oh-no-architect -> oh-no-critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1727,13 +1905,15 @@ run_ralplan_live_test() {
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
+live_home = sys.argv[3]
 expected_roles = ["planner", "architect", "critic"]
 role_headings = {
     "planner": "# Planner Agent",
@@ -1769,7 +1949,7 @@ def roles_in_text(text):
     lower = text.lower()
     return [
         role for role in expected_roles
-        if f"Agent prompt source: docs/agent-core/{role}.md".lower() in lower
+        if f"Codex agent type: oh-no-{role}".lower() in lower
     ]
 
 def mentioned_receivers(item):
@@ -1779,6 +1959,28 @@ def mentioned_receivers(item):
         for receiver in receiver_to_role
         if receiver in text
     }
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Codex ralplan sequential smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"Codex ralplan sequential smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -1874,6 +2076,15 @@ actual_order = [role for _, role, _, _ in successful_spawns]
 if actual_order != expected_roles:
     raise SystemExit(f"expected sequential spawn order {expected_roles!r}, got {actual_order!r}")
 
+for receiver, role in receiver_to_role.items():
+    expected_agent_role = f"oh-no-{role}"
+    actual_agent_role = receiver_agent_role(receiver)
+    if actual_agent_role != expected_agent_role:
+        raise SystemExit(
+            f"Codex ralplan sequential smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
+            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
+        )
+
 for role, payloads in {
     role: [spawn for spawn in successful_spawns if spawn[1] == role]
     for role in expected_roles
@@ -1883,19 +2094,24 @@ for role, payloads in {
     _, _, _, role_text = payloads[0]
     missing_prompt_markers = [
         marker for marker in [
-            f"Agent prompt source: docs/agent-core/{role}.md",
-            role_headings[role],
-            *required_prompt_markers,
+            f"Codex agent type: oh-no-{role}",
             *dependency_prompt_markers.get(role, []),
         ]
         if marker.lower() not in role_text.lower()
     ]
     if missing_prompt_markers:
         raise SystemExit(
-            f"Codex ralplan spawn_agent payload for {role} did not embed required prompt/review markers: "
+            f"Codex ralplan spawn_agent payload for {role} did not use the required custom-agent prompt/review markers: "
             f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
         )
-    forbidden_frontmatter_markers = ["\n---\n", "\ntools:", "\nmodel:", "\ncolor:"]
+    forbidden_frontmatter_markers = [
+        "\n---\n",
+        "\ntools:",
+        "\nmodel:",
+        "\ncolor:",
+        "Agent prompt content:",
+        f"Agent prompt source: docs/agent-core/{role}.md",
+    ]
     leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
     if leaked:
         raise SystemExit(
@@ -1962,6 +2178,10 @@ run_named_agents_live_test() {
     oh-no-analyst
     oh-no-architect
     oh-no-code-reviewer
+    oh-no-cleanup-altitude
+    oh-no-cleanup-efficiency
+    oh-no-cleanup-reuse
+    oh-no-cleanup-simplification
     oh-no-critic
     oh-no-debugger
     oh-no-executor
@@ -2124,11 +2344,14 @@ PY
 
     CODEX_HOME="$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-    "$PYTHON_BIN" - "$agent_type" "$proof_request" "$proof_ok" "$out_file" "$err_file" <<'PY'
+    "$PYTHON_BIN" - "$agent_type" "$proof_request" "$proof_ok" "$live_home" "$out_file" "$err_file" <<'PY'
 import json
 import sys
+from pathlib import Path
 
-agent_type, proof_request, proof_ok, out_path, err_path = sys.argv[1:6]
+agent_type, proof_request, proof_ok, live_home, out_path, err_path = sys.argv[1:7]
+role = agent_type.removeprefix("oh-no-")
+nonce = proof_request.rsplit(" ", 1)[-1]
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -2150,6 +2373,34 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
+
+def receiver_transcript_and_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"{agent_type} could not find session transcript for receiver: {receiver}")
+    transcript_parts = []
+    agent_role = None
+    for path in session_candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        transcript_parts.append(text)
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("type") != "session_meta":
+                continue
+            payload = data.get("payload") or {}
+            thread_spawn = (
+                payload.get("source", {})
+                .get("subagent", {})
+                .get("thread_spawn", {})
+            )
+            agent_role = payload.get("agent_role") or thread_spawn.get("agent_role")
+            break
+        if agent_role is not None:
+            break
+    return "\n".join(transcript_parts), agent_role
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -2212,10 +2463,23 @@ for receiver in sorted(spawn_receivers):
     wait = waited_receivers.get(receiver)
     if wait is None:
         raise SystemExit(f"{agent_type} did not capture wait result for receiver: {receiver}")
-    if wait["message"] != proof_ok:
+    child_message = wait["message"] or ""
+    if proof_ok not in child_message and nonce not in child_message:
         raise SystemExit(
-            f"{agent_type} child message was {wait['message']!r}, expected {proof_ok!r}; "
+            f"{agent_type} child message was {child_message!r}, expected proof nonce {nonce!r}; "
+            "the child did not prove it received the delegated task"
+        )
+    transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
+    if actual_agent_role != agent_type:
+        raise SystemExit(
+            f"{agent_type} receiver {receiver} had agent_role={actual_agent_role!r}; "
             "generic/default agent dispatch would not satisfy this proof"
+        )
+    custom_prompt_marker = f"Agent prompt source: docs/agent-core/{role}.md"
+    if custom_prompt_marker not in transcript:
+        raise SystemExit(
+            f"{agent_type} receiver transcript did not include custom role prompt marker "
+            f"{custom_prompt_marker!r}; generic/default agent dispatch would not satisfy this proof"
         )
     close = closed_receivers.get(receiver)
     if close is None:
@@ -2245,7 +2509,8 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include Agent prompt source and Agent prompt content copied from the matching docs/agent-core/<role>.md file. Each subagent should inspect its own docs/agent-core/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Wait results captured: 11; Closed agents: 11.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Used custom agent types: 11; Wait results captured: 11; Closed agents: 11.'
+  prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
 
   local cmd=(
     "$CODEX_BIN"
@@ -2265,13 +2530,15 @@ run_parallel_live_test() {
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
+live_home = sys.argv[3]
 successful_spawns = []
 failed_spawns = []
 spawn_texts = []
@@ -2338,7 +2605,7 @@ required_prompt_markers = [
 def roles_in_text(text):
     return [
         role for role in expected_roles
-        if f"Agent prompt source: docs/agent-core/{role}.md".lower() in text.lower()
+        if f"Codex agent type: oh-no-{role}".lower() in text.lower()
     ]
 
 def mentioned_receivers(item):
@@ -2348,6 +2615,28 @@ def mentioned_receivers(item):
         for receiver in receiver_to_role
         if receiver in text
     }
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Codex live parallel smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"Codex live parallel smoke transcript lacked session_meta: {receiver}")
 
 events = []
 with open(path, "r", encoding="utf-8") as fh:
@@ -2404,6 +2693,15 @@ if len(successful_spawns) < len(expected_roles):
 receiver_ids = {rid for _, receivers in successful_spawns[:len(expected_roles)] for rid in receivers}
 if len(receiver_ids) < len(expected_roles):
     raise SystemExit(f"expected {len(expected_roles)} distinct spawned receiver threads, got {receiver_ids!r}")
+for receiver in receiver_ids:
+    role = receiver_to_role.get(receiver)
+    expected_agent_role = f"oh-no-{role}"
+    actual_agent_role = receiver_agent_role(receiver)
+    if actual_agent_role != expected_agent_role:
+        raise SystemExit(
+            f"Codex live parallel smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
+            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
+        )
 missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
@@ -2438,18 +2736,23 @@ for role in expected_roles:
     role_text = role_payloads[0]
     missing_prompt_markers = [
         marker for marker in [
-            f"Agent prompt source: docs/agent-core/{role}.md",
-            role_headings[role],
-            *required_prompt_markers,
+            f"Codex agent type: oh-no-{role}",
         ]
         if marker.lower() not in role_text.lower()
     ]
     if missing_prompt_markers:
         raise SystemExit(
-            f"Codex spawn_agent payload for {role} did not embed required agent prompt content: "
+            f"Codex spawn_agent payload for {role} did not use required custom-agent markers: "
             f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
         )
-    forbidden_frontmatter_markers = ["\n---\n", "\ntools:", "\nmodel:", "\ncolor:"]
+    forbidden_frontmatter_markers = [
+        "\n---\n",
+        "\ntools:",
+        "\nmodel:",
+        "\ncolor:",
+        "Agent prompt content:",
+        f"Agent prompt source: docs/agent-core/{role}.md",
+    ]
     leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
     if leaked:
         raise SystemExit(
@@ -2465,7 +2768,8 @@ PY
   log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralph-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. Each worker message must include Agent prompt source: docs/agent-core/<role>.md and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Wait results captured, and Closed workers.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. Use registered Codex custom agents with agent_type oh-no-<role> for each Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
+  prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
   assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   assert_natural_spawn_smoke "$out_file" "$err_file" 3 "OH_NO_CODEX_RALPH_NATURAL_OK" "ralph"
@@ -2483,7 +2787,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, set agent_type to the matching registered custom agent: Reuse uses oh-no-cleanup-reuse, Simplification uses oh-no-cleanup-simplification, Efficiency uses oh-no-cleanup-efficiency, and Altitude uses oh-no-cleanup-altitude; omit model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, one matching line of the form Codex agent type: <agent_type>, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Codex agent type lines by angle: Reuse uses Codex agent type: oh-no-cleanup-reuse; Simplification uses Codex agent type: oh-no-cleanup-simplification; Efficiency uses Codex agent type: oh-no-cleanup-efficiency; Altitude uses Codex agent type: oh-no-cleanup-altitude. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Used custom agent types: oh-no-cleanup-reuse, oh-no-cleanup-simplification, oh-no-cleanup-efficiency, oh-no-cleanup-altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -2503,14 +2807,16 @@ run_simplify_live_test() {
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
+live_home = sys.argv[3]
 expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
 required_payload_markers = [
     "Scope: current diff",
@@ -2525,6 +2831,12 @@ angle_markers = {
     "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
     "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
     "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+}
+expected_agent_by_angle = {
+    "Reuse": "oh-no-cleanup-reuse",
+    "Simplification": "oh-no-cleanup-simplification",
+    "Efficiency": "oh-no-cleanup-efficiency",
+    "Altitude": "oh-no-cleanup-altitude",
 }
 
 def collect_text(value):
@@ -2550,6 +2862,28 @@ def mentioned_receivers(item):
         for receiver in receiver_to_angle
         if receiver in text
     }
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Codex simplify cleanup smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"Codex simplify cleanup smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -2630,6 +2964,14 @@ if missing_angles or duplicate_angles:
 receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
 if len(receiver_ids) != len(expected_angles):
     raise SystemExit(f"expected {len(expected_angles)} distinct simplify receiver threads, got {receiver_ids!r}")
+for receiver, angle in receiver_to_angle.items():
+    expected_agent_role = expected_agent_by_angle[angle]
+    actual_agent_role = receiver_agent_role(receiver)
+    if actual_agent_role != expected_agent_role:
+        raise SystemExit(
+            f"Codex simplify cleanup smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
+            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
+        )
 missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
@@ -2658,7 +3000,12 @@ if first_wait_or_close < last_spawn:
 for angle, payloads in spawns_by_angle.items():
     _, payload = payloads[0]
     missing_markers = [
-        marker for marker in [f"Angle: {angle}", f"Marker: {angle_markers[angle]}", *required_payload_markers]
+        marker for marker in [
+            f"Angle: {angle}",
+            f"Marker: {angle_markers[angle]}",
+            f"Codex agent type: {expected_agent_by_angle[angle]}",
+            *required_payload_markers,
+        ]
         if marker.lower() not in payload.lower()
     ]
     if missing_markers:
@@ -2675,26 +3022,37 @@ PY
   log "Running live Codex simplify natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/simplify-natural-session-start.jsonl"
   err_file="$RUN_DIR/simplify-natural-session-start.err"
-  prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff with the registered cleanup custom agents for Reuse, Simplification, Efficiency, and Altitude. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, one matching line of the form Codex agent type: <agent_type>, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Codex agent type lines by angle: Reuse uses Codex agent type: oh-no-cleanup-reuse; Simplification uses Codex agent type: oh-no-cleanup-simplification; Efficiency uses Codex agent type: oh-no-cleanup-efficiency; Altitude uses Codex agent type: oh-no-cleanup-altitude. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Used custom agent types: oh-no-cleanup-reuse, oh-no-cleanup-simplification, oh-no-cleanup-efficiency, oh-no-cleanup-altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
 
-  local prompt_lower
-  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
-  for forbidden in "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent"; do
-    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
-      fail "natural simplify prompt contains explicit subagent authorization term: ${forbidden}"
-    fi
-  done
+  assert_natural_prompt_has_no_explicit_subagent_terms "simplify" "$prompt"
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  local natural_cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --skip-git-repo-check
+  )
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
+  if [[ -n "$LIVE_MODEL" ]]; then
+    natural_cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${natural_cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
+live_home = sys.argv[3]
 expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
 required_payload_markers = [
     "Scope: target diff",
@@ -2709,6 +3067,12 @@ angle_markers = {
     "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
     "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
     "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+}
+expected_agent_by_angle = {
+    "Reuse": "oh-no-cleanup-reuse",
+    "Simplification": "oh-no-cleanup-simplification",
+    "Efficiency": "oh-no-cleanup-efficiency",
+    "Altitude": "oh-no-cleanup-altitude",
 }
 
 def collect_text(value):
@@ -2729,6 +3093,28 @@ def angles_in_payload(text):
 def mentioned_receivers(item):
     text = collect_text(item)
     return {receiver for receiver in receiver_to_angle if receiver in text}
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Codex simplify natural smoke could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"Codex simplify natural smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -2807,6 +3193,14 @@ if missing_angles or duplicate_angles:
         f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
     )
 receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
+for receiver, angle in receiver_to_angle.items():
+    expected_agent_role = expected_agent_by_angle[angle]
+    actual_agent_role = receiver_agent_role(receiver)
+    if actual_agent_role != expected_agent_role:
+        raise SystemExit(
+            f"Codex simplify natural smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
+            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
+        )
 missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
@@ -2835,7 +3229,12 @@ if first_wait_or_close < last_spawn:
 for angle, payloads in spawns_by_angle.items():
     _, payload = payloads[0]
     missing_markers = [
-        marker for marker in [f"Angle: {angle}", f"Marker: {angle_markers[angle]}", *required_payload_markers]
+        marker for marker in [
+            f"Angle: {angle}",
+            f"Marker: {angle_markers[angle]}",
+            f"Codex agent type: {expected_agent_by_angle[angle]}",
+            *required_payload_markers,
+        ]
         if marker.lower() not in payload.lower()
     ]
     if missing_markers:

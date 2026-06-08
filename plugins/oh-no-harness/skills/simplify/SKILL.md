@@ -18,6 +18,16 @@ Follow this order:
 5. This skill prefers four parallel cleanup subagents. If Codex subagent
    dispatch is unavailable, preserve the same four cleanup role boundaries as
    separate inline fallback blocks and record the fallback reason.
+   Call `spawn_agent` with the exact registered custom agent for each cleanup
+   role when the host accepts it: Reuse uses `agent_type =
+   "oh-no-cleanup-reuse"`, Simplification uses `agent_type =
+   "oh-no-cleanup-simplification"`, Efficiency uses `agent_type =
+   "oh-no-cleanup-efficiency"`, and Altitude uses `agent_type =
+   "oh-no-cleanup-altitude"`. Do not use a generic/default worker for these
+   cleanup roles unless that exact `agent_type` call was rejected as unknown or
+   unavailable and the fallback reason is recorded. Writing `Codex agent type:
+   ...` in the worker message is only an audit marker; it does not replace the
+   actual `agent_type` argument on `spawn_agent`.
 6. When the Codex SessionStart context includes the Oh No Harness standing
    subagent authorization, treat it as the explicit user request for this
    skill's Reuse, Simplification, Efficiency, and Altitude subagents. Do not ask

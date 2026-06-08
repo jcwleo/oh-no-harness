@@ -69,10 +69,10 @@ if [ "$platform" = "codex" ]; then
     if "$installer_path" --scope user --ensure --quiet >/dev/null 2>&1; then
       codex_agent_preflight="Codex custom-agent preflight: ready via quiet ensure of user-scope oh-no-* agents before Ralph dispatch."
     else
-      codex_agent_preflight="Codex custom-agent preflight: failed; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason. Run scripts/install-codex-agents --scope user --ensure for details."
+      codex_agent_preflight="Codex custom-agent preflight: failed; oh-no-* custom-agent dispatch remains required when the host recognizes agent_type. Use generic prompt-embedded dispatch only after confirmed custom-agent unavailability, and record this fallback reason. Run scripts/install-codex-agents --scope user --ensure for details."
     fi
   else
-    codex_agent_preflight="Codex custom-agent preflight: installer unavailable at ${installer_path}; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason."
+    codex_agent_preflight="Codex custom-agent preflight: installer unavailable at ${installer_path}; oh-no-* custom-agent dispatch remains required when the host recognizes agent_type. Use generic prompt-embedded dispatch only after confirmed custom-agent unavailability, and record this fallback reason."
   fi
 fi
 
