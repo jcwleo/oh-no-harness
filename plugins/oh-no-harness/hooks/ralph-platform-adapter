@@ -66,20 +66,11 @@ codex_agent_preflight="Codex custom-agent preflight: not applicable on ${platfor
 if [ "$platform" = "codex" ]; then
   installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
   if [ -x "$installer_path" ]; then
-    preflight_out="$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent-preflight.XXXXXX")"
-    preflight_err="$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent-preflight.XXXXXX")"
-    if "$installer_path" --scope user --force >"$preflight_out" 2>"$preflight_err"; then
-      codex_agent_preflight="Codex custom-agent preflight: installed-or-updated user-scope oh-no-* agents before Ralph dispatch.
-Preflight output:
-$(cat "$preflight_out")"
+    if "$installer_path" --scope user --ensure --quiet >/dev/null 2>&1; then
+      codex_agent_preflight="Codex custom-agent preflight: ready via quiet ensure of user-scope oh-no-* agents before Ralph dispatch."
     else
-      codex_agent_preflight="Codex custom-agent preflight: failed; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason.
-Preflight stdout:
-$(cat "$preflight_out")
-Preflight stderr:
-$(cat "$preflight_err")"
+      codex_agent_preflight="Codex custom-agent preflight: failed; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason. Run scripts/install-codex-agents --scope user --ensure for details."
     fi
-    rm -f "$preflight_out" "$preflight_err"
   else
     codex_agent_preflight="Codex custom-agent preflight: installer unavailable at ${installer_path}; continue Ralph with generic prompt-embedded dispatch fallback and record this fallback reason."
   fi

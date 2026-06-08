@@ -24,6 +24,7 @@ class AgentMetadata:
     claude_model: str
     claude_color: str
     codex_description: str
+    codex_sandbox_mode: str | None = None
 
 
 AGENTS = [
@@ -40,6 +41,7 @@ AGENTS = [
             "Oh No Harness explore role: perform read-only repository exploration, "
             "symbol discovery, dependency tracing, and factual implementation research."
         ),
+        codex_sandbox_mode="read-only",
     ),
     AgentMetadata(
         role="analyst",
@@ -214,6 +216,11 @@ def render_codex_agent(plugin_root: Path, meta: AgentMetadata) -> str:
             f"docs/agent-core/{meta.role}.md contains triple quotes, which cannot "
             "be embedded in the current TOML template"
         )
+    sandbox_mode = (
+        f'sandbox_mode = "{meta.codex_sandbox_mode}"\n'
+        if meta.codex_sandbox_mode is not None
+        else ""
+    )
     return (
         "# oh-no-harness-generated-codex-agent\n"
         "# Generated from docs/agent-core; do not edit by hand.\n"
@@ -224,6 +231,7 @@ def render_codex_agent(plugin_root: Path, meta: AgentMetadata) -> str:
         f'description = "{meta.codex_description}"\n'
         f'model = "{CODEX_MODEL}"\n'
         f'model_reasoning_effort = "{CODEX_REASONING_EFFORT}"\n'
+        f"{sandbox_mode}"
         'developer_instructions = """\n'
         f"Agent prompt source: docs/agent-core/{meta.role}.md\n"
         "Agent prompt content:\n"

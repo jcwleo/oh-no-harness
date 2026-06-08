@@ -49,24 +49,32 @@ other independent review roles.
 
 When dispatch is selected, use Codex `spawn_agent`.
 
-The Codex Ralph adapter performs a best-effort user-scope custom-agent
-preflight before this point by running `scripts/install-codex-agents --scope
-user --force`. The installed files carry the plugin version marker, so Ralph
-refreshes generated `oh-no-*` agents after a plugin update without requiring
-the user to ask for agent installation. Generated templates also pin `gpt-5.5`
-/ `model_reasoning_effort = "xhigh"` so they do not depend on inheriting a
-user-specific model config. If preflight
-fails, named custom-agent dispatch is optional; record the failure and use the
-generic prompt-embedded fallback.
+Codex SessionStart is the primary custom-agent preparation path. It runs
+`scripts/install-codex-agents --scope user --ensure --quiet` so missing
+generated `oh-no-*` agents are installed and stale generated files refresh
+without adding success noise to every prompt.
+
+The Codex Ralph adapter repeats the same best-effort user-scope quiet ensure as
+a fallback before this point. The installed files carry the plugin version
+marker, so stale generated agents can refresh after a plugin update without
+requiring the user to ask for agent installation again. Generated templates
+also pin `gpt-5.5` / `model_reasoning_effort = "xhigh"` so they do not depend
+on inheriting a user-specific model config. If ensure fails, named custom-agent
+dispatch is optional; record the failure and use the generic prompt-embedded
+fallback.
 
 Prefer:
 
 - `oh-no-<role>` when Oh No Harness Codex custom agents are installed in user
-  scope and the host recognizes that `agent_type`
+  scope and the current host recognizes that `agent_type`
 - `explorer` for read-heavy repository exploration
 - `worker` for scoped implementation with a disjoint write set
 - `default` for specialized reviews, QA, security, verification, or critique
   when embedding the role prompt is clearer than a built-in type
+
+The generated `oh-no-explore` custom-agent template sets
+`sandbox_mode = "read-only"`. Other Oh No Harness role templates inherit the
+active host sandbox and must still be scoped by the Ralph dispatch contract.
 
 Spawn every independent non-blocking agent in the eligible batch before calling
 `wait_agent`. Do not spawn one agent, wait, then spawn the rest.

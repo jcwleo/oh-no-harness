@@ -26,6 +26,9 @@ Codex
   -> root .agents/plugins/marketplace.json
   -> plugins/oh-no-harness/.codex-plugin/plugin.json
   -> skills/
+  -> hooks/run-hook.cmd session-start when plugin hooks are enabled
+  -> hooks/session-start
+  -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
   -> docs/skill-core/<skill>.md through the Codex-facing wrapper
   -> docs/platforms/codex.md
@@ -35,7 +38,7 @@ Codex
 Codex UserPromptSubmit for Ralph when plugin hooks are enabled
   -> hooks/run-hook.cmd ralph-platform-adapter
   -> hooks/ralph-platform-adapter
-  -> scripts/install-codex-agents --scope user --force as best-effort preflight
+  -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort fallback preflight
   -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/codex-ralph.md
   -> docs/agent-core/<role>.md for Codex spawn_agent prompt embedding
@@ -142,7 +145,7 @@ runtime-critical rules into the matching platform doc.
 
 ## Agent Relationship Summary
 
-Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses generated TOML templates installed by `scripts/install-codex-agents`; Ralph preflight refreshes those generated templates in user scope before named custom-agent dispatch. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the primary user-scope ensure point and Ralph preflight is only a fallback before named custom-agent dispatch. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|

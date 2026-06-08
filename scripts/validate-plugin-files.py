@@ -200,6 +200,15 @@ PLATFORM_RULE_DOC_MARKERS = {
         "wait_agent",
         "close_agent",
         "capture the output and any changed-file set before cleanup",
+        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+        "simple read-only repository fact lookup prompts",
+        "credential values must be redacted",
+        "if that agent is unavailable, answer inline",
+        "Custom agents are standalone TOML files",
+        "not defined inside `config.toml`",
+        "scripts/install-codex-agents --scope user --ensure --quiet",
+        "Files ensured on disk are not the same thing as same-session named-agent",
+        'sandbox_mode = "read-only"',
         "## Role Prompt Embedding",
         "Agent prompt source: docs/agent-core/<role>.md",
         "Claude-only",
@@ -234,6 +243,9 @@ PROVIDER_DOC_MARKERS = {
         "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
         "https://developers.openai.com/codex/concepts/subagents",
         "https://developers.openai.com/codex/subagents",
+        "not defined\n  inside `config.toml`",
+        "SessionStart ensure",
+        'sandbox_mode = "read-only"',
         "Do not create model-named provider files",
     ),
     "anthropic.md": (
@@ -274,6 +286,9 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "use subagents as much as possible",
     "dispatch by default",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+    "credential values must be redacted",
+    "otherwise keep the lookup inline",
     "explicit session-level authorization",
     "per-run subagent approval",
     "## Subagent-Unavailable Environments",
@@ -301,6 +316,9 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "Agent prompt source: docs/agent-core/<role>.md",
         "Agent prompt content:",
         "strip the Claude Code YAML frontmatter",
+        "SessionStart is the primary custom-agent preparation path",
+        "scripts/install-codex-agents --scope user --ensure --quiet",
+        'sandbox_mode = "read-only"',
         "spawn_agent",
         "wait_agent",
         "close_agent",
@@ -1184,6 +1202,7 @@ def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
         r'description = "([^"\n]*)"\n'
         r'model = "([^"\n]*)"\n'
         r'model_reasoning_effort = "([^"\n]*)"\n'
+        r'(?:sandbox_mode = "([^"\n]*)"\n)?'
         r'developer_instructions = """\n'
         r'(.*)'
         r'"""\n?',
@@ -1197,7 +1216,8 @@ def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
         "description": match.group(2),
         "model": match.group(3),
         "model_reasoning_effort": match.group(4),
-        "developer_instructions": match.group(5),
+        "sandbox_mode": match.group(5),
+        "developer_instructions": match.group(6),
     }
 
 
@@ -1219,6 +1239,12 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
             f"{path} model_reasoning_effort={data['model_reasoning_effort']!r}, "
             "expected 'xhigh'"
         )
+    sandbox_mode = data.get("sandbox_mode")
+    if agent == "explore":
+        if sandbox_mode != "read-only":
+            die(f"{path} sandbox_mode={sandbox_mode!r}, expected 'read-only'")
+    elif sandbox_mode is not None:
+        die(f"{path} should not set sandbox_mode for non-explore agent")
     agent_core = read_text(root / AGENT_CORE_ROOT / f"{agent}.md")
     expected_instructions = (
         f"Agent prompt source: docs/agent-core/{agent}.md\n"
@@ -1248,6 +1274,8 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
     ):
         if marker not in text:
             die(f"{path} is missing required Codex custom-agent marker: {marker!r}")
+    if agent == "explore" and 'sandbox_mode = "read-only"' not in text:
+        die(f"{path} is missing read-only sandbox marker for explore")
     for forbidden in ("Agent prompt source: agents/", "\ntools:", "\nmodel:", "\ncolor:"):
         if forbidden in text:
             die(f"{path} contains Claude-only or stale agent marker: {forbidden!r}")
@@ -1269,10 +1297,13 @@ def assert_codex_agent_installer(root: Path) -> None:
         "${CODEX_HOME:-}",
         "--dry-run",
         "--force",
+        "--ensure",
+        "--quiet",
         "--remove",
         "git rev-parse --show-toplevel",
         ".codex/agents",
         "skip unmarked",
+        "skip non-regular",
         "template directory not found",
     ):
         if marker not in text:
@@ -1292,6 +1323,8 @@ def assert_expected_references(root: Path) -> None:
         "scripts/generate-agent-wrappers.py",
         "scripts/install-codex-agents",
         "docs/platforms/codex-agents/*.toml",
+        "--scope user --ensure --quiet",
+        "SessionStart is the primary user-scope ensure point",
     ):
         if marker not in relationships:
             die(f"relationships.md does not mention required structure marker `{marker}`")
@@ -1515,7 +1548,8 @@ def assert_hook_contract(root: Path) -> None:
         "CODEX_ONLY_RALPH_ADAPTER",
         "Codex custom-agent preflight",
         "install-codex-agents",
-        "--scope user --force",
+        "--scope user --ensure --quiet",
+        "quiet ensure",
         "prompt_text=",
         'json.loads(raw).get("prompt", "")',
         "lowered_prompt=",
@@ -1548,7 +1582,12 @@ def assert_hook_contract(root: Path) -> None:
         "using-oh-no-harness",
         "OH_NO_FORCED_ROUTING",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
         "sub-agents, delegation, and parallel agent work proactively",
+        "redact credential values",
+        "otherwise perform the lookup inline",
+        "Codex custom-agent ensure warning",
+        "--scope user --ensure --quiet",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")

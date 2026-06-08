@@ -8,10 +8,12 @@ scope="user"
 dry_run="false"
 force="false"
 remove="false"
+ensure="false"
+quiet="false"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/install-codex-agents [--scope user|project] [--dry-run] [--force] [--remove]
+Usage: scripts/install-codex-agents [--scope user|project] [--dry-run] [--force] [--ensure] [--quiet] [--remove]
 
 Installs optional Oh No Harness Codex custom-agent templates.
 
@@ -23,6 +25,9 @@ Options:
                         Default: user.
   --dry-run             Print planned changes without writing files.
   --force               Overwrite existing generated files during install.
+  --ensure              Install missing generated files and refresh stale
+                        generated files. Never overwrite unmarked files.
+  --quiet               Emit nothing on successful install, refresh, or no-op.
   --remove              Remove installed Oh No Harness agent files.
                         Removal only deletes files with the generated marker.
   -h, --help            Show this help.
@@ -51,6 +56,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --force)
       force="true"
+      shift
+      ;;
+    --ensure)
+      ensure="true"
+      shift
+      ;;
+    --quiet)
+      quiet="true"
       shift
       ;;
     --remove)
@@ -112,6 +125,10 @@ has_marker() {
   grep -F -q "$MARKER" "$1"
 }
 
+say() {
+  [ "$quiet" = "true" ] || printf '%s\n' "$*"
+}
+
 render_agent() {
   src="$1"
   printf '# %s: %s\n' "$VERSION_MARKER" "$plugin_version"
@@ -126,9 +143,15 @@ install_one() {
   rendered=$(mktemp "${TMPDIR:-/tmp}/oh-no-codex-agent.XXXXXX") || return 1
   render_agent "$src" >"$rendered"
 
-  if [ -f "$dest" ]; then
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    if [ -L "$dest" ] || [ ! -f "$dest" ]; then
+      printf 'skip non-regular existing: %s (not overwritten)\n' "$dest" >&2
+      rm -f "$rendered"
+      return 1
+    fi
+
     if cmp -s "$rendered" "$dest"; then
-      printf 'unchanged: %s\n' "$dest"
+      say "unchanged: $dest"
       rm -f "$rendered"
       return 0
     fi
@@ -139,8 +162,8 @@ install_one() {
       return 1
     fi
 
-    if [ "$force" != "true" ]; then
-      printf 'skip existing generated: %s (use --force to overwrite)\n' "$dest" >&2
+    if [ "$force" != "true" ] && [ "$ensure" != "true" ]; then
+      printf 'skip existing generated: %s (use --force or --ensure to overwrite)\n' "$dest" >&2
       rm -f "$rendered"
       return 1
     fi
@@ -148,9 +171,9 @@ install_one() {
 
   if [ "$dry_run" = "true" ]; then
     if [ -f "$dest" ]; then
-      printf 'would overwrite: %s\n' "$dest"
+      say "would overwrite: $dest"
     else
-      printf 'would install: %s\n' "$dest"
+      say "would install: $dest"
     fi
     rm -f "$rendered"
     return 0
@@ -159,7 +182,7 @@ install_one() {
   mkdir -p "$target"
   mv "$rendered" "$dest"
   if [ -f "$dest" ]; then
-    printf 'installed: %s (plugin version %s)\n' "$dest" "$plugin_version"
+    say "installed: $dest (plugin version $plugin_version)"
   else
     rm -f "$rendered"
     return 1
@@ -171,7 +194,7 @@ remove_one() {
   dest="${target}/$(basename "$src")"
 
   if [ ! -f "$dest" ]; then
-    printf 'absent: %s\n' "$dest"
+    say "absent: $dest"
     return 0
   fi
 
@@ -181,21 +204,21 @@ remove_one() {
   fi
 
   if [ "$dry_run" = "true" ]; then
-    printf 'would remove: %s\n' "$dest"
+    say "would remove: $dest"
     return 0
   fi
 
   rm "$dest"
-  printf 'removed: %s\n' "$dest"
+  say "removed: $dest"
 }
 
 target=$(target_dir)
 status=0
 
 if [ "$remove" = "true" ]; then
-  printf 'removing Oh No Harness Codex agents from %s\n' "$target"
+  say "removing Oh No Harness Codex agents from $target"
 else
-  printf 'installing Oh No Harness Codex agents to %s\n' "$target"
+  say "installing Oh No Harness Codex agents to $target"
 fi
 
 found="false"

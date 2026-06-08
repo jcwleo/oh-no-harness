@@ -108,14 +108,55 @@ and lifecycle rules; keep roles inline only when subagent dispatch is unavailabl
 unsafe to isolate, or blocked by the selected skill.
 </CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
 
+codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
+For simple read-only repository fact lookup prompts, Codex may use one
+exploration sub-agent even when no Oh No Harness workflow skill is active.
+Eligible prompts only ask to locate, trace, or summarize existing code, config,
+tests, or documentation. Do not use this lane for planning, debugging,
+implementation, review, QA, security review, completion verification, ambiguous
+requirements, or any file edit. Do not read or reproduce secrets unless the
+user explicitly asks for that sensitive lookup; redact credential values in
+sub-agent output. Use registered `oh-no-explore` only when the current host
+recognizes that read-only custom agent; otherwise perform the lookup inline
+without subagent dispatch. Capture the result, then close the sub-agent when the
+host exposes close_agent.
+</CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
+
+codex_agent_ensure_warning() {
+  local installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
+  local ensure_output
+
+  if [ ! -x "$installer_path" ]; then
+    printf 'Codex custom-agent ensure warning: installer unavailable; active workflow prompt-embedded fallback remains valid, but no-skill exploration stays inline until read-only oh-no-explore is available.'
+    return 0
+  fi
+
+  if ensure_output="$("$installer_path" --scope user --ensure --quiet 2>&1)"; then
+    return 0
+  fi
+
+  printf 'Codex custom-agent ensure warning: user-scope oh-no-* agents could not be ensured; active workflow prompt-embedded fallback remains valid, but no-skill exploration stays inline until read-only oh-no-explore is available.'
+  if [ -n "$ensure_output" ]; then
+    printf ' Run scripts/install-codex-agents --scope user --ensure for details.'
+  fi
+}
+
 if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
   session_context="$base_session_context"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
 elif [ -n "$ENV_CODEX_PLUGIN_ROOT" ]; then
+  codex_agent_warning="$(codex_agent_ensure_warning)"
+  codex_agent_warning_block=""
+  if [ -n "$codex_agent_warning" ]; then
+    codex_agent_warning_block="
+${codex_agent_warning}"
+  fi
   session_context="${base_session_context}
 
-${codex_subagent_policy}"
+${codex_subagent_policy}
+
+${codex_readonly_exploration_policy}${codex_agent_warning_block}"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then

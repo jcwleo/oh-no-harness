@@ -72,7 +72,7 @@ Useful overrides:
 - `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune live model + budget
 - `--codex-home /tmp/codex-test` — isolate Codex test installs to a throwaway home
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
-- `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Ralph preflight also runs this automatically and refreshes generated files after plugin version changes
+- `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart quietly ensures generated files and Ralph preflight repeats that ensure only as fallback
 
 ## Release
 

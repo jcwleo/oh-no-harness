@@ -52,7 +52,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter injected by the Ralph hook |
 | `docs/platforms/claude-code.md` | Claude Code-specific public skill wrapper rules |
 | `docs/platforms/codex.md` | Codex-specific public skill wrapper rules |
-| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by `scripts/generate-agent-wrappers.py` and include explicit model defaults to avoid user-specific inheritance |
+| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for `oh-no-explore` |
 
 ## Local Provider Guidance
 
@@ -67,8 +67,8 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
-| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap plus Codex-only standing subagent authorization |
-| `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt |
+| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap, Codex-only standing subagent authorization, Codex no-skill read-only exploration authorization, and quiet user-scope custom-agent ensure |
+| `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt and repeats Codex custom-agent ensure only as fallback |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |
 | `plugins/oh-no-harness/.codex-plugin/plugin.json` | `superpowers/raw/runtime/.codex-plugin/plugin.json` structure adapted |
@@ -91,7 +91,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
 | `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
-| `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default and Ralph preflight refreshes generated files by plugin version, project scope is explicit |
+| `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |
 
 ## Local Design Documents
 

@@ -7,6 +7,7 @@ name = "oh-no-explore"
 description = "Oh No Harness explore role: perform read-only repository exploration, symbol discovery, dependency tracing, and factual implementation research."
 model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
+sandbox_mode = "read-only"
 developer_instructions = """
 Agent prompt source: docs/agent-core/explore.md
 Agent prompt content:

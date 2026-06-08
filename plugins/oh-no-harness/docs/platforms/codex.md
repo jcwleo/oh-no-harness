@@ -77,6 +77,19 @@ skill dispatch policy exists, do not spawn Codex subagents merely because a role
 could be named. Keep the role inline and record the fallback reason when the
 core skill requires it.
 
+The only no-skill exception is the Codex SessionStart block named
+`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION`. It authorizes one
+exploration subagent for simple read-only repository fact lookup prompts such as
+locating logic, tracing a symbol, identifying related tests, or summarizing an
+existing file/config path. It does not authorize planning, debugging,
+implementation, review, QA, security review, completion verification,
+ambiguous-requirements work, or file edits. It must not read or reproduce
+secrets unless the user explicitly asks for that sensitive lookup, and
+credential values must be redacted in subagent output. This no-skill lane may
+dispatch only the registered read-only `oh-no-explore` custom agent when the
+current host recognizes it; if that agent is unavailable, answer inline instead
+of falling back to a generic or prompt-embedded subagent.
+
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
 Do not require a separate `ralph with parallel subagents` option when the plan
@@ -98,15 +111,37 @@ fallback reason when the core skill requires it.
 Oh No Harness Codex custom-agent templates are installed in user scope by
 default with `scripts/install-codex-agents`. User scope means
 `$CODEX_HOME/agents` when `CODEX_HOME` is set, otherwise
-`$HOME/.codex/agents`.
+`$HOME/.codex/agents`. Project scope means `.codex/agents`.
 
-When a Codex Ralph prompt is detected, the Ralph platform adapter runs a
-best-effort user-scope preflight install/update before injecting dispatch
-guidance. Generated files include the installed plugin version marker, so a
-later plugin update refreshes stale `oh-no-*` agent definitions on the next
-Ralph invocation. If installation fails or an unmarked user file blocks an
-overwrite, continue with the generic prompt-embedded fallback and record the
-preflight failure reason.
+Custom agents are standalone TOML files under those `agents/` directories; they
+are not defined inside `config.toml`. Codex `[agents]` config entries are global
+subagent settings, not individual Oh No Harness role definitions.
+
+Codex `SessionStart` runs a best-effort user-scope quiet ensure with
+`scripts/install-codex-agents --scope user --ensure --quiet`. It installs
+missing generated files and refreshes stale generated files without adding
+success output to the session context. If installation fails or an unmarked user
+file blocks ensure, SessionStart keeps running and adds only a compact fallback
+warning.
+
+When a Codex Ralph prompt is detected, the Ralph platform adapter repeats the
+same quiet ensure as a fallback before injecting dispatch guidance. Generated
+files include the installed plugin version marker, so a later plugin update can
+refresh stale `oh-no-*` agent definitions during SessionStart or Ralph fallback
+without requiring a repeated user prompt. If ensure fails or an unmarked user
+file blocks it, continue with the generic prompt-embedded fallback and record
+the fallback reason.
+
+Files ensured on disk are not the same thing as same-session named-agent
+availability. Prefer `agent_type = "oh-no-<role>"` only when the current Codex
+host recognizes that registered custom agent. Inside an active Oh No Harness
+workflow, otherwise use the generic prompt-embedded fallback below or built-in
+`explorer` for read-heavy lookup. Outside an active workflow, the no-skill
+read-only exploration lane must stay inline unless registered `oh-no-explore`
+is available.
+The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
+no-skill exploration lane does not rely on prompt text alone for write
+isolation.
 
 The generated templates pin `gpt-5.5` /
 `model_reasoning_effort = "xhigh"` so custom-agent role files do not depend on

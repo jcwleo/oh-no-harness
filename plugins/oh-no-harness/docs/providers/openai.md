@@ -11,7 +11,7 @@ runtime-critical rules into `docs/platforms/codex.md`.
 
 ## Source Snapshot
 
-Reviewed on 2026-06-03:
+Reviewed on 2026-06-08:
 
 - OpenAI latest model guide:
   `https://developers.openai.com/api/docs/guides/latest-model`
@@ -39,13 +39,15 @@ Reviewed on 2026-06-03:
   require per-step literal `subagent` wording after that boundary is recorded.
 - Codex custom agents are TOML configuration files installed under
   `$CODEX_HOME/agents` or `~/.codex/agents` for personal agents, or under
-  project `.codex/agents/` for project-scoped agents. Oh No Harness uses
-  user-scope install by default for named `agent_type` dispatch. Ralph runs a
-  best-effort user-scope preflight and generated files record the plugin
-  version so updates can refresh stale agent definitions. The generated
-  templates pin `gpt-5.5` with `xhigh` reasoning to avoid relying on
-  user-specific model inheritance. Claude Code YAML frontmatter is not Codex
-  prompt content.
+  project `.codex/agents/` for project-scoped agents. They are not defined
+  inside `config.toml`; Codex `[agents]` settings are global subagent settings.
+  Oh No Harness uses a quiet user-scope SessionStart ensure by default for
+  named `agent_type` dispatch readiness, and Ralph repeats that ensure only as
+  fallback. Generated files record the plugin version so updates can refresh
+  stale agent definitions. The generated templates pin `gpt-5.5` with `xhigh`
+  reasoning to avoid relying on user-specific model inheritance, and the
+  generated `oh-no-explore` template sets `sandbox_mode = "read-only"`. Claude
+  Code YAML frontmatter is not Codex prompt content.
 - Prefer compact final responses. Use longer output only for plan approval,
   review findings, verification evidence, or user-requested detail.
 

@@ -46,6 +46,17 @@ explicit session-level authorization for eligible isolated roles inside active
 Oh No Harness workflows; do not ask for per-run subagent approval only to satisfy
 that authorization.
 
+A separate Codex SessionStart block named
+`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION` may authorize one no-skill
+exploration subagent for simple read-only repository fact lookup. That lane is
+limited to locating, tracing, or summarizing existing code/config/tests/docs; it
+does not authorize planning, debugging, implementation, review, QA, security
+review, completion verification, ambiguous requirements, or edits. It must not
+read or reproduce secrets unless the user explicitly asks for that sensitive
+lookup, and credential values must be redacted in subagent output. Without an
+active workflow, dispatch only the registered read-only `oh-no-explore` custom
+agent when the host recognizes it; otherwise keep the lookup inline.
+
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The
 goal is independent evidence and context separation, not merely parallelism.

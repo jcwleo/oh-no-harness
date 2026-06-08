@@ -231,6 +231,12 @@ required = [
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "sub-agents, delegation, and parallel agent work proactively",
     "explicit user request for eligible Oh No Harness workflow",
+    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+    "simple read-only repository fact lookup prompts",
+    "Do not use this lane for planning, debugging",
+    "redact credential values",
+    "otherwise perform the lookup inline",
+    "close the sub-agent",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -249,7 +255,16 @@ if len(text) > 4000:
 for forbidden in ("CLAUDE_CODE_ONLY", "AskUserQuestion"):
     if forbidden in text:
         raise SystemExit(f"Codex SessionStart leaked Claude-only policy: {forbidden}")
+for forbidden in ("installed:", "unchanged:", "would install:", "Preflight output:"):
+    if forbidden in text:
+        raise SystemExit(f"Codex SessionStart leaked custom-agent installer output: {forbidden}")
 PY
+
+  local session_start_agent_count
+  session_start_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  [[ "$session_start_agent_count" == "11" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 11"
+  grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex SessionStart did not write installed plugin version marker"
 
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
@@ -265,6 +280,64 @@ text = output.get("additionalContext", "")
 if "OH_NO_FORCED_ROUTING" in text:
     raise SystemExit("Codex SessionStart should not add forced routing when auto-routing is enabled")
 PY
+
+  local blocked_session_home
+  blocked_session_home="$temp_data/codex-home-session-blocked"
+  mkdir -p "$blocked_session_home/agents"
+  printf 'user owned\n' >"$blocked_session_home/agents/oh-no-code-reviewer.toml"
+  CODEX_HOME="$blocked_session_home" PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start-blocked.json"
+  "$PYTHON_BIN" - "$temp_data/session-start-blocked.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "SessionStart":
+    raise SystemExit("blocked Codex SessionStart emitted the wrong hook event")
+text = output.get("additionalContext", "")
+required = [
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "Codex custom-agent ensure warning",
+    "active workflow prompt-embedded fallback remains valid",
+    "no-skill exploration stays inline",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"blocked Codex SessionStart missing compact fallback warning: {missing}")
+for forbidden in ("Preflight stdout:", "Preflight stderr:", "installed:"):
+    if forbidden in text:
+        raise SystemExit(f"blocked Codex SessionStart warning is too verbose: {forbidden}")
+PY
+  [[ "$(cat "$blocked_session_home/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
+    || fail "Codex SessionStart overwrote an unmarked user-owned agent file"
+
+  local blocked_symlink_home
+  blocked_symlink_home="$temp_data/codex-home-session-symlink"
+  mkdir -p "$blocked_symlink_home/agents"
+  ln -s "$blocked_symlink_home/agents/missing-target.toml" "$blocked_symlink_home/agents/oh-no-code-reviewer.toml"
+  CODEX_HOME="$blocked_symlink_home" PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start-symlink-blocked.json"
+  "$PYTHON_BIN" - "$temp_data/session-start-symlink-blocked.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
+required = [
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "Codex custom-agent ensure warning",
+    "active workflow prompt-embedded fallback remains valid",
+    "no-skill exploration stays inline",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"symlink-blocked Codex SessionStart missing compact fallback warning: {missing}")
+PY
+  [[ -L "$blocked_symlink_home/agents/oh-no-code-reviewer.toml" ]] \
+    || fail "Codex SessionStart replaced a non-regular symlink agent path"
 
   local temp_path
   temp_path="$temp_data/bin"
@@ -333,6 +406,7 @@ required = [
     "wait_agent",
     "close_agent",
     "Codex custom-agent preflight",
+    "quiet ensure",
     "Parallel trigger: approved-plan-handoff",
 ]
 missing = [needle for needle in required if needle not in text]
@@ -341,6 +415,9 @@ if missing:
 for forbidden in ("CLAUDE_CODE_ONLY_RALPH_ADAPTER", "docs/platforms/claude-code-ralph.md", "@agent-oh-no-harness:<agent>"):
     if forbidden in text:
         raise SystemExit(f"Codex Ralph adapter leaked Claude marker: {forbidden}")
+for forbidden in ("Preflight output:", "installed:", "unchanged:"):
+    if forbidden in text:
+        raise SystemExit(f"Codex Ralph adapter leaked verbose preflight output: {forbidden}")
 PY
 
   local hook_agent_count
@@ -545,6 +622,7 @@ validate_codex_agent_installer() {
   sh -n "$installer"
 
   local temp_data dry_run_count installed_count project_dry_run_count remaining_count force_status manifest_version
+  local ensure_count quiet_size conflict_status
   temp_data="$(mktemp -d)"
   manifest_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PLUGIN_ROOT/.codex-plugin/plugin.json" | head -n 1)"
 
@@ -564,6 +642,78 @@ validate_codex_agent_installer() {
   project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
   [[ "$project_dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 11"
 
+  CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-install.out" 2>"$temp_data/ensure-install.err"
+  quiet_size="$(wc -c <"$temp_data/ensure-install.out" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stdout"
+  quiet_size="$(wc -c <"$temp_data/ensure-install.err" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stderr"
+  ensure_count="$(find "$temp_data/ensure-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
+  [[ "$ensure_count" == "11" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 11"
+
+  CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-current.out" 2>"$temp_data/ensure-current.err"
+  quiet_size="$(wc -c <"$temp_data/ensure-current.out" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent current --ensure --quiet wrote stdout"
+  quiet_size="$(wc -c <"$temp_data/ensure-current.err" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent current --ensure --quiet wrote stderr"
+
+  {
+    printf '# oh-no-harness-installed-plugin-version: 0.0.0\n'
+    printf '# oh-no-harness-generated-codex-agent\n'
+    printf 'name = "oh-no-code-reviewer"\n'
+    printf 'description = "stale generated file"\n'
+    printf 'developer_instructions = "stale"\n'
+  } >"$temp_data/ensure-home/agents/oh-no-code-reviewer.toml"
+  CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-stale.out" 2>"$temp_data/ensure-stale.err"
+  grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/ensure-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent --ensure did not refresh stale plugin version marker"
+  grep -q '# Code Reviewer Agent' "$temp_data/ensure-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent --ensure did not refresh stale agent prompt content"
+  quiet_size="$(wc -c <"$temp_data/ensure-stale.out" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent stale --ensure --quiet wrote stdout"
+  quiet_size="$(wc -c <"$temp_data/ensure-stale.err" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent stale --ensure --quiet wrote stderr"
+
+  mkdir -p "$temp_data/ensure-conflict/agents"
+  printf 'user owned\n' >"$temp_data/ensure-conflict/agents/oh-no-code-reviewer.toml"
+  set +e
+  CODEX_HOME="$temp_data/ensure-conflict" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-conflict.out" 2>"$temp_data/ensure-conflict.err"
+  conflict_status=$?
+  set -e
+  [[ "$conflict_status" != "0" ]] || fail "Codex agent --ensure succeeded despite unmarked conflict"
+  grep -q 'skip unmarked existing:' "$temp_data/ensure-conflict.err" \
+    || fail "Codex agent --ensure did not report unmarked conflict"
+  [[ "$(cat "$temp_data/ensure-conflict/agents/oh-no-code-reviewer.toml")" == "user owned" ]] \
+    || fail "Codex agent --ensure changed an unmarked user-owned file"
+
+  mkdir -p "$temp_data/ensure-symlink/agents"
+  ln -s "$temp_data/ensure-symlink/agents/missing-target.toml" "$temp_data/ensure-symlink/agents/oh-no-code-reviewer.toml"
+  set +e
+  CODEX_HOME="$temp_data/ensure-symlink" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-symlink.out" 2>"$temp_data/ensure-symlink.err"
+  conflict_status=$?
+  set -e
+  [[ "$conflict_status" != "0" ]] || fail "Codex agent --ensure succeeded despite symlink conflict"
+  grep -q 'skip non-regular existing:' "$temp_data/ensure-symlink.err" \
+    || fail "Codex agent --ensure did not report symlink conflict"
+  [[ -L "$temp_data/ensure-symlink/agents/oh-no-code-reviewer.toml" ]] \
+    || fail "Codex agent --ensure replaced a symlink conflict"
+
+  mkdir -p "$temp_data/ensure-directory/agents/oh-no-code-reviewer.toml"
+  set +e
+  CODEX_HOME="$temp_data/ensure-directory" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-directory.out" 2>"$temp_data/ensure-directory.err"
+  conflict_status=$?
+  set -e
+  [[ "$conflict_status" != "0" ]] || fail "Codex agent --ensure succeeded despite directory conflict"
+  grep -q 'skip non-regular existing:' "$temp_data/ensure-directory.err" \
+    || fail "Codex agent --ensure did not report directory conflict"
+  [[ -d "$temp_data/ensure-directory/agents/oh-no-code-reviewer.toml" ]] \
+    || fail "Codex agent --ensure replaced a directory conflict"
+
   CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
   installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
   [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
@@ -573,6 +723,8 @@ validate_codex_agent_installer() {
     || fail "Codex agent user install did not write the custom-agent model default"
   grep -q 'model_reasoning_effort = "xhigh"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the custom-agent reasoning default"
+  grep -q 'sandbox_mode = "read-only"' "$temp_data/codex-home/agents/oh-no-explore.toml" \
+    || fail "Codex agent user install did not write the read-only sandbox for explore"
   {
     printf '# oh-no-harness-installed-plugin-version: 0.0.0\n'
     printf '# oh-no-harness-generated-codex-agent\n'
@@ -614,7 +766,7 @@ install_codex_agents_user_scope() {
 
   local out_file="$RUN_DIR/codex-agents-user-install.out"
   local err_file="$RUN_DIR/codex-agents-user-install.err"
-  CODEX_HOME="$CODEX_HOME_DIR" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
+  CODEX_HOME="$CODEX_HOME_DIR" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --ensure --quiet \
     >"$out_file" 2>"$err_file" || {
       cat "$err_file" >&2
       fail "Codex custom-agent user-scope install failed"
