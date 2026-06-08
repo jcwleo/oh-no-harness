@@ -485,8 +485,13 @@ and a behavior lock exists.
 
 Cleanup is mode-gated:
 
-- `LIGHT`: run `simplify` only when changed files show actual reuse, simplification, efficiency, or altitude cleanup candidates; otherwise record cleanup as not needed.
-- `STANDARD`: run cleanup when behavior is locked and the changed files show cleanup candidates; rerun relevant verification afterward.
+- `LIGHT`: run `simplify` when a quick diff or required review shows actual
+  reuse, simplification, efficiency, or altitude cleanup candidates, or when
+  candidate uncertainty remains after that scan; otherwise record cleanup as not
+  needed.
+- `STANDARD`: run cleanup when behavior is locked and a quick diff or required
+  review shows cleanup candidates, or when candidate uncertainty remains after
+  that scan; rerun relevant verification afterward.
 - `THOROUGH`: run `simplify` after required review unless explicitly disabled,
   then rerun verification and any focused post-cleanup review required by risk.
 

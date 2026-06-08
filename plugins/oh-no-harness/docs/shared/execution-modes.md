@@ -94,9 +94,9 @@ Ralph behavior:
   evidence before the final claim
 - record the `Worktree decision` before editing when the task is write-capable
 - run `verification-before-completion` before the final claim
-- run `simplify` only when the diff shows actual reuse, simplification,
-  efficiency, or altitude cleanup candidates; otherwise
-  record cleanup as not needed
+- run `simplify` when a quick diff or required review shows actual reuse,
+  simplification, efficiency, or altitude cleanup candidates, or when candidate
+  uncertainty remains after that scan; otherwise record cleanup as not needed
 
 ## STANDARD
 
@@ -133,8 +133,9 @@ Ralph behavior:
 - run the diff-budget gate when changed files, insertions, generated artifacts,
   public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
-- run cleanup only after the behavior lock exists and the changed files show
-  cleanup candidates; rerun the relevant verification after cleanup
+- run cleanup only after the behavior lock exists and a quick diff or required
+  review shows cleanup candidates, or when candidate uncertainty remains after
+  that scan; rerun the relevant verification after cleanup
 - run `verification-before-completion` before the final claim
 
 ## THOROUGH
