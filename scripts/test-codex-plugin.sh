@@ -262,7 +262,7 @@ PY
 
   local session_start_agent_count
   session_start_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$session_start_agent_count" == "15" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 15"
+  [[ "$session_start_agent_count" == "11" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 11"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex SessionStart did not write installed plugin version marker"
 
@@ -428,7 +428,7 @@ PY
 
   local hook_agent_count
   hook_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$hook_agent_count" == "15" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 15"
+  [[ "$hook_agent_count" == "11" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 11"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex Ralph adapter preflight did not write installed plugin version marker"
 
@@ -635,19 +635,19 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" --dry-run >"$temp_data/default-user-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/default-user-dry-run.out")"
-  [[ "$dry_run_count" == "15" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 15"
+  [[ "$dry_run_count" == "11" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 11"
   grep -q "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" "$temp_data/default-user-dry-run.out" \
     || fail "Codex agent default install did not target CODEX_HOME user scope"
 
   env -u CODEX_HOME HOME="$temp_data/home-default" "$installer" --dry-run >"$temp_data/home-default-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/home-default-dry-run.out")"
-  [[ "$dry_run_count" == "15" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 15"
+  [[ "$dry_run_count" == "11" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 11"
   grep -q "$temp_data/home-default/.codex/agents/oh-no-code-reviewer.toml" "$temp_data/home-default-dry-run.out" \
     || fail "Codex agent default install did not target HOME fallback user scope"
 
   "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
   project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
-  [[ "$project_dry_run_count" == "15" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 15"
+  [[ "$project_dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 11"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-install.out" 2>"$temp_data/ensure-install.err"
@@ -656,7 +656,7 @@ validate_codex_agent_installer() {
   quiet_size="$(wc -c <"$temp_data/ensure-install.err" | tr -d ' ')"
   [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stderr"
   ensure_count="$(find "$temp_data/ensure-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$ensure_count" == "15" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 15"
+  [[ "$ensure_count" == "11" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 11"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-current.out" 2>"$temp_data/ensure-current.err"
@@ -682,6 +682,25 @@ validate_codex_agent_installer() {
   [[ "$quiet_size" == "0" ]] || fail "Codex agent stale --ensure --quiet wrote stdout"
   quiet_size="$(wc -c <"$temp_data/ensure-stale.err" | tr -d ' ')"
   [[ "$quiet_size" == "0" ]] || fail "Codex agent stale --ensure --quiet wrote stderr"
+
+  {
+    printf '# oh-no-harness-installed-plugin-version: 1.1.11\n'
+    printf '# oh-no-harness-generated-codex-agent\n'
+    printf 'name = "oh-no-cleanup-reuse"\n'
+    printf 'description = "retired generated cleanup file"\n'
+    printf 'developer_instructions = "retired"\n'
+  } >"$temp_data/ensure-home/agents/oh-no-cleanup-reuse.toml"
+  printf 'user owned\n' >"$temp_data/ensure-home/agents/oh-no-user-owned-extra.toml"
+  CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
+    >"$temp_data/ensure-retired.out" 2>"$temp_data/ensure-retired.err"
+  [[ ! -e "$temp_data/ensure-home/agents/oh-no-cleanup-reuse.toml" ]] \
+    || fail "Codex agent --ensure left retired generated cleanup agent"
+  [[ "$(cat "$temp_data/ensure-home/agents/oh-no-user-owned-extra.toml")" == "user owned" ]] \
+    || fail "Codex agent --ensure removed or changed an unmarked extra user agent"
+  quiet_size="$(wc -c <"$temp_data/ensure-retired.out" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent retired --ensure --quiet wrote stdout"
+  quiet_size="$(wc -c <"$temp_data/ensure-retired.err" | tr -d ' ')"
+  [[ "$quiet_size" == "0" ]] || fail "Codex agent retired --ensure --quiet wrote stderr"
 
   mkdir -p "$temp_data/ensure-conflict/agents"
   printf 'user owned\n' >"$temp_data/ensure-conflict/agents/oh-no-code-reviewer.toml"
@@ -723,7 +742,7 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
   installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "15" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 15"
+  [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
   grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the current plugin version marker"
   grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
@@ -744,6 +763,13 @@ validate_codex_agent_installer() {
     || fail "Codex agent user reinstall did not refresh stale plugin version marker"
   grep -q '# Code Reviewer Agent' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user reinstall did not refresh stale agent prompt content"
+  {
+    printf '# oh-no-harness-installed-plugin-version: 1.1.11\n'
+    printf '# oh-no-harness-generated-codex-agent\n'
+    printf 'name = "oh-no-cleanup-altitude"\n'
+    printf 'description = "retired generated cleanup file"\n'
+    printf 'developer_instructions = "retired"\n'
+  } >"$temp_data/codex-home/agents/oh-no-cleanup-altitude.toml"
   CODEX_HOME="$temp_data/codex-home" "$installer" --remove >"$temp_data/user-remove.out"
   remaining_count="$(find "$temp_data/codex-home" -type f | wc -l | tr -d ' ')"
   [[ "$remaining_count" == "0" ]] || fail "Codex agent user remove left ${remaining_count} files"
@@ -781,7 +807,7 @@ install_codex_agents_user_scope() {
 
   local installed_count
   installed_count="$(find "$CODEX_HOME_DIR/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "15" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 15"
+  [[ "$installed_count" == "11" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 11"
   ok "Codex custom agents installed into ${CODEX_HOME_DIR}/agents"
 }
 
@@ -2178,10 +2204,6 @@ run_named_agents_live_test() {
     oh-no-analyst
     oh-no-architect
     oh-no-code-reviewer
-    oh-no-cleanup-altitude
-    oh-no-cleanup-efficiency
-    oh-no-cleanup-reuse
-    oh-no-cleanup-simplification
     oh-no-critic
     oh-no-debugger
     oh-no-executor
@@ -2787,7 +2809,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, set agent_type to the matching registered custom agent: Reuse uses oh-no-cleanup-reuse, Simplification uses oh-no-cleanup-simplification, Efficiency uses oh-no-cleanup-efficiency, and Altitude uses oh-no-cleanup-altitude; omit model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, one matching line of the form Codex agent type: <agent_type>, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Codex agent type lines by angle: Reuse uses Codex agent type: oh-no-cleanup-reuse; Simplification uses Codex agent type: oh-no-cleanup-simplification; Efficiency uses Codex agent type: oh-no-cleanup-efficiency; Altitude uses Codex agent type: oh-no-cleanup-altitude. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Used custom agent types: oh-no-cleanup-reuse, oh-no-cleanup-simplification, oh-no-cleanup-efficiency, oh-no-cleanup-altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -2807,16 +2829,14 @@ run_simplify_live_test() {
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
 import json
 import re
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
-live_home = sys.argv[3]
 expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
 required_payload_markers = [
     "Scope: current diff",
@@ -2832,13 +2852,6 @@ angle_markers = {
     "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
     "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
 }
-expected_agent_by_angle = {
-    "Reuse": "oh-no-cleanup-reuse",
-    "Simplification": "oh-no-cleanup-simplification",
-    "Efficiency": "oh-no-cleanup-efficiency",
-    "Altitude": "oh-no-cleanup-altitude",
-}
-
 def collect_text(value):
     if isinstance(value, str):
         return value
@@ -2862,28 +2875,6 @@ def mentioned_receivers(item):
         for receiver in receiver_to_angle
         if receiver in text
     }
-
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"Codex simplify cleanup smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                thread_spawn = (
-                    payload.get("source", {})
-                    .get("subagent", {})
-                    .get("thread_spawn", {})
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"Codex simplify cleanup smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -2964,14 +2955,6 @@ if missing_angles or duplicate_angles:
 receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
 if len(receiver_ids) != len(expected_angles):
     raise SystemExit(f"expected {len(expected_angles)} distinct simplify receiver threads, got {receiver_ids!r}")
-for receiver, angle in receiver_to_angle.items():
-    expected_agent_role = expected_agent_by_angle[angle]
-    actual_agent_role = receiver_agent_role(receiver)
-    if actual_agent_role != expected_agent_role:
-        raise SystemExit(
-            f"Codex simplify cleanup smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
-            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
-        )
 missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
@@ -3003,7 +2986,6 @@ for angle, payloads in spawns_by_angle.items():
         marker for marker in [
             f"Angle: {angle}",
             f"Marker: {angle_markers[angle]}",
-            f"Codex agent type: {expected_agent_by_angle[angle]}",
             *required_payload_markers,
         ]
         if marker.lower() not in payload.lower()
@@ -3022,7 +3004,7 @@ PY
   log "Running live Codex simplify natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/simplify-natural-session-start.jsonl"
   err_file="$RUN_DIR/simplify-natural-session-start.err"
-  prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff with the registered cleanup custom agents for Reuse, Simplification, Efficiency, and Altitude. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, one matching line of the form Codex agent type: <agent_type>, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Codex agent type lines by angle: Reuse uses Codex agent type: oh-no-cleanup-reuse; Simplification uses Codex agent type: oh-no-cleanup-simplification; Efficiency uses Codex agent type: oh-no-cleanup-efficiency; Altitude uses Codex agent type: oh-no-cleanup-altitude. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Used custom agent types: oh-no-cleanup-reuse, oh-no-cleanup-simplification, oh-no-cleanup-efficiency, oh-no-cleanup-altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
 
   assert_natural_prompt_has_no_explicit_subagent_terms "simplify" "$prompt"
 
@@ -3043,16 +3025,14 @@ PY
 
   CODEX_HOME="$CODEX_HOME_DIR" "${natural_cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
 import json
 import re
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 path = sys.argv[1]
 err_path = sys.argv[2]
-live_home = sys.argv[3]
 expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
 required_payload_markers = [
     "Scope: target diff",
@@ -3068,13 +3048,6 @@ angle_markers = {
     "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
     "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
 }
-expected_agent_by_angle = {
-    "Reuse": "oh-no-cleanup-reuse",
-    "Simplification": "oh-no-cleanup-simplification",
-    "Efficiency": "oh-no-cleanup-efficiency",
-    "Altitude": "oh-no-cleanup-altitude",
-}
-
 def collect_text(value):
     if isinstance(value, str):
         return value
@@ -3093,28 +3066,6 @@ def angles_in_payload(text):
 def mentioned_receivers(item):
     text = collect_text(item)
     return {receiver for receiver in receiver_to_angle if receiver in text}
-
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"Codex simplify natural smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                thread_spawn = (
-                    payload.get("source", {})
-                    .get("subagent", {})
-                    .get("thread_spawn", {})
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"Codex simplify natural smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -3193,14 +3144,6 @@ if missing_angles or duplicate_angles:
         f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
     )
 receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
-for receiver, angle in receiver_to_angle.items():
-    expected_agent_role = expected_agent_by_angle[angle]
-    actual_agent_role = receiver_agent_role(receiver)
-    if actual_agent_role != expected_agent_role:
-        raise SystemExit(
-            f"Codex simplify natural smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
-            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
-        )
 missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
@@ -3232,7 +3175,6 @@ for angle, payloads in spawns_by_angle.items():
         marker for marker in [
             f"Angle: {angle}",
             f"Marker: {angle_markers[angle]}",
-            f"Codex agent type: {expected_agent_by_angle[angle]}",
             *required_payload_markers,
         ]
         if marker.lower() not in payload.lower()

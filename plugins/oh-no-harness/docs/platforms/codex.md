@@ -68,17 +68,6 @@ actual `agent_type="oh-no-<role>"` attempt is rejected as unknown or unavailable
 and the confirmed fallback reason is recorded. The no-skill read-only
 exploration lane below must not use generic/default fallback.
 
-Some Oh No Harness roles have exact custom-agent names that are not a plain
-`oh-no-<role>` spelling. When a skill documents an exact mapping, that mapping
-wins. In particular, Codex `simplify` cleanup roles must use
-`agent_type = "oh-no-cleanup-reuse"`, `agent_type =
-"oh-no-cleanup-simplification"`, `agent_type = "oh-no-cleanup-efficiency"`,
-and `agent_type = "oh-no-cleanup-altitude"` for Reuse, Simplification,
-Efficiency, and Altitude. Do not use an untyped cleanup worker for these roles
-while those registered custom agents are accepted by the host. A message line
-such as `Codex agent type: ...` is an audit marker only; it does not replace
-the actual `agent_type` tool argument.
-
 Explicit user or plan wording such as `subagent`, `spawn`, `delegate`,
 `parallel agents`, `parallel subagents`, or `one agent per` is sufficient when
 the host permits dispatch. A user standing preference, approved plan profile, or

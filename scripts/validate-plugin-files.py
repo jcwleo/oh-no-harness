@@ -39,10 +39,6 @@ AGENTS = [
     "debugger",
     "verifier",
     "code-reviewer",
-    "cleanup-reuse",
-    "cleanup-simplification",
-    "cleanup-efficiency",
-    "cleanup-altitude",
     "security-reviewer",
     "qa-tester",
 ]
@@ -663,10 +659,6 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "dispatch-unavailable",
     "Launch four independent cleanup subagents in parallel",
     "in one batch before",
-    "oh-no-cleanup-reuse",
-    "oh-no-cleanup-simplification",
-    "oh-no-cleanup-efficiency",
-    "oh-no-cleanup-altitude",
     "Do not degrade these four review angles into one generic inline pass",
     "four separate inline fallback blocks",
     "Wait for all four cleanup subagents to complete",
@@ -681,10 +673,6 @@ SIMPLIFY_CODEX_WRAPPER_MARKERS = (
     "standing\n   subagent authorization",
     "explicit user request",
     "per-run subagent approval",
-    "oh-no-cleanup-reuse",
-    "oh-no-cleanup-simplification",
-    "oh-no-cleanup-efficiency",
-    "oh-no-cleanup-altitude",
 )
 CODEX_STANDING_WRAPPER_MARKERS = {
     "interview": (
@@ -1283,14 +1271,7 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
             "expected 'xhigh'"
         )
     sandbox_mode = data.get("sandbox_mode")
-    read_only_agents = {
-        "explore",
-        "cleanup-reuse",
-        "cleanup-simplification",
-        "cleanup-efficiency",
-        "cleanup-altitude",
-    }
-    if agent in read_only_agents:
+    if agent == "explore":
         if sandbox_mode != "read-only":
             die(f"{path} sandbox_mode={sandbox_mode!r}, expected 'read-only'")
     elif sandbox_mode is not None:

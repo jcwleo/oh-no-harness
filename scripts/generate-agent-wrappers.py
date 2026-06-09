@@ -156,66 +156,6 @@ AGENTS = [
         ),
     ),
     AgentMetadata(
-        role="cleanup-reuse",
-        claude_description=(
-            "Use proactively during simplify cleanup to find behavior-preserving "
-            "reuse opportunities in the assigned diff."
-        ),
-        claude_tools="Read, Glob, Grep, Bash",
-        claude_model="inherit",
-        claude_color="cyan",
-        codex_description=(
-            "Oh No Harness cleanup-reuse role: review changed code for duplicated "
-            "or reimplemented behavior that can reuse existing helpers or patterns."
-        ),
-        codex_sandbox_mode="read-only",
-    ),
-    AgentMetadata(
-        role="cleanup-simplification",
-        claude_description=(
-            "Use proactively during simplify cleanup to find unnecessary complexity "
-            "that can be removed without changing behavior."
-        ),
-        claude_tools="Read, Glob, Grep, Bash",
-        claude_model="inherit",
-        claude_color="blue",
-        codex_description=(
-            "Oh No Harness cleanup-simplification role: review changed code for "
-            "behavior-preserving simplification opportunities."
-        ),
-        codex_sandbox_mode="read-only",
-    ),
-    AgentMetadata(
-        role="cleanup-efficiency",
-        claude_description=(
-            "Use proactively during simplify cleanup to find wasted computation, "
-            "I/O, startup, or test work that can be removed safely."
-        ),
-        claude_tools="Read, Glob, Grep, Bash",
-        claude_model="inherit",
-        claude_color="yellow",
-        codex_description=(
-            "Oh No Harness cleanup-efficiency role: review changed code for wasted "
-            "work that can be removed without behavior changes."
-        ),
-        codex_sandbox_mode="read-only",
-    ),
-    AgentMetadata(
-        role="cleanup-altitude",
-        claude_description=(
-            "Use proactively during simplify cleanup to find fixes implemented at "
-            "the wrong depth or ownership layer."
-        ),
-        claude_tools="Read, Glob, Grep, Bash",
-        claude_model="inherit",
-        claude_color="orange",
-        codex_description=(
-            "Oh No Harness cleanup-altitude role: review changed code for fragile "
-            "special cases or logic placed at the wrong layer."
-        ),
-        codex_sandbox_mode="read-only",
-    ),
-    AgentMetadata(
         role="security-reviewer",
         claude_description=(
             "Use proactively for auth, secrets, data handling, injection, file system, "

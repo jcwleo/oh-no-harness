@@ -27,9 +27,12 @@ Options:
   --force               Overwrite existing generated files during install.
   --ensure              Install missing generated files and refresh stale
                         generated files. Never overwrite unmarked files.
+                        Also removes generated Oh No Harness agent files that
+                        no longer have a bundled template.
   --quiet               Emit nothing on successful install, refresh, or no-op.
   --remove              Remove installed Oh No Harness agent files.
-                        Removal only deletes files with the generated marker.
+                        Removal only deletes files with the generated marker,
+                        including generated files retired by this plugin.
   -h, --help            Show this help.
 USAGE
 }
@@ -212,6 +215,36 @@ remove_one() {
   say "removed: $dest"
 }
 
+is_current_template() {
+  candidate="$1"
+  for src in "$template_dir"/*.toml; do
+    [ -f "$src" ] || continue
+    [ "$(basename "$src")" = "$candidate" ] && return 0
+  done
+  return 1
+}
+
+remove_retired_generated() {
+  [ -d "$target" ] || return 0
+
+  for dest in "$target"/oh-no-*.toml; do
+    [ -e "$dest" ] || continue
+    [ -L "$dest" ] && continue
+    [ -f "$dest" ] || continue
+    base=$(basename "$dest")
+    is_current_template "$base" && continue
+    has_marker "$dest" || continue
+
+    if [ "$dry_run" = "true" ]; then
+      say "would remove retired: $dest"
+      continue
+    fi
+
+    rm "$dest"
+    say "removed retired: $dest"
+  done
+}
+
 target=$(target_dir)
 status=0
 
@@ -233,5 +266,7 @@ for src in "$template_dir"/*.toml; do
 done
 
 [ "$found" = "true" ] || die "no TOML templates found in $template_dir"
+
+remove_retired_generated || status=1
 
 exit "$status"

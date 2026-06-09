@@ -38,23 +38,6 @@ undifferentiated review; the separated viewpoints are part of the skill's value.
 On Codex, the `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` SessionStart
 context is the standing explicit user request for this cleanup delegation; do
 not ask another approval question merely to launch these four subagents.
-On Codex, these cleanup roles use exact registered custom-agent types rather
-than the generic `oh-no-<role>` pattern:
-
-| Cleanup angle | Codex `agent_type` |
-|---|---|
-| Reuse | `oh-no-cleanup-reuse` |
-| Simplification | `oh-no-cleanup-simplification` |
-| Efficiency | `oh-no-cleanup-efficiency` |
-| Altitude | `oh-no-cleanup-altitude` |
-
-Each Codex cleanup dispatch must call `spawn_agent` with the matching
-`agent_type` above and must include `Codex agent type: <agent_type>` in the
-worker message. The worker-message line is only an audit marker; it does not
-replace the actual `agent_type` argument on the `spawn_agent` tool call. Do not
-satisfy this requirement with a generic/default worker, prompt-embedded role
-instructions, or an untyped cleanup worker while the registered custom agent is
-accepted by the host.
 If the active host cannot dispatch subagents, preserve the same four role
 boundaries as separate inline fallback blocks and record the dispatch-unavailable
 reason before continuing. If a cleanup change needs additional independent
@@ -141,15 +124,9 @@ one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
 platform's approved mechanism, such as Claude Code's Task tool or Codex
 subagent dispatch when available. For Codex, SessionStart standing authorization
 means this skill may use sub-agents, delegation, and parallel agent work
-proactively for these cleanup roles without per-run approval. Use the registered
-custom agents `oh-no-cleanup-reuse`, `oh-no-cleanup-simplification`,
-`oh-no-cleanup-efficiency`, and `oh-no-cleanup-altitude` when the Codex host
-recognizes them. This means each Codex `spawn_agent` call sets the exact
-matching `agent_type` and includes a `Codex agent type: ...` line in the worker
-message. A message marker without the matching tool `agent_type` is still a
-generic/default worker and is not an acceptable Codex cleanup dispatch. The
-caller owns lifecycle: after each cleanup subagent result is captured, close or
-clean up the completed subagent using the active platform mechanism.
+proactively for these cleanup roles without per-run approval. The caller owns
+lifecycle: after each cleanup subagent result is captured, close or clean up the
+completed subagent using the active platform mechanism.
 
 Do not degrade these four review angles into one generic inline pass. If
 subagent dispatch is unavailable, run Reuse, Simplification, Efficiency, and

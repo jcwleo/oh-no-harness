@@ -105,11 +105,8 @@ unavailable, unsafe, or skill-blocked.
 
 For any Oh No Harness role inside an active workflow or explicit user-requested
 subagent task, every spawn_agent call MUST include custom agent_type when
-recognized: standard roles "oh-no-<role>"; simplify cleanup
-Reuse/Simplification/Efficiency/Altitude map to "oh-no-cleanup-reuse",
-"oh-no-cleanup-simplification", "oh-no-cleanup-efficiency",
-"oh-no-cleanup-altitude". Omitting agent_type or writing it only in the message
-is generic/default dispatch and violates this contract. Do not infer
+recognized: "oh-no-<role>". Omitting agent_type or writing it only in the
+message is generic/default dispatch and violates this contract. Do not infer
 unavailability from rendered schema/display; attempt agent_type first. Generic
 fallback is allowed only after confirmed custom-agent unavailability; never allowed for no-skill read-only lookup.
 Timeout/empty/no agents completed is not final. MUST NOT call close_agent for a

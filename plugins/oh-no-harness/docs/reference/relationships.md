@@ -158,10 +158,6 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `architect`, `executor`, `verifier` |
 | `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, final evidence | `code-reviewer`, `security-reviewer`, `qa-tester` |
 | `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation | `verifier`, `security-reviewer`, `simplify` recommendation |
-| `cleanup-reuse` | `simplify` Phase 1 Reuse cleanup pass | `code-reviewer`, `security-reviewer`, `architect`, `verifier` |
-| `cleanup-simplification` | `simplify` Phase 1 Simplification cleanup pass | `code-reviewer`, `security-reviewer`, `architect`, `verifier` |
-| `cleanup-efficiency` | `simplify` Phase 1 Efficiency cleanup pass | `code-reviewer`, `security-reviewer`, `architect`, `verifier` |
-| `cleanup-altitude` | `simplify` Phase 1 Altitude cleanup pass | `architect`, `code-reviewer`, `security-reviewer`, `verifier` |
 | `security-reviewer` | security-sensitive validation | `verifier`, `code-reviewer` |
 | `qa-tester` | user-facing validation | `debugger`, `verifier` |
 
