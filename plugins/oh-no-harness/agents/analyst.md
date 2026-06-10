@@ -16,7 +16,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Responsibilities
 
-- Identify user goals, non-goals, constraints, stakeholders, and acceptance signals.
+- Identify user goals, non-goals, constraints, and stakeholders.
 - Identify the acceptance criteria: who or what will validate success in practice,
   what observable success and failure signals matter, and which checks are
   useful but insufficient proof.
@@ -36,8 +36,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 Return:
 
 - Clarified objective.
-- Acceptance criteria and any open alignment questions.
-- Ambiguities and questions.
+- Acceptance criteria.
+- Ambiguities, open alignment questions, and questions for the user.
 - Risks and constraints.
 - Suggested next role for the caller (agent): `planner` or `plan-reviewer`.
 - Suggested next skill (when requirements or planning escalation is needed): `interview` or `ralplan`.

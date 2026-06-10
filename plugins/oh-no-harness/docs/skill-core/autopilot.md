@@ -59,10 +59,8 @@ Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
 active platform wrapper. For the `ralplan` phase, Planner and Plan-Reviewer
 are sequential but must still run as separate subagents when the active host
 supports dispatch so each role keeps independent context. Plan-Reviewer runs as
-a single review dispatch; re-review only when blocking findings require it. Explicit user or plan wording is sufficient when the host
-permits dispatch; natural dispatch is allowed when the active skill permits it
-and the host tool definition allows it. The phase boundaries below still hold
-either way.
+a single review dispatch; re-review only when blocking findings require it. The
+phase boundaries below still hold either way.
 
 On Codex, when SessionStart injects
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
@@ -95,44 +93,6 @@ as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
 only for direct Ralph execution when the host permits proactive dispatch and the
 active skill policy itself authorizes eligible isolated roles.
 
-## Phases
-
-### Phase 0: Interview
-
-If the request is vague, read and follow `interview` as the next skill, then resume from the resulting spec.
-
-If the request already has a clear spec, record the spec path and move to planning.
-
-Interview is the only user-facing content approval gate for new Autopilot work.
-Before leaving this phase, make sure the requirements source is explicit: either
-the user approved the interview spec, an existing approved spec or plan was
-found, or the original request is already concrete enough to plan without
-inventing product intent.
-
-### Phase 1: Plan
-
-Read and follow `ralplan` unless an approved or relevant plan already exists.
-
-Inside Autopilot, the `ralplan` plan is automatically approved for execution
-once the plan satisfies Ralplan's consensus, direction-preservation, execution
-profile, and test-quality gates. Record
-`Plan approval source: autopilot automatic approval after interview/spec`.
-Do not pause for a separate Plan Approval Brief after the requirements source is
-approved or already concrete. Pause only when the plan changes the approved
-scope, exposes a blocking product decision, violates the interview spec, or the
-user explicitly asked for plan review before implementation.
-
-### Phase 2: Execute
-
-Read and follow `ralph` with the Autopilot-approved plan or spec. Treat the
-ordinary `ralph` execution handoff as approved by Autopilot; do not ask the user
-for a second implementation approval after Phase 1 unless a pause condition from
-the planning phase was triggered.
-
-Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
-
-If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
-
 ## Automatic Worktree Execution
 
 For write-capable execution, read and follow
@@ -158,6 +118,45 @@ inspection.
 
 If worktree creation, merge, or post-merge verification fails, report the blocker
 instead of silently editing the original checkout.
+
+## Phases
+
+### Phase 0: Interview
+
+If the request is vague, read and follow `interview` as the next skill, then resume from the resulting spec.
+
+If the request already has a clear spec, record the spec path and move to planning.
+
+Interview is the only user-facing content approval gate for new Autopilot work.
+Before leaving this phase, make sure the requirements source is explicit: either
+the user approved the interview spec, an existing approved spec or plan was
+found, or the original request is already concrete enough to plan without
+inventing product intent.
+
+### Phase 1: Plan
+
+Read and follow `ralplan` unless an approved or relevant plan already exists.
+
+Inside Autopilot, the `ralplan` plan is automatically approved for execution
+once the plan satisfies Ralplan's consensus, direction-preservation, execution
+profile, and test-quality gates. Record
+`Plan approval source: autopilot automatic approval after interview/spec`.
+Do not pause for a separate Plan Approval Brief after the requirements source is
+approved or already concrete. Pause only on a pause condition: changed approved
+scope, a blocking product decision or blocking ambiguity, conflict with the
+approved requirements source (for example the interview spec), a missing
+execution profile, or an explicit user request to review the plan manually.
+
+### Phase 2: Execute
+
+Read and follow `ralph` with the Autopilot-approved plan or spec. Treat the
+ordinary `ralph` execution handoff as approved by Autopilot; do not ask the user
+for a second implementation approval after Phase 1 unless a pause condition from
+the planning phase was triggered.
+
+Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
+
+If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
 
 ### Phase 3: QA Loop
 
@@ -234,9 +233,11 @@ scope-change pauses, verification, or final evidence.
 
 Under autopilot, `interview`'s Phase 1 spec review still surfaces to the user
 when an interview was needed. `ralplan`'s Plan Approval Brief is converted into
-an internal execution record unless it reveals a pause condition: changed scope,
-blocking ambiguity, conflict with the approved requirements source, missing
-execution profile, or an explicit user request to review the plan manually.
+an internal execution record unless it reveals a pause condition: changed
+approved scope, a blocking product decision or blocking ambiguity, conflict
+with the approved requirements source (for example the interview spec), a
+missing execution profile, or an explicit user request to review the plan
+manually.
 When no pause condition exists, record the plan approval source and continue
 directly into `ralph`.
 

@@ -87,9 +87,9 @@ and verification responsibility.
 Stop and ask or escalate to `plan-reviewer` when:
 
 - the failure cannot be reproduced and more data is needed from the user
-- three different fix attempts failed
-- the apparent fix requires broad architecture or API changes
-- the investigation exposes product behavior, data handling, security, or delivery-scope ambiguity
+- a `plan-reviewer` escalation trigger from `## Agent Roles` fires (repeated
+  failed fix attempts; broad architecture or API scope; product behavior,
+  data handling, security, or delivery-scope ambiguity)
 
 ## Anti-Patterns
 

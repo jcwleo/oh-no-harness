@@ -64,10 +64,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   broad snapshots, implementation details, or mocks that bypass the behavior
   being tested.
 - Mark plans as pending approval unless the user has explicitly approved execution.
-- Do not treat Plan-Reviewer output as comments to append. Incorporate
-  accepted feedback into the draft body and return the revised draft for another
-  Plan-Reviewer pass when the calling skill requires it (when blocking findings
-  exist).
+- Return the revised draft for another Plan-Reviewer pass when the calling
+  skill requires it (when blocking findings exist).
 - Use `Write` only to create or update files under `.oh-no/plans/`. Escalate any other write to the calling skill.
 
 ## Output

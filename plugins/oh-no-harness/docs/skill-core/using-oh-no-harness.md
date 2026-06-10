@@ -107,7 +107,7 @@ Skill chaining is explicit Markdown guidance, not hidden automation.
 
 When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the user and wait for an explicit choice before invoking the next workflow skill. Present the options as actions the host agent will take, not commands the user must run manually. Do not auto-invoke the next workflow skill, even when a single recommended choice is named. The user's answer is the trigger.
 
-Workflow skills (`interview`, `ralplan`, `ralph`) currently define this handoff. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
+Workflow skills (`interview`, `ralplan`) currently define this handoff; `ralph` is terminal and defines only a `Final Handoff` with no next-skill question. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
 
 Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
@@ -121,10 +121,10 @@ This core file does not define platform invocation syntax. Apply the active
 public skill wrapper and the matching platform file named by that wrapper.
 
 When a skill names an agent role, adapt the role through the active platform
-file. Agents remain role prompts inside a selected skill; they do not own
-artifact gates, approval gates, or next-skill handoffs.
-
-Agents are role prompts inside a selected skill, not workflow entrypoints. An agent can recommend another role or workflow skill to the caller, but it does not own artifact gates, approval gates, or next-skill handoffs.
+file. Agents remain role prompts inside a selected skill, not workflow
+entrypoints: an agent can recommend another role or workflow skill to the
+caller, but it does not own artifact gates, approval gates, or next-skill
+handoffs.
 
 ## Artifact Paths
 

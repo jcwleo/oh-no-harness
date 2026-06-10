@@ -6,15 +6,12 @@ argument-hint: "[<target>]"
 
 # Simplify
 
-Simplify is the post-implementation quality cleanup stage. It reviews changed
-code for reuse, simplification, efficiency, and altitude issues, then applies
-behavior-preserving fixes.
+Simplify reviews changed code for reuse, simplification, efficiency, and
+altitude issues, then applies behavior-preserving fixes.
 
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
-selected mode's required review is satisfied and before final verification. On
-Claude Code, Ralph must use Claude Code's built-in `simplify` skill when
-available. On Codex, Oh No Harness provides this `simplify` skill so the same
-cleanup gate exists.
+selected mode's required review is satisfied and before final verification;
+the active platform wrapper supplies the matching simplify skill.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.

@@ -77,21 +77,15 @@ acceptance criteria.
    returns `Plan review v1` with per-finding lens, reviewer-owned severity
    (`blocking | non-blocking`), and a verdict from `APPROVE | ITERATE | REJECT`;
    Plan-Reviewer does not create a replacement plan.
-6. Apply the verdict mapping: APPROVE iff zero blocking findings; ITERATE iff
-   >= 1 blocking finding on a salvageable draft; REJECT only for
-   direction-level or unsalvageable failure. On ITERATE, complete `planner`
-   revision: Planner must turn accepted feedback into `Planner revision v2`,
-   record each finding's disposition in the findings ledger, and update the
-   plan body instead of only appending comments. On REJECT, escalate to the
-   user immediately; REJECT does not consume a loop.
-7. Re-review only on blocking findings. After `Planner revision v2`, complete
-   `plan-reviewer` again and record `Plan review v2` with
-   `Re-review scope: delta | full`. The re-reviewer always receives the full
-   revised plan; `delta` scopes review depth/focus (changed sections + findings
-   ledger first), not the input, and the reviewer may escalate to `full` with a
-   stated reason. When a review returns only non-blocking findings, Planner
-   incorporates the accepted feedback, records each disposition in the findings
-   ledger with a plan-section pointer, and writes
+6. Apply the verdict mapping from `## Plan Review Contract`. On ITERATE,
+   complete `planner` revision per `## Planner Revision Contract`: Planner
+   must turn accepted feedback into `Planner revision v2` and update the plan
+   body instead of only appending comments. On REJECT, escalate to the user
+   immediately; REJECT does not consume a loop.
+7. Re-review only on blocking findings, per `## Re-Review Rules`. After
+   `Planner revision v2`, complete `plan-reviewer` again and record
+   `Plan review v2` with its re-review scope. On the non-blocking-only path,
+   Planner incorporates the accepted feedback with ledger pointers and writes
    `Re-review: not required (no blocking findings)`; do not dispatch a
    re-review on that path.
 8. Stop after at most 2 loops; loop N = Planner draft/revision vN + Plan
@@ -251,7 +245,7 @@ Plan review vN:
 - Evidence required for approval:
 ```
 
-The verdict is computed from the findings, not chosen freely: APPROVE iff zero
+The verdict is derived from the findings, not chosen freely: APPROVE iff zero
 blocking findings; ITERATE iff >= 1 blocking finding on a salvageable draft;
 REJECT only for direction-level or unsalvageable failure, escalated to the user
 immediately without consuming a loop.
@@ -336,8 +330,7 @@ Analyst finishes when Analyst is required, if Plan-Reviewer is skipped, or if a
 review does not name a specific Planner draft id. The plan is invalid if
 accepted feedback is logged but not reflected in the final plan body, if any
 review finding is missing from the findings ledger, or if an accepted finding
-lacks a plan-section pointer: an accepted finding without a plan-section
-pointer invalidates the plan. Blocking findings require a matching
+lacks a plan-section pointer. Blocking findings require a matching
 `Plan review vN+1` APPROVE or an explicit user waiver. On the
 non-blocking-only path no re-review runs, so the calling skill checks the
 pointer requirement directly: every accepted finding must carry a plan-section
@@ -441,7 +434,6 @@ Every plan must include:
   explicitly
 - files to create or modify
 - task sequence
-- acceptance criteria
 - test case design quality: must-fail, must-pass, negative/forbidden when
   relevant, edge/regression when relevant, and evidence mapping
 - consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order,
@@ -590,13 +582,14 @@ Acceptance criteria:
 
 Validation check:
 - Evidence used: {local check, broad suite, metric, trace, mock, generated marker, or none}
-- Recurring software engineering failure mode: {category}
-- User or maintainer outcome: {user | maintainer | caller | operator | customer | public contract | other}
-- Acceptance signal: {observable proof}
+- Acceptance criteria or user outcome it supports: {the criterion or user/maintainer/operator/public-contract outcome this evidence supports}
+- What the evidence proves: {observable proof}
+- What the evidence does not prove: {gap or residual}
+- Regression or maintainability risk addressed: {category-level failure mode}
 - Why this should apply to similar work: {one sentence}
 - Case-specific details deliberately excluded: {details or none}
 - Added process cost or risk: {cost or none}
-- Completion claim: {valid for similar work | likely valid with residual risk | only supported by local checks}
+- Completion claim: {validated against acceptance criteria with direct evidence | plausibly valid with explicit residual risk | only supported by local checks}
 
 Execution profile:
 Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}

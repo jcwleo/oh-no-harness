@@ -21,9 +21,8 @@ Apply two explicitly ordered lenses inside this single dispatch: the
 correctness and maintainability lens first, the security lens second. Never
 collapse the two lenses into one undifferentiated list. Every dispatch runs
 the Safety Trigger Checklist as a cheap screen and reports the
-`Safety trigger checklist result` even when negative
-(`Safety trigger checklist result: no triggers matched`); apply full security
-depth only when a trigger matches.
+`Safety trigger checklist result` line even when negative (exact wording in
+Output below); apply full security depth only when a trigger matches.
 
 ## Responsibilities
 

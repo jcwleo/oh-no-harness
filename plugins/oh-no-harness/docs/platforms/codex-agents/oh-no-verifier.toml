@@ -65,8 +65,7 @@ Not in scope: line-level defects and security-specific risks in changed code (se
 - Record manual scenario observations separately from automated evidence.
 - Check that user-facing behavior changes have repeatable acceptance or regression coverage, or clearly document the gap.
 - Prefer repeatable commands or scripted checks when available.
-- Recommend `debugger` for failing scenarios.
-- Recommend `code-reviewer` when the verification tier requires it; recommend `debugger` for failing scenarios; apply the scenario lens internally when user-facing behavior changed.
+- Recommend `code-reviewer` when the verification tier requires it; recommend `debugger` for failing scenarios.
 
 ## Output
 

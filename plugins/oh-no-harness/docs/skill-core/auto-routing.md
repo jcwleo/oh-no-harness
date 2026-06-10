@@ -26,7 +26,7 @@ Use when the user asks to:
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
 
-Do not use as a substitute for skill selection inside the current session. This skill only changes persistent bootstrap behavior — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
+Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
 
 ## Platform Behavior
 
@@ -49,9 +49,10 @@ Preferred location when the active platform provides plugin data:
 <platform-plugin-data>/config.json
 ```
 
-The platform wrapper defines how to resolve the plugin data directory.
+The bundled `scripts/oh-no-config` script resolves the data directory; the
+platform wrapper names the plugin root.
 
-Fallback location when that directory is unavailable (Cursor, Copilot, etc.):
+Fallback location when no platform plugin-data directory exists:
 
 ```text
 ${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json

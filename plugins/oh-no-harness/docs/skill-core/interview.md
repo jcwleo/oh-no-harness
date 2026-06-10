@@ -183,16 +183,16 @@ corrects a restatement, scope boundary, or non-goal, treat it as material even
 when the correction is a single sentence.
 
 Before finalizing, check that the spec preserves every material `Decision`,
-`Reasoning`, `Constraints`, and `Non-goals` item from the interview. If the
-structured capture may have lost intent, ask one targeted confirmation instead
-of guessing.
+`Reasoning`, `Constraints`, and `Non-goals` item from the interview. In Quick
+mode, ask one targeted confirmation if the structured capture may have lost
+intent; in Standard and Deep modes, `Refine Confirmation` below replaces this
+suspicion-triggered check with an always-on confirmation.
 
 ## Refine Confirmation
 
 In Standard and Deep modes, confirm the Answer Capture structure with the
 user for every material free-text answer — always, not only when loss is
-suspected. The model rarely suspects its own compression loss; the
-confirmation is the gate.
+suspected.
 
 To avoid doubling round-trips,
 piggyback the confirmation onto the next interview question
@@ -218,7 +218,7 @@ understanding through three perspectives — researcher (what facts are
 missing), contrarian (what would make this wrong or fail), and simplifier
 (what is overbuilt or out of scope).
 
-The pass has a forced output contract. Emit
+The pass has a fixed output contract. Emit
 at most 3 candidate hidden-assumption questions,
 each tagged with the ambiguity-ledger dimension it attacks; ask at most 1 and
 record discarded candidates in the spec's open questions.
@@ -319,7 +319,9 @@ fails, ask a targeted user-judgment question instead of forcing closure.
 The spec is consumed by LLM coding agents (`ralplan` analyst/planner, `ralph`
 executors) that cannot ask the user mid-implementation; ambiguity they meet
 becomes silent guessing. In Standard and Deep modes, run this gate
-immediately before writing the final spec:
+immediately before writing the final spec. It deepens the Spec Readiness
+Guard's acceptance-criteria, non-goals, and facts-vs-assumptions checks for
+machine consumers; both gates run:
 
 - Self-contained: no conversation references or deixis ("as discussed
   above", "the usual way"); concrete file paths and names where known.
@@ -368,12 +370,11 @@ small, concrete, acceptance criteria are testable, and the provisional mode is
 - Separate facts, assumptions, and open questions.
 - Use `Question Routing` before deciding whether to inspect code, research, or ask the user.
 - Use `Answer Capture` for material answers before they enter the spec.
-- In Standard and Deep modes, apply `Refine Confirmation` to material
-  restatements, and the `Hidden-Assumption Persona Check` and
-  `Breadth And Question Tactics` sections per their triggers.
+- In Standard and Deep modes, apply `Refine Confirmation`, the
+  `Hidden-Assumption Persona Check`, `Breadth And Question Tactics`, and the
+  `Machine-Consumable Spec Gate` per their sections.
 - Run the `Spec Readiness Guard`, `Acceptance Criteria Alignment Gate`, and
-  `Goal Restatement Gate` before Phase 1 review; in Standard and Deep modes,
-  run the `Machine-Consumable Spec Gate` before writing the final spec.
+  `Goal Restatement Gate` before Phase 1 review.
 - Avoid leaking prompt or tool details into the spec.
 
 ## Spec Artifact

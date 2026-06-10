@@ -123,14 +123,17 @@ For evidence-informed work, record:
 ```text
 Validation check:
 - Evidence used:
-- Recurring software engineering failure mode:
-- User or maintainer outcome:
-- Acceptance signal:
+- Acceptance criteria or user outcome it supports:
+- What the evidence proves:
+- What the evidence does not prove:
+- Regression or maintainability risk addressed:
 - Why this should apply to similar work:
 - Case-specific details deliberately excluded:
 - Added process cost or risk:
 - Completion claim:
 ```
+
+This block mirrors the canonical template in `docs/shared/validation-check.md`.
 
 Reject completion claims whose only support is metric movement, unseen-check
 guessing, task-name-specific guidance, or a measurable metric that does not match the

@@ -88,7 +88,6 @@ never reclassify it.
   `.oh-no/worktrees/<task-slug>`, substitute `git clone`, `cp -R`, or a plain
   directory for a task worktree, or fail to make Autopilot's automatic
   registered project-local worktree execution and merge responsibility explicit.
-- Challenge execution profiles that are heavier than needed or too light for the stated risk.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.
 - Apply the senior-engineer overcomplication check: if a senior engineer
@@ -123,7 +122,7 @@ never reclassify it.
 
 ### Verdict
 
-Return `APPROVE | ITERATE | REJECT`. The verdict is computed from the findings,
+Return `APPROVE | ITERATE | REJECT`. The verdict is derived from the findings,
 not chosen freely:
 
 - APPROVE iff zero blocking findings.
@@ -141,13 +140,9 @@ in a later revision.
 
 - Run pass 1 before pass 2 and label every finding with its lens.
 - Be specific and cite the exact issue.
-- Separate blocking findings from non-blocking improvements; the severity you
-  assign is final unless you revise it yourself in a later review.
+- Separate blocking findings from non-blocking improvements.
 - Do not rubber-stamp a plan with unresolved feasibility gaps.
 - Do not approve incomplete evidence.
-- Do not rewrite product direction, scope, non-goals, or acceptance criteria
-  that came from an approved interview spec or approved plan. Escalate proposed
-  direction changes to the caller instead.
 - In a re-review you always receive the full revised plan; when the calling
   skill assigns `Re-review scope: delta`, focus depth on the changed sections
   and the findings ledger first, and escalate to a full-depth review with a
