@@ -37,6 +37,11 @@ Do not use when the user provides a concrete task with files, failing commands, 
 | Standard | default; enough rounds to clarify objective, constraints, and acceptance. |
 | Deep | multi-component systems, high risk, or major product uncertainty. |
 
+Interview Milestones, Refine Confirmation, Hidden-Assumption Persona Check,
+Breadth And Question Tactics, and Machine-Consumable Spec Gate apply in
+Standard and Deep modes only;
+Quick mode is exempt and keeps current behavior.
+
 ## Brownfield First
 
 When a repository exists, gather local facts before asking the user to restate what the code already reveals.
@@ -112,6 +117,33 @@ Interview the weakest dimension first.
 
 Do not recommend a next skill until the important dimensions are clear enough to produce testable acceptance criteria.
 
+## Interview Milestones
+
+In Standard and Deep modes, track interview progress through four qualitative
+stages: `initial -> progress -> refined -> ready`.
+
+- `initial`: core intent identified; major gaps remain in constraints and
+  acceptance criteria.
+- `progress`: most requirements captured; details, edge cases, and non-goals
+  missing.
+- `refined`: acceptance criteria partially testable; edge cases and non-goals
+  still open.
+- `ready`: every readiness floor below holds.
+
+Readiness floors are qualitative and use the ambiguity-ledger vocabulary;
+never invent numeric thresholds of their own:
+
+- goal: scored `0-2`, with the user's own wording for the goal captured
+- constraints: scored `0-2`, or each remaining gap recorded as an explicit
+  assumption
+- acceptance criteria: testable language exists for each major component
+- brownfield context: when a repository exists, integration-surface claims
+  are fact-backed with path context, not restated from memory
+
+Restate the current stage after each round next to the ambiguity ledger.
+`ready` must hold for 2 consecutive rounds before the Spec Readiness Guard may pass.
+A round that surfaces a new material decision resets the streak.
+
 ## Question Routing
 
 Route each question by source of truth:
@@ -155,6 +187,46 @@ Before finalizing, check that the spec preserves every material `Decision`,
 structured capture may have lost intent, ask one targeted confirmation instead
 of guessing.
 
+## Refine Confirmation
+
+In Standard and Deep modes, confirm the Answer Capture structure with the
+user for every material free-text answer — always, not only when loss is
+suspected. The model rarely suspects its own compression loss; the
+confirmation is the gate.
+
+To avoid doubling round-trips,
+piggyback the confirmation onto the next interview question
+in one structured question call when the host can batch questions (for
+example, AskUserQuestion carrying the confirmation and the next question
+together). When the host cannot batch,
+fall back to sequential confirmation
+before asking the next question.
+
+Skip rules:
+
+- short factual confirmations and pre-built option picks skip Refine
+- Goal Restatement Gate corrections never skip it, regardless of length
+
+A confirmed restatement counts as direct user judgment for the Dialectic
+Rhythm Guard.
+
+## Hidden-Assumption Persona Check
+
+In Standard and Deep modes, run an inline lateral-thinking pass at each
+milestone transition (for example `initial -> progress`): re-read the current
+understanding through three perspectives — researcher (what facts are
+missing), contrarian (what would make this wrong or fail), and simplifier
+(what is overbuilt or out of scope).
+
+The pass has a forced output contract. Emit
+at most 3 candidate hidden-assumption questions,
+each tagged with the ambiguity-ledger dimension it attacks; ask at most 1 and
+record discarded candidates in the spec's open questions.
+
+This check is inline only. It is not an agent role; the interview's agent
+contract stays `explore`-only, and the persona pass never dispatches
+subagents.
+
 ## Dialectic Rhythm Guard
 
 The interview is with the user, not with the codebase. After three consecutive
@@ -164,6 +236,28 @@ question is available.
 
 Reset the count whenever the user supplies or corrects a decision, constraint,
 priority, non-goal, or acceptance criterion.
+
+## Breadth And Question Tactics
+
+In Standard and Deep modes, keep breadth and question quality explicit:
+
+- Multi-track ledger: when the request contains multiple deliverables or
+  components, keep each as a separate ambiguity track; do not let one
+  subtopic crowd out the rest.
+- Forced zoom-out: when one subtopic has dominated several consecutive
+  rounds, zoom back out and revisit the weakest other track before going
+  deeper.
+- Ontological patterns: prefer questions that expose assumptions — "What IS
+  this?", "Root cause or symptom?", "What are we assuming?".
+- Auto-confirm visibility: when a high-confidence repository fact answers a
+  question (an exact manifest or config match), record it and show a
+  non-blocking, user-correctable auto-confirm notification
+  instead of asking; the user can correct it at any time, and it still
+  advances the Dialectic Rhythm Guard count.
+- Fatigue fast-close: when answers become terse or delegating ("just decide
+  for me"), stop pushing questions and
+  offer a fast close with an explicit enumerated assumption list
+  the user can approve or correct in one step.
 
 ## Spec Readiness Guard
 
@@ -179,6 +273,8 @@ Before writing the final spec, run this local gate:
   what success, failure, and out-of-scope behavior look like from the user's or
   maintainer's point of view
 - the execution sizing hint can be written without inventing repository facts
+- in Standard and Deep modes, the `Interview Milestones` stage is `ready` and
+  the 2-consecutive-rounds closure rule is satisfied
 
 If the gate fails, do not write the final spec yet. Ask the single highest-value
 follow-up question and continue the interview.
@@ -218,6 +314,29 @@ If the user adjusts wording or adds missing scope, route that correction through
 and restate the goal again. Do not loop more than twice; if alignment still
 fails, ask a targeted user-judgment question instead of forcing closure.
 
+## Machine-Consumable Spec Gate
+
+The spec is consumed by LLM coding agents (`ralplan` analyst/planner, `ralph`
+executors) that cannot ask the user mid-implementation; ambiguity they meet
+becomes silent guessing. In Standard and Deep modes, run this gate
+immediately before writing the final spec:
+
+- Self-contained: no conversation references or deixis ("as discussed
+  above", "the usual way"); concrete file paths and names where known.
+- Measurable language: no bare "fast", "robust", or similar adjectives in
+  requirements or acceptance criteria; replace them with observable
+  statements.
+- Non-goals present: the non-goals section is non-empty, or an explicit
+  user-confirmed statement that none exist is recorded.
+- Concrete examples: each acceptance criterion carries at least one concrete
+  example (input -> expected output, or command -> expected result) when
+  applicable.
+- Assumptions labeled: accepted assumptions are labeled "do not silently
+  change; escalate if wrong".
+
+If any check fails, do not finalize; ask the single targeted question that
+fixes the failed item, then rerun this gate.
+
 ## Execution Sizing Hint
 
 Read `docs/shared/execution-modes.md` before writing the final spec.
@@ -249,8 +368,12 @@ small, concrete, acceptance criteria are testable, and the provisional mode is
 - Separate facts, assumptions, and open questions.
 - Use `Question Routing` before deciding whether to inspect code, research, or ask the user.
 - Use `Answer Capture` for material answers before they enter the spec.
+- In Standard and Deep modes, apply `Refine Confirmation` to material
+  restatements, and the `Hidden-Assumption Persona Check` and
+  `Breadth And Question Tactics` sections per their triggers.
 - Run the `Spec Readiness Guard`, `Acceptance Criteria Alignment Gate`, and
-  `Goal Restatement Gate` before Phase 1 review.
+  `Goal Restatement Gate` before Phase 1 review; in Standard and Deep modes,
+  run the `Machine-Consumable Spec Gate` before writing the final spec.
 - Avoid leaking prompt or tool details into the spec.
 
 ## Spec Artifact
@@ -274,17 +397,20 @@ The spec must include:
 - background
 - problem
 - goals
-- non-goals
+- non-goals (non-empty, or an explicit user-confirmed statement that none
+  exist)
 - users or callers
 - requirements
-- acceptance criteria
+- acceptance criteria, each carrying at least one concrete example when
+  applicable
 - acceptance criteria details: who validates success, success signal, failure
   signal, insufficient proofs, likely misunderstood boundary, and confirmation
   status
 - constraints
 - risks
 - open questions
-- ambiguity ledger summary with remaining scores and any accepted assumptions
+- ambiguity ledger summary with remaining scores and any accepted
+  assumptions, labeled "do not silently change; escalate if wrong"
 - execution sizing hint with `Provisional Ralph mode`, reason, direct-Ralph decision, planning decision, and escalation triggers
 - one-sentence goal restatement confirmed by the user
 - recommended next step
