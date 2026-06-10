@@ -142,7 +142,7 @@ Agent prompt content:
 Every registered custom-agent role dispatch should include:
 
 ```text
-Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
+Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer>
 Codex agent type: oh-no-<role>
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>
@@ -165,7 +165,7 @@ Every generic Codex role dispatch should include the same task shape plus the
 embedded role prompt:
 
 ```text
-Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer|security-reviewer|qa-tester>
+Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer>
 Codex agent type: <explorer|worker|default>
 Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:

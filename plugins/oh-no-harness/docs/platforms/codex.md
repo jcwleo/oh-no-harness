@@ -97,9 +97,9 @@ The only no-skill exception is the Codex SessionStart block named
 exploration subagent for simple read-only repository fact lookup prompts such as
 locating logic, tracing a symbol, identifying related tests, or summarizing an
 existing file/config path. It does not authorize planning, debugging,
-implementation, review, QA, security review, completion verification,
-ambiguous-requirements work, or file edits. It must not read or reproduce
-secrets unless the user explicitly asks for that sensitive lookup, and
+implementation, review (security lens included), scenario QA, completion
+verification, ambiguous-requirements work, or file edits. It must not read or
+reproduce secrets unless the user explicitly asks for that sensitive lookup, and
 credential values must be redacted in subagent output. This no-skill lane may
 dispatch only the registered read-only `oh-no-explore` custom agent when the
 current host recognizes it; if that agent is unavailable, answer inline instead

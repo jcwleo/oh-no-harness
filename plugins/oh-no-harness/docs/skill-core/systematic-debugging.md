@@ -65,11 +65,9 @@ and verification responsibility.
 | `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. |
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
-| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
+| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. |
 | `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. |
-| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive. |
-| `security-reviewer` | Dispatch `security-reviewer` post-fix when auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. |
-| `qa-tester` | Dispatch `qa-tester` post-fix when the failure affects user-facing flows, scenarios, or acceptance criteria. |
+| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. |
 
 ## Debugging Flow
 

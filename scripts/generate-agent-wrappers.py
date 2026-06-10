@@ -117,56 +117,31 @@ AGENTS = [
         role="verifier",
         claude_description=(
             "Use proactively before completion claims to check acceptance criteria, "
-            "commands, artifacts, and verification evidence."
+            "commands, artifacts, verification evidence, and user-facing scenario "
+            "coverage."
         ),
         claude_tools="Read, Bash, Grep, Glob",
         claude_model="inherit",
         claude_color="cyan",
         codex_description=(
             "Oh No Harness verifier role: check acceptance criteria, commands, "
-            "artifacts, and verification evidence before completion claims."
+            "artifacts, verification evidence, and user-facing scenario coverage "
+            "before completion claims."
         ),
     ),
     AgentMetadata(
         role="code-reviewer",
         claude_description=(
             "Use proactively after code or prompt changes to review correctness, "
-            "maintainability, regressions, and missing tests."
+            "maintainability, regressions, missing tests, and security risks."
         ),
         claude_tools="Read, Bash, Grep, Glob",
         claude_model="inherit",
         claude_color="pink",
         codex_description=(
             "Oh No Harness code-reviewer role: review changed code for correctness, "
-            "maintainability, regressions, and missing tests."
-        ),
-    ),
-    AgentMetadata(
-        role="security-reviewer",
-        claude_description=(
-            "Use proactively for auth, secrets, data handling, injection, file system, "
-            "network, and policy risk review."
-        ),
-        claude_tools="Read, Bash, Grep, Glob",
-        claude_model="inherit",
-        claude_color="red",
-        codex_description=(
-            "Oh No Harness security-reviewer role: review auth, secrets, data handling, "
-            "injection, file system, network, and policy risks."
-        ),
-    ),
-    AgentMetadata(
-        role="qa-tester",
-        claude_description=(
-            "Use proactively after implementation stabilizes to test user-facing flows, "
-            "scenario coverage, acceptance checks, and release confidence."
-        ),
-        claude_tools="Read, Bash, Grep, Glob",
-        claude_model="inherit",
-        claude_color="pink",
-        codex_description=(
-            "Oh No Harness qa-tester role: validate user-facing flows, scenario "
-            "coverage, acceptance checks, and release confidence."
+            "maintainability, regressions, missing tests, and security risks through "
+            "ordered lenses."
         ),
     ),
 ]

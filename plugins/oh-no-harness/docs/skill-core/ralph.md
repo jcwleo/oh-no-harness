@@ -117,11 +117,9 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
 | `executor` | Implement scoped story work. |
-| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `security-reviewer`. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers. |
-| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
-| `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
-| `qa-tester` | Validate user-facing flows and scenario coverage when applicable. |
+| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. |
+| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
@@ -306,10 +304,10 @@ Ralph must follow the selected execution mode and agent policy:
 Default Ralph execution is parallel-capable. An approved ralplan handoff to
 ordinary `oh-no-harness:ralph` authorizes every eligible isolated role in the
 plan's dispatch profile. Ralph should actively look for safe parallel batches
-for exploration, disjoint executors, test/log analysis, verification, QA,
-security review, code review, and other independent review roles. Inline
-execution is the fallback, not the default, when `agentPolicy` is not
-`inline-only`.
+for exploration, disjoint executors, test/log analysis, verification (scenario
+QA lens included), code review (security lens included), and other independent
+review roles. Inline execution is the fallback, not the default, when
+`agentPolicy` is not `inline-only`.
 
 Respect the platform rules from the active public skill wrapper and the Ralph
 platform adapter. A `UserPromptSubmit` hook injects the active adapter
@@ -368,7 +366,7 @@ adapter deciding whether the invocation is a registered custom agent, a
 plugin-scoped agent, or a documented fallback:
 
 ````markdown
-Role: {explore|executor|plan-reviewer|verifier|code-reviewer|security-reviewer|qa-tester}
+Role: {explore|executor|plan-reviewer|verifier|code-reviewer}
 Story/task: {id and short title}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
@@ -418,8 +416,8 @@ When review is required, the reviewer pass must answer:
   generated-handwritten drift, or behavior-changing cleanup pressure?
 - If auth, data, secrets, filesystem, shell, network, generated prompts,
   config, logs, sandbox, or destructive operations were touched, did
-  `security-reviewer` apply the Safety Trigger Checklist or was the risk
-  explicitly ruled out?
+  `code-reviewer`'s security lens apply the Safety Trigger Checklist
+  or was the risk explicitly ruled out?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist or is an exception documented?
 - Are TDD exceptions specific and justified rather than vague convenience claims?
 - Are tests or verification sufficient for the risk?

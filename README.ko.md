@@ -9,7 +9,7 @@
 
 코딩 에이전트에게 또 하나의 런타임은 필요 없습니다. 필요한 건 실제로 읽고 따라갈 수 있는 workflow입니다.
 
-**Oh No Harness**는 **Claude Code**와 **Codex**를 위한 그 workflow입니다: **10개의 stage skill**과 **10개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, npm, tmux, MCP, terminal-only control plane 없이 동작합니다.
+**Oh No Harness**는 **Claude Code**와 **Codex**를 위한 그 workflow입니다: **10개의 stage skill**과 **8개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, npm, tmux, MCP, terminal-only control plane 없이 동작합니다.
 
 두 극단 사이에 있습니다.
 
@@ -45,7 +45,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 - **호스트 native 설치.** Claude Code와 Codex가 각자의 plugin/skill 시스템으로 로드합니다. Oh No Harness가 관리할 대상을 하나 더 늘리지 않습니다.
 - **터미널은 선택 사항.** 설치는 shell에서 할 수 있지만, 일상 workflow는 터미널에 묶이지 않습니다. 같은 Markdown skill이 Claude Code 세션과 Codex App 스타일 plugin UI에서도 맞게 동작합니다.
 - **Workflow spine.** 공개 skill은 소프트웨어 개발 단계를 맡고, 내부 agent는 사용자가 외울 새 명령이 아니라 전문 판단 패스로 붙습니다.
-- **Skill + 에이전트.** 10개 워크플로우 skill을 10명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`)가 떠받칩니다.
+- **Skill + 에이전트.** 10개 워크플로우 skill을 8명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`)가 떠받칩니다.
 - **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 `skills/<name>/SKILL.md` wrapper를 읽습니다.
 
 | 너무 무거움 | 너무 헐거움 | Oh No Harness |

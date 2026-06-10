@@ -28,10 +28,11 @@ Oh No Harness should use subagents as much as possible when those benefits
 apply. Treat a standing user or plan preference to use subagents aggressively as
 explicit authorization for eligible isolated roles. On subagent-capable hosts,
 dispatch by default for read-heavy exploration, triage, test/log analysis,
-summarization, verification, QA, security review, code review, and other
-independent review roles. Inline execution is the exception for work that is too
-small to benefit, cannot be isolated, requires tight TDD sequencing, lacks host
-support, or has been explicitly made inline-only.
+summarization, verification (scenario QA lens included), code review (security
+lens included), and other independent review roles. Inline execution is the
+exception for work that is too small to benefit, cannot be isolated, requires
+tight TDD sequencing, lacks host support, or has been explicitly made
+inline-only.
 
 Explicit user requests, standing preferences, approved plan triggers, or active
 skill dispatch policies are sufficient when the host platform permits dispatch.
@@ -50,8 +51,9 @@ A separate Codex SessionStart block named
 `CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION` may authorize one no-skill
 exploration subagent for simple read-only repository fact lookup. That lane is
 limited to locating, tracing, or summarizing existing code/config/tests/docs; it
-does not authorize planning, debugging, implementation, review, QA, security
-review, completion verification, ambiguous requirements, or edits. It must not
+does not authorize planning, debugging, implementation, review (security lens
+included), scenario QA, completion verification, ambiguous requirements, or
+edits. It must not
 read or reproduce secrets unless the user explicitly asks for that sensitive
 lookup, and credential values must be redacted in subagent output. Without an
 active workflow, dispatch only the registered read-only `oh-no-explore` custom
@@ -153,8 +155,8 @@ Parallelize when:
 - read-only agents inspect different subsystems
 - executor write scopes are disjoint
 - reviewers inspect the same final diff without editing
-- QA, security review, code review, and verification run after implementation
-  is stable
+- code review (security lens included) and verification (scenario QA lens
+  included) run after implementation is stable
 
 Do not parallelize when:
 

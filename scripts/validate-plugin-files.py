@@ -38,8 +38,6 @@ AGENTS = [
     "debugger",
     "verifier",
     "code-reviewer",
-    "security-reviewer",
-    "qa-tester",
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
@@ -123,7 +121,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "whole eligible batch",
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
-        "Role: {explore|executor|plan-reviewer|verifier|code-reviewer|security-reviewer|qa-tester}",
+        "Role: {explore|executor|plan-reviewer|verifier|code-reviewer}",
         "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
         "MUST NOT be used to close a running or pending subagent",
@@ -170,8 +168,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "per-run subagent approval",
         "post-fix review roles",
         "`code-reviewer`",
-        "`security-reviewer`",
-        "`qa-tester`",
+        "its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched",
+        "its scenario lens covers post-fix validation",
     ),
     "verification-before-completion": (
         "dispatch `verifier` by default",
@@ -183,7 +181,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "standing explicit user request",
         "per-run subagent approval",
-        "`code-reviewer`, `security-reviewer`, and `qa-tester`",
+        "the default `verifier` and risk-gated `code-reviewer` roles",
     ),
 }
 PLATFORM_RULE_DOC_MARKERS = {
@@ -473,7 +471,7 @@ VERIFICATION_TIER_SHARED_MARKERS = (
     "Map every acceptance criterion",
     "Record the risk check before completion",
     "Include diff-budget scope review",
-    "`security-reviewer`",
+    "with its security lens when auth, data, network, file system, policy, or secret handling can be affected",
     "`code-reviewer`",
 )
 VALIDATION_CHECK_SHARED_MARKERS = (
@@ -544,8 +542,6 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "plan-reviewer",
         "verifier",
         "code-reviewer",
-        "security-reviewer",
-        "qa-tester",
     ),
     "autopilot": (
         "explore",
@@ -556,8 +552,6 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "debugger",
         "verifier",
         "code-reviewer",
-        "security-reviewer",
-        "qa-tester",
     ),
     "systematic-debugging": (
         "debugger",
@@ -566,14 +560,10 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "verifier",
         "plan-reviewer",
         "code-reviewer",
-        "security-reviewer",
-        "qa-tester",
     ),
     "verification-before-completion": (
         "verifier",
         "code-reviewer",
-        "security-reviewer",
-        "qa-tester",
     ),
 }
 SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY: set[str] = set()
@@ -611,13 +601,11 @@ EXECUTION_MODE_AGENT_MARKERS = {
         "Risk check before completion status",
         "Validation check",
         "Verification budget and diff-budget status",
+        "heavier Ralph execution mode",
     ),
-    "security-reviewer": (
+    "code-reviewer": (
         "execution mode escalation",
         "Safety Trigger Checklist",
-    ),
-    "qa-tester": (
-        "heavier Ralph execution mode",
     ),
 }
 
@@ -686,7 +674,7 @@ CODEX_STANDING_WRAPPER_MARKERS = {
         "standing\n   subagent authorization",
         "explicit user request",
         "per-run subagent approval",
-        "`verifier`, `code-reviewer`, `security-reviewer`, and `qa-tester`",
+        "skill's `verifier` and `code-reviewer` roles",
     ),
 }
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
@@ -754,7 +742,7 @@ VALIDATION_CHECK_AGENT_MARKERS = {
     ),
 }
 SAFETY_REVIEW_AGENT_MARKERS = {
-    "security-reviewer": (
+    "code-reviewer": (
         "Safety Trigger Checklist",
         "destructive operations",
         "filesystem traversal",

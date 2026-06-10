@@ -9,7 +9,7 @@
 
 Your coding agent does not need another runtime. It needs a workflow it can actually read and follow.
 
-**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 stage skills** plus **10 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, without npm, tmux, MCP, or a terminal-only control plane.
+**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 stage skills** plus **8 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, without npm, tmux, MCP, or a terminal-only control plane.
 
 It sits between two extremes:
 
@@ -45,7 +45,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
-- **Skills + agents.** 10 workflow skills backed by 10 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `security-reviewer`, `qa-tester`).
+- **Skills + agents.** 10 workflow skills backed by 8 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`).
 - **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md`.
 
 | Too much | Too little | Oh No Harness |

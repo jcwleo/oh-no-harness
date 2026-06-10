@@ -12,10 +12,8 @@ Use base agent names and choose the amount of scrutiny the task needs. This is n
 | Plan review | `plan-reviewer` | check local design fit or challenge a focused decision | gate a plan before execution with feasibility and tradeoff review | adversarially review architecture, migration, boundary changes, and high-risk assumptions |
 | Execution | `executor` | apply scoped mechanical edits | implement normal stories | implement risky, coupled, or migration-heavy changes |
 | Debugging | `debugger` | inspect a known failing command | trace multi-file failures | investigate unknown root causes or nondeterminism |
-| Verification | `verifier` | check commands and outputs | validate acceptance criteria | build release-level confidence from multiple signals |
-| Code review | `code-reviewer` | review a focused diff | review behavior-affecting changes | review regression-prone or broad changes |
-| Security review | `security-reviewer` | check a narrow sensitive path | review data, auth, and policy risk | assess security-critical or externally exposed behavior |
-| QA testing | `qa-tester` | run smoke scenarios | validate user-facing workflows | design scenario coverage for complex flows |
+| Verification | `verifier` | check commands and outputs | validate acceptance criteria and user-facing workflows | build release-level confidence from scenario coverage and multiple signals |
+| Code review | `code-reviewer` | review a focused diff | review behavior-affecting changes plus data, auth, and policy risk | review regression-prone, broad, security-critical, or externally exposed changes |
 
 ## Invocation Policy
 

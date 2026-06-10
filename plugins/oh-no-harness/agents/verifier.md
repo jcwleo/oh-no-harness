@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Use proactively before completion claims to check acceptance criteria, commands, artifacts, and verification evidence.
+description: Use proactively before completion claims to check acceptance criteria, commands, artifacts, verification evidence, and user-facing scenario coverage.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: cyan
@@ -34,7 +34,19 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Confirm output, exit codes, and residual risk.
 - Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
 - Choose LIGHT, STANDARD, or THOROUGH using `docs/shared/verification-tiers.md`.
-- Not in scope: line-level defects in changed code (see `code-reviewer`), plan- or evidence-level adversarial critique (see `plan-reviewer`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
+
+### Scenario lens
+
+Run the scenario lens when user-facing behavior changed; otherwise record
+`Scenario lens: not applicable (no user-facing behavior change)`.
+
+- Turn acceptance criteria into realistic scenarios.
+- Identify smoke tests, edge cases, and regression checks.
+- Validate that user-facing flows are coherent and complete.
+- Check whether user-facing risk requires a heavier Ralph execution mode than the current plan selected.
+- Report gaps that automated tests may miss.
+
+Not in scope: line-level defects and security-specific risks in changed code (see `code-reviewer`), plan- or evidence-level adversarial critique (see `plan-reviewer`).
 
 ## Operating Rules
 
@@ -45,7 +57,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception before approval.
 - Use Bash for verification and inspection only. Do not edit files, install dependencies, or run destructive commands unless explicitly assigned by the current skill.
 - Report skipped checks and why they were skipped.
-- Recommend `code-reviewer`, `security-reviewer`, or `qa-tester` when the verification tier requires it.
+- Record manual scenario observations separately from automated evidence.
+- Check that user-facing behavior changes have repeatable acceptance or regression coverage, or clearly document the gap.
+- Prefer repeatable commands or scripted checks when available.
+- Recommend `debugger` for failing scenarios.
+- Recommend `code-reviewer` when the verification tier requires it; recommend `debugger` for failing scenarios; apply the scenario lens internally when user-facing behavior changed.
 
 ## Output
 
@@ -61,4 +77,8 @@ Return:
 - Validation check and risk from metric-only evidence status.
 - Verification budget and diff-budget status.
 - TDD evidence status when applicable.
+- Scenario matrix: scenarios checked with results, or the line
+  `Scenario lens: not applicable (no user-facing behavior change)`.
+- Release confidence: user-facing readiness based on scenario evidence, when
+  the scenario lens ran.
 - Residual risk.

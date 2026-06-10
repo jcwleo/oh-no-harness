@@ -27,10 +27,8 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/plan-reviewer.md` and `agents/plan-reviewer.md` | merged from `omc/raw/agents/architect.md` and `omc/raw/agents/critic.md` |
 | `docs/agent-core/executor.md` and `agents/executor.md` | `omc/raw/agents/executor.md` |
 | `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
-| `docs/agent-core/verifier.md` and `agents/verifier.md` | `omc/raw/agents/verifier.md` |
-| `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | `omc/raw/agents/code-reviewer.md` |
-| `docs/agent-core/security-reviewer.md` and `agents/security-reviewer.md` | `omc/raw/agents/security-reviewer.md` |
-| `docs/agent-core/qa-tester.md` and `agents/qa-tester.md` | `omc/raw/agents/qa-tester.md` |
+| `docs/agent-core/verifier.md` and `agents/verifier.md` | merged from `omc/raw/agents/verifier.md` and `omc/raw/agents/qa-tester.md` |
+| `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | merged from `omc/raw/agents/code-reviewer.md` and `omc/raw/agents/security-reviewer.md` |
 
 ## OMC-Derived Shared Docs
 

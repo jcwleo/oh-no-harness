@@ -19,7 +19,7 @@ Follow this order:
    record the fallback reason when the core skill requires it.
 5. When the Codex SessionStart context includes the Oh No Harness standing
    subagent authorization, treat it as the explicit user request for this
-   skill's `verifier`, `code-reviewer`, `security-reviewer`, and `qa-tester`
-   roles. Do not ask for additional per-run subagent approval.
+   skill's `verifier` and `code-reviewer` roles. Do not ask for additional
+   per-run subagent approval.
 
 Do not apply another platform's invocation syntax.

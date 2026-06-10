@@ -81,10 +81,8 @@ ralph
   -> systematic-debugging for failing checks, regressions, or unexpected behavior
   -> executor
   -> plan-reviewer for architecture-sensitive completion review and optional adversarial or overcomplication review
-  -> verifier
-  -> code-reviewer
-  -> security-reviewer when risk requires
-  -> qa-tester when workflow testing is required
+  -> verifier including its scenario lens when workflow testing is required
+  -> code-reviewer including its security lens when risk requires
   -> simplify after functional reviewer approval
   -> verification-before-completion before final completion claims
 
@@ -98,20 +96,20 @@ autopilot
   -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
   -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
   -> explore / analyst / planner / plan-reviewer / executor when phases are handled inline
-  -> inline QA loop with debugger, verifier, qa-tester, code-reviewer, security-reviewer
+  -> inline QA loop with debugger, verifier (scenario lens included), code-reviewer (security lens included)
 
 test-driven-development
   -> no outbound skill dependency
   -> internal mid-loop discipline, not a top-level implementation skill
   -> ordinary implementation requests route through `ralph`, which invokes TDD internally when behavior changes
-  -> evidence consumed by ralph, verifier, code-reviewer, debugger, and qa-tester
+  -> evidence consumed by ralph, verifier, code-reviewer, and debugger
 
 simplify
   -> no outbound skill dependency
 
 verification-before-completion
-  -> verifier for evidence packaging
-  -> code-reviewer, security-reviewer, or qa-tester when risk requires
+  -> verifier for evidence packaging and scenario coverage
+  -> code-reviewer (security lens included) when risk requires
 
 systematic-debugging
   -> debugger for root-cause investigation
@@ -150,13 +148,11 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `explore` | `interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `plan-reviewer`, `debugger`, `verifier` |
 | `analyst` | `ralplan`, `autopilot` | `interview`, `ralplan`, `planner`, `plan-reviewer` |
 | `planner` | `ralplan` | `explore`, `analyst`, `plan-reviewer` |
-| `plan-reviewer` | `ralplan`, `ralph` completion review, `autopilot` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `qa-tester`, `security-reviewer` |
+| `plan-reviewer` | `ralplan`, `ralph` completion review, `autopilot` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `code-reviewer` |
 | `executor` | `ralph`, implementation phases | `explore`, `plan-reviewer`, `debugger`, `verifier` |
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
-| `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, final evidence | `code-reviewer`, `security-reviewer`, `qa-tester` |
-| `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation | `verifier`, `security-reviewer`, `simplify` recommendation |
-| `security-reviewer` | security-sensitive validation | `verifier`, `code-reviewer` |
-| `qa-tester` | user-facing validation | `debugger`, `verifier` |
+| `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
+| `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation, security-sensitive validation | `verifier`, `simplify` recommendation |
 
 ## Hook Boundary
 

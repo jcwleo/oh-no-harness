@@ -32,25 +32,24 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 
 | Agent | Use |
 |---|---|
-| `verifier` | Map the claim to evidence and run or inspect the required checks. |
-| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it. |
-| `security-reviewer` | Review auth, data, file system, network, secrets, or policy-sensitive changes. |
-| `qa-tester` | Validate user-facing flows or scenario coverage. |
+| `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. |
+| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. |
 
 On subagent-capable hosts, dispatch `verifier` by default for nontrivial
 completion claims so evidence mapping stays independent from the implementation
-thread. Add `code-reviewer`, `security-reviewer`, or `qa-tester` subagents when
-the changed scope, selected verification tier, or user-facing risk warrants
-them. Inline verification is appropriate only for tiny direct checks with no
+thread. Add a `code-reviewer` subagent (security lens included) when the
+changed scope, selected verification tier, or user-facing risk warrants it;
+`verifier` applies its scenario lens when user-facing behavior changed.
+Inline verification is appropriate only for tiny direct checks with no
 context-separation benefit or when dispatch is unavailable; record that fallback
 or no-benefit reason before making the claim.
 
 On Codex, when SessionStart injects
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
 standing explicit user request for the default `verifier` and risk-gated
-`code-reviewer`, `security-reviewer`, and `qa-tester` roles in this skill. Do
-not ask for per-run subagent approval before dispatching those evidence or
-review roles when the claim is nontrivial or risk warrants them.
+`code-reviewer` roles in this skill. Do not ask for per-run subagent approval
+before dispatching those evidence or review roles when the claim is nontrivial
+or risk warrants them.
 
 When any verification role is dispatched, apply the active platform's role
 prompt and dispatch requirements before the claim, evidence scope, expected

@@ -508,8 +508,9 @@ executed with less process. Ralph must follow this profile during execution.
 For plans that recommend direct `ralph`, default to
 `Parallel trigger: approved-plan-handoff` and an agent policy of
 `targeted-subagents` or `full-review-set` whenever at least one Ralph role can be
-isolated by file ownership, read-only scope, review role, verification role, QA,
-security review, or test/log analysis. Use `inline-only` and
+isolated by file ownership, read-only scope, review role (security lens
+included), verification role (scenario QA lens included), or test/log analysis.
+Use `inline-only` and
 `Parallel trigger: none` only when the plan documents that no dispatch-worthy
 role exists, the active platform cannot dispatch, or the work is unsafe to
 isolate under `docs/shared/ralph-subagent-policy.md`.

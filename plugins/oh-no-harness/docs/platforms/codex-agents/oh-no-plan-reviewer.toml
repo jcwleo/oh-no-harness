@@ -120,7 +120,7 @@ never reclassify it.
 - Reject plans with inferred acceptance criteria when that inference changes
   behavior, delivery scope, data handling, security posture, or public support
   claims without user approval.
-- Not in scope: line-level defects in changed code (see `code-reviewer`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
+- Not in scope: line-level defects and security-specific risks in changed code (see `code-reviewer`, security lens), command-level acceptance-to-evidence mapping and user-facing scenario validation (see `verifier`, scenario lens).
 
 ### Direction preservation (both passes)
 

@@ -79,8 +79,8 @@ fallback reasons, and lifecycle cleanup requirements.
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
-| QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `plan-reviewer`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
+| QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
+| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) when risk requires; finish through `verification-before-completion`. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -167,8 +167,8 @@ Dispatch:
 
 - `systematic-debugging` (skill, not agent) for root-cause investigation before fixes
 - `debugger` subagent for failures
-- `verifier` subagent for evidence packaging
-- `qa-tester` subagent for user-facing flows
+- `verifier` subagent for evidence packaging and, via its scenario lens,
+  user-facing flows
 
 Repeat until checks pass or a blocking reason is documented.
 
@@ -177,9 +177,9 @@ Repeat until checks pass or a blocking reason is documented.
 Dispatch the appropriate review subagents for the risk:
 
 - `plan-reviewer` for architecture-sensitive changes
-- `code-reviewer` for correctness and maintainability
-- `security-reviewer` for security-sensitive behavior
-- `qa-tester` for user-facing behavior
+- `code-reviewer` for correctness and maintainability, with its security lens
+  for security-sensitive behavior
+- `verifier` with its scenario lens for user-facing behavior
 
 ### Phase 5: Report
 
