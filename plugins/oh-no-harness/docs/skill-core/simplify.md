@@ -88,7 +88,7 @@ Maintainability finding:
 - Evidence:
 - Cost if ignored:
 - Safe cleanup action:
-- Reviewer needed: none | code-reviewer | security-reviewer | architect | verifier
+- Reviewer needed: none | code-reviewer | security-reviewer | plan-reviewer | verifier
 ```
 
 Use `reviewer follow-up` for brittle coupling, unclear ownership, hidden state,

@@ -18,10 +18,10 @@ Use it after `interview` has produced an approved spec, or when the user already
 
 ## Goal
 
-Create a concrete implementation plan that is drafted by Planner, reviewed by Architect, reviewed by Critic, and revised by Planner until the accepted feedback is reflected in the plan body before execution begins.
+Create a concrete implementation plan that is drafted by Planner, reviewed by Plan-Reviewer through both the architecture and quality-gate lenses, and revised by Planner until the accepted feedback is reflected in the plan body before execution begins.
 
 The host agent operates the planning roles through the active platform wrapper.
-The user does not need to pick Planner, Architect, or Critic manually; the user
+The user does not need to pick Planner or Plan-Reviewer manually; the user
 approves the plan, requests changes, chooses the next workflow step, or approves
 direction changes when a role finds one. Ralph execution defaults to using
 eligible parallel subagents aggressively; do not split the handoff into a
@@ -71,26 +71,37 @@ acceptance criteria.
    execution profile and worktree policy.
 4. Complete `planner` to create `Planner draft v1` from the requirements source,
    Analyst or gap-check output, and repository evidence.
-5. Complete `architect` only after `Planner draft v1` exists. Architect reviews
-   that exact draft and returns `Architect review v1`; Architect does not create
-   a replacement plan.
-6. Complete `critic` only after `Architect review v1` exists. Critic reviews the
-   same Planner draft plus the matching Architect review and returns
-   `Critic review v1`.
-7. When Architect or Critic requires changes, complete `planner` revision.
-   Planner must turn accepted feedback into `Planner revision v2`, record
-   feedback disposition, and update the plan body instead of only appending
-   comments.
-8. Repeat the full review loop for every revision:
-   `Planner revision vN -> Architect review vN -> Critic review vN`. Stop when
-   Critic approves or five complete loops have run. If Architect or Critic
-   feedback would change the approved interview spec, user-approved plan
-   direction, scope, non-goals, or acceptance criteria, record it as a requested
-   direction change and ask for explicit user approval before incorporating it.
-   If Critic still rejects after the fifth loop, present the plan to the user
-   with `pending approval` status, the unresolved Critic findings, and an
-   explicit request to accept the residual concerns, revise scope, or stop. Do
-   not silently advance past blocking critic feedback.
+5. Complete `plan-reviewer` only after `Planner draft v1` exists. Plan-Reviewer
+   reviews that exact draft in two ordered passes (architecture lens, then
+   quality-gate lens applied to the draft and to its own pass-1 findings) and
+   returns `Plan review v1` with per-finding lens, reviewer-owned severity
+   (`blocking | non-blocking`), and a verdict from `APPROVE | ITERATE | REJECT`;
+   Plan-Reviewer does not create a replacement plan.
+6. Apply the verdict mapping: APPROVE iff zero blocking findings; ITERATE iff
+   >= 1 blocking finding on a salvageable draft; REJECT only for
+   direction-level or unsalvageable failure. On ITERATE, complete `planner`
+   revision: Planner must turn accepted feedback into `Planner revision v2`,
+   record each finding's disposition in the findings ledger, and update the
+   plan body instead of only appending comments. On REJECT, escalate to the
+   user immediately; REJECT does not consume a loop.
+7. Re-review only on blocking findings. After `Planner revision v2`, complete
+   `plan-reviewer` again and record `Plan review v2` with
+   `Re-review scope: delta | full`. The re-reviewer always receives the full
+   revised plan; `delta` scopes review depth/focus (changed sections + findings
+   ledger first), not the input, and the reviewer may escalate to `full` with a
+   stated reason. When a review returns only non-blocking findings, Planner
+   incorporates the accepted feedback, records each disposition in the findings
+   ledger with a plan-section pointer, and writes
+   `Re-review: not required (no blocking findings)`; do not dispatch a
+   re-review on that path.
+8. Stop after at most 2 loops; loop N = Planner draft/revision vN + Plan
+   review vN. If Plan-Reviewer feedback would change the approved interview
+   spec, user-approved plan direction, scope, non-goals, or acceptance
+   criteria, record it as a requested direction change and ask for explicit
+   user approval before incorporating it. If loop 2 ends without APPROVE,
+   present the plan to the user with `pending approval` status, the unresolved
+   findings, and an explicit request to accept the residual concerns, revise
+   scope, or stop. Do not silently advance past blocking review findings.
 9. Save the final reflected plan under `.oh-no/plans/` with a
    `Next skill: oh-no-harness:<name>` header field.
 10. Present the plan to the user with the Plan Approval Brief format below.
@@ -100,14 +111,17 @@ acceptance criteria.
 12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
 
 Use real role subagents for the consensus roles on subagent-capable hosts.
-Planner, Architect, and Critic are not decorative labels; their separated
-context is part of the planning quality bar. Run them inline only when the
-platform cannot dispatch subagents, the host policy does not authorize dispatch,
-or the role lacks a concrete input artifact, isolated responsibility, or expected
-output. Record the inline fallback reason in the plan.
+Planner and Plan-Reviewer are not decorative labels; the planning quality bar
+comes from the Planner/Reviewer context separation plus the ordered two-pass
+structure inside the single reviewer context (architecture lens first, then the
+quality-gate lens applied to the plan and to the pass-1 findings). Run them
+inline only when the platform cannot dispatch subagents, the host policy does
+not authorize dispatch, or the role lacks a concrete input artifact, isolated
+responsibility, or expected output. Record the inline fallback reason in the
+plan.
 
-Use the active platform wrapper's dispatch rules for Planner, Architect, and
-Critic. They are sequential, never parallel. Record the trigger as `Planning
+Use the active platform wrapper's dispatch rules for Planner and Plan-Reviewer.
+They are sequential, never parallel. Record the trigger as `Planning
 dispatch: natural-dispatch`, `Planning dispatch: explicit-user-request`, or
 `Planning dispatch: inline-fallback`; `natural-dispatch` means
 host-authorized proactive dispatch, not a weak preference to stay inline.
@@ -115,9 +129,11 @@ host-authorized proactive dispatch, not a weak preference to stay inline.
 When a role is inline, write a separate inline role block with the draft id and
 fallback reason instead of collapsing the role into the planner's narrative.
 
-Analyst, Planner, Architect, and Critic are strictly sequential in that order
-unless Analyst is satisfied by an approved interview spec. Architect and Critic
-are sequential. Do not run them in parallel.
+Analyst -> Planner -> Plan-Reviewer is the strictly sequential role order
+unless Analyst is satisfied by an approved interview spec. Plan-Reviewer runs
+only after the Planner draft exists. Do not run these roles in parallel.
+
+Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).
 
 ## Requirements Source And Analyst Gate
 
@@ -202,16 +218,19 @@ Planner draft v1:
 - Risks/open questions:
 ```
 
-Architect and Critic review the Planner draft. They do not replace it. Planner
-must keep the plan body as the source of truth and use the consensus log only as
+Plan-Reviewer reviews the Planner draft. It does not replace it. Planner must
+keep the plan body as the source of truth and use the consensus log only as
 evidence of review and revision.
 
-## Architect Review Contract
+## Plan Review Contract
 
-Architect reviews a specific Planner draft and returns structured review
-feedback. Architect must not produce a replacement plan.
+Plan-Reviewer reviews a specific Planner draft in one dispatch with two ordered
+passes: pass 1 applies the architecture lens (feasibility, fit, sequencing,
+tradeoffs, strongest antithesis); pass 2 applies the quality-gate lens to the
+draft and to its own pass-1 findings. Plan-Reviewer
+must not produce a replacement plan.
 
-Architect input must include:
+Plan-Reviewer input must include:
 
 ```text
 - Planner draft id: vN
@@ -219,68 +238,38 @@ Architect input must include:
 - Requirements source:
 ```
 
-Architect output must include:
+Plan-Reviewer output must include:
 
 ```text
-Architect review vN:
+Plan review vN:
 - Reviewed draft: vN
-- Verdict: approve | changes_requested | blocking | requested_direction_change
-- Architecture fit:
-- Sequencing concerns:
-- Strongest antithesis:
-- Tradeoff tension:
-- Acceptance criteria coverage:
-- Validation coverage:
-- Required changes:
-- Optional improvements:
-- Execution profile concerns:
-- Worktree policy concerns:
-- Direction-change requests:
-```
-
-Architect may improve the plan only inside the approved direction. Direction
-changes must stay unincorporated until the user approves them.
-
-## Critic Review Contract
-
-Critic reviews the same Planner draft plus the matching Architect review. Critic
-does not run before Architect and does not review a draft version Architect has
-not reviewed.
-
-Critic input must include:
-
-```text
-- Planner draft id: vN
-- Architect review for draft id: vN
-- Full Planner draft or plan path:
-```
-
-Critic output must include:
-
-```text
-Critic review vN:
-- Reviewed draft: vN
-- Architect review consumed: yes
+- Architecture findings:
+  - <finding id> | lens: architecture | severity: blocking | non-blocking | requested-direction-change: yes (when applicable)
+- Quality-gate findings:
+  - <finding id> | lens: quality-gate | severity: blocking | non-blocking | requested-direction-change: yes (when applicable)
 - Verdict: APPROVE | ITERATE | REJECT
-- Blocking issues:
-- Overcomplexity/speculative abstraction check:
-- Acceptance criteria mismatch:
-- Validation evidence gap:
-- Acceptance criteria quality:
-- Verification weakness:
-- Missing feedback disposition:
 - Evidence required for approval:
 ```
 
-Critic must reject when Architect feedback is ignored without disposition, when
-accepted feedback is only logged and not reflected in the plan body, when
-verification cannot prove the acceptance criteria, or when speculative
-complexity is not tied to current requirements.
+The verdict is computed from the findings, not chosen freely: APPROVE iff zero
+blocking findings; ITERATE iff >= 1 blocking finding on a salvageable draft;
+REJECT only for direction-level or unsalvageable failure, escalated to the user
+immediately without consuming a loop.
+
+Finding severity is reviewer-owned; Planner may never reclassify it.
+Plan-Reviewer must reject when accepted feedback is only logged and not
+reflected in the plan body, when test case designs are AI-slop or would pass
+against the old broken behavior, when verification cannot prove the acceptance
+criteria, or when speculative complexity is not tied to current requirements.
+Plan-Reviewer may improve the plan only inside the approved direction.
+Direction changes must stay unincorporated until the user approves them.
 
 ## Planner Revision Contract
 
-When Architect or Critic returns `changes_requested`, `blocking`, `ITERATE`, or
-`REJECT`, Planner revises the draft before any further Architect or Critic pass.
+When Plan-Reviewer returns `ITERATE` (at least one blocking finding), Planner
+revises the draft before any further review pass. Planner may never reclassify
+reviewer-owned finding severity; a blocking finding stays blocking until a
+later `Plan review vN` clears it with APPROVE or the user explicitly waives it.
 
 Planner revision output must include:
 
@@ -300,52 +289,82 @@ deferred, Planner must give a concrete reason tied to approved scope,
 constraints, or direction-preservation rules. A revision is invalid if it only
 adds comments while leaving the plan body unchanged.
 
-## Consensus Order Gate
+When a review returns only non-blocking findings, Planner incorporates the
+accepted feedback, records each disposition in the findings ledger with a
+plan-section pointer, and writes
+`Re-review: not required (no blocking findings)`. Do not dispatch a re-review
+on this path; the calling skill enforces the findings-ledger pointer
+requirement instead.
+
+## Re-Review Rules
+
+Re-reviews run only when the previous `Plan review vN` returned ITERATE
+(blocking findings). Re-reviews are delta reviews by default:
+
+- The re-reviewer always receives the full revised plan; `delta` scopes review
+  depth/focus (changed sections + findings ledger first), not the input.
+- The reviewer may escalate to a full-depth review with a stated reason; the
+  escalation right exists because the full plan is in hand.
+- Record `Re-review scope: delta | full` with the re-review.
+- Max 2 loops; loop N = Planner draft/revision vN + Plan review vN. REJECT
+  escalates to the user immediately and does not consume a loop. After loop 2
+  without APPROVE, present the plan as `pending approval` with the unresolved
+  findings.
+
+## Findings Ledger Gate
 
 Before saving a plan, presenting a Plan Approval Brief, or asking for execution
 approval, verify that the consensus loop has visible evidence for all required
-roles, draft ids, review ids, and revision ids in order:
+roles, draft ids, review ids, and revision ids in order, and that every review
+finding has a recorded disposition:
 
 ```text
 Consensus loop:
 - Analyst: satisfied by approved interview spec | completed | inline fallback with reason | dispatched completed
 - Planner draft v1: completed | inline fallback with reason | dispatched completed
-- Architect review v1: completed after Planner draft v1 | inline fallback with reason | dispatched completed
-- Critic review v1: APPROVE | ITERATE | REJECT after Architect review v1
-- Planner revision v2: not needed | completed from Architect/Critic feedback
-- Architect review v2: not needed | completed after Planner revision v2
-- Critic review v2: not needed | APPROVE | ITERATE | REJECT
+- Plan review v1: APPROVE | ITERATE | REJECT after Planner draft v1
+- Planner revision v2: not needed | completed from blocking findings
+- Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
+- Re-review: not required (no blocking findings) | completed
+
+Findings ledger:
+- <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | disposition: accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
 ```
 
 The plan is invalid if it contains only Planner output, if Planner drafts before
-Analyst finishes when Analyst is required, if Architect is skipped, or if Critic
-runs before Architect. The plan is invalid if Architect or Critic only add comments instead of reviewing a specific Planner draft, if Critic reviews a draft
-that Architect did not review, if accepted feedback is logged but not reflected
-in the final plan body, or if Planner revision skips the
-`Planner revision vN -> Architect review vN -> Critic review vN` loop. If a
-platform cannot dispatch one of these roles, keep the same role boundary inline
-and record the platform, role, missing capability or authorization, draft id, and
-fallback reason. Do not move to the approval brief until the gate passes or the
-plan is explicitly marked `pending approval` with the blocking role-order issue.
+Analyst finishes when Analyst is required, if Plan-Reviewer is skipped, or if a
+review does not name a specific Planner draft id. The plan is invalid if
+accepted feedback is logged but not reflected in the final plan body, if any
+review finding is missing from the findings ledger, or if an accepted finding
+lacks a plan-section pointer: an accepted finding without a plan-section
+pointer invalidates the plan. Blocking findings require a matching
+`Plan review vN+1` APPROVE or an explicit user waiver. On the
+non-blocking-only path no re-review runs, so the calling skill checks the
+pointer requirement directly: every accepted finding must carry a plan-section
+pointer before the approval brief. If a platform cannot dispatch one of these
+roles, keep the same role boundary inline and record the platform, role,
+missing capability or authorization, draft id, and fallback reason. Do not move
+to the approval brief until the gate passes or the plan is explicitly marked
+`pending approval` with the blocking issue.
 
 ## Direction Preservation Gate
 
-Architect and Critic improve the plan inside the approved direction. They must
-not silently override the approved interview spec, user-approved plan direction,
+Plan-Reviewer improves the plan inside the approved direction. It must not
+silently override the approved interview spec, user-approved plan direction,
 scope, non-goals, or acceptance criteria.
 
-If Architect or Critic believes the approved direction is unsafe, infeasible,
+If Plan-Reviewer believes the approved direction is unsafe, infeasible,
 internally inconsistent, or materially suboptimal:
 
-- record the concern as `blocking` or `requested direction change`
+- record the finding as `blocking` with `requested-direction-change: yes`
 - keep the current approved direction visible
 - do not incorporate the new direction into the plan unless the user explicitly
   approves the direction change
 - if approval is missing, mark the plan `pending approval` and present the
   direction-change request in the Plan Approval Brief
 
-Planner may accept Architect or Critic feedback only when the feedback preserves
-the approved direction or when the user has explicitly approved the direction
+Planner may accept Plan-Reviewer feedback only when the feedback preserves the
+approved direction or when the user has explicitly approved the direction
 change.
 
 ## Planning Quality Bar
@@ -369,11 +388,11 @@ Before presenting the plan, check that it includes:
 - a `Worktree policy` from `docs/shared/worktree-isolation.md`
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
-- the final reflected plan body after accepted Architect and Critic feedback
+- the final reflected plan body after accepted Plan-Reviewer feedback
 - Analyst findings or `satisfied by approved interview spec`, Planner draft and
-  revision ids, Architect review ids, and Critic review ids with disposition:
-  accepted, rejected, deferred, requested direction change, or blocking
-- any Architect or Critic request that would change approved direction, scope,
+  revision ids, and Plan review ids with a findings ledger recording each
+  finding's lens, severity, and disposition
+- any Plan-Reviewer finding that would change approved direction, scope,
   non-goals, or acceptance criteria, with explicit user-approval status
 
 Do not hide blocking uncertainty inside assumptions. If an unresolved question changes architecture, product behavior, data handling, security, or delivery scope, mark the plan `pending approval` and ask before execution.
@@ -425,12 +444,13 @@ Every plan must include:
 - acceptance criteria
 - test case design quality: must-fail, must-pass, negative/forbidden when
   relevant, edge/regression when relevant, and evidence mapping
-- consensus loop log showing Analyst -> Planner -> Architect -> Critic in order,
-  including draft/review/revision ids
+- consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order,
+  including draft/review/revision ids and, when a re-review ran,
+  `Re-review scope: delta | full`
 - planning dispatch mode showing whether consensus roles ran as subagents or
   inline fallback
-- feedback disposition showing which Architect and Critic findings were accepted,
-  rejected, deferred, or blocked as requested direction changes
+- a findings ledger recording each Plan-Reviewer finding's lens, severity, and
+  disposition: `accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval`
 - evidence that accepted feedback is reflected in the final plan body
 - execution profile
 - worktree policy
@@ -525,8 +545,10 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - validation check when measurable evidence influenced the plan
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
-- consensus loop summary, including Analyst findings, Architect disposition,
-  Critic verdict, draft/review/revision ids, and Planner feedback disposition
+- consensus loop summary, including Analyst findings, Plan-Reviewer verdicts,
+  draft/review/revision ids, and the full findings ledger
+  (finding -> severity -> disposition -> section pointer) so every disposition
+  is visible at approval time
 - worktree policy, including whether direct Ralph should use automatic task
   worktree execution or Autopilot should also merge back to the integration
   checkout
@@ -608,13 +630,17 @@ Parallel subagent dispatch:
 {Default Ralph dispatch plan: one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner; or a concrete fallback reason if no eligible role can be isolated}
 
 Consensus loop:
-Analyst -> Planner -> Architect -> Critic: {completed in order, with one-line disposition for each}
+Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposition for each}
 - Requirements source: {approved interview spec | user request | PRD/ticket}
 - Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
 - Planner draft v1: {completed, with source/path}
-- Architect review v1: {verdict and required changes}
-- Critic review v1: {APPROVE|ITERATE|REJECT}
+- Plan review v1: {APPROVE|ITERATE|REJECT}
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
+- Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
+- Re-review: {not required (no blocking findings) | completed}
+
+Findings ledger:
+- {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
 
 Worktree policy:
 {Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Autopilot automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
@@ -726,8 +752,8 @@ Ralplan uses these roles directly.
 
 This table governs *agent role* dispatch only — workflow-skill chaining
 (`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. Use
-the active platform wrapper's dispatch policy. Planner, Architect, and Critic
-must run as sequential subagents on subagent-capable hosts because they benefit
+the active platform wrapper's dispatch policy. Planner and Plan-Reviewer must
+run as sequential subagents on subagent-capable hosts because they benefit
 from independent context windows. Otherwise run the roles inline while
 preserving the same role blocks and record the inline fallback reason and the
 subagent-unavailable condition from `docs/shared/ralph-subagent-policy.md`.
@@ -739,12 +765,11 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `architect` | Dispatch `architect` subagent to review the exact Planner draft for feasibility, architecture fit, sequencing, and tradeoffs. Architect does not produce a replacement plan. |
-| `critic` | Dispatch `critic` subagent to review the exact Planner draft plus matching Architect review only after Architect completes. Critic applies the senior-engineer overcomplication check and may block on speculative abstraction, configurability, dependencies, broad refactors not tied to current acceptance criteria, or accepted feedback that is only logged instead of reflected in the plan body. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft in two ordered passes: architecture lens (feasibility, fit, sequencing, tradeoffs, strongest antithesis), then quality-gate lens applied to the draft and to its own pass-1 findings. Plan-Reviewer applies the senior-engineer overcomplication check, may block on speculative abstraction, configurability, dependencies, broad refactors not tied to current acceptance criteria, or accepted feedback that is only logged instead of reflected in the plan body, and does not produce a replacement plan. |
 
-Analyst, Planner, Architect, and Critic remain sequential in that order unless
-Analyst is satisfied by an approved `interview` spec. Architect and Critic remain
-sequential. Do not run them in parallel.
+Analyst, Planner, and Plan-Reviewer remain sequential in that order unless
+Analyst is satisfied by an approved `interview` spec. Plan-Reviewer runs only
+after the Planner draft exists. Do not run them in parallel.
 
 ## Concrete Request Signals
 
@@ -767,8 +792,7 @@ Return:
 
 - Plan path.
 - Consensus loop summary.
-- Architect concerns and disposition.
-- Critic verdict and disposition.
+- Plan-Reviewer findings and disposition, as the findings ledger.
 - Execution profile.
 - Plan approval brief.
 - Approval status.

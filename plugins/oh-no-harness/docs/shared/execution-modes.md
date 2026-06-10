@@ -163,8 +163,8 @@ Ralph behavior:
   policy, available host subagent support, `docs/shared/agent-tiers.md`,
   `docs/shared/ralph-subagent-policy.md`, and the active platform adapter;
   inline only for documented subagent-unavailable or unsafe-to-isolate cases
-- run reviewer roles for correctness and maintainability; add architect,
-  security, QA, or critic review when the risk signal matches
+- run reviewer roles for correctness and maintainability; add plan-reviewer,
+  security, or QA review when the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
 - require acceptance-to-evidence mapping, risk checks before completion,

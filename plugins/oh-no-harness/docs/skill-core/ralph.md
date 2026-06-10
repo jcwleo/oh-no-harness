@@ -117,8 +117,7 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
 | `executor` | Implement scoped story work. |
-| `architect` | Review architecture-sensitive, broad, or multi-system completion evidence. Security-specific risks go to `security-reviewer`. |
-| `critic` | Adversarially review when the approach may be overcomplicated or the acceptance argument is weak; otherwise skip. Applies the senior-engineer overcomplication check against the current acceptance criteria. |
+| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `security-reviewer`. |
 | `verifier` | Package evidence against acceptance criteria and verification tiers. |
 | `code-reviewer` | Review correctness, maintainability, regressions, and missing tests. |
 | `security-reviewer` | Review auth, data, secrets, file system, network, policy, or injection risk. |
@@ -362,15 +361,14 @@ Before dispatching, partition the work and write down:
 Use the allowed and forbidden parallelization rules from
 `docs/shared/ralph-subagent-policy.md`. In particular, do not parallelize
 overlapping write scopes, dependent tasks, one behavior's TDD RED/GREEN order,
-unclear ownership, or `architect` and `critic` reviewing the same plan or
-completion evidence.
+or unclear ownership.
 
 Use this dispatch shape for every parallel subagent, with the active platform
 adapter deciding whether the invocation is a registered custom agent, a
 plugin-scoped agent, or a documented fallback:
 
 ````markdown
-Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}
+Role: {explore|executor|plan-reviewer|verifier|code-reviewer|security-reviewer|qa-tester}
 Story/task: {id and short title}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}

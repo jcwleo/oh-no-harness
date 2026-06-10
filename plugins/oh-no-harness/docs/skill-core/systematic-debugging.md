@@ -35,7 +35,7 @@ isolated diagnostic and evidence roles by default so logs, traces, and explorato
 output do not pollute the main thread. The default flow is diagnostic first
 (`debugger` and, when context is missing, `explore`), then the minimal fix
 (`executor` subagent when the write scope is isolated, otherwise inline with a
-recorded reason), then evidence (`verifier`). `architect` is a
+recorded reason), then evidence (`verifier`). `plan-reviewer` is a
 conditional escalation role, not a required final step: use it immediately when
 three fix attempts fail, architecture-level coupling appears, or the apparent
 fix would change broad APIs, product behavior, data handling, security, or
@@ -50,7 +50,7 @@ On Codex, when SessionStart injects
 standing explicit user request for this skill's diagnostic, fix, evidence, and
 post-fix review roles. Do not ask for per-run subagent approval before
 dispatching `debugger`, `explore`, isolated `executor`, `verifier`,
-conditional `architect`, or warranted post-fix review roles. Use inline fallback
+conditional `plan-reviewer`, or warranted post-fix review roles. Use inline fallback
 only when dispatch is unavailable, unsafe to isolate, or too small to benefit,
 and record the fallback reason.
 
@@ -66,7 +66,7 @@ and verification responsibility.
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence. |
-| `architect` | Dispatch `architect` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. |
 | `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive. |
 | `security-reviewer` | Dispatch `security-reviewer` post-fix when auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. |
 | `qa-tester` | Dispatch `qa-tester` post-fix when the failure affects user-facing flows, scenarios, or acceptance criteria. |
@@ -86,7 +86,7 @@ and verification responsibility.
 
 ## Stop Conditions
 
-Stop and ask or escalate to `architect` when:
+Stop and ask or escalate to `plan-reviewer` when:
 
 - the failure cannot be reproduced and more data is needed from the user
 - three different fix attempts failed

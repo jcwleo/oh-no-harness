@@ -31,5 +31,5 @@ Return:
 - Acceptance criteria and any open alignment questions.
 - Ambiguities and questions.
 - Risks and constraints.
-- Suggested next role for the caller (agent): `planner`, `architect`, or `critic`.
+- Suggested next role for the caller (agent): `planner` or `plan-reviewer`.
 - Suggested next skill (when requirements or planning escalation is needed): `interview` or `ralplan`.

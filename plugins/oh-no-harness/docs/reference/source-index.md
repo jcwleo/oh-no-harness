@@ -24,8 +24,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/explore.md` and `agents/explore.md` | `omc/raw/agents/explore.md` |
 | `docs/agent-core/analyst.md` and `agents/analyst.md` | `omc/raw/agents/analyst.md` |
 | `docs/agent-core/planner.md` and `agents/planner.md` | `omc/raw/agents/planner.md` |
-| `docs/agent-core/architect.md` and `agents/architect.md` | `omc/raw/agents/architect.md` |
-| `docs/agent-core/critic.md` and `agents/critic.md` | `omc/raw/agents/critic.md` |
+| `docs/agent-core/plan-reviewer.md` and `agents/plan-reviewer.md` | merged from `omc/raw/agents/architect.md` and `omc/raw/agents/critic.md` |
 | `docs/agent-core/executor.md` and `agents/executor.md` | `omc/raw/agents/executor.md` |
 | `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
 | `docs/agent-core/verifier.md` and `agents/verifier.md` | `omc/raw/agents/verifier.md` |

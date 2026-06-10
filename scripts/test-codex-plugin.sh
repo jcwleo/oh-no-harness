@@ -262,7 +262,7 @@ PY
 
   local session_start_agent_count
   session_start_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$session_start_agent_count" == "11" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 11"
+  [[ "$session_start_agent_count" == "10" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 10"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex SessionStart did not write installed plugin version marker"
 
@@ -428,7 +428,7 @@ PY
 
   local hook_agent_count
   hook_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$hook_agent_count" == "11" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 11"
+  [[ "$hook_agent_count" == "10" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 10"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex Ralph adapter preflight did not write installed plugin version marker"
 
@@ -635,19 +635,19 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" --dry-run >"$temp_data/default-user-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/default-user-dry-run.out")"
-  [[ "$dry_run_count" == "11" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 11"
+  [[ "$dry_run_count" == "10" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 10"
   grep -q "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" "$temp_data/default-user-dry-run.out" \
     || fail "Codex agent default install did not target CODEX_HOME user scope"
 
   env -u CODEX_HOME HOME="$temp_data/home-default" "$installer" --dry-run >"$temp_data/home-default-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/home-default-dry-run.out")"
-  [[ "$dry_run_count" == "11" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 11"
+  [[ "$dry_run_count" == "10" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 10"
   grep -q "$temp_data/home-default/.codex/agents/oh-no-code-reviewer.toml" "$temp_data/home-default-dry-run.out" \
     || fail "Codex agent default install did not target HOME fallback user scope"
 
   "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
   project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
-  [[ "$project_dry_run_count" == "11" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 11"
+  [[ "$project_dry_run_count" == "10" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 10"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-install.out" 2>"$temp_data/ensure-install.err"
@@ -656,7 +656,7 @@ validate_codex_agent_installer() {
   quiet_size="$(wc -c <"$temp_data/ensure-install.err" | tr -d ' ')"
   [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stderr"
   ensure_count="$(find "$temp_data/ensure-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$ensure_count" == "11" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 11"
+  [[ "$ensure_count" == "10" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 10"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-current.out" 2>"$temp_data/ensure-current.err"
@@ -742,7 +742,7 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
   installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "11" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 11"
+  [[ "$installed_count" == "10" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 10"
   grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the current plugin version marker"
   grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
@@ -807,7 +807,7 @@ install_codex_agents_user_scope() {
 
   local installed_count
   installed_count="$(find "$CODEX_HOME_DIR/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "11" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 11"
+  [[ "$installed_count" == "10" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 10"
   ok "Codex custom agents installed into ${CODEX_HOME_DIR}/agents"
 }
 
@@ -1142,7 +1142,7 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the single Plan-Reviewer review dispatch rule, the blocking-findings-only re-review rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
@@ -1178,7 +1178,6 @@ expected = {
     ],
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
-        "five complete",
         "pending approval",
         "Overall Ralph mode",
         "Task sizing",
@@ -1214,7 +1213,6 @@ expected = {
     "autopilot": [
         "OH_NO_CODEX_DEEP_OK autopilot",
         ".oh-no/specs/interview-{slug}.md",
-        "five complete",
         ".oh-no/worktrees/<task-slug>",
         "auto",
         "approval",
@@ -1270,39 +1268,58 @@ if skill == "interview" and not (
 ):
     raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
 
+plan_reviewer_token = "plan-reviewer" if "plan-reviewer" in text_lower else "plan reviewer"
+
 if skill == "ralplan" and not (
     "analyst" in text_lower
     and "planner" in text_lower
-    and "architect" in text_lower
-    and "critic" in text_lower
+    and plan_reviewer_token in text_lower
     and (
-        "analyst -> planner -> architect -> critic" in text_lower
-        or "analyst, planner, architect, critic" in text_lower
-        or "analyst, planner, architect, and critic" in text_lower
+        f"analyst -> planner -> {plan_reviewer_token}" in text_lower
+        or f"analyst, planner, {plan_reviewer_token}" in text_lower
+        or f"analyst, planner, and {plan_reviewer_token}" in text_lower
         or (
-            terms_appear_in_order("analyst", "planner", "architect", "critic")
+            terms_appear_in_order("analyst", "planner", plan_reviewer_token)
             and ("first" in text_lower or "then" in text_lower or "sequential" in text_lower)
         )
         or (
             "analyst first" in text_lower
             and "planner second" in text_lower
-            and "architect third" in text_lower
-            and "critic fourth" in text_lower
+            and f"{plan_reviewer_token} third" in text_lower
         )
     )
 ):
     raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
 
 if skill == "ralplan" and not (
-    ("architect" in text_lower and "critic" in text_lower)
+    plan_reviewer_token in text_lower
     and (
-        "sequential" in text_lower
-        or "only after architect" in text_lower
-        or "architect first" in text_lower
-        or "never run them in parallel" in text_lower
+        "single" in text_lower
+        or "one dispatch" in text_lower
+        or "one review dispatch" in text_lower
+    )
+    and "blocking" in text_lower
+    and (
+        "re-review" in text_lower
+        or "re-reviewed" in text_lower
+        or "review again" in text_lower
+        or "second review" in text_lower
     )
 ):
-    raise SystemExit(f"{skill} deep smoke missing Architect/Critic ordering marker; got {text!r}")
+    raise SystemExit(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
+
+if skill in ("ralplan", "autopilot") and not (
+    "2 loops" in text_lower
+    or "two loops" in text_lower
+    or "2 complete loops" in text_lower
+    or "two complete loops" in text_lower
+    or "at most 2" in text_lower
+    or "at most two" in text_lower
+    or "max 2" in text_lower
+    or "maximum of 2" in text_lower
+    or "maximum of two" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing 2-loop planning limit marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [
@@ -1902,7 +1919,7 @@ run_natural_session_start_live_tests() {
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
     log "Skipping live Codex ralplan sequential-subagent smoke test"
-    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Architect -> Critic sequential spawn_agent review.\n' >&2
+    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Plan-Reviewer sequential spawn_agent review.\n' >&2
     return
   fi
 
@@ -1911,7 +1928,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner, architect, and critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly three times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before architect; agent_type "oh-no-architect", then wait for and close architect before critic; agent_type "oh-no-critic", then wait for and close critic before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish and all three completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Used custom agent types: oh-no-planner -> oh-no-architect -> oh-no-critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed planning agents: 3.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain and skips the re-review because there are no blocking findings. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed planning agents: 2.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -1940,11 +1957,10 @@ from pathlib import Path
 path = sys.argv[1]
 err_path = sys.argv[2]
 live_home = sys.argv[3]
-expected_roles = ["planner", "architect", "critic"]
+expected_roles = ["planner", "plan-reviewer"]
 role_headings = {
     "planner": "# Planner Agent",
-    "architect": "# Architect Agent",
-    "critic": "# Critic Agent",
+    "plan-reviewer": "# Plan Reviewer Agent",
 }
 required_prompt_markers = [
     "## Skill Relationship",
@@ -1953,13 +1969,11 @@ required_prompt_markers = [
     "## Output",
 ]
 dependency_prompt_markers = {
-    "architect": ["Planner draft v1"],
-    "critic": ["Planner draft v1", "Architect review v1"],
+    "plan-reviewer": ["Planner draft v1"],
 }
 output_markers = {
     "planner": ["Planner draft v1"],
-    "architect": ["Architect review v1", "Reviewed draft", "Planner draft v1"],
-    "critic": ["Critic review v1", "Architect review consumed"],
+    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "Quality-gate findings"],
 }
 
 def collect_text(value):
@@ -2183,10 +2197,10 @@ PY
   log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralplan-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner, Architect, and Critic role path. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1, Closed workers: yes.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed workers: yes.'
   assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_natural_spawn_smoke "$out_file" "$err_file" 3 "OH_NO_CODEX_RALPLAN_NATURAL_OK" "ralplan"
+  assert_natural_spawn_smoke "$out_file" "$err_file" 2 "OH_NO_CODEX_RALPLAN_NATURAL_OK" "ralplan"
 }
 
 run_named_agents_live_test() {
@@ -2202,12 +2216,11 @@ run_named_agents_live_test() {
   local agent_type safe_agent out_file err_file prompt
   local expected_agents=(
     oh-no-analyst
-    oh-no-architect
     oh-no-code-reviewer
-    oh-no-critic
     oh-no-debugger
     oh-no-executor
     oh-no-explore
+    oh-no-plan-reviewer
     oh-no-planner
     oh-no-qa-tester
     oh-no-security-reviewer
@@ -2531,7 +2544,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus Used custom agent types: 11; Wait results captured: 11; Closed agents: 11.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer, security-reviewer. Wave 4: qa-tester. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all ten subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the ten role checks plus Used custom agent types: 10; Wait results captured: 10; Closed agents: 10.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
 
   local cmd=(
@@ -2589,8 +2602,7 @@ expected_roles = [
     "explore",
     "analyst",
     "planner",
-    "architect",
-    "critic",
+    "plan-reviewer",
     "executor",
     "debugger",
     "verifier",
@@ -2602,8 +2614,7 @@ role_headings = {
     "explore": "# Explore Agent",
     "analyst": "# Analyst Agent",
     "planner": "# Planner Agent",
-    "architect": "# Architect Agent",
-    "critic": "# Critic Agent",
+    "plan-reviewer": "# Plan Reviewer Agent",
     "executor": "# Executor Agent",
     "debugger": "# Debugger Agent",
     "verifier": "# Verifier Agent",
@@ -2613,9 +2624,9 @@ role_headings = {
 }
 role_waves = [
     ("explore", "analyst", "planner"),
-    ("architect", "critic", "executor"),
-    ("debugger", "verifier", "code-reviewer"),
-    ("security-reviewer", "qa-tester"),
+    ("plan-reviewer", "executor", "debugger"),
+    ("verifier", "code-reviewer", "security-reviewer"),
+    ("qa-tester",),
 ]
 required_prompt_markers = [
     "## Skill Relationship",
@@ -2790,7 +2801,7 @@ PY
   log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralph-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: architect, critic, executor. Wave 3: debugger, verifier, code-reviewer. Wave 4: security-reviewer, qa-tester. Use registered Codex custom agents with agent_type oh-no-<role> for each Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer, security-reviewer. Wave 4: qa-tester. Use registered Codex custom agents with agent_type oh-no-<role> for each Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
   assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"

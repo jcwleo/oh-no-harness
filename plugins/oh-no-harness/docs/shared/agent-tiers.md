@@ -9,8 +9,7 @@ Use base agent names and choose the amount of scrutiny the task needs. This is n
 | Exploration | `explore` | locate known files or facts | map code paths and tests | discover unfamiliar or cross-system behavior |
 | Analysis | `analyst` | check a narrow requirement | compare product, risk, and constraints | resolve ambiguous goals or conflicting requirements |
 | Planning | `planner` | outline a small change | produce an implementation plan | sequence broad, risky, or multi-team work |
-| Architecture | `architect` | check local design fit | evaluate feasibility and tradeoffs | decide architecture, migration, or boundary changes |
-| Critique | `critic` | challenge a focused decision | gate a plan before execution | adversarially review high-risk assumptions |
+| Plan review | `plan-reviewer` | check local design fit or challenge a focused decision | gate a plan before execution with feasibility and tradeoff review | adversarially review architecture, migration, boundary changes, and high-risk assumptions |
 | Execution | `executor` | apply scoped mechanical edits | implement normal stories | implement risky, coupled, or migration-heavy changes |
 | Debugging | `debugger` | inspect a known failing command | trace multi-file failures | investigate unknown root causes or nondeterminism |
 | Verification | `verifier` | check commands and outputs | validate acceptance criteria | build release-level confidence from multiple signals |

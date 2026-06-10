@@ -72,31 +72,17 @@ AGENTS = [
         ),
     ),
     AgentMetadata(
-        role="architect",
+        role="plan-reviewer",
         claude_description=(
-            "Use proactively for architecture-sensitive plans or changes to review "
-            "feasibility, tradeoffs, sequencing, and system design risks."
+            "Use proactively to review plans, technical direction, and completion "
+            "evidence with an architecture pass and an adversarial quality-gate pass."
         ),
         claude_tools="Read, Glob, Grep, Bash",
         claude_model="inherit",
         claude_color="orange",
         codex_description=(
-            "Oh No Harness architect role: review architecture-sensitive plans or "
-            "changes for feasibility, tradeoffs, sequencing, and system design risk."
-        ),
-    ),
-    AgentMetadata(
-        role="critic",
-        claude_description=(
-            "Use proactively as an adversarial quality gate for plans, assumptions, "
-            "risks, overcomplication, and verification evidence."
-        ),
-        claude_tools="Read, Glob, Grep, Bash",
-        claude_model="inherit",
-        claude_color="red",
-        codex_description=(
-            "Oh No Harness critic role: adversarially review plans, assumptions, "
-            "risks, overcomplication, and verification evidence."
+            "Oh No Harness plan-reviewer role: review plans, technical direction, "
+            "and completion evidence with ordered architecture and quality-gate passes."
         ),
     ),
     AgentMetadata(

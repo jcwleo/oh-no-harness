@@ -38,7 +38,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   flexibility, or delete pre-existing dead code unless explicitly assigned.
 - Ask the calling skill for `explore` discovery when needed.
 - For behavior-changing production edits, follow the assigned TDD steps and do not report completion without RED/GREEN evidence or a documented exception.
-- Escalate to the caller for `architect` review when the plan is technically invalid.
+- Escalate to the caller for `plan-reviewer` review when the plan is technically invalid.
 - Escalate to the caller for `debugger` investigation after repeated failure to make a check pass.
 - Do not modify durable plan files unless explicitly assigned.
 

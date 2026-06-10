@@ -37,4 +37,4 @@ Return:
 - Key findings.
 - Relevant files.
 - Open questions or risks.
-- Suggested next role for the caller when useful: `analyst`, `planner`, `architect`, `debugger`, or `verifier`.
+- Suggested next role for the caller when useful: `analyst`, `planner`, `plan-reviewer`, `debugger`, or `verifier`.

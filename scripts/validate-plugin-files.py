@@ -33,8 +33,7 @@ AGENTS = [
     "explore",
     "analyst",
     "planner",
-    "architect",
-    "critic",
+    "plan-reviewer",
     "executor",
     "debugger",
     "verifier",
@@ -124,7 +123,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "whole eligible batch",
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
-        "Role: {explore|executor|architect|critic|verifier|code-reviewer|security-reviewer|qa-tester}",
+        "Role: {explore|executor|plan-reviewer|verifier|code-reviewer|security-reviewer|qa-tester}",
         "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
         "MUST NOT be used to close a running or pending subagent",
@@ -137,8 +136,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "parallel subagent dispatch plan",
         "active platform wrapper's dispatch policy",
         "Planner Draft Contract",
-        "Architect Review Contract",
-        "Critic Review Contract",
+        "Plan Review Contract",
         "Planner Revision Contract",
     ),
     "autopilot": (
@@ -425,17 +423,13 @@ WORKTREE_AGENT_MARKERS = {
         ".oh-no/worktrees/<task-slug>",
         "plain directories",
     ),
-    "architect": (
+    "plan-reviewer": (
         "Worktree policy",
         "registered project-local Git worktree execution plus merge",
-        ".oh-no/worktrees/<task-slug>",
-        "invalid substitutes",
-    ),
-    "critic": (
-        "Worktree policy",
         "automatic registered Git worktree execution",
         "registered project-local worktree execution and merge responsibility",
         ".oh-no/worktrees/<task-slug>",
+        "invalid substitutes",
     ),
     "executor": (
         "Worktree decision",
@@ -543,12 +537,11 @@ EXECUTION_MODE_SKILL_MARKERS = {
 }
 SKILL_REQUIRED_AGENT_ROLES = {
     "interview": ("explore",),
-    "ralplan": ("explore", "analyst", "planner", "architect", "critic"),
+    "ralplan": ("explore", "analyst", "planner", "plan-reviewer"),
     "ralph": (
         "explore",
         "executor",
-        "architect",
-        "critic",
+        "plan-reviewer",
         "verifier",
         "code-reviewer",
         "security-reviewer",
@@ -558,8 +551,7 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "explore",
         "analyst",
         "planner",
-        "architect",
-        "critic",
+        "plan-reviewer",
         "executor",
         "debugger",
         "verifier",
@@ -572,7 +564,7 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "explore",
         "executor",
         "verifier",
-        "architect",
+        "plan-reviewer",
         "code-reviewer",
         "security-reviewer",
         "qa-tester",
@@ -600,13 +592,10 @@ EXECUTION_MODE_AGENT_MARKERS = {
         "verification budget",
         "diff-budget",
     ),
-    "architect": (
+    "plan-reviewer": (
         "Ralph execution profile",
         "too light, too heavy",
-    ),
-    "critic": (
         "execution profile recap",
-        "too light",
         "Risk Check Before Completion",
         "acceptance criteria",
         "diff-budget scope review",
@@ -705,10 +694,8 @@ SIMPLICITY_SCOPE_AGENT_MARKERS = {
         "smallest approach",
         "Rejected speculative complexity",
     ),
-    "architect": (
+    "plan-reviewer": (
         "Simplest sufficient approach assessment",
-    ),
-    "critic": (
         "speculative abstraction",
         "untraceable changes",
         "senior-engineer overcomplication check",
@@ -736,13 +723,10 @@ ACCEPTANCE_CRITERIA_AGENT_MARKERS = {
         "insufficient proofs",
         "validation-check",
     ),
-    "architect": (
+    "plan-reviewer": (
         "acceptance criteria coverage",
         "internal shortcut",
         "validation-check",
-    ),
-    "critic": (
-        "acceptance criteria",
         "convenient signal",
         "claims without user approval",
         "Validation check",
@@ -753,11 +737,9 @@ VALIDATION_CHECK_AGENT_MARKERS = {
         "docs/shared/validation-check.md",
         "case-specific result",
     ),
-    "architect": (
+    "plan-reviewer": (
         "validation coverage",
         "justified only by metric movement",
-    ),
-    "critic": (
         "Validation check",
         "metric movement as the acceptance criteria",
     ),
@@ -783,38 +765,40 @@ SAFETY_REVIEW_AGENT_MARKERS = {
     ),
 }
 APPROVED_DIRECTION_AGENT_MARKERS = {
-    "architect": (
+    "plan-reviewer": (
         "approved interview spec",
-        "user-approved plan direction",
-        "Direction-preservation concerns",
-        "silently replace it with your own direction",
-    ),
-    "critic": (
-        "interview spec",
         "user-approved plan direction",
         "Direction-preservation findings",
         "do not replace it with your own direction",
     ),
 }
 RALPLAN_CONSENSUS_MARKERS = (
-    "## Consensus Order Gate",
     "## Direction Preservation Gate",
     "## Test Case Design Quality",
     "## Acceptance Criteria Contract",
     "Ralplan has no basic planning mode",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
-    "## Architect Review Contract",
-    "## Critic Review Contract",
+    "## Plan Review Contract",
     "## Planner Revision Contract",
+    "## Re-Review Rules",
+    "## Findings Ledger Gate",
     "Planner draft v1",
-    "Architect review v1",
-    "Critic review v1",
+    "Plan review v1",
     "Planner revision v2",
-    "Analyst -> Planner -> Architect -> Critic",
+    "Plan review v2",
+    "Analyst -> Planner -> Plan-Reviewer",
+    "APPROVE | ITERATE | REJECT",
+    "blocking | non-blocking",
+    "Findings ledger:",
+    "Re-review scope: delta | full",
+    "Re-review: not required (no blocking findings)",
+    "Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).",
     "The plan is invalid if it contains only Planner output",
-    "The plan is invalid if Architect or Critic only add comments",
-    "consensus loop log showing Analyst -> Planner -> Architect -> Critic in order",
+    "if Plan-Reviewer is skipped",
+    "accepted feedback is logged but not reflected in the final plan body",
+    "lacks a plan-section pointer",
+    "consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order",
     "requested direction change",
     "do not incorporate the new direction into the plan unless the user explicitly",
     "must-fail-before-implementation",
@@ -822,8 +806,6 @@ RALPLAN_CONSENSUS_MARKERS = (
     "negative or forbidden-behavior case",
     "edge, boundary, or regression case",
     "only check marker strings",
-    "Acceptance criteria coverage",
-    "Acceptance criteria mismatch",
 )
 RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
     "`oh-no-harness:ralph` with `parallel subagents`",
@@ -836,27 +818,22 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
         "Planner Draft Contract",
         "Planner Revision Contract",
-        "Feedback disposition",
+        "Feedback disposition for every Plan-Reviewer finding",
         "Accepted feedback must be reflected in the plan body",
         "smallest meaningful test set",
         "must-fail before implementation",
         "acceptance criteria alignment",
     ),
-    "architect": (
+    "plan-reviewer": (
+        "Plan Review Contract",
         "Reviewed draft:",
         "must not produce a replacement plan",
-        "Required changes",
-        "Architect Review Contract",
-        "Acceptance criteria coverage",
-    ),
-    "critic": (
-        "Architect review consumed",
         "APPROVE | ITERATE | REJECT",
         "reject when accepted feedback is only logged",
-        "Critic Review Contract",
         "AI-slop",
         "would pass against the old broken behavior",
-        "Acceptance criteria mismatch",
+        "Architecture findings",
+        "Quality-gate findings",
     ),
 }
 TDD_SKILL_DESCRIPTION_MARKERS = (

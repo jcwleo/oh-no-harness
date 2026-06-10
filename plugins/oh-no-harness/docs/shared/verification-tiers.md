@@ -82,7 +82,7 @@ Required evidence:
 
 Recommended agents:
 
-- `architect` for design, sequencing, and migration risk.
+- `plan-reviewer` for design, sequencing, and migration risk.
 - `security-reviewer` when auth, data, network, file system, policy, or secret handling can be affected.
 - `code-reviewer` for broad regression review.
 - `qa-tester` for user-facing workflows.

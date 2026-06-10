@@ -56,9 +56,10 @@ Autopilot normally reaches most roles by reading and following `interview`,
 Dispatch each phase's listed agents as separate subagents on subagent-capable
 platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
 Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
-active platform wrapper. For the `ralplan` phase, Planner, Architect, and Critic
+active platform wrapper. For the `ralplan` phase, Planner and Plan-Reviewer
 are sequential but must still run as separate subagents when the active host
-supports dispatch so each role keeps independent context. Explicit user or plan wording is sufficient when the host
+supports dispatch so each role keeps independent context. Plan-Reviewer runs as
+a single review dispatch; re-review only when blocking findings require it. Explicit user or plan wording is sufficient when the host
 permits dispatch; natural dispatch is allowed when the active skill permits it
 and the host tool definition allows it. The phase boundaries below still hold
 either way.
@@ -76,10 +77,10 @@ fallback reasons, and lifecycle cleanup requirements.
 | Phase | Agents |
 |---|---|
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
-| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `architect` -> `critic` in that order. Architect always completes before Critic. The plan must set the Ralph execution profile and include the four role outputs or inline role blocks. |
+| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger`, `verifier`, and `qa-tester`; use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `architect`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
+| Final Validation | Dispatch `plan-reviewer`, `code-reviewer`, `security-reviewer`, and `qa-tester` when risk requires; finish through `verification-before-completion`. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -175,7 +176,7 @@ Repeat until checks pass or a blocking reason is documented.
 
 Dispatch the appropriate review subagents for the risk:
 
-- `architect` for architecture-sensitive changes
+- `plan-reviewer` for architecture-sensitive changes
 - `code-reviewer` for correctness and maintainability
 - `security-reviewer` for security-sensitive behavior
 - `qa-tester` for user-facing behavior

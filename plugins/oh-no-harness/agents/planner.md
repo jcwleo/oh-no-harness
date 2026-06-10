@@ -27,7 +27,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   a case-specific result.
 - When called by `ralplan`, own the Planner Draft Contract and Planner Revision Contract: create `Planner draft v1`, revise into `Planner revision vN`, and
   keep the plan body as the source of truth.
-- Record Feedback disposition for every Architect and Critic finding: accepted,
+- Record Feedback disposition for every Plan-Reviewer finding: accepted,
   rejected with reason, deferred with reason, blocking, or requested direction
   change.
 - Accepted feedback must be reflected in the plan body, not only listed in a
@@ -72,9 +72,10 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   broad snapshots, implementation details, or mocks that bypass the behavior
   being tested.
 - Mark plans as pending approval unless the user has explicitly approved execution.
-- Do not treat Architect or Critic output as comments to append. Incorporate
+- Do not treat Plan-Reviewer output as comments to append. Incorporate
   accepted feedback into the draft body and return the revised draft for another
-  Architect and Critic pass when the calling skill requires it.
+  Plan-Reviewer pass when the calling skill requires it (when blocking findings
+  exist).
 - Use `Write` only to create or update files under `.oh-no/plans/`. Escalate any other write to the calling skill.
 
 ## Output
@@ -98,4 +99,4 @@ Return:
 - Story risk check.
 - Verification budget and diff-budget expectations.
 - Approval status.
-- Recommended next role or skill for the caller: `architect`, `critic`, `ralph`, or `autopilot`.
+- Recommended next role or skill for the caller: `plan-reviewer`, `ralph`, or `autopilot`.

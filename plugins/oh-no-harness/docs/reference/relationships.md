@@ -67,8 +67,7 @@ ralplan
   -> explore when codebase context is needed
   -> analyst for hidden requirements, risks, and constraints
   -> planner
-  -> architect
-  -> critic
+  -> plan-reviewer
   -> ralph or autopilot after approval
 
 ralph
@@ -81,8 +80,7 @@ ralph
   -> test-driven-development before behavior-changing production edits
   -> systematic-debugging for failing checks, regressions, or unexpected behavior
   -> executor
-  -> architect for architecture-sensitive or broad completion review
-  -> critic for optional adversarial review
+  -> plan-reviewer for architecture-sensitive completion review and optional adversarial or overcomplication review
   -> verifier
   -> code-reviewer
   -> security-reviewer when risk requires
@@ -99,7 +97,7 @@ autopilot
   -> verification-before-completion before the final report
   -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
   -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
-  -> explore / analyst / planner / architect / critic / executor when phases are handled inline
+  -> explore / analyst / planner / plan-reviewer / executor when phases are handled inline
   -> inline QA loop with debugger, verifier, qa-tester, code-reviewer, security-reviewer
 
 test-driven-development
@@ -149,13 +147,12 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
-| `explore` | `interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `architect`, `debugger`, `verifier` |
-| `analyst` | `ralplan`, `autopilot` | `interview`, `ralplan`, `planner`, `architect`, `critic` |
-| `planner` | `ralplan` | `explore`, `analyst`, `architect`, `critic` |
-| `architect` | `ralplan`, `ralph`, `autopilot` | `critic`, `qa-tester`, `verifier` |
-| `critic` | `ralplan`, optional Ralph review, review gates | `planner`, `analyst`, `architect`, `executor`, `security-reviewer` |
-| `executor` | `ralph`, implementation phases | `explore`, `architect`, `debugger`, `verifier` |
-| `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `architect`, `executor`, `verifier` |
+| `explore` | `interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `plan-reviewer`, `debugger`, `verifier` |
+| `analyst` | `ralplan`, `autopilot` | `interview`, `ralplan`, `planner`, `plan-reviewer` |
+| `planner` | `ralplan` | `explore`, `analyst`, `plan-reviewer` |
+| `plan-reviewer` | `ralplan`, `ralph` completion review, `autopilot` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `qa-tester`, `security-reviewer` |
+| `executor` | `ralph`, implementation phases | `explore`, `plan-reviewer`, `debugger`, `verifier` |
+| `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
 | `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, final evidence | `code-reviewer`, `security-reviewer`, `qa-tester` |
 | `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation | `verifier`, `security-reviewer`, `simplify` recommendation |
 | `security-reviewer` | security-sensitive validation | `verifier`, `code-reviewer` |

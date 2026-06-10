@@ -164,8 +164,6 @@ Do not parallelize when:
 - one behavior's TDD RED/GREEN order would be split across agents
 - file ownership is unclear
 - an implementer is still fixing unresolved reviewer findings
-- `architect` and `critic` would review the same plan or completion evidence;
-  run `architect` first and `critic` second
 
 ## Integration
 

@@ -112,9 +112,10 @@ For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 Do not require a separate `ralph with parallel subagents` option when the plan
 already lists eligible isolated roles.
 
-For `ralplan`, Planner, Architect, and Critic must run as sequential subagents
-whenever dispatch is available because independent context improves planning,
-review, and critique. Architect waits for Planner. Critic waits for Architect.
+For `ralplan`, Planner and Plan-Reviewer must run as sequential subagents
+whenever dispatch is available because independent context improves planning
+and review. Plan-Reviewer waits for the Planner draft, and a re-review dispatch
+happens only when blocking findings require a Planner revision.
 
 After `wait_agent` returns a final status for any Codex-dispatched role,
 capture the output and any changed-file set before cleanup. A timeout, empty

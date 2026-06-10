@@ -47,8 +47,7 @@ AGENTS=(
   explore
   analyst
   planner
-  architect
-  critic
+  plan-reviewer
   executor
   debugger
   verifier
@@ -1018,7 +1017,7 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Architect -> Critic ordering rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the 2-loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the conditional re-review rule stating that only blocking findings trigger a re-review, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
@@ -1060,7 +1059,7 @@ expected = {
         "Goal Restatement Gate",
     ],
     "ralplan": [
-        "five complete",
+        "2 loops",
         "pending approval",
         "Overall Ralph mode",
         "Task sizing",
@@ -1093,7 +1092,7 @@ expected = {
     ],
     "autopilot": [
         ".oh-no/specs/interview-{slug}.md",
-        "five complete",
+        "2 loops",
         ".oh-no/worktrees/<task-slug>",
         "auto",
         "approval",
@@ -1157,36 +1156,40 @@ if skill == "interview" and not (
 if skill == "ralplan" and not (
     "analyst" in text_lower
     and "planner" in text_lower
-    and "architect" in text_lower
-    and "critic" in text_lower
+    and "plan-reviewer" in text_lower
     and (
-        "analyst -> planner -> architect -> critic" in text_lower
-        or "analyst, planner, architect, critic" in text_lower
-        or "analyst, planner, architect, and critic" in text_lower
+        "analyst -> planner -> plan-reviewer" in text_lower
+        or "analyst, planner, plan-reviewer" in text_lower
+        or "analyst, planner, and plan-reviewer" in text_lower
         or (
-            terms_appear_in_order("analyst", "planner", "architect", "critic")
+            terms_appear_in_order("analyst", "planner", "plan-reviewer")
             and ("first" in text_lower or "then" in text_lower or "sequential" in text_lower)
         )
         or (
             "analyst first" in text_lower
             and "planner second" in text_lower
-            and "architect third" in text_lower
-            and "critic fourth" in text_lower
+            and "plan-reviewer third" in text_lower
         )
     )
 ):
     raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
 
 if skill == "ralplan" and not (
-    ("architect" in text_lower and "critic" in text_lower)
+    ("planner" in text_lower and "plan-reviewer" in text_lower)
     and (
         "sequential" in text_lower
-        or "only after architect" in text_lower
-        or "architect first" in text_lower
+        or "only after planner" in text_lower
+        or "only after the planner draft" in text_lower
+        or "planner before plan-reviewer" in text_lower
         or "never run them in parallel" in text_lower
     )
 ):
-    raise SystemExit(f"{skill} deep smoke missing Architect/Critic ordering marker; got {text!r}")
+    raise SystemExit(f"{skill} deep smoke missing Planner/Plan-Reviewer single-dispatch ordering marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "blocking" in text_lower and "re-review" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing blocking-findings re-review marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [
@@ -1545,7 +1548,7 @@ run_natural_session_start_live_tests() {
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
     log "Skipping live Claude ralplan sequential-subagent smoke test"
-    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Architect -> Critic sequential agent review.\n' >&2
+    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Plan-Reviewer sequential agent review.\n' >&2
     return
   fi
 
@@ -1553,7 +1556,7 @@ run_ralplan_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except oh-no-harness:planner, oh-no-harness:architect, and oh-no-harness:critic. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly three times in this strict order: oh-no-harness:planner, wait until that task completes before starting architect; oh-no-harness:architect, wait until that task completes before starting critic; oh-no-harness:critic, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Architect expected output: only a short section titled Architect review v1 with Reviewed draft: Planner draft v1, Verdict: approve, Required changes: none. Critic expected output: only a short section titled Critic review v1 with Reviewed draft: Planner draft v1, Architect review consumed: yes, Verdict: APPROVE. The architect subagent must receive the actual Planner draft v1 text. The critic subagent must receive the actual Planner draft v1 and Architect review v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After all three subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> architect -> critic, Waited between roles: yes, Reviews chained: Planner draft v1 -> Architect review v1 -> Critic review v1."
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, security-reviewer, qa-tester, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none, Quality-gate findings: none, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1583,16 +1586,14 @@ import sys
 from collections import defaultdict
 
 path = sys.argv[1]
-expected_roles = ["planner", "architect", "critic"]
+expected_roles = ["planner", "plan-reviewer"]
 expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
 dependency_prompt_markers = {
-    "architect": ["Planner draft v1"],
-    "critic": ["Planner draft v1", "Architect review v1"],
+    "plan-reviewer": ["Planner draft v1"],
 }
 output_markers = {
     "planner": ["Planner draft v1"],
-    "architect": ["Architect review v1", "Reviewed draft", "Planner draft v1"],
-    "critic": ["Critic review v1", "Architect review consumed"],
+    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "Quality-gate findings"],
 }
 
 def collect_text(value):
@@ -1718,8 +1719,7 @@ if not tool_uses and workflow_scripts:
         )
     workflow_required_script_markers = [
         "Planner draft v1",
-        "Architect review v1",
-        "Critic review v1",
+        "Plan review v1",
     ]
     workflow_missing_script_markers = [
         marker for marker in workflow_required_script_markers
@@ -1731,11 +1731,9 @@ if not tool_uses and workflow_scripts:
             f"{workflow_missing_script_markers}"
         )
     if workflow_script.count("await agent") < len(expected_roles):
-        raise SystemExit("Claude ralplan Workflow did not await three planning agent calls")
+        raise SystemExit("Claude ralplan Workflow did not await two planning agent calls")
     if not re.search(r"\$\{[^}]*planner[^}]*\}", workflow_script, re.IGNORECASE):
-        raise SystemExit("Claude ralplan Workflow architect/critic prompt did not include planner output")
-    if not re.search(r"\$\{[^}]*architect[^}]*\}", workflow_script, re.IGNORECASE):
-        raise SystemExit("Claude ralplan Workflow critic prompt did not include architect output")
+        raise SystemExit("Claude ralplan Workflow plan-reviewer prompt did not include planner output")
     if not workflow_completed:
         raise SystemExit("Claude ralplan Workflow agent() task did not report completion")
     workflow_evidence = "\n".join(workflow_evidence_parts)
@@ -1755,7 +1753,7 @@ if not tool_uses and workflow_scripts:
     sys.exit(0)
 
 if len(tool_uses) != len(expected_roles):
-    raise SystemExit(f"expected exactly three planning task uses, got {len(tool_uses)}: {tool_uses!r}")
+    raise SystemExit(f"expected exactly two planning task uses, got {len(tool_uses)}: {tool_uses!r}")
 
 actual_order = [role for _, role, _ in tool_uses]
 if actual_order != expected_roles:
@@ -1817,7 +1815,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:architect, oh-no-harness:critic, oh-no-harness:executor. Wave 3: oh-no-harness:debugger, oh-no-harness:verifier, oh-no-harness:code-reviewer. Wave 4: oh-no-harness:security-reviewer, oh-no-harness:qa-tester. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eleven subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the eleven role checks plus lifecycle close or cleanup status."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:security-reviewer. Wave 4: oh-no-harness:qa-tester. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all ten subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the ten role checks plus lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1850,8 +1848,7 @@ expected_roles = [
     "explore",
     "analyst",
     "planner",
-    "architect",
-    "critic",
+    "plan-reviewer",
     "executor",
     "debugger",
     "verifier",

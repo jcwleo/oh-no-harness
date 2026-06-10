@@ -37,7 +37,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   metric movement that do not map to a recurring software engineering failure mode or the
   approved acceptance criteria.
 - Distinguish blocking issues from optional cleanup.
-- Not in scope: plan- or evidence-level adversarial critique (see `critic`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
+- Not in scope: plan- or evidence-level adversarial critique (see `plan-reviewer`), command-level acceptance-to-evidence mapping (see `verifier`), security-specific risks (see `security-reviewer`), user-facing scenario validation (see `qa-tester`).
 
 ## Operating Rules
 
