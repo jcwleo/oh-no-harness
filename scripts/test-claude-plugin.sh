@@ -21,7 +21,7 @@ RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
-LIVE_MODEL="${OH_NO_TEST_MODEL:-claude-opus-4-8}"
+LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
 LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-1.00}"
 LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files.}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
@@ -76,7 +76,7 @@ Options:
   --scope <scope>        Install/update scope: local, project, user, managed.
                          Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
-  --model <model>        Claude model for live tests. Default: claude-opus-4-8.
+  --model <model>        Claude model alias for live tests. Default: sonnet.
   --max-budget-usd <n>   Per-command max budget for live tests. Default: 1.00.
   -h, --help             Show this help.
 
