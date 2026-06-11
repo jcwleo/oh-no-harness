@@ -7,17 +7,28 @@
 #      tag already exists locally or on origin.
 #   3. Rewrites the version field in the nested plugin manifests under
 #      plugins/oh-no-harness (no-op if already correct).
-#   4. Checks generated agent wrappers, then runs scripts/validate-plugin-files.py
-#      and the local Claude Code and Codex install/update test scripts. Live
-#      model smoke is skipped.
-#   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
-#      then an annotated tag `v{X.Y.Z}` on the same commit.
-#   6. With --push: pushes main and the tag to origin, then publishes a
-#      GitHub Release via gh CLI if available. 0.x releases are prereleases;
+#   4. Checks generated agent wrappers, then runs scripts/validate-plugin-files.py.
+#   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed.
+#   6. With --push: pushes main to origin BEFORE the install tests, because the
+#      registered Claude marketplace syncs from GitHub and can only deliver
+#      content that is already on origin/main.
+#   7. Runs the local Codex install test, then the Claude install test only
+#      when HEAD matches origin's main (verified live via ls-remote). In
+#      --push mode a mismatch after the push is treated as a test failure,
+#      never a skip; in no-push mode the Claude test is skipped with an
+#      explanation when local content is not on origin yet. Live model
+#      smoke is skipped.
+#   8. Creates an annotated tag `v{X.Y.Z}` on the release commit.
+#   9. With --push: pushes the tag to origin, then publishes a GitHub
+#      Release via gh CLI if available. 0.x releases are prereleases;
 #      1.x and later are stable releases. Release notes are built from
 #      `git log <prev-tag>..<new-tag>`, grouped by conventional-commit
 #      prefix (Features / Fixes / Documentation / Other), with the standard
 #      "Full Changelog" compare link appended.
+#
+# Reruns are idempotent: after a failed --push test phase, rerunning
+# `scripts/release X.Y.Z --push` no-ops the version commit and main push,
+# reruns the tests, and then tags and publishes.
 #
 # Usage:
 #   scripts/release 0.2.1
@@ -39,10 +50,13 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/release <version|vversion> [--push] [--skip-tests]
 
-Updates plugin version files, runs validators and local install tests, then
-creates a release commit and annotated tag. With --push, pushes main and the
-tag to origin and publishes a GitHub Release via gh CLI. 0.x releases are
-marked prerelease; 1.x and later are stable releases.
+Updates plugin version files, runs validators, and creates the release commit.
+With --push, pushes main to origin before the install tests (the Claude
+marketplace syncs from GitHub, so the tests need the release content on
+origin/main), then tags, pushes the tag, and publishes a GitHub Release via
+gh CLI. Without --push, the Claude install test is skipped unless HEAD already
+matches origin's main. 0.x releases are marked prerelease; 1.x and later are
+stable releases.
 
 Examples:
   scripts/release v0.2.1
@@ -59,6 +73,15 @@ fail() {
 run() {
   printf '+ %s\n' "$*"
   "$@"
+}
+
+# The Claude install test verifies the GitHub-synced marketplace clone, so it
+# can only pass when local HEAD matches the main branch on origin. Uses
+# ls-remote so the answer is live, not dependent on a fresh fetch.
+remote_main_matches_head() {
+  local remote_sha
+  remote_sha="$(git ls-remote origin refs/heads/main 2>/dev/null | cut -f1)"
+  [ -n "$remote_sha" ] && [ "$remote_sha" = "$(git rev-parse HEAD)" ]
 }
 
 # Build Markdown release notes from commits between the previous tag and the
@@ -198,19 +221,43 @@ PY
 run "$PYTHON_BIN" scripts/generate-agent-wrappers.py --plugin-root "$PLUGIN_ROOT" --check
 run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
 
-if [ "$skip_tests" = "true" ]; then
-  printf 'release: skipping local install tests (--skip-tests)\n'
-else
-  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-claude-plugin.sh
-  codex_test_home="$(mktemp -d)"
-  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh --codex-home "$codex_test_home"
-fi
-
 if git diff --quiet -- plugins/oh-no-harness; then
   printf 'release: version files already at %s; no release commit needed\n' "$tag"
 else
   run git add plugins/oh-no-harness
   run git commit -m "chore: release ${tag}"
+fi
+
+if [ "$push" = "true" ]; then
+  run git push origin main
+fi
+
+if [ "$skip_tests" = "true" ]; then
+  printf 'release: skipping local install tests (--skip-tests)\n'
+else
+  tests_failed="false"
+  codex_test_home="$(mktemp -d)"
+  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-codex-plugin.sh --codex-home "$codex_test_home" \
+    || tests_failed="true"
+  if [ "$tests_failed" = "false" ]; then
+    if remote_main_matches_head; then
+      OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" run scripts/test-claude-plugin.sh \
+        || tests_failed="true"
+    elif [ "$push" = "true" ]; then
+      printf 'release: HEAD does not match main on origin even though main was just pushed (origin unreachable or main moved concurrently); refusing to skip the Claude install test.\n' >&2
+      tests_failed="true"
+    else
+      printf 'release: skipping Claude install test: HEAD does not match main on origin (or origin is unreachable).\n'
+      printf 'release: the Claude install test verifies the GitHub-synced marketplace and cannot pass against unpushed content; this version will not get that check unless you delete the local tag and rerun with --push.\n'
+    fi
+  fi
+  if [ "$tests_failed" = "true" ]; then
+    if [ "$push" = "true" ]; then
+      printf 'release: install tests failed after main was pushed; no tag or GitHub Release was created.\n' >&2
+      printf 'release: after fixing, rerun `scripts/release %s --push` to resume idempotently (version commit no-op, main push no-op, tests, tag, release).\n' "$version" >&2
+    fi
+    fail "install tests failed; tag $tag was not created"
+  fi
 fi
 
 run git tag -a "$tag" -m "$tag"
@@ -220,7 +267,6 @@ trap 'rm -f "$notes_file"' EXIT
 build_release_notes "$tag" >"$notes_file"
 
 if [ "$push" = "true" ]; then
-  run git push origin main
   run git push origin "$tag"
   if command -v gh >/dev/null 2>&1; then
     gh_release_cmd=(gh release create "$tag" --title "$tag" --notes-file "$notes_file")
@@ -229,7 +275,11 @@ if [ "$push" = "true" ]; then
     else
       gh_release_cmd+=(--latest)
     fi
-    run "${gh_release_cmd[@]}"
+    if ! run "${gh_release_cmd[@]}"; then
+      printf 'release: tag %s was pushed but the GitHub Release was not created; publish manually with:\n' "$tag" >&2
+      printf '  gh release create %s --title %s %s --notes-file <notes>\n' "$tag" "$tag" "$( [ "$major" = "0" ] && printf -- '--prerelease' || printf -- '--latest')" >&2
+      exit 1
+    fi
   else
     release_kind_flag="--latest"
     [ "$major" = "0" ] && release_kind_flag="--prerelease"
