@@ -41,3 +41,9 @@ Return:
 - Risks and constraints.
 - Suggested next role for the caller (agent): `planner` or `plan-reviewer`.
 - Suggested next skill (when requirements or planning escalation is needed): `interview` or `ralplan`.
+
+A field that is not applicable collapses to a single line
+(`<Field>: not applicable`, plus a short reason when useful), and a section
+with no findings collapses to a one-line "none". Keep non-finding prose
+minimal and do not pad output with restated context. Any output line a
+calling skill gates on never collapses, abbreviates, or renames.

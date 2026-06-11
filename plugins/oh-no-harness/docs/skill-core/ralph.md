@@ -115,7 +115,7 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 
 | Agent | Use |
 |---|---|
-| `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. |
+| `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
 | `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. |
 | `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. |
@@ -275,7 +275,7 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
    "parallel Ralph" wording is needed.
 3. Resolve the `## Worktree Isolation Gate` before editing. Record the `Worktree decision`, preserve approved artifact access when moving to a worktree, and stop if the decision is missing or blocked.
 4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
-5. Use `explore` when files, tests, or integration surfaces are not obvious. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
+5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
 8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual

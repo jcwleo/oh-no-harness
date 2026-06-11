@@ -27,19 +27,28 @@ replacing implementation review.
 
 ## Agent Roles
 
-This skill requires four cleanup role passes. Always launch the Reuse,
-Simplification, Efficiency, and Altitude review passes as independent
-subagents in parallel through the active platform's approved subagent or task
-mechanism when dispatch is available. Do not collapse this into a single
-undifferentiated review; the separated viewpoints are part of the skill's value.
+This skill's cleanup review is gated by diff size. A diff is small when it
+touches at most 3 changed files AND at most 100 changed lines AND no
+generated files. When any bound is exceeded, unknown, or uncertain, default
+to the four parallel cleanup subagents.
+A diff above the small-diff gate requires four cleanup role passes: launch
+the Reuse, Simplification, Efficiency, and Altitude review passes as
+independent subagents in parallel through the active platform's approved
+subagent or task mechanism when dispatch is available. A small diff selects
+one cleanup subagent performing a single pass that still reports all four
+labeled sections: Reuse, Simplification, Efficiency, and Altitude.
+The single pass must not drop or merge the four angles; on either path the
+separated viewpoints are part of the skill's value.
 On Codex, the `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` SessionStart
 context is the standing explicit user request for this cleanup delegation; do
-not ask another approval question merely to launch these four subagents.
-If the active host cannot dispatch subagents, preserve the same four role
-boundaries as separate inline fallback blocks and record the dispatch-unavailable
-reason before continuing. If a cleanup change needs additional independent
-evidence after the fixes, return that need to the caller so `verifier` or
-`code-reviewer` can review the result after the cleanup pass.
+not ask another approval question merely to launch these cleanup subagents.
+If the active host cannot dispatch subagents, record the dispatch-unavailable
+reason before continuing inline: above the gate, preserve the same four role
+boundaries as separate inline fallback blocks; for a small diff, run the
+single pass inline with the same four labeled sections. If a cleanup change
+needs additional independent evidence after the fixes, return that need to
+the caller so `verifier` or `code-reviewer` can review the result after the
+cleanup pass.
 
 ## When To Use
 
@@ -115,9 +124,18 @@ the review scope.
 
 ## Phase 1 - Review
 
-Launch four independent cleanup subagents in parallel, in one batch before
-waiting for any result. Pass each subagent the review diff and assign exactly
-one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
+Apply the small-diff gate to the review diff first: a diff is small when it
+touches at most 3 changed files AND at most 100 changed lines AND no
+generated files. When any bound is exceeded, unknown, or uncertain, default
+to the four parallel cleanup subagents.
+
+For diffs above the small-diff gate, launch four independent cleanup
+subagents in parallel, in one batch before waiting for any result. Pass each
+subagent the review diff and assign exactly
+one angle: Reuse, Simplification, Efficiency, or Altitude. For a small diff,
+launch one cleanup subagent with the review diff and all four angles; its
+single pass must report all four labeled sections (Reuse, Simplification,
+Efficiency, Altitude) and must not drop or merge them. Use the active
 platform's approved mechanism, such as Claude Code's Task tool or Codex
 subagent dispatch when available. For Codex, SessionStart standing authorization
 means this skill may use sub-agents, delegation, and parallel agent work
@@ -125,10 +143,11 @@ proactively for these cleanup roles without per-run approval. The caller owns
 lifecycle: after each cleanup subagent result is captured, close or clean up the
 completed subagent using the active platform mechanism.
 
-Do not degrade these four review angles into one generic inline pass. If
-subagent dispatch is unavailable, run Reuse, Simplification, Efficiency, and
-Altitude as four separate inline fallback blocks with the same assigned scope,
-expected output, and fallback reason.
+If subagent dispatch is unavailable, run the selected path inline: above the
+gate, run Reuse, Simplification, Efficiency, and Altitude as
+four separate inline fallback blocks with the same assigned scope, expected
+output, and fallback reason; for a small diff, run the single pass inline
+with the same four labeled sections and record the fallback reason.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -163,10 +182,12 @@ the reviewed scope.
 
 ## Phase 2 - Apply The Fixes
 
-Wait for all four cleanup subagents to complete. Capture every result, close or
-clean up each completed cleanup subagent, deduplicate findings that point at the
-same line or mechanism, then fix each remaining behavior-preserving cleanup
-directly.
+On the parallel path, wait for all four cleanup subagent results, capture
+every result, and close or clean up each completed cleanup subagent.
+On the small-diff path, capture the single cleanup subagent's result and
+close or clean up that completed subagent. Then deduplicate findings that
+point at the same line or mechanism and fix each remaining
+behavior-preserving cleanup directly.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather

@@ -58,8 +58,8 @@ The Codex Ralph adapter repeats the same best-effort user-scope quiet ensure as
 a fallback before this point. The installed files carry the plugin version
 marker, so stale generated agents can refresh after a plugin update without
 requiring the user to ask for agent installation again. Generated templates
-also pin `gpt-5.5` / `model_reasoning_effort = "xhigh"` so they do not depend
-on inheriting a user-specific model config. If ensure fails, named custom-agent
+also pin `gpt-5.5` and a per-agent `model_reasoning_effort` so they do not
+depend on inheriting a user-specific model config. If ensure fails, named custom-agent
 dispatch remains the default whenever the current host still recognizes
 `agent_type = "oh-no-<role>"`; record the ensure failure and use the generic
 prompt-embedded fallback only after confirmed custom-agent unavailability.

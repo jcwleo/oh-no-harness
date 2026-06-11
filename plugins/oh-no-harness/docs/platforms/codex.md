@@ -177,8 +177,8 @@ The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
 no-skill exploration lane does not rely on prompt text alone for write
 isolation.
 
-The generated templates pin `gpt-5.5` /
-`model_reasoning_effort = "xhigh"` so custom-agent role files do not depend on
+The generated templates pin `gpt-5.5` and a per-agent
+`model_reasoning_effort` so custom-agent role files do not depend on
 inheriting a user-specific model layer.
 
 When the active Codex host recognizes a registered custom agent, `agent_type =

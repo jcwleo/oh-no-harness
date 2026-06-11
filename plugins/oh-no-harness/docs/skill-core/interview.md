@@ -83,7 +83,10 @@ When repository facts are needed, dispatch `explore` on subagent-capable hosts
 so exploratory output stays outside the main interview thread. Use inline
 exploration only when dispatch is unavailable or the lookup is too small to
 benefit from context separation. The role prompt, not the display name alone,
-defines the agent's behavior.
+defines the agent's behavior. When brownfield exploration spans independent
+subsystems or independent fact-finding questions, dispatch one or more
+`explore` subagents, one per independent subsystem, as a single batch, and
+synthesize their results before asking the user codebase questions.
 
 On Codex, when SessionStart injects
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the

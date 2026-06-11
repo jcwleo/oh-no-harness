@@ -62,7 +62,8 @@ acceptance criteria.
 
 1. Dispatch `explore` subagent when repository context is needed. Exploration
    may run before the consensus loop, but it does not replace any consensus
-   role.
+   role. When the request spans independent subsystems, dispatch one `explore`
+   subagent per subsystem in one batch instead of a single serial exploration.
 2. Apply `## Requirements Source And Analyst Gate`. If an approved `interview`
    spec already covers the needed requirements, record `Analyst: satisfied by
    approved interview spec`; otherwise complete `analyst` before Planner drafts.
@@ -756,7 +757,7 @@ active platform adapter.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. |
+| `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
 | `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft in two ordered passes: architecture lens (feasibility, fit, sequencing, tradeoffs, strongest antithesis), then quality-gate lens applied to the draft and to its own pass-1 findings. Plan-Reviewer applies the senior-engineer overcomplication check, may block on speculative abstraction, configurability, dependencies, broad refactors not tied to current acceptance criteria, or accepted feedback that is only logged instead of reflected in the plan body, and does not produce a replacement plan. |

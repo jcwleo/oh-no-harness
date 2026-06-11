@@ -81,3 +81,17 @@ Return:
 - Release confidence: user-facing readiness based on scenario evidence, when
   the scenario lens ran.
 - Residual risk.
+
+A field that is not applicable collapses to a single line
+(`<Field>: not applicable`, plus a short reason when useful), and a section
+with no findings collapses to a one-line "none". Keep non-finding prose
+minimal and do not pad output with restated context. Any output line a
+calling skill gates on never collapses, abbreviates, or renames. In
+particular, the status lines consumed by Ralph gates — the acceptance
+criteria, acceptance-to-evidence mapping, risk-check, validation-check, and
+verification/diff-budget status lines plus `TDD evidence status` and
+`Execution mode compliance` — must always appear in full. Appearing in full
+means the line and its label are always emitted; a when-applicable line may
+carry a not-applicable value (for example
+`TDD evidence status: not applicable` with a short reason), but the line
+itself never disappears.

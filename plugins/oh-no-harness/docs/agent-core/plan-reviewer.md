@@ -175,3 +175,14 @@ Return:
 - Verification tier recommendation from `docs/shared/verification-tiers.md`.
 - Evidence required for approval.
 - Required changes for Planner; you must not produce a replacement plan.
+
+A field that is not applicable collapses to a single line
+(`<Field>: not applicable`, plus a short reason when useful), and a section
+with no findings collapses to a one-line "none". Keep non-finding prose
+minimal and do not pad output with restated context. Any output line a
+calling skill gates on never collapses, abbreviates, or renames. In
+particular, the `Reviewed draft: vN` line, the verdict line, and the
+per-finding id, lens, and severity lines must always appear in full: the line
+and its label are always emitted, and a when-applicable line may carry a
+not-applicable value with a short reason, but the line itself never
+disappears.

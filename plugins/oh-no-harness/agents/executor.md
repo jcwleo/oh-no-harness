@@ -54,3 +54,14 @@ Return:
 - TDD evidence or exception.
 - Verification commands and results.
 - Remaining risks.
+
+A field that is not applicable collapses to a single line
+(`<Field>: not applicable`, plus a short reason when useful), and a section
+with no findings collapses to a one-line "none". Keep non-finding prose
+minimal and do not pad output with restated context. Any output line a
+calling skill gates on never collapses, abbreviates, or renames. In
+particular, the `Scope trace summary`, `Execution mode followed`, and
+`Worktree decision followed` lines must always appear in full: the line and
+its label are always emitted, and a when-applicable line may carry a
+not-applicable value with a short reason, but the line itself never
+disappears.
