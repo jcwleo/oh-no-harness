@@ -675,12 +675,40 @@ install_or_update_plugin() {
     fail "managed scope can only update an existing managed install; choose local, project, or user for a new install"
   fi
 
+  # Remote-origin marketplace policy: the registered marketplace must always
+  # point at this repo's published origin URL (GitHub for this project), never
+  # at a local filesystem path. The registered marketplace is a git clone that
+  # `claude plugin marketplace update` syncs from its origin, so a local-path
+  # registration would track uncommitted local state instead of the published
+  # repository. Enforcement is "remote URL, not local path"; it does not pin a
+  # specific host.
+  local origin_url
+  if ! origin_url="$(git -C "$MARKETPLACE_ROOT" remote get-url origin 2>/dev/null)" || [[ -z "$origin_url" ]]; then
+    fail "cannot read origin remote URL for $MARKETPLACE_ROOT; the marketplace must be registered from the repo's published origin URL (remote-origin marketplace policy)"
+  fi
+  case "$origin_url" in
+    https://*|ssh://*|git@*) ;;
+    *)
+      fail "origin remote for $MARKETPLACE_ROOT is '$origin_url', which is not a remote URL (must start with https://, ssh://, or git@); the marketplace must be registered from the repo's published origin URL (remote-origin marketplace policy)"
+      ;;
+  esac
+
   if marketplace_exists; then
-    "$CLAUDE_BIN" plugin marketplace update "$MARKETPLACE_NAME"
-    ok "marketplace updated: ${MARKETPLACE_NAME}"
+    local registered_clone="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/$MARKETPLACE_NAME"
+    local registered_origin=""
+    registered_origin="$(git -C "$registered_clone" remote get-url origin 2>/dev/null || true)"
+    if [[ "$registered_origin" == /* || "$registered_origin" == file://* ]]; then
+      log "Registered marketplace tracks local path '$registered_origin', violating the remote-origin marketplace policy; re-registering from the repo origin"
+      "$CLAUDE_BIN" plugin marketplace remove "$MARKETPLACE_NAME"
+      "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
+      ok "marketplace re-registered from GitHub origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
+    else
+      "$CLAUDE_BIN" plugin marketplace update "$MARKETPLACE_NAME"
+      ok "marketplace updated from its GitHub origin: ${MARKETPLACE_NAME}"
+    fi
   else
-    "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$MARKETPLACE_ROOT"
-    ok "marketplace added: ${MARKETPLACE_NAME} (${target_scope})"
+    "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
+    ok "marketplace added from GitHub origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
   fi
 
   if "$CLAUDE_BIN" plugin list --json \
