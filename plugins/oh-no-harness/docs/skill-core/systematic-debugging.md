@@ -82,6 +82,19 @@ and verification responsibility.
 9. Dispatch warranted post-fix review roles when the changed scope or risk requires them.
 10. Run the reproduction check, relevant regression checks, and `verification-before-completion` before claiming the failure is fixed.
 
+Parallel hypothesis testing for steps 5-6: when reproduction is established and
+two or more plausible root-cause hypotheses are independently testable, dispatch
+one `debugger` subagent per hypothesis (cap 3) in a single batch. Step 5's
+one-hypothesis rule applies per debugger agent: each parallel debugger receives
+exactly one hypothesis and works only that hypothesis, so the single-hypothesis
+discipline is preserved per agent, not relaxed by parallelism. Each parallel
+debugger runs only non-mutating diagnostics in disjoint scopes and returns
+evidence; if diagnostics would mutate state or scopes overlap, keep the
+sequential one-hypothesis flow above. The main thread synthesizes the returned
+evidence, selects the confirmed root cause, and a single `executor` applies the
+fix. Below two hypotheses, or when hypotheses are not independently testable,
+the sequential flow above applies unchanged.
+
 ## Stop Conditions
 
 Stop and ask or escalate to `plan-reviewer` when:

@@ -279,10 +279,7 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
         "## Platform Invocation",
         "docs/shared/ralph-subagent-policy.md",
         "batch dispatch, subagent",
-        "close or clean up the completed subagent",
-        "MUST NOT close or clean up a running or pending subagent",
-        "never use missing output as completion evidence",
-        "lifecycle owner",
+        "Batch dispatch and subagent lifecycle rules, including close/cleanup",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
     ),
@@ -635,22 +632,22 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
 }
 SIMPLIFY_PARALLEL_MARKERS = (
     "requires four cleanup role passes",
-    "Always launch the Reuse",
+    "at most 3 changed files AND at most 100 changed lines AND no generated files",
     "subagents in parallel",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "standing explicit user request",
-    "Do not collapse this into a single",
+    "single pass that still reports all four labeled sections: Reuse, Simplification, Efficiency, and Altitude",
     "separate inline fallback blocks",
     "dispatch-unavailable",
-    "Launch four independent cleanup subagents in parallel",
+    "For diffs above the small-diff gate, launch four independent cleanup subagents in parallel",
     "in one batch before",
-    "Do not degrade these four review angles into one generic inline pass",
+    "When any bound is exceeded, unknown, or uncertain, default to the four parallel cleanup subagents",
     "four separate inline fallback blocks",
-    "Wait for all four cleanup subagents to complete",
+    "wait for all four cleanup subagent results, capture every result, and close or clean up each completed cleanup subagent",
     "clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
-    "prefers four parallel cleanup subagents",
+    "a small diff selects one cleanup subagent reporting four labeled sections; otherwise it requires four parallel cleanup subagents",
     "separate inline fallback blocks",
     "fallback reason",
 )
@@ -1060,17 +1057,17 @@ def assert_skill(root: Path, skill: str) -> None:
     if skill == "simplify":
         body = read_text(path)
         for marker in SIMPLIFY_PARALLEL_MARKERS:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Simplify-Parallel marker: {marker!r}")
         for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
             wrapper_path = root / wrapper_root / skill / "SKILL.md"
             wrapper_body = read_text(wrapper_path)
             for marker in SIMPLIFY_WRAPPER_MARKERS:
-                if marker not in wrapper_body:
+                if not has_required_marker(wrapper_body, marker):
                     die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
             if wrapper_root == CODEX_SKILL_ROOT:
                 for marker in SIMPLIFY_CODEX_WRAPPER_MARKERS:
-                    if marker not in wrapper_body:
+                    if not has_required_marker(wrapper_body, marker):
                         die(f"{wrapper_path} is missing required Codex Simplify-Wrapper marker: {marker!r}")
     if skill in CODEX_STANDING_WRAPPER_MARKERS:
         wrapper_path = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
@@ -1238,10 +1235,11 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         die(f"{path} name={data['name']!r}, expected 'oh-no-{agent}'")
     if data["model"] != "gpt-5.5":
         die(f"{path} model={data['model']!r}, expected 'gpt-5.5'")
-    if data["model_reasoning_effort"] != "xhigh":
+    expected_reasoning_effort = "medium" if agent == "explore" else "xhigh"
+    if data["model_reasoning_effort"] != expected_reasoning_effort:
         die(
             f"{path} model_reasoning_effort={data['model_reasoning_effort']!r}, "
-            "expected 'xhigh'"
+            f"expected {expected_reasoning_effort!r}"
         )
     sandbox_mode = data.get("sandbox_mode")
     if agent == "explore":
@@ -1265,7 +1263,7 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         f'name = "oh-no-{agent}"',
         'description = "Oh No Harness',
         'model = "gpt-5.5"',
-        'model_reasoning_effort = "xhigh"',
+        f'model_reasoning_effort = "{expected_reasoning_effort}"',
         'developer_instructions = """',
         "Generated from docs/agent-core; do not edit by hand.",
         "python3 scripts/generate-agent-wrappers.py --write",

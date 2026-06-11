@@ -15,9 +15,14 @@ Follow this order:
 3. Preserve the core skill's artifact paths, approval gates, role boundaries,
    worktree rules, TDD rules, verification rules, and output contract.
 4. Use only the invocation syntax authorized by the active Codex host.
-5. This skill prefers four parallel cleanup subagents. If Codex subagent
-   dispatch is unavailable, preserve the same four cleanup role boundaries as
-   separate inline fallback blocks and record the fallback reason.
+5. This skill's cleanup review is gated by diff size: a small diff selects
+   one cleanup subagent reporting four labeled sections; otherwise it
+   requires four parallel cleanup subagents.
+   The four labeled sections are Reuse, Simplification, Efficiency, and
+   Altitude. If Codex subagent dispatch is unavailable, record the fallback
+   reason; above the gate, preserve the same four cleanup role boundaries as
+   separate inline fallback blocks, while a small diff falls back to a single
+   inline pass that still reports the four labeled sections.
 6. When the Codex SessionStart context includes the Oh No Harness standing
    subagent authorization, treat it as the explicit user request for this
    skill's Reuse, Simplification, Efficiency, and Altitude subagents. Do not ask

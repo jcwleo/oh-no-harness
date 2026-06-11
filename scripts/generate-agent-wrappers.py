@@ -13,7 +13,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "plugins" / "oh-no-harness"
 
 CODEX_MODEL = "gpt-5.5"
-CODEX_REASONING_EFFORT = "xhigh"
 
 
 @dataclass(frozen=True)
@@ -25,6 +24,7 @@ class AgentMetadata:
     claude_color: str
     codex_description: str
     codex_sandbox_mode: str | None = None
+    codex_reasoning_effort: str = "xhigh"
 
 
 AGENTS = [
@@ -42,6 +42,7 @@ AGENTS = [
             "symbol discovery, dependency tracing, and factual implementation research."
         ),
         codex_sandbox_mode="read-only",
+        codex_reasoning_effort="medium",
     ),
     AgentMetadata(
         role="analyst",
@@ -191,7 +192,7 @@ def render_codex_agent(plugin_root: Path, meta: AgentMetadata) -> str:
         f'name = "oh-no-{meta.role}"\n'
         f'description = "{meta.codex_description}"\n'
         f'model = "{CODEX_MODEL}"\n'
-        f'model_reasoning_effort = "{CODEX_REASONING_EFFORT}"\n'
+        f'model_reasoning_effort = "{meta.codex_reasoning_effort}"\n'
         f"{sandbox_mode}"
         'developer_instructions = """\n'
         f"Agent prompt source: docs/agent-core/{meta.role}.md\n"
