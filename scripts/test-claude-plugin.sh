@@ -694,17 +694,34 @@ install_or_update_plugin() {
   esac
 
   if marketplace_exists; then
-    local registered_clone="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/$MARKETPLACE_NAME"
-    local registered_origin=""
-    registered_origin="$(git -C "$registered_clone" remote get-url origin 2>/dev/null || true)"
-    if [[ "$registered_origin" == /* || "$registered_origin" == file://* ]]; then
-      log "Registered marketplace tracks local path '$registered_origin', violating the remote-origin marketplace policy; re-registering from the repo origin"
+    # The registration record is the source of truth: a "directory"/local-path
+    # registration tracks the working tree instead of the published repo, even
+    # when that working tree's git origin points at GitHub.
+    local registration_violation=""
+    registration_violation="$("$CLAUDE_BIN" plugin marketplace list --json \
+      | "$PYTHON_BIN" -c 'import json, sys
+name = sys.argv[1]
+for item in json.load(sys.stdin):
+    if item.get("name") != name:
+        continue
+    source = str(item.get("source", ""))
+    path = str(item.get("path", "") or item.get("installLocation", ""))
+    if source in ("directory", "local") or source.startswith(("/", "file://")):
+        print(f"source={source} path={path}")
+    elif path.startswith("/") and not path.startswith(sys.argv[2]):
+        # Remote-sourced registrations install under the Claude config dir;
+        # any other absolute path means a local working tree is being tracked.
+        print(f"source={source} path={path}")
+    break
+' "$MARKETPLACE_NAME" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")"
+    if [[ -n "$registration_violation" ]]; then
+      log "Registered marketplace tracks a local directory (${registration_violation}), violating the remote-origin marketplace policy; re-registering from the repo origin"
       "$CLAUDE_BIN" plugin marketplace remove "$MARKETPLACE_NAME"
       "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
-      ok "marketplace re-registered from GitHub origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
+      ok "marketplace re-registered from remote origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
     else
       "$CLAUDE_BIN" plugin marketplace update "$MARKETPLACE_NAME"
-      ok "marketplace updated from its GitHub origin: ${MARKETPLACE_NAME}"
+      ok "marketplace updated from its remote origin: ${MARKETPLACE_NAME}"
     fi
   else
     "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
