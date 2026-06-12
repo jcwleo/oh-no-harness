@@ -44,7 +44,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Include a `Worktree policy` from `docs/shared/worktree-isolation.md`: direct
   Ralph uses `direct-automatic-worktree` as a registered Git worktree under
-  `.oh-no/worktrees/<task-slug>`, Autopilot uses `automatic-worktree-merge` as a
+  `.oh-no/worktrees/<task-slug>`, Ultrawork uses `automatic-worktree-merge` as a
   registered Git worktree under `.oh-no/worktrees/<task-slug>`, and read-only
   work uses `not-applicable`. Do not plan `git clone`, `cp -R`, or
   plain directories as task worktree substitutes.
@@ -89,7 +89,7 @@ Return:
 - Story risk check.
 - Verification budget and diff-budget expectations.
 - Approval status.
-- Recommended next role or skill for the caller: `plan-reviewer`, `ralph`, or `autopilot`.
+- Recommended next role or skill for the caller: `plan-reviewer`, `ralph`, or `ultrawork`.
 
 A field that is not applicable collapses to a single line
 (`<Field>: not applicable`, plus a short reason when useful), and a section

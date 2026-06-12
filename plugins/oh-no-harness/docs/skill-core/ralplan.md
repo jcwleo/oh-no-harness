@@ -102,8 +102,8 @@ acceptance criteria.
 10. Present the plan to the user with the Plan Approval Brief format below.
 11. Mark the plan `pending approval` until the user explicitly approves the plan
    content. Plan content approval does not bypass the Next Skill Handoff unless
-   running under `autopilot`.
-12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `autopilot`.
+   running under `ultrawork`.
+12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `ultrawork`.
 
 Use real role subagents for the consensus roles on subagent-capable hosts.
 Planner and Plan-Reviewer are not decorative labels; the planning quality bar
@@ -544,7 +544,7 @@ Show the user a concise implementation overview, not just the plan path. The bri
   (finding -> severity -> disposition -> section pointer) so every disposition
   is visible at approval time
 - worktree policy, including whether direct Ralph should use automatic task
-  worktree execution or Autopilot should also merge back to the integration
+  worktree execution or Ultrawork should also merge back to the integration
   checkout
 - parallel subagent dispatch plan for the default Ralph handoff, including
   isolated roles/scopes and any fallback reason
@@ -638,7 +638,7 @@ Findings ledger:
 - {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
 
 Worktree policy:
-{Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Autopilot automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
+{Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Ultrawork automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
 
 Verification:
 {commands or evidence plan}
@@ -696,7 +696,7 @@ Approval choices should be:
 ## Next Skill Handoff
 
 <HARD-GATE>
-Do NOT invoke `ralph`, `autopilot`, or any other workflow skill after presenting the plan until the user has explicitly approved the plan AND chosen the next step. Skill chaining in Oh No Harness is approval-gated, not automatic.
+Do NOT invoke `ralph`, `ultrawork`, or any other workflow skill after presenting the plan until the user has explicitly approved the plan AND chosen the next step. Skill chaining in Oh No Harness is approval-gated, not automatic.
 </HARD-GATE>
 
 This handoff has two phases. On platforms with task tracking, create one task
@@ -713,7 +713,7 @@ Ask the user which workflow the host agent should invoke next through the active
 platform's approval mechanism. Use this option shape:
 
 - `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with default eligible parallel subagents, verification, review, cleanup, and final report
-- `oh-no-harness:autopilot` — orchestrate execution, QA, and final validation end-to-end
+- `oh-no-harness:ultrawork` — orchestrate execution, QA, and final validation end-to-end
 - request plan changes — go back and revise the plan
 - stop with the plan pending approval
 
@@ -737,16 +737,16 @@ direct Ralph execution without a ralplan handoff when the host permits
 proactive dispatch and the active skill policy itself authorizes eligible
 isolated roles.
 
-### Autopilot exception
+### Ultrawork exception
 
-If you were invoked from `autopilot`, complete Phase 1 (plan content approval still runs as a content-approval gate), but skip Phase 2's option-list question and return control to autopilot, which will move the workflow to its execute phase.
+If you were invoked from `ultrawork`, complete Phase 1 (plan content approval still runs as a content-approval gate), but skip Phase 2's option-list question and return control to ultrawork, which will move the workflow to its execute phase.
 
 ## Agent Roles
 
 Ralplan uses these roles directly.
 
 This table governs *agent role* dispatch only — workflow-skill chaining
-(`ralph`, `autopilot`) still goes through `## Next Skill Handoff` HARD-GATE. Use
+(`ralph`, `ultrawork`) still goes through `## Next Skill Handoff` HARD-GATE. Use
 the active platform wrapper's dispatch policy. Planner and Plan-Reviewer must
 run as sequential subagents on subagent-capable hosts because they benefit
 from independent context windows. Otherwise run the roles inline while

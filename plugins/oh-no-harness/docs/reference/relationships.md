@@ -59,7 +59,7 @@ interview
   -> docs/shared/execution-modes.md for provisional Ralph sizing
   -> ralplan after approval for consensus planning
   -> ralph after approval for direct execution
-  -> autopilot after approval for end-to-end orchestration
+  -> ultrawork after approval for end-to-end orchestration
 
 ralplan
   -> embedded consensus planning workflow
@@ -68,7 +68,7 @@ ralplan
   -> analyst for hidden requirements, risks, and constraints
   -> planner
   -> plan-reviewer
-  -> ralph or autopilot after approval
+  -> ralph or ultrawork after approval
 
 ralph
   -> docs/shared/execution-modes.md before editing
@@ -86,7 +86,7 @@ ralph
   -> simplify after functional reviewer approval
   -> verification-before-completion before final completion claims
 
-autopilot
+ultrawork
   -> interview stage when requirements are vague
   -> ralplan for planning
   -> ralph for mode-gated execution and verification
@@ -145,14 +145,14 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
-| `explore` | `interview`, `ralplan`, `ralph`, `autopilot` | `analyst`, `planner`, `plan-reviewer`, `debugger`, `verifier` |
-| `analyst` | `ralplan`, `autopilot` | `interview`, `ralplan`, `planner`, `plan-reviewer` |
+| `explore` | `interview`, `ralplan`, `ralph`, `ultrawork` | `analyst`, `planner`, `plan-reviewer`, `debugger`, `verifier` |
+| `analyst` | `ralplan`, `ultrawork` | `interview`, `ralplan`, `planner`, `plan-reviewer` |
 | `planner` | `ralplan` | `explore`, `analyst`, `plan-reviewer` |
-| `plan-reviewer` | `ralplan`, `ralph` completion review, `autopilot` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `code-reviewer` |
+| `plan-reviewer` | `ralplan`, `ralph` completion review, `ultrawork` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `code-reviewer` |
 | `executor` | `ralph`, implementation phases | `explore`, `plan-reviewer`, `debugger`, `verifier` |
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
-| `verifier` | `ralph`, `autopilot`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
-| `code-reviewer` | `ralph`, `autopilot`, `verification-before-completion` validation, security-sensitive validation | `verifier`, `simplify` recommendation |
+| `verifier` | `ralph`, `ultrawork`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
+| `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, security-sensitive validation | `verifier`, `simplify` recommendation |
 
 ## Hook Boundary
 

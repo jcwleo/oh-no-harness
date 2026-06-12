@@ -8,7 +8,7 @@ argument-hint: "<claim, task, plan, or changed-file scope>"
 
 Do not claim success without fresh evidence.
 
-This skill is both a standalone lightweight final gate and the final evidence gate inside `ralph` and `autopilot`. When those stronger workflows are active, use this skill to verify the final claim without weakening their PRD, review, cleanup, or QA requirements.
+This skill is both a standalone lightweight final gate and the final evidence gate inside `ralph` and `ultrawork`. When those stronger workflows are active, use this skill to verify the final claim without weakening their PRD, review, cleanup, or QA requirements.
 
 ## Software Development Stage
 
@@ -165,4 +165,4 @@ Return:
 
 ## Next Skill Handoff
 
-None — this is the final evidence gate. Return the result to the caller (`ralph`, `autopilot`, or direct invocation). Do not chain to another workflow skill.
+None — this is the final evidence gate. Return the result to the caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to another workflow skill.

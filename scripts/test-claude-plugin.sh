@@ -31,7 +31,7 @@ PUBLIC_SKILLS=(
   interview
   ralplan
   ralph
-  autopilot
+  ultrawork
   auto-routing
   test-driven-development
   simplify
@@ -68,7 +68,7 @@ Options:
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
-                         Run live natural role-worker smoke tests for Interview, Autopilot,
+                         Run live natural role-worker smoke tests for Interview, Ultrawork,
                          Systematic Debugging, and Verification Before Completion.
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
@@ -775,8 +775,8 @@ live_prompt_for_skill() {
     ralph)
       printf '/%s:ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with how execution would proceed.' "$PLUGIN_NAME"
       ;;
-    autopilot)
-      printf '/%s:autopilot Deliver a small smoke-test workflow from vague request to verification. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
+    ultrawork)
+      printf '/%s:ultrawork Deliver a small smoke-test workflow from vague request to verification. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
       ;;
     auto-routing)
       printf '/%s:auto-routing status Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
@@ -1065,8 +1065,8 @@ deep_prompt_for_skill() {
     ralph)
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
-    autopilot)
-      printf '/%s:autopilot Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Autopilot auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Autopilot-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK autopilot.' "$PLUGIN_NAME"
+    ultrawork)
+      printf '/%s:ultrawork Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK ultrawork.' "$PLUGIN_NAME"
       ;;
     simplify)
       printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
@@ -1133,7 +1133,7 @@ expected = {
         "not a top-level implementation",
         "Required Behavior Lock",
     ],
-    "autopilot": [
+    "ultrawork": [
         ".oh-no/specs/interview-{slug}.md",
         "2 loops",
         ".oh-no/worktrees/<task-slug>",
@@ -1141,7 +1141,7 @@ expected = {
         "approval",
         "ralplan",
         "ralph",
-        "Autopilot-approved",
+        "Ultrawork-approved",
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1241,7 +1241,7 @@ linked_doc_markers = {
         "Parallel trigger",
         "Required Behavior Lock",
     ],
-    "autopilot": [
+    "ultrawork": [
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1303,7 +1303,7 @@ run_deep_live_tests() {
 
   log "Running deep Claude linked-doc smoke tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph autopilot simplify; do
+  for skill in interview ralplan ralph ultrawork simplify; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
@@ -1325,22 +1325,22 @@ natural_session_start_prompt_for_skill() {
   case "$1" in
     interview)
       cat <<PROMPT
-/${PLUGIN_NAME}:interview --quick Read-only natural role-worker smoke test. Vague request: make Claude live role coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with read-only file tools such as rg, sed, or Read. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
+/${PLUGIN_NAME}:interview --quick Read-only natural role-worker smoke test. Vague request: make Claude live role coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with read-only file tools such as rg, sed, or Read. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. Do not end while a worker is still pending. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers: <status>.
 PROMPT
       ;;
-    autopilot)
+    ultrawork)
       cat <<PROMPT
-/${PLUGIN_NAME}:autopilot Read-only natural role-worker smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live role coverage for a release handoff. Do not create artifacts, do not edit files, do not run write-capable execution, and do not run the test script itself. Follow a dry-run phase path for repository facts, planning readiness, and final evidence using read-only file inspection. Required worker messages: Role: explore with Marker: OH_NO_CLAUDE_AUTOPILOT_EXPLORE_READONLY; Role: planner with Marker: OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_AUTOPILOT_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_AUTOPILOT_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
+/${PLUGIN_NAME}:ultrawork Read-only natural role-worker smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live role coverage for a release handoff. Do not create artifacts, do not edit files, do not run write-capable execution, and do not run the test script itself. Follow a dry-run phase path for repository facts, planning readiness, and final evidence using read-only file inspection. Required worker messages: Role: explore with Marker: OH_NO_CLAUDE_ULTRAWORK_EXPLORE_READONLY; Role: planner with Marker: OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_ULTRAWORK_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: one short phase finding. Do not end while a worker is still pending. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers: <status>.
 PROMPT
       ;;
     systematic-debugging)
       cat <<PROMPT
-/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Do not run the test script itself; inspect code paths only with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers.
+/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Do not run the test script itself; inspect code paths only with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. Do not end while a worker is still pending. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers: <status>.
 PROMPT
       ;;
     verification-before-completion)
       cat <<PROMPT
-/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers.
+/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. Do not end while a worker is still pending. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers: <status>.
 PROMPT
       ;;
     *)
@@ -1391,6 +1391,7 @@ tool_role_uses = []
 all_agent_roles = []
 task_started_roles = []
 task_completed_roles = []
+task_role_by_id = {}
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
@@ -1447,11 +1448,16 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 role = subagent_type.split(":", 1)[1]
                 if role in expected_roles:
                     task_started_roles.append((index, role))
+                    task_id = data.get("task_id")
+                    if task_id:
+                        task_role_by_id[task_id] = role
         if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
             subagent_type = data.get("subagent_type", "")
             role = ""
             if subagent_type.startswith("oh-no-harness:"):
                 role = subagent_type.split(":", 1)[1]
+            elif data.get("task_id") in task_role_by_id:
+                role = task_role_by_id[data.get("task_id")]
             if data.get("status") == "completed":
                 if role in expected_roles:
                     task_completed_roles.append((index, role))
@@ -1511,6 +1517,10 @@ else:
     missing_starts = [role for role in expected_roles if role not in started_roles]
     if missing_starts:
         raise SystemExit(f"{label} natural role smoke missing task_started events for roles: {missing_starts!r}")
+    completed_roles = [role for _, role in task_completed_roles]
+    missing_completions = [role for role in expected_roles if role not in completed_roles]
+    if missing_completions:
+        raise SystemExit(f"{label} natural role smoke missing completed task events for roles: {missing_completions!r}")
 
 combined_summary = "\n".join(summary_text).lower()
 if not marker:
@@ -1559,7 +1569,7 @@ run_natural_session_start_live_skill_test() {
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
     log "Skipping live natural Claude role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural role-worker dispatch for Interview, Autopilot, Systematic Debugging, and Verification Before Completion.\n' >&2
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural role-worker dispatch for Interview, Ultrawork, Systematic Debugging, and Verification Before Completion.\n' >&2
     return
   fi
 
@@ -1569,22 +1579,22 @@ run_natural_session_start_live_tests() {
     interview \
     OH_NO_CLAUDE_INTERVIEW_NATURAL_OK \
     explore:OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY \
-    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
-    autopilot \
-    OH_NO_CLAUDE_AUTOPILOT_NATURAL_OK \
-    explore:OH_NO_CLAUDE_AUTOPILOT_EXPLORE_READONLY,planner:OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,verifier:OH_NO_CLAUDE_AUTOPILOT_VERIFIER_READONLY \
+    ultrawork \
+    OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK \
+    explore:OH_NO_CLAUDE_ULTRAWORK_EXPLORE_READONLY,planner:OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,verifier:OH_NO_CLAUDE_ULTRAWORK_VERIFIER_READONLY \
     "OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
     systematic-debugging \
     OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK \
     debugger:OH_NO_CLAUDE_DEBUGGER_READONLY,verifier:OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY \
-    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
     verification-before-completion \
     OH_NO_CLAUDE_VERIFICATION_NATURAL_OK \
     verifier:OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY \
-    "OH_NO_CLAUDE_AUTOPILOT_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY"
+    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY"
   ok "natural Claude live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 

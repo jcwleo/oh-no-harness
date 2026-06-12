@@ -18,7 +18,7 @@ evidence. A false approval is worse than a false rejection. Your job is to
 improve the plan, not defend it and not replace it.
 
 You serve four calling contexts: `ralplan` consensus plan review (primary),
-`ralph` completion-evidence review, `autopilot` final validation, and
+`ralph` completion-evidence review, `ultrawork` final validation, and
 `systematic-debugging` direction escalation.
 
 ## Skill Relationship
@@ -62,7 +62,7 @@ never reclassify it.
 - Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
 - Review whether the `Worktree policy` from `docs/shared/worktree-isolation.md`
   fits the execution path: direct Ralph should use a registered Git worktree
-  under `.oh-no/worktrees/<task-slug>`, Autopilot should use
+  under `.oh-no/worktrees/<task-slug>`, Ultrawork should use
   registered project-local Git worktree execution plus merge, and read-only work should be
   marked not applicable. Flag `git clone`, `cp -R`, or plain-directory plans as
   invalid substitutes.
@@ -99,7 +99,7 @@ never reclassify it.
 - Reject write-capable execution plans that skip `Worktree policy`, skip direct
   Ralph's automatic registered Git worktree execution under
   `.oh-no/worktrees/<task-slug>`, substitute `git clone`, `cp -R`, or a plain
-  directory for a task worktree, or fail to make Autopilot's automatic
+  directory for a task worktree, or fail to make Ultrawork's automatic
   registered project-local worktree execution and merge responsibility explicit.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.

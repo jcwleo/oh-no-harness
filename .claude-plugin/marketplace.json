@@ -1,6 +1,6 @@
 {
   "name": "oh-no-harness",
-  "description": "Self-hosted marketplace for the oh-no-harness coding workflow plugin (interview, ralplan, ralph, autopilot, TDD, debugging, verification, cleanup).",
+  "description": "Self-hosted marketplace for the oh-no-harness coding workflow plugin (interview, ralplan, ralph, ultrawork, TDD, debugging, verification, cleanup).",
   "owner": {
     "name": "jcwleo"
   },

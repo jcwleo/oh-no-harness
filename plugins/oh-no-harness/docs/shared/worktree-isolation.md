@@ -13,7 +13,7 @@ alone still applies the worktree gate before editing source files.
 may create `.oh-no` specs, plans, or session notes in the current checkout
 because they are pre-execution artifacts.
 
-Worktree isolation starts before `ralph`, `autopilot`, or an inline execution
+Worktree isolation starts before `ralph`, `ultrawork`, or an inline execution
 path changes source files, tests, scripts, manifests, generated artifacts, or
 other task-owned files.
 
@@ -31,7 +31,7 @@ Allowed decisions:
   worktree by default without asking a worktree approval question.
 - `user declined/current checkout`: the user explicitly declined worktree use
   for this task, so execution continues in the current checkout.
-- `autopilot automatic worktree`: `autopilot` created or selected a task
+- `ultrawork automatic worktree`: `ultrawork` created or selected a task
   worktree without asking because the user delegated end-to-end execution.
 - `read-only/not applicable`: the task will not edit files.
 - `blocked`: the repository cannot support the requested worktree and no allowed
@@ -44,7 +44,7 @@ Profile policy values:
 
 - `direct-automatic-worktree`: direct `ralph` creates or selects a task worktree
   by default before write-capable execution.
-- `automatic-worktree-merge`: `autopilot` creates or selects a task worktree by
+- `automatic-worktree-merge`: `ultrawork` creates or selects a task worktree by
   default, then merges completed work back into the integration checkout.
 - `not-applicable`: read-only work or pre-execution artifacts that do not edit
   task-owned files.
@@ -66,7 +66,7 @@ from the integration checkout, using a task-specific branch. This keeps task
 directories managed inside the project instead of scattering sibling worktrees
 through the parent workspace directory.
 
-Do not create automatic Ralph or Autopilot task worktrees as
+Do not create automatic Ralph or Ultrawork task worktrees as
 parent-directory siblings unless the project-local path is impossible or the
 user explicitly requests another location. If project-local worktree creation
 fails, record the blocker or explicit fallback decision before editing.
@@ -83,7 +83,7 @@ Remove completed task worktrees with
 post-merge verification are complete. Do not clean up active task worktrees with
 manual deletion or broad cleanup commands that remove `.oh-no/`.
 
-If Ralph or Autopilot is invoked from inside an existing
+If Ralph or Ultrawork is invoked from inside an existing
 `.oh-no/worktrees/<task-slug>` checkout, do not create a
 recursive nested worktree under that task checkout. Treat the current checkout as
 `already in approved worktree` when it matches the task, or resolve worktree
@@ -110,15 +110,15 @@ Once a direct-Ralph worktree decision is recorded, do not ask again for the same
 task/session unless the user changes the scope or the recorded decision becomes
 invalid.
 
-## Autopilot Automatic Worktree
+## Ultrawork Automatic Worktree
 
-`autopilot` also uses automatic worktree execution. Its distinct responsibility
+`ultrawork` also uses automatic worktree execution. Its distinct responsibility
 is post-execution integration: for write-capable execution, it must create or
 select a registered Git worktree under `.oh-no/worktrees/<task-slug>`
-automatically, record `Worktree decision: autopilot automatic worktree`, and run
+automatically, record `Worktree decision: ultrawork automatic worktree`, and run
 implementation inside that worktree.
 
-After execution passes verification in the task worktree, `autopilot` must merge
+After execution passes verification in the task worktree, `ultrawork` must merge
 the completed work back into the integration checkout, run post-merge
 verification, and record whether the worktree was cleaned up or deliberately
 left for inspection.

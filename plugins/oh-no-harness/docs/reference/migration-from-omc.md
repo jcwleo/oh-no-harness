@@ -7,7 +7,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 - `interview`
 - `ralplan`
 - `ralph`
-- `autopilot`
+- `ultrawork`
 - `simplify` cleanup, adapted from Claude Code's built-in skill for Codex parity
 - `plan --consensus` behavior embedded directly in `ralplan`
 - `test-driven-development`, `verification-before-completion`, and `systematic-debugging` as Superpowers-derived safety workflows
@@ -22,7 +22,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 - mode state ledger
 - automatic vague-prompt redirection
 - `team`
-- `ultrawork`
+- legacy OMC `ultrawork` behavior/state machinery
 - `ultraqa`
 - `cancel`
 - `ask`

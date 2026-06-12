@@ -28,12 +28,12 @@ Use this skill as a top-level entry only when:
 - the user explicitly asked for TDD, test-first, RED/GREEN/REFACTOR, or
   "write the failing test first"
 - an already-selected workflow (`ralph`, `systematic-debugging`, or
-  `autopilot`) reaches its internal TDD gate
+  `ultrawork`) reaches its internal TDD gate
 - the active host is intentionally taking a tiny direct edit path and only
   needs the TDD discipline before a behavior-changing edit
 
 After the cycle completes, return control to `ralph`, `systematic-debugging`,
-`autopilot`, or the explicitly chosen tiny direct edit path. Do not continue as
+`ultrawork`, or the explicitly chosen tiny direct edit path. Do not continue as
 a substitute for `ralph`.
 
 ## When To Use

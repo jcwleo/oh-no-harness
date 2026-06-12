@@ -30,9 +30,9 @@ Default routing summary:
 - Use oh-no-harness:interview for vague, broad, or requirement-light work.
 - Use oh-no-harness:ralplan for planning, risky, cross-file, multi-step, or unclear implementation work.
 - Use oh-no-harness:ralph for an approved plan, PRD, concrete task, or acceptance criteria.
-- Use oh-no-harness:autopilot for autonomous end-to-end delivery.
+- Use oh-no-harness:ultrawork for autonomous end-to-end delivery.
 - Use oh-no-harness:systematic-debugging for bugs, failing commands, regressions, flaky behavior, or unknown root cause.
-- Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/autopilot/tiny direct edits before behavior-changing edits.
+- Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork/tiny direct edits before behavior-changing edits.
 - Use oh-no-harness:verification-before-completion before claiming done, fixed, passing, ready, or verified.
 - Use oh-no-harness:simplify only after behavior is locked and changed code needs reuse, simplification, efficiency, or altitude cleanup.
 
@@ -51,7 +51,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 - Vague, broad, ambiguous, or requirement-light request: oh-no-harness:interview.
 - Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.
 - Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.
-- Autonomous or end-to-end delivery request: oh-no-harness:autopilot.
+- Autonomous or end-to-end delivery request: oh-no-harness:ultrawork.
 - Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.
 - Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.
 - About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.

@@ -29,7 +29,7 @@ The available public skills are:
 - `interview`: clarify vague product, design, or engineering requests into an approved spec.
 - `ralplan`: create a consensus implementation plan before execution.
 - `ralph`: execute a concrete PRD or approved plan until acceptance criteria and verification are satisfied.
-- `autopilot`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
+- `ultrawork`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
 - `auto-routing`: toggle stronger SessionStart skill-selection guidance for users who want it.
 - `test-driven-development`: internal guardrail discipline for RED/GREEN/REFACTOR before behavior-changing production edits; not a generic implementation entrypoint.
 - `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
@@ -44,7 +44,7 @@ For LLM software development, prefer this order when the request is not already 
 2. `interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
 3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, required Ralph execution mode, risk handling, and verification strategy.
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
-5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `autopilot`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
+5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `ultrawork`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
 7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
@@ -84,9 +84,9 @@ Automatic task worktrees should stay inside the project rather than appearing as
 parent-directory siblings unless an explicit fallback is recorded. Do not treat
 `git clone`, `cp -R`, or a plain directory as a valid Ralph task worktree.
 
-`autopilot` is the orchestration exception because it also owns integration back
+`ultrawork` is the orchestration exception because it also owns integration back
 into the original checkout. When it reaches write-capable execution, it records
-`Worktree decision: autopilot automatic worktree`, creates or selects a task
+`Worktree decision: ultrawork automatic worktree`, creates or selects a task
 registered Git worktree under `.oh-no/worktrees/<task-slug>`, executes there,
 merges into the integration checkout, and runs post-merge verification.
 
@@ -111,7 +111,7 @@ Workflow skills (`interview`, `ralplan`) currently define this handoff; `ralph` 
 
 Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
-The single exception is `autopilot`. When the user invokes `autopilot`, autopilot may move between `interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
+The single exception is `ultrawork`. When the user invokes `ultrawork`, ultrawork may move between `interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
 
 If the user overrides any recommendation, follow the user's instruction unless it would violate safety or repository constraints.
 
@@ -134,7 +134,7 @@ Use `.oh-no/plans/` for generated plans.
 
 Use `.oh-no/sessions/` for transient session artifacts.
 
-Use `.oh-no/worktrees/` for project-local Ralph and Autopilot task worktrees.
+Use `.oh-no/worktrees/` for project-local Ralph and Ultrawork task worktrees.
 
 Do not use legacy harness artifact paths.
 

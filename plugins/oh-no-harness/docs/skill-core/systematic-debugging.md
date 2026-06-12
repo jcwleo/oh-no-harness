@@ -125,4 +125,4 @@ Return:
 
 ## Next Skill Handoff
 
-None — this is a failure-investigation mid-loop skill. After verification, return the result to the caller (`ralph`, `autopilot`, or direct invocation). Do not chain to another workflow skill.
+None — this is a failure-investigation mid-loop skill. After verification, return the result to the caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to another workflow skill.

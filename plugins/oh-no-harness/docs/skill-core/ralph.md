@@ -87,7 +87,7 @@ Represent work as stories:
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
     "parallelTrigger": "approved-plan-handoff | explicit-user-request | natural-dispatch | none",
-    "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | autopilot automatic worktree | read-only/not applicable | blocked",
+    "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | ultrawork automatic worktree | read-only/not applicable | blocked",
     "worktreeLocation": ".oh-no/worktrees/<task-slug> | not-applicable | explicit fallback path",
     "cleanupPolicy": "not-needed | conditional | required"
   },
@@ -174,7 +174,7 @@ decision before the first edit:
 - `already in approved worktree`
 - `direct automatic worktree`
 - `user declined/current checkout`
-- `autopilot automatic worktree`
+- `ultrawork automatic worktree`
 - `read-only/not applicable`
 - `blocked`
 
@@ -195,9 +195,9 @@ editing. If the repository cannot support `git worktree add` and no explicit
 current-checkout fallback is approved, record `Worktree decision: blocked` and
 stop before editing.
 
-When invoked from `autopilot`, record `Worktree decision: autopilot automatic worktree`,
+When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
 create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
-execute there, then return control to Autopilot for merge into the
+execute there, then return control to Ultrawork for merge into the
 integration checkout and post-merge verification.
 
 When execution moves to a worktree, preserve access to the approved `.oh-no`
@@ -538,6 +538,6 @@ Return:
 
 ## Final Handoff
 
-Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`interview`, `ralplan`, `autopilot`). Further work needs a fresh user request and a new skill selection.
+Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`interview`, `ralplan`, `ultrawork`). Further work needs a fresh user request and a new skill selection.
 
 Internal mid-loop skills used during the execution loop - `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging` - are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.

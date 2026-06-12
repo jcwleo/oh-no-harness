@@ -1,16 +1,16 @@
 ---
-name: autopilot
+name: ultrawork
 description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span interview, planning, execution, QA, cleanup, and validation.
 argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 ---
 
-# Autopilot for Claude Code
+# Ultrawork for Claude Code
 
 This is the Claude Code-facing public skill wrapper.
 
 Follow this order:
 
-1. Read and follow `../../docs/skill-core/autopilot.md`.
+1. Read and follow `../../docs/skill-core/ultrawork.md`.
 2. Apply Claude Code platform rules from `../../docs/platforms/claude-code.md`.
 3. Preserve the core skill's artifact paths, approval gates, role boundaries,
    worktree rules, TDD rules, verification rules, and output contract.

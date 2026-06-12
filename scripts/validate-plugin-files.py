@@ -19,7 +19,7 @@ PUBLIC_SKILLS = [
     "interview",
     "ralplan",
     "ralph",
-    "autopilot",
+    "ultrawork",
     "auto-routing",
     "test-driven-development",
     "simplify",
@@ -58,7 +58,7 @@ WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
     "interview",
     "ralplan",
     "ralph",
-    "autopilot",
+    "ultrawork",
     "auto-routing",
     "test-driven-development",
     "simplify",
@@ -81,25 +81,76 @@ PROVIDER_DOC_ROOT = "docs/providers"
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
 # structural: the heading tags the section, "HARD-GATE" tags the negative
-# framing that forbids auto-invocation, and "Autopilot exception" tags the
-# escape hatch documented for autopilot orchestration. Keep this contract in
-# lockstep with skills/autopilot/SKILL.md and skills/using-oh-no-harness/SKILL.md.
+# framing that forbids auto-invocation, and "Ultrawork exception" tags the
+# escape hatch documented for ultrawork orchestration. Keep this contract in
+# lockstep with skills/ultrawork/SKILL.md and skills/using-oh-no-harness/SKILL.md.
 NEXT_SKILL_GATE_REQUIRED = {"interview", "ralplan"}
 NEXT_SKILL_GATE_MARKERS = (
     "## Next Skill Handoff",
     "HARD-GATE",
-    "Autopilot exception",
+    "Ultrawork exception",
 )
-AUTOPILOT_EXCEPTION_HEADING = "## Autopilot Exception"
-AUTOPILOT_AUTO_APPROVAL_MARKERS = (
+ULTRAWORK_EXCEPTION_HEADING = "## Ultrawork Exception"
+ULTRAWORK_AUTO_APPROVAL_MARKERS = (
     "Interview is the only user-facing content approval gate",
-    "Plan approval source: autopilot automatic approval after interview/spec",
-    "Autopilot-approved plan or spec",
+    "Plan approval source: ultrawork automatic approval after interview/spec",
+    "Ultrawork-approved plan or spec",
     "automatically approves `ralplan`",
     "automatically invokes `ralph`",
     "not a new\n  user approval prompt",
     "scope-change pauses",
     "Plan Approval Brief is converted into\nan internal execution record",
+)
+ULTRAWORK_LOOP_CONTRACT_MARKERS = (
+    "## Loop Contract",
+    "planning gate uses `ralplan`",
+    "execution handoff uses `ralph`",
+    "start_or_resume",
+    "requirements_gate",
+    "planning_gate",
+    "worktree_gate",
+    "execution_handoff",
+    "qa_loop",
+    "final_validation",
+    "Heartbeat contents:",
+    "Resume precedence:",
+    "State authority:",
+    "Doctor/status gate semantics:",
+    "Checker outputs:",
+    "Escalation rules:",
+    "Terminal states:",
+    ".oh-no/sessions/{sessionId}/ultrawork.md",
+    "No timer, daemon, or background heartbeat",
+    "No JSON state artifact in v1",
+    "PASS",
+    "WARN",
+    "BLOCKED",
+    "Maker roles do not self-approve",
+    "succeeded_merged_verified_reported",
+    "succeeded_left_worktree_for_inspection",
+    "paused_for_user",
+    "failed_verification",
+    "scope_change_pending_approval",
+)
+ULTRAWORK_FORBIDDEN_RUNTIME_PATTERNS = (
+    r"\brequires?\b.{0,80}\b(daemon|controller|tmux|mcp|telemetry)\b",
+    r"\bmust\b.{0,80}\b(run|start|create|use)\b.{0,80}\b(daemon|controller|tmux|mcp|telemetry)\b",
+    r"\b(runtime|background)\b.{0,80}\b(daemon|controller)\b",
+    r"\b(json)\b.{0,80}\b(authoritative|authority)\b",
+    r"\b(authoritative|authority)\b.{0,80}\b(json)\b",
+    r"\bhook-enforced continuation\b",
+    r"\bomc keyword detector\b",
+    r"\bbridge hook\b",
+)
+ULTRAWORK_RUNTIME_GUARDRAIL_TERMS = (
+    "no ",
+    "not ",
+    "without ",
+    "does not ",
+    "do not ",
+    "must not ",
+    "non-authoritative",
+    "never ",
 )
 
 ROLE_POLICY_MARKERS = {
@@ -107,7 +158,7 @@ ROLE_POLICY_MARKERS = {
     "ralplan": "Dispatch (when)",
     "interview": "## Agent Roles",
     "systematic-debugging": "## Agent Roles",
-    "autopilot": "## Agent Roles",
+    "ultrawork": "## Agent Roles",
 }
 PLATFORM_SUBAGENT_MARKERS = {
     "using-oh-no-harness": (
@@ -137,7 +188,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Plan Review Contract",
         "Planner Revision Contract",
     ),
-    "autopilot": (
+    "ultrawork": (
         "independent context",
         "Parallel trigger: approved-plan-handoff",
         "Parallel trigger: natural-dispatch",
@@ -286,7 +337,7 @@ PLATFORM_SUBAGENT_DOC_MARKERS = {
 }
 RALPH_SUBAGENT_POLICY_MARKERS = (
     "# Ralph Subagent Policy",
-    "Ralph, Autopilot, Simplify, Systematic Debugging",
+    "Ralph, Ultrawork, Simplify, Systematic Debugging",
     "Interview brownfield exploration",
     "## Subagent Bias",
     "use subagents as much as possible",
@@ -363,7 +414,7 @@ WORKTREE_SHARED_MARKERS = (
     "integration checkout's untracked",
     "git worktree add .oh-no/worktrees/<task-slug>",
     "`direct-automatic-worktree`",
-    "`autopilot` also uses automatic worktree execution",
+    "`ultrawork` also uses automatic worktree execution",
     "integration checkout",
     "post-merge verification",
 )
@@ -379,7 +430,7 @@ WORKTREE_SKILL_MARKERS = {
         "parent-directory siblings",
         "git clone",
         "Worktree decision: direct automatic worktree",
-        "Worktree decision: autopilot automatic worktree",
+        "Worktree decision: ultrawork automatic worktree",
     ),
     "ralplan": (
         "Worktree policy",
@@ -397,15 +448,15 @@ WORKTREE_SKILL_MARKERS = {
         "worktreeLocation",
         "Worktree decision and location",
         "Worktree decision: direct automatic worktree",
-        "Worktree decision: autopilot automatic worktree",
+        "Worktree decision: ultrawork automatic worktree",
         "integration checkout and post-merge verification",
     ),
-    "autopilot": (
+    "ultrawork": (
         "## Automatic Worktree Execution",
         ".oh-no/worktrees/<task-slug>",
         "using `git worktree add`",
         "not valid substitutes",
-        "Worktree decision: autopilot automatic worktree",
+        "Worktree decision: ultrawork automatic worktree",
         "post-merge verification",
     ),
 }
@@ -532,7 +583,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "Ralph must set an execution mode",
         "must follow the",
     ),
-    "autopilot": (
+    "ultrawork": (
         "docs/shared/execution-modes.md",
         "execution mode and mode source",
         "active platform wrapper",
@@ -548,7 +599,7 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "verifier",
         "code-reviewer",
     ),
-    "autopilot": (
+    "ultrawork": (
         "explore",
         "analyst",
         "planner",
@@ -663,11 +714,11 @@ CODEX_STANDING_WRAPPER_MARKERS = {
         "per-run subagent approval",
         "skill's `explore` role",
     ),
-    "autopilot": (
+    "ultrawork": (
         "standing\n   subagent authorization",
         "explicit user request",
         "per-run subagent approval",
-        "Autopilot phase roles",
+        "Ultrawork phase roles",
     ),
     "systematic-debugging": (
         "standing\n   subagent authorization",
@@ -804,7 +855,7 @@ RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
     "`oh-no-harness:ralph` with `parallel subagents`",
     "Run ralph with parallel subagents",
     "parallel-subagent Ralph option",
-    "choose `ralph`, `ralph with parallel subagents`, or `autopilot`",
+    "choose `ralph`, `ralph with parallel subagents`, or `ultrawork`",
     "including how to explicitly approve it on",
 )
 RALPLAN_AGENT_CONTRACT_MARKERS = {
@@ -957,6 +1008,33 @@ def markdown_section(text: str, heading: str) -> str:
     return "\n".join(lines[start:end])
 
 
+def is_guardrail_line(line: str) -> bool:
+    lowered = line.lower()
+    return any(term in lowered for term in ULTRAWORK_RUNTIME_GUARDRAIL_TERMS)
+
+
+def assert_no_forbidden_ultrawork_runtime_claims(path: Path, body: str) -> None:
+    for line_number, line in enumerate(body.splitlines(), start=1):
+        if is_guardrail_line(line):
+            continue
+        for pattern in ULTRAWORK_FORBIDDEN_RUNTIME_PATTERNS:
+            if re.search(pattern, line, flags=re.IGNORECASE):
+                die(
+                    f"{path}:{line_number} contains forbidden Ultrawork runtime "
+                    f"dependency/authority claim matching {pattern!r}: {line.strip()!r}"
+                )
+
+
+def assert_ultrawork_loop_contract(path: Path, body: str) -> None:
+    loop_contract = markdown_section(body, "## Loop Contract")
+    if not loop_contract:
+        die(f"{path} is missing required Ultrawork Loop Contract section")
+    for marker in ULTRAWORK_LOOP_CONTRACT_MARKERS:
+        if not has_required_marker(body if marker.startswith("## ") else loop_contract, marker):
+            die(f"{path} is missing required Ultrawork Loop Contract marker: {marker!r}")
+    assert_no_forbidden_ultrawork_runtime_claims(path, body)
+
+
 def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
     fm = parse_frontmatter(path)
     missing = REQUIRED_SKILL_FIELDS - set(fm)
@@ -1019,13 +1097,14 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in NEXT_SKILL_GATE_MARKERS:
             if marker not in body:
                 die(f"{path} is missing required Next-Skill-Gate marker: {marker!r}")
-    if skill == "autopilot":
+    if skill == "ultrawork":
         body = read_text(path)
-        if AUTOPILOT_EXCEPTION_HEADING not in body:
-            die(f"{path} is missing required heading: {AUTOPILOT_EXCEPTION_HEADING!r}")
-        for marker in AUTOPILOT_AUTO_APPROVAL_MARKERS:
+        if ULTRAWORK_EXCEPTION_HEADING not in body:
+            die(f"{path} is missing required heading: {ULTRAWORK_EXCEPTION_HEADING!r}")
+        for marker in ULTRAWORK_AUTO_APPROVAL_MARKERS:
             if marker not in body:
-                die(f"{path} is missing required Autopilot auto-approval marker: {marker!r}")
+                die(f"{path} is missing required Ultrawork auto-approval marker: {marker!r}")
+        assert_ultrawork_loop_contract(path, body)
     if skill in ROLE_POLICY_MARKERS:
         body = read_text(path)
         marker = ROLE_POLICY_MARKERS[skill]
@@ -1664,6 +1743,51 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
                 die(f"{path} is missing approved-plan-handoff hook-test marker: {marker!r}")
 
 
+def assert_public_docs_contract(marketplace_root: Path, root: Path) -> None:
+    plugin_agents = read_text(root / "AGENTS.md")
+    if "Do not reintroduce `team`, `ultrawork`" in plugin_agents:
+        die(
+            f"{root / 'AGENTS.md'} still forbids `ultrawork`; the public skill "
+            "surface should treat ultrawork as the renamed former autopilot workflow"
+        )
+    if "`ultrawork` is the renamed former `autopilot`" not in plugin_agents:
+        die(f"{root / 'AGENTS.md'} should clarify that ultrawork is the renamed former autopilot")
+
+    readme_expectations = {
+        "README.md": (
+            "`ralph`, `ralph with parallel subagents`, or `ultrawork`",
+            "no `UserPromptSubmit`",
+            "narrow `UserPromptSubmit` Ralph adapter",
+        ),
+        "README.ko.md": (
+            "`ralph`, `ralph with parallel subagents`, `ultrawork`",
+            "`UserPromptSubmit`/`PreToolUse`/`PostToolUse` 미사용",
+            "좁은 `UserPromptSubmit` Ralph adapter",
+        ),
+    }
+    for filename, (split_option, stale_hook_claim, required_hook_marker) in readme_expectations.items():
+        path = marketplace_root / filename
+        text = read_text(path)
+        if split_option in text:
+            die(f"{path} still presents legacy `ralph with parallel subagents` as a separate handoff option")
+        if stale_hook_claim in text:
+            die(f"{path} still claims UserPromptSubmit is unused")
+        if required_hook_marker not in text:
+            die(f"{path} should mention the narrow UserPromptSubmit Ralph adapter")
+
+    design_spec_path = root / "docs/specs/2026-05-11-oh-no-harness-design.md"
+    design_spec = read_text(design_spec_path)
+    for heading in ("## Non-Goals", "## Migration Rules From OMC"):
+        section = f"\n{markdown_section(design_spec, heading)}\n"
+        if "\n- `ultrawork`\n" in section:
+            die(
+                f"{design_spec_path} still treats public `ultrawork` as removed "
+                f"inside {heading}; it should remove only legacy OMC ultrawork behavior"
+            )
+    if "legacy OMC `ultrawork` behavior/state machinery" not in design_spec:
+        die(f"{design_spec_path} should distinguish public ultrawork from legacy OMC behavior")
+
+
 def assert_claude_manifest_skills(root: Path) -> None:
     path = root / ".claude-plugin/plugin.json"
     try:
@@ -1842,6 +1966,7 @@ def main() -> None:
     assert_tdd_routing_contract(marketplace_root, root)
     assert_hook_contract(root)
     assert_hook_test_contract(marketplace_root)
+    assert_public_docs_contract(marketplace_root, root)
     assert_claude_manifest_skills(root)
     assert_codex_manifest(root)
     assert_claude_marketplace(marketplace_root)

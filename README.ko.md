@@ -63,7 +63,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 
 **✨ 사용 경험**
 - **자연어 입력.** 작업을 그냥 말로 설명하면 시작됩니다. skill 간 전환은 명시적으로 유지됩니다.
-- **`/oh-no-harness:autopilot`은 end-to-end 옵션.** 인터뷰 → 계획 → 실행 → 검증을 한 요청으로 묶고 싶을 때 쓰는 opt-in 경로입니다.
+- **`/oh-no-harness:ultrawork`은 end-to-end 옵션.** 인터뷰 → 계획 → 실행 → 검증을 한 요청으로 묶고 싶을 때 쓰는 opt-in 경로입니다.
 
 ## 설치
 
@@ -134,7 +134,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:interview <모호한 작업>` | 요청이 막연하거나 요구사항이 부족할 때 — `.oh-no/specs/`에 임시 Ralph 모드 포함 스펙이 저장됩니다. |
 | `/oh-no-harness:ralplan <작업 또는 스펙>` | 광범위·고위험·다파일 작업이라 코딩 전 계획·승인이 필요할 때 — `.oh-no/plans/`에 저장됩니다. |
 | `/oh-no-harness:ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업 — 모드를 읽고 검증까지 실행합니다. |
-| `/oh-no-harness:autopilot <요청>` | End-to-end: interview → ralplan → ralph → verification 한 흐름. |
+| `/oh-no-harness:ultrawork <요청>` | End-to-end: interview → ralplan → ralph → verification 한 흐름. |
 | `/oh-no-harness:test-driven-development <변경>` | 명시적인 TDD/test-first 요청 또는 Ralph/debugging 실행 내부 게이트 — 일반 구현은 Ralph로 라우팅합니다. |
 | `/oh-no-harness:systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/oh-no-harness:verification-before-completion` | "완료" / "수정됨" / "준비됨" 선언 전 — 새 증거를 요구합니다. |
@@ -142,13 +142,13 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:auto-routing on\|off\|status` | skill 선택 가이드 강도를 토글 (Claude Code 한정). |
 | `/oh-no-harness:using-oh-no-harness` | 최상위 인덱스 — 다른 skill이 기억나지 않을 때 여기서 시작. |
 
-어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요 — harness가 요청 형태에 맞춰 라우팅합니다. 한 요청으로 전 과정을 묶고 싶을 때만 `/oh-no-harness:autopilot`을 쓰면 됩니다.
+어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요 — harness가 요청 형태에 맞춰 라우팅합니다. 한 요청으로 전 과정을 묶고 싶을 때만 `/oh-no-harness:ultrawork`을 쓰면 됩니다.
 
 일반적인 단계 흐름:
 
 1. 사용자가 작업을 설명하면, 목표가 아직 흐릿할 때 Claude Code나 Codex가 `interview`를 선택합니다.
 2. 사용자가 스펙을 승인하면, 구현 계획이 필요한 경우 호스트 에이전트가 `ralplan`을 호출합니다.
-3. 사용자가 계획을 승인하면, 호스트 에이전트가 `ralph`, `ralph with parallel subagents`, `autopilot` 중 무엇으로 진행할지 묻습니다.
+3. 사용자가 계획을 승인하면, 호스트 에이전트가 일반 `ralph`로 실행할지 end-to-end `ultrawork`로 진행할지 묻습니다. 승인된 Ralph handoff는 계획에 분리 가능한 role이 있으면 기본적으로 parallel-capable입니다.
 4. `ralph`가 실행, 검증, 리뷰, 완료 보고를 진행합니다. 사용자가 Planner, Plan-Reviewer, Executor, Verifier 같은 내부 역할 에이전트를 직접 고를 필요는 없습니다. 선택된 workflow가 허용할 때 호스트 에이전트가 알아서 사용합니다.
 
 ## Auto Routing (Claude Code)
@@ -163,7 +163,7 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## 개인정보 및 동작
 
-- `SessionStart` 훅 하나만 사용 — `UserPromptSubmit`/`PreToolUse`/`PostToolUse` 미사용.
+- compact `SessionStart` 안내와 좁은 `UserPromptSubmit` Ralph adapter 훅만 사용 — `PreToolUse`/`PostToolUse` 미사용.
 - npm 런타임 없음, 별도 CLI 프로세스 없음, tmux 프로세스 없음, MCP 서버 없음.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
@@ -176,7 +176,7 @@ codex plugin marketplace upgrade oh-no-harness
 - `.oh-no/specs/` — interview 산출물
 - `.oh-no/plans/` — ralplan 산출물
 - `.oh-no/sessions/` — 일시적인 워크플로우 상태
-- `.oh-no/worktrees/` — 프로젝트 내부 Ralph/Autopilot 작업 worktree
+- `.oh-no/worktrees/` — 프로젝트 내부 Ralph/Ultrawork 작업 worktree
 - `.oh-no/test-runs/` — harness 테스트 로그
 
 ## 개발

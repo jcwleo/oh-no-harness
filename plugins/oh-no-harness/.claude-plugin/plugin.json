@@ -1,6 +1,6 @@
 {
   "name": "oh-no-harness",
-  "description": "Lightweight Markdown-first coding workflow harness for Claude Code (interview, ralplan, ralph, autopilot, TDD, debugging, verification, cleanup).",
+  "description": "Lightweight Markdown-first coding workflow harness for Claude Code (interview, ralplan, ralph, ultrawork, TDD, debugging, verification, cleanup).",
   "version": "1.3.0",
   "author": {
     "name": "oh-no-harness maintainers"
@@ -21,7 +21,7 @@
     "./skills-claude/interview/",
     "./skills-claude/ralplan/",
     "./skills-claude/ralph/",
-    "./skills-claude/autopilot/",
+    "./skills-claude/ultrawork/",
     "./skills-claude/auto-routing/",
     "./skills-claude/test-driven-development/",
     "./skills-claude/simplify/",

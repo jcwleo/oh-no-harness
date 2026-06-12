@@ -1,7 +1,7 @@
 # Ralph Subagent Policy
 
 This policy is shared by Claude Code and Codex. It began as Ralph's dispatch
-policy and now defines when Ralph, Autopilot, Simplify, Systematic Debugging,
+policy and now defines when Ralph, Ultrawork, Simplify, Systematic Debugging,
 Interview brownfield exploration, and Verification Before Completion may split
 work into subagents, how to partition the work, and how to integrate results.
 It does not define platform-specific invocation syntax.

@@ -63,7 +63,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 
 **✨ Experience**
 - **Plain-language input.** Just describe the task; the harness keeps handoffs explicit.
-- **`/oh-no-harness:autopilot` for end-to-end.** Opt-in single command spanning interview → plan → execute → validate.
+- **`/oh-no-harness:ultrawork` for end-to-end.** Opt-in single command spanning interview → plan → execute → validate.
 
 ## Install
 
@@ -134,7 +134,7 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:interview <vague task>` | Vague or requirement-light request — produces a spec with a provisional Ralph mode in `.oh-no/specs/`. |
 | `/oh-no-harness:ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
 | `/oh-no-harness:ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
-| `/oh-no-harness:autopilot <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
+| `/oh-no-harness:ultrawork <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
 | `/oh-no-harness:test-driven-development <change>` | Explicit TDD/test-first request, or an internal gate inside Ralph/debugging execution — ordinary implementation routes through Ralph. |
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
@@ -142,13 +142,13 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
 | `/oh-no-harness:using-oh-no-harness` | Top-level index — start here if you forget the others. |
 
-Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:autopilot` when you want one request to span the full flow.
+Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
 
 Typical staged flow:
 
 1. You describe the work; Claude Code or Codex chooses `interview` when the goal is still fuzzy.
 2. You approve the spec; the host agent invokes `ralplan` if implementation planning is needed.
-3. You approve the plan; the host agent asks whether it should run `ralph`, `ralph with parallel subagents`, or `autopilot`.
+3. You approve the plan; the host agent asks whether it should run ordinary `ralph` or end-to-end `ultrawork`. Approved Ralph handoffs are parallel-capable by default when the plan lists isolated roles.
 4. `ralph` executes, verifies, reviews, and reports back. You do not need to choose internal role agents such as Planner, Plan-Reviewer, Executor, or Verifier; the host agent uses them when the selected workflow allows it.
 
 ## Auto Routing (Claude Code)
@@ -163,7 +163,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 
 ## Privacy
 
-- Single `SessionStart` hook that injects skill text — no `UserPromptSubmit`/`PreToolUse`/`PostToolUse`.
+- Compact `SessionStart` guidance plus a narrow `UserPromptSubmit` Ralph adapter hook — no `PreToolUse`/`PostToolUse`.
 - No npm runtime, no custom CLI process, no tmux process, no MCP server.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
@@ -176,7 +176,7 @@ Work products go under `.oh-no/`:
 - `.oh-no/specs/` — interview output
 - `.oh-no/plans/` — ralplan output
 - `.oh-no/sessions/` — transient workflow state
-- `.oh-no/worktrees/` — project-local Ralph/Autopilot task worktrees
+- `.oh-no/worktrees/` — project-local Ralph/Ultrawork task worktrees
 - `.oh-no/test-runs/` — harness test logs
 
 ## Development

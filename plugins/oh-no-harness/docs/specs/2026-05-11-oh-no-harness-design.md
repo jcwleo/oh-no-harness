@@ -23,7 +23,7 @@ The external skill surface is intentionally small:
 - `interview`
 - `ralplan`
 - `ralph`
-- `autopilot`
+- `ultrawork`
 - `auto-routing`
 - `test-driven-development`
 - `simplify`
@@ -45,7 +45,7 @@ This version will not include:
 - PreToolUse/PostToolUse bridge
 - mode authority/state ledger
 - `team`
-- `ultrawork`
+- legacy OMC `ultrawork` behavior/state machinery
 - `ultraqa`
 - `cancel`
 - `ask`
@@ -141,7 +141,7 @@ oh-no-harness/
           SKILL.md
         ralph/
       SKILL.md
-    autopilot/
+    ultrawork/
       SKILL.md
     simplify/
       SKILL.md
@@ -183,15 +183,15 @@ SessionStart
 interview
   -> ralplan
   -> ralph
-  -> autopilot
+  -> ultrawork
 
 ralplan
   -> embedded consensus planning workflow
   -> planner / architect / critic
   -> user approval
-  -> ralph or autopilot
+  -> ralph or ultrawork
 
-autopilot
+ultrawork
   -> interview when requirements are vague
   -> ralplan for planning
   -> ralph for execution and verification
@@ -234,7 +234,7 @@ Derived from OMC requirements-discovery workflow content, but simplified:
 - Handoff options:
   - refine with `ralplan`
   - execute with `ralph`
-  - execute with `autopilot`
+  - execute with `ultrawork`
 
 ### `ralplan`
 
@@ -255,7 +255,7 @@ Keep:
 - Planner -> Architect -> Critic consensus loop
 - Architect before Critic, never parallel
 - final plan marked pending approval unless user explicitly approves execution
-- approval handoff to `ralph` or `autopilot`
+- approval handoff to `ralph` or `ultrawork`
 
 ### `ralph`
 
@@ -263,7 +263,7 @@ Derived from OMC `ralph`, but converted into a solo persistence loop.
 
 Remove:
 
-- `ultrawork`
+- legacy OMC `ultrawork` state machinery
 - `cancel`
 - `ask codex`
 - `.omc/state` mode state
@@ -289,13 +289,14 @@ Ralph should use project-local artifacts, for example:
 
 If no session id exists, use a timestamped session directory.
 
-### `autopilot`
+### `ultrawork`
 
-Derived from OMC `autopilot`, but simplified into a Markdown-visible orchestration flow.
+Derived from OMC `autopilot`, renamed locally to `ultrawork`, and simplified
+into a Markdown-visible orchestration flow.
 
 Remove:
 
-- `ultrawork`
+- legacy OMC `ultrawork` behavior/state machinery
 - `ultraqa`
 - `cancel`
 - OMC runtime pipeline adapters
@@ -307,9 +308,9 @@ Keep:
 - planning through `ralplan`
 - execution/verification through `ralph`
 - analyst/architect/critic/executor/debugger/reviewer agent roles
-- build/lint/test QA loop, inline inside `autopilot`
+- build/lint/test QA loop, inline inside `ultrawork`
 
-Autopilot should detect existing `interview` specs and `ralplan` plans using the new artifact paths, not `.omc/` paths.
+Ultrawork should detect existing `interview` specs and `ralplan` plans using the new artifact paths, not `.omc/` paths.
 
 ### `simplify`
 
@@ -341,7 +342,7 @@ The agent prompts should be adapted from OMC, but all OMC-specific references mu
 
 - Replace `/oh-my-claudecode:*` commands with local skill references.
 - Replace `.omc/` artifact paths with `.oh-no/`.
-- Remove `team`, `ultrawork`, and external advisor handoffs.
+- Remove `team`, legacy OMC `ultrawork` behavior, and external advisor handoffs.
 - Replace OMC tier-specific agent names such as `executor-low`, `executor-high`, `architect-medium`, and `explore-high` with base agent names plus task scope, risk level, and evidence expectations.
 
 Example:
@@ -423,7 +424,7 @@ When copying OMC files, apply these rules:
 
 2. Remove unsupported skills.
    - `team`
-   - `ultrawork`
+   - legacy OMC `ultrawork` behavior/state machinery
    - `ultraqa`
    - `cancel`
    - `ask`
@@ -447,7 +448,7 @@ When copying OMC files, apply these rules:
 
 ### Risk: Removing hooks weakens persistence
 
-Ralph and autopilot may stop earlier than OMC did because there is no Stop hook. Mitigation: make continuation rules explicit in `ralph` and `autopilot`, and require final verification reports.
+Ralph and ultrawork may stop earlier than OMC did because there is no Stop hook. Mitigation: make continuation rules explicit in `ralph` and `ultrawork`, and require final verification reports.
 
 ### Risk: OMC docs contain hidden runtime assumptions
 
@@ -472,7 +473,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
   - `interview`
   - `ralplan`
   - `ralph`
-  - `autopilot`
+  - `ultrawork`
   - `auto-routing`
   - `test-driven-development`
   - `simplify`
@@ -484,7 +485,8 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
   - `agent-tiers.md`
   - `verification-tiers.md`
   - `company-context-interface.md`
-- No retained skill requires `team`, `ultrawork`, `ultraqa`, `cancel`, `ask`, or `autoresearch`.
+- No retained skill requires `team`, legacy OMC `ultrawork` behavior,
+  `ultraqa`, `cancel`, `ask`, or `autoresearch`.
 - No retained skill writes `.omc/` paths.
 - Relationship and migration docs explain what was removed and why.
 
@@ -501,7 +503,7 @@ The implementation should proceed in small stages:
    - `ralplan`
    - `interview`
    - `ralph`
-   - `autopilot`
+   - `ultrawork`
 6. Run unsupported-reference scans.
 7. Write relationship/migration docs.
 

@@ -30,7 +30,7 @@ PUBLIC_SKILLS=(
   interview
   ralplan
   ralph
-  autopilot
+  ultrawork
   auto-routing
   test-driven-development
   simplify
@@ -54,7 +54,7 @@ Options:
                      Run live Codex custom-agent name spawn smoke test.
   --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
   --natural-session-start-live
-                     Run live natural SessionStart role-worker smoke tests for Interview, Autopilot,
+                     Run live natural SessionStart role-worker smoke tests for Interview, Ultrawork,
                      Systematic Debugging, and Verification Before Completion.
   --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
   --skip-live        Skip live codex exec smoke tests. Default.
@@ -1057,8 +1057,8 @@ live_prompt_for_skill() {
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralph.'
       ;;
-    autopilot)
-      printf 'Use the oh-no-harness:autopilot skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK autopilot.'
+    ultrawork)
+      printf 'Use the oh-no-harness:ultrawork skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ultrawork.'
       ;;
     auto-routing)
       printf 'Use the oh-no-harness:auto-routing skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK auto-routing.'
@@ -1147,8 +1147,8 @@ deep_prompt_for_skill() {
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
-    autopilot)
-      printf 'Use the oh-no-harness:autopilot skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Autopilot auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Autopilot-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK autopilot.'
+    ultrawork)
+      printf 'Use the oh-no-harness:ultrawork skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK ultrawork.'
       ;;
     simplify)
       printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the Codex SessionStart standing authorization rule that avoids per-run subagent approval; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
@@ -1166,6 +1166,7 @@ import sys
 path, skill = sys.argv[1], sys.argv[2]
 text = open(path, "r", encoding="utf-8").read()
 text_lower = text.lower()
+text_plain = text_lower.translate(str.maketrans("", "", "`*_"))
 
 expected = {
     "interview": [
@@ -1210,15 +1211,15 @@ expected = {
         "not a top-level implementation",
         "Required Behavior Lock",
     ],
-    "autopilot": [
-        "OH_NO_CODEX_DEEP_OK autopilot",
+    "ultrawork": [
+        "OH_NO_CODEX_DEEP_OK ultrawork",
         ".oh-no/specs/interview-{slug}.md",
         ".oh-no/worktrees/<task-slug>",
         "auto",
         "approval",
         "ralplan",
         "ralph",
-        "Autopilot-approved",
+        "Ultrawork-approved",
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1308,16 +1309,16 @@ if skill == "ralplan" and not (
 ):
     raise SystemExit(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
 
-if skill in ("ralplan", "autopilot") and not (
-    "2 loops" in text_lower
-    or "two loops" in text_lower
-    or "2 complete loops" in text_lower
-    or "two complete loops" in text_lower
-    or "at most 2" in text_lower
-    or "at most two" in text_lower
-    or "max 2" in text_lower
-    or "maximum of 2" in text_lower
-    or "maximum of two" in text_lower
+if skill in ("ralplan", "ultrawork") and not (
+    "2 loops" in text_plain
+    or "two loops" in text_plain
+    or "2 complete loops" in text_plain
+    or "two complete loops" in text_plain
+    or "at most 2" in text_plain
+    or "at most two" in text_plain
+    or "max 2" in text_plain
+    or "maximum of 2" in text_plain
+    or "maximum of two" in text_plain
 ):
     raise SystemExit(f"{skill} deep smoke missing 2-loop planning limit marker; got {text!r}")
 
@@ -1328,7 +1329,7 @@ linked_doc_markers = {
         "Parallel trigger",
         "Required Behavior Lock",
     ],
-    "autopilot": [
+    "ultrawork": [
         "Mode source",
         "Cleanup And Final Verification",
     ],
@@ -1392,7 +1393,7 @@ run_deep_live_tests() {
 
   log "Running deep Codex linked-doc smoke tests"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph autopilot simplify; do
+  for skill in interview ralplan ralph ultrawork simplify; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
@@ -1503,9 +1504,9 @@ natural_session_start_prompt_for_skill() {
 Use the oh-no-harness:interview skill. Read-only natural SessionStart smoke test. Vague request: make Codex live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-codex-plugin.sh only. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
 PROMPT
       ;;
-    autopilot)
+    ultrawork)
       cat <<'PROMPT'
-Use the oh-no-harness:autopilot skill. Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-codex-plugin.sh has enough live natural smoke coverage for a release handoff. Do not create artifacts, do not edit files, and do not run write-capable execution. Follow a dry-run phase path for repository facts, planning readiness, and final evidence. Required worker messages: Role: explore with Marker: OH_NO_AUTOPILOT_EXPLORE_READONLY; Role: planner with Marker: OH_NO_AUTOPILOT_PLANNER_READONLY; Role: verifier with Marker: OH_NO_AUTOPILOT_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_AUTOPILOT_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
+Use the oh-no-harness:ultrawork skill. Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-codex-plugin.sh has enough live natural smoke coverage for a release handoff. Do not create artifacts, do not edit files, and do not run write-capable execution. Follow a dry-run phase path for repository facts, planning readiness, and final evidence. Required worker messages: Role: explore with Marker: OH_NO_ULTRAWORK_EXPLORE_READONLY; Role: planner with Marker: OH_NO_ULTRAWORK_PLANNER_READONLY; Role: verifier with Marker: OH_NO_ULTRAWORK_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_ULTRAWORK_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
 PROMPT
       ;;
     systematic-debugging)
@@ -1897,22 +1898,22 @@ run_natural_session_start_live_tests() {
     interview \
     OH_NO_CODEX_INTERVIEW_NATURAL_OK \
     explore:OH_NO_INTERVIEW_EXPLORE_READONLY \
-    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+    "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
-    autopilot \
-    OH_NO_CODEX_AUTOPILOT_NATURAL_OK \
-    explore:OH_NO_AUTOPILOT_EXPLORE_READONLY,planner:OH_NO_AUTOPILOT_PLANNER_READONLY,verifier:OH_NO_AUTOPILOT_VERIFIER_READONLY \
+    ultrawork \
+    OH_NO_CODEX_ULTRAWORK_NATURAL_OK \
+    explore:OH_NO_ULTRAWORK_EXPLORE_READONLY,planner:OH_NO_ULTRAWORK_PLANNER_READONLY,verifier:OH_NO_ULTRAWORK_VERIFIER_READONLY \
     "OH_NO_DEBUGGER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
     systematic-debugging \
     OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK \
     debugger:OH_NO_DEBUGGER_READONLY,verifier:OH_NO_DEBUG_VERIFIER_READONLY \
-    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+    "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
   run_natural_session_start_live_skill_test \
     verification-before-completion \
     OH_NO_CODEX_VERIFICATION_NATURAL_OK \
     verifier:OH_NO_COMPLETION_VERIFIER_READONLY \
-    "OH_NO_AUTOPILOT_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY"
+    "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY"
   ok "natural SessionStart live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
@@ -2373,7 +2374,7 @@ PY
     proof_request="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $2}' "$proof_map_file")"
     proof_ok="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $3}' "$proof_map_file")"
     [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
-    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Call spawn_agent exactly once with agent_type \"${agent_type}\", without fork_context, and with message \"${proof_request}\". Do not omit agent_type. Do not inspect available-role comments before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. Do not use generic/default agents. If spawn_agent fails or the agent_type is unavailable, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after wait_agent and close_agent completed. Do not mention any expected child output."
+    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Call spawn_agent exactly once with agent_type \"${agent_type}\", without fork_context, and with message \"${proof_request}\". Do not omit agent_type. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after wait_agent and close_agent completed. Do not mention any expected child output."
 
     CODEX_HOME="$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 

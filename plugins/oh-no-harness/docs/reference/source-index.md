@@ -9,7 +9,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/skill-core/ralplan.md` | `omc/raw/skills/ralplan/SKILL.md` plus `omc/raw/skills/plan/SKILL.md` consensus workflow content |
 | `docs/skill-core/interview.md` | OMC requirements-discovery skill content, renamed locally |
 | `docs/skill-core/ralph.md` | `omc/raw/skills/ralph/SKILL.md` |
-| `docs/skill-core/autopilot.md` | `omc/raw/skills/autopilot/SKILL.md` |
+| `docs/skill-core/ultrawork.md` | `omc/raw/skills/autopilot/SKILL.md`, renamed locally from `autopilot` to `ultrawork` |
 
 ## Claude Code Built-In Skill Parity
 
@@ -38,7 +38,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/verification-tiers.md` | `omc/raw/docs/shared/verification-tiers.md` |
 | `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
 | `docs/shared/parallel-subagents.md` | local pointer back to `docs/shared/ralph-subagent-policy.md` for parallel dispatch |
-| `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Autopilot |
+| `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
 | `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
 
 ## Local Platform Adapter Docs

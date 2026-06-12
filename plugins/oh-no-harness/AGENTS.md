@@ -8,7 +8,7 @@ Keep the external skill surface limited to:
 - `interview`
 - `ralplan`
 - `ralph`
-- `autopilot`
+- `ultrawork`
 - `auto-routing`
 - `test-driven-development`
 - `simplify`
@@ -54,6 +54,11 @@ When adapting OMC content:
 - Use `.oh-no/sessions/` for transient workflow state.
 - Use `.oh-no/worktrees/` for project-local task worktrees.
 - Do not add OMC keyword detection, persistent mode hooks, bridge hooks, or state ledger behavior.
-- Do not reintroduce `team`, `ultrawork`, `ultraqa`, `cancel`, `ask`, or `autoresearch`.
+- `ultrawork` is the renamed former `autopilot` end-to-end workflow. Keep that
+  scope: it orchestrates `interview` -> `ralplan` -> `ralph` with visible
+  Markdown state and verification gates.
+- Do not reintroduce OMC-era `team`, `ultraqa`, `cancel`, `ask`,
+  `autoresearch`, or legacy `ultrawork` behavior such as hidden state ledgers,
+  bridge hooks, keyword mode controllers, or runtime daemons.
 
 When editing skills, make skill chaining explicit in Markdown. Do not rely on hidden automation.
