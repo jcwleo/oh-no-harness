@@ -71,6 +71,9 @@ start_or_resume
 
 - Existing approved specs or plans may skip earlier phases only when the skip
   reason and source artifact are recorded.
+- Every path to `worktree_gate` or `execution_handoff` must first create or
+  confirm an execution profile. Source edits are blocked until the profile
+  exists and is recorded in the Ultrawork state.
 - Any scope change, missing authority artifact, failed worktree gate, or failed
   verification transitions to `paused` or `blocked`, not silent continuation.
 - QA failures transition to `systematic-debugging`, then back to
@@ -187,6 +190,31 @@ as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
 only for direct Ralph execution when the host permits proactive dispatch and the
 active skill policy itself authorizes eligible isolated roles.
 
+## Execution Profile Gate
+
+Ultrawork must create or confirm an execution profile before any write-capable
+execution, worktree creation for execution, source edit, or `ralph` handoff.
+This gate applies even when the starting request is concrete enough to skip
+interview questions or when execution will be handled inline instead of through
+the public `ralph` wrapper.
+
+Valid profile sources:
+
+1. An approved `ralplan` plan with the full `Execution profile` fields from
+   `docs/shared/execution-modes.md`.
+2. A relevant existing plan whose missing profile is completed by reading
+   `docs/shared/execution-modes.md` and recording the derived profile before
+   execution.
+3. A direct-execution sizing pass for a concrete task, produced by reading
+   `docs/shared/execution-modes.md`, answering the Execution Mode Decision
+   Prompt, and recording `Mode source: derived by Ultrawork`.
+
+The recorded profile must include overall Ralph mode, verification tier,
+artifact policy, agent policy, parallel trigger, worktree policy and location,
+cleanup policy, task sizing, and escalation triggers. If any required field is
+missing, the doctor/status gate is `BLOCKED`; do not continue by treating
+`ultrawork` itself as an implicit execution mode.
+
 ## Automatic Worktree Execution
 
 For write-capable execution, read and follow
@@ -229,7 +257,9 @@ inventing product intent.
 
 ### Phase 1: Plan
 
-Read and follow `ralplan` unless an approved or relevant plan already exists.
+Read and follow `ralplan` unless an approved or relevant plan already exists or
+the task is concrete enough for direct execution. Regardless of route, complete
+the `## Execution Profile Gate` before leaving this phase.
 
 Inside Ultrawork, the `ralplan` plan is automatically approved for execution
 once the plan satisfies Ralplan's consensus, direction-preservation, execution
@@ -242,6 +272,11 @@ approved requirements source (for example the interview spec), a missing
 execution profile, or an explicit user request to review the plan manually.
 
 ### Phase 2: Execute
+
+Before execution, confirm that the Ultrawork state contains a complete execution
+profile from `## Execution Profile Gate`. If it does not, return to Phase 1 or
+record `blocked: missing execution profile`; do not edit files, create an
+execution worktree, or run inline implementation.
 
 Read and follow `ralph` with the Ultrawork-approved plan or spec. Treat the
 ordinary `ralph` execution handoff as approved by Ultrawork; do not ask the user
@@ -283,6 +318,8 @@ Write a final report with:
 - spec or plan path
 - session directory
 - execution mode and mode source
+- execution profile source and required fields from
+  `docs/shared/execution-modes.md`
 - Worktree decision, integration checkout, post-merge verification, and cleanup
   status
 - phases completed
@@ -313,7 +350,8 @@ handling after requirements are clear:
   product intent is missing. Ultrawork does not auto-approve the interview spec.
 - After the user approves the interview spec, or when the starting request is
   already concrete enough to plan, Ultrawork automatically approves `ralplan`
-  output that satisfies the required planning gates.
+  output that satisfies the required planning gates and includes a complete
+  execution profile.
 - Ultrawork then automatically invokes `ralph` with that Ultrawork-approved
   plan or spec and treats the implementation handoff as approved.
 - `ralph` still runs `verification-before-completion` before any final
@@ -335,6 +373,10 @@ manually.
 When no pause condition exists, record the plan approval source and continue
 directly into `ralph`.
 
+If Ultrawork skips `ralplan` because the task is already concrete enough for
+direct execution, it still must record `Mode source: derived by Ultrawork` with
+the full execution profile before Phase 2.
+
 If the user invokes `interview`, `ralplan`, or `ralph` directly without going through ultrawork, the per-step Next Skill Handoff in those skills is required.
 
 ## Output
@@ -344,5 +386,7 @@ Return:
 - Active artifact paths.
 - Phase status.
 - Skills used in order.
+- Execution profile source, mode, verification tier, agent policy, worktree
+  policy, cleanup policy, task sizing, and escalation triggers.
 - Verification evidence.
 - Final result or blocker.
