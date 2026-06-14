@@ -1139,10 +1139,10 @@ run_live_tests() {
 deep_prompt_for_skill() {
   case "$1" in
     interview)
-      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
+      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, development requirements coverage, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the single Plan-Reviewer review dispatch rule, the blocking-findings-only re-review rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, shared development requirements coverage/carryover contract and gap-check rule, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the single Plan-Reviewer review dispatch rule, the blocking-findings-only re-review rule, when development requirements coverage is carried forward from an approved interview spec versus gap-checked by Analyst, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
@@ -1167,6 +1167,7 @@ path, skill = sys.argv[1], sys.argv[2]
 text = open(path, "r", encoding="utf-8").read()
 text_lower = text.lower()
 text_plain = text_lower.translate(str.maketrans("", "", "`*_"))
+text_words = text_plain.replace("-", " ")
 
 expected = {
     "interview": [
@@ -1175,11 +1176,14 @@ expected = {
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
+        "Development Requirements Coverage Gate",
         "Goal Restatement Gate",
     ],
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
         "pending approval",
+        "Development requirements coverage",
+        "approved interview",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
@@ -1308,6 +1312,9 @@ if skill == "ralplan" and not (
     )
 ):
     raise SystemExit(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
+
+if skill == "ralplan" and "gap check" not in text_words:
+    raise SystemExit(f"{skill} deep smoke missing development-requirements gap-check marker; got {text!r}")
 
 if skill in ("ralplan", "ultrawork") and not (
     "2 loops" in text_plain
@@ -1749,7 +1756,7 @@ run_no_skill_readonly_session_start_live_test() {
   local out_file="$RUN_DIR/no-skill-readonly-session-start.jsonl"
   local err_file="$RUN_DIR/no-skill-readonly-session-start.err"
   local prompt
-  prompt='Read-only repository lookup. In this checkout, find the files that define Codex role dispatch policy and summarize each one briefly. Follow AGENTS.md and do not edit files. Finish with the marker OH_NO_CODEX_NOSKILL_READONLY_OK.'
+  prompt='Read-only repository lookup. In this checkout, find the files that define Codex role dispatch policy and summarize each one briefly. Follow AGENTS.md and do not edit files. If you start any background helper, try to capture its final result before closing it; if a bounded wait does not finish and the lookup is safe to complete inline, report the helper as pending and do not close it. Finish with the marker OH_NO_CODEX_NOSKILL_READONLY_OK.'
   assert_natural_prompt_has_no_explicit_subagent_terms "no-skill-readonly" "$prompt"
 
   local cmd=(
@@ -1929,7 +1936,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain and skips the re-review because there are no blocking findings. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed planning agents: 2.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with these compact field labels: Draft id, Requirements source, Analyst status, Goal, Scope, Non-goals, Acceptance criteria, Development requirements carryover, Minimal viable approach, Rejected speculative complexity, Files/modules likely affected, Task sequence, TDD expectations, Test case design, Validation check, Execution profile, Worktree policy, Planning dispatch, Verification plan, Risks/open questions. Use short values and mark non-applicable fields explicitly. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain and skips the re-review because there are no blocking findings. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed planning agents: 2.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -2198,7 +2205,7 @@ PY
   log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralplan-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed workers: yes.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Planner expected output: only a short section titled Planner draft v1 with Draft id, Requirements source, Analyst status, Goal, Scope, Non-goals, Acceptance criteria, Development requirements carryover, Minimal viable approach, Rejected speculative complexity, Files/modules likely affected, Task sequence, TDD expectations, Test case design, Validation check, Execution profile, Worktree policy, Planning dispatch, Verification plan, Risks/open questions. Use short values and mark non-applicable fields explicitly. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed workers: yes.'
   assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   assert_natural_spawn_smoke "$out_file" "$err_file" 2 "OH_NO_CODEX_RALPLAN_NATURAL_OK" "ralplan"

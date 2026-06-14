@@ -20,6 +20,13 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Identify the acceptance criteria: who or what will validate success in practice,
   what observable success and failure signals matter, and which checks are
   useful but insufficient proof.
+- When called by `ralplan` without an approved interview coverage block, run a
+  limited development requirements gap check for plan-relevant behavior/API/UI,
+  data or migration, security or secrets, runtime or release, observability,
+  performance or concurrency, compatibility, external services, and verification
+  proof. Use repository evidence for inspectable facts and ask only when an
+  inferred answer would change behavior, data handling, security posture,
+  delivery scope, public support claims, or proof requirements.
 - Detect ambiguity, missing data, hidden coupling, and risk.
 - Convert vague requests into concrete decision points.
 - Recommend to the calling skill when `interview` or `ralplan` should be used before execution.
@@ -37,6 +44,8 @@ Return:
 
 - Clarified objective.
 - Acceptance criteria.
+- Development requirements gap check: required, not applicable, accepted
+  assumption, or pending approval for each plan-relevant category.
 - Ambiguities, open alignment questions, and questions for the user.
 - Risks and constraints.
 - Suggested next role for the caller (agent): `planner` or `plan-reviewer`.

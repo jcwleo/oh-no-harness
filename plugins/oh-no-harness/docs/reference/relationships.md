@@ -64,6 +64,7 @@ interview
 ralplan
   -> embedded consensus planning workflow
   -> docs/shared/execution-modes.md for required Ralph execution profile
+  -> docs/shared/finite-delivery-contract.md for baseline evidence record, review-loop budget, dispatch gate, deliverable diff hygiene, and ship gate
   -> explore when codebase context is needed
   -> analyst for hidden requirements, risks, and constraints
   -> planner
@@ -72,6 +73,7 @@ ralplan
 
 ralph
   -> docs/shared/execution-modes.md before editing
+  -> docs/shared/finite-delivery-contract.md before write-capable execution, baseline evidence validation, deliverable diff hygiene, review dispatch, and final claim
   -> explore when files, tests, or integration surfaces are not obvious
   -> docs/shared/ralph-subagent-policy.md before subagent dispatch
   -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
@@ -90,6 +92,7 @@ ultrawork
   -> interview stage when requirements are vague
   -> ralplan for planning
   -> ralph for mode-gated execution and verification
+  -> docs/shared/finite-delivery-contract.md before write-capable execution, deliverable diff hygiene, and final validation
   -> test-driven-development when execution is handled inline and behavior changes
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report

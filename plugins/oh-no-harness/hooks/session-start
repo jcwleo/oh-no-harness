@@ -117,15 +117,14 @@ Never use missing output as completion evidence.
 
 codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
 For simple read-only repository fact lookup prompts, Codex may use one
-exploration sub-agent without active workflow. Eligible: locate,
-trace, or summarize existing code/config/tests/docs. Do not use this lane for planning, debugging, implementation, review, QA, security, verification,
-ambiguity, or edits. Do not read/reproduce secrets unless asked;
-redact credential values in sub-agent output. Do not call spawn_agent for this
-lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. Capture the result, then
-close the sub-agent when close_agent exists. Timeout/empty/no agents completed
-is not captured. MUST NOT close a running read-only sub-agent; leave open, wait
-longer, or report pending unless user cancels, scope invalidates, spawn was
-duplicate/mis-scoped, or safety/security risk appears.
+exploration sub-agent without active workflow. Eligible: locate, trace, or
+summarize existing code/config/tests/docs. Do not use this lane for planning, debugging,
+implementation, review, QA, security, verification, ambiguity, or edits. Do not
+read/reproduce secrets unless asked; redact credential values in sub-agent
+output. Spawn only when the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. If spawned, use a bounded wait and close the sub-agent
+only after final result capture. Timeout/empty/no agents completed is not
+captured; do not close a running helper. If the bounded wait does not finish and
+the lookup is safe inline, report pending and answer from inline evidence.
 </CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
 
 codex_agent_ensure_warning() {

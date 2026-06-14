@@ -37,6 +37,10 @@ never reclassify it.
 - Check acceptance criteria coverage: whether the architecture proves the
   user's or maintainer's success signal instead of optimizing for an
   internal shortcut or convenient test.
+- Check development requirements carryover: whether approved interview coverage
+  or the Analyst gap check is reflected in the plan's architecture,
+  sequencing, verification, escalation triggers, and Ralph execution profile.
+  Flag required or accepted-assumption items that disappear before execution.
 - Check validation coverage using `docs/shared/validation-check.md` when
   measurable evidence influenced the plan. Flag task-specific,
   fixture-specific, or architecture justified only by metric movement.
@@ -47,12 +51,16 @@ never reclassify it.
 - Challenge abstractions, dependencies, configuration surfaces, or generalized
   paths that are not required by the current scope.
 - Review whether the proposed Ralph execution profile from `docs/shared/execution-modes.md` is too light, too heavy, or missing task-level sizing.
+- Review whether the finite delivery contract from
+  `docs/shared/finite-delivery-contract.md` is present and credible; report all
+  missing or weak evidence under `Finite delivery contract findings`.
 - Review whether the `Worktree policy` from `docs/shared/worktree-isolation.md`
   fits the execution path: direct Ralph should use a registered Git worktree
-  under `.oh-no/worktrees/<task-slug>`, Ultrawork should use
-  registered project-local Git worktree execution plus merge, and read-only work should be
-  marked not applicable. Flag `git clone`, `cp -R`, or plain-directory plans as
-  invalid substitutes.
+  under `.oh-no/worktrees/<task-slug>` and leave the task branch or worktree for
+  review unless explicit integration is approved, Ultrawork should use
+  registered project-local Git worktree execution plus merge-back and post-merge
+  verification, and read-only work should be marked not applicable. Flag
+  `git clone`, `cp -R`, or plain-directory plans as invalid substitutes.
 - Recommend verification depth using `docs/shared/verification-tiers.md`.
 
 ### Pass 2: quality-gate lens
@@ -70,6 +78,8 @@ never reclassify it.
   the final Risk Check Before Completion, for behavior-changing work.
 - Reject verification plans that repeat broad suites without a patch-related
   reason while leaving semantic edge cases uncovered.
+- Reject plans or completion evidence that skip required finite-delivery
+  evidence from `docs/shared/finite-delivery-contract.md`.
 - Reject broad diffs that skip the diff-budget scope review or fail to justify
   why the breadth is necessary for the current acceptance criteria.
 - Reject test case designs that are AI-slop: tests that would pass against the
@@ -82,12 +92,23 @@ never reclassify it.
   must-fail-before-implementation, must-pass-after-implementation,
   negative/forbidden behavior when relevant, edge or regression coverage when
   relevant, and evidence mapping to acceptance criteria.
+- Reject `ralplan` plans that skip `Development requirements carryover` when an
+  approved interview coverage block exists, or when missing coverage around
+  behavior, data, security, runtime or release, observability, performance or
+  concurrency, compatibility, external services, or verification proof would
+  change the implementation or evidence bar.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
+- Reject write-capable plans that omit the finite delivery contract, omit the
+  Baseline evidence record when the baseline guard is required, skip explicit
+  `not-applicable` rationale, omit Deliverable diff hygiene, leave review loops
+  unbounded, or omit the ship gate.
 - Reject write-capable execution plans that skip `Worktree policy`, skip direct
   Ralph's automatic registered Git worktree execution under
-  `.oh-no/worktrees/<task-slug>`, substitute `git clone`, `cp -R`, or a plain
+  `.oh-no/worktrees/<task-slug>`, fail to say whether direct Ralph leaves the
+  task branch or worktree unmerged, substitute `git clone`, `cp -R`, or a plain
   directory for a task worktree, or fail to make Ultrawork's automatic
-  registered project-local worktree execution and merge responsibility explicit.
+  registered project-local worktree execution, merge-back, and post-merge
+  verification responsibility explicit.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.
 - Apply the senior-engineer overcomplication check: if a senior engineer
@@ -166,11 +187,15 @@ Return:
 - Tradeoffs and possible synthesis paths.
 - Direction-preservation findings.
 - Acceptance criteria coverage and mismatch findings.
+- Development requirements carryover findings.
 - Validation coverage and risk from metric-only evidence findings.
 - Test design findings.
 - Acceptance-to-evidence, story risk-check, and final risk-check findings.
 - Verification budget and diff-budget findings.
+- Compatibility baseline and runtime stability findings.
+- Executable contract probe findings.
 - Execution profile findings.
+- Finite delivery contract findings.
 - Worktree policy findings.
 - Verification tier recommendation from `docs/shared/verification-tiers.md`.
 - Evidence required for approval.

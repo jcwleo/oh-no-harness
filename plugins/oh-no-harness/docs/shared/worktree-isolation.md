@@ -28,7 +28,9 @@ Allowed decisions:
 - `already in approved worktree`: the current checkout is already the approved
   task worktree.
 - `direct automatic worktree`: direct `ralph` created or selected a task
-  worktree by default without asking a worktree approval question.
+  worktree by default without asking a worktree approval question. The task
+  worktree and branch are the direct-Ralph deliverable unless the user or a
+  caller explicitly approves integration.
 - `user declined/current checkout`: the user explicitly declined worktree use
   for this task, so execution continues in the current checkout.
 - `ultrawork automatic worktree`: `ultrawork` created or selected a task
@@ -40,10 +42,32 @@ Allowed decisions:
 If the decision is missing, ambiguous, or not one of the allowed decisions, stop
 before editing and resolve the gate.
 
+### Source Edit Location Guard
+
+After the worktree decision is recorded, every source-editing command must run
+against the recorded execution checkout. Before the first edit, record:
+
+- execution checkout path
+- integration checkout path, when different
+- expected deliverable files or file classes
+
+Before each manual patch, generated rewrite, or tool-driven source edit, confirm
+the command's working directory or explicit path target is inside the execution
+checkout. If a patch tool cannot set a working directory reliably, use explicit
+paths relative to the execution checkout or stop and correct the command shape
+before editing.
+
+If an edit accidentally lands in the integration checkout or another location,
+do not continue on top of it. Record the mistake, inspect the unintended diff,
+move only task-owned edits into the execution checkout, restore the unintended
+location without touching unrelated user changes, and rerun the local status
+checks before proceeding.
+
 Profile policy values:
 
 - `direct-automatic-worktree`: direct `ralph` creates or selects a task worktree
-  by default before write-capable execution.
+  by default before write-capable execution and leaves the completed task branch
+  or worktree for review unless an explicit integration step is approved.
 - `automatic-worktree-merge`: `ultrawork` creates or selects a task worktree by
   default, then merges completed work back into the integration checkout.
 - `not-applicable`: read-only work or pre-execution artifacts that do not edit
@@ -78,10 +102,20 @@ inside the task worktree with `git -C .oh-no/worktrees/<task-slug> status` or an
 equivalent command. The integration checkout's `git status` may not show edits
 inside the ignored task worktree directory.
 
+Before writing transient Oh No Harness artifacts in a target repository, confirm
+that `.oh-no/` is ignored by the repository or by the local Git exclude file. If
+it is not already ignored and the user did not ask to version harness artifacts,
+append `.oh-no/` to `.git/info/exclude` rather than editing project
+`.gitignore`. This is local workspace hygiene, not a source change. Recheck the
+deliverable diff before completion and remove any unintended `.oh-no` artifacts
+from the patch.
+
 Remove completed task worktrees with
-`git worktree remove .oh-no/worktrees/<task-slug>` only after integration and
-post-merge verification are complete. Do not clean up active task worktrees with
-manual deletion or broad cleanup commands that remove `.oh-no/`.
+`git worktree remove .oh-no/worktrees/<task-slug>` only after the work was
+integrated or deliberately abandoned and any required post-integration
+verification is complete. Direct `ralph` normally leaves its completed worktree
+or branch in place for external review. Do not clean up active task worktrees
+with manual deletion or broad cleanup commands that remove `.oh-no/`.
 
 If Ralph or Ultrawork is invoked from inside an existing
 `.oh-no/worktrees/<task-slug>` checkout, do not create a
@@ -109,6 +143,15 @@ fallback is approved, record `blocked` and stop before editing.
 Once a direct-Ralph worktree decision is recorded, do not ask again for the same
 task/session unless the user changes the scope or the recorded decision becomes
 invalid.
+
+Direct `ralph` does not merge the task worktree back into the integration
+checkout by default. Its final report must name the task branch, worktree path,
+integration checkout, and integration status (`not merged by direct Ralph` unless
+the user explicitly approved integration). If the user asks direct `ralph` to
+integrate, treat that as an explicit integration step: inspect the task diff,
+merge or apply only task-owned changes, run the selected mode's post-integration
+verification, and report any blocker instead of silently editing the original
+checkout.
 
 ## Ultrawork Automatic Worktree
 
@@ -153,7 +196,7 @@ mkdir -p .oh-no/worktrees
 git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>
 ```
 
-Before integrating, inspect the worktree diff. After integrating, run the
-verification required by the selected Ralph mode. Clean up only when the merge
-and post-merge verification are complete or when the user asks to cancel the
-work.
+Before any approved integration, inspect the worktree diff. After integrating,
+run the verification required by the selected Ralph mode. Clean up only when the
+integration and post-integration verification are complete or when the user asks
+to cancel the work.

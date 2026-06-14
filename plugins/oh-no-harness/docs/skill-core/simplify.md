@@ -31,6 +31,10 @@ This skill's cleanup review is gated by diff size. A diff is small when it
 touches at most 3 changed files AND at most 100 changed lines AND no
 generated files. When any bound is exceeded, unknown, or uncertain, default
 to the four parallel cleanup subagents.
+This gate selects how to run Simplify after the caller has already decided that
+cleanup is required. Diff-size uncertainty alone is not a reason for `ralph` or
+`ultrawork` to invoke cleanup after the finite delivery ship gate is otherwise
+satisfied.
 A diff above the small-diff gate requires four cleanup role passes: launch
 the Reuse, Simplification, Efficiency, and Altitude review passes as
 independent subagents in parallel through the active platform's approved

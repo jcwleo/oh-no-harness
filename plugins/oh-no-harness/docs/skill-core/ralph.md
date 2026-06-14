@@ -48,6 +48,11 @@ If the selected mode requires a session and no session id exists, create a
 timestamped directory under `.oh-no/sessions/`. `LIGHT` mode may use a compact
 session note instead of full PRD scaffolding unless the input requires stories.
 
+Before writing those artifacts in a target repository, apply the `.oh-no/`
+ignore hygiene from `docs/shared/worktree-isolation.md`. Session notes, plans,
+test runs, and task worktrees are workflow state. They must not appear in the
+deliverable diff unless the user explicitly asked to version them.
+
 ## Required Execution Mode
 
 Read `docs/shared/execution-modes.md` before editing.
@@ -71,7 +76,8 @@ security posture, or delivery scope.
 The final report must include the selected mode, mode source, verification tier,
 artifact policy, agent policy, parallel trigger, cleanup policy, and any
 escalation that happened while working. It must also include the `Worktree
-decision` from `docs/shared/worktree-isolation.md`.
+decision`, task branch or worktree path, integration checkout, and integration
+status from `docs/shared/worktree-isolation.md`.
 
 ## PRD Shape
 
@@ -89,7 +95,9 @@ Represent work as stories:
     "parallelTrigger": "approved-plan-handoff | explicit-user-request | natural-dispatch | none",
     "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | ultrawork automatic worktree | read-only/not applicable | blocked",
     "worktreeLocation": ".oh-no/worktrees/<task-slug> | not-applicable | explicit fallback path",
-    "cleanupPolicy": "not-needed | conditional | required"
+    "integrationStatus": "not merged by direct Ralph | merged by explicit user approval | handled by Ultrawork | not-applicable",
+    "cleanupPolicy": "not-needed | conditional | required",
+    "finiteDeliveryContract": "canonical fields from docs/shared/execution-modes.md"
   },
   "stories": [
     {
@@ -154,6 +162,11 @@ For each story, record:
   recurring software engineering failure mode, user or maintainer outcome, similar-work expectation,
   deliberately excluded case-specific details, and added process cost
 - verification budget: the intended focused checks, broad checks, and stop rule
+- finite delivery fields from `docs/shared/finite-delivery-contract.md`:
+  baseline guard, baseline evidence record, contract-risk probes
+  (compatibility baseline, runtime stability classification, executable
+  contract probe status), review-loop budget, deliverable diff hygiene, and
+  ship gate
 - diff-budget expectation: expected changed-file scope and what would trigger a
   scope review before completion
 
@@ -166,45 +179,27 @@ decision` is recorded.
 
 Read `docs/shared/worktree-isolation.md` before editing.
 
-`interview` and `ralplan` artifacts do not require a worktree by default, but
-Ralph execution does. If the task will edit files, record exactly one allowed
-decision before the first edit:
-
-- `approved worktree`
-- `already in approved worktree`
-- `direct automatic worktree`
-- `user declined/current checkout`
-- `ultrawork automatic worktree`
-- `read-only/not applicable`
-- `blocked`
+Use the shared contract for allowed decisions, default location, command shape,
+artifact handoff, fallback rules, and cleanup. Ralph must still record
+Worktree decision and location in its session note or PRD before the first
+source edit.
 
 For direct Ralph execution, create or select a registered Git worktree using
-`git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default
-before editing and record
-`Worktree decision: direct automatic worktree`. Do not ask a worktree approval
-question.
-Do not scatter automatic task worktrees into the parent workspace directory as
-sibling directories unless the project-local path is impossible or the user
-explicitly requests that location. Skip automatic worktree creation only when
-the user explicitly asks to decide the execution location, the current checkout
-is already an approved task worktree, the task is read-only, or the repository
-cannot support `git worktree add`. Do not use `git clone`, `cp -R`, a plain
-directory, or a manual checkout as a substitute. If the user explicitly declines
-worktree use, record `Worktree decision: user declined/current checkout` before
-editing. If the repository cannot support `git worktree add` and no explicit
-current-checkout fallback is approved, record `Worktree decision: blocked` and
-stop before editing.
+`git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default and
+record `Worktree decision: direct automatic worktree`; do not ask a worktree
+approval question. Do not scatter automatic task worktrees into the parent
+workspace directory, and do not use `git clone`, `cp -R`, a plain directory, or
+a manual checkout as a substitute. Direct Ralph leaves the completed task
+worktree or branch as the deliverable by default; it does not merge back into
+the integration checkout unless the user explicitly approves an integration
+step.
 
-When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
-create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
-execute there, then return control to Ultrawork for merge into the
-integration checkout and post-merge verification.
-
-When execution moves to a worktree, preserve access to the approved `.oh-no`
-spec, plan, or PRD before editing. Copy the relevant artifact into the worktree,
-record an explicit absolute artifact path, or quote the approved task definition
-inside the execution artifact. Do not assume untracked `.oh-no` files appear in a
-new git worktree.
+When invoked from `ultrawork`, record
+`Worktree decision: ultrawork automatic worktree`, execute under
+`.oh-no/worktrees/<task-slug>`, then return control to Ultrawork for the
+integration checkout and post-merge verification. Preserve access to the
+approved `.oh-no` spec, plan, or PRD before editing, because untracked artifacts
+do not automatically appear in a new worktree.
 
 If the worktree decision is missing, ambiguous, or cannot be recorded, stop and
 report the blocker instead of editing.
@@ -239,22 +234,8 @@ change is acceptable only if it maps to a recurring software engineering failure
 preserves the user, maintainer, operator, or public contract outcome as the
 source of truth for acceptance.
 
-Record:
-
-```text
-Validation check:
-- Evidence used:
-- Acceptance criteria or user outcome it supports:
-- What the evidence proves:
-- What the evidence does not prove:
-- Regression or maintainability risk addressed:
-- Why this should apply to similar work:
-- Case-specific details deliberately excluded:
-- Added process cost or risk:
-- Completion claim:
-```
-
-This block mirrors the canonical template in `docs/shared/validation-check.md`.
+Record a `Validation check:` block using the canonical template in
+`docs/shared/validation-check.md`.
 
 Reject or narrow changes whose only justification is metric movement,
 unseen-check guessing, task-name-specific guidance, fixture knowledge, or
@@ -266,24 +247,32 @@ This loop is the top-level shape. Detail for review, cleanup, agent dispatch, pa
 
 Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
 
-1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, `docs/shared/validation-check.md`, and `docs/shared/ralph-subagent-policy.md`.
+1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, `docs/shared/validation-check.md`, `docs/shared/finite-delivery-contract.md`, and `docs/shared/ralph-subagent-policy.md`.
 2. Set or confirm the required execution mode before editing. Record mode
    source, verification tier, artifact policy, agent policy, parallel trigger,
-   cleanup policy, task sizing, and escalation triggers. When the input is an
-   approved `ralplan` plan and the user chooses ordinary `oh-no-harness:ralph`,
-   treat that handoff as `Parallel trigger: approved-plan-handoff`; no separate
-   "parallel Ralph" wording is needed.
+   cleanup policy, task sizing, finite delivery contract fields, and escalation
+   triggers. When the input is an approved `ralplan` plan and the user chooses
+   ordinary `oh-no-harness:ralph`, treat that handoff as `Parallel trigger:
+   approved-plan-handoff`; no separate "parallel Ralph" wording is needed.
 3. Resolve the `## Worktree Isolation Gate` before editing. Record the `Worktree decision`, preserve approved artifact access when moving to a worktree, and stop if the decision is missing or blocked.
+   Also record the execution checkout path, task branch, integration checkout
+   path, and integration status from `docs/shared/worktree-isolation.md`, then
+   confirm each source-editing command targets the execution checkout before
+   applying patches.
 4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
-8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual
-   diff. Mark the story complete only when acceptance criteria, TDD evidence
-   (or documented exception), scope-trace evidence, acceptance-to-evidence
-   mapping, story risk-check evidence, and any required validation check all
-   pass or have explicit residual risk.
-9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
+8. Recheck the `Scope Trace Gate`, `## Diff-Budget Gate`, and
+   `docs/shared/finite-delivery-contract.md` against the actual diff. Mark the
+   story complete only when acceptance, evidence mapping, TDD status, baseline
+   guard, baseline evidence record when required, contract-risk probes,
+   deliverable diff hygiene, story risk-check evidence, and any required
+   validation check all pass or have explicit residual risk.
+9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`
+   and `docs/shared/finite-delivery-contract.md`. If a check fails or behavior
+   is unexpected, read and follow `systematic-debugging` before attempting
+   fixes.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
@@ -303,6 +292,11 @@ Ralph must follow the selected execution mode and agent policy:
 - `THOROUGH`: use the full role set warranted by the risk. Dispatch every
   required role that can be isolated on subagent-capable platforms; inline only
   for documented subagent-unavailable or unsafe-to-isolate cases.
+
+Apply the dispatch gate from `docs/shared/finite-delivery-contract.md` before
+starting late review, cleanup, or verification roles. Do not spawn optional
+agents after the ship gate is already satisfied; record their work as follow-up
+unless a blocker, selected mode, approved plan, or risk requires the role.
 
 Default Ralph execution is parallel-capable. An approved ralplan handoff to
 ordinary `oh-no-harness:ralph` authorizes every eligible isolated role in the
@@ -346,27 +340,13 @@ subagents, create the whole eligible batch before waiting for any one result.
 Continue local critical-path work only when it does not overlap with delegated
 scopes.
 
-Before dispatching, partition the work and write down:
+Use the allowed and forbidden parallelization rules from the shared policy. In
+particular, do not parallelize overlapping write scopes, dependent tasks, one
+behavior's TDD RED/GREEN order, or unclear ownership.
 
-- story or task id
-- owned files, directories, or read-only scope
-- files or directories that must not be touched
-- expected output
-- verification responsibility
-- dependencies on other subagents
-- lifecycle owner: who captures output and closes or cleans up the completed
-  subagent
-- platform invocation: active adapter invocation syntax
-- start timing: foreground, background, or sequential after another role
-
-Use the allowed and forbidden parallelization rules from
-`docs/shared/ralph-subagent-policy.md`. In particular, do not parallelize
-overlapping write scopes, dependent tasks, one behavior's TDD RED/GREEN order,
-or unclear ownership.
-
-Use this dispatch shape for every parallel subagent, with the active platform
-adapter deciding whether the invocation is a registered custom agent, a
-plugin-scoped agent, or a documented fallback:
+Record the partition fields from the shared policy and the active adapter
+invocation syntax. For every dispatched role, preserve this compact dispatch
+shape:
 
 ````markdown
 Role: {explore|executor|plan-reviewer|verifier|code-reviewer}
@@ -374,7 +354,6 @@ Story/task: {id and short title}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
 Expected output: {patch, findings, evidence, or test result}
-TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
 Verification responsibility: {command/evidence}
 Platform invocation: {active adapter invocation syntax}
 Lifecycle: caller captures a final result, integrates or records it, then closes or cleans up the completed subagent using the active platform mechanism; timeout/no-completion wait results are not final results and MUST NOT be used to close a running or pending subagent merely because it is slow
@@ -399,6 +378,13 @@ The reviewer pass is mode-gated. `LIGHT` may satisfy review through direct diff
 inspection unless the selected mode or risk requires independence. `STANDARD`
 uses targeted review for behavior-affecting or workflow changes. `THOROUGH`
 uses independent review roles for the applicable risk.
+
+Apply the review-loop budget from
+`docs/shared/finite-delivery-contract.md`: one required review pass when review
+is required, one narrow re-review for blocking findings after a meaningful fix,
+and no extra loops for optional cleanup or confidence seeking. Escalate beyond
+that only for security, data, public API, packaging, architecture direction
+conflict, repeated failed fixes, or user-approved broader scope.
 
 When review is required, the reviewer pass must answer:
 
@@ -426,6 +412,9 @@ When review is required, the reviewer pass must answer:
 - Are tests or verification sufficient for the risk?
 - Did broad-suite verification add meaningful confidence, or should a focused
   semantic test replace another broad rerun?
+- Does `docs/shared/finite-delivery-contract.md` pass: baseline guard, baseline
+  evidence record, executable contract probe status for named risks,
+  deliverable diff hygiene, review-loop budget, and ship gate?
 
 If review rejects the work, return to the relevant story and continue.
 
@@ -439,9 +428,14 @@ proof. For behavior-changing work:
 - Run a broad suite once after the behavior stabilizes, or when shared code,
   public APIs, generated artifacts, concurrency, persistence, or cross-package
   behavior could be affected.
+- Apply the contract-risk probes from `docs/shared/finite-delivery-contract.md`
+  when applicable, including baseline evidence, runtime stability
+  classification, and executable contract probe status for named risks.
 - Do not rerun the same broad suite repeatedly unless it failed for a reason
   likely caused by the current patch or the rerun follows a meaningful change
   that could affect broad behavior.
+- Apply the patch-change rerun gate and expensive-evidence reuse rules from
+  `docs/shared/finite-delivery-contract.md` before repeating broad commands.
 - When a broad suite is slow, flaky, external-service-dependent, or noisy,
   document the limitation and spend the next verification step on a smaller
   semantic check.
@@ -484,14 +478,16 @@ and a behavior lock exists.
 Cleanup is mode-gated:
 
 - `LIGHT`: run `simplify` when a quick diff or required review shows actual
-  reuse, simplification, efficiency, or altitude cleanup candidates, or when
-  candidate uncertainty remains after that scan; otherwise record cleanup as not
-  needed.
+  reuse, simplification, efficiency, or altitude cleanup candidates; otherwise
+  record cleanup as not needed.
 - `STANDARD`: run cleanup when behavior is locked and a quick diff or required
-  review shows cleanup candidates, or when candidate uncertainty remains after
-  that scan; rerun relevant verification afterward.
-- `THOROUGH`: run `simplify` after required review unless explicitly disabled,
-  then rerun verification and any focused post-cleanup review required by risk.
+  review shows concrete cleanup candidates; otherwise record cleanup as not
+  needed. Rerun relevant verification only if cleanup changed files.
+- `THOROUGH`: run `simplify` after required review only when the review or a
+  quick diff scan shows concrete cleanup candidates, or when the approved plan
+  explicitly requires cleanup. Otherwise record cleanup as not needed. Rerun
+  relevant verification only if cleanup changed files that the evidence
+  exercised, and use the patch-change rerun gate before another broad suite.
 
 The post-cleanup pass must answer:
 
@@ -507,6 +503,10 @@ Continue until:
 - the selected execution mode is recorded and followed
 - every story or task has `passes: true`
 - verification evidence exists
+- baseline guard, baseline evidence record, executable contract probes,
+  deliverable diff hygiene, review-loop budget, and ship gate from
+  `docs/shared/finite-delivery-contract.md` are satisfied or have an explicit
+  terminal blocker
 - required TDD evidence exists, or each exception is documented
 - review required by the selected mode is approved or a blocking reason is documented
 - `simplify` ran, was explicitly disabled, or was recorded as not needed by the selected mode
@@ -524,7 +524,8 @@ Return:
 - Session directory.
 - PRD path.
 - Execution mode, mode source, parallel trigger, and policy decisions.
-- Worktree decision, worktree location, and integration checkout status.
+- Worktree decision, worktree location, task branch, integration checkout, and
+  integration status.
 - Stories completed.
 - Files changed.
 - Cleanup status.
@@ -532,6 +533,9 @@ Return:
 - Acceptance-to-evidence mapping.
 - Risk check before completion and completion claim.
 - Validation check and risk from metric-only evidence when applicable.
+- Baseline guard, review-loop budget, dispatch gate, and ship gate status.
+- Baseline evidence record and deliverable diff hygiene status.
+- Executable contract probe status for named risks.
 - Diff-budget scope review status.
 - Review verdict.
 - Residual risk.

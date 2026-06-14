@@ -67,29 +67,33 @@ acceptance criteria.
 2. Apply `## Requirements Source And Analyst Gate`. If an approved `interview`
    spec already covers the needed requirements, record `Analyst: satisfied by
    approved interview spec`; otherwise complete `analyst` before Planner drafts.
-3. Read `docs/shared/execution-modes.md` and
+3. Apply `## Development Requirements Carryover And Gap Check` before Planner
+   drafts. Carry forward approved interview coverage when present; otherwise run
+   an Analyst gap check limited to plan-relevant development requirements.
+4. Read `docs/shared/execution-modes.md`,
+   `docs/shared/finite-delivery-contract.md`, and
    `docs/shared/worktree-isolation.md` so the plan can set a required Ralph
-   execution profile and worktree policy.
-4. Complete `planner` to create `Planner draft v1` from the requirements source,
+   execution profile, finite delivery contract, and worktree policy.
+5. Complete `planner` to create `Planner draft v1` from the requirements source,
    Analyst or gap-check output, and repository evidence.
-5. Complete `plan-reviewer` only after `Planner draft v1` exists. Plan-Reviewer
+6. Complete `plan-reviewer` only after `Planner draft v1` exists. Plan-Reviewer
    reviews that exact draft in two ordered passes (architecture lens, then
    quality-gate lens applied to the draft and to its own pass-1 findings) and
    returns `Plan review v1` with per-finding lens, reviewer-owned severity
    (`blocking | non-blocking`), and a verdict from `APPROVE | ITERATE | REJECT`;
    Plan-Reviewer does not create a replacement plan.
-6. Apply the verdict mapping from `## Plan Review Contract`. On ITERATE,
+7. Apply the verdict mapping from `## Plan Review Contract`. On ITERATE,
    complete `planner` revision per `## Planner Revision Contract`: Planner
    must turn accepted feedback into `Planner revision v2` and update the plan
    body instead of only appending comments. On REJECT, escalate to the user
    immediately; REJECT does not consume a loop.
-7. Re-review only on blocking findings, per `## Re-Review Rules`. After
+8. Re-review only on blocking findings, per `## Re-Review Rules`. After
    `Planner revision v2`, complete `plan-reviewer` again and record
    `Plan review v2` with its re-review scope. On the non-blocking-only path,
    Planner incorporates the accepted feedback with ledger pointers and writes
    `Re-review: not required (no blocking findings)`; do not dispatch a
    re-review on that path.
-8. Stop after at most 2 loops; loop N = Planner draft/revision vN + Plan
+9. Stop after at most 2 loops; loop N = Planner draft/revision vN + Plan
    review vN. If Plan-Reviewer feedback would change the approved interview
    spec, user-approved plan direction, scope, non-goals, or acceptance
    criteria, record it as a requested direction change and ask for explicit
@@ -97,13 +101,13 @@ acceptance criteria.
    present the plan to the user with `pending approval` status, the unresolved
    findings, and an explicit request to accept the residual concerns, revise
    scope, or stop. Do not silently advance past blocking review findings.
-9. Save the final reflected plan under `.oh-no/plans/` with a
+10. Save the final reflected plan under `.oh-no/plans/` with a
    `Next skill: oh-no-harness:<name>` header field.
-10. Present the plan to the user with the Plan Approval Brief format below.
-11. Mark the plan `pending approval` until the user explicitly approves the plan
+11. Present the plan to the user with the Plan Approval Brief format below.
+12. Mark the plan `pending approval` until the user explicitly approves the plan
    content. Plan content approval does not bypass the Next Skill Handoff unless
    running under `ultrawork`.
-12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `ultrawork`.
+13. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `ultrawork`.
 
 Use real role subagents for the consensus roles on subagent-capable hosts.
 Planner and Plan-Reviewer are not decorative labels; the planning quality bar
@@ -152,6 +156,37 @@ architecture, product behavior, data handling, security, or delivery scope, run
 Analyst or a limited Analyst gap check before Planner drafts. The Analyst output
 must feed the Planner draft; it must not replace the Planner draft.
 
+## Development Requirements Carryover And Gap Check
+
+Ralplan does not repeat the full interview. It checks that development
+requirements that affect planning, verification, or Ralph execution are visible
+before Planner drafts.
+
+Use the taxonomy and carryover record in
+`docs/shared/development-requirements-coverage.md`.
+
+Use the strongest available source:
+
+- If an approved `interview` spec includes `Development requirements coverage`,
+  carry forward the relevant required items, not-applicable calls, and accepted
+  assumptions into the plan.
+- If the requirements source is a PRD, ticket, current user request, or older
+  interview spec without that block, run Analyst or a limited Analyst gap check.
+  Keep the check plan-relevant and use repository evidence when facts are
+  inspectable.
+- Do not ask every category as a user question. Ask only when an inferred answer
+  would change behavior, architecture, data handling, security posture, delivery
+  scope, public support claims, or the smallest credible proof.
+
+Before Planner draft v1, record the shared
+`Development requirements carryover:` shape from
+`docs/shared/development-requirements-coverage.md`.
+
+If a required category is unresolved and would change behavior, data handling,
+security posture, runtime or release handling, compatibility, external-service
+contracts, or verification proof, mark the plan `pending approval` instead of
+hiding the gap in assumptions.
+
 ## Acceptance Criteria Contract
 
 Ralplan must keep the plan aligned to the acceptance criteria that will validate
@@ -196,6 +231,7 @@ Planner draft v1:
 - Requirements source:
 - Analyst status: satisfied by approved interview spec | completed | gap check completed
 - Acceptance criteria:
+- Development requirements carryover:
 - Goal:
 - Scope:
 - Non-goals:
@@ -205,6 +241,9 @@ Planner draft v1:
 - Task sequence:
 - TDD expectations:
 - Test case design:
+- Compatibility baseline:
+- Runtime stability baseline:
+- Executable contract probes:
 - Validation check:
 - Execution profile:
 - Worktree policy:
@@ -371,6 +410,8 @@ Before presenting the plan, check that it includes:
 - acceptance criteria alignment: who validates success, success signal, failure
   signal, insufficient proofs, likely misunderstood boundary, source, and
   confidence
+- development requirements carryover from the approved interview spec, or a
+  limited Analyst gap check with planning implications and pending-approval gaps
 - the smallest approach that can satisfy the acceptance criteria
 - any added abstraction, configurability, dependency, or generalization justified by a current requirement
 - files, modules, commands, or investigation targets where known
@@ -409,6 +450,10 @@ A credible test case design should include:
 - negative or forbidden-behavior case when relevant: what must not happen
 - edge, boundary, or regression case when relevant: the likely break point or
   old failure mode that should stay fixed
+- contract-risk probes from `docs/shared/finite-delivery-contract.md` when
+  relevant: compatibility baseline, runtime stability probe, executable
+  contract probe, existing fixture/docs/golden preference, and public
+  change-stream negative/noise proof
 - evidence mapping: which acceptance criterion each test proves
 
 Reject shallow test designs that would pass against the old broken behavior,
@@ -421,37 +466,23 @@ same shallow checks and explains why RED/GREEN is not practical.
 
 ## Plan File Requirements
 
-Every plan must include:
+Every plan must include the compact field groups below:
 
-- a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
-- goal
-- scope and non-goals
-- acceptance criteria and any blocking or pending-approval gaps
-- minimal viable approach
-- rejected speculative complexity, or `none`
-- for `LIGHT` execution profile, the minimal viable approach may be a single
-  sentence and rejected speculative complexity may be `none` when the task is
-  trivially scoped; `STANDARD` and `THOROUGH` plans must justify both fields
-  explicitly
-- files to create or modify
-- task sequence
-- test case design quality: must-fail, must-pass, negative/forbidden when
-  relevant, edge/regression when relevant, and evidence mapping
-- consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order,
-  including draft/review/revision ids and, when a re-review ran,
-  `Re-review scope: delta | full`
-- planning dispatch mode showing whether consensus roles ran as subagents or
-  inline fallback
-- a findings ledger recording each Plan-Reviewer finding's lens, severity, and
-  disposition: `accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval`
-- evidence that accepted feedback is reflected in the final plan body
-- execution profile
-- worktree policy
-- parallel subagent dispatch plan, or the fallback reason if no role can be
-  safely isolated
-- verification commands
-- rollout or recovery notes when risk warrants them
-- approval status
+- Header: `Next skill: oh-no-harness:<name>` and approval status.
+- Requirements contract: goal, scope, non-goals, acceptance criteria, blocking
+  or pending-approval gaps, and `Development requirements carryover`.
+- Approach contract: minimal viable approach, rejected speculative complexity,
+  files or modules, task sequence, and rollout or recovery notes when risk
+  warrants them. `LIGHT` plans may keep this terse; `STANDARD` and `THOROUGH`
+  plans must justify the approach and rejected complexity.
+- Test and verification contract: test case design quality, TDD exceptions,
+  verification commands, and acceptance-to-evidence mapping.
+- Consensus contract: consensus loop log showing Analyst -> Planner ->
+  Plan-Reviewer in order, planning dispatch mode, draft/review/revision ids,
+  `Re-review scope: delta | full` when used, findings ledger disposition, and
+  evidence that accepted feedback is reflected in the final plan body.
+- Execution contract: execution profile, worktree policy, and parallel subagent
+  dispatch plan or fallback reason.
 
 ## TDD Task Shape
 
@@ -471,6 +502,18 @@ valid TDD case unless the task is pure characterization.
 
 If TDD does not apply, the plan must say why: docs-only, config-only, generated code, throwaway prototype, no practical test harness, or explicit user instruction.
 
+For stateful, lifecycle, cache, session, workflow, parser, scheduler,
+persistence, or state-machine behavior, the test design must name the relevant
+transition invariant: initialize or enter, mutate or observe, transition or
+clean up, reenter or retry, and stale-state/leakage expectation. Do not rely on
+only first-use happy-path tests for these tasks.
+
+For compatibility baseline, runtime stability baseline, executable contract
+probe, existing-fixture-first, and public change-stream negative/noise proof,
+use `docs/shared/finite-delivery-contract.md` as the source of truth. A named
+risk without its required probe makes the plan incomplete unless it is explicitly
+`not-runnable` with residual risk or a blocker.
+
 ## Execution Profile
 
 Before presenting a plan, set the execution profile by applying the Execution
@@ -488,7 +531,9 @@ Execution profile:
 - Parallel trigger: approved-plan-handoff | explicit-user-request | natural-dispatch | none
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
 - Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
+- Integration responsibility: direct Ralph leaves task worktree/branch | Ultrawork merges back | not-applicable
 - Cleanup policy: not-needed | conditional | required
+- Finite delivery contract: canonical fields from `docs/shared/execution-modes.md`
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
 - Escalation triggers:
@@ -508,10 +553,10 @@ Use `inline-only` and
 role exists, the active platform cannot dispatch, or the work is unsafe to
 isolate under `docs/shared/ralph-subagent-policy.md`.
 
-End every Plan Approval Brief with a separate `Execution profile recap:` block
-immediately before `Approval needed`. This final recap is required even when the
-same profile already appears earlier in the plan. The goal is to keep the
-selected Ralph mode visible at the exact approval boundary.
+End every Plan Approval Brief with a single `Execution profile recap:` block
+immediately before `Approval needed`. The full plan file keeps the canonical
+execution profile; the user-facing brief should not repeat the full profile
+earlier.
 
 Use `LIGHT` only when direct implementation and light verification can prove the
 acceptance criteria without durable PRD tracking. Use `STANDARD` for localized
@@ -527,31 +572,31 @@ hide a mode-changing uncertainty inside a casual assumption.
 
 After the consensus plan is written, stop and get user confirmation before execution.
 
-Show the user a concise implementation overview, not just the plan path. The brief must include:
+Show the user a concise implementation overview, not just the plan path. The
+brief must preserve the plan's approval contract without duplicating the full
+plan body. Include only:
 
-- plan path
-- goal and scope summary
-- text diagram of the implementation structure or flow
-- numbered task sequence
-- key files or modules affected
-- minimal viable approach and any rejected speculative complexity
-- acceptance criteria alignment and any insufficient measurable evidence
-- validation check when measurable evidence influenced the plan
-- TDD expectations for behavior-changing tasks
-- selected Ralph execution mode and why that mode is enough
-- consensus loop summary, including Analyst findings, Plan-Reviewer verdicts,
-  draft/review/revision ids, and the full findings ledger
-  (finding -> severity -> disposition -> section pointer) so every disposition
-  is visible at approval time
-- worktree policy, including whether direct Ralph should use automatic task
-  worktree execution or Ultrawork should also merge back to the integration
-  checkout
-- parallel subagent dispatch plan for the default Ralph handoff, including
-  isolated roles/scopes and any fallback reason
-- verification commands or evidence plan
-- major risks, assumptions, and open questions
-- a final `Execution profile recap` immediately before the approval question
-- explicit approval status
+- Plan path, `Status: pending approval`, and `Next skill`.
+- Goal, scope, non-goals, minimal viable approach, rejected speculative
+  complexity, key files or modules, and task sequence.
+- Acceptance summary: who validates success, success signal, failure signal,
+  and any useful-but-insufficient evidence.
+- Development requirements carryover summary: required planning inputs,
+  accepted assumptions to preserve, and pending-approval gaps from
+  `docs/shared/development-requirements-coverage.md`.
+- Verification summary: TDD or exception, smallest meaningful tests, required
+  commands or inspections, validation check status when measurable evidence
+  influenced the plan, and risks/open questions.
+- Finite delivery contract summary from
+  `docs/shared/finite-delivery-contract.md`: source/status, baseline guard,
+  required evidence, review-loop budget, deliverable diff hygiene, and ship
+  gate. Detailed canonical fields stay in the plan file.
+- Consensus summary: Analyst -> Planner -> Plan-Reviewer status, final verdict,
+  and any blocking, waived, or direction-change findings. Detailed findings
+  ledger stays in the plan file.
+- Worktree policy, integration responsibility, and parallel subagent dispatch
+  plan or fallback reason.
+- A final compact `Execution profile recap` immediately before `Approval needed`.
 
 Use this shape:
 
@@ -574,115 +619,51 @@ Rejected speculative complexity:
 {unneeded abstraction, configurability, dependency, or generalization, or "None"}
 
 Acceptance criteria:
-- Who validates success: {user | maintainer | caller | test suite | operator | customer | other}
-- Success signal: {observable proof}
-- Failure signal: {observable miss or regression}
-- Insufficient evidence: {checks or outputs that are useful but insufficient}
-- Scope boundary most likely to be misunderstood: {boundary}
-- Source/confidence: {source and confirmed|inferred|open}
+{who validates success, success signal, failure signal, and useful-but-insufficient evidence}
 
-Validation check:
-- Evidence used: {local check, broad suite, metric, trace, mock, generated marker, or none}
-- Acceptance criteria or user outcome it supports: {the criterion or user/maintainer/operator/public-contract outcome this evidence supports}
-- What the evidence proves: {observable proof}
-- What the evidence does not prove: {gap or residual}
-- Regression or maintainability risk addressed: {category-level failure mode}
-- Why this should apply to similar work: {one sentence}
-- Case-specific details deliberately excluded: {details or none}
-- Added process cost or risk: {cost or none}
-- Completion claim: {validated against acceptance criteria with direct evidence | plausibly valid with explicit residual risk | only supported by local checks}
-
-Execution profile:
-Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
-Verification tier: {LIGHT|STANDARD|THOROUGH}
-Agent policy: {inline-only|targeted-subagents|full-review-set}
-Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
-Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
-Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
-Cleanup policy: {not-needed|conditional|required}
-Task sizing: {short task-mode summary}
-
-Structure:
-```text
-{text diagram}
-```
+Development requirements carryover:
+{required planning inputs, accepted assumptions to preserve or escalate, pending approval gaps}
 
 Tasks:
 1. {task with expected files/modules}
 2. {task with expected files/modules}
 
-TDD:
-{which tasks require RED/GREEN/REFACTOR and which are exceptions}
+Verification:
+{TDD or exception, smallest meaningful tests, required commands or inspections,
+validation check status when measurable evidence influenced the plan, and risks}
 
-Test case design:
-- Must-fail before implementation: {case and expected RED reason, or documented exception}
-- Must-pass after implementation: {case}
-- Negative/forbidden behavior: {case, or "not relevant" with reason}
-- Edge/regression: {case, or "not relevant" with reason}
-- Evidence mapping: {test case -> acceptance criterion}
-
-Parallel subagent dispatch:
-{Default Ralph dispatch plan: one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner; or a concrete fallback reason if no eligible role can be isolated}
+Finite delivery contract summary:
+{source/status, baseline guard, required evidence, review-loop budget,
+deliverable diff hygiene, ship gate; detailed fields live in the plan file}
 
 Consensus loop:
-Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposition for each}
-- Requirements source: {approved interview spec | user request | PRD/ticket}
-- Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
-- Planner draft v1: {completed, with source/path}
-- Plan review v1: {APPROVE|ITERATE|REJECT}
-- Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
-- Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
-- Re-review: {not required (no blocking findings) | completed}
+{Analyst -> Planner -> Plan-Reviewer status, final verdict, and any blocking,
+waived, or direction-change findings; detailed ledger lives in the plan file}
 
-Findings ledger:
-- {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
-
-Worktree policy:
-{Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Ultrawork automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
-
-Verification:
-{commands or evidence plan}
+Worktree and dispatch:
+{direct Ralph leaves task worktree/branch for review unless integration is
+explicitly approved, Ultrawork merges back when selected, or not applicable;
+parallel subagent dispatch plan or fallback reason}
 
 Risks and open questions:
 {short list, or "None blocking"}
 
 Execution profile recap:
 - Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
-- Why this mode is enough: {one sentence}
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
 - Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
 - Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
 - Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
+- Integration responsibility: {direct Ralph leaves task worktree/branch|Ultrawork merges back|not-applicable}
 - Cleanup policy: {not-needed|conditional|required}
+- Finite delivery contract: {source/status summary; full canonical fields live in the plan file}
 - Task sizing: {short task-mode summary}
-- Escalation triggers: {short list or "None expected"}
 
 Approval needed:
 Approve this plan, request changes, or leave it pending. After plan approval, I
 will ask which workflow the host agent should invoke next.
 ````
-
-Use a simple text diagram when it helps the user understand the structure. Examples:
-
-```text
-Input/request
-  -> Spec or requirements
-  -> Task 1: data/model changes
-  -> Task 2: service or behavior changes
-  -> Task 3: UI/API integration
-  -> Verification: tests, lint, scenario checks
-  -> Review and cleanup
-```
-
-or:
-
-```text
-Component A
-  -> shared helper
-  -> Component B
-  -> tests
-```
 
 End the brief with a direct plan-content approval question. Do not ask the user
 to choose the next workflow until the plan content is approved.
@@ -789,6 +770,7 @@ Return:
 - Consensus loop summary.
 - Plan-Reviewer findings and disposition, as the findings ledger.
 - Execution profile.
+- Finite delivery contract.
 - Plan approval brief.
 - Approval status.
 - Recommended next skill for execution.

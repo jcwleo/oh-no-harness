@@ -7,8 +7,12 @@ agent selection tiers and verification tiers:
 - verification tier decides what evidence is enough for the claim
 - agent tier decides how much scrutiny a role needs when a role is used
 - worktree isolation decides where write-capable execution may edit files
+- the finite delivery contract decides baseline evidence, review-loop budget,
+  dispatch stop conditions, executable contract probes, and when to stop instead
+  of seeking more confidence
 
 Mode is required for every handoff to `ralph`.
+Every write-capable mode uses `docs/shared/finite-delivery-contract.md`.
 
 ## Ownership
 
@@ -27,6 +31,9 @@ Ralph must select a mode with the decision prompt below, record `Mode source:
 derived by Ralph`, and follow that mode. Ask before editing only when the mode
 choice depends on an assumption that changes user-visible behavior,
 architecture, data handling, security posture, or delivery scope.
+Direct Ralph worktree execution leaves the task branch or worktree as the
+deliverable unless the user explicitly approves an integration step. Ultrawork
+owns automatic merge-back and post-merge verification for ultrawork runs.
 
 ## Execution Mode Decision Prompt
 
@@ -59,6 +66,9 @@ plan, repository facts, and known verification commands:
 11. If measurable evidence influenced the work, what `Validation check` from
     `docs/shared/validation-check.md` keeps the change tied to a recurring
     software engineering failure mode instead of a local check?
+12. What baseline evidence, review-loop budget, and ship gate from
+    `docs/shared/finite-delivery-contract.md` will prevent both regressions and
+    unbounded review loops?
 
 Choose the lightest mode that gives credible evidence. If risk remains unclear
 after reading the relevant files, choose the higher mode and record why.
@@ -93,10 +103,12 @@ Ralph behavior:
 - map each acceptance criterion to direct, indirect, manual, or missing
   evidence before the final claim
 - record the `Worktree decision` before editing when the task is write-capable
+- apply the finite delivery contract: baseline guard, executable contract
+  probes, dispatch gate, review budget, and ship gate
 - run `verification-before-completion` before the final claim
-- run `simplify` when a quick diff or required review shows actual reuse,
-  simplification, efficiency, or altitude cleanup candidates, or when candidate
-  uncertainty remains after that scan; otherwise record cleanup as not needed
+- run `simplify` only when a quick diff or required review shows actual reuse,
+  simplification, efficiency, or altitude cleanup candidates; otherwise record
+  cleanup as not needed
 
 ## STANDARD
 
@@ -134,8 +146,10 @@ Ralph behavior:
   public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
 - run cleanup only after the behavior lock exists and a quick diff or required
-  review shows cleanup candidates, or when candidate uncertainty remains after
-  that scan; rerun the relevant verification after cleanup
+  review shows concrete cleanup candidates; otherwise record cleanup as not
+  needed
+- apply the finite delivery contract: baseline guard, executable contract
+  probes, dispatch gate, review budget, and ship gate
 - run `verification-before-completion` before the final claim
 
 ## THOROUGH
@@ -172,8 +186,11 @@ Ralph behavior:
   verification budget decisions, and diff-budget scope review in the final
   evidence
 - record the `Worktree decision` before editing when the task is write-capable
-- run `simplify` after required review is satisfied unless explicitly disabled,
-  then rerun verification and any needed focused review
+- run `simplify` after required review is satisfied only when the review,
+  approved plan, or a quick diff scan identifies concrete cleanup candidates;
+  otherwise record cleanup as not needed
+- apply the finite delivery contract: baseline guard, executable contract
+  probes, dispatch gate, review budget, and ship gate
 - run `verification-before-completion` before the final claim
 
 ## Escalation And De-Escalation
@@ -216,7 +233,18 @@ Execution profile:
 - Parallel trigger: approved-plan-handoff | explicit-user-request | natural-dispatch | none
 - Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
 - Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
+- Integration responsibility: direct Ralph leaves task worktree/branch | Ultrawork merges back | not-applicable
 - Cleanup policy: not-needed | conditional | required
+- Finite delivery contract:
+  - Baseline guard: required | not-applicable - evidence target
+  - Baseline evidence record: required fields | not-applicable
+  - Compatibility baseline: required | not-applicable - evidence target
+  - Runtime stability baseline: required | not-applicable - classification probe
+  - Executable contract probes: required named-risk probes | not-applicable
+  - Review-loop budget: none | one-pass | one-pass-plus-narrow-re-review | escalated - reason
+  - Dispatch gate: required roles only | optional roles allowed before ship gate | inline fallback - reason
+  - Deliverable diff hygiene: passed | blocked | explicitly versioned by user
+  - Ship gate: acceptance evidence + baseline guard + deliverable diff hygiene + no blocking findings + verification-before-completion
 - Task sizing:
   - T1: LIGHT | STANDARD | THOROUGH - reason
 - Escalation triggers:
@@ -244,7 +272,18 @@ Execution mode:
 - Parallel trigger:
 - Worktree decision:
 - Worktree location:
+- Integration status:
 - Cleanup policy:
+- Finite delivery contract:
+  - Baseline guard:
+  - Baseline evidence record:
+  - Compatibility baseline:
+  - Runtime stability baseline:
+  - Executable contract probes:
+  - Review-loop budget:
+  - Dispatch gate:
+  - Deliverable diff hygiene:
+  - Ship gate:
 - Task sizing:
 - Escalation triggers:
 ```

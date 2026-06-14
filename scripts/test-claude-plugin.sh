@@ -1057,10 +1057,10 @@ run_live_tests() {
 deep_prompt_for_skill() {
   case "$1" in
     interview)
-      printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
+      printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, development requirements coverage, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the 2-loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the conditional re-review rule stating that only blocking findings trigger a re-review, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, shared development requirements coverage/carryover contract and gap-check rule, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the 2-loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the conditional re-review rule stating that only blocking findings trigger a re-review, when development requirements coverage is carried forward from an approved interview spec versus gap-checked by Analyst, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
       printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
@@ -1093,17 +1093,21 @@ text = str(data.get("result", ""))
 if text.strip().startswith("Unknown command:"):
     raise SystemExit(f"{skill} deep smoke did not resolve the Claude slash command: {text!r}")
 text_lower = text.lower()
+text_words = text_lower.replace("-", " ")
 expected = {
     "interview": [
         "advisory",
         "Question Routing",
         "Answer Capture",
         "Spec Readiness Guard",
+        "Development Requirements Coverage Gate",
         "Goal Restatement Gate",
     ],
     "ralplan": [
         "2 loops",
         "pending approval",
+        "Development requirements coverage",
+        "approved interview",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
@@ -1229,6 +1233,9 @@ if skill == "ralplan" and not (
 ):
     raise SystemExit(f"{skill} deep smoke missing Planner/Plan-Reviewer single-dispatch ordering marker; got {text!r}")
 
+if skill == "ralplan" and "gap check" not in text_words:
+    raise SystemExit(f"{skill} deep smoke missing development-requirements gap-check marker; got {text!r}")
+
 if skill == "ralplan" and not (
     "blocking" in text_lower and "re-review" in text_lower
 ):
@@ -1335,12 +1342,12 @@ PROMPT
       ;;
     systematic-debugging)
       cat <<PROMPT
-/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Do not run the test script itself; inspect code paths only with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. Do not end while a worker is still pending. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers: <status>.
+/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use a bounded diagnostic then evidence path. Do not run the test script itself; inspect the natural role-worker smoke prompt builders and result-parsing helpers with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus natural role-worker smoke helpers in ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. Do not end while a worker is still pending. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers: <status>.
 PROMPT
       ;;
     verification-before-completion)
       cat <<PROMPT
-/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. Do not end while a worker is still pending. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers: <status>.
+/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After the worker starts, actively retrieve its result with TaskOutput or the host wait mechanism; do not end with only a still-waiting status. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers: <status>.
 PROMPT
       ;;
     *)
@@ -1458,7 +1465,8 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 role = subagent_type.split(":", 1)[1]
             elif data.get("task_id") in task_role_by_id:
                 role = task_role_by_id[data.get("task_id")]
-            if data.get("status") == "completed":
+            status = data.get("status") or (data.get("patch") or {}).get("status")
+            if status == "completed":
                 if role in expected_roles:
                     task_completed_roles.append((index, role))
                 if (
@@ -1609,7 +1617,7 @@ run_ralplan_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none, Quality-gate findings: none, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1."
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with these compact field labels: Draft id, Requirements source, Analyst status, Goal, Scope, Non-goals, Acceptance criteria, Development requirements carryover, Minimal viable approach, Rejected speculative complexity, Files/modules likely affected, Task sequence, TDD expectations, Test case design, Validation check, Execution profile, Worktree policy, Planning dispatch, Verification plan, Risks/open questions. Use short values and mark non-applicable fields explicitly. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none, Quality-gate findings: none, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1."
 
   local cmd=(
     "$CLAUDE_BIN"

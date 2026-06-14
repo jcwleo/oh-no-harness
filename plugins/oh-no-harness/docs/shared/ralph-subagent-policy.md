@@ -14,6 +14,9 @@ Ralph may dispatch subagents only when all of these are true:
 - the active platform supports subagents
 - the active skill, current request, or approved plan allows the
   platform-specific dispatch
+- `docs/shared/finite-delivery-contract.md` says the role is required before
+  the ship gate, or the role is explicitly allowed as optional evidence before
+  the ship gate
 - the work can be isolated by file ownership, read-only scope, or review role
 - the main agent can integrate the results deliberately
 
@@ -24,15 +27,17 @@ intermediate work out of the main thread, preserve focus on requirements and
 decisions, run independent exploration, tests, and log analysis in parallel, and
 return distilled summaries instead of raw context-heavy output.
 
-Oh No Harness should use subagents as much as possible when those benefits
-apply. Treat a standing user or plan preference to use subagents aggressively as
-explicit authorization for eligible isolated roles. On subagent-capable hosts,
-dispatch by default for read-heavy exploration, triage, test/log analysis,
-summarization, verification (scenario QA lens included), code review (security
-lens included), and other independent review roles. Inline execution is the
-exception for work that is too small to benefit, cannot be isolated, requires
-tight TDD sequencing, lacks host support, or has been explicitly made
-inline-only.
+Oh No Harness should use subagents when those benefits clearly apply and the
+role output is needed before the finite delivery ship gate. Treat a standing
+user or plan preference to use subagents aggressively as explicit authorization
+for eligible isolated roles, not as permission to spawn confidence-seeking work.
+On subagent-capable hosts, dispatch by default for read-heavy exploration,
+triage, test/log analysis, summarization, verification (scenario QA lens
+included), code review (security lens included), and other independent review
+roles when the scope is isolatable and the result can be integrated before the
+stop condition. Inline execution is appropriate for work that is too small to
+benefit, cannot be isolated, requires tight TDD sequencing, lacks host support,
+or has been explicitly made inline-only.
 
 Explicit user requests, standing preferences, approved plan triggers, or active
 skill dispatch policies are sufficient when the host platform permits dispatch.
@@ -64,6 +69,10 @@ lookup inline.
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role into the main context. The
 goal is independent evidence and context separation, not merely parallelism.
+The finite delivery contract still applies: do not spawn late optional review,
+cleanup, or verification agents after the ship gate is already satisfied.
+Required baseline evidence records and deliverable diff hygiene are hard gates,
+not reasons to spawn confidence-seeking optional roles after the fact.
 
 `LIGHT` work may stay inline only when it is a tiny, direct edit or inspection
 with no meaningful context-separation benefit. Dispatch isolated read-heavy,
@@ -75,6 +84,21 @@ platform supports them and coordination cost is reasonable.
 
 `THOROUGH` work must use the role set warranted by the risk whenever the active
 platform supports dispatch and the roles can be isolated.
+
+## Finite Dispatch Gate
+
+Use `docs/shared/finite-delivery-contract.md` to decide whether another
+subagent is still part of delivery or has become confidence seeking.
+
+Dispatch is still preferred for isolated required roles before the ship gate.
+After acceptance evidence, baseline guard, required review, cleanup, and
+verification-before-completion are satisfied, record optional extra review or
+cleanup as follow-up instead of spawning another agent.
+
+If the missing item is a required baseline evidence record or unintended
+`.oh-no` artifacts in the deliverable diff, dispatch only the role needed to
+produce that evidence or remove the artifact. Do not dispatch broad optional
+review to compensate for a missing hard gate.
 
 ## Subagent-Unavailable Environments
 

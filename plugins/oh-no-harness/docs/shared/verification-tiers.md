@@ -21,13 +21,35 @@ skeptical maintainer or user would test next, then add direct semantic evidence
 when practical. This is category-level risk modeling, not case-specific
 optimization.
 
+Every write-capable tier also applies the baseline guard from
+`docs/shared/finite-delivery-contract.md`: classify existing public-contract
+evidence as required or not applicable, then run or inspect that evidence before
+the final claim.
+
+When the baseline guard is required, verification must include the baseline
+evidence record from `docs/shared/finite-delivery-contract.md`. Missing command
+status, missing adjacency explanation, or missing inspection result is a failed
+verification state, not a passing result with lower confidence.
+
 Verification budget policy:
 
 - Prefer focused semantic evidence before broad suites.
 - Run broad suites when shared behavior, public APIs, generated artifacts,
   concurrency, persistence, or cross-package contracts could be affected.
+- Apply the contract-risk rules from `docs/shared/finite-delivery-contract.md`:
+  stale state does not leak, change streams include a negative/noise check,
+  parser and protocol work includes a compatibility baseline check with
+  existing fixtures or docs examples when runnable, named risks become an
+  executable contract probe, and crash-prone checks use the Runtime Stability
+  Baseline before substituting narrower evidence.
+- Treat baseline evidence as a guardrail, not as optional confidence padding:
+  if the nearby existing contract fails, use `systematic-debugging` before
+  claiming completion.
 - Avoid repeated broad-suite reruns that do not follow a meaningful patch change
   or a patch-related failure.
+- Reuse expensive broad evidence when the patch was integrated byte-for-byte and
+  a smaller final-checkout smoke proves the same patch is active; record the
+  patch identity check and residual risk instead of rerunning for confidence.
 - If a broad suite is noisy, slow, flaky, or external-service-dependent, record
   the limitation and spend the next check on a smaller direct semantic test.
 
@@ -59,6 +81,13 @@ Required evidence:
 - Map every acceptance criterion to direct, indirect, manual, or missing
   evidence.
 - Record the risk check before completion and any direct semantic test added because of it.
+- Record baseline guard status from `docs/shared/finite-delivery-contract.md`.
+- Record the baseline evidence record when the baseline guard is required.
+- Record compatibility baseline status and runtime stability classification
+  when either applies.
+- Record executable contract probe status for each named compatibility,
+  lifecycle, runtime, or public-contract risk.
+- Record deliverable diff hygiene from `docs/shared/finite-delivery-contract.md`.
 - For behavior-changing work, validate RED/GREEN/REFACTOR evidence or a documented TDD exception.
 - Record the exact commands, outputs, and skipped checks in the final report.
 
@@ -77,6 +106,16 @@ Required evidence:
 - Add targeted integration, smoke, migration, or end-to-end checks appropriate to the risk.
 - Include diff-budget scope review when the patch is broad, generated,
   multi-package, or public-API heavy.
+- Include baseline guard evidence for existing public contracts near every
+  externally visible or shared changed surface.
+- Include compatibility baseline evidence for standards, parsers,
+  interpreters, protocols, serializers, generated code, and public
+  configuration surfaces.
+- Include executable contract probe evidence for every named compatibility,
+  lifecycle, runtime, generated-artifact, or public-contract risk that could
+  invalidate the completion claim.
+- Include deliverable diff hygiene and ensure transient workflow artifacts are
+  not part of the deliverable patch unless explicitly requested.
 - Use independent review for design, security, QA, or regression concerns.
 - Include residual risk and skipped checks in the final report.
 

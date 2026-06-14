@@ -89,6 +89,44 @@ If the test passes immediately, it is not RED. Change the test or choose a behav
 
 If the test errors before reaching the behavior, fix the test setup and rerun until it fails for the expected reason.
 
+## Semantic Test Shape
+
+Choose RED tests that would catch the most likely maintainer-facing semantic
+failure, not just the easiest happy path.
+
+For stateful, lifecycle, cache, session, workflow, parser, scheduler,
+persistence, or state-machine behavior, include the relevant transition
+invariant before implementation:
+
+- initialize or enter the state
+- mutate or observe the state
+- transition, exit, clean up, retry, or advance the macro step
+- reenter or perform the next operation
+- verify that stale data, stale events, cached values, or previous-step changes
+  do not leak unless the requested contract explicitly preserves them
+
+For API compatibility, generated code, public configuration, or mode/option
+work, include at least one RED case for the default behavior and one for the new
+option, plus the nearest invalid input when the contract defines one.
+
+For parser, standard, interpreter, protocol, serialization, or compatibility
+layer work, include one characterization or regression check for the nearest
+existing fixture, docs example, legacy input, unresolved/dynamic expression, or
+unknown-field behavior before adding stricter validation or new parsing logic.
+The new test set must prove both the new behavior and the old compatibility
+contract that could plausibly be broken by the implementation.
+
+For compatibility baseline, existing fixture/golden preference, public
+change-stream negative/noise cases, runtime stability, and executable contract
+probe requirements, apply `docs/shared/finite-delivery-contract.md`. The RED or
+GREEN probe can satisfy that contract when it names the risk, expected result,
+actual result, and status.
+
+If the test harness crashes before reaching the behavior under test, first
+isolate a minimal import, collection, or focused-command probe. Record whether
+the crash is a patch regression, pre-existing runtime failure,
+environment-blocked failure, or still unknown before narrowing the test path.
+
 ## GREEN Requirements
 
 GREEN means:
@@ -147,6 +185,9 @@ Record:
 - RED command and expected failure summary
 - GREEN command and pass summary
 - post-refactor command and pass summary
+- compatibility baseline or runtime stability classification when applicable
+- executable contract probe status for named compatibility, lifecycle,
+  stale-state, generated-artifact, runtime, or public-contract risks
 - any approved exception and reason
 
 ## Common Rationalizations
@@ -169,6 +210,9 @@ Before claiming the behavior is complete:
 - GREEN was observed after the minimal implementation.
 - Refactor happened only after GREEN.
 - Relevant checks were rerun after refactor.
+- Named compatibility, lifecycle, stale-state, generated-artifact, runtime, or
+  public-contract risks have executable contract probe evidence or an explicit
+  not-runnable blocker.
 - Exceptions were explicitly approved or documented.
 
 ## Next Skill Handoff

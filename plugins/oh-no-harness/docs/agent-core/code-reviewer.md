@@ -35,6 +35,9 @@ Output below); apply full security depth only when a trigger matches.
 - Flag task-name-specific, fixture-specific, or changes justified only by
   metric movement that do not map to a recurring software engineering failure mode or the
   approved acceptance criteria.
+- Flag missing required finite-delivery evidence from
+  `docs/shared/finite-delivery-contract.md`, including Baseline evidence record
+  and Deliverable diff hygiene when applicable.
 - Distinguish blocking issues from optional cleanup.
 
 ### Lens 2: security
@@ -60,6 +63,8 @@ Not in scope: plan- or evidence-level adversarial critique (see `plan-reviewer`)
 - Treat maintainability risks as blocking when they can plausibly create
   future regressions, hide ownership, or make the accepted behavior hard to
   verify; treat purely cosmetic preferences as non-blocking.
+- Apply the finite delivery contract when classifying blocking versus optional
+  findings after the ship gate.
 - Do not assume internal callers are trusted unless the code enforces it.
 - Treat logs, prompts, generated files, and config as possible data exposure paths.
 - Treat file writes, deletes, shell commands, network calls, and external tool
@@ -68,7 +73,8 @@ Not in scope: plan- or evidence-level adversarial critique (see `plan-reviewer`)
 - Separate theoretical risks from actionable vulnerabilities.
 - Use Bash only for non-mutating inspection or verification commands.
 - Do not repeat implementation summaries before findings.
-- Recommend `simplify` only for behavior-preserving quality cleanup after functional approval.
+- Recommend `simplify` only for behavior-preserving quality cleanup after
+  functional approval; optional cleanup after the ship gate is follow-up work.
 
 ## Output
 
@@ -78,6 +84,12 @@ Return:
   - Findings ordered by severity.
   - Practical maintainability gate result.
   - Risk from metric-only evidence when applicable.
+  - Baseline/public-contract regression risk.
+  - Baseline evidence record status.
+  - Compatibility baseline and runtime stability findings.
+  - Executable contract probe findings.
+  - Deliverable diff hygiene status.
+  - Blocking versus optional classification under the finite delivery contract.
   - Test gaps.
 - Security findings:
   - Security verdict.

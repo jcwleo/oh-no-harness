@@ -65,7 +65,8 @@ Before making a completion claim:
 4. Read the output and exit status.
 5. Compare evidence to acceptance criteria.
 6. Complete the Risk Check Before Completion below.
-7. Report skipped checks and residual risk.
+7. For write-capable work, apply the Baseline and Diff Hygiene Gate below.
+8. Report skipped checks and residual risk.
 
 If no meaningful command exists, inspect the changed files and write a manual verification checklist instead of implying automated confidence.
 
@@ -116,6 +117,11 @@ The completion claim should distinguish:
 - locally verified with explicit residual risk
 - blocked or incomplete because evidence is missing
 
+If the risk check names a contract risk, apply the Executable Contract Probe
+Gate from `docs/shared/finite-delivery-contract.md` before claiming completion.
+If no runnable probe exists, record the compensating inspection and downgrade
+the claim to residual-risk or blocked instead of silently accepting the gap.
+
 ## Validation Check
 
 For evidence-informed work, record:
@@ -139,6 +145,20 @@ Reject completion claims whose only support is metric movement, unseen-check
 guessing, task-name-specific guidance, or a measurable metric that does not match the
 real user, maintainer, operator, or public contract.
 
+## Baseline And Diff Hygiene Gate
+
+For write-capable work, read and apply
+`docs/shared/finite-delivery-contract.md` before claiming completion. In the
+final evidence, report the shared contract fields rather than restating them
+here: baseline guard, baseline evidence record, executable contract probe
+records, deliverable diff hygiene, ship gate, and residual risk.
+
+The required diff-hygiene inspection includes untracked files:
+
+```sh
+git status --short --untracked-files=all
+```
+
 ## Evidence Rules
 
 - A previous run is not fresh evidence unless no file or dependency changed since that run.
@@ -158,6 +178,9 @@ Return:
 - Commands or inspections performed.
 - Acceptance criteria status.
 - Acceptance-to-evidence mapping.
+- Baseline evidence record.
+- Executable contract probe records for named risks.
+- Deliverable diff hygiene status.
 - Risk check before completion and completion claim.
 - Validation check and risk from metric-only evidence when applicable.
 - Skipped checks and reason.

@@ -25,9 +25,16 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Check the Validation check from `docs/shared/validation-check.md` when
   measurable evidence influenced the work. Measurable evidence is diagnostic evidence,
   not completion proof.
+- Check the finite delivery contract from
+  `docs/shared/finite-delivery-contract.md` using the canonical output labels.
 - Check that the verification budget is sensible: focused semantic evidence
   before broad suites, and no repeated broad-suite reruns without a
   patch-related reason.
+- Apply contract-risk checks from the same source: compatibility baseline,
+  runtime stability classification, patch identity for reused broad evidence,
+  transition/stale-state proof, public change-stream negative/noise proof, and
+  required executable contract probe records. Missing or failed required probes
+  block approval.
 - Check diff-budget scope review when the patch is broad, generated,
   multi-package, or public-API heavy.
 - Run or inspect the exact checks needed for the requested claim.
@@ -60,6 +67,8 @@ Not in scope: line-level defects and security-specific risks in changed code (se
 - Record manual scenario observations separately from automated evidence.
 - Check that user-facing behavior changes have repeatable acceptance or regression coverage, or clearly document the gap.
 - Prefer repeatable commands or scripted checks when available.
+- After the finite delivery ship gate is satisfied, do not ask for extra loops
+  unless a blocker, selected mode, approved plan, or risk requires it.
 - Recommend `code-reviewer` when the verification tier requires it; recommend `debugger` for failing scenarios.
 
 ## Output
@@ -74,6 +83,13 @@ Return:
 - Acceptance-to-evidence mapping status.
 - Risk check before completion status.
 - Validation check and risk from metric-only evidence status.
+- Baseline guard status.
+- Baseline evidence record status.
+- Compatibility baseline status.
+- Runtime stability classification.
+- Executable contract probe status.
+- Deliverable diff hygiene status.
+- Finite delivery status.
 - Verification budget and diff-budget status.
 - TDD evidence status when applicable.
 - Scenario matrix: scenarios checked with results, or the line
@@ -87,11 +103,11 @@ A field that is not applicable collapses to a single line
 with no findings collapses to a one-line "none". Keep non-finding prose
 minimal and do not pad output with restated context. Any output line a
 calling skill gates on never collapses, abbreviates, or renames. In
-particular, the status lines consumed by Ralph gates — the acceptance
-criteria, acceptance-to-evidence mapping, risk-check, validation-check, and
-verification/diff-budget status lines plus `TDD evidence status` and
-`Execution mode compliance` — must always appear in full. Appearing in full
-means the line and its label are always emitted; a when-applicable line may
-carry a not-applicable value (for example
-`TDD evidence status: not applicable` with a short reason), but the line
-itself never disappears.
+particular, the status lines consumed by Ralph gates - the acceptance
+criteria, acceptance-to-evidence mapping, risk-check, validation-check,
+verification/diff-budget status, `Baseline evidence record status`,
+`Deliverable diff hygiene status`, `TDD evidence status`, and `Execution mode
+compliance` - must always appear in full. Appearing in full means the line and
+its label are always emitted; a when-applicable line may carry a not-applicable
+value (for example `TDD evidence status: not applicable` with a short reason),
+but the line itself never disappears.

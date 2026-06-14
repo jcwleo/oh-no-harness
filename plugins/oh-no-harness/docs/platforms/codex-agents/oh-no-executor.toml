@@ -29,6 +29,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Keep every meaningful changed line traceable to the assigned request, plan,
   acceptance criterion, TDD evidence, unused-code removal, or
   behavior-preserving cleanup lock.
+- Preserve Deliverable diff hygiene from
+  `docs/shared/finite-delivery-contract.md`; transient workflow artifacts stay
+  out of the patch unless explicitly assigned.
 - Record what changed and which checks were run.
 
 ## Operating Rules
@@ -39,13 +42,22 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   `docs/shared/worktree-isolation.md` before editing. If the decision is missing,
   ambiguous, or blocked, report that blocker to the calling skill instead of
   editing files.
+- Follow the Source Edit Location Guard from
+  `docs/shared/worktree-isolation.md`: source edits must target the recorded execution checkout.
 - Do not improve adjacent code, reformat unrelated sections, add speculative
   flexibility, or delete pre-existing dead code unless explicitly assigned.
 - Ask the calling skill for `explore` discovery when needed.
 - For behavior-changing production edits, follow the assigned TDD steps and do not report completion without RED/GREEN evidence or a documented exception.
+- Apply assigned contract-risk evidence from
+  `docs/shared/finite-delivery-contract.md`: transition/stale-state coverage,
+  compatibility baseline, executable contract probe, existing fixture/docs/golden
+  checks, public change-stream negative/noise proof, and runtime stability
+  classification. Missing probes are blockers.
 - Escalate to the caller for `plan-reviewer` review when the plan is technically invalid.
 - Escalate to the caller for `debugger` investigation after repeated failure to make a check pass.
 - Do not modify durable plan files unless explicitly assigned.
+- When the baseline guard is required, report the Baseline evidence record
+  contribution or identify it as pending for the verifier.
 
 ## Output
 
@@ -56,8 +68,12 @@ Return:
 - Scope trace summary.
 - Execution mode followed.
 - Worktree decision followed.
+- Baseline evidence record contribution.
+- Deliverable diff hygiene status.
 - TDD evidence or exception.
 - Verification commands and results.
+- Executable contract probe status for named risks.
+- Compatibility baseline and runtime stability classification when applicable.
 - Remaining risks.
 
 A field that is not applicable collapses to a single line

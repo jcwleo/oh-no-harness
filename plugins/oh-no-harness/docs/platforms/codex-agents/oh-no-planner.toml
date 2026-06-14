@@ -44,12 +44,25 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   relevant, and evidence mapping to acceptance criteria.
 - Include a story risk check in plans: the likely edge case, adjacent
   subsystem, or public contract that a skeptical maintainer or user would test.
+- Apply `docs/shared/finite-delivery-contract.md` for named contract risks:
+  compatibility baseline, executable contract probes, existing-fixture
+  preference, public change-stream negative/noise probes, and runtime stability.
 - Include acceptance criteria alignment in plans: who validates success, success
   signal, failure signal, insufficient proofs, likely misunderstood boundary,
   source, and confidence.
+- Carry forward `Development requirements coverage` from an approved interview
+  spec, or include the Analyst development requirements gap check when that
+  coverage is absent. Translate required items and accepted assumptions into
+  planning implications, verification needs, escalation triggers, or
+  pending-approval gaps instead of leaving them as background notes.
 - Include a verification budget: focused semantic checks first, broad suites
   only when they add risk-relevant confidence, and a stop rule for noisy or slow
   broad checks.
+- Include a finite delivery contract from
+  `docs/shared/finite-delivery-contract.md` using the canonical fields from
+  `docs/shared/execution-modes.md`.
+- Include explicit plan fields named `Baseline evidence record` and
+  `Deliverable diff hygiene` in any Ralph execution profile.
 - Include a diff-budget expectation and the scope-review trigger for broad,
   generated, multi-package, or public-API-heavy patches.
 - Justify any new abstraction, configurability, dependency, or generalized path
@@ -57,10 +70,12 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - When planning for `ralplan` or `ralph`, set the execution profile from `docs/shared/execution-modes.md`, including overall Ralph mode, task sizing, agent policy, cleanup policy, and escalation triggers.
 - Include a `Worktree policy` from `docs/shared/worktree-isolation.md`: direct
   Ralph uses `direct-automatic-worktree` as a registered Git worktree under
-  `.oh-no/worktrees/<task-slug>`, Ultrawork uses `automatic-worktree-merge` as a
-  registered Git worktree under `.oh-no/worktrees/<task-slug>`, and read-only
-  work uses `not-applicable`. Do not plan `git clone`, `cp -R`, or
-  plain directories as task worktree substitutes.
+  `.oh-no/worktrees/<task-slug>` and leaves the task branch or worktree for
+  review unless integration is explicitly approved, Ultrawork uses
+  `automatic-worktree-merge` as a registered Git worktree under
+  `.oh-no/worktrees/<task-slug>` and owns merge-back plus post-merge
+  verification, and read-only work uses `not-applicable`. Do not plan
+  `git clone`, `cp -R`, or plain directories as task worktree substitutes.
 - Record plans under `.oh-no/plans/`.
 - Keep unresolved questions visible instead of hiding them in assumptions.
 
@@ -90,6 +105,8 @@ Return:
 - Task list.
 - Minimal viable approach.
 - Acceptance criteria alignment, including success signal.
+- Development requirements carryover: source/status, required planning inputs,
+  accepted assumptions to preserve or escalate, and pending approval gaps.
 - Validation check when measurable evidence influenced the plan.
 - Rejected speculative complexity.
 - Feedback disposition when this is a revision.
@@ -100,7 +117,10 @@ Return:
 - Verification commands.
 - Acceptance-to-evidence mapping.
 - Story risk check.
+- Compatibility baseline and runtime stability plan when applicable.
 - Verification budget and diff-budget expectations.
+- Finite delivery contract.
+- Executable contract probes for named risks.
 - Approval status.
 - Recommended next role or skill for the caller: `plan-reviewer`, `ralph`, or `ultrawork`.
 

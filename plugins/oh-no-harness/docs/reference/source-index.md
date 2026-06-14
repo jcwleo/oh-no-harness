@@ -40,6 +40,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/parallel-subagents.md` | local pointer back to `docs/shared/ralph-subagent-policy.md` for parallel dispatch |
 | `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
 | `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
+| `docs/shared/finite-delivery-contract.md` | local baseline evidence record, review-loop budget, dispatch-gate, deliverable diff hygiene, and ship-gate contract for finite Ralph and Ultrawork delivery |
 
 ## Local Platform Adapter Docs
 

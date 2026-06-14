@@ -174,10 +174,11 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Parallel trigger",
         "dispatch targeted subagents by default",
         "whole eligible batch",
+        "docs/shared/ralph-subagent-policy.md",
+        "Record the partition fields",
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
         "Role: {explore|executor|plan-reviewer|verifier|code-reviewer}",
-        "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
         "MUST NOT be used to close a running or pending subagent",
     ),
@@ -232,6 +233,10 @@ PLATFORM_SUBAGENT_MARKERS = {
         "fallback\nor no-benefit reason",
         "## Acceptance-To-Evidence Mapping",
         "## Risk Check Before Completion",
+        "## Baseline And Diff Hygiene Gate",
+        "git status --short --untracked-files=all",
+        "Baseline evidence record",
+        "Deliverable diff hygiene status",
         "Completion claim",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "standing explicit user request",
@@ -344,8 +349,11 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "Ralph, Ultrawork, Simplify, Systematic Debugging",
     "Interview brownfield exploration",
     "## Subagent Bias",
-    "use subagents as much as possible",
+    "use subagents when those benefits clearly apply",
     "dispatch by default",
+    "docs/shared/finite-delivery-contract.md",
+    "## Finite Dispatch Gate",
+    "ship gate is already satisfied",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
     "credential values must be redacted",
@@ -406,6 +414,9 @@ WORKTREE_SHARED_MARKERS = (
     "## Default Location",
     "`interview` and `ralplan` do not need to run inside a worktree by default",
     "`Worktree decision`",
+    "### Source Edit Location Guard",
+    "execution checkout path",
+    "command's working directory or explicit path target",
     "Profile policy values:",
     "registered Git worktrees",
     "Do not substitute `git clone`",
@@ -414,6 +425,7 @@ WORKTREE_SHARED_MARKERS = (
     "parent-directory siblings",
     "git -C .oh-no/worktrees/<task-slug> status",
     "git worktree remove .oh-no/worktrees/<task-slug>",
+    "not merged by direct Ralph",
     "recursive nested worktree",
     "integration checkout's untracked",
     "git worktree add .oh-no/worktrees/<task-slug>",
@@ -435,6 +447,7 @@ WORKTREE_SKILL_MARKERS = {
         "git clone",
         "Worktree decision: direct automatic worktree",
         "Worktree decision: ultrawork automatic worktree",
+        "automatic merge-back",
     ),
     "ralplan": (
         "Worktree policy",
@@ -451,9 +464,12 @@ WORKTREE_SKILL_MARKERS = {
         "git clone",
         "worktreeLocation",
         "Worktree decision and location",
+        "execution checkout path",
+        "targets the execution checkout",
         "Worktree decision: direct automatic worktree",
         "Worktree decision: ultrawork automatic worktree",
         "integration checkout and post-merge verification",
+        "integration status",
     ),
     "ultrawork": (
         "## Automatic Worktree Execution",
@@ -471,19 +487,23 @@ WORKTREE_AGENT_MARKERS = {
         "automatic-worktree-merge",
         "registered Git worktree",
         ".oh-no/worktrees/<task-slug>",
+        "leaves the task branch or worktree",
         "plain directories",
     ),
     "plan-reviewer": (
         "Worktree policy",
         "registered project-local Git worktree execution plus merge",
         "automatic registered Git worktree execution",
-        "registered project-local worktree execution and merge responsibility",
+        "leave the task branch or worktree",
+        "registered project-local worktree execution, merge-back, and post-merge",
         ".oh-no/worktrees/<task-slug>",
         "invalid substitutes",
     ),
     "executor": (
         "Worktree decision",
         "docs/shared/worktree-isolation.md",
+        "Source Edit Location Guard",
+        "recorded execution checkout",
     ),
 }
 EXECUTION_MODE_SHARED_MARKERS = (
@@ -506,11 +526,16 @@ EXECUTION_MODE_SHARED_MARKERS = (
     "What would force escalation while working",
     "Worktree policy",
     "Worktree location",
+    "Integration responsibility",
+    "Integration status",
     "Worktree decision",
+    "executable contract probes",
 )
 VERIFICATION_TIER_SHARED_MARKERS = (
     "# Verification Tiers",
     "docs/shared/validation-check.md",
+    "docs/shared/finite-delivery-contract.md",
+    "baseline guard",
     "Measurable evidence is diagnostic evidence",
     "Every tier uses acceptance-to-evidence mapping",
     "A command list is not enough",
@@ -519,12 +544,49 @@ VERIFICATION_TIER_SHARED_MARKERS = (
     "category-level risk modeling",
     "Verification budget policy",
     "Prefer focused semantic evidence before broad suites",
+    "stale state does not leak",
     "Avoid repeated broad-suite reruns",
+    "Reuse expensive broad evidence",
+    "compatibility baseline check",
+    "runtime stability classification",
+    "executable contract probe",
+    "executable contract probe",
     "Map every acceptance criterion",
     "Record the risk check before completion",
+    "baseline evidence record",
+    "deliverable diff hygiene",
     "Include diff-budget scope review",
     "with its security lens when auth, data, network, file system, policy, or secret handling can be affected",
     "`code-reviewer`",
+)
+FINITE_DELIVERY_SHARED_MARKERS = (
+    "# Finite Delivery Contract",
+    "source-agnostic software-development guidance",
+    "## Baseline Guard",
+    "### Baseline Evidence Record",
+    "### Compatibility Baseline Guard",
+    "### Runtime Stability Baseline",
+    "### Executable Contract Probe Gate",
+    "existing tests, public contracts, docs, examples",
+    "external score feedback",
+    "runtime stability classification",
+    "executable contract probe status",
+    "## Review Loop Budget",
+    "### Patch-Change Rerun Gate",
+    "### Expensive Broad Evidence Reuse",
+    "patch identity check",
+    "one narrow re-review for blocking findings",
+    "optional cleanup, style, or preference findings become residual risk",
+    "## Dispatch Gate",
+    "Do not spawn late optional review",
+    "## Deliverable Diff Hygiene",
+    "git status --short --untracked-files=all",
+    "## Ship Gate",
+    "baseline evidence record exists",
+    "deliverable diff hygiene passed",
+    "verification-before-completion",
+    "## Failure States",
+    "systematic-debugging",
 )
 VALIDATION_CHECK_SHARED_MARKERS = (
     "# Validation Check",
@@ -540,6 +602,23 @@ VALIDATION_CHECK_SHARED_MARKERS = (
     "only supported by local checks and not acceptable as a harness improvement",
     "## Similar-Work Expectation",
 )
+DEVELOPMENT_REQUIREMENTS_SHARED_MARKERS = (
+    "# Development Requirements Coverage",
+    "## Coverage Taxonomy",
+    "Behavior, API, UI, or workflow contract",
+    "Data model, persistence, migration, and backward compatibility",
+    "Security, privacy, auth, permissions, and secrets",
+    "Runtime, deployment, configuration, rollback, and release",
+    "Observability, logging, monitoring, and operator feedback",
+    "Performance, scale, latency, reliability, and concurrency",
+    "Compatibility, accessibility, localization, and platform support",
+    "External services, network boundaries, rate limits, and third-party contracts",
+    "Verification commands, fixtures, manual checks, and smallest credible proof",
+    "Development requirements coverage:",
+    "Development requirements carryover:",
+    "approved interview coverage",
+    "limited Analyst gap check",
+)
 EXECUTION_MODE_SKILL_MARKERS = {
     "using-oh-no-harness": (
         "required Ralph execution mode",
@@ -554,6 +633,11 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Spec Readiness Guard",
         "## Acceptance Criteria Alignment Gate",
         "## Goal Restatement Gate",
+        "## Development Requirements Coverage Gate",
+        "Development requirements coverage:",
+        "docs/shared/development-requirements-coverage.md",
+        "In Quick mode, this gate is exempt and no coverage block is required.",
+        "shared `Development requirements coverage:` shape",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
         "## Interview Milestones",
@@ -561,17 +645,29 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Hidden-Assumption Persona Check",
         "## Breadth And Question Tactics",
         "## Machine-Consumable Spec Gate",
-        "`ready` must hold for 2 consecutive rounds",
+        "In Deep mode, `ready` must hold",
         "Quick mode is exempt and keeps current behavior",
         "at most 3 candidate hidden-assumption questions",
     ),
     "ralplan": (
+        "## Development Requirements Carryover And Gap Check",
+        "Development requirements carryover:",
+        "docs/shared/development-requirements-coverage.md",
+        "approved interview coverage",
+        "limited Analyst gap check",
+        "record the shared",
         "## Execution Profile",
         "## Test Case Design Quality",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile recap",
         "Validation check",
+        "Finite delivery contract",
+        "docs/shared/finite-delivery-contract.md",
+        "transition invariant",
+        "stale-state/leakage expectation",
+        "canonical fields from `docs/shared/execution-modes.md`",
+        "Finite delivery contract summary",
         "immediately before `Approval needed`",
         "Ralph must follow this profile",
     ),
@@ -581,15 +677,30 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Verification Budget Policy",
         "## Diff-Budget Gate",
         "## Validation Gate",
+        "docs/shared/finite-delivery-contract.md",
+        "baseline guard",
+        "baseline evidence record",
+        "contract-risk probes",
+        "runtime stability classification",
+        "executable contract probe",
+        "review-loop budget",
+        "deliverable diff hygiene",
+        "ship gate",
         "acceptance-to-evidence mapping",
         "story risk-check evidence",
+        "finite delivery fields",
         "validation check",
         "Ralph must set an execution mode",
         "must follow the",
     ),
     "ultrawork": (
         "docs/shared/execution-modes.md",
+        "docs/shared/finite-delivery-contract.md",
         "execution mode and mode source",
+        "Baseline evidence record",
+        "Executable contract probes",
+        "Deliverable diff hygiene",
+        "ship gate",
         "active platform wrapper",
     ),
 }
@@ -641,6 +752,11 @@ EXECUTION_MODE_AGENT_MARKERS = {
         "Validation check",
         "verification budget",
         "diff-budget",
+        "finite delivery contract",
+        "docs/shared/finite-delivery-contract.md",
+        "Baseline evidence record",
+        "Executable contract probes",
+        "Deliverable diff hygiene",
     ),
     "plan-reviewer": (
         "Ralph execution profile",
@@ -649,23 +765,50 @@ EXECUTION_MODE_AGENT_MARKERS = {
         "Risk Check Before Completion",
         "acceptance criteria",
         "diff-budget scope review",
+        "finite delivery contract",
+        "docs/shared/finite-delivery-contract.md",
+        "Baseline evidence record",
+        "Deliverable diff hygiene",
+        "Finite delivery contract findings",
     ),
     "executor": (
         "assigned Ralph execution mode",
+        "Source Edit Location Guard",
+        "transition/stale-state coverage",
+        "Compatibility baseline",
+        "runtime stability classification",
+        "Executable contract probe status",
         "Execution mode followed",
+        "Baseline evidence record contribution",
+        "Deliverable diff hygiene status",
     ),
     "verifier": (
         "selected execution mode",
+        "patch identity",
+        "transition/stale-state proof",
+        "Compatibility baseline status",
+        "Runtime stability classification",
+        "Executable contract probe status",
         "Execution mode compliance",
         "Acceptance-to-evidence mapping status",
         "Risk check before completion status",
         "Validation check",
+        "Baseline guard status",
+        "Baseline evidence record status",
+        "Deliverable diff hygiene status",
+        "Finite delivery status",
         "Verification budget and diff-budget status",
         "heavier Ralph execution mode",
     ),
     "code-reviewer": (
         "execution mode escalation",
         "Safety Trigger Checklist",
+        "finite delivery contract",
+        "Baseline/public-contract regression risk",
+        "Baseline evidence record status",
+        "Compatibility baseline and runtime stability findings",
+        "Executable contract probe findings",
+        "Deliverable diff hygiene status",
     ),
 }
 
@@ -764,12 +907,14 @@ ACCEPTANCE_CRITERIA_AGENT_MARKERS = {
         "acceptance criteria",
         "success and failure signals",
         "useful but insufficient proof",
+        "Development requirements gap check",
     ),
     "planner": (
         "acceptance criteria",
         "success signal",
         "insufficient proofs",
         "validation-check",
+        "Development requirements carryover",
     ),
     "plan-reviewer": (
         "acceptance criteria coverage",
@@ -778,6 +923,7 @@ ACCEPTANCE_CRITERIA_AGENT_MARKERS = {
         "convenient signal",
         "claims without user approval",
         "Validation check",
+        "Development requirements carryover",
     ),
 }
 VALIDATION_CHECK_AGENT_MARKERS = {
@@ -824,6 +970,9 @@ RALPLAN_CONSENSUS_MARKERS = (
     "## Direction Preservation Gate",
     "## Test Case Design Quality",
     "## Acceptance Criteria Contract",
+    "## Development Requirements Carryover And Gap Check",
+    "approved interview coverage",
+    "limited Analyst gap check",
     "Ralplan has no basic planning mode",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
@@ -836,6 +985,8 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Planner revision v2",
     "Plan review v2",
     "Analyst -> Planner -> Plan-Reviewer",
+    "Development requirements carryover:",
+    "record the shared",
     "APPROVE | ITERATE | REJECT",
     "blocking | non-blocking",
     "Findings ledger:",
@@ -871,6 +1022,7 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "smallest meaningful test set",
         "must-fail before implementation",
         "acceptance criteria alignment",
+        "Development requirements carryover",
     ),
     "plan-reviewer": (
         "Plan Review Contract",
@@ -878,6 +1030,7 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "must not produce a replacement plan",
         "APPROVE | ITERATE | REJECT",
         "reject when accepted feedback is only logged",
+        "Development requirements carryover findings",
         "AI-slop",
         "would pass against the old broken behavior",
         "Architecture findings",
@@ -904,6 +1057,8 @@ TDD_CORE_ROUTING_MARKERS = (
     "tiny direct edit path",
     "return control to `ralph`, `systematic-debugging`",
     "Do not continue as a substitute for `ralph`",
+    "## Semantic Test Shape",
+    "stale data, stale events, cached values, or previous-step changes",
 )
 TDD_ROUTING_DOC_MARKERS = {
     "docs/skill-core/using-oh-no-harness.md": (
@@ -961,6 +1116,12 @@ def has_required_marker(text: str, marker: str) -> bool:
     normalized_text = re.sub(r"\s+", " ", text).strip()
     normalized_marker = re.sub(r"\s+", " ", marker).strip()
     return normalized_marker in normalized_text
+
+
+def assert_markers(path: Path, text: str, markers: tuple[str, ...], label: str) -> None:
+    for marker in markers:
+        if not has_required_marker(text, marker):
+            die(f"{path} is missing required {label} marker: {marker!r}")
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -1096,13 +1257,12 @@ def assert_skill(root: Path, skill: str) -> None:
 
     path = root / SKILL_CORE_ROOT / f"{skill}.md"
     assert_skill_frontmatter(path, skill)
+    body = read_text(path)
     if skill in NEXT_SKILL_GATE_REQUIRED:
-        body = read_text(path)
         for marker in NEXT_SKILL_GATE_MARKERS:
             if marker not in body:
                 die(f"{path} is missing required Next-Skill-Gate marker: {marker!r}")
     if skill == "ultrawork":
-        body = read_text(path)
         if ULTRAWORK_EXCEPTION_HEADING not in body:
             die(f"{path} is missing required heading: {ULTRAWORK_EXCEPTION_HEADING!r}")
         for marker in ULTRAWORK_AUTO_APPROVAL_MARKERS:
@@ -1110,17 +1270,14 @@ def assert_skill(root: Path, skill: str) -> None:
                 die(f"{path} is missing required Ultrawork auto-approval marker: {marker!r}")
         assert_ultrawork_loop_contract(path, body)
     if skill in ROLE_POLICY_MARKERS:
-        body = read_text(path)
         marker = ROLE_POLICY_MARKERS[skill]
         if marker not in body:
             die(f"{path} is missing required role-policy marker: {marker!r}")
     if skill in EXECUTION_MODE_SKILL_MARKERS:
-        body = read_text(path)
         for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
     if skill in SKILL_REQUIRED_AGENT_ROLES:
-        body = read_text(path)
         agent_roles_section = markdown_section(body, "## Agent Roles")
         if not agent_roles_section:
             die(f"{path} is missing required Agent Roles section")
@@ -1128,17 +1285,14 @@ def assert_skill(root: Path, skill: str) -> None:
             if not has_token(agent_roles_section, role):
                 die(f"{path} Agent Roles section is missing required role reference: {role!r}")
     if skill in SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY:
-        body = read_text(path)
         agent_roles_section = markdown_section(body, "## Agent Roles")
         if "no required agent dependency" not in agent_roles_section:
             die(f"{path} Agent Roles section should explicitly declare no required agent dependency")
     if skill in SIMPLICITY_SCOPE_SKILL_MARKERS:
-        body = read_text(path)
         for marker in SIMPLICITY_SCOPE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Simplicity-Scope marker: {marker!r}")
     if skill == "simplify":
-        body = read_text(path)
         for marker in SIMPLIFY_PARALLEL_MARKERS:
             if not has_required_marker(body, marker):
                 die(f"{path} is missing required Simplify-Parallel marker: {marker!r}")
@@ -1159,22 +1313,19 @@ def assert_skill(root: Path, skill: str) -> None:
             if marker not in wrapper_body:
                 die(f"{wrapper_path} is missing required Codex Standing-Wrapper marker: {marker!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
-        body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
             if not has_required_marker(body, marker):
                 die(f"{path} is missing required Platform-Subagent marker: {marker!r}")
     if skill == "ralplan":
-        body = read_text(path)
         for marker in RALPLAN_CONSENSUS_MARKERS:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Ralplan-Consensus marker: {marker!r}")
         for marker in RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS:
             if marker in body:
                 die(f"{path} contains forbidden old Ralph split-option marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
-        body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Worktree marker: {marker!r}")
 
 
@@ -1454,17 +1605,31 @@ def assert_execution_mode_contract(root: Path) -> None:
 def assert_verification_tier_contract(root: Path) -> None:
     path = root / "docs" / "shared" / "verification-tiers.md"
     text = read_text(path)
-    for marker in VERIFICATION_TIER_SHARED_MARKERS:
-        if marker not in text:
-            die(f"{path} is missing required Verification-Tier contract marker: {marker!r}")
+    assert_markers(path, text, VERIFICATION_TIER_SHARED_MARKERS, "Verification-Tier contract")
 
 
 def assert_validation_check_contract(root: Path) -> None:
     path = root / "docs" / "shared" / "validation-check.md"
     text = read_text(path)
-    for marker in VALIDATION_CHECK_SHARED_MARKERS:
-        if marker not in text:
-            die(f"{path} is missing required Validation-Check contract marker: {marker!r}")
+    assert_markers(path, text, VALIDATION_CHECK_SHARED_MARKERS, "Validation-Check contract")
+
+
+def assert_finite_delivery_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "finite-delivery-contract.md"
+    text = read_text(path)
+    assert_markers(path, text, FINITE_DELIVERY_SHARED_MARKERS, "Finite-Delivery contract")
+
+
+def assert_development_requirements_contract(root: Path) -> None:
+    path = root / "docs" / "shared" / "development-requirements-coverage.md"
+    text = read_text(path)
+    assert_markers(
+        path,
+        text,
+        DEVELOPMENT_REQUIREMENTS_SHARED_MARKERS,
+        "Development-Requirements contract",
+    )
+
 
 def assert_provider_guidance(root: Path) -> None:
     provider_root = root / PROVIDER_DOC_ROOT
@@ -1671,7 +1836,7 @@ def assert_hook_contract(root: Path) -> None:
         "sub-agents, delegation, and parallel agent work proactively",
         "redact credential values",
         "never allowed for no-skill read-only lookup",
-        "Do not call spawn_agent for",
+        "Spawn only when the host accepts",
         "otherwise perform the lookup inline",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",
@@ -1965,6 +2130,8 @@ def main() -> None:
     assert_execution_mode_contract(root)
     assert_verification_tier_contract(root)
     assert_validation_check_contract(root)
+    assert_finite_delivery_contract(root)
+    assert_development_requirements_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

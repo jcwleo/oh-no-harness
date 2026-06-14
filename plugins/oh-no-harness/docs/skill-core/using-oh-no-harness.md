@@ -79,7 +79,9 @@ they produce pre-execution artifacts. The worktree gate starts at execution:
 direct `ralph` creates or selects a registered Git worktree under
 `.oh-no/worktrees/<task-slug>` by default, records
 `Worktree decision: direct automatic worktree`, and does not edit files until
-that decision is visible.
+that decision is visible. Direct `ralph` leaves the completed task worktree or
+branch as the deliverable unless the user explicitly approves an integration
+step; `ultrawork` is the workflow that owns automatic merge-back.
 Automatic task worktrees should stay inside the project rather than appearing as
 parent-directory siblings unless an explicit fallback is recorded. Do not treat
 `git clone`, `cp -R`, or a plain directory as a valid Ralph task worktree.

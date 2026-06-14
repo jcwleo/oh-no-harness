@@ -74,6 +74,14 @@ start_or_resume
 - Every path to `worktree_gate` or `execution_handoff` must first create or
   confirm an execution profile. Source edits are blocked until the profile
   exists and is recorded in the Ultrawork state.
+- Every write-capable path must also record the finite delivery contract from
+  `docs/shared/finite-delivery-contract.md`: baseline guard, review-loop
+  budget, executable contract probes, dispatch gate, deliverable diff hygiene,
+  and ship gate.
+- When the baseline guard is required, Ultrawork must carry a baseline evidence
+  record through the Ralph handoff and final report. Missing or failing baseline
+  evidence is `failed_verification`, not a successful delivery with weaker
+  confidence.
 - Any scope change, missing authority artifact, failed worktree gate, or failed
   verification transitions to `paused` or `blocked`, not silent continuation.
 - QA failures transition to `systematic-debugging`, then back to
@@ -114,8 +122,9 @@ Doctor/status gate semantics:
 - Runs at entry, resume, pre-execution, pre-merge, and pre-final.
 - Outputs `PASS`, `WARN`, or `BLOCKED`.
 - Checks missing or stale artifacts, invalid worktree, unmerged worktree,
-  missing verification, stale README/docs against behavior, custom-agent
-  readiness, and validator drift.
+  missing verification, missing required baseline evidence record, transient
+  `.oh-no` artifacts in the deliverable diff, stale README/docs against
+  behavior, custom-agent readiness, and validator drift.
 - `BLOCKED` stops before edits, merge, or final claim. `WARN` may continue only
   when acceptance evidence is unaffected.
 
@@ -123,7 +132,9 @@ Checker outputs:
 
 - Every checker records role, reviewed artifact or diff, findings, acceptance
   evidence status, required follow-up, verdict when applicable,
-  fallback/dispatch mode, and lifecycle cleanup status.
+  fallback/dispatch mode, baseline guard status, baseline evidence record
+  status, deliverable diff hygiene status, finite delivery status, and lifecycle
+  cleanup status.
 - Maker roles do not self-approve. Inline checker fallback must still be
   labeled as checker output.
 
@@ -135,6 +146,9 @@ Escalation rules:
 - Public contract, security, or packaging risk -> `plan-reviewer`,
   `code-reviewer`, or `verifier`.
 - Missing worktree or verification evidence -> `blocked` until resolved.
+- Missing executable contract probe evidence for a named compatibility,
+  lifecycle, stale-state, runtime, generated-artifact, or public-contract risk
+  -> `failed_verification` or `blocked` until resolved.
 
 Terminal states:
 
@@ -211,9 +225,11 @@ Valid profile sources:
 
 The recorded profile must include overall Ralph mode, verification tier,
 artifact policy, agent policy, parallel trigger, worktree policy and location,
-cleanup policy, task sizing, and escalation triggers. If any required field is
-missing, the doctor/status gate is `BLOCKED`; do not continue by treating
-`ultrawork` itself as an implicit execution mode.
+cleanup policy, finite delivery contract, baseline evidence record requirement,
+executable contract probe requirements, deliverable diff hygiene, task sizing,
+and escalation triggers.
+If any required field is missing, the doctor/status gate is `BLOCKED`; do not
+continue by treating `ultrawork` itself as an implicit execution mode.
 
 ## Automatic Worktree Execution
 
@@ -232,6 +248,9 @@ Before editing files, Ultrawork must:
 3. Preserve access to the approved `.oh-no` spec, plan, or PRD in the task
    worktree by copying the relevant artifact, recording an absolute artifact
    path, or quoting the approved task definition.
+4. Confirm `.oh-no/` is ignored by the target repository or add it to
+   `.git/info/exclude` before writing transient session artifacts, unless the
+   user explicitly requested versioned harness artifacts.
 
 After the implementation passes verification in the task worktree, Ultrawork
 must merge the completed work into the integration checkout, run post-merge
@@ -283,9 +302,17 @@ ordinary `ralph` execution handoff as approved by Ultrawork; do not ask the user
 for a second implementation approval after Phase 1 unless a pause condition from
 the planning phase was triggered.
 
-Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
+Execution must preserve Ralph's selected execution mode, finite delivery
+contract, baseline evidence record, deliverable diff hygiene, PRD or compact
+artifact policy, verification, review, cleanup, and final report requirements.
 
-If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
+If execution is handled inline instead of through `ralph`, first read
+`docs/shared/execution-modes.md` and
+`docs/shared/finite-delivery-contract.md`, set the required `LIGHT`,
+`STANDARD`, or `THOROUGH` execution mode, record the finite delivery contract,
+then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before
+behavior-changing production edits: read and follow `test-driven-development`,
+record RED/GREEN/REFACTOR evidence, and document any approved exception.
 
 ### Phase 3: QA Loop
 
@@ -302,12 +329,23 @@ Repeat until checks pass or a blocking reason is documented.
 
 ### Phase 4: Final Validation
 
-Dispatch the appropriate review subagents for the risk:
+Apply `docs/shared/finite-delivery-contract.md`, then dispatch only the review
+subagents required by the selected mode, approved plan, unresolved blocker, or
+risk:
 
 - `plan-reviewer` for architecture-sensitive changes
 - `code-reviewer` for correctness and maintainability, with its security lens
   for security-sensitive behavior
 - `verifier` with its scenario lens for user-facing behavior
+
+If the ship gate is already satisfied, do not add a fresh optional final-review
+loop. Record optional cleanup or extra review as follow-up instead.
+
+If the baseline guard is required and the baseline evidence record is missing or
+failed, or if transient `.oh-no` workflow artifacts remain in the deliverable
+diff without explicit user approval, set the terminal state to
+`failed_verification` or `blocked`. Do not merge, report success, or start
+another optional review loop to compensate for missing hard evidence.
 
 ### Phase 5: Report
 
@@ -320,6 +358,9 @@ Write a final report with:
 - execution mode and mode source
 - execution profile source and required fields from
   `docs/shared/execution-modes.md`
+- finite delivery contract status from
+  `docs/shared/finite-delivery-contract.md`
+- baseline evidence record and deliverable diff hygiene status
 - Worktree decision, integration checkout, post-merge verification, and cleanup
   status
 - phases completed
@@ -388,5 +429,10 @@ Return:
 - Skills used in order.
 - Execution profile source, mode, verification tier, agent policy, worktree
   policy, cleanup policy, task sizing, and escalation triggers.
+- Finite delivery contract source, baseline guard, review-loop budget, dispatch
+  gate, executable contract probe status, deliverable diff hygiene, and ship
+  gate.
+- Executable contract probes for named risks.
+- Baseline evidence record and Deliverable diff hygiene status.
 - Verification evidence.
 - Final result or blocker.

@@ -37,10 +37,10 @@ Do not use when the user provides a concrete task with files, failing commands, 
 | Standard | default; enough rounds to clarify objective, constraints, and acceptance. |
 | Deep | multi-component systems, high risk, or major product uncertainty. |
 
-Interview Milestones, Refine Confirmation, Hidden-Assumption Persona Check,
-Breadth And Question Tactics, and Machine-Consumable Spec Gate apply in
-Standard and Deep modes only;
-Quick mode is exempt and keeps current behavior.
+Interview Milestones, Breadth And Question Tactics, Development Requirements
+Coverage Gate, and Machine-Consumable Spec Gate apply in Standard and Deep
+modes only. Refine Confirmation and Hidden-Assumption Persona Check have
+mode-specific triggers in their sections. Quick mode is exempt and keeps current behavior.
 
 ## Brownfield First
 
@@ -143,9 +143,11 @@ never invent numeric thresholds of their own:
 - brownfield context: when a repository exists, integration-surface claims
   are fact-backed with path context, not restated from memory
 
-Restate the current stage after each round next to the ambiguity ledger.
-`ready` must hold for 2 consecutive rounds before the Spec Readiness Guard may pass.
-A round that surfaces a new material decision resets the streak.
+Restate the current stage after each round next to the ambiguity ledger. In
+Standard mode, `ready` may pass once all readiness floors hold and the current
+round did not surface a new material decision. In Deep mode, `ready` must hold
+for 2 consecutive rounds before the Spec Readiness Guard may pass. A round that
+surfaces a new material decision resets the Deep-mode streak.
 
 ## Question Routing
 
@@ -188,14 +190,18 @@ when the correction is a single sentence.
 Before finalizing, check that the spec preserves every material `Decision`,
 `Reasoning`, `Constraints`, and `Non-goals` item from the interview. In Quick
 mode, ask one targeted confirmation if the structured capture may have lost
-intent; in Standard and Deep modes, `Refine Confirmation` below replaces this
-suspicion-triggered check with an always-on confirmation.
+intent; in Standard and Deep modes, apply `Refine Confirmation` below according
+to its mode-specific triggers.
 
 ## Refine Confirmation
 
-In Standard and Deep modes, confirm the Answer Capture structure with the
-user for every material free-text answer — always, not only when loss is
-suspected.
+In Standard mode, confirm the Answer Capture structure when the restatement
+could plausibly lose intent, when the user corrected the goal, scope,
+acceptance, constraints, or non-goals, or before finalizing any material answer
+that remains unconfirmed and would change downstream planning or execution.
+
+In Deep mode, confirm the Answer Capture structure with the user for every
+material free-text answer.
 
 To avoid doubling round-trips,
 piggyback the confirmation onto the next interview question
@@ -215,11 +221,12 @@ Rhythm Guard.
 
 ## Hidden-Assumption Persona Check
 
-In Standard and Deep modes, run an inline lateral-thinking pass at each
-milestone transition (for example `initial -> progress`): re-read the current
-understanding through three perspectives — researcher (what facts are
-missing), contrarian (what would make this wrong or fail), and simplifier
-(what is overbuilt or out of scope).
+In Standard mode, run this check once before `ready`, or earlier when a new
+material risk, scope edge, integration surface, or conflicting assumption
+appears. In Deep mode, run it at each milestone transition (for example
+`initial -> progress`). Re-read the current understanding through three
+perspectives — researcher (what facts are missing), contrarian (what would make
+this wrong or fail), and simplifier (what is overbuilt or out of scope).
 
 The pass has a fixed output contract. Emit
 at most 3 candidate hidden-assumption questions,
@@ -272,15 +279,43 @@ Before writing the final spec, run this local gate:
 - code and research facts are separated from assumptions
 - acceptance criteria are testable enough for `ralplan` or direct `ralph`
 - non-goals and explicit exclusions are present when they affect execution
+- in Standard and Deep modes, the Development Requirements Coverage Gate has
+  been completed, with every category recorded as required, not applicable, or
+  an accepted assumption
 - the acceptance criteria are explicit enough that another implementer can tell
   what success, failure, and out-of-scope behavior look like from the user's or
   maintainer's point of view
 - the execution sizing hint can be written without inventing repository facts
-- in Standard and Deep modes, the `Interview Milestones` stage is `ready` and
-  the 2-consecutive-rounds closure rule is satisfied
+- in Standard and Deep modes, the `Interview Milestones` stage is `ready`; in
+  Deep mode, the 2-consecutive-rounds closure rule is also satisfied
 
 If the gate fails, do not write the final spec yet. Ask the single highest-value
 follow-up question and continue the interview.
+
+## Development Requirements Coverage Gate
+
+Before finalizing a Standard or Deep spec, make sure development requirements
+that often decide implementation and verification are not hiding inside broad
+constraints. This is not implementation planning. It records what downstream
+planning or execution must preserve, prove, or escalate.
+
+In Quick mode, this gate is exempt and no coverage block is required.
+
+Use the taxonomy and record shape in
+`docs/shared/development-requirements-coverage.md`. Use `Question Routing` for
+every category: do not ask the user to restate code facts that the repository
+can answer, and do not ask every category as a separate question when the answer
+is clearly not applicable. Ask one targeted user-judgment question when an
+inferred answer changes behavior, delivery scope, data handling, security
+posture, operational support, public support claims, or the smallest credible
+proof.
+
+Record the shared `Development requirements coverage:` shape from
+`docs/shared/development-requirements-coverage.md`.
+
+If any category is required but unresolved, do not finalize the spec. Ask the
+single question that removes the highest implementation or verification risk,
+then rerun this gate.
 
 ## Acceptance Criteria Alignment Gate
 
@@ -333,6 +368,9 @@ machine consumers; both gates run:
   statements.
 - Non-goals present: the non-goals section is non-empty, or an explicit
   user-confirmed statement that none exist is recorded.
+- Development coverage present: the Development Requirements Coverage Gate block
+  is self-contained, and each category is labeled required, not applicable, or
+  accepted assumption.
 - Concrete examples: each acceptance criterion carries at least one concrete
   example (input -> expected output, or command -> expected result) when
   applicable.
@@ -375,9 +413,10 @@ small, concrete, acceptance criteria are testable, and the provisional mode is
 - Use `Answer Capture` for material answers before they enter the spec.
 - In Standard and Deep modes, apply `Refine Confirmation`, the
   `Hidden-Assumption Persona Check`, `Breadth And Question Tactics`, and the
-  `Machine-Consumable Spec Gate` per their sections.
+  `Machine-Consumable Spec Gate` per their mode-specific sections.
 - Run the `Spec Readiness Guard`, `Acceptance Criteria Alignment Gate`, and
-  `Goal Restatement Gate` before Phase 1 review.
+  `Goal Restatement Gate` before Phase 1 review. In Standard and Deep modes,
+  also run the `Development Requirements Coverage Gate`.
 - Avoid leaking prompt or tool details into the spec.
 
 ## Spec Artifact
@@ -405,6 +444,9 @@ The spec must include:
   exist)
 - users or callers
 - requirements
+- for Standard and Deep specs, development requirements coverage using
+  `docs/shared/development-requirements-coverage.md`, including required,
+  not-applicable, accepted-assumption, and pending-approval items
 - acceptance criteria, each carrying at least one concrete example when
   applicable
 - acceptance criteria details: who validates success, success signal, failure
