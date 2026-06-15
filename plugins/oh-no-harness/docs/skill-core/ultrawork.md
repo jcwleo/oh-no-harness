@@ -276,9 +276,10 @@ inventing product intent.
 
 ### Phase 1: Plan
 
-Read and follow `ralplan` unless an approved or relevant plan already exists or
-the task is concrete enough for direct execution. Regardless of route, complete
-the `## Execution Profile Gate` before leaving this phase.
+Read and follow `ralplan` unless an approved or relevant plan already exists.
+A concrete original request may skip `interview`, but it must not skip
+`ralplan` inside Ultrawork. Regardless of route, complete the
+`## Execution Profile Gate` before leaving this phase.
 
 Inside Ultrawork, the `ralplan` plan is automatically approved for execution
 once the plan satisfies Ralplan's consensus, direction-preservation, execution

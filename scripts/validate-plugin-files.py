@@ -93,6 +93,7 @@ NEXT_SKILL_GATE_MARKERS = (
 ULTRAWORK_EXCEPTION_HEADING = "## Ultrawork Exception"
 ULTRAWORK_AUTO_APPROVAL_MARKERS = (
     "Interview is the only user-facing content approval gate",
+    "A concrete original request may skip `interview`, but it must not skip",
     "Plan approval source: ultrawork automatic approval after interview/spec",
     "Ultrawork-approved plan or spec",
     "automatically approves `ralplan`",
