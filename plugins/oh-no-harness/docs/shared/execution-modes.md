@@ -18,9 +18,9 @@ implementation plan.
 
 `ralplan` owns the authoritative execution profile. A plan that recommends
 `ralph` must set an overall Ralph mode and task-level modes before approval.
-It should default the direct Ralph handoff to aggressive eligible parallel
-subagent use by recording `Parallel trigger: approved-plan-handoff` whenever an
-isolated Ralph role can safely run as a subagent.
+It should mark the direct Ralph handoff as parallel-capable by recording
+`Parallel trigger: approved-plan-handoff` when at least one isolated Ralph role
+can provide decision-changing evidence as a subagent.
 
 `ralph` must read the execution profile before editing. If no profile exists,
 Ralph must select a mode with the decision prompt below, record `Mode source:
@@ -34,34 +34,32 @@ Before selecting a mode, answer these questions from the current request, spec,
 plan, repository facts, and known verification commands:
 
 1. What observable behavior, artifact, prompt, config, or documentation will
-   change?
-2. Is the change limited to one obvious file or isolated surface, or does it
-   cross modules, packages, generated artifacts, manifests, scripts, or docs?
-3. Could the change affect runtime behavior, user-facing behavior, persisted
-   data, permissions, authentication, secrets, network access, file-system
-   access, external services, concurrency, migrations, or releases?
-4. Does the change alter agent behavior, workflow routing, public plugin
+   change, and what actual public, caller, or verifier-facing surface validates
+   it?
+2. Is the change isolated, or does it cross modules, generated artifacts,
+   manifests, scripts, docs, workflow routing, public plugin surface,
+   acceptance gates, validation policy, support claims, or release surfaces?
+   Does the change alter agent behavior, workflow routing, public plugin
    surface, command names, acceptance gates, validation policy, or support
    claims?
-5. Are acceptance criteria and the smallest credible verification command
-   already clear?
-6. Which acceptance criteria need direct evidence, and which likely edge case
-   would a skeptical maintainer or user test before accepting the work?
-7. Is the root cause known, or does the work start from a failing command,
-   flaky behavior, or uncertain bug report?
-8. Can a lighter mode produce credible evidence without skipping a stated
+3. Could the change affect runtime behavior, user-facing behavior, persisted
+   data, permissions, authentication, secrets, network or file-system access,
+   external services, concurrency, migrations, or destructive operations?
+4. Are acceptance criteria, baseline or smoke evidence, direct semantic
+   evidence, and what would a skeptical maintainer or user test before accepting
+   the work already clear enough for a lighter loop?
+5. What would force escalation while working: unknown root cause, wrong contract
+   surface, semantic uncertainty, broader files, failing checks,
+   security/data risk, unclear ownership, or reviewer rejection?
+6. Can a lighter mode produce credible evidence without skipping a stated
    requirement?
-9. What would force escalation while working: broader files, failing checks,
-   unexpected behavior, security/data risk, unclear ownership, or reviewer
-   rejection?
-10. For write-capable execution, what `Worktree policy` applies from
-   `docs/shared/worktree-isolation.md`?
-11. If measurable evidence influenced the work, what `Validation check` from
-    `docs/shared/validation-check.md` keeps the change tied to a recurring
-    software engineering failure mode instead of a local check?
 
-Choose the lightest mode that gives credible evidence. If risk remains unclear
-after reading the relevant files, choose the higher mode and record why.
+Apply the `Validation check` from `docs/shared/validation-check.md` when
+measurable evidence influenced the work.
+
+Choose the lightest credible loop that can produce direct evidence without
+skipping a stated requirement. If risk remains unclear after reading the
+relevant files, choose the higher mode and record why.
 
 ## LIGHT
 
@@ -77,6 +75,8 @@ Typical signals:
   static check
 - no behavior change, no data/security risk, no release-critical surface, and
   no unresolved design choice
+- actual contract surface and baseline/smoke evidence are obvious or not
+  applicable
 
 Ralph behavior:
 
@@ -110,6 +110,7 @@ Typical signals:
 - several files in one subsystem, or one public workflow with clear boundaries
 - acceptance criteria are testable and verification commands are known or can be
   made explicit
+- contract surface and likely semantic model are identified
 - risk is real but bounded: no security-critical, data-migration,
   release-critical, or multi-subsystem uncertainty
 
@@ -121,9 +122,10 @@ Ralph behavior:
   or a plan/spec already uses story structure
 - use TDD for behavior-changing production edits and bug fixes; document narrow
   exceptions for docs-only, config-only, generated, or prompt-only work
-- dispatch targeted subagents by default for isolated exploration, review,
-  verification, QA, security, or log/test analysis when the platform supports
-  them and coordination cost is reasonable
+- use targeted subagents for isolated exploration, review, verification, QA,
+  security, or log/test analysis when the platform supports them, coordination
+  cost is reasonable, and the result can change the implementation, review,
+  verification, or ship/block decision
 - use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
   where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`

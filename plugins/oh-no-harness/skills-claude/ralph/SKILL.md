@@ -14,9 +14,8 @@ Follow this order:
 2. Apply Claude Code platform rules from `../../docs/platforms/claude-code.md`.
 3. Preserve the core skill's artifact paths, approval gates, role boundaries,
    worktree rules, TDD rules, verification rules, and output contract.
-- Also apply `../../docs/platforms/claude-code-ralph.md` for Ralph-specific role dispatch.
-
-4. Use the available Claude Code skill, question, task, agent, or subagent
+4. Also apply `../../docs/platforms/claude-code-ralph.md` for Ralph-specific role dispatch.
+5. Use the available Claude Code skill, question, task, agent, or subagent
    mechanisms only when the active host exposes them. If a platform capability
    is unavailable, keep the core role boundary inline and record the fallback
    reason when the core skill requires it.

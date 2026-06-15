@@ -95,6 +95,11 @@ plugins/oh-no-harness/.codex-plugin/
 
 The manifest will point to `./skills/`. Codex will rely on native skill discovery and the `using-oh-no-harness` bootstrap skill. No Codex-specific hook runtime is required for the first version.
 
+Implementation note: the current plugin also declares compact Codex hooks for
+SessionStart bootstrap and the narrow Ralph platform adapter. Treat
+`docs/reference/relationships.md` as the current runtime graph when it differs
+from this historical design snapshot.
+
 ### Shared Project Root
 
 ```text

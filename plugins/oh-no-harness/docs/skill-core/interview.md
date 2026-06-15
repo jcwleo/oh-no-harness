@@ -38,9 +38,8 @@ Do not use when the user provides a concrete task with files, failing commands, 
 | Deep | multi-component systems, high risk, or major product uncertainty. |
 
 Interview Milestones, Refine Confirmation, Hidden-Assumption Persona Check,
-Breadth And Question Tactics, and Machine-Consumable Spec Gate apply in
-Standard and Deep modes only;
-Quick mode is exempt and keeps current behavior.
+Breadth And Question Tactics, and the Standard/Deep additions inside the Spec
+Closure Gate apply in Standard and Deep modes only; Quick mode is exempt and keeps current behavior.
 
 ## Brownfield First
 
@@ -144,7 +143,7 @@ never invent numeric thresholds of their own:
   are fact-backed with path context, not restated from memory
 
 Restate the current stage after each round next to the ambiguity ledger.
-`ready` must hold for 2 consecutive rounds before the Spec Readiness Guard may pass.
+`ready` must hold for 2 consecutive rounds before the Spec Closure Gate may pass.
 A round that surfaces a new material decision resets the streak.
 
 ## Question Routing
@@ -208,7 +207,7 @@ before asking the next question.
 Skip rules:
 
 - short factual confirmations and pre-built option picks skip Refine
-- Goal Restatement Gate corrections never skip it, regardless of length
+- Spec Closure Gate goal-restatement corrections never skip it, regardless of length
 
 A confirmed restatement counts as direct user judgment for the Dialectic
 Rhythm Guard.
@@ -262,9 +261,13 @@ In Standard and Deep modes, keep breadth and question quality explicit:
   offer a fast close with an explicit enumerated assumption list
   the user can approve or correct in one step.
 
-## Spec Readiness Guard
+## Spec Closure Gate
 
-Before writing the final spec, run this local gate:
+Before writing the final spec or entering Phase 1 review, run this local gate.
+It replaces separate readiness, acceptance-alignment, goal-restatement, and
+machine-consumable gates so the interview closes through one checklist.
+
+Readiness:
 
 - no `4-5` ambiguity score remains for scope, acceptance, constraints,
   integration surface, or failure modes
@@ -272,24 +275,11 @@ Before writing the final spec, run this local gate:
 - code and research facts are separated from assumptions
 - acceptance criteria are testable enough for `ralplan` or direct `ralph`
 - non-goals and explicit exclusions are present when they affect execution
-- the acceptance criteria are explicit enough that another implementer can tell
-  what success, failure, and out-of-scope behavior look like from the user's or
-  maintainer's point of view
 - the execution sizing hint can be written without inventing repository facts
 - in Standard and Deep modes, the `Interview Milestones` stage is `ready` and
   the 2-consecutive-rounds closure rule is satisfied
 
-If the gate fails, do not write the final spec yet. Ask the single highest-value
-follow-up question and continue the interview.
-
-## Acceptance Criteria Alignment Gate
-
-Before finalizing a spec, align the requested outcome with the actual acceptance
-criteria that will validate the work. This is not implementation planning. It
-is the contract that keeps planning and execution from optimizing for the wrong
-proof.
-
-Record:
+Acceptance criteria:
 
 ```text
 Acceptance criteria:
@@ -306,25 +296,17 @@ inference changes behavior, delivery scope, data handling, security posture, or
 public support claims, ask one targeted user-judgment question before
 finalizing.
 
-## Goal Restatement Gate
+Goal restatement:
 
-Immediately before the spec review phase, restate the agreed goal in one
-sentence and ask the user whether it would lead another implementer to the same
-outcome.
+- Restate the agreed goal in one sentence immediately before Phase 1 review.
+- Ask whether it would lead another implementer to the same outcome.
+- If the user adjusts wording or adds missing scope, route that correction
+  through `Answer Capture`, update the ambiguity ledger, rerun this gate, and
+  restate the goal again.
+- Do not loop more than twice; if alignment still fails, ask one targeted
+  user-judgment question instead of forcing closure.
 
-If the user adjusts wording or adds missing scope, route that correction through
-`Answer Capture`, update the ambiguity ledger, rerun the Spec Readiness Guard,
-and restate the goal again. Do not loop more than twice; if alignment still
-fails, ask a targeted user-judgment question instead of forcing closure.
-
-## Machine-Consumable Spec Gate
-
-The spec is consumed by LLM coding agents (`ralplan` analyst/planner, `ralph`
-executors) that cannot ask the user mid-implementation; ambiguity they meet
-becomes silent guessing. In Standard and Deep modes, run this gate
-immediately before writing the final spec. It deepens the Spec Readiness
-Guard's acceptance-criteria, non-goals, and facts-vs-assumptions checks for
-machine consumers; both gates run:
+Machine-consumable requirements for Standard and Deep:
 
 - Self-contained: no conversation references or deixis ("as discussed
   above", "the usual way"); concrete file paths and names where known.
@@ -339,8 +321,8 @@ machine consumers; both gates run:
 - Assumptions labeled: accepted assumptions are labeled "do not silently
   change; escalate if wrong".
 
-If any check fails, do not finalize; ask the single targeted question that
-fixes the failed item, then rerun this gate.
+If any check fails, do not finalize. Ask the single highest-value targeted
+question that fixes the failed item, then rerun this gate.
 
 ## Execution Sizing Hint
 
@@ -375,9 +357,8 @@ small, concrete, acceptance criteria are testable, and the provisional mode is
 - Use `Answer Capture` for material answers before they enter the spec.
 - In Standard and Deep modes, apply `Refine Confirmation`, the
   `Hidden-Assumption Persona Check`, `Breadth And Question Tactics`, and the
-  `Machine-Consumable Spec Gate` per their sections.
-- Run the `Spec Readiness Guard`, `Acceptance Criteria Alignment Gate`, and
-  `Goal Restatement Gate` before Phase 1 review.
+  Standard/Deep additions inside the `Spec Closure Gate`.
+- Run the `Spec Closure Gate` before Phase 1 review.
 - Avoid leaking prompt or tool details into the spec.
 
 ## Spec Artifact

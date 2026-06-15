@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Use proactively for concrete, scoped implementation tasks with clear ownership, acceptance criteria, and verification responsibility.
+description: Use proactively inside active Oh No Harness workflows for scoped implementation; the caller owns approval and handoff gates.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: inherit
 color: green

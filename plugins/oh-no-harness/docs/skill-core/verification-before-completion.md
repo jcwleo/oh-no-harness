@@ -35,9 +35,9 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 | `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. |
 | `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. |
 
-On subagent-capable hosts, dispatch `verifier` by default for nontrivial
-completion claims so evidence mapping stays independent from the implementation
-thread. Add a `code-reviewer` subagent (security lens included) when the
+On subagent-capable hosts, dispatch `verifier` for nontrivial completion claims
+when independent evidence mapping can change the ship/block decision or expose
+residual risk. Add a `code-reviewer` subagent (security lens included) when the
 changed scope, selected verification tier, or user-facing risk warrants it;
 `verifier` applies its scenario lens when user-facing behavior changed.
 Inline verification is appropriate only for tiny direct checks with no
@@ -46,10 +46,10 @@ or no-benefit reason before making the claim.
 
 On Codex, when SessionStart injects
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
-standing explicit user request for the default `verifier` and risk-gated
+standing explicit user request for the eligible `verifier` and risk-gated
 `code-reviewer` roles in this skill. Do not ask for per-run subagent approval
-before dispatching those evidence or review roles when the claim is nontrivial
-or risk warrants them.
+before dispatching those evidence or review roles when the claim is nontrivial,
+risk warrants them, and the role output can change the completion decision.
 
 When any verification role is dispatched, apply the active platform's role
 prompt and dispatch requirements before the claim, evidence scope, expected
@@ -90,6 +90,9 @@ Direct evidence is a focused test, scenario, or inspection that would fail if
 the requested behavior were absent or wrong. Indirect evidence, broad suites,
 lint, typecheck, formatting, and compile checks are useful support, but they do
 not replace direct acceptance evidence for behavior-changing work.
+New tests are supporting evidence, not sufficient completion proof, when nearby
+existing tests, smoke checks, or behavior-preserving inspections are available
+and could catch regressions.
 
 ## Risk Check Before Completion
 
@@ -104,36 +107,26 @@ Record:
 Risk check before completion:
 - Acceptance criteria covered by direct evidence:
 - Acceptance criteria only covered indirectly:
-- Likely edge case a skeptical maintainer would test:
-- Adjacent subsystem or public contract most likely affected:
+- Contract surface and semantic model checked:
+- Baseline guard: existing test, smoke, inspection, or no viable baseline reason:
+- Likely failure-taxonomy risk a skeptical maintainer would test:
 - One more useful failing test I would write if time allowed:
 - Completion claim:
 ```
 
 The completion claim should distinguish:
 
-- complete with direct evidence
+- complete with direct evidence, baseline guard satisfied or unavailable with reason, and no blocking review findings
 - locally verified with explicit residual risk
-- blocked or incomplete because evidence is missing
+- blocked or failed verification because evidence or review blockers remain
 
 ## Validation Check
 
-For evidence-informed work, record:
-
-```text
-Validation check:
-- Evidence used:
-- Acceptance criteria or user outcome it supports:
-- What the evidence proves:
-- What the evidence does not prove:
-- Regression or maintainability risk addressed:
-- Why this should apply to similar work:
-- Case-specific details deliberately excluded:
-- Added process cost or risk:
-- Completion claim:
-```
-
-This block mirrors the canonical template in `docs/shared/validation-check.md`.
+For evidence-informed work, record a `Validation check` using the canonical
+template in `docs/shared/validation-check.md`. Include the evidence used, the
+supported acceptance criterion or user outcome, proof and gap, recurring risk
+addressed, similar-work expectation, excluded case-specific details, added
+process cost, and completion claim.
 
 Reject completion claims whose only support is metric movement, unseen-check
 guessing, task-name-specific guidance, or a measurable metric that does not match the
@@ -146,6 +139,10 @@ real user, maintainer, operator, or public contract.
 - A passing unit test does not prove a user-facing flow works when the acceptance criteria require the flow.
 - A broad suite pass does not prove a new semantic contract unless the new
   behavior is directly represented in that suite.
+- A local test that would pass against the wrong public, caller, or
+  verifier-facing surface does not prove the real contract.
+- A new test does not replace a viable nearby baseline or smoke check for
+  regression-sensitive work.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception.
 - When an agent reports success, inspect the changed files or artifacts before repeating the claim.
 
@@ -158,6 +155,7 @@ Return:
 - Commands or inspections performed.
 - Acceptance criteria status.
 - Acceptance-to-evidence mapping.
+- Contract surface and baseline guard status.
 - Risk check before completion and completion claim.
 - Validation check and risk from metric-only evidence when applicable.
 - Skipped checks and reason.

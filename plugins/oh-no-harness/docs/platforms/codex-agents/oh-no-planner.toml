@@ -38,12 +38,17 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Accepted feedback must be reflected in the plan body, not only listed in a
   consensus log or comment section.
 - Choose the smallest approach that can satisfy the approved acceptance criteria.
+- Identify the actual public, caller, or verifier-facing contract surface the
+  plan must preserve or change, and mark unresolved contract uncertainty as a
+  planning risk instead of hiding it in assumptions.
 - Design the smallest meaningful test set for each behavior-changing task:
   must-fail before implementation, must-pass after implementation,
-  negative/forbidden behavior when relevant, edge or regression coverage when
-  relevant, and evidence mapping to acceptance criteria.
-- Include a story risk check in plans: the likely edge case, adjacent
-  subsystem, or public contract that a skeptical maintainer or user would test.
+  negative/forbidden behavior when relevant, semantic-model or adversarial
+  coverage when relevant, baseline or regression coverage when relevant, and
+  evidence mapping to acceptance criteria.
+- Include a story risk check in plans: the likely failure-taxonomy risk,
+  adjacent subsystem, or public contract that a skeptical maintainer or user
+  would test.
 - Include acceptance criteria alignment in plans: who validates success, success
   signal, failure signal, insufficient proofs, likely misunderstood boundary,
   source, and confidence.
@@ -76,6 +81,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Do not propose shallow tests that only check exit status, marker strings,
   broad snapshots, implementation details, or mocks that bypass the behavior
   being tested.
+- Do not propose tests that would still pass after implementing the change on
+  the wrong public, caller, or verifier-facing surface.
 - Mark plans as pending approval unless the user has explicitly approved execution.
 - Return the revised draft for another Plan-Reviewer pass when the calling
   skill requires it (when blocking findings exist).
@@ -95,7 +102,8 @@ Return:
 - Feedback disposition when this is a revision.
 - Execution profile when the plan can hand off to `ralph`.
 - Test case design with must-fail, must-pass, negative/forbidden when relevant,
-  edge/regression when relevant, and evidence mapping.
+  semantic-model/adversarial coverage when relevant, baseline/regression when
+  relevant, and evidence mapping.
 - Worktree policy and any approved artifact handoff requirement.
 - Verification commands.
 - Acceptance-to-evidence mapping.

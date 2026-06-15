@@ -16,14 +16,17 @@ Every tier uses acceptance-to-evidence mapping. A command list is not enough:
 state which requested behavior each command, inspection, or manual scenario
 proves, and whether that evidence is direct, indirect, manual, or missing.
 
-Every behavior-changing tier also uses a risk check before completion. Ask what a
-skeptical maintainer or user would test next, then add direct semantic evidence
+Every behavior-changing tier also uses a risk check before completion. Identify
+the actual contract surface, likely semantic model, and baseline or smoke check
+a skeptical maintainer or user would expect, then add direct semantic evidence
 when practical. This is category-level risk modeling, not case-specific
 optimization.
 
 Verification budget policy:
 
 - Prefer focused semantic evidence before broad suites.
+- Prefer nearby baseline or smoke evidence before relying on newly added tests
+  alone when existing behavior could regress.
 - Run broad suites when shared behavior, public APIs, generated artifacts,
   concurrency, persistence, or cross-package contracts could be affected.
 - Avoid repeated broad-suite reruns that do not follow a meaningful patch change
@@ -58,7 +61,8 @@ Required evidence:
 - Validate acceptance criteria.
 - Map every acceptance criterion to direct, indirect, manual, or missing
   evidence.
-- Record the risk check before completion and any direct semantic test added because of it.
+- Record the risk check before completion and any contract-surface,
+  baseline-guard, or direct semantic test added because of it.
 - For behavior-changing work, validate RED/GREEN/REFACTOR evidence or a documented TDD exception.
 - Record the exact commands, outputs, and skipped checks in the final report.
 

@@ -103,16 +103,13 @@ subagents when isolated role work is allowed and the host exposes tools. Respect
 tool policy, ownership, isolation, and lifecycle; stay inline only if
 unavailable, unsafe, or skill-blocked.
 
-For any Oh No Harness role inside an active workflow or explicit user-requested
-subagent task, every spawn_agent call MUST include custom agent_type when
-recognized: "oh-no-<role>". Omitting agent_type or writing it only in the
-message is generic/default dispatch and violates this contract. Do not infer
-unavailability from rendered schema/display; attempt agent_type first. Generic
-fallback is allowed only after confirmed custom-agent unavailability; never allowed for no-skill read-only lookup.
-Timeout/empty/no agents completed is not final. MUST NOT call close_agent for a
-running or pending subagent. Close without final only on user cancel/stop,
-invalidated scope, duplicate/mis-scoped spawn, or safety/security/file risk.
-Never use missing output as completion evidence.
+For active workflows or explicit subagent tasks, spawn_agent MUST use custom
+agent_type "oh-no-<role>" when recognized. Omitting agent_type is generic/default
+dispatch. Attempt agent_type first; generic fallback requires confirmed
+unavailability and is never allowed for no-skill read-only lookup. With custom
+agent_type, omit fork_context and use one prompt/message payload. Timeout/empty/no
+agents completed is not final. MUST NOT call close_agent for a running or pending
+subagent; never use missing output as completion evidence.
 </CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
 
 codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
@@ -121,18 +118,14 @@ exploration sub-agent without active workflow. Eligible: locate,
 trace, or summarize existing code/config/tests/docs. Do not use this lane for planning, debugging, implementation, review, QA, security, verification,
 ambiguity, or edits. Do not read/reproduce secrets unless asked;
 redact credential values in sub-agent output. Do not call spawn_agent for this
-lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. Capture the result, then
-close the sub-agent when close_agent exists. Timeout/empty/no agents completed
-is not captured. MUST NOT close a running read-only sub-agent; leave open, wait
-longer, or report pending unless user cancels, scope invalidates, spawn was
-duplicate/mis-scoped, or safety/security risk appears.
+lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. If spawned: wait_agent first until a final result is captured. The next lifecycle tool for that receiver must be wait_agent, repeated until it returns that receiver with final status completed. Only after that captured wait_agent result may close_agent be called. close_agent is never first result capture. Do not call close_agent to retrieve output; even completed close output is not a substitute for wait_agent. Timeout/empty/no agents completed is not captured. MUST NOT close a running read-only sub-agent; leave open, wait longer, or report pending unless user cancels, scope invalidates, duplicate/mis-scoped spawn, or safety/security risk appears.
 </CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
 
 codex_agent_ensure_warning() {
   local installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
   local ensure_output
   local warning_suffix
-  warning_suffix='oh-no-* custom-agent dispatch remains the default when the host recognizes agent_type, prompt-embedded fallback requires confirmed unavailability, and no-skill exploration stays inline until read-only oh-no-explore is available. MUST NOT call close_agent for a running or pending subagent; never use missing output as completion evidence.'
+  warning_suffix='oh-no-* custom-agent dispatch remains the default when the host recognizes agent_type, prompt-embedded fallback requires confirmed unavailability, custom agent_type spawns must not use fork_context, and no-skill exploration stays inline until read-only oh-no-explore is available. MUST NOT call close_agent for a running or pending subagent; never use missing output as completion evidence.'
 
   if [ ! -x "$installer_path" ]; then
     printf 'Codex custom-agent ensure warning: installer unavailable; %s' "$warning_suffix"

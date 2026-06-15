@@ -1,6 +1,6 @@
 ---
 name: explore
-description: Use proactively for read-only codebase exploration, file and symbol discovery, dependency tracing, and factual implementation context.
+description: Use proactively inside active Oh No Harness workflows for read-only codebase exploration; the caller owns approval and handoff gates.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 color: cyan

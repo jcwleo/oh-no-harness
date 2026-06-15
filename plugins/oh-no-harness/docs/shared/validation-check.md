@@ -17,11 +17,8 @@ markers, or any other convenient stand-in for the intended behavior.
 Improve the recurring software engineering behavior behind the evidence gap. Do
 not optimize for one observed local check.
 
-The improvement should address a recurring software engineering failure mode:
-requirements mismatch, weak acceptance evidence, hidden regression, broad-suite
-overconfidence, untraceable scope growth, fragile tests, public contract drift,
-state or persistence mistakes, concurrency risk, error-handling gaps, unsafe
-operations, or maintainability debt.
+The improvement should address a recurring software engineering failure mode
+from `docs/shared/failure-taxonomy.md`, not a one-off local signal.
 
 ## Forbidden Patterns
 
@@ -49,7 +46,7 @@ Validation check:
 - Acceptance criteria or user outcome it supports:
 - What the evidence proves:
 - What the evidence does not prove:
-- Regression or maintainability risk addressed:
+- Failure-taxonomy risk addressed:
 - Why this should apply to similar work:
 - Case-specific details deliberately excluded:
 - Added process cost or risk:
@@ -66,7 +63,8 @@ The completion claim should be one of:
 
 For workflow, prompt, or harness changes:
 
-- Map the change to a category-level software engineering failure mode.
+- Map the change to a category-level software engineering failure mode from
+  `docs/shared/failure-taxonomy.md`.
 - Preserve the user's, maintainer's, operator's, or public contract's success
   signal as the acceptance criteria.
 - Prefer evidence that would still make sense on a similar repository, feature,

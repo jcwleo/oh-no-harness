@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Use proactively when commands fail, regressions appear, behavior is unexpected, or root-cause analysis is needed.
+description: Use proactively inside active Oh No Harness workflows for root-cause analysis; the caller owns approval and handoff gates.
 tools: Read, Bash, Grep, Glob
 model: inherit
 color: yellow

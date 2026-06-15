@@ -24,15 +24,21 @@ intermediate work out of the main thread, preserve focus on requirements and
 decisions, run independent exploration, tests, and log analysis in parallel, and
 return distilled summaries instead of raw context-heavy output.
 
-Oh No Harness should use subagents as much as possible when those benefits
-apply. Treat a standing user or plan preference to use subagents aggressively as
-explicit authorization for eligible isolated roles. On subagent-capable hosts,
-dispatch by default for read-heavy exploration, triage, test/log analysis,
-summarization, verification (scenario QA lens included), code review (security
-lens included), and other independent review roles. Inline execution is the
-exception for work that is too small to benefit, cannot be isolated, requires
-tight TDD sequencing, lacks host support, or has been explicitly made
-inline-only.
+Oh No Harness should use subagents when they provide decision-changing benefit:
+independent evidence, context-window relief, latency reduction, or safer
+separation of review from implementation. Treat a standing user or plan
+preference to use subagents proactively as explicit authorization for eligible
+isolated roles, not as a command to spawn every possible role. On
+subagent-capable hosts, prefer dispatch for read-heavy exploration, triage,
+test/log analysis, summarization, verification (scenario QA lens included),
+code review (security lens included), and other independent review roles when
+the result can change the next decision. Inline execution is
+appropriate when work is too small to benefit, cannot be isolated, requires
+tight TDD sequencing, lacks host support, has been explicitly made inline-only,
+or can be checked with an equally credible final narrow checklist.
+Requests to maximize subagents mean maximize useful, decision-changing
+delegation within those eligibility limits; they do not mean unconditional
+dispatch.
 
 Explicit user requests, standing preferences, approved plan triggers, or active
 skill dispatch policies are sufficient when the host platform permits dispatch.
@@ -59,11 +65,15 @@ lookup, and credential values must be redacted in subagent output. Without an
 active workflow, dispatch only the registered read-only `oh-no-explore` custom
 agent when the host recognizes it. If custom-agent dispatch is rejected as
 unknown or unavailable, or only generic/default agents are available, keep the
-lookup inline.
+lookup inline. If `oh-no-explore` is spawned, the next lifecycle tool for that
+receiver must be the active wait mechanism, repeated until it returns that
+receiver with final status `completed`; only then close or clean it up.
+Close/cleanup output is not a substitute for the required wait result.
 
 When the host is subagent-capable and the work has concrete isolated roles,
-prefer dispatch over silently compressing every role into the main context. The
-goal is independent evidence and context separation, not merely parallelism.
+prefer dispatch over silently compressing every role that would provide
+decision-changing evidence into the main context. The goal is independent
+evidence and context separation, not merely parallelism.
 
 `LIGHT` work may stay inline only when it is a tiny, direct edit or inspection
 with no meaningful context-separation benefit. Dispatch isolated read-heavy,
@@ -93,6 +103,12 @@ Perform roles inline and record the fallback reason when any of these apply:
 - the work cannot be isolated by file ownership, read-only scope, review role, or
   expected output
 - the main agent cannot inspect and integrate the subagent result deliberately
+- the role output would not change the implementation, review, verification, or
+  ship/block decision
+- remaining work is a final narrow re-check that an inline checklist can cover
+  with equal evidence
+- lifecycle, waiting, or integration cost is higher than the risk reduction for
+  the selected execution mode
 
 These are fallback conditions, not permission to collapse role boundaries. When
 subagents are unavailable, keep the same role blocks inline and state why
@@ -129,6 +145,20 @@ Do not leave completed subagents open after their outputs have been integrated,
 rejected, or recorded as blocked. If the active platform does not expose an
 explicit close or cleanup mechanism, record that no close mechanism was
 available.
+
+## Role Prompt And Task Packet Split
+
+Registered custom agents and plugin-scoped agents provide the stable role
+contract: role purpose, boundaries, operating rules, and output shape. They do
+not carry the current story's acceptance criteria, file ownership, baseline
+guard, contract surface, or lifecycle decision.
+
+The active skill supplies those task-specific details in the dispatch packet at
+spawn time. This packet is the only place to put per-task scope, `Do not touch`
+paths, verification responsibility, dependencies, integration owner, and
+wait/close expectations. Do not move platform invocation syntax or generated
+wrapper metadata into `docs/agent-core`; do not move task-specific scope into
+generated agent files.
 
 ## Isolation Contract
 

@@ -236,7 +236,8 @@ required = [
     "Do not use this lane for planning, debugging",
     "redact credential values",
     "otherwise perform the lookup inline",
-    "close the sub-agent",
+    "wait_agent first until a final result is captured",
+    "close_agent is never first",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -1139,7 +1140,7 @@ run_live_tests() {
 deep_prompt_for_skill() {
   case "$1" in
     interview)
-      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CODEX_DEEP_OK interview.'
+      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
       printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the single Plan-Reviewer review dispatch rule, the blocking-findings-only re-review rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
@@ -1174,8 +1175,10 @@ expected = {
         "advisory",
         "Question Routing",
         "Answer Capture",
-        "Spec Readiness Guard",
-        "Goal Restatement Gate",
+        "Spec Closure Gate",
+        "Acceptance criteria",
+        "Goal restatement",
+        "Machine-consumable",
     ],
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
@@ -1188,7 +1191,6 @@ expected = {
         "must-fail",
         "must-pass",
         "negative",
-        "edge",
         "old broken behavior",
         ".oh-no/worktrees/<task-slug>",
         "host",
@@ -1257,6 +1259,7 @@ def terms_appear_in_order(*terms: str) -> bool:
 
 if skill == "interview" and not (
     "already available" in text_lower or "already in session" in text_lower
+    or "already in-session" in text_lower
     or "already in the session" in text_lower
     or "already present" in text_lower
 ):
@@ -1308,6 +1311,15 @@ if skill == "ralplan" and not (
     )
 ):
     raise SystemExit(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "edge" in text_lower
+    or "semantic-model" in text_lower
+    or "semantic model" in text_lower
+    or "baseline/regression" in text_lower
+    or "baseline or regression" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing semantic/edge/regression test-design marker; got {text!r}")
 
 if skill in ("ralplan", "ultrawork") and not (
     "2 loops" in text_plain
@@ -1436,7 +1448,12 @@ def collect_text(value):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"{label} natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 spawn_receivers = []
@@ -1535,6 +1552,7 @@ assert_natural_role_spawn_smoke() {
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" "$CODEX_HOME_DIR" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -1556,6 +1574,9 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
+
+def has_marker_line(text, marker):
+    return re.search(rf"(?im)^\s*Marker:\s*{re.escape(marker)}\s*$", text) is not None
 
 def mentioned_receivers(item, known_receivers):
     text = collect_text(item)
@@ -1591,8 +1612,13 @@ def receiver_agent_role(receiver):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "agent thread limit reached" in err_text.lower():
-    raise SystemExit(f"{label} natural role smoke saw agent thread limit in stderr: {err_text[:2000]!r}")
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
+    raise SystemExit(f"{label} natural role smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 successful_role_spawns = []
 failed_spawns = []
@@ -1632,12 +1658,12 @@ with open(out_path, "r", encoding="utf-8") as fh:
             forbidden_hits.extend(
                 (index, forbidden_marker)
                 for forbidden_marker in forbidden
-                if forbidden_marker.lower() in spawn_text.lower()
+                if has_marker_line(spawn_text, forbidden_marker)
             )
             matched = [
                 (role, role_marker)
                 for role, role_marker in role_markers
-                if role_marker.lower() in spawn_text.lower()
+                if has_marker_line(spawn_text, role_marker)
             ]
             if not matched:
                 continue
@@ -1809,7 +1835,12 @@ def receiver_agent_role(receiver):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"no-skill read-only smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 failed_spawns = []
@@ -2025,7 +2056,12 @@ def receiver_agent_role(receiver):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"Codex ralplan sequential smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 successful_spawns = []
@@ -2389,7 +2425,7 @@ nonce = proof_request.rsplit(" ", 1)[-1]
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-for marker in ("unknown agent_type", "spawn failed", "agent thread limit reached"):
+for marker in ("unknown agent_type", "spawn failed", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items"):
     if marker in err_text.lower():
         raise SystemExit(f"{agent_type} smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
@@ -2594,7 +2630,12 @@ def collect_text(value):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"Codex live parallel smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 expected_roles = [
@@ -2883,7 +2924,12 @@ def mentioned_receivers(item):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"Codex simplify cleanup smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 successful_spawns = []
@@ -3074,7 +3120,12 @@ def mentioned_receivers(item):
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
-if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
     raise SystemExit(f"Codex simplify natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
 successful_spawns = []

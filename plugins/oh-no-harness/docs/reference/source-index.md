@@ -40,6 +40,9 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/parallel-subagents.md` | local pointer back to `docs/shared/ralph-subagent-policy.md` for parallel dispatch |
 | `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
 | `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
+| `docs/shared/worktree-isolation.md` | local worktree hard gate, allowed decisions, default task-worktree location, and artifact handoff policy |
+| `docs/shared/validation-check.md` | local validation template for evidence-informed improvements |
+| `docs/shared/failure-taxonomy.md` | local recurring engineering failure labels used by validation, risk checks, review, and verification |
 
 ## Local Platform Adapter Docs
 
@@ -49,7 +52,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter injected by the Ralph hook |
 | `docs/platforms/claude-code.md` | Claude Code-specific public skill wrapper rules |
 | `docs/platforms/codex.md` | Codex-specific public skill wrapper rules |
-| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for `oh-no-explore` |
+| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `plugins/oh-no-harness/scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by repository-root `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for `oh-no-explore` |
 
 ## Local Provider Guidance
 
@@ -87,7 +90,7 @@ This file records the source material used to build Oh No Harness.
 | `skills-claude/<name>/SKILL.md` | Claude Code-facing public skill wrappers over `docs/skill-core/<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
-| `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
+| repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |
 
 ## Local Design Documents
@@ -95,6 +98,5 @@ This file records the source material used to build Oh No Harness.
 | File | Purpose |
 |---|---|
 | `docs/specs/2026-05-11-oh-no-harness-design.md` | approved project design |
-| `docs/plans/2026-05-11-oh-no-harness-implementation.md` | implementation plan |
 | `docs/reference/relationships.md` | retained skill, agent, and hook graph |
 | `docs/reference/migration-from-omc.md` | removed OMC features and migration policy |

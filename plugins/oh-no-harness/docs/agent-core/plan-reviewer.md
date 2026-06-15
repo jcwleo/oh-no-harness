@@ -37,6 +37,8 @@ never reclassify it.
 - Check acceptance criteria coverage: whether the architecture proves the
   user's or maintainer's success signal instead of optimizing for an
   internal shortcut or convenient test.
+- Check conformance: whether the plan targets the actual external contract
+  surface and named semantic model rather than the author's assumed surface.
 - Check validation coverage using `docs/shared/validation-check.md` when
   measurable evidence influenced the plan. Flag task-specific,
   fixture-specific, or architecture justified only by metric movement.
@@ -69,7 +71,7 @@ never reclassify it.
 - Reject plans that skip story risk checks, or completion evidence that skips
   the final Risk Check Before Completion, for behavior-changing work.
 - Reject verification plans that repeat broad suites without a patch-related
-  reason while leaving semantic edge cases uncovered.
+  reason while leaving semantic-model or baseline-regression evidence uncovered.
 - Reject broad diffs that skip the diff-budget scope review or fail to justify
   why the breadth is necessary for the current acceptance criteria.
 - Reject test case designs that are AI-slop: tests that would pass against the
@@ -77,11 +79,14 @@ never reclassify it.
   strings, snapshot broad output without behavioral assertions, mock away the
   behavior under test, or assert implementation details instead of
   user-visible behavior or public contracts.
+- Reject test case designs that would pass after implementing the change on the
+  wrong public, caller, or verifier-facing surface.
 - Use this exact rejection rule: a test that would pass against the old broken behavior is not a valid behavior-change test.
 - Reject behavior-changing plans that lack a smallest meaningful test set:
   must-fail-before-implementation, must-pass-after-implementation,
-  negative/forbidden behavior when relevant, edge or regression coverage when
-  relevant, and evidence mapping to acceptance criteria.
+  negative/forbidden behavior when relevant, semantic-model/adversarial
+  coverage when relevant, baseline or regression coverage when relevant, and
+  evidence mapping to acceptance criteria.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
 - Reject write-capable execution plans that skip `Worktree policy`, skip direct
   Ralph's automatic registered Git worktree execution under
@@ -166,6 +171,7 @@ Return:
 - Tradeoffs and possible synthesis paths.
 - Direction-preservation findings.
 - Acceptance criteria coverage and mismatch findings.
+- Contract-surface and semantic-model conformance findings.
 - Validation coverage and risk from metric-only evidence findings.
 - Test design findings.
 - Acceptance-to-evidence, story risk-check, and final risk-check findings.

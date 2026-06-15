@@ -26,7 +26,9 @@ Use when:
 - existing specs or plans can drive execution
 - the work is too broad for a single direct edit
 
-Do not use when the task is a small concrete fix. Use direct implementation or `ralph` if persistence is needed.
+Do not use when the task is a small concrete fix whose contract surface,
+baseline or smoke evidence, and verification command are already clear. Use
+direct implementation or `ralph` if persistence is needed.
 
 ## Artifact Discovery
 
@@ -78,51 +80,41 @@ start_or_resume
 
 Heartbeat contents:
 
-- Heartbeat id, timestamp or sequence number, phase, active goal or story,
-  authoritative state path, last completed checkpoint, next intended action,
-  blocker/status, worktree state, verification state, checker state, and
-  stop-condition state.
-- Cadence: phase entry, phase exit, before and after long tool or subagent
-  waits, before compaction or handoff, after user input that changes scope, and
-  before the final report.
-- No timer, daemon, or background heartbeat.
+- Record phase, goal/story, authoritative state path, last checkpoint, next
+  action, blocker/status, worktree, verification, checker, and stop condition.
+- Write a heartbeat at phase boundaries, long waits, compaction/handoff, scope
+  changes, and before the final report. No timer, daemon, or background
+  heartbeat.
 
 Resume precedence:
 
-1. Newest user instruction, pause, cancel, or scope change.
-2. Authoritative Markdown state at `.oh-no/sessions/{sessionId}/ultrawork.md`.
-3. Approved spec or plan paths referenced by that Markdown state.
-4. Ralph session artifacts referenced by that state.
-5. Git worktree, branch, merge, and verification evidence.
-6. Logs, apps, metrics, or host connector data as evidence only, never state
-   authority.
-7. On conflict, doctor/status records the mismatch and pauses before editing or
-   merging.
+Newest user instructions outrank saved state. After that, trust the
+authoritative Markdown state at `.oh-no/sessions/{sessionId}/ultrawork.md`, its
+referenced specs/plans and Ralph artifacts, then Git worktree/merge evidence.
+Logs, apps, metrics, and connector data are evidence only. On conflict,
+doctor/status records the mismatch and pauses before editing or merging.
 
 State authority:
 
 - Markdown at `.oh-no/sessions/{sessionId}/ultrawork.md` is authoritative for v1.
-- No JSON state artifact in v1.
-- If JSON is ever added later, it must be derived and non-authoritative;
-  mismatch recovery regenerates JSON from Markdown or pauses.
+- No JSON state artifact in v1; any future JSON must be derived and
+  non-authoritative.
 
 Doctor/status gate semantics:
 
-- Runs at entry, resume, pre-execution, pre-merge, and pre-final.
-- Outputs `PASS`, `WARN`, or `BLOCKED`.
-- Checks missing or stale artifacts, invalid worktree, unmerged worktree,
-  missing verification, stale README/docs against behavior, custom-agent
-  readiness, and validator drift.
+- Run at entry, resume, pre-execution, pre-merge, and pre-final.
+- Output `PASS`, `WARN`, or `BLOCKED` after checking artifact freshness,
+  worktree/merge state, verification, stale docs, custom-agent readiness, and
+  validator drift.
 - `BLOCKED` stops before edits, merge, or final claim. `WARN` may continue only
   when acceptance evidence is unaffected.
 
 Checker outputs:
 
-- Every checker records role, reviewed artifact or diff, findings, acceptance
-  evidence status, required follow-up, verdict when applicable,
-  fallback/dispatch mode, and lifecycle cleanup status.
-- Maker roles do not self-approve. Inline checker fallback must still be
-  labeled as checker output.
+- Record role, reviewed artifact or diff, findings, evidence status, follow-up,
+  verdict when applicable, dispatch/fallback mode, and lifecycle status.
+- Maker roles do not self-approve; inline checker fallback is still checker
+  output.
 
 Escalation rules:
 
@@ -151,10 +143,11 @@ Dispatch each phase's listed agents as separate subagents on subagent-capable
 platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
 Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
 active platform wrapper. For the `ralplan` phase, Planner and Plan-Reviewer
-are sequential but must still run as separate subagents when the active host
-supports dispatch so each role keeps independent context. Plan-Reviewer runs as
-a single review dispatch; re-review only when blocking findings require it. The
-phase boundaries below still hold either way.
+are sequential and should keep separate role contexts; dispatch them as
+subagents when the active host supports dispatch and the separation can improve
+planning or review quality. Plan-Reviewer runs as a single review dispatch;
+re-review only when blocking findings require it. The phase boundaries below
+still hold either way.
 
 On Codex, when SessionStart injects
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
@@ -163,8 +156,11 @@ per-run subagent approval. Do not pause Ultrawork only to ask whether subagents
 may be used. Apply the authorization to the phase-owned roles below:
 `interview`/`explore` for brownfield facts, `ralplan` planning roles, `ralph`
 execution and review roles, QA Loop roles, and Final Validation roles. Preserve
-all content gates, spec review, plan approval, final evidence, role isolation,
-fallback reasons, and lifecycle cleanup requirements.
+all content gates, spec review, Ultrawork's internal plan approval record, final
+evidence, role isolation, fallback reasons, and lifecycle cleanup requirements.
+Eligibility still depends on whether the role can change quality, risk,
+latency, or context management enough to justify dispatch; final narrow
+re-checks may stay inline when they have equal evidence.
 
 | Phase | Agents |
 |---|---|
@@ -172,7 +168,7 @@ fallback reasons, and lifecycle cleanup requirements.
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) when risk requires; finish through `verification-before-completion`. |
+| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -180,7 +176,8 @@ fallback role blocks need the same isolation plan, read
 only a short pointer back to that policy.
 Use the same ownership and integration rules as `ralph`. If the approved plan
 selects `Parallel trigger: approved-plan-handoff`, preserve that trigger in the
-Ralph handoff and treat it as the default parallel-capable execution path. If
+Ralph handoff and treat it as the parallel-capable execution path for eligible
+isolated roles. If
 the user invoked ultrawork with `parallel`, `subagents`, `spawn`, `delegate`, or
 `one agent per` language outside an approved plan profile, preserve that phrase
 as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
@@ -254,7 +251,15 @@ If execution is handled inline instead of through `ralph`, first read `docs/shar
 
 ### Phase 3: QA Loop
 
-Run build, lint, test, or scenario checks relevant to the repository.
+When Phase 2 executes through `ralph`, Ralph owns story-level verification,
+mode-gated review, cleanup, and `verification-before-completion`. Ultrawork's
+QA loop is the orchestration-level layer around that result: investigate failed
+commands, integration problems, merge problems, or scenario gaps that remain
+after Ralph's task-worktree evidence.
+
+Run build, lint, test, or scenario checks relevant to the repository when they
+are needed to validate the orchestrated result, especially after worktree
+integration or when Ralph reports a blocker.
 
 Dispatch:
 
@@ -267,16 +272,27 @@ Repeat until checks pass or a blocking reason is documented.
 
 ### Phase 4: Final Validation
 
-Dispatch the appropriate review subagents for the risk:
+Final Validation does not repeat Ralph's required internal gates when Ralph has
+already completed them. Dispatch only the additional orchestration-level review
+subagents warranted by integration, merge, public-contract, security, or
+cross-phase risk:
 
 - `plan-reviewer` for architecture-sensitive changes
 - `code-reviewer` for correctness and maintainability, with its security lens
   for security-sensitive behavior
 - `verifier` with its scenario lens for user-facing behavior
 
+If execution was handled inline instead of through `ralph`, apply Ralph's
+mode-gated review, cleanup, baseline guard, review-loop budget, and final
+evidence requirements here before reporting success.
+
 ### Phase 5: Report
 
-Before writing the final report, read and follow `verification-before-completion` for the final delivery claim.
+Before writing the final report, read and follow `verification-before-completion`
+for the final delivery claim unless Ralph already ran it for the same final
+claim and no integration, merge, or orchestration-level evidence changed after
+that point. If post-Ralph evidence changed, run it again against the final
+orchestrated result.
 
 Write a final report with:
 

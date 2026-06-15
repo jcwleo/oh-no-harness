@@ -27,9 +27,13 @@ Output below); apply full security depth only when a trigger matches.
   abstractions/configuration not required by current acceptance criteria.
 - Cite exact files and lines when possible.
 - Verify that the implementation matches the approved plan or PRD.
+- Verify conformance to the actual contract surface and semantic model, not
+  only internal consistency or tests written from the author's assumptions.
 - Verify that changed files and meaningful changed lines trace to the approved
   scope, acceptance criteria, unused-code removal, or behavior-preserving
   cleanup lock.
+- Check whether nearby existing behavior, tests, or smoke paths could regress;
+  treat new tests alone as insufficient when a viable baseline exists.
 - Flag speculative abstraction, configurability, dependencies, broad refactors,
   or drive-by formatting that are not required by the current task.
 - Flag task-name-specific, fixture-specific, or changes justified only by
@@ -77,6 +81,7 @@ Return:
 - Correctness and maintainability findings:
   - Findings ordered by severity.
   - Practical maintainability gate result.
+  - Contract and baseline regression check.
   - Risk from metric-only evidence when applicable.
   - Test gaps.
 - Security findings:

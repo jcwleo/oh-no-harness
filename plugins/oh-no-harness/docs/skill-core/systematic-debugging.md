@@ -30,9 +30,10 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Agent Roles
 
-Use the listed roles as the failure requires. On subagent-capable hosts, dispatch
-isolated diagnostic and evidence roles by default so logs, traces, and exploratory
-output do not pollute the main thread. The default flow is diagnostic first
+Use the listed roles as the failure requires. On subagent-capable hosts, use
+isolated diagnostic and evidence roles when they provide decision-changing
+evidence, context separation, or latency benefit so logs, traces, and
+exploratory output do not pollute the main thread. The normal flow is diagnostic first
 (`debugger` and, when context is missing, `explore`), then the minimal fix
 (`executor` subagent when the write scope is isolated, otherwise inline with a
 recorded reason), then evidence (`verifier`). `plan-reviewer` is a

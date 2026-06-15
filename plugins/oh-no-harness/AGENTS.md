@@ -20,7 +20,8 @@ Treat `docs/agent-core/*.md`, `agents/*.md`, and
 public skills. `docs/agent-core/*.md` contains the platform-neutral role bodies
 and is the source of truth for agent behavior. Do not hand-edit
 `agents/*.md` or `docs/platforms/codex-agents/*.toml`; regenerate them with
-`python3 scripts/generate-agent-wrappers.py --write` after changing
+`python3 scripts/generate-agent-wrappers.py --write` from the repository root
+after changing
 `docs/agent-core/*.md` or wrapper metadata in the generator. `agents/*.md` is
 the Claude Code-facing subagent wrapper with YAML frontmatter, and
 `docs/platforms/codex-agents/*.toml` is the Codex custom-agent wrapper. Skills

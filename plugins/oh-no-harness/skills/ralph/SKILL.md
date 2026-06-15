@@ -14,9 +14,8 @@ Follow this order:
 2. Apply Codex platform rules from `../../docs/platforms/codex.md`.
 3. Preserve the core skill's artifact paths, approval gates, role boundaries,
    worktree rules, TDD rules, verification rules, and output contract.
-- Also apply `../../docs/platforms/codex-ralph.md` for Ralph-specific role dispatch.
-
-4. Use only the invocation syntax authorized by the active Codex host. If a
+4. Also apply `../../docs/platforms/codex-ralph.md` for Ralph-specific role dispatch.
+5. Use only the invocation syntax authorized by the active Codex host. If a
    platform capability is unavailable, keep the core role boundary inline and
    record the fallback reason when the core skill requires it.
 

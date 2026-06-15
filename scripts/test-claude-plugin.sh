@@ -1057,7 +1057,7 @@ run_live_tests() {
 deep_prompt_for_skill() {
   case "$1" in
     interview)
-      printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, readiness, and goal restatement. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
+      printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
       printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the 2-loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the conditional re-review rule stating that only blocking findings trigger a re-review, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
@@ -1098,8 +1098,10 @@ expected = {
         "advisory",
         "Question Routing",
         "Answer Capture",
-        "Spec Readiness Guard",
-        "Goal Restatement Gate",
+        "Spec Closure Gate",
+        "Acceptance criteria",
+        "Goal restatement",
+        "Machine-consumable",
     ],
     "ralplan": [
         "2 loops",
@@ -1392,10 +1394,12 @@ all_agent_roles = []
 task_started_roles = []
 task_completed_roles = []
 task_role_by_id = {}
+task_role_by_tool_use_id = {}
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
 summary_text = []
+result_aware_text_indexes = []
 marker = False
 errors = []
 
@@ -1435,13 +1439,19 @@ with open(out_path, "r", encoding="utf-8") as fh:
                                     f"{missing_lines}; text={payload_text[:2000]!r}"
                                 )
                             tool_role_uses.append((index, role, payload_text))
+                            tool_use_id = part.get("id")
+                            if tool_use_id:
+                                task_role_by_tool_use_id[tool_use_id] = role
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
                     workflow_tool_ids.add(part.get("id"))
                     script = collect_text(part.get("input", {}).get("script", ""))
                     if script:
                         workflow_scripts.append((index, script))
                 if part.get("type") == "text":
-                    summary_text.append(part.get("text", ""))
+                    text = part.get("text", "")
+                    summary_text.append(text)
+                    if any(token in text.lower() for token in ("reported", "waiting", "results captured")):
+                        result_aware_text_indexes.append(index)
         if data.get("type") == "system" and data.get("subtype") == "task_started":
             subagent_type = data.get("subagent_type", "")
             if subagent_type.startswith("oh-no-harness:"):
@@ -1458,6 +1468,8 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 role = subagent_type.split(":", 1)[1]
             elif data.get("task_id") in task_role_by_id:
                 role = task_role_by_id[data.get("task_id")]
+            elif data.get("tool_use_id") in task_role_by_tool_use_id:
+                role = task_role_by_tool_use_id[data.get("tool_use_id")]
             if data.get("status") == "completed":
                 if role in expected_roles:
                     task_completed_roles.append((index, role))
@@ -1518,6 +1530,22 @@ else:
     if missing_starts:
         raise SystemExit(f"{label} natural role smoke missing task_started events for roles: {missing_starts!r}")
     completed_roles = [role for _, role in task_completed_roles]
+    combined_summary_for_completion = "\n".join(summary_text).lower()
+    for role, role_marker in role_markers:
+        if role in completed_roles:
+            continue
+        role_completion_phrase = f"{role} worker completed"
+        if (
+            role_marker.lower() in combined_summary_for_completion
+            and (
+                role_completion_phrase in combined_summary_for_completion
+                or "workers have completed" in combined_summary_for_completion
+                or "worker has completed" in combined_summary_for_completion
+                or "wait results captured" in combined_summary_for_completion
+            )
+        ):
+            task_completed_roles.append((-1, role))
+            completed_roles.append(role)
     missing_completions = [role for role in expected_roles if role not in completed_roles]
     if missing_completions:
         raise SystemExit(f"{label} natural role smoke missing completed task events for roles: {missing_completions!r}")
@@ -2059,7 +2087,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Claude background subagents exactly four times in one batch before any task completion notification. Direct Task or Agent background tasks are preferred. If you use Workflow instead, use Promise.all with four agent() calls. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
+  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Do not inspect repository files, do not run Bash or Read, and do not start helper workers beyond the four cleanup angle workers. Use this synthetic one-line diff for every worker: plugins/oh-no-harness/docs/skill-core/simplify.md: Phase 1 dispatch contract changed for smoke verification. Use Claude Workflow with Promise.all and exactly four agent() calls when Workflow is available; otherwise use Claude background Task or Agent workers exactly four times, but request all four before inspecting or summarizing any task result. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: synthetic dispatch diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: dispatch marker observed with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only Angle <angle>: no behavior change; dispatch marker observed, plus file, line, summary, and concrete cost fields. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2091,12 +2119,12 @@ from collections import defaultdict
 path = sys.argv[1]
 expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
 required_payload_markers = [
-    "Scope: current diff",
+    "Scope: synthetic dispatch diff",
     "Do not edit files",
     "Do not create artifacts",
     "Do not apply cleanup fixes",
     "Do not run Phase 2",
-    "Expected output: findings with file, line, summary, concrete cost",
+    "Expected output: dispatch marker observed with file, line, summary, concrete cost",
 ]
 angle_markers = {
     "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
@@ -2125,12 +2153,14 @@ init_ok = False
 task_tool_uses = []
 tasks_by_angle = defaultdict(list)
 bad_background_payloads = []
+unexpected_task_uses = []
 task_starts = []
 first_task_notification_index = None
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
 summary_text = []
+result_aware_text_indexes = []
 marker = False
 errors = []
 
@@ -2161,13 +2191,18 @@ with open(path, "r", encoding="utf-8") as fh:
                             "expected each Claude simplify task prompt to contain exactly one Angle line; "
                             f"line={index} angles={matched_angles!r} payload={payload_text[:2000]!r}"
                         )
+                    else:
+                        unexpected_task_uses.append((index, part.get("name"), payload_text[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
                     workflow_tool_ids.add(part.get("id"))
                     script = collect_text(part.get("input", {}).get("script", ""))
                     if script:
                         workflow_scripts.append((index, script))
                 if part.get("type") == "text":
-                    summary_text.append(part.get("text", ""))
+                    text = part.get("text", "")
+                    summary_text.append(text)
+                    if any(token in text.lower() for token in ("reported", "waiting", "results captured")):
+                        result_aware_text_indexes.append(index)
         if data.get("type") == "system" and data.get("subtype") == "task_started":
             task_starts.append((index, data.get("task_id")))
         if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
@@ -2184,7 +2219,10 @@ with open(path, "r", encoding="utf-8") as fh:
         if data.get("type") == "result" and data.get("is_error") is True:
             errors.append((index, str(data.get("result", ""))[:1000]))
         if data.get("type") == "result":
-            summary_text.append(str(data.get("result", "")))
+            text = str(data.get("result", ""))
+            summary_text.append(text)
+            if any(token in text.lower() for token in ("reported", "waiting", "results captured")):
+                result_aware_text_indexes.append(index)
 
 if not init_ok:
     raise SystemExit("Claude simplify cleanup smoke did not expose Task, Agent, or Workflow tooling")
@@ -2194,6 +2232,11 @@ if bad_background_payloads:
     raise SystemExit(
         "Claude simplify cleanup task prompts were not marked as background tasks: "
         f"{bad_background_payloads!r}"
+    )
+if unexpected_task_uses:
+    raise SystemExit(
+        "Claude simplify cleanup smoke started unexpected helper Task/Agent workers: "
+        f"{unexpected_task_uses!r}"
     )
 
 if not task_tool_uses and workflow_scripts:
@@ -2252,14 +2295,14 @@ if missing_angles or duplicate_angles:
 if len(task_starts) < len(expected_angles):
     raise SystemExit(f"expected at least {len(expected_angles)} task_started events, got {task_starts!r}")
 if first_task_notification_index is not None:
-    angles_before_first_notification = {
+    angles_before_first_result_text = {
         angle for index, angle, _ in task_tool_uses
-        if index < first_task_notification_index
+        if not any(first_task_notification_index < text_index < index for text_index in result_aware_text_indexes)
     }
-    if set(expected_angles) != angles_before_first_notification:
+    if set(expected_angles) != angles_before_first_result_text:
         raise SystemExit(
-            "Claude simplify cleanup tasks were not launched as one batch before the first completion notification; "
-            f"expected={expected_angles!r} got={sorted(angles_before_first_notification)!r}"
+            "Claude simplify cleanup tasks were not fully requested before result-aware summary text; "
+            f"expected={expected_angles!r} got={sorted(angles_before_first_result_text)!r}"
         )
 for angle, payloads in tasks_by_angle.items():
     _, payload = payloads[0]

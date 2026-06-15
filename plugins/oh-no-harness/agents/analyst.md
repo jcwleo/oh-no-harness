@@ -1,6 +1,6 @@
 ---
 name: analyst
-description: Use proactively before planning to analyze requirements, hidden constraints, risk, and product implications.
+description: Use proactively inside active Oh No Harness workflows to analyze requirements and risks; the caller owns approval and handoff gates.
 tools: Read, Glob, Grep
 model: inherit
 color: blue

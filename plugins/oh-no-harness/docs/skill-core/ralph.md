@@ -131,7 +131,8 @@ skill.
 
 ## Input Hardening
 
-Before editing, make the executable scope explicit.
+Before editing, make the executable scope explicit and choose the lightest
+credible loop that can prove the work without skipping a stated requirement.
 
 If the input lacks acceptance criteria, derive them from the approved request and record them in the PRD. Ask before editing when an assumption changes user-visible behavior, architecture, data handling, security posture, or delivery scope.
 
@@ -143,13 +144,19 @@ For each story, record:
 - owned files or investigation targets
 - scope trace: how each intended file or change class maps to the request,
   approved plan, acceptance criterion, TDD evidence, or cleanup behavior lock
+- contract surface: the actual public, caller, or verifier-facing entrypoint,
+  schema, format, protocol, command, or prompt surface; the source used to
+  identify it; and any compatibility constraint or uncertainty that blocks editing
+- baseline guard: nearby existing tests, smoke checks, or behavior-preserving
+  inspections that should still pass, or the reason no viable baseline exists
 - TDD requirement or exception
 - Worktree decision and location, or the fact that the worktree gate has not yet been resolved
 - verification command or evidence type
 - acceptance-to-evidence mapping plan: which evidence will directly prove each
   criterion, and which criteria only have indirect or manual evidence
-- story risk check: the most likely edge case, adjacent subsystem, or
-  public contract a skeptical maintainer would test
+- story risk check: the most likely failure-taxonomy risk from
+  `docs/shared/failure-taxonomy.md`, including contract-surface, semantic-model,
+  baseline, and adjacent-subsystem risks when applicable
 - validation check when measurable evidence influenced the task: evidence,
   recurring software engineering failure mode, user or maintainer outcome, similar-work expectation,
   deliberately excluded case-specific details, and added process cost
@@ -168,32 +175,16 @@ Read `docs/shared/worktree-isolation.md` before editing.
 
 `interview` and `ralplan` artifacts do not require a worktree by default, but
 Ralph execution does. If the task will edit files, record exactly one allowed
-decision before the first edit:
-
-- `approved worktree`
-- `already in approved worktree`
-- `direct automatic worktree`
-- `user declined/current checkout`
-- `ultrawork automatic worktree`
-- `read-only/not applicable`
-- `blocked`
+decision from `docs/shared/worktree-isolation.md` before the first edit.
 
 For direct Ralph execution, create or select a registered Git worktree using
 `git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default
 before editing and record
 `Worktree decision: direct automatic worktree`. Do not ask a worktree approval
-question.
-Do not scatter automatic task worktrees into the parent workspace directory as
-sibling directories unless the project-local path is impossible or the user
-explicitly requests that location. Skip automatic worktree creation only when
-the user explicitly asks to decide the execution location, the current checkout
-is already an approved task worktree, the task is read-only, or the repository
-cannot support `git worktree add`. Do not use `git clone`, `cp -R`, a plain
-directory, or a manual checkout as a substitute. If the user explicitly declines
-worktree use, record `Worktree decision: user declined/current checkout` before
-editing. If the repository cannot support `git worktree add` and no explicit
-current-checkout fallback is approved, record `Worktree decision: blocked` and
-stop before editing.
+question. Keep automatic task worktrees project-local under `.oh-no/worktrees/`
+unless the shared policy allows and records an explicit fallback. Do not use
+the parent workspace directory by default, and do not use `git clone`, `cp -R`,
+a plain directory, or a manual checkout as a substitute.
 
 When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
 create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
@@ -201,10 +192,8 @@ execute there, then return control to Ultrawork for merge into the
 integration checkout and post-merge verification.
 
 When execution moves to a worktree, preserve access to the approved `.oh-no`
-spec, plan, or PRD before editing. Copy the relevant artifact into the worktree,
-record an explicit absolute artifact path, or quote the approved task definition
-inside the execution artifact. Do not assume untracked `.oh-no` files appear in a
-new git worktree.
+spec, plan, PRD, or task definition before editing by applying the artifact
+handoff options in `docs/shared/worktree-isolation.md`.
 
 If the worktree decision is missing, ambiguous, or cannot be recorded, stop and
 report the blocker instead of editing.
@@ -239,22 +228,11 @@ change is acceptable only if it maps to a recurring software engineering failure
 preserves the user, maintainer, operator, or public contract outcome as the
 source of truth for acceptance.
 
-Record:
-
-```text
-Validation check:
-- Evidence used:
-- Acceptance criteria or user outcome it supports:
-- What the evidence proves:
-- What the evidence does not prove:
-- Regression or maintainability risk addressed:
-- Why this should apply to similar work:
-- Case-specific details deliberately excluded:
-- Added process cost or risk:
-- Completion claim:
-```
-
-This block mirrors the canonical template in `docs/shared/validation-check.md`.
+Record a `Validation check` using the canonical template in
+`docs/shared/validation-check.md`. At minimum, cover evidence used, supported
+acceptance criterion or user outcome, proof and gap, recurring risk addressed,
+similar-work expectation, excluded case-specific details, added process cost,
+and completion claim.
 
 Reject or narrow changes whose only justification is metric movement,
 unseen-check guessing, task-name-specific guidance, fixture knowledge, or
@@ -281,8 +259,8 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual
    diff. Mark the story complete only when acceptance criteria, TDD evidence
    (or documented exception), scope-trace evidence, acceptance-to-evidence
-   mapping, story risk-check evidence, and any required validation check all
-   pass or have explicit residual risk.
+   mapping, contract-surface evidence, baseline guard, story risk-check evidence,
+   and any required validation check all pass or have explicit residual risk.
 9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
@@ -296,21 +274,25 @@ Ralph must follow the selected execution mode and agent policy:
 - `LIGHT`: stay inline only for tiny direct edits or checks with no meaningful
   context-separation benefit. Dispatch isolated read-heavy, review, or
   verification checks when they would keep the main thread cleaner.
-- `STANDARD`: dispatch targeted subagents by default on subagent-capable hosts
-  when they improve evidence, reduce risk, save context window, reduce latency,
-  or handle an isolated scope. Use `verifier` or `code-reviewer` for
+- `STANDARD`: use targeted subagents on subagent-capable hosts when they improve
+  evidence, reduce risk, save context window, reduce latency, or handle an
+  isolated scope, and when the result can change the implementation, review,
+  verification, or ship/block decision. Use `verifier` or `code-reviewer` for
   behavior-affecting or workflow changes when independent evidence is useful.
 - `THOROUGH`: use the full role set warranted by the risk. Dispatch every
   required role that can be isolated on subagent-capable platforms; inline only
   for documented subagent-unavailable or unsafe-to-isolate cases.
 
-Default Ralph execution is parallel-capable. An approved ralplan handoff to
-ordinary `oh-no-harness:ralph` authorizes every eligible isolated role in the
-plan's dispatch profile. Ralph should actively look for safe parallel batches
+Ralph execution is parallel-capable. An approved ralplan handoff to ordinary
+`oh-no-harness:ralph` authorizes every eligible isolated role in the
+plan's dispatch profile. Authorization is not an instruction to spawn every
+possible role: dispatch when the result can change quality, risk, latency, or
+context management enough to justify lifecycle and integration cost. Ralph should actively look for safe parallel batches
 for exploration, disjoint executors, test/log analysis, verification (scenario
 QA lens included), code review (security lens included), and other independent
 review roles. Inline execution is the fallback, not the default, when
-`agentPolicy` is not `inline-only`.
+`agentPolicy` is not `inline-only`, but final narrow re-checks may stay inline
+when a subagent result would not change the decision.
 
 Respect the platform rules from the active public skill wrapper and the Ralph
 platform adapter. A `UserPromptSubmit` hook injects the active adapter
@@ -331,9 +313,9 @@ Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever 
 
 ## Parallel Subagent Policy
 
-Use parallel subagents by default when the selected execution mode and agent
-policy allow dispatch, the current platform supports it, and the work can be
-safely isolated.
+Use parallel subagents when the selected execution mode and agent policy allow
+dispatch, the current platform supports it, the work can be safely isolated, and
+the delegated results can change a decision.
 
 Respect the same active platform dispatch policy noted in
 `## Mode-Gated Agent Dispatch`. Read and apply
@@ -407,6 +389,8 @@ When review is required, the reviewer pass must answer:
   or missing evidence instead of only listing commands?
 - Did Ralph complete a story risk check for likely maintainer or user-facing
   edge cases without adding case-specific solution hints?
+- Did Ralph identify the actual contract surface, semantic model when
+  applicable, and baseline guard before accepting local green evidence?
 - Is there a simpler or safer approach that still satisfies the PRD?
 - Does every changed file and meaningful changed line trace to the approved
   scope, verification requirement, unused-code removal, or behavior-preserving
@@ -425,9 +409,15 @@ When review is required, the reviewer pass must answer:
 - Are TDD exceptions specific and justified rather than vague convenience claims?
 - Are tests or verification sufficient for the risk?
 - Did broad-suite verification add meaningful confidence, or should a focused
-  semantic test replace another broad rerun?
+  semantic or baseline check replace another broad rerun?
 
-If review rejects the work, return to the relevant story and continue.
+If review rejects the work, return to the relevant story and continue within the
+review loop budget: one required review pass and one verifier pass when
+required by mode or risk; after a blocker fix, run one focused re-check of the
+blocked scope. Do not run more than one re-review after the original blocking
+review unless the user explicitly authorizes it. If a blocker remains after that
+budget, enter `systematic-debugging` for unknown root cause or report `blocked`
+or `failed_verification` instead of looping.
 
 ## Verification Budget Policy
 
@@ -436,6 +426,9 @@ proof. For behavior-changing work:
 
 - Prefer a focused test, scenario, or inspection that directly proves each
   acceptance criterion before running broad suites.
+- Run nearby existing tests, smoke checks, or behavior-preserving inspections
+  from the baseline guard when they exist. New tests alone are insufficient
+  when a viable existing baseline could catch regressions.
 - Run a broad suite once after the behavior stabilizes, or when shared code,
   public APIs, generated artifacts, concurrency, persistence, or cross-package
   behavior could be affected.
@@ -502,20 +495,25 @@ The post-cleanup pass must answer:
 
 ## Persistence Rule
 
-Continue until:
+Ship when all completion criteria are satisfied:
 
 - the selected execution mode is recorded and followed
 - every story or task has `passes: true`
-- verification evidence exists
+- verification evidence exists, with direct evidence or explicitly classified
+  indirect/manual gaps for every acceptance criterion
 - required TDD evidence exists, or each exception is documented
 - review required by the selected mode is approved or a blocking reason is documented
 - `simplify` ran, was explicitly disabled, or was recorded as not needed by the selected mode
 - post-cleanup verification passed when cleanup changed files
 - `verification-before-completion` ran for the final completion claim
-- acceptance-to-evidence mapping, story risk checks, and the final risk check
-  before completion were completed or a
-  missing-evidence blocker was recorded
+- acceptance-to-evidence mapping, contract-surface evidence, baseline guard,
+  story risk checks, and the final risk check before completion were completed
+  or a missing-evidence blocker was recorded
 - final report was written
+
+If those criteria pass and only optional cleanup, optional re-review, or
+non-blocking follow-up remains, record the residual risk and stop instead of
+continuing the loop.
 
 ## Output
 
@@ -530,6 +528,7 @@ Return:
 - Cleanup status.
 - Verification commands and results.
 - Acceptance-to-evidence mapping.
+- Contract surface and baseline guard status.
 - Risk check before completion and completion claim.
 - Validation check and risk from metric-only evidence when applicable.
 - Diff-budget scope review status.

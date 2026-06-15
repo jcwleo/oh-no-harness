@@ -76,6 +76,14 @@ Use lower effort for small, already-bounded edits.
 
 ## Role Dispatch
 
+Claude Code subagent descriptions are delegation metadata. Generated
+`agents/*.md` descriptions may keep the `Use proactively` trigger so Claude can
+select useful role agents, but they must bind that proactivity to active Oh No
+Harness workflows and caller-owned approval and handoff gates. The agent body
+contains the stable role contract; the Task, Agent, or Workflow prompt supplies
+the current story scope, acceptance criteria, contract surface, baseline guard,
+expected output, and lifecycle.
+
 Use the available Task, Agent, Workflow `agent()`, or subagent mechanism for
 role dispatch. Prefer plugin-scoped agents named `oh-no-harness:<role>` when
 the host lists them.
@@ -83,6 +91,10 @@ the host lists them.
 For independent read-only, review, verification, QA, security, or exploration
 work, request background subagents and start the whole independent batch before
 waiting for any one result.
+When a skill requires an atomic same-phase batch, prefer Workflow `Promise.all`
+if available; direct Task or Agent background notifications may arrive before
+the model has emitted later task requests, so do not inspect or summarize those
+results until the full intended batch has been requested.
 
 After a Claude Code subagent reaches a final status, capture the output and any
 changed-file set before cleanup. When no further input is needed, close or clean
@@ -90,9 +102,10 @@ up the completed subagent with the mechanism exposed by the host; if none is
 available, record that fallback.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
-`Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
-Do not require a separate `ralph with parallel subagents` option when the plan
-already lists eligible isolated roles.
+`Parallel trigger: approved-plan-handoff` as dispatch authorization for
+eligible isolated roles. Do not require a separate `ralph with parallel
+subagents` option when the plan already lists roles whose output can change the
+implementation, review, verification, or ship/block decision.
 
 If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent

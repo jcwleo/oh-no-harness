@@ -68,12 +68,19 @@ actual `agent_type="oh-no-<role>"` attempt is rejected as unknown or unavailable
 and the confirmed fallback reason is recorded. The no-skill read-only
 exploration lane below must not use generic/default fallback.
 
+Do not combine `agent_type = "oh-no-<role>"` with `fork_context = true` or any
+full-history fork request. Codex full-history forks inherit the parent agent
+configuration and cannot be used with a custom role agent type. Put the required
+scope, constraints, and evidence context in the spawned-agent message instead.
+Use one spawn payload shape only: prompt/message or items, never both.
+
 Explicit user or plan wording such as `subagent`, `spawn`, `delegate`,
 `parallel agents`, `parallel subagents`, or `one agent per` is sufficient when
 the host permits dispatch. A user standing preference, approved plan profile, or
-active Oh No Harness skill policy to use eligible subagents aggressively is also
+active Oh No Harness skill policy to use eligible subagents proactively is also
 workflow-level authorization, so the user does not need to repeat literal
-subagent wording on every Ralph step.
+subagent wording on every Ralph step. Eligibility still depends on isolation and
+decision-changing value, not authorization alone.
 
 When the Codex SessionStart context includes
 `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that standing
@@ -85,7 +92,9 @@ active Oh No Harness workflow.
 When the user, plan, or skill states a standing preference to maximize
 subagents, treat that as explicit authorization for eligible isolated roles
 inside the active workflow. Keep Codex host-policy limits, but do not require
-the user to repeat literal subagent wording on every step.
+the user to repeat literal subagent wording on every step. Do not dispatch a
+role whose output would not change the implementation, review, verification, or
+ship/block decision.
 
 When no explicit request, standing preference, approved plan trigger, or active
 skill dispatch policy exists, do not spawn Codex subagents merely because a role
@@ -105,17 +114,25 @@ dispatch only the registered read-only `oh-no-explore` custom agent when the
 current host recognizes it; if that agent is unavailable, answer inline instead
 of falling back to a generic or prompt-embedded subagent. If `agent_type =
 "oh-no-explore"` is rejected as unknown or unavailable, do not retry with a
-generic subagent for this lane.
+generic subagent for this lane. When this lane spawns `oh-no-explore`, use
+`wait_agent` as the next lifecycle tool for that receiver, repeated until it
+returns that receiver with final status `completed`, before calling
+`close_agent`; a timeout, empty wait, or no-completion result is not captured
+evidence. `close_agent` output is not a substitute for the required wait result
+and must not be the first result capture.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
-`Parallel trigger: approved-plan-handoff` as the default dispatch authorization.
-Do not require a separate `ralph with parallel subagents` option when the plan
-already lists eligible isolated roles.
+`Parallel trigger: approved-plan-handoff` as dispatch authorization for
+eligible isolated roles. Do not require a separate `ralph with parallel
+subagents` option when the plan already lists roles whose output can change the
+implementation, review, verification, or ship/block decision.
 
-For `ralplan`, Planner and Plan-Reviewer must run as sequential subagents
-whenever dispatch is available because independent context improves planning
-and review. Plan-Reviewer waits for the Planner draft, and a re-review dispatch
-happens only when blocking findings require a Planner revision.
+For `ralplan`, Planner and Plan-Reviewer keep sequential role boundaries:
+Planner produces the draft, then Plan-Reviewer reviews that draft. Dispatch them
+as sequential subagents when the active host supports dispatch and independent
+context can improve planning or review; otherwise keep separate inline role
+blocks. A re-review dispatch happens only when blocking findings require a
+Planner revision.
 
 After `wait_agent` returns a final status for any Codex-dispatched role,
 capture the output and any changed-file set before cleanup. A timeout, empty
@@ -145,6 +162,10 @@ default with `scripts/install-codex-agents`. User scope means
 Custom agents are standalone TOML files under those `agents/` directories; they
 are not defined inside `config.toml`. Codex `[agents]` config entries are global
 subagent settings, not individual Oh No Harness role definitions.
+Generated Codex custom-agent descriptions stay role-only. Their
+`developer_instructions` provide the stable role contract, while the
+`spawn_agent` message supplies the current story scope, acceptance criteria,
+contract surface, baseline guard, expected output, and lifecycle.
 
 Codex `SessionStart` runs a best-effort user-scope quiet ensure with
 `scripts/install-codex-agents --scope user --ensure --quiet`. It installs
@@ -188,6 +209,11 @@ installed and the host cannot recognize the agent, fall back to the
 prompt-embedded dispatch contract below and record the confirmed fallback
 reason. Do not infer unavailability from memory, stale examples, display names,
 rendered schema comments, or uncertainty about the schema.
+
+Custom-agent dispatch must pass context through the message and leave
+full-history forking disabled. If a role truly needs the entire parent history,
+keep that role inline or use a host-supported non-custom fork path and record the
+fallback reason. Do not send both message and items in one spawn request.
 
 ## Role Prompt Embedding
 

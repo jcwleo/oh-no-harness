@@ -17,8 +17,5 @@ Follow this order:
 4. Use only the invocation syntax authorized by the active Codex host. If a
    platform capability is unavailable, keep the core role boundary inline and
    record the fallback reason when the core skill requires it.
-5. When the Codex SessionStart context includes the Oh No Harness standing
-   subagent authorization, treat it as the explicit user request for this
-   skill's `explore` role. Do not ask for additional per-run subagent approval.
 
 Do not apply another platform's invocation syntax.

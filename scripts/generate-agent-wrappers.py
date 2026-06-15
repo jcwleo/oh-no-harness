@@ -31,8 +31,8 @@ AGENTS = [
     AgentMetadata(
         role="explore",
         claude_description=(
-            "Use proactively for read-only codebase exploration, file and symbol "
-            "discovery, dependency tracing, and factual implementation context."
+            "Use proactively inside active Oh No Harness workflows for read-only "
+            "codebase exploration; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep, Bash",
         claude_model="sonnet",
@@ -47,8 +47,8 @@ AGENTS = [
     AgentMetadata(
         role="analyst",
         claude_description=(
-            "Use proactively before planning to analyze requirements, hidden constraints, "
-            "risk, and product implications."
+            "Use proactively inside active Oh No Harness workflows to analyze "
+            "requirements and risks; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep",
         claude_model="inherit",
@@ -61,8 +61,8 @@ AGENTS = [
     AgentMetadata(
         role="planner",
         claude_description=(
-            "Use proactively after requirements are understood to turn approved scope "
-            "into sequenced, verifiable implementation work."
+            "Use proactively inside active Oh No Harness workflows to turn approved "
+            "scope into a plan; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep, Bash, Write",
         claude_model="inherit",
@@ -75,8 +75,8 @@ AGENTS = [
     AgentMetadata(
         role="plan-reviewer",
         claude_description=(
-            "Use proactively to review plans, technical direction, and completion "
-            "evidence with an architecture pass and an adversarial quality-gate pass."
+            "Use proactively inside active Oh No Harness workflows to review plans "
+            "and evidence; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep, Bash",
         claude_model="inherit",
@@ -89,8 +89,8 @@ AGENTS = [
     AgentMetadata(
         role="executor",
         claude_description=(
-            "Use proactively for concrete, scoped implementation tasks with clear "
-            "ownership, acceptance criteria, and verification responsibility."
+            "Use proactively inside active Oh No Harness workflows for scoped "
+            "implementation; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Edit, Write, Bash, Grep, Glob",
         claude_model="inherit",
@@ -103,8 +103,8 @@ AGENTS = [
     AgentMetadata(
         role="debugger",
         claude_description=(
-            "Use proactively when commands fail, regressions appear, behavior is "
-            "unexpected, or root-cause analysis is needed."
+            "Use proactively inside active Oh No Harness workflows for root-cause "
+            "analysis; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Bash, Grep, Glob",
         claude_model="inherit",
@@ -117,9 +117,8 @@ AGENTS = [
     AgentMetadata(
         role="verifier",
         claude_description=(
-            "Use proactively before completion claims to check acceptance criteria, "
-            "commands, artifacts, verification evidence, and user-facing scenario "
-            "coverage."
+            "Use proactively inside active Oh No Harness workflows to verify claims "
+            "with evidence; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Bash, Grep, Glob",
         claude_model="inherit",
@@ -133,8 +132,8 @@ AGENTS = [
     AgentMetadata(
         role="code-reviewer",
         claude_description=(
-            "Use proactively after code or prompt changes to review correctness, "
-            "maintainability, regressions, missing tests, and security risks."
+            "Use proactively inside active Oh No Harness workflows to review changed "
+            "code or prompts; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Bash, Grep, Glob",
         claude_model="inherit",

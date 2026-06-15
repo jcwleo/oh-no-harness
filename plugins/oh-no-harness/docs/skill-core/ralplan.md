@@ -23,9 +23,9 @@ Create a concrete implementation plan that is drafted by Planner, reviewed by Pl
 The host agent operates the planning roles through the active platform wrapper.
 The user does not need to pick Planner or Plan-Reviewer manually; the user
 approves the plan, requests changes, chooses the next workflow step, or approves
-direction changes when a role finds one. Ralph execution defaults to using
-eligible parallel subagents aggressively; do not split the handoff into a
-separate "parallel Ralph" option.
+direction changes when a role finds one. Ralph execution is parallel-capable for
+eligible isolated roles that can provide decision-changing evidence; do not
+split the handoff into a separate "parallel Ralph" option.
 
 ## Artifacts
 
@@ -72,38 +72,29 @@ acceptance criteria.
    execution profile and worktree policy.
 4. Complete `planner` to create `Planner draft v1` from the requirements source,
    Analyst or gap-check output, and repository evidence.
-5. Complete `plan-reviewer` only after `Planner draft v1` exists. Plan-Reviewer
-   reviews that exact draft in two ordered passes (architecture lens, then
-   quality-gate lens applied to the draft and to its own pass-1 findings) and
-   returns `Plan review v1` with per-finding lens, reviewer-owned severity
-   (`blocking | non-blocking`), and a verdict from `APPROVE | ITERATE | REJECT`;
-   Plan-Reviewer does not create a replacement plan.
-6. Apply the verdict mapping from `## Plan Review Contract`. On ITERATE,
-   complete `planner` revision per `## Planner Revision Contract`: Planner
-   must turn accepted feedback into `Planner revision v2` and update the plan
-   body instead of only appending comments. On REJECT, escalate to the user
-   immediately; REJECT does not consume a loop.
-7. Re-review only on blocking findings, per `## Re-Review Rules`. After
-   `Planner revision v2`, complete `plan-reviewer` again and record
-   `Plan review v2` with its re-review scope. On the non-blocking-only path,
-   Planner incorporates the accepted feedback with ledger pointers and writes
-   `Re-review: not required (no blocking findings)`; do not dispatch a
-   re-review on that path.
-8. Stop after at most 2 loops; loop N = Planner draft/revision vN + Plan
-   review vN. If Plan-Reviewer feedback would change the approved interview
-   spec, user-approved plan direction, scope, non-goals, or acceptance
-   criteria, record it as a requested direction change and ask for explicit
-   user approval before incorporating it. If loop 2 ends without APPROVE,
-   present the plan to the user with `pending approval` status, the unresolved
-   findings, and an explicit request to accept the residual concerns, revise
-   scope, or stop. Do not silently advance past blocking review findings.
+5. Complete `plan-reviewer` only after `Planner draft v1` exists. Apply the
+   two-pass review, verdict mapping, no-replacement rule, and severity/disposition
+   requirements from `## Plan Review Contract`.
+6. On ITERATE, complete `planner` revision per `## Planner Revision Contract`.
+   On REJECT, escalate to the user immediately; REJECT does not consume a loop.
+7. Re-review only on blocking findings, per `## Re-Review Rules`; otherwise
+   record `Re-review: not required (no blocking findings)`.
+8. Stop after at most 2 loops. If feedback would change approved requirements,
+   record it as a requested direction change; if loop 2 ends without APPROVE,
+   pause for explicit user direction instead of silently advancing past blocking
+   review findings.
 9. Save the final reflected plan under `.oh-no/plans/` with a
    `Next skill: oh-no-harness:<name>` header field.
-10. Present the plan to the user with the Plan Approval Brief format below.
-11. Mark the plan `pending approval` until the user explicitly approves the plan
-   content. Plan content approval does not bypass the Next Skill Handoff unless
+10. For direct `ralplan`, present the plan to the user with the Plan Approval
+   Brief format below. When running under `ultrawork`, write the plan plus the
+   Ultrawork internal approval record instead, unless a pause condition requires
+   user review.
+11. For direct `ralplan`, mark the plan `pending approval` until the user
+   explicitly approves the plan content.
+12. After direct plan approval, run the Next Skill Handoff below to ask which
+   next skill to invoke. Only invoke the chosen skill through the current
+   platform's skill mechanism after the user answers. Skip the question when
    running under `ultrawork`.
-12. After plan approval, run the Next Skill Handoff below to ask which next skill to invoke. Only invoke the chosen skill through the current platform's skill mechanism after the user answers. Skip the question only when running under `ultrawork`.
 
 Use real role subagents for the consensus roles on subagent-capable hosts.
 Planner and Plan-Reviewer are not decorative labels; the planning quality bar
@@ -174,6 +165,7 @@ Acceptance criteria:
 - Failure signal:
 - Insufficient evidence:
 - Scope boundary most likely to be misunderstood:
+- Contract surface most likely to be missed:
 - Source: approved interview spec | approved PRD/ticket | user request | analyst gap check
 - Confidence: confirmed | inferred | open
 ```
@@ -202,6 +194,7 @@ Planner draft v1:
 - Minimal viable approach:
 - Rejected speculative complexity:
 - Files/modules likely affected:
+- Contract surface:
 - Task sequence:
 - TDD expectations:
 - Test case design:
@@ -407,14 +400,23 @@ A credible test case design should include:
 - must-pass-after-implementation case: the behavior that must pass after the
   minimal implementation
 - negative or forbidden-behavior case when relevant: what must not happen
-- edge, boundary, or regression case when relevant: the likely break point or
-  old failure mode that should stay fixed
+- semantic-model case when relevant: the state machine or lifecycle,
+  parser or grammar, protocol or handshake, ordering, idempotency, caching,
+  persistence, migration, or concurrency rule that could be misunderstood
+  (this is the contract-aware form of an edge, boundary, or regression case)
+- adversarial case: why the chosen test would fail for a plausible wrong
+  implementation, including wrong-surface fixes, self-confirming tests, or
+  broad-command-only evidence
+- baseline or regression case when relevant: the nearby existing behavior that
+  should stay fixed
 - evidence mapping: which acceptance criterion each test proves
 
 Reject shallow test designs that would pass against the old broken behavior,
 only check command exit status, only check marker strings, snapshot broad output
 without behavioral assertions, mock away the behavior under test, or assert
 implementation details instead of user-visible behavior or public contracts.
+Also reject designs whose tests would pass after implementing the change on the
+wrong public, caller, or verifier-facing surface.
 
 When TDD does not apply, still provide a verification design that avoids the
 same shallow checks and explains why RED/GREEN is not practical.
@@ -434,16 +436,18 @@ Every plan must include:
   trivially scoped; `STANDARD` and `THOROUGH` plans must justify both fields
   explicitly
 - files to create or modify
+- contract surface to preserve or change, with source and uncertainty
 - task sequence
 - test case design quality: must-fail, must-pass, negative/forbidden when
-  relevant, edge/regression when relevant, and evidence mapping
+  relevant, semantic-model/adversarial coverage when relevant, baseline or
+  regression coverage when relevant, and evidence mapping
 - consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order,
-  including draft/review/revision ids and, when a re-review ran,
-  `Re-review scope: delta | full`
+  including draft/review/revision ids and `Re-review scope: delta | full` when
+  re-review ran
 - planning dispatch mode showing whether consensus roles ran as subagents or
   inline fallback
-- a findings ledger recording each Plan-Reviewer finding's lens, severity, and
-  disposition: `accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval`
+- findings ledger with each Plan-Reviewer finding's lens, severity, disposition,
+  and plan-section pointer when accepted
 - evidence that accepted feedback is reflected in the final plan body
 - execution profile
 - worktree policy
@@ -476,23 +480,11 @@ If TDD does not apply, the plan must say why: docs-only, config-only, generated 
 Before presenting a plan, set the execution profile by applying the Execution
 Mode Decision Prompt from `docs/shared/execution-modes.md`.
 
-Every plan that recommends `ralph` must include:
-
-```text
-Execution profile:
-- Overall Ralph mode: LIGHT | STANDARD | THOROUGH
-- Mode source: ralplan
-- Verification tier: LIGHT | STANDARD | THOROUGH
-- Artifact policy: compact | session-verification | full-prd-session
-- Agent policy: inline-only | targeted-subagents | full-review-set
-- Parallel trigger: approved-plan-handoff | explicit-user-request | natural-dispatch | none
-- Worktree policy: direct-automatic-worktree | automatic-worktree-merge | not-applicable
-- Worktree location: .oh-no/worktrees/<task-slug> | not-applicable
-- Cleanup policy: not-needed | conditional | required
-- Task sizing:
-  - T1: LIGHT | STANDARD | THOROUGH - reason
-- Escalation triggers:
-```
+Every plan that recommends `ralph` must include the canonical execution profile
+fields from `docs/shared/execution-modes.md`. Keep the complete field set at the
+approval boundary in the `Execution profile recap:` block below; if an earlier
+plan section needs to discuss the profile, summarize it instead of duplicating
+the field list.
 
 The overall Ralph mode is the highest mode needed by any task or cross-task
 risk, but task sizing should still mark lighter subtasks when they can be
@@ -508,10 +500,7 @@ Use `inline-only` and
 role exists, the active platform cannot dispatch, or the work is unsafe to
 isolate under `docs/shared/ralph-subagent-policy.md`.
 
-End every Plan Approval Brief with a separate `Execution profile recap:` block
-immediately before `Approval needed`. This final recap is required even when the
-same profile already appears earlier in the plan. The goal is to keep the
-selected Ralph mode visible at the exact approval boundary.
+End every Plan Approval Brief with `Execution profile recap:` immediately before `Approval needed`. This block is the required complete profile for approval, so do not duplicate the same field list earlier in the brief unless a platform or user-requested artifact requires it.
 
 Use `LIGHT` only when direct implementation and light verification can prove the
 acceptance criteria without durable PRD tracking. Use `STANDARD` for localized
@@ -578,29 +567,15 @@ Acceptance criteria:
 - Success signal: {observable proof}
 - Failure signal: {observable miss or regression}
 - Insufficient evidence: {checks or outputs that are useful but insufficient}
+- Contract surface: {public, caller, verifier, prompt, hook, schema, CLI, UI, or other surface to preserve/change}
 - Scope boundary most likely to be misunderstood: {boundary}
 - Source/confidence: {source and confirmed|inferred|open}
 
 Validation check:
-- Evidence used: {local check, broad suite, metric, trace, mock, generated marker, or none}
-- Acceptance criteria or user outcome it supports: {the criterion or user/maintainer/operator/public-contract outcome this evidence supports}
-- What the evidence proves: {observable proof}
-- What the evidence does not prove: {gap or residual}
-- Regression or maintainability risk addressed: {category-level failure mode}
-- Why this should apply to similar work: {one sentence}
-- Case-specific details deliberately excluded: {details or none}
-- Added process cost or risk: {cost or none}
-- Completion claim: {validated against acceptance criteria with direct evidence | plausibly valid with explicit residual risk | only supported by local checks}
-
-Execution profile:
-Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
-Verification tier: {LIGHT|STANDARD|THOROUGH}
-Agent policy: {inline-only|targeted-subagents|full-review-set}
-Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
-Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
-Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
-Cleanup policy: {not-needed|conditional|required}
-Task sizing: {short task-mode summary}
+{Use `docs/shared/validation-check.md` when measurable evidence influenced the
+plan. Summarize evidence used, supported outcome, proof and gap, recurring risk,
+similar-work expectation, excluded case-specific details, added process cost,
+and completion claim.}
 
 Structure:
 ```text
@@ -618,7 +593,8 @@ Test case design:
 - Must-fail before implementation: {case and expected RED reason, or documented exception}
 - Must-pass after implementation: {case}
 - Negative/forbidden behavior: {case, or "not relevant" with reason}
-- Edge/regression: {case, or "not relevant" with reason}
+- Semantic/adversarial: {semantic model, wrong-surface or wrong-implementation check, or "not relevant" with reason}
+- Baseline/regression: {existing behavior guard, or "not relevant" with reason}
 - Evidence mapping: {test case -> acceptance criterion}
 
 Parallel subagent dispatch:
@@ -638,7 +614,9 @@ Findings ledger:
 - {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
 
 Worktree policy:
-{Direct Ralph automatically creates or selects a registered Git worktree under `.oh-no/worktrees/<task-slug>` before editing; Ultrawork automatically uses a registered Git worktree under `.oh-no/worktrees/<task-slug>` and merges back to the integration checkout; or not applicable for read-only work. Include artifact handoff requirements for approved .oh-no specs/plans and record any explicit fallback away from the project-local path. `git clone`, `cp -R`, and plain directories are not valid task worktree substitutes.}
+{Use `docs/shared/worktree-isolation.md` as the source of truth. Summarize the
+selected policy, location, artifact handoff requirement, and any explicit
+fallback.}
 
 Verification:
 {commands or evidence plan}
@@ -649,7 +627,9 @@ Risks and open questions:
 Execution profile recap:
 - Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
 - Why this mode is enough: {one sentence}
+- Mode source: ralplan
 - Verification tier: {LIGHT|STANDARD|THOROUGH}
+- Artifact policy: {compact|session-verification|full-prd-session}
 - Agent policy: {inline-only|targeted-subagents|full-review-set}
 - Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
 - Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
@@ -712,13 +692,13 @@ The Plan Approval Brief above is the user-facing review request. Wait for the us
 Ask the user which workflow the host agent should invoke next through the active
 platform's approval mechanism. Use this option shape:
 
-- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with default eligible parallel subagents, verification, review, cleanup, and final report
+- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with eligible isolated subagents when they add decision-changing evidence, plus verification, review, cleanup, and final report
 - `oh-no-harness:ultrawork` — orchestrate execution, QA, and final validation end-to-end
 - request plan changes — go back and revise the plan
 - stop with the plan pending approval
 
-The ordinary `oh-no-harness:ralph` choice is the default parallel-capable
-execution handoff. Preserve the plan path plus
+The ordinary `oh-no-harness:ralph` choice is the parallel-capable execution
+handoff when the approved plan lists eligible isolated roles. Preserve the plan path plus
 `Parallel trigger: approved-plan-handoff` in the Ralph invocation so Ralph
 treats the approved plan's dispatch plan as authorization to use every eligible
 isolated subagent role. Do not ask for a second "parallel subagents" approval
@@ -739,7 +719,14 @@ isolated roles.
 
 ### Ultrawork exception
 
-If you were invoked from `ultrawork`, complete Phase 1 (plan content approval still runs as a content-approval gate), but skip Phase 2's option-list question and return control to ultrawork, which will move the workflow to its execute phase.
+If you were invoked from `ultrawork`, do not present the user-facing Plan
+Approval Brief as a normal approval prompt. Complete the planning quality gates,
+write the plan and an internal approval record such as
+`Plan approval source: ultrawork automatic approval after interview/spec`, then
+return control to ultrawork. Pause for the user only when the plan reveals a
+documented Ultrawork pause condition: changed approved scope, a blocking product
+decision or ambiguity, conflict with the approved requirements source, missing
+execution profile, or an explicit user request to review the plan manually.
 
 ## Agent Roles
 
@@ -748,10 +735,12 @@ Ralplan uses these roles directly.
 This table governs *agent role* dispatch only — workflow-skill chaining
 (`ralph`, `ultrawork`) still goes through `## Next Skill Handoff` HARD-GATE. Use
 the active platform wrapper's dispatch policy. Planner and Plan-Reviewer must
-run as sequential subagents on subagent-capable hosts because they benefit
-from independent context windows. Otherwise run the roles inline while
-preserving the same role blocks and record the inline fallback reason and the
-subagent-unavailable condition from `docs/shared/ralph-subagent-policy.md`.
+keep sequential role boundaries because Planner owns the draft and
+Plan-Reviewer reviews that exact draft. Dispatch them as sequential subagents
+on subagent-capable hosts when independent context can improve planning or
+review quality; otherwise run the roles inline while preserving the same role
+blocks and record the inline fallback reason and the subagent-unavailable
+condition from `docs/shared/ralph-subagent-policy.md`.
 Ralph's own dispatch reads `docs/shared/ralph-subagent-policy.md` plus the
 active platform adapter.
 
@@ -760,7 +749,7 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft in two ordered passes: architecture lens (feasibility, fit, sequencing, tradeoffs, strongest antithesis), then quality-gate lens applied to the draft and to its own pass-1 findings. Plan-Reviewer applies the senior-engineer overcomplication check, may block on speculative abstraction, configurability, dependencies, broad refactors not tied to current acceptance criteria, or accepted feedback that is only logged instead of reflected in the plan body, and does not produce a replacement plan. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. |
 
 Analyst, Planner, and Plan-Reviewer remain sequential in that order unless
 Analyst is satisfied by an approved `interview` spec. Plan-Reviewer runs only

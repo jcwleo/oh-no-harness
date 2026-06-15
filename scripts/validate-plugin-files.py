@@ -41,6 +41,9 @@ AGENTS = [
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
+CLAUDE_AGENT_DESCRIPTION_PREFIX = (
+    "Use proactively inside active Oh No Harness workflows"
+)
 CLAUDE_AGENT_COLORS = {
     "red",
     "blue",
@@ -78,6 +81,21 @@ SKILL_CORE_ROOT = "docs/skill-core"
 AGENT_CORE_ROOT = "docs/agent-core"
 CODEX_AGENT_TEMPLATE_ROOT = "docs/platforms/codex-agents"
 PROVIDER_DOC_ROOT = "docs/providers"
+AGENT_CORE_FORBIDDEN_SURFACE_PATTERNS = (
+    (r"\bspawn_agent\s*\(", "Codex spawn_agent invocation belongs in platform docs or dispatch packets"),
+    (r"\bwait_agent\b", "Codex wait_agent lifecycle syntax belongs in platform docs or dispatch packets"),
+    (r"\bclose_agent\b", "Codex close_agent lifecycle syntax belongs in platform docs or dispatch packets"),
+    (r"\bagent_type\s*=", "Codex agent_type syntax belongs in platform docs or dispatch packets"),
+    (r"\bfork_context\s*=", "Codex fork_context syntax belongs in platform docs"),
+    (r"@agent-[A-Za-z0-9:_-]+", "Claude @agent mention syntax belongs in platform docs"),
+    (r"\bTask,\s*Agent,\s*Workflow\b", "Claude Task/Agent/Workflow syntax belongs in platform docs"),
+    (r"\bWorkflow\s+`agent\(\)`", "Claude Workflow agent() syntax belongs in platform docs"),
+    (r"\bYAML frontmatter\b", "Claude YAML frontmatter belongs in generated agents docs"),
+    (r"\bTOML\b", "Codex TOML custom-agent details belong in platform docs or generated templates"),
+    (r"\bmodel_reasoning_effort\b", "Codex model metadata belongs in generated templates"),
+    (r"\bsandbox_mode\b", "Codex sandbox metadata belongs in generated templates"),
+    (r"\bdocs/platforms/codex-agents\b", "Codex generated-template paths belong in platform docs"),
+)
 
 # Skills whose body must declare a Next Skill Handoff section. The markers are
 # structural: the heading tags the section, "HARD-GATE" tags the negative
@@ -168,7 +186,8 @@ PLATFORM_SUBAGENT_MARKERS = {
     ),
     "ralph": (
         "Parallel trigger",
-        "dispatch targeted subagents by default",
+        "use targeted subagents on subagent-capable hosts",
+        "ship/block decision",
         "whole eligible batch",
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
@@ -178,10 +197,10 @@ PLATFORM_SUBAGENT_MARKERS = {
         "MUST NOT be used to close a running or pending subagent",
     ),
     "ralplan": (
-        "default eligible parallel subagents",
+        "eligible isolated subagents when they add decision-changing evidence",
         "Parallel trigger: approved-plan-handoff",
-        "ordinary `oh-no-harness:ralph` choice is the default parallel-capable",
-        "must run as sequential subagents",
+        "ordinary `oh-no-harness:ralph` choice is the parallel-capable execution",
+        "keep sequential role boundaries",
         "parallel subagent dispatch plan",
         "active platform wrapper's dispatch policy",
         "Planner Draft Contract",
@@ -189,10 +208,11 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Planner Revision Contract",
     ),
     "ultrawork": (
-        "independent context",
+        "separate role contexts",
+        "separation can improve planning or review",
         "Parallel trigger: approved-plan-handoff",
         "Parallel trigger: natural-dispatch",
-        "must still run as separate subagents",
+        "should keep separate role contexts",
         "independent delegated phase work",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "standing explicit user request",
@@ -210,7 +230,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "inline fallback reason",
     ),
     "systematic-debugging": (
-        "isolated diagnostic and evidence roles by default",
+        "isolated diagnostic and evidence roles when they provide decision-changing",
         "collapse diagnostic or evidence roles inline",
         "docs/shared/ralph-subagent-policy.md",
         "eligible batch dispatch",
@@ -223,7 +243,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "its scenario lens covers post-fix validation",
     ),
     "verification-before-completion": (
-        "dispatch `verifier` by default",
+        "dispatch `verifier` for nontrivial completion claims",
+        "ship/block decision",
         "context-separation benefit",
         "fallback\nor no-benefit reason",
         "## Acceptance-To-Evidence Mapping",
@@ -232,7 +253,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "standing explicit user request",
         "per-run subagent approval",
-        "the default `verifier` and risk-gated `code-reviewer` roles",
+        "the eligible `verifier` and risk-gated `code-reviewer` roles",
     ),
 }
 PLATFORM_RULE_DOC_MARKERS = {
@@ -340,8 +361,9 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "Ralph, Ultrawork, Simplify, Systematic Debugging",
     "Interview brownfield exploration",
     "## Subagent Bias",
-    "use subagents as much as possible",
-    "dispatch by default",
+    "Requests to maximize subagents",
+    "prefer dispatch",
+    "decision-changing delegation",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
     "credential values must be redacted",
@@ -547,16 +569,16 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "## Question Routing",
         "## Answer Capture",
         "## Dialectic Rhythm Guard",
-        "## Spec Readiness Guard",
-        "## Acceptance Criteria Alignment Gate",
-        "## Goal Restatement Gate",
+        "## Spec Closure Gate",
+        "Acceptance criteria:",
+        "Goal restatement:",
         "Provisional Ralph mode",
         "docs/shared/execution-modes.md",
         "## Interview Milestones",
         "## Refine Confirmation",
         "## Hidden-Assumption Persona Check",
         "## Breadth And Question Tactics",
-        "## Machine-Consumable Spec Gate",
+        "Machine-consumable requirements for Standard and Deep",
         "`ready` must hold for 2 consecutive rounds",
         "Quick mode is exempt and keeps current behavior",
         "at most 3 candidate hidden-assumption questions",
@@ -698,41 +720,9 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
-    "a small diff selects one cleanup subagent reporting four labeled sections; otherwise it requires four parallel cleanup subagents",
-    "separate inline fallback blocks",
-    "fallback reason",
+    "Read and follow `../../docs/skill-core/simplify.md`",
+    "Preserve the core skill's artifact paths, approval gates, role boundaries",
 )
-SIMPLIFY_CODEX_WRAPPER_MARKERS = (
-    "standing\n   subagent authorization",
-    "explicit user request",
-    "per-run subagent approval",
-)
-CODEX_STANDING_WRAPPER_MARKERS = {
-    "interview": (
-        "standing\n   subagent authorization",
-        "explicit user request",
-        "per-run subagent approval",
-        "skill's `explore` role",
-    ),
-    "ultrawork": (
-        "standing\n   subagent authorization",
-        "explicit user request",
-        "per-run subagent approval",
-        "Ultrawork phase roles",
-    ),
-    "systematic-debugging": (
-        "standing\n   subagent authorization",
-        "explicit user request",
-        "per-run subagent approval",
-        "diagnostic, fix, evidence, and post-fix review roles",
-    ),
-    "verification-before-completion": (
-        "standing\n   subagent authorization",
-        "explicit user request",
-        "per-run subagent approval",
-        "skill's `verifier` and `code-reviewer` roles",
-    ),
-}
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
         "smallest approach",
@@ -1144,16 +1134,6 @@ def assert_skill(root: Path, skill: str) -> None:
             for marker in SIMPLIFY_WRAPPER_MARKERS:
                 if not has_required_marker(wrapper_body, marker):
                     die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
-            if wrapper_root == CODEX_SKILL_ROOT:
-                for marker in SIMPLIFY_CODEX_WRAPPER_MARKERS:
-                    if not has_required_marker(wrapper_body, marker):
-                        die(f"{wrapper_path} is missing required Codex Simplify-Wrapper marker: {marker!r}")
-    if skill in CODEX_STANDING_WRAPPER_MARKERS:
-        wrapper_path = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
-        wrapper_body = read_text(wrapper_path)
-        for marker in CODEX_STANDING_WRAPPER_MARKERS[skill]:
-            if marker not in wrapper_body:
-                die(f"{wrapper_path} is missing required Codex Standing-Wrapper marker: {marker!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
@@ -1203,6 +1183,9 @@ def assert_agent(root: Path, agent: str) -> None:
     missing = REQUIRED_AGENT_FIELDS - set(fm)
     if missing:
         die(f"{path} missing frontmatter fields: {sorted(missing)}")
+    extra = set(fm) - REQUIRED_AGENT_FIELDS
+    if extra:
+        die(f"{path} contains unsupported Claude agent frontmatter fields: {sorted(extra)}")
     if fm["name"] != agent:
         die(f"{path} name={fm['name']!r}, expected {agent!r}")
     if fm["color"] not in CLAUDE_AGENT_COLORS:
@@ -1217,8 +1200,14 @@ def assert_agent(root: Path, agent: str) -> None:
     body = read_text(path)
     agent_body = strip_frontmatter(body, path)
     assert_agent_core(root, agent, agent_body)
-    if not fm["description"].startswith("Use proactively"):
-        die(f"{path} description should start with 'Use proactively' to encourage Claude Code delegation")
+    description = fm["description"]
+    if not description.startswith(CLAUDE_AGENT_DESCRIPTION_PREFIX):
+        die(
+            f"{path} description should start with "
+            f"{CLAUDE_AGENT_DESCRIPTION_PREFIX!r} to encourage bounded Claude Code delegation"
+        )
+    if "caller owns approval and handoff gates" not in description:
+        die(f"{path} description must preserve caller-owned approval and handoff gates")
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
         if marker not in body:
             die(f"{path} is missing required agent-skill boundary marker: {marker!r}")
@@ -1266,6 +1255,9 @@ def assert_agent_core(root: Path, agent: str, claude_agent_body: str) -> None:
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
         if marker not in body:
             die(f"{path} is missing required agent-core marker: {marker!r}")
+    for pattern, reason in AGENT_CORE_FORBIDDEN_SURFACE_PATTERNS:
+        if re.search(pattern, body):
+            die(f"{path} contains wrong-surface platform detail: {reason}")
 
 
 def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
@@ -1291,14 +1283,16 @@ def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
     )
     if not match:
         die(f"{path} is not valid strict Codex custom-agent template TOML")
-    return {
+    data = {
         "name": match.group(1),
         "description": match.group(2),
         "model": match.group(3),
         "model_reasoning_effort": match.group(4),
-        "sandbox_mode": match.group(5),
         "developer_instructions": match.group(6),
     }
+    if match.group(5) is not None:
+        data["sandbox_mode"] = match.group(5)
+    return data
 
 
 def assert_codex_agent_template(root: Path, agent: str) -> None:
@@ -1310,8 +1304,25 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
             die(f"{path} is missing TOML field: {key}")
         if not isinstance(data[key], str):
             die(f"{path} TOML field {key} must be a string")
+    allowed_keys = {
+        "name",
+        "description",
+        "model",
+        "model_reasoning_effort",
+        "developer_instructions",
+    }
+    if agent == "explore":
+        allowed_keys.add("sandbox_mode")
+    extra_keys = set(data) - allowed_keys
+    if extra_keys:
+        die(f"{path} contains unsupported Codex custom-agent TOML fields: {sorted(extra_keys)}")
     if data["name"] != f"oh-no-{agent}":
         die(f"{path} name={data['name']!r}, expected 'oh-no-{agent}'")
+    if not data["description"].startswith(f"Oh No Harness {agent} role:"):
+        die(f"{path} description must be a role-only Oh No Harness description")
+    for forbidden in ("Use proactively", "approval gate", "handoff gate"):
+        if forbidden in data["description"]:
+            die(f"{path} description contains non-role metadata: {forbidden!r}")
     if data["model"] != "gpt-5.5":
         die(f"{path} model={data['model']!r}, expected 'gpt-5.5'")
     expected_reasoning_effort = "medium" if agent == "explore" else "xhigh"

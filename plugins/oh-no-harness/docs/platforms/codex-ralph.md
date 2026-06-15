@@ -7,12 +7,12 @@ platforms.
 
 ## Dispatch Decision
 
-Ralph is parallel-capable by default on Codex when the host exposes
-`spawn_agent`. Codex must still respect host policy and isolation rules: use
-subagents when the current Codex host tool definition permits dispatch and
-Ralph's selected execution mode, agent policy, task risk, and scope isolation
-make delegation useful for context-window management, independent evidence, or
-latency.
+Ralph is parallel-capable on Codex when the host exposes `spawn_agent`. Codex
+must still respect host policy and isolation rules: use subagents when the
+current Codex host tool definition permits dispatch and Ralph's selected
+execution mode, agent policy, task risk, and scope isolation make delegation
+useful for context-window management, independent evidence, latency, or a
+ship/block decision.
 
 Explicit user or plan phrases that are sufficient dispatch signals include:
 
@@ -30,9 +30,9 @@ ordinary `oh-no-harness:ralph` choice should preserve
 `Parallel trigger: approved-plan-handoff` and use the plan's dispatch profile as
 authorization for every eligible isolated role. They are also not required when
 the user has stated a standing preference to maximize subagents or when the
-active Oh No Harness skill policy records dispatch-by-default as workflow-level
-authorization for a concrete isolated scope. When no dispatch-worthy role or
-scope exists, or when host policy does not authorize dispatch, Ralph must
+active Oh No Harness skill policy records proactive eligible dispatch as
+workflow-level authorization for a concrete isolated scope. When no
+dispatch-worthy role or scope exists, or when host policy does not authorize dispatch, Ralph must
 perform roles inline and record `Parallel trigger: none`. When dispatch is
 selected by an active skill dispatch policy without a ralplan handoff or direct
 subagent wording, record `Parallel trigger: natural-dispatch` only if the host
@@ -40,10 +40,12 @@ permits proactive dispatch; otherwise record the explicit standing preference,
 approved profile, or fallback reason.
 
 A standing user or plan preference to maximize subagents is an explicit dispatch
-signal for the whole eligible Ralph run. Use it to dispatch isolated roles as
-much as possible within Codex host-policy limits, especially read-heavy
-exploration, test/log analysis, verification, QA, security, code review, and
-other independent review roles.
+signal for the whole eligible Ralph run. Use it to dispatch isolated roles when
+they provide decision-changing benefit within Codex host-policy limits,
+especially read-heavy exploration, test/log analysis, verification, QA,
+security, code review, and other independent review roles. It is not a command
+to spawn roles whose output would not change the implementation, review,
+verification, or ship/block decision.
 
 ## Invocation
 
@@ -81,6 +83,13 @@ unavailable without a failed `spawn_agent(agent_type="oh-no-<role>", ...)`
 attempt or an equivalent current host rejection. Do not infer unavailability
 from rendered schema text, display comments, or missing shown parameters; the
 first check is the actual `agent_type` call.
+
+Do not use `fork_context = true` or a full-history fork with
+`agent_type = "oh-no-<role>"`. Custom Ralph roles must receive the relevant
+plan, scope, ownership, and evidence context in the spawn message, using one
+payload shape only: prompt/message or items, never both. If a role cannot run
+without the whole parent history, keep it inline or record a non-custom fallback
+that the host explicitly supports.
 
 The generated `oh-no-explore` custom-agent template sets
 `sandbox_mode = "read-only"`. Other Oh No Harness role templates inherit the

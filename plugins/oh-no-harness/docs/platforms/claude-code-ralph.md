@@ -14,7 +14,8 @@ An approved `ralplan` handoff to ordinary `oh-no-harness:ralph` is the default
 parallel-capable execution path. Treat `Parallel trigger:
 approved-plan-handoff` as authorization to use every eligible isolated role in
 the approved plan; do not require a separate `ralph with parallel subagents`
-choice.
+choice. Authorization is not a command to dispatch roles whose output would not
+change the implementation, review, verification, or ship/block decision.
 
 Use `oh-no-harness:<agent>` as the agent name when the tool lists plugin agents.
 When explicit prompt text or a user-facing manual mention is needed, use

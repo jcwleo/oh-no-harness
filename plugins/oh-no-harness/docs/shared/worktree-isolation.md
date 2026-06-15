@@ -24,7 +24,8 @@ For write-capable execution, no source file edits may happen until a
 
 Allowed decisions:
 
-- `approved worktree`: the user approved creating or using a task worktree.
+- `approved worktree`: the user explicitly approved creating or using a named
+  registered Git worktree for this task before execution.
 - `already in approved worktree`: the current checkout is already the approved
   task worktree.
 - `direct automatic worktree`: direct `ralph` created or selected a task
@@ -88,6 +89,11 @@ If Ralph or Ultrawork is invoked from inside an existing
 recursive nested worktree under that task checkout. Treat the current checkout as
 `already in approved worktree` when it matches the task, or resolve worktree
 creation from the integration checkout and record the explicit path.
+
+`approved worktree` is only for explicit user-selected worktree scenarios, such
+as "use this existing worktree" or "create a worktree at this path." Record the
+approved path before editing. Do not use `approved worktree` for direct Ralph's
+default automatic worktree path; use `direct automatic worktree` instead.
 
 ## Direct Ralph
 

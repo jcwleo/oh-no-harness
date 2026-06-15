@@ -49,6 +49,11 @@ For LLM software development, prefer this order when the request is not already 
 7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
 8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
+`ultrawork` is the opt-in end-to-end orchestration lane over the same
+`interview` -> `ralplan` -> `ralph` stages. Use it when the user delegates the
+loop to the agent; Ultrawork records its internal approvals and only pauses for
+the user when a documented pause condition or unclear requirements require it.
+
 Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
 must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
@@ -111,7 +116,13 @@ Workflow skills (`interview`, `ralplan`) currently define this handoff; `ralph` 
 
 Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
-The single exception is `ultrawork`. When the user invokes `ultrawork`, ultrawork may move between `interview`, `ralplan`, and `ralph` without the per-step transition question. Content-approval gates inside the sub-skills (spec review, plan approval, final-completion verification) still run.
+The single exception is `ultrawork`. When the user invokes `ultrawork`,
+ultrawork may move between `interview`, `ralplan`, and `ralph` without the
+per-step transition question. If requirements are unclear, `interview` spec
+review still surfaces to the user. Once the requirements source is approved or
+already concrete, `ralplan` plan approval is handled as an Ultrawork internal
+approval record unless a documented pause condition appears. Final-completion
+verification still runs before any completion claim.
 
 If the user overrides any recommendation, follow the user's instruction unless it would violate safety or repository constraints.
 

@@ -8,9 +8,10 @@ argument-hint: "[<target>]"
 
 This is the Claude Code-facing public skill wrapper.
 
-Claude Code also has a built-in `/simplify` skill. This wrapper keeps the
-Oh No Harness plugin-namespaced route aligned with the same cleanup contract;
-Ralph must use the host built-in `/simplify` when it is available.
+Claude Code also has a built-in `/simplify` skill. Direct plugin invocation
+uses this Oh No Harness wrapper, while Ralph-internal cleanup should use the
+host built-in `/simplify` when that built-in route is available. Both routes
+must preserve the same cleanup contract from `../../docs/skill-core/simplify.md`.
 
 Follow this order:
 
@@ -20,13 +21,5 @@ Follow this order:
    worktree rules, TDD rules, verification rules, and output contract.
 4. Use the available Claude Code skill, question, task, agent, or subagent
    mechanisms only when the active host exposes them.
-5. This skill's cleanup review is gated by diff size: a small diff selects
-   one cleanup subagent reporting four labeled sections; otherwise it
-   requires four parallel cleanup subagents.
-   The four labeled sections are Reuse, Simplification, Efficiency, and
-   Altitude. If Claude Code task or subagent dispatch is unavailable, record
-   the fallback reason; above the gate, preserve the same four cleanup role
-   boundaries as separate inline fallback blocks, while a small diff falls
-   back to a single inline pass that still reports the four labeled sections.
 
 Do not apply another platform's invocation syntax.
