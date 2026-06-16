@@ -76,25 +76,44 @@ and verification responsibility.
 2. Reproduce the failure, or explain why it cannot be reproduced yet.
 3. Read the relevant error output, logs, stack trace, and changed files.
 4. Find the closest working example in the same codebase.
-5. State one root-cause hypothesis with evidence.
-6. Test the hypothesis with the smallest diagnostic step.
-7. For behavior fixes, read and follow `test-driven-development` to create a failing reproduction test before changing production code.
-8. Apply the minimal fix with `executor` when the write scope is isolated; use inline work only with a recorded reason.
-9. Dispatch warranted post-fix review roles when the changed scope or risk requires them.
-10. Run the reproduction check, relevant regression checks, and `verification-before-completion` before claiming the failure is fixed.
+5. Build a hypothesis ledger before deep investigation:
+   - For obvious, localized failures, record the single active hypothesis and
+     why additional hypotheses would not change the next diagnostic step.
+   - For unknown, nontrivial, flaky, repeated, or cross-boundary failures,
+     record 2-3 plausible competing hypotheses before investigating any one
+     deeply.
+   - For each ledger entry, name the expected confirming evidence, expected
+     refuting evidence, current confidence, and the smallest diagnostic step.
+6. Select one active root-cause hypothesis from the ledger with evidence.
+7. Test the active hypothesis with the smallest diagnostic step, update the
+   ledger, and reject or replace the hypothesis when evidence contradicts it.
+8. Trace the causal chain from the observed symptom back to the source that made
+   the symptom possible. Do not accept a fix plan that only removes the visible
+   trigger while leaving the failure mode latent.
+9. For behavior fixes, read and follow `test-driven-development` to create a
+   failing reproduction test before changing production code.
+10. Apply the minimal fix with `executor` when the write scope is isolated; use
+    inline work only with a recorded reason.
+11. Dispatch warranted post-fix review roles when the changed scope or risk
+    requires them.
+12. Run the reproduction check, relevant regression checks, and
+    `verification-before-completion` before claiming the failure is fixed. The
+    verification evidence must show that the failure mode is gone, not only that
+    the current trigger no longer appears in this environment.
 
-Parallel hypothesis testing for steps 5-6: when reproduction is established and
+Parallel hypothesis testing for steps 5-7: when reproduction is established and
 two or more plausible root-cause hypotheses are independently testable, dispatch
-one `debugger` subagent per hypothesis (cap 3) in a single batch. Step 5's
-one-hypothesis rule applies per debugger agent: each parallel debugger receives
-exactly one hypothesis and works only that hypothesis, so the single-hypothesis
-discipline is preserved per agent, not relaxed by parallelism. Each parallel
-debugger runs only non-mutating diagnostics in disjoint scopes and returns
-evidence; if diagnostics would mutate state or scopes overlap, keep the
-sequential one-hypothesis flow above. The main thread synthesizes the returned
-evidence, selects the confirmed root cause, and a single `executor` applies the
-fix. Below two hypotheses, or when hypotheses are not independently testable,
-the sequential flow above applies unchanged.
+one `debugger` subagent per hypothesis (cap 3) in a single batch. Step 6's
+one-active-hypothesis rule applies per debugger agent: each parallel debugger
+receives exactly one hypothesis, the confirming/refuting evidence it should look
+for, and its read-only diagnostic scope. Each parallel debugger runs only
+non-mutating diagnostics in disjoint scopes and returns evidence, confidence
+movement, and rejected-hypothesis rationale; if diagnostics would mutate state
+or scopes overlap, keep the sequential one-active-hypothesis flow above. The
+main thread synthesizes the returned evidence, selects the confirmed root cause,
+and a single `executor` applies the fix. Below two hypotheses, or when
+hypotheses are not independently testable, the sequential flow above applies
+unchanged.
 
 ## Stop Conditions
 
@@ -111,14 +130,21 @@ Stop and ask or escalate to `plan-reviewer` when:
 - Fixing the stack-trace line when the bad value originated elsewhere.
 - Bundling cleanup or refactors with a bug fix.
 - Adding broad retries, catch-all handlers, or sleeps without evidence.
-- Treating a later passing test as TDD evidence when no failing reproduction was observed first.
+- Treating a later passing test as TDD evidence when no failing reproduction was
+  observed first.
+- Treating a passing trigger check as proof when the underlying failure mode or
+  causal chain was not closed.
+- Skipping competing hypotheses for an unknown or repeated failure because one
+  log line looks familiar.
 
 ## Output
 
 Return:
 
 - Failure reproduced or reproduction blocker.
+- Hypothesis ledger, including rejected hypotheses and evidence.
 - Root cause and evidence.
+- Causal chain and why the fix removes the failure mode.
 - Reproduction test or documented exception.
 - Fix summary.
 - Verification commands and results.

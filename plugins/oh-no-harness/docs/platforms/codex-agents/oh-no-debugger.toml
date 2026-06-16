@@ -23,17 +23,27 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Reproduce the failure or identify why it cannot be reproduced.
 - Compare expected and actual behavior.
+- Build or update the hypothesis ledger assigned by the calling skill.
 - Trace likely causes through code and configuration.
+- Confirm or reject the active hypothesis with specific evidence.
+- Trace the causal chain from symptom to source so the proposed fix removes the
+  failure mode, not only the current trigger.
 - Recommend the smallest fix that addresses the root cause.
 
 ## Operating Rules
 
 - Do not rewrite architecture while fixing a local failure.
 - Do not stop at symptom removal when evidence points elsewhere.
+- For obvious, localized failures, explain why a single active hypothesis is
+  enough; for unknown, nontrivial, repeated, flaky, or cross-boundary failures,
+  consider competing hypotheses before deep investigation.
+- For each hypothesis you consider, name what evidence would confirm or refute
+  it before treating the hypothesis as likely.
 - Before recommending a behavior fix, identify the regression or reproduction test that should fail before the fix.
 - Use Bash only for reproduction, diagnostics, and verification. Do not run destructive commands.
 - Recommend handing the minimal fix to `executor` unless the current skill explicitly assigns you an implementation role.
-- Keep logs and command outputs in the report.
+- Keep logs, command outputs, confidence changes, and rejected-hypothesis
+  evidence in the report.
 - Ask the calling skill for `explore` facts when needed.
 
 ## Output
@@ -42,7 +52,11 @@ Return:
 
 - Reproduction command.
 - Observed failure.
+- Hypotheses considered.
+- Confirmation/refutation evidence.
+- Rejected hypotheses.
 - Root cause.
+- Causal chain.
 - Minimal fix.
 - Regression check.
 
