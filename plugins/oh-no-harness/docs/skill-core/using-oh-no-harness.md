@@ -1,6 +1,6 @@
 ---
 name: using-oh-no-harness
-description: Use when starting a session with Oh No Harness, deciding whether a local skill applies, selecting between interview, planning, Ralph execution, debugging, cleanup, or verification, and recognizing TDD as an internal guardrail.
+description: Use when starting a session with Oh No Harness, deciding whether a local skill applies, selecting between interview, planning, Ralph execution, fusion rescue, debugging, cleanup, or verification, and recognizing TDD as an internal guardrail.
 argument-hint: "[task, question, or routing need]"
 ---
 
@@ -14,7 +14,7 @@ wrappers load this shared core and then apply the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, debugging, cleanup, verification, or a direct small edit. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, verification, or a direct small edit. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -35,6 +35,7 @@ The available public skills are:
 - `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
 - `verification-before-completion`: verify evidence before claiming work is complete, fixed, passing, or ready.
 - `systematic-debugging`: investigate bugs, failing commands, regressions, and unexpected behavior before fixing.
+- `fusion-rescue`: run bounded three-panel rescue analysis with mandatory adversarial critique and fallback-aware synthesis when a hard problem stalls.
 
 ## Recommended Development Flow
 
@@ -46,8 +47,9 @@ For LLM software development, prefer this order when the request is not already 
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `ultrawork`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
-7. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
-8. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
+7. `fusion-rescue`: escalate only when the selected workflow's ordinary analysis or debugging path stalls and independent panel synthesis could change the next action.
+8. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
+9. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
 `ultrawork` is the opt-in end-to-end orchestration lane over the same
 `interview` -> `ralplan` -> `ralph` stages. Use it when the user delegates the
@@ -102,7 +104,8 @@ Before asking the user a clarification, scope, preference, or approval question:
 1. Check whether the question exists because the request is broad, vague, ambiguous, or missing requirements, constraints, acceptance criteria, or user intent. If yes, read and follow `interview` first.
 2. Check whether the question exists because the implementation strategy, sequencing, architecture, risk, or tradeoff is unclear. If yes, read and follow `ralplan` first.
 3. Check whether the question exists because a failing command, regression, flaky behavior, or unknown root cause is blocking progress. If yes, read and follow `systematic-debugging` first.
-4. Check whether the question is part of an already-selected workflow skill. If yes, ask it through that skill's rules.
+4. Check whether the question exists because ordinary `ralph` or `systematic-debugging` analysis has stalled and a bounded adversarial panel could change the next action. If yes, read and follow `fusion-rescue` first.
+5. Check whether the question is part of an already-selected workflow skill. If yes, ask it through that skill's rules.
 
 Do not ask raw clarification questions for vague work before reading `interview`, unless the user explicitly tells you not to use the skill.
 
@@ -114,7 +117,7 @@ When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the
 
 Workflow skills (`interview`, `ralplan`) currently define this handoff; `ralph` is terminal and defines only a `Final Handoff` with no next-skill question. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
 
-Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
+Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `fusion-rescue`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
 The single exception is `ultrawork`. When the user invokes `ultrawork`,
 ultrawork may move between `interview`, `ralplan`, and `ralph` without the

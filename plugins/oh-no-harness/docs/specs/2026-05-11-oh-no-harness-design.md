@@ -17,7 +17,8 @@ The first version should support Claude Code and Codex, avoid OMC's runtime-heav
 
 The project will not port OMC's keyword detector, persistent mode hooks, PreToolUse/PostToolUse bridge, Stop hook continuation, or `.omc/state` runtime authority. Instead, it will use a Superpowers-style bootstrap skill that tells the agent to load relevant skills and follow explicit handoff instructions.
 
-The external skill surface is intentionally small:
+The external skill surface is intentionally small. The initial v1 surface was
+later extended with `fusion-rescue` as a public, bounded escalation skill:
 
 - `using-oh-no-harness`
 - `interview`
@@ -29,6 +30,7 @@ The external skill surface is intentionally small:
 - `simplify`
 - `verification-before-completion`
 - `systematic-debugging`
+- `fusion-rescue`
 
 The support surface includes only the Markdown needed for those skills to operate coherently:
 
@@ -465,7 +467,8 @@ Mitigation: `using-oh-no-harness` should include short platform adaptation notes
 
 ### Risk: Too much OMC content leaks back in
 
-Mitigation: keep external skill surface fixed for v1 and move only required support docs.
+Mitigation: keep the external skill surface explicit in manifests and
+validators, and move only required support docs.
 
 ## Acceptance Criteria
 
@@ -473,7 +476,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
 - A single bootstrap hook exists for Claude Code.
 - Codex manifest points to `./skills/`.
 - No keyword detector, persistent-mode hook, bridge hook, or Stop hook exists.
-- External skills are limited to:
+- External skills are now limited to:
   - `using-oh-no-harness`
   - `interview`
   - `ralplan`
@@ -484,6 +487,7 @@ Mitigation: keep external skill surface fixed for v1 and move only required supp
   - `simplify`
   - `verification-before-completion`
   - `systematic-debugging`
+  - `fusion-rescue`
 - The plan consensus workflow is fully embedded into `ralplan`.
 - Required agent prompts exist.
 - Shared docs exist:

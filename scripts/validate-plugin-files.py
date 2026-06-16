@@ -25,6 +25,7 @@ PUBLIC_SKILLS = [
     "simplify",
     "verification-before-completion",
     "systematic-debugging",
+    "fusion-rescue",
 ]
 
 ALL_SKILLS = PUBLIC_SKILLS
@@ -38,6 +39,7 @@ AGENTS = [
     "debugger",
     "verifier",
     "code-reviewer",
+    "fusion-rescue-analyst",
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
@@ -56,18 +58,7 @@ CLAUDE_AGENT_COLORS = {
 }
 REQUIRED_SKILL_FIELDS = {"name", "description"}
 REQUIRED_COMMAND_FIELDS = {"description", "argument-hint"}
-WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = {
-    "using-oh-no-harness",
-    "interview",
-    "ralplan",
-    "ralph",
-    "ultrawork",
-    "auto-routing",
-    "test-driven-development",
-    "simplify",
-    "verification-before-completion",
-    "systematic-debugging",
-}
+WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT = set(PUBLIC_SKILLS)
 COMMAND_WRAPPERS = PUBLIC_SKILLS
 COMMAND_DELEGATION_MARKER = (
     "Read the file at `${{CLAUDE_PLUGIN_ROOT}}/skills-claude/{skill}/SKILL.md` using the Read tool "
@@ -643,6 +634,9 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "verifier",
         "code-reviewer",
     ),
+    "fusion-rescue": (
+        "fusion-rescue-analyst",
+    ),
 }
 SKILLS_WITHOUT_REQUIRED_AGENT_DEPENDENCY: set[str] = set()
 AGENT_SKILL_RELATIONSHIP_MARKERS = (
@@ -650,6 +644,10 @@ AGENT_SKILL_RELATIONSHIP_MARKERS = (
     "not a public workflow skill",
     "calling skill",
 )
+READ_ONLY_CODEX_AGENT_ROLES = {
+    "explore",
+    "fusion-rescue-analyst",
+}
 EXECUTION_MODE_AGENT_MARKERS = {
     "planner": (
         "execution profile",
@@ -927,6 +925,95 @@ TDD_FORBIDDEN_DOC_MARKERS = (
     "<feature, bugfix, refactor, or behavior change>",
 )
 
+FUSION_RESCUE_SKILL_MARKERS = (
+    "## Panel Contract",
+    "exactly three default panel slots",
+    "primary",
+    "adversarial",
+    "pragmatic",
+    "Codex performs the adversarial lens when Codex is available",
+    "## Cross-Host Consult",
+    "${CLAUDE_BIN:-claude}",
+    "--permission-mode",
+    "dontAsk",
+    "--tools",
+    "--no-session-persistence",
+    "openai/codex-plugin-cc",
+    "/codex:rescue",
+    "require-cross-host",
+    "redacted and minimized problem",
+    "read-only consult: no edits, no writes, no installs, no extra network",
+    "[REDACTED_TOKEN]",
+    "Do not record credential values",
+    "## Fallback Behavior",
+    "Codex adversarial unavailable",
+    "## Recursion Guard",
+    "fusion depth: 1",
+    "one-hop",
+    "## Judge And Synthesis",
+    "current host main agent",
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+    "confidence and why",
+    "panel availability/fallback notes",
+    "## Semantic Scenario Checks",
+    "Intentional contradiction",
+    "Missing opposite host",
+    "require-cross-host unavailable",
+    "Recursive consult",
+    "## Caller Return",
+    "return control to `ralph`",
+    "return control to `systematic-debugging`",
+    "Standalone mode",
+    "Do not edit files directly",
+)
+FUSION_RESCUE_PANEL_LENSES = ("primary", "adversarial", "pragmatic")
+FUSION_RESCUE_SYNTHESIS_FIELDS = (
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+    "confidence and why",
+    "panel availability/fallback notes",
+    "fusion depth: 1",
+)
+FUSION_RESCUE_SCENARIO_MARKERS = {
+    "Intentional contradiction": (
+        "`primary`",
+        "`adversarial`",
+        "`pragmatic`",
+        "must name the contradiction",
+        "recommend the smallest next check",
+    ),
+    "Missing opposite host": (
+        "unavailable in default mode",
+        "three current-host panel slots",
+        "panel availability/fallback notes",
+    ),
+    "require-cross-host unavailable": (
+        "required host, command, plugin, auth, or budget is unavailable",
+        "must block",
+        "failure class",
+        "path/auth status",
+        "without exposing secret values",
+    ),
+    "Recursive consult": (
+        "attempts to call rescue",
+        "reject the nested call",
+        "`fusion depth: 1`",
+        "one-hop guard",
+    ),
+}
+FUSION_RESCUE_FORBIDDEN_MARKERS = (
+    "weaker mode",
+    "approves a weaker",
+    "weaker cross-host",
+)
+
 
 def die(message: str) -> None:
     raise SystemExit(f"ERROR: {message}")
@@ -996,6 +1083,129 @@ def markdown_section(text: str, heading: str) -> str:
             end = index
             break
     return "\n".join(lines[start:end])
+
+
+def markdown_bullet_block(section: str, label: str) -> str:
+    lines = section.splitlines()
+    start = None
+    prefix = f"- {label}:"
+    for index, line in enumerate(lines):
+        if line.startswith(prefix):
+            start = index
+            break
+    if start is None:
+        return ""
+
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("- "):
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
+def assert_fusion_rescue_contract(path: Path, body: str) -> None:
+    for marker in FUSION_RESCUE_FORBIDDEN_MARKERS:
+        if marker in body:
+            die(f"{path} contains forbidden Fusion Rescue weak-consult marker: {marker!r}")
+
+    panel_contract = markdown_section(body, "## Panel Contract")
+    if not panel_contract:
+        die(f"{path} is missing required Fusion Rescue Panel Contract section")
+    lens_matches = re.findall(r"^\d+\.\s+`([^`]+)`:", panel_contract, flags=re.MULTILINE)
+    if tuple(lens_matches) != FUSION_RESCUE_PANEL_LENSES:
+        die(
+            f"{path} must define exactly these Fusion Rescue panel lenses in order: "
+            f"{FUSION_RESCUE_PANEL_LENSES!r}; found {tuple(lens_matches)!r}"
+        )
+    if "Codex performs the adversarial lens when Codex is available" not in panel_contract:
+        die(f"{path} Panel Contract must keep Codex-preferred adversarial ownership")
+
+    cross_host = markdown_section(body, "## Cross-Host Consult")
+    if not cross_host:
+        die(f"{path} is missing required Fusion Rescue Cross-Host Consult section")
+    for marker in (
+        "${CLAUDE_BIN:-claude}",
+        "argument vector",
+        "`--print`",
+        "`--model`",
+        "`opus`",
+        "`--permission-mode`",
+        "`dontAsk`",
+        "`--tools`",
+        "`\"\"`",
+        "`--no-session-persistence`",
+        "treat the cross-host consult as unavailable",
+        "redacted and minimized problem packet",
+        "openai/codex-plugin-cc",
+        "/codex:rescue",
+    ):
+        if not has_required_marker(cross_host, marker):
+            die(f"{path} Cross-Host Consult section is missing marker: {marker!r}")
+
+    fallback = markdown_section(body, "## Fallback Behavior")
+    if not fallback:
+        die(f"{path} is missing required Fusion Rescue Fallback Behavior section")
+    for marker in (
+        "Default mode degrades instead of blocking",
+        "all three panel slots on the current host",
+        "Codex adversarial unavailable",
+        "Require-cross-host mode blocks",
+        "failure class",
+    ):
+        if not has_required_marker(fallback, marker):
+            die(f"{path} Fallback Behavior section is missing marker: {marker!r}")
+
+    recursion = markdown_section(body, "## Recursion Guard")
+    if not recursion:
+        die(f"{path} is missing required Fusion Rescue Recursion Guard section")
+    for marker in (
+        "fusion depth: 1",
+        "Do not invoke rescue, fusion-rescue, cross-host consult",
+        "one-hop guard",
+        "must not call Claude, then let Claude call Codex",
+    ):
+        if not has_required_marker(recursion, marker):
+            die(f"{path} Recursion Guard section is missing marker: {marker!r}")
+
+    synthesis = markdown_section(body, "## Judge And Synthesis")
+    if not synthesis:
+        die(f"{path} is missing required Fusion Rescue Judge And Synthesis section")
+    if "The current host main agent is the judge" not in synthesis:
+        die(f"{path} Judge And Synthesis must keep the current host as judge")
+    if not has_required_marker(synthesis, "must not only concatenate"):
+        die(f"{path} Judge And Synthesis must reject concatenation-only output")
+    for field in FUSION_RESCUE_SYNTHESIS_FIELDS:
+        if not has_required_marker(synthesis, field):
+            die(f"{path} Judge And Synthesis is missing required field: {field!r}")
+
+    scenarios = markdown_section(body, "## Semantic Scenario Checks")
+    if not scenarios:
+        die(f"{path} is missing required Fusion Rescue Semantic Scenario Checks section")
+    for label, markers in FUSION_RESCUE_SCENARIO_MARKERS.items():
+        scenario_block = markdown_bullet_block(scenarios, label)
+        if not scenario_block:
+            die(f"{path} Semantic Scenario Checks is missing scenario: {label!r}")
+        for marker in markers:
+            if not has_required_marker(scenario_block, marker):
+                die(
+                    f"{path} Semantic Scenario Checks scenario {label!r} "
+                    f"is missing marker: {marker!r}"
+                )
+
+    caller_return = markdown_section(body, "## Caller Return")
+    if not caller_return:
+        die(f"{path} is missing required Fusion Rescue Caller Return section")
+    for marker in (
+        "Standalone mode returns analysis and recommendations only",
+        "Do not edit files directly",
+        "return control to `ralph`",
+        "Ralph remains responsible",
+        "return control to `systematic-debugging`",
+        "Systematic Debugging remains responsible",
+    ):
+        if not has_required_marker(caller_return, marker):
+            die(f"{path} Caller Return section is missing marker: {marker!r}")
 
 
 def is_guardrail_line(line: str) -> bool:
@@ -1152,6 +1362,12 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in WORKTREE_SKILL_MARKERS[skill]:
             if marker not in body:
                 die(f"{path} is missing required Worktree marker: {marker!r}")
+    if skill == "fusion-rescue":
+        body = read_text(path)
+        for marker in FUSION_RESCUE_SKILL_MARKERS:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing required Fusion-Rescue marker: {marker!r}")
+        assert_fusion_rescue_contract(path, body)
 
 
 def assert_command(root: Path, skill: str) -> None:
@@ -1311,7 +1527,7 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         "model_reasoning_effort",
         "developer_instructions",
     }
-    if agent == "explore":
+    if agent in READ_ONLY_CODEX_AGENT_ROLES:
         allowed_keys.add("sandbox_mode")
     extra_keys = set(data) - allowed_keys
     if extra_keys:
@@ -1332,11 +1548,11 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
             f"expected {expected_reasoning_effort!r}"
         )
     sandbox_mode = data.get("sandbox_mode")
-    if agent == "explore":
+    if agent in READ_ONLY_CODEX_AGENT_ROLES:
         if sandbox_mode != "read-only":
             die(f"{path} sandbox_mode={sandbox_mode!r}, expected 'read-only'")
     elif sandbox_mode is not None:
-        die(f"{path} should not set sandbox_mode for non-explore agent")
+        die(f"{path} should not set sandbox_mode for non-read-only agent")
     agent_core = read_text(root / AGENT_CORE_ROOT / f"{agent}.md")
     expected_instructions = (
         f"Agent prompt source: docs/agent-core/{agent}.md\n"
@@ -1366,8 +1582,8 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
     ):
         if marker not in text:
             die(f"{path} is missing required Codex custom-agent marker: {marker!r}")
-    if agent == "explore" and 'sandbox_mode = "read-only"' not in text:
-        die(f"{path} is missing read-only sandbox marker for explore")
+    if agent in READ_ONLY_CODEX_AGENT_ROLES and 'sandbox_mode = "read-only"' not in text:
+        die(f"{path} is missing read-only sandbox marker")
     for forbidden in ("Agent prompt source: agents/", "\ntools:", "\nmodel:", "\ncolor:"):
         if forbidden in text:
             die(f"{path} contains Claude-only or stale agent marker: {forbidden!r}")
@@ -1723,6 +1939,10 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
             "Review the approved plan, then run ralph on it",
             "marker-only Codex prompt",
             "generic Codex Ralph discussion prompt",
+            "--fusion-rescue-live",
+            "OH_NO_FUSION_RESCUE_LIVE",
+            "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+            "OH_NO_CLAUDE_FUSION_PANEL_OK",
         ),
         "scripts/test-claude-plugin.sh": (
             "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
@@ -1744,6 +1964,15 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
             "Review the approved plan, then run ralph on it",
             "marker-only Claude prompt",
             "generic Claude Ralph discussion prompt",
+            "--fusion-rescue-live",
+            "OH_NO_FUSION_RESCUE_LIVE",
+            "/codex:rescue",
+            "--allowedTools",
+            "codex-companion.mjs",
+            "permission_denials",
+            "forwarded Codex output is unavailable",
+            "OH_NO_CODEX_RESCUE_RETURN_OK",
+            "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
         ),
     }
     for relative_path, markers in test_markers.items():

@@ -83,6 +83,7 @@ ralph
   -> plan-reviewer for architecture-sensitive completion review and optional adversarial or overcomplication review
   -> verifier including its scenario lens when workflow testing is required
   -> code-reviewer including its security lens when risk requires
+  -> fusion-rescue when ordinary analysis or debugging stalls after credible evidence exists
   -> simplify after functional reviewer approval
   -> verification-before-completion before final completion claims
 
@@ -116,7 +117,13 @@ systematic-debugging
   -> explore for codebase facts and working examples
   -> test-driven-development for bug reproduction tests
   -> executor for the minimal fix after root cause is known
+  -> fusion-rescue when competing hypotheses remain contradictory or stalled after ordinary diagnostics
   -> verifier and verification-before-completion for fix evidence
+
+fusion-rescue
+  -> fusion-rescue-analyst for current-host panel lenses
+  -> optional bounded cross-host consult when the host capability is available
+  -> returns synthesis to ralph, systematic-debugging, ultrawork active phase, or the direct caller
 ```
 
 ## Provider Guidance
@@ -153,6 +160,7 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
 | `verifier` | `ralph`, `ultrawork`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
 | `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, security-sensitive validation | `verifier`, `simplify` recommendation |
+| `fusion-rescue-analyst` | `fusion-rescue` panel analysis | returns one assigned panel lens to the caller for current-host synthesis |
 
 ## Hook Boundary
 

@@ -92,11 +92,15 @@ and verification responsibility.
    trigger while leaving the failure mode latent.
 9. For behavior fixes, read and follow `test-driven-development` to create a
    failing reproduction test before changing production code.
-10. Apply the minimal fix with `executor` when the write scope is isolated; use
+10. If reproduction and hypothesis evidence exist but the diagnosis remains
+    contradictory, repeatedly inconclusive, or blocked after ordinary diagnostic
+    passes, read and follow `fusion-rescue`. Return control to
+    Systematic Debugging with the synthesis before applying a fix.
+11. Apply the minimal fix with `executor` when the write scope is isolated; use
     inline work only with a recorded reason.
-11. Dispatch warranted post-fix review roles when the changed scope or risk
+12. Dispatch warranted post-fix review roles when the changed scope or risk
     requires them.
-12. Run the reproduction check, relevant regression checks, and
+13. Run the reproduction check, relevant regression checks, and
     `verification-before-completion` before claiming the failure is fixed. The
     verification evidence must show that the failure mode is gone, not only that
     the current trigger no longer appears in this environment.
@@ -152,4 +156,8 @@ Return:
 
 ## Next Skill Handoff
 
-None — this is a failure-investigation mid-loop skill. After verification, return the result to the caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to another workflow skill.
+None — this is a failure-investigation mid-loop skill. It may use
+`fusion-rescue` as a bounded internal escalation when ordinary diagnostics
+stall, then return to this debugging flow. After verification, return the result
+to the caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to
+another workflow skill.

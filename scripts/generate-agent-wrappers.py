@@ -144,6 +144,21 @@ AGENTS = [
             "ordered lenses."
         ),
     ),
+    AgentMetadata(
+        role="fusion-rescue-analyst",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows for an assigned "
+            "Fusion Rescue panel lens; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Glob, Grep",
+        claude_model="inherit",
+        claude_color="blue",
+        codex_description=(
+            "Oh No Harness fusion-rescue-analyst role: analyze one assigned rescue "
+            "panel lens and return bounded evidence for host synthesis."
+        ),
+        codex_sandbox_mode="read-only",
+    ),
 ]
 
 

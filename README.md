@@ -9,7 +9,7 @@
 
 Your coding agent does not need another runtime. It needs a workflow it can actually read and follow.
 
-**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 stage skills** plus **8 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, without npm, tmux, MCP, or a terminal-only control plane.
+**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **11 stage skills** plus **9 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, with `fusion-rescue` for hard stalled problems, without npm, tmux, MCP, or a terminal-only control plane.
 
 It sits between two extremes:
 
@@ -34,7 +34,7 @@ optional Claude Code `SessionStart` hook.
 > [!NOTE]
 > If you can read Markdown, you can audit the harness. If you can follow a handoff, you can understand the workflow.
 
-Ten focused workflows help clarify vague work, plan, execute with verification, debug, and clean up — without a daemon, background service, or hidden state.
+Eleven focused workflows help clarify vague work, plan, execute with verification, rescue hard stalled problems, debug, and clean up — without a daemon, background service, or hidden state.
 
 Oh No Harness follows semantic versioning from `1.0.0`.
 
@@ -45,8 +45,8 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
-- **Skills + agents.** 10 workflow skills backed by 8 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`).
-- **Slash ↔ skill parity.** `commands/*.md` mirrors all 10 skill names with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md`.
+- **Skills + agents.** 11 workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`).
+- **Slash ↔ skill parity.** `commands/*.md` mirrors all 11 skill names with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md`.
 
 | Too much | Too little | Oh No Harness |
 |---|---|---|
@@ -59,6 +59,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 **🔁 Workflow**
 - **Socratic interview.** `/oh-no-harness:interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
 - **Mode-gated execution.** Specs and plans size work as `LIGHT` / `STANDARD` / `THOROUGH`; Ralph follows the recorded mode instead of always running the heaviest loop.
+- **Fusion rescue.** `/oh-no-harness:fusion-rescue` runs exactly three panel lenses, including a Codex-preferred adversarial lens when available, then lets the current host synthesize the next action.
 - **Auto-routing.** `/oh-no-harness:auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
 
 **✨ Experience**
@@ -135,6 +136,7 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:ralplan <task or spec>` | Broad, risky, or cross-file work needing a plan + approval — saved to `.oh-no/plans/`. |
 | `/oh-no-harness:ralph <plan or ticket>` | Concrete task with acceptance criteria — reads the mode and executes to verification. |
 | `/oh-no-harness:ultrawork <request>` | End-to-end: interview → ralplan → ralph → verification in one flow. |
+| `/oh-no-harness:fusion-rescue <hard problem>` | Bounded three-panel rescue analysis for stalled problems; standalone returns recommendations, Ralph/debugging callers resume after synthesis. |
 | `/oh-no-harness:test-driven-development <change>` | Explicit TDD/test-first request, or an internal gate inside Ralph/debugging execution — ordinary implementation routes through Ralph. |
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |

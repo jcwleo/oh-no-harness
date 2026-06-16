@@ -19,11 +19,24 @@ RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
+RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
+FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
+NAMED_AGENT_TEMP_ROOTS=()
+
+cleanup_named_agent_temp_roots() {
+  local dir
+  for dir in "${NAMED_AGENT_TEMP_ROOTS[@]:-}"; do
+    [[ -n "$dir" ]] && rm -rf "$dir"
+  done
+  return 0
+}
+
+trap cleanup_named_agent_temp_roots EXIT
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
@@ -36,6 +49,7 @@ PUBLIC_SKILLS=(
   simplify
   verification-before-completion
   systematic-debugging
+  fusion-rescue
 )
 
 usage() {
@@ -52,6 +66,8 @@ Options:
   --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
   --named-agents-live
                      Run live Codex custom-agent name spawn smoke test.
+  --fusion-rescue-live
+                     Run live Fusion Rescue cross-host and panel-subagent smoke test.
   --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
   --natural-session-start-live
                      Run live natural SessionStart role-worker smoke tests for Interview, Ultrawork,
@@ -69,8 +85,8 @@ Options:
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_NAMED_AGENTS_LIVE, OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE,
-  OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
+  OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
+  OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
   OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
@@ -95,6 +111,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --named-agents-live)
       RUN_NAMED_AGENTS_LIVE=1
+      shift
+      ;;
+    --fusion-rescue-live)
+      RUN_FUSION_RESCUE_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -263,7 +283,7 @@ PY
 
   local session_start_agent_count
   session_start_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$session_start_agent_count" == "8" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 8"
+  [[ "$session_start_agent_count" == "9" ]] || fail "Codex SessionStart ensured ${session_start_agent_count} user-scope agents, expected 9"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex SessionStart did not write installed plugin version marker"
 
@@ -429,7 +449,7 @@ PY
 
   local hook_agent_count
   hook_agent_count="$(find "$CODEX_HOME/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$hook_agent_count" == "8" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 8"
+  [[ "$hook_agent_count" == "9" ]] || fail "Codex Ralph adapter preflight installed ${hook_agent_count} user-scope agents, expected 9"
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex Ralph adapter preflight did not write installed plugin version marker"
 
@@ -636,19 +656,19 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" --dry-run >"$temp_data/default-user-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/default-user-dry-run.out")"
-  [[ "$dry_run_count" == "8" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 8"
+  [[ "$dry_run_count" == "9" ]] || fail "Codex agent default user dry-run planned ${dry_run_count} installs, expected 9"
   grep -q "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" "$temp_data/default-user-dry-run.out" \
     || fail "Codex agent default install did not target CODEX_HOME user scope"
 
   env -u CODEX_HOME HOME="$temp_data/home-default" "$installer" --dry-run >"$temp_data/home-default-dry-run.out"
   dry_run_count="$(grep -c '^would install: ' "$temp_data/home-default-dry-run.out")"
-  [[ "$dry_run_count" == "8" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 8"
+  [[ "$dry_run_count" == "9" ]] || fail "Codex agent HOME fallback dry-run planned ${dry_run_count} installs, expected 9"
   grep -q "$temp_data/home-default/.codex/agents/oh-no-code-reviewer.toml" "$temp_data/home-default-dry-run.out" \
     || fail "Codex agent default install did not target HOME fallback user scope"
 
   "$installer" --scope project --dry-run >"$temp_data/project-dry-run.out"
   project_dry_run_count="$(grep -c '^would install: ' "$temp_data/project-dry-run.out")"
-  [[ "$project_dry_run_count" == "8" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 8"
+  [[ "$project_dry_run_count" == "9" ]] || fail "Codex agent project dry-run planned ${project_dry_run_count} installs, expected 9"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-install.out" 2>"$temp_data/ensure-install.err"
@@ -657,7 +677,7 @@ validate_codex_agent_installer() {
   quiet_size="$(wc -c <"$temp_data/ensure-install.err" | tr -d ' ')"
   [[ "$quiet_size" == "0" ]] || fail "Codex agent --ensure --quiet wrote success stderr"
   ensure_count="$(find "$temp_data/ensure-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$ensure_count" == "8" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 8"
+  [[ "$ensure_count" == "9" ]] || fail "Codex agent --ensure wrote ${ensure_count} templates, expected 9"
 
   CODEX_HOME="$temp_data/ensure-home" "$installer" --scope user --ensure --quiet \
     >"$temp_data/ensure-current.out" 2>"$temp_data/ensure-current.err"
@@ -743,7 +763,7 @@ validate_codex_agent_installer() {
 
   CODEX_HOME="$temp_data/codex-home" "$installer" >"$temp_data/user-install.out"
   installed_count="$(find "$temp_data/codex-home/agents" -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "8" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 8"
+  [[ "$installed_count" == "9" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 9"
   grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the current plugin version marker"
   grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
@@ -808,7 +828,7 @@ install_codex_agents_user_scope() {
 
   local installed_count
   installed_count="$(find "$CODEX_HOME_DIR/agents" -maxdepth 1 -type f -name 'oh-no-*.toml' | wc -l | tr -d ' ')"
-  [[ "$installed_count" == "8" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 8"
+  [[ "$installed_count" == "9" ]] || fail "Codex custom-agent user-scope install wrote ${installed_count} templates, expected 9"
   ok "Codex custom agents installed into ${CODEX_HOME_DIR}/agents"
 }
 
@@ -1004,6 +1024,12 @@ PY
 }
 
 assert_codex_prompt_exposes_skills() {
+  if [[ "$INSTALL_MODE" != "1" ]]; then
+    log "Skipping Codex prompt exposure check (--no-install)"
+    printf 'Run without --no-install to install this checkout and verify prompt exposure for all public skills.\n' >&2
+    return
+  fi
+
   log "Verifying Codex prompt exposes oh-no-harness skills"
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/prompt-input.json"
@@ -1075,6 +1101,9 @@ live_prompt_for_skill() {
       ;;
     systematic-debugging)
       printf 'Use the oh-no-harness:systematic-debugging skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK systematic-debugging.'
+      ;;
+    fusion-rescue)
+      printf 'Use the oh-no-harness:fusion-rescue skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK fusion-rescue.'
       ;;
     *)
       fail "No live prompt for skill: $1"
@@ -2257,13 +2286,18 @@ run_named_agents_live_test() {
     oh-no-debugger
     oh-no-executor
     oh-no-explore
+    oh-no-fusion-rescue-analyst
     oh-no-plan-reviewer
     oh-no-planner
     oh-no-verifier
   )
 
-  local negative_home="$RUN_DIR/named-agents-negative-home"
-  local negative_project_root="$RUN_DIR/named-agents-negative-project"
+  local named_agent_temp_root
+  named_agent_temp_root="$(mktemp -d)"
+  NAMED_AGENT_TEMP_ROOTS+=("$named_agent_temp_root")
+
+  local negative_home="$named_agent_temp_root/named-agents-negative-home"
+  local negative_project_root="$named_agent_temp_root/named-agents-negative-project"
   local negative_out_file="$RUN_DIR/named-agents-negative.jsonl"
   local negative_err_file="$RUN_DIR/named-agents-negative.err"
   local negative_prompt
@@ -2341,8 +2375,8 @@ if "OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK" not in combined:
 print("ok - Codex named custom-agent negative control requires an installed custom agent")
 PY
 
-  local live_home="$RUN_DIR/named-agents-live-home"
-  local live_project_root="$RUN_DIR/named-agents-live-project"
+  local live_home="$named_agent_temp_root/named-agents-live-home"
+  local live_project_root="$named_agent_temp_root/named-agents-live-project"
   rm -rf "$live_home" "$live_project_root"
   mkdir -p "$live_home" "$live_project_root"
   for file in auth.json config.toml config.json; do
@@ -2567,6 +2601,444 @@ PY
   ok "live Codex named custom agents spawned, waited, and closed by ${print_ok_count} oh-no-* agent_type values"
 }
 
+run_fusion_rescue_live_test() {
+  if [[ "$RUN_FUSION_RESCUE_LIVE" != "1" ]]; then
+    log "Skipping live Codex Fusion Rescue cross-host smoke test"
+    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus Claude Opus consult.\n' >&2
+    return
+  fi
+
+  log "Running live Codex Fusion Rescue cross-host smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/fusion-rescue-codex-claude.jsonl"
+  local err_file="$RUN_DIR/fusion-rescue-codex-claude.err"
+  local summary_file="$RUN_DIR/fusion-rescue-codex-claude.summary.json"
+  local live_workspace="$RUN_DIR/fusion-rescue-codex-workspace"
+  local prompt
+  mkdir -p "$live_workspace"
+  prompt=$(cat <<PROMPT
+Use the oh-no-harness:fusion-rescue skill. Read-only live integration smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. Use require-cross-host behavior, so a missing Claude consult is a test failure, not a default fallback.
+
+Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. The team must choose whether to quarantine the test, add automatic retries, or root-cause/fix the failure before release. Every panel result must discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence rather than only saying the smoke test is formatted correctly.
+
+Build exactly three panel slots and then synthesize as the current Codex main judge.
+
+Panel 1 primary must be a Claude Code cross-host consult. Invoke \${CLAUDE_BIN:-claude} as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --tools "", --no-session-persistence. The Claude prompt must be read-only and must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude primary panel must provide substantive analysis of the CI integration-test release decision and mention at least quarantine, auto-retry, root-cause, and release risk.
+
+Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
+
+Panel 3 pragmatic must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+
+Start both Codex subagents before waiting when possible. Wait for each receiver until completed, capture both results, then close both completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After Claude returns and both Codex subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available, Codex pragmatic available; fusion depth: 1.
+PROMPT
+)
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$live_workspace"
+    # Claude CLI auth/cache access fails under workspace-write in this lane.
+    # Keep the task cwd disposable and let the parser reject writes/secrets.
+    --sandbox danger-full-access
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$FUSION_RESCUE_MAX_BUDGET_USD" "$summary_file" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, live_home, budget, summary_path = sys.argv[1:6]
+expected_markers = {
+    "adversarial": "OH_NO_FUSION_PANEL_ADVERSARIAL",
+    "pragmatic": "OH_NO_FUSION_PANEL_PRAGMATIC",
+}
+required_final_markers = [
+    "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+    "OH_NO_CLAUDE_FUSION_PANEL_OK",
+    "OH_NO_FUSION_PANEL_ADVERSARIAL",
+    "OH_NO_FUSION_PANEL_PRAGMATIC",
+    "panels completed: primary, adversarial, pragmatic",
+    "panel availability/fallback notes",
+    "fusion depth: 1",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+    "confidence and why",
+]
+required_panel_fields = [
+    "lens name",
+    "strongest finding",
+    "evidence used",
+    "assumption under test",
+    "likely failure mode",
+    "recommended next action",
+    "confidence",
+    "what would change",
+]
+domain_markers = [
+    "ci",
+    "integration",
+    "quarantine",
+    "retry",
+    "root-cause",
+    "release",
+    "risk",
+]
+required_claude_argv = [
+    "claude",
+    "--model",
+    "opus",
+    "--max-budget-usd",
+    budget,
+    "--permission-mode",
+    "dontAsk",
+    "--tools",
+    "--no-session-persistence",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tools = {
+    "apply_patch",
+    "edit",
+    "write",
+    "write_file",
+    "file_change",
+    "patch",
+}
+forbidden_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(apply_patch|touch|mkdir|rm|cp|mv|tee)\b"),
+    re.compile(r"(^|[;&|'\"]\s*)sed\s+-i\b"),
+    re.compile(r"(^|[;&|'\"]\s*)cat\s+>"),
+    re.compile(r"(^|[;&|'\"]\s*)printf\b[^|;&]*>"),
+]
+forbidden_fallbacks = [
+    "Claude unavailable",
+    "Claude primary unavailable",
+    "Codex adversarial unavailable",
+    "cross-host consult is unavailable",
+    "require-cross-host unavailable",
+]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def role_of_event(data):
+    item = data.get("item") or {}
+    message = data.get("message") or {}
+    return item.get("role") or data.get("role") or message.get("role") or ""
+
+def receiver_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Fusion Rescue Codex live could not find session transcript for receiver: {receiver}")
+    for path in session_candidates:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                if data.get("type") != "session_meta":
+                    continue
+                payload = data.get("payload") or {}
+                thread_spawn = (
+                    payload.get("source", {})
+                    .get("subagent", {})
+                    .get("thread_spawn", {})
+                )
+                return payload.get("agent_role") or thread_spawn.get("agent_role")
+    raise SystemExit(f"Fusion Rescue Codex live transcript lacked session_meta: {receiver}")
+
+def assert_meaningful_domain_analysis(label, text):
+    lower_text = text.lower()
+    hits = [marker for marker in domain_markers if marker in lower_text]
+    if len(hits) < 4:
+        raise SystemExit(
+            f"Fusion Rescue Codex live {label} did not include meaningful CI release-risk analysis; "
+            f"domain_hits={hits!r} text={text[:2000]!r}"
+        )
+    weak_markers = (
+        "no substantive problem packet",
+        "only format",
+        "format/scope smoke",
+        "no actionable problem packet",
+        "only smoke",
+    )
+    for marker in weak_markers:
+        if marker in lower_text:
+            raise SystemExit(
+                f"Fusion Rescue Codex live {label} returned weak/non-substantive analysis marker "
+                f"{marker!r}; text={text[:2000]!r}"
+            )
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if (
+    "spawn failed" in err_text.lower()
+    or "agent thread limit reached" in err_text.lower()
+    or "full-history forked agents inherit" in err_text.lower()
+    or "provide either message or items" in err_text.lower()
+):
+    raise SystemExit(f"Fusion Rescue Codex live saw spawn failure in stderr: {err_text[:2000]!r}")
+
+failed_spawns = []
+all_spawn_receivers = []
+receiver_to_lens = {}
+receiver_agent_roles = {}
+panel_result_by_receiver = {}
+claude_panel_output = ""
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+non_user_text_parts = []
+claude_tool_text_parts = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(f"Fusion Rescue Codex live transcript exposed a secret-like value near line {index}")
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Fusion Rescue Codex live saw write-capable event at line {index}: "
+                f"type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        if item_type_lower == "command_execution" and any(
+            pattern.search(command_text) for pattern in forbidden_command_patterns
+        ):
+            raise SystemExit(
+                f"Fusion Rescue Codex live saw write-like command at line {index}: "
+                f"{command_text[:1000]!r}"
+            )
+        if role_of_event(data) != "user":
+            non_user_text_parts.append(event_text)
+        if (
+            item.get("type") == "command_execution"
+            and item.get("status") == "completed"
+            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(item.get("aggregated_output") or "")
+        ):
+            claude_panel_output += "\n" + str(item.get("aggregated_output") or "")
+
+        item_type = item.get("type") or data.get("type")
+        tool_name = item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or ""
+        if (
+            "claude" in event_text.lower()
+            and item_type in {"collab_tool_call", "command_execution", "function_call", "tool_call", "tool_use"}
+            and tool_name not in {"spawn_agent", "wait", "wait_agent", "close_agent"}
+        ):
+            claude_tool_text_parts.append(event_text)
+
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            all_spawn_receivers.extend(item.get("receiver_thread_ids") or [])
+            spawn_text = collect_text(item)
+            matched = [lens for lens, marker in expected_markers.items() if marker in spawn_text]
+            if not matched:
+                raise SystemExit(
+                    "Fusion Rescue Codex live saw an unexpected spawn_agent call "
+                    f"without a required panel marker at line {index}: {spawn_text[:2000]!r}"
+                )
+            if len(matched) != 1:
+                raise SystemExit(
+                    f"Fusion Rescue Codex live spawn payload matched multiple lenses {matched!r}; "
+                    f"text={spawn_text[:2000]!r}"
+                )
+            receivers = item.get("receiver_thread_ids") or []
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"Fusion Rescue Codex live expected one receiver for {matched[0]}, got {receivers!r}"
+                )
+            receiver_to_lens[receivers[0]] = matched[0]
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            text = collect_text(item)
+            mentioned = set(item.get("receiver_thread_ids") or [])
+            mentioned.update(receiver for receiver in receiver_to_lens if receiver in text)
+            mentioned.update(
+                receiver for receiver in (item.get("agents_states") or {})
+                if receiver in receiver_to_lens
+            )
+            if tool in {"wait", "wait_agent"}:
+                for receiver in mentioned:
+                    state = (item.get("agents_states") or {}).get(receiver) or {}
+                    if state.get("status") == "completed" and state.get("message"):
+                        wait_index_by_receiver.setdefault(receiver, index)
+                        panel_result_by_receiver.setdefault(receiver, str(state.get("message")))
+            if tool == "close_agent":
+                for receiver in mentioned:
+                    close_index_by_receiver.setdefault(receiver, index)
+
+if failed_spawns:
+    raise SystemExit(f"Fusion Rescue Codex live saw failed spawn_agent calls: {failed_spawns!r}")
+
+missing_lenses = sorted(set(expected_markers) - set(receiver_to_lens.values()))
+if missing_lenses:
+    raise SystemExit(
+        f"Fusion Rescue Codex live did not spawn required panel lenses: {missing_lenses!r}; "
+        f"got={receiver_to_lens!r}"
+    )
+if len(receiver_to_lens) != len(expected_markers):
+    raise SystemExit(f"Fusion Rescue Codex live expected exactly two Codex panel receivers, got {receiver_to_lens!r}")
+if sorted(all_spawn_receivers) != sorted(receiver_to_lens):
+    raise SystemExit(
+        "Fusion Rescue Codex live saw spawned receivers outside the two expected panels: "
+        f"all={all_spawn_receivers!r} expected={sorted(receiver_to_lens)!r}"
+    )
+
+for receiver, lens in receiver_to_lens.items():
+    actual_agent_role = receiver_agent_role(receiver)
+    receiver_agent_roles[receiver] = actual_agent_role
+    if actual_agent_role != "oh-no-fusion-rescue-analyst":
+        raise SystemExit(
+            f"Fusion Rescue Codex live spawned receiver {receiver} for {lens} with "
+            f"agent_role={actual_agent_role!r}; expected oh-no-fusion-rescue-analyst"
+        )
+
+missing_waits = sorted(set(receiver_to_lens) - set(wait_index_by_receiver))
+missing_closes = sorted(set(receiver_to_lens) - set(close_index_by_receiver))
+if missing_waits:
+    raise SystemExit(f"Fusion Rescue Codex live did not capture wait_agent results: {missing_waits!r}")
+if missing_closes:
+    raise SystemExit(f"Fusion Rescue Codex live did not close completed receivers: {missing_closes!r}")
+early_closes = {
+    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
+    for receiver in receiver_to_lens
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+}
+if early_closes:
+    raise SystemExit(f"Fusion Rescue Codex live closed receivers before wait results: {early_closes!r}")
+
+for receiver, lens in receiver_to_lens.items():
+    result_text = panel_result_by_receiver.get(receiver, "")
+    lower_result_text = result_text.lower()
+    marker = expected_markers[lens]
+    if marker not in result_text:
+        raise SystemExit(
+            f"Fusion Rescue Codex live panel {lens} did not return marker {marker!r} "
+            f"in wait result; result={result_text[:2000]!r}"
+        )
+    if lens not in lower_result_text:
+        raise SystemExit(
+            f"Fusion Rescue Codex live panel {lens} wait result did not name its lens; "
+            f"result={result_text[:2000]!r}"
+        )
+    for field in required_panel_fields:
+        if field not in lower_result_text:
+            raise SystemExit(
+                f"Fusion Rescue Codex live panel {lens} wait result missed field {field!r}; "
+                f"result={result_text[:2000]!r}"
+            )
+    assert_meaningful_domain_analysis(f"panel {lens}", result_text)
+
+non_user_text = "\n".join(non_user_text_parts)
+success_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK" in part
+)
+if not success_text:
+    raise SystemExit("Fusion Rescue Codex live did not return success marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex live missing synthesis field: {field!r}")
+for marker in forbidden_fallbacks:
+    if marker.lower() in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex live reported forbidden fallback marker: {marker!r}")
+
+claude_tool_text = "\n".join(claude_tool_text_parts)
+if not claude_tool_text:
+    raise SystemExit("Fusion Rescue Codex live did not expose a tool call containing the Claude CLI invocation")
+for marker in required_claude_argv:
+    if marker.lower() not in claude_tool_text.lower():
+        raise SystemExit(
+            f"Fusion Rescue Codex live Claude tool call missed argv marker {marker!r}; "
+            f"tool_text={claude_tool_text[:2000]!r}"
+        )
+if "--print" not in claude_tool_text and " -p" not in claude_tool_text:
+    raise SystemExit(
+        "Fusion Rescue Codex live Claude tool call did not use --print or -p; "
+        f"tool_text={claude_tool_text[:2000]!r}"
+    )
+if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in non_user_text:
+    raise SystemExit("Fusion Rescue Codex live did not capture Claude panel return marker")
+lower_claude_panel_output = claude_panel_output.lower()
+if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in claude_panel_output:
+    raise SystemExit("Fusion Rescue Codex live did not capture Claude marker in command output")
+for field in required_panel_fields:
+    if field not in lower_claude_panel_output:
+        raise SystemExit(
+            f"Fusion Rescue Codex live Claude command output missed field {field!r}; "
+            f"output={claude_panel_output[:2000]!r}"
+        )
+assert_meaningful_domain_analysis("Claude primary panel", claude_panel_output)
+
+summary = {
+    "status": "passed",
+    "codex_panel_receivers": [
+        {
+            "receiver": receiver,
+            "lens": receiver_to_lens[receiver],
+            "agent_role": receiver_agent_roles[receiver],
+            "wait_result_line": wait_index_by_receiver[receiver],
+            "close_result_line": close_index_by_receiver[receiver],
+            "returned_marker": expected_markers[receiver_to_lens[receiver]],
+        }
+        for receiver in sorted(receiver_to_lens, key=lambda item: receiver_to_lens[item])
+    ],
+    "claude_consult": {
+        "model": "opus",
+        "budget": budget,
+        "print_mode": True,
+        "permission_mode": "dontAsk",
+        "tools": "",
+        "session_persistence": "disabled",
+        "marker": "OH_NO_CLAUDE_FUSION_PANEL_OK",
+    },
+    "final_marker": "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Codex Fusion Rescue spawned panel agents, called Claude Opus, and synthesized")
+PY
+}
+
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Codex parallel-subagent smoke test"
@@ -2579,7 +3051,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eight subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus Used custom agent types: 8; Wait results captured: 8; Closed agents: 8.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all nine subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the nine role checks plus Used custom agent types: 9; Wait results captured: 9; Closed agents: 9.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
 
   local cmd=(
@@ -2647,6 +3119,7 @@ expected_roles = [
     "debugger",
     "verifier",
     "code-reviewer",
+    "fusion-rescue-analyst",
 ]
 role_headings = {
     "explore": "# Explore Agent",
@@ -2657,11 +3130,12 @@ role_headings = {
     "debugger": "# Debugger Agent",
     "verifier": "# Verifier Agent",
     "code-reviewer": "# Code Reviewer Agent",
+    "fusion-rescue-analyst": "# Fusion Rescue Analyst Agent",
 }
 role_waves = [
     ("explore", "analyst", "planner"),
     ("plan-reviewer", "executor", "debugger"),
-    ("verifier", "code-reviewer"),
+    ("verifier", "code-reviewer", "fusion-rescue-analyst"),
 ]
 required_prompt_markers = [
     "## Skill Relationship",
@@ -3359,6 +3833,7 @@ main() {
   run_deep_live_tests
   run_ralplan_live_test
   run_named_agents_live_test
+  run_fusion_rescue_live_test
   run_parallel_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests

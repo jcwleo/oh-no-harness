@@ -58,7 +58,7 @@ OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
 Live model smoke tests (cost real budget — opt-in):
 
 ```sh
-scripts/test-claude-plugin.sh --live              # all 10 public skills, light prompts
+scripts/test-claude-plugin.sh --live              # all 11 public skills, light prompts
 scripts/test-claude-plugin.sh --live-hook-only    # SessionStart + auto-routing only
 scripts/test-claude-plugin.sh --deep-live         # linked support-doc dereferencing
 scripts/test-codex-plugin.sh --live
@@ -69,7 +69,8 @@ scripts/test-codex-plugin.sh --named-agents-live # user-scope oh-no-* agent_type
 Useful overrides:
 
 - `--scope user` — install into user scope instead of `local`
-- `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune live model + budget
+- `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune general live model + budget
+- `OH_NO_FUSION_RESCUE_MODEL=opus` / `OH_NO_FUSION_RESCUE_MAX_BUDGET_USD=10.00` — tune Fusion Rescue cross-host live validation
 - `--codex-home /tmp/codex-test` — isolate Codex test installs to a throwaway home
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
 - `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart quietly ensures generated files and Ralph preflight repeats that ensure only as fallback
@@ -110,8 +111,8 @@ plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
 plugins/oh-no-harness/hooks/ralph-platform-adapter # Ralph UserPromptSubmit platform adapter
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
-plugins/oh-no-harness/skills/<name>/SKILL.md       # Codex-facing public skill wrapper (10 total)
-plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Claude Code-facing public skill wrapper (10 total)
+plugins/oh-no-harness/skills/<name>/SKILL.md       # Codex-facing public skill wrapper (11 total)
+plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Claude Code-facing public skill wrapper (11 total)
 plugins/oh-no-harness/docs/skill-core/<name>.md    # Shared workflow source of truth
 plugins/oh-no-harness/docs/agent-core/<name>.md    # Platform-neutral role prompt body
 plugins/oh-no-harness/agents/<name>.md             # Generated Claude Code subagent wrapper
@@ -131,8 +132,8 @@ plugins/oh-no-harness/docs/specs/                  # Design specs
 
 ## Conventions
 
-- Public skill surface is the 10 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
-- Claude Code command wrappers must mirror those same 10 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file.
+- Public skill surface is the 11 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
+- Claude Code command wrappers must mirror those same 11 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file.
 - Keep platform wrappers thin. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax belongs in `docs/platforms/` or the wrapper.
 - Keep role behavior in `docs/agent-core/`. Do not hand-edit generated Claude Code wrappers in `agents/` or generated Codex custom-agent templates in `docs/platforms/codex-agents/`; after changing agent-core content or wrapper metadata in `scripts/generate-agent-wrappers.py`, run `python3 scripts/generate-agent-wrappers.py --write`.
 - Use `python3 scripts/generate-agent-wrappers.py --check` before release-facing changes. The validator and release script also run this check and fail when generated wrappers are stale.

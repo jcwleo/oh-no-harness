@@ -14,6 +14,7 @@ Keep the external skill surface limited to:
 - `simplify`
 - `verification-before-completion`
 - `systematic-debugging`
+- `fusion-rescue`
 
 Treat `docs/agent-core/*.md`, `agents/*.md`, and
 `docs/platforms/codex-agents/*.toml` as internal role prompts, not additional

@@ -17,12 +17,15 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
+RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
 LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-1.00}"
+FUSION_RESCUE_LIVE_MODEL="${OH_NO_FUSION_RESCUE_MODEL:-${OH_NO_TEST_MODEL:-opus}}"
+FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files.}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
 
@@ -37,6 +40,7 @@ PUBLIC_SKILLS=(
   simplify
   verification-before-completion
   systematic-debugging
+  fusion-rescue
 )
 
 ALL_SKILLS=(
@@ -52,6 +56,7 @@ AGENTS=(
   debugger
   verifier
   code-reviewer
+  fusion-rescue-analyst
 )
 
 usage() {
@@ -66,6 +71,7 @@ Options:
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
+  --fusion-rescue-live   Run live Fusion Rescue /codex:rescue and panel-subagent smoke test.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
                          Run live natural role-worker smoke tests for Interview, Ultrawork,
@@ -77,13 +83,16 @@ Options:
                          Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
   --model <model>        Claude model alias for live tests. Default: sonnet.
+                         Fusion Rescue live defaults to opus unless overridden.
   --max-budget-usd <n>   Per-command max budget for live tests. Default: 1.00.
   -h, --help             Show this help.
 
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
-  OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE,
+  OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
+  OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_SIMPLIFY_LIVE,
+  OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
 USAGE
 }
@@ -104,6 +113,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
+      shift
+      ;;
+    --fusion-rescue-live)
+      RUN_FUSION_RESCUE_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -140,6 +153,7 @@ while [[ $# -gt 0 ]]; do
     --model)
       LIVE_MODEL="${2:-}"
       [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }
+      FUSION_RESCUE_LIVE_MODEL="$LIVE_MODEL"
       shift 2
       ;;
     --max-budget-usd)
@@ -792,6 +806,9 @@ live_prompt_for_skill() {
       ;;
     systematic-debugging)
       printf '/%s:systematic-debugging A smoke test command is failing. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the debugging phases you would follow before fixing.' "$PLUGIN_NAME"
+      ;;
+    fusion-rescue)
+      printf '/%s:fusion-rescue Approved no-op smoke-test problem: compare three panel views, make no file changes, and report synthesis fields. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the panel slots and judge/synthesis fields you would use.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No live prompt for skill: $1"
@@ -1896,7 +1913,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eight subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus lifecycle close or cleanup status."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:fusion-rescue-analyst. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all nine subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the nine role checks plus lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1934,6 +1951,7 @@ expected_roles = [
     "debugger",
     "verifier",
     "code-reviewer",
+    "fusion-rescue-analyst",
 ]
 first_wave = {"explore", "analyst", "planner"}
 task_tool_uses = []
@@ -2072,6 +2090,450 @@ if missing_summary_roles:
     )
 
 print("ok - live Claude role subagents spawned and completed")
+PY
+}
+
+run_fusion_rescue_live_test() {
+  if [[ "$RUN_FUSION_RESCUE_LIVE" != "1" ]]; then
+    log "Skipping live Claude Fusion Rescue /codex:rescue smoke test"
+    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus /codex:rescue Codex consult.\n' >&2
+    return
+  fi
+
+  log "Running live Claude Fusion Rescue /codex:rescue smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/fusion-rescue-claude-codex.jsonl"
+  local err_file="$RUN_DIR/fusion-rescue-claude-codex.err"
+  local summary_file="$RUN_DIR/fusion-rescue-claude-codex.summary.json"
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:fusion-rescue require-cross-host read-only live integration smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue.
+
+Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. The team must choose whether to quarantine the test, add automatic retries, or root-cause/fix the failure before release. Every panel result must discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence rather than only saying the smoke test is formatted correctly.
+
+Build exactly three panel slots and then synthesize as the current Claude main judge.
+
+Panel 1 primary must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: primary; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must provide constructive analysis of quarantine, auto-retry, root-cause, CI signal, and release risk.
+
+Panel 2 adversarial must be exactly one Codex cross-host consult through the explicitly loaded openai/codex-plugin-cc rescue capability surfaced as /codex:rescue. In this non-interactive test, use that capability by invoking the same Agent surface that /codex:rescue delegates to, with subagent_type codex:codex-rescue. A valid live result requires that subagent to perform its required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background, or returned after a Stop hook says a Codex task is still running is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second codex:codex-rescue task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The forwarded request must be foreground, fresh, read-only behavior and must include the words via /codex:rescue plus the marker request OH_NO_CODEX_RESCUE_RETURN_OK. The Codex request: --wait --fresh read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; analyze this CI release-risk problem adversarially; return exactly OH_NO_CODEX_RESCUE_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If codex:codex-rescue cannot run node codex-companion.mjs without approval or foreground completion, do not synthesize success and do not include OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK.
+
+Panel 3 pragmatic must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: pragmatic; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+
+Start the two Claude panel subagents before waiting when possible. Wait for exactly these three panel results, and do not end while a worker is still pending. After the single Codex rescue returns and both Claude panel subagents finish, synthesize immediately rather than concatenate or recheck liveness. Final answer must contain exactly the marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK and must include: panels completed: primary, adversarial, pragmatic; Codex marker: OH_NO_CODEX_RESCUE_RETURN_OK; Claude markers: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY, OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available via /codex:rescue, Claude pragmatic available; fusion depth: 1.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness Fusion Rescue skill. You may use Claude subagents and the installed codex:rescue capability only for this requested verification. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+out_path, err_path, summary_path, fusion_model = sys.argv[1:5]
+expected_claude_markers = {
+    "primary": "OH_NO_CLAUDE_FUSION_PANEL_PRIMARY",
+    "pragmatic": "OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC",
+}
+required_final_markers = [
+    "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
+    "OH_NO_CODEX_RESCUE_RETURN_OK",
+    "OH_NO_CLAUDE_FUSION_PANEL_PRIMARY",
+    "OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC",
+    "panels completed",
+    "primary, adversarial, pragmatic",
+    "panel availability/fallback notes",
+    "/codex:rescue",
+    "fusion depth: 1",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+    "confidence and why",
+]
+required_panel_fields = [
+    "lens name",
+    "strongest finding",
+    "evidence used",
+    "assumption under test",
+    "likely failure mode",
+    "recommended next action",
+    "confidence",
+    "what would change",
+]
+required_codex_result_fields = [
+    "adversarial",
+    "evidence used",
+    "assumption under test",
+    "likely failure mode",
+    "recommended next action",
+    "confidence",
+    "change",
+]
+domain_markers = [
+    "ci",
+    "integration",
+    "quarantine",
+    "retry",
+    "root-cause",
+    "release",
+    "risk",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+forbidden_fallbacks = [
+    "Codex adversarial unavailable",
+    "codex unavailable",
+    "codex rescue unavailable",
+    "require-cross-host unavailable",
+]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def assert_meaningful_domain_analysis(label, text):
+    lower_text = text.lower()
+    hits = [marker for marker in domain_markers if marker in lower_text]
+    if len(hits) < 4:
+        raise SystemExit(
+            f"Claude Fusion Rescue live {label} did not include meaningful CI release-risk analysis; "
+            f"domain_hits={hits!r} text={text[:2000]!r}"
+        )
+    weak_markers = (
+        "no substantive problem packet",
+        "only format",
+        "format/scope smoke",
+        "no actionable problem packet",
+        "only smoke",
+        "does the cross-host fusion rescue panel integration work",
+    )
+    for marker in weak_markers:
+        if marker in lower_text:
+            raise SystemExit(
+                f"Claude Fusion Rescue live {label} returned weak/non-substantive analysis marker "
+                f"{marker!r}; text={text[:2000]!r}"
+            )
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude Fusion Rescue live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_slash_commands = set()
+init_agents = set()
+init_tools = set()
+errors = []
+claude_panel_uses = defaultdict(list)
+claude_panel_results = {}
+codex_rescue_uses = []
+unexpected_task_uses = []
+unexpected_write_uses = []
+task_started_roles = []
+task_completed_roles = []
+codex_bash_tool_ids = set()
+codex_bash_success_texts = []
+codex_bash_failures = []
+workflow_tool_ids = set()
+workflow_scripts = []
+workflow_completed = False
+non_user_text_parts = []
+permission_denials = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if data.get("type") == "system" and (
+            "Command running in background" in text
+            or ("Codex task" in text and "still running" in text)
+        ):
+            raise SystemExit(
+                f"Claude Fusion Rescue live left background work instead of foreground completion near line {index}: "
+                f"{text[:2000]!r}"
+            )
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude Fusion Rescue live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_slash_commands.update(data.get("slash_commands", []))
+            init_agents.update(data.get("agents", []))
+            init_tools.update(data.get("tools", []))
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    payload = part.get("input", {})
+                    command = str(payload.get("command", ""))
+                    if "codex-companion.mjs" in command:
+                        codex_bash_tool_ids.add(part.get("id"))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = payload.get("subagent_type", "")
+                    if subagent_type == "oh-no-harness:fusion-rescue-analyst":
+                        matched = [
+                            lens for lens, marker in expected_claude_markers.items()
+                            if marker in payload_text
+                        ]
+                        if len(matched) != 1:
+                            raise SystemExit(
+                                "Claude Fusion Rescue live expected each fusion analyst task "
+                                f"to contain one lens marker; line={index} markers={matched!r} "
+                                f"payload={payload_text[:2000]!r}"
+                            )
+                        claude_panel_uses[matched[0]].append((index, payload_text))
+                    elif subagent_type == "codex:codex-rescue":
+                        codex_rescue_uses.append((index, payload_text))
+                    else:
+                        unexpected_task_uses.append((index, subagent_type, payload_text[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
+                    workflow_tool_ids.add(part.get("id"))
+                    script = collect_text(part.get("input", {}).get("script", ""))
+                    if script:
+                        workflow_scripts.append((index, script))
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            subagent_type = data.get("subagent_type", "")
+            if subagent_type:
+                task_started_roles.append((index, subagent_type))
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            if data.get("status") == "completed":
+                subagent_type = data.get("subagent_type", "")
+                if subagent_type:
+                    task_completed_roles.append((index, subagent_type))
+                if (
+                    data.get("tool_use_id") in workflow_tool_ids
+                    or "workflow" in str(data.get("summary", "")).lower()
+                ):
+                    workflow_completed = True
+            non_user_text_parts.append(text)
+        tool_result = data.get("tool_use_result") or {}
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict):
+                    continue
+                tool_use_id = part.get("tool_use_id")
+                if tool_use_id not in codex_bash_tool_ids:
+                    continue
+                result_text = collect_text(part)
+                is_error = bool(part.get("is_error"))
+                if "Command running in background" in result_text or (
+                    "Codex task" in result_text and "still running" in result_text
+                ):
+                    raise SystemExit(
+                        "Claude Fusion Rescue live codex-companion Bash did not complete "
+                        f"in the foreground: {result_text[:1000]!r}"
+                    )
+                if is_error:
+                    codex_bash_failures.append((index, result_text[:1000]))
+                else:
+                    codex_bash_success_texts.append(result_text)
+        if isinstance(tool_result, dict):
+            agent_type = tool_result.get("agentType", "")
+            if agent_type:
+                non_user_text_parts.append(collect_text(tool_result))
+                if tool_result.get("status") == "completed":
+                    task_completed_roles.append((index, agent_type))
+                    if agent_type == "oh-no-harness:fusion-rescue-analyst":
+                        result_text = collect_text(tool_result.get("content", ""))
+                        matched = [
+                            lens for lens, marker in expected_claude_markers.items()
+                            if marker in result_text
+                        ]
+                        if len(matched) != 1:
+                            raise SystemExit(
+                                "Claude Fusion Rescue live expected each completed fusion analyst "
+                                f"result to contain one lens marker; line={index} markers={matched!r} "
+                                f"result={result_text[:2000]!r}"
+                            )
+                        claude_panel_results[matched[0]] = result_text
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+        if data.get("type") == "result":
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude Fusion Rescue live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude Fusion Rescue live used write-capable tools: {unexpected_write_uses!r}")
+if permission_denials:
+    raise SystemExit(f"Claude Fusion Rescue live had permission denials: {permission_denials!r}")
+if "codex:rescue" not in init_slash_commands:
+    raise SystemExit(
+        "Claude Fusion Rescue live did not expose /codex:rescue in slash_commands; "
+        f"got={sorted(cmd for cmd in init_slash_commands if 'codex' in cmd)!r}"
+    )
+if "codex:codex-rescue" not in init_agents:
+    raise SystemExit(
+        "Claude Fusion Rescue live did not expose codex:codex-rescue agent; "
+        f"got={sorted(agent for agent in init_agents if 'codex' in agent)!r}"
+    )
+if "oh-no-harness:fusion-rescue-analyst" not in init_agents:
+    raise SystemExit("Claude Fusion Rescue live did not expose oh-no-harness:fusion-rescue-analyst agent")
+if not ({"Task", "Agent", "Workflow"} & init_tools):
+    raise SystemExit(f"Claude Fusion Rescue live did not expose subagent tooling; tools={sorted(init_tools)!r}")
+
+if workflow_scripts or workflow_completed:
+    raise SystemExit("Claude Fusion Rescue live used Workflow instead of directly observable panel subagents")
+if unexpected_task_uses:
+    raise SystemExit(f"Claude Fusion Rescue live started unexpected Task/Agent subagents: {unexpected_task_uses!r}")
+missing_lenses = sorted(set(expected_claude_markers) - set(claude_panel_uses))
+if missing_lenses:
+    raise SystemExit(f"Claude Fusion Rescue live did not start Claude panel lenses: {missing_lenses!r}")
+duplicate_lenses = {
+    lens: uses for lens, uses in claude_panel_uses.items()
+    if len(uses) != 1
+}
+if duplicate_lenses:
+    raise SystemExit(f"Claude Fusion Rescue live expected one task per Claude panel lens: {duplicate_lenses!r}")
+missing_results = sorted(set(expected_claude_markers) - set(claude_panel_results))
+if missing_results:
+    raise SystemExit(f"Claude Fusion Rescue live did not capture completed panel results: {missing_results!r}")
+for lens, result_text in claude_panel_results.items():
+    lower_result_text = result_text.lower()
+    if lens not in lower_result_text:
+        raise SystemExit(
+            f"Claude Fusion Rescue live panel {lens} result did not name its lens; "
+            f"result={result_text[:2000]!r}"
+        )
+    for field in required_panel_fields:
+        if field not in lower_result_text:
+            raise SystemExit(
+                f"Claude Fusion Rescue live panel {lens} result missed field {field!r}; "
+                f"result={result_text[:2000]!r}"
+            )
+    assert_meaningful_domain_analysis(f"panel {lens}", result_text)
+if len(codex_rescue_uses) != 1:
+    raise SystemExit(f"Claude Fusion Rescue live expected one codex:codex-rescue task, got {codex_rescue_uses!r}")
+codex_payload = codex_rescue_uses[0][1]
+for marker in ("/codex:rescue", "OH_NO_CODEX_RESCUE_RETURN_OK", "read-only behavior", "fusion depth: 1"):
+    if marker.lower() not in codex_payload.lower():
+        raise SystemExit(
+            f"Claude Fusion Rescue live codex rescue payload missed marker {marker!r}; "
+            f"payload={codex_payload[:2000]!r}"
+        )
+forbidden_payload_markers = ("--write", "write-capable")
+leaked = [marker for marker in forbidden_payload_markers if marker.lower() in codex_payload.lower()]
+if leaked:
+    raise SystemExit(f"Claude Fusion Rescue live codex rescue payload requested write behavior: {leaked!r}")
+
+started_role_names = [role for _, role in task_started_roles]
+if "codex:codex-rescue" not in started_role_names and not workflow_scripts:
+    raise SystemExit(f"Claude Fusion Rescue live did not start codex:codex-rescue task; starts={task_started_roles!r}")
+completed_role_names = [role for _, role in task_completed_roles]
+if (
+    "codex:codex-rescue" not in completed_role_names
+    and "OH_NO_CODEX_RESCUE_RETURN_OK" not in "\n".join(non_user_text_parts)
+):
+    raise SystemExit(f"Claude Fusion Rescue live did not complete codex rescue or capture its marker; completions={task_completed_roles!r}")
+if not codex_bash_tool_ids:
+    raise SystemExit("Claude Fusion Rescue live did not invoke codex-companion.mjs through codex:codex-rescue Bash")
+if codex_bash_failures:
+    raise SystemExit(f"Claude Fusion Rescue live codex-companion Bash failed: {codex_bash_failures!r}")
+codex_bash_text = "\n".join(codex_bash_success_texts)
+if "OH_NO_CODEX_RESCUE_RETURN_OK" not in codex_bash_text:
+    raise SystemExit(
+        "Claude Fusion Rescue live did not capture OH_NO_CODEX_RESCUE_RETURN_OK "
+        "from codex-companion.mjs stdout"
+    )
+lower_codex_bash_text = codex_bash_text.lower()
+for field in required_codex_result_fields:
+    if field not in lower_codex_bash_text:
+        raise SystemExit(
+            f"Claude Fusion Rescue live Codex companion stdout missed field {field!r}; "
+            f"stdout={codex_bash_text[:2000]!r}"
+        )
+assert_meaningful_domain_analysis("Codex adversarial panel", codex_bash_text)
+
+non_user_text = "\n".join(non_user_text_parts)
+for forbidden in (
+    "This command requires approval",
+    "permission denied",
+    "sandbox approval gate",
+    "forwarded Codex output is unavailable",
+    "returned directly from this wrapper",
+    "CODEX_RESCUE_PERMISSION_BLOCKED",
+):
+    if forbidden.lower() in non_user_text.lower():
+        raise SystemExit(f"Claude Fusion Rescue live saw non-live Codex rescue evidence: {forbidden!r}")
+success_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK" in part
+)
+if not success_text:
+    raise SystemExit("Claude Fusion Rescue live did not return success marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude Fusion Rescue live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude Fusion Rescue live missing synthesis field: {field!r}")
+for marker in forbidden_fallbacks:
+    if marker.lower() in lower_success_text:
+        raise SystemExit(f"Claude Fusion Rescue live reported forbidden fallback marker: {marker!r}")
+
+summary = {
+    "status": "passed",
+    "model": fusion_model,
+    "claude_panel_results": [
+        {
+            "lens": lens,
+            "subagent_type": "oh-no-harness:fusion-rescue-analyst",
+            "returned_marker": expected_claude_markers[lens],
+        }
+        for lens in sorted(claude_panel_results)
+    ],
+    "codex_rescue": {
+        "subagent_type": "codex:codex-rescue",
+        "bash_tool_uses": len(codex_bash_tool_ids),
+        "returned_marker": "OH_NO_CODEX_RESCUE_RETURN_OK",
+        "permission_denials": len(permission_denials),
+    },
+    "final_marker": "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude Fusion Rescue used /codex:rescue, captured Codex output, and synthesized")
 PY
 }
 
@@ -2346,6 +2808,7 @@ main() {
   run_deep_live_tests
   run_ralplan_live_test
   run_parallel_live_test
+  run_fusion_rescue_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
   log "All requested checks passed"

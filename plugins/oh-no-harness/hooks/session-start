@@ -25,7 +25,7 @@ fi
 bootstrap_policy='<OH_NO_BOOTSTRAP>
 You have Oh No Harness installed. Use native skill loading to read the relevant Oh No Harness skill when it applies.
 
-Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; autonomous end-to-end work -> ultrawork; bugs/failing commands/regressions/unknown root cause -> systematic-debugging; completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
+Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; hard stalled problem needing panel rescue -> fusion-rescue; autonomous end-to-end work -> ultrawork; bugs/failing commands/regressions/unknown root cause -> systematic-debugging; completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
 
 Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork/tiny direct edits before behavior-changing edits.
 
@@ -46,6 +46,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 - Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.
 - Autonomous or end-to-end delivery request: oh-no-harness:ultrawork.
 - Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.
+- Hard stalled problem after ordinary analysis/debugging, or explicit fusion rescue request: oh-no-harness:fusion-rescue.
 - Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.
 - About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.
 - Changed diff needs behavior-preserving quality cleanup before delivery: oh-no-harness:simplify.

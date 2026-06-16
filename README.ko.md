@@ -9,7 +9,7 @@
 
 코딩 에이전트에게 또 하나의 런타임은 필요 없습니다. 필요한 건 실제로 읽고 따라갈 수 있는 workflow입니다.
 
-**Oh No Harness**는 **Claude Code**와 **Codex**를 위한 그 workflow입니다: **10개의 stage skill**과 **8개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, npm, tmux, MCP, terminal-only control plane 없이 동작합니다.
+**Oh No Harness**는 **Claude Code**와 **Codex**를 위한 그 workflow입니다: **11개의 stage skill**과 **9개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, 어려운 정체 구간에서는 `fusion-rescue`를 사용하고, npm, tmux, MCP, terminal-only control plane 없이 동작합니다.
 
 두 극단 사이에 있습니다.
 
@@ -34,7 +34,7 @@ stage skill이 handoff를 조율하고, role agent가 탐색, 계획, 실행, �
 > [!NOTE]
 > Markdown을 읽을 수 있다면 harness의 동작도 확인할 수 있습니다. handoff를 따라갈 수 있다면 workflow도 이해할 수 있습니다.
 
-모호한 요청 정리부터 계획, 실행·검증, 디버깅, 정리까지 10개의 워크플로우를 제공하며, 데몬이나 백그라운드 서비스, 숨겨진 상태 없이 동작합니다.
+모호한 요청 정리부터 계획, 실행·검증, 어려운 문제 rescue, 디버깅, 정리까지 11개의 워크플로우를 제공하며, 데몬이나 백그라운드 서비스, 숨겨진 상태 없이 동작합니다.
 
 Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 
@@ -45,8 +45,8 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 - **호스트 native 설치.** Claude Code와 Codex가 각자의 plugin/skill 시스템으로 로드합니다. Oh No Harness가 관리할 대상을 하나 더 늘리지 않습니다.
 - **터미널은 선택 사항.** 설치는 shell에서 할 수 있지만, 일상 workflow는 터미널에 묶이지 않습니다. 같은 Markdown skill이 Claude Code 세션과 Codex App 스타일 plugin UI에서도 맞게 동작합니다.
 - **Workflow spine.** 공개 skill은 소프트웨어 개발 단계를 맡고, 내부 agent는 사용자가 외울 새 명령이 아니라 전문 판단 패스로 붙습니다.
-- **Skill + 에이전트.** 10개 워크플로우 skill을 8명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`)가 떠받칩니다.
-- **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 10개 이름과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 `skills/<name>/SKILL.md` wrapper를 읽습니다.
+- **Skill + 에이전트.** 11개 워크플로우 skill을 9명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`)가 떠받칩니다.
+- **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 11개 이름과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 `skills/<name>/SKILL.md` wrapper를 읽습니다.
 
 | 너무 무거움 | 너무 헐거움 | Oh No Harness |
 |---|---|---|
@@ -59,6 +59,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 **🔁 워크플로우**
 - **소크라테스식 인터뷰.** `/oh-no-harness:interview`가 코드 사실, 리서치 사실, 사용자 판단 질문을 분리해 — 스펙 작성 전에 결정·제약·비범위를 보존합니다.
 - **Mode-gated 실행.** 스펙과 계획은 작업을 `LIGHT` / `STANDARD` / `THOROUGH`로 산정하고, Ralph는 기록된 모드에 맞춰 실행합니다 (항상 무거운 루프를 돌리지 않음).
+- **Fusion rescue.** `/oh-no-harness:fusion-rescue`는 세 개 패널 렌즈를 실행하고, 가능하면 Codex가 adversarial 렌즈를 맡게 한 뒤, 현재 host가 다음 행동을 종합합니다.
 - **Auto-routing.** `/oh-no-harness:auto-routing on` 한 번이면 Claude가 질문·수정 전에 적절한 skill을 먼저 참조하도록 안내합니다 — 숨겨진 상태도, 승인 게이트 우회도 없습니다.
 
 **✨ 사용 경험**
@@ -135,6 +136,7 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:ralplan <작업 또는 스펙>` | 광범위·고위험·다파일 작업이라 코딩 전 계획·승인이 필요할 때 — `.oh-no/plans/`에 저장됩니다. |
 | `/oh-no-harness:ralph <계획 또는 티켓>` | 수용 기준이 명확한 구체적인 작업 — 모드를 읽고 검증까지 실행합니다. |
 | `/oh-no-harness:ultrawork <요청>` | End-to-end: interview → ralplan → ralph → verification 한 흐름. |
+| `/oh-no-harness:fusion-rescue <어려운 문제>` | 정체된 문제를 위한 세 패널 rescue 분석. standalone은 권고를 반환하고, Ralph/debugging 호출자는 synthesis 뒤 원래 흐름으로 돌아갑니다. |
 | `/oh-no-harness:test-driven-development <변경>` | 명시적인 TDD/test-first 요청 또는 Ralph/debugging 실행 내부 게이트 — 일반 구현은 Ralph로 라우팅합니다. |
 | `/oh-no-harness:systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/oh-no-harness:verification-before-completion` | "완료" / "수정됨" / "준비됨" 선언 전 — 새 증거를 요구합니다. |
