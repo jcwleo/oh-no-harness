@@ -25,25 +25,18 @@ fi
 bootstrap_policy='<OH_NO_BOOTSTRAP>
 You have Oh No Harness installed. Use native skill loading to read the relevant Oh No Harness skill when it applies.
 
-Default routing summary:
-- Use oh-no-harness:using-oh-no-harness when workflow selection is unclear.
-- Use oh-no-harness:interview for vague, broad, or requirement-light work.
-- Use oh-no-harness:ralplan for planning, risky, cross-file, multi-step, or unclear implementation work.
-- Use oh-no-harness:ralph for an approved plan, PRD, concrete task, or acceptance criteria.
-- Use oh-no-harness:ultrawork for autonomous end-to-end delivery.
-- Use oh-no-harness:systematic-debugging for bugs, failing commands, regressions, flaky behavior, or unknown root cause.
-- Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork/tiny direct edits before behavior-changing edits.
-- Use oh-no-harness:verification-before-completion before claiming done, fixed, passing, ready, or verified.
-- Use oh-no-harness:simplify only after behavior is locked and changed code needs reuse, simplification, efficiency, or altitude cleanup.
+Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; autonomous end-to-end work -> ultrawork; bugs/failing commands/regressions/unknown root cause -> systematic-debugging; completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
 
-This bootstrap is only a compact routing reminder. Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
+Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork/tiny direct edits before behavior-changing edits.
+
+Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
 
 auto_routing_policy=""
 if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
   auto_routing_policy='
 <OH_NO_FORCED_ROUTING>
-Forced routing is enabled for Oh No Harness. If there is even a 1% chance that a local Oh No Harness skill applies to what you are about to do, you MUST invoke that skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion. This is not optional and you cannot rationalize past it.
+Forced routing is enabled for Oh No Harness. If there is even a 1% chance that a local Oh No Harness skill applies, invoke that skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion.
 
 Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
 
@@ -59,16 +52,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 
 After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
 
-Red flags. These thoughts mean STOP and route through a skill:
-- This is a simple question. Reality: questions are tasks. Re-check the routing map.
-- Let me explore the codebase first. Reality: interview or systematic-debugging tells you HOW to explore. Route first.
-- I need more context, let me ask a clarifying question. Reality: interview is where clarifying questions belong.
-- I will just make this one small edit. Reality: ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work or the host intentionally selected a tiny direct edit path.
-- I already know which skill applies. Reality: recognition is not invocation. Invoke it.
-- The user just wants a quick answer. Reality: decide routing first, then answer.
-- It is only docs or config. Reality: if unsure, invoke. If the skill does not apply, say so in one line and continue.
-- This bug looks obvious. Reality: systematic-debugging exists for this exact moment.
-- I am about to say it is fixed, passing, or ready. Reality: verification-before-completion runs first.
+Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work or the host intentionally selected a tiny direct edit path.
 
 If an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
 </OH_NO_FORCED_ROUTING>'
@@ -91,7 +75,7 @@ ${bootstrap_policy}
 claude_code_question_policy='<CLAUDE_CODE_ONLY>
 This platform is Claude Code. When asking the user a clarification, preference, scope, or approval question, use AskUserQuestion when that tool is available.
 
-Prefer one focused question at a time. For option questions, provide 2-4 mutually exclusive choices and put the recommended option first when there is a clear recommendation. Use plain text only when AskUserQuestion is unavailable or the answer needs free-form detail that does not fit structured options.
+Prefer one focused question at a time. Use 2-4 mutually exclusive choices when options fit; otherwise ask plain text.
 
 This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
 </CLAUDE_CODE_ONLY>'
@@ -99,26 +83,13 @@ This instruction is Claude Code-only. Do not apply it on Codex or other platform
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
 Standing user/workflow preference: use sub-agents, delegation, and parallel agent work proactively.
 Treat this as the explicit user request for eligible Oh No Harness workflow
-subagents when isolated role work is allowed and the host exposes tools. Respect
-tool policy, ownership, isolation, and lifecycle; stay inline only if
-unavailable, unsafe, or skill-blocked.
+subagents when isolated role work is allowed and the host exposes tools.
 
-For active workflows or explicit subagent tasks, spawn_agent MUST use custom
-agent_type "oh-no-<role>" when recognized. Omitting agent_type is generic/default
-dispatch. Attempt agent_type first; generic fallback requires confirmed
-unavailability and is never allowed for no-skill read-only lookup. With custom
-agent_type, omit fork_context and use one prompt/message payload. Timeout/empty/no
-agents completed is not final. MUST NOT call close_agent for a running or pending
-subagent; never use missing output as completion evidence.
+Hard rules: for active workflows or explicit subagent tasks, spawn_agent MUST use custom agent_type "oh-no-<role>" when recognized; generic fallback requires confirmed unavailability and is never allowed for no-skill read-only lookup. With custom agent_type, omit fork_context and use one prompt/message payload. Timeout/empty/no agents completed is not final. MUST NOT call close_agent for a running or pending subagent; never use missing output as completion evidence.
 </CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
 
 codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
-For simple read-only repository fact lookup prompts, Codex may use one
-exploration sub-agent without active workflow. Eligible: locate,
-trace, or summarize existing code/config/tests/docs. Do not use this lane for planning, debugging, implementation, review, QA, security, verification,
-ambiguity, or edits. Do not read/reproduce secrets unless asked;
-redact credential values in sub-agent output. Do not call spawn_agent for this
-lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. If spawned: wait_agent first until a final result is captured. The next lifecycle tool for that receiver must be wait_agent, repeated until it returns that receiver with final status completed. Only after that captured wait_agent result may close_agent be called. close_agent is never first result capture. Do not call close_agent to retrieve output; even completed close output is not a substitute for wait_agent. Timeout/empty/no agents completed is not captured. MUST NOT close a running read-only sub-agent; leave open, wait longer, or report pending unless user cancels, scope invalidates, duplicate/mis-scoped spawn, or safety/security risk appears.
+For simple read-only repository fact lookup prompts, Codex may use one exploration sub-agent without active workflow. Eligible: locate, trace, or summarize existing code/config/tests/docs. Do not use this lane for planning, debugging, implementation, review, QA, security, verification, ambiguity, or edits. Do not read/reproduce secrets unless asked; redact credential values in sub-agent output. Do not call spawn_agent for this lane unless the host accepts agent_type `oh-no-explore`; otherwise perform the lookup inline. If spawned: wait_agent first until a final result is captured; close_agent is never first result capture. Timeout/empty/no agents completed is not captured. MUST NOT close a running read-only sub-agent; wait longer, report pending, or cancel only for user cancellation, invalid scope, duplicate/mis-scoped spawn, or safety/security risk.
 </CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
 
 codex_agent_ensure_warning() {

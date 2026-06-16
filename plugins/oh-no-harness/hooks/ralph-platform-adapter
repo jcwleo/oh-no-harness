@@ -62,7 +62,7 @@ if [ "$platform" = "unknown" ]; then
   exit 0
 fi
 
-codex_agent_preflight="Codex custom-agent preflight: not applicable on ${platform_name}."
+codex_agent_preflight=""
 if [ "$platform" = "codex" ]; then
   installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
   if [ -x "$installer_path" ]; then
@@ -76,25 +76,54 @@ if [ "$platform" = "codex" ]; then
   fi
 fi
 
-shared_path="${OH_NO_PLUGIN_ROOT}/docs/shared/ralph-subagent-policy.md"
-shared_policy="$(cat "$shared_path" 2>&1 || echo "Error reading $shared_path")"
-platform_adapter="$(cat "$adapter_path" 2>&1 || echo "Error reading $adapter_path")"
+if [ "$platform" = "codex" ]; then
+  platform_guidance="CODEX_ONLY_RALPH_ADAPTER
+
+Use Codex spawn_agent for eligible isolated Ralph roles. Prefer agent_type \"oh-no-<role>\"; use generic prompt-embedded fallback only after confirmed custom-agent unavailability and record the fallback reason. Do not use fork_context with custom agent_type.
+
+Every registered custom-agent dispatch packet should name Role, Story/task, Scope, Do not touch, Expected output, Verification responsibility, Lifecycle, and Coordination. Generic fallback must also include:
+Agent prompt source: docs/agent-core/<role>.md
+Agent prompt content:
+<matching docs/agent-core/<role>.md prompt content>
+
+Batch independent agents before wait_agent. A timeout or empty wait is not a final result. Capture final output before close_agent; never close a running or pending subagent merely because it is slow.
+
+Parallel trigger: approved-plan-handoff is authorization for eligible isolated roles from an approved ralplan handoff; it is not a command to dispatch roles whose output would not change a decision."
+else
+  platform_guidance="CLAUDE_CODE_ONLY_RALPH_ADAPTER
+
+Use Claude Code Task, Agent, Workflow agent(), or subagent mechanisms with plugin-scoped agents from agents/. Prefer Role: oh-no-harness:<agent>; when a manual mention is needed, use @agent-oh-no-harness:<agent>.
+
+Every dispatch packet should name Role, Story/task, Scope, Do not touch, Expected output, Verification responsibility, Background, Lifecycle, and Coordination.
+
+Batch independent background agents before waiting. Capture final output and changed-file set, then close or cleanup the completed subagent when the host exposes that mechanism.
+
+Parallel trigger: approved-plan-handoff is authorization for eligible isolated roles from an approved ralplan handoff; it is not a command to dispatch roles whose output would not change a decision."
+fi
 
 context="<OH_NO_RALPH_PLATFORM_ADAPTER>
 Platform: ${platform_name}
 
-Ralph is being invoked. Apply the shared Ralph subagent policy and the active
-platform adapter below. Do not apply another platform's invocation syntax.
+Ralph is being invoked. Read and apply the shared Ralph subagent policy and the
+active platform adapter source files below. This hook is a compact reminder; the
+files remain the source of truth. Do not apply another platform's invocation
+syntax.
 
 ${codex_agent_preflight}
 
 Shared policy source: docs/shared/ralph-subagent-policy.md
-
-${shared_policy}
+Shared policy reminders:
+- Dispatch only when the selected mode/policy allows it, the role is isolated,
+  and the result can change implementation, review, verification, or ship/block
+  decisions.
+- Create the full eligible independent batch before waiting.
+- Keep role boundaries inline with a recorded fallback reason when dispatch is
+  unavailable, unsafe to isolate, or not decision-changing.
+- Implementation agents must not revert or overwrite work outside their scope.
 
 Active platform adapter source: ${adapter_path#${OH_NO_PLUGIN_ROOT}/}
 
-${platform_adapter}
+${platform_guidance}
 </OH_NO_RALPH_PLATFORM_ADAPTER>"
 
 escape_for_json() {
