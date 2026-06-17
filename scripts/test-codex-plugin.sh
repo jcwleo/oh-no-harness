@@ -2604,7 +2604,7 @@ PY
 run_fusion_rescue_live_test() {
   if [[ "$RUN_FUSION_RESCUE_LIVE" != "1" ]]; then
     log "Skipping live Codex Fusion Rescue cross-host smoke test"
-    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus Claude Opus consult.\n' >&2
+    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus Claude Opus consult from a Codex subagent.\n' >&2
     return
   fi
 
@@ -2621,15 +2621,17 @@ Use the oh-no-harness:fusion-rescue skill. Read-only live integration smoke test
 
 Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. The team must choose whether to quarantine the test, add automatic retries, or root-cause/fix the failure before release. Every panel result must discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence rather than only saying the smoke test is formatted correctly.
 
+Before any Claude consult or cross-host panel assignment, inspect the current Codex permission/sandbox context. This test is launched with danger-full-access, so you must explicitly record: Codex permission preflight: danger-full-access confirmed. Only after that confirmation may Panel 1 invoke Claude. If the permission state is not danger-full-access, do not call Claude; because this prompt uses require-cross-host behavior, block with require-cross-host unavailable, state that Claude cannot be used because Codex permission is not danger-full-access, name the current-host three-panel fallback as the next local option, and do not return the success marker.
+
 Build exactly three panel slots and then synthesize as the current Codex main judge.
 
-Panel 1 primary must be a Claude Code cross-host consult. Invoke \${CLAUDE_BIN:-claude} as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --tools "", --no-session-persistence. The Claude prompt must be read-only and must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude primary panel must provide substantive analysis of the CI integration-test release decision and mention at least quarantine, auto-retry, root-cause, and release risk.
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --no-session-persistence. Do not specify a Claude tools override because Claude may use its own permitted read-only tools for analysis. Do not require Claude Task/Agent proof. The Claude prompt must be read-only and must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: read-only analysis tools may be used only if permitted by the active Claude host; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
 
 Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
 
 Panel 3 pragmatic must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
-Start both Codex subagents before waiting when possible. Wait for each receiver until completed, capture both results, then close both completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After Claude returns and both Codex subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available, Codex pragmatic available; fusion depth: 1.
+Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: Codex permission preflight: danger-full-access confirmed; panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: primary available via Codex cross-host subagent using claude -p --model opus with host-default Claude tools policy after danger-full-access preflight, Codex adversarial available, Codex pragmatic available; opposite-host response path: Claude via Codex primary subagent; fusion depth: 1.
 PROMPT
 )
 
@@ -2661,16 +2663,22 @@ from pathlib import Path
 
 out_path, err_path, live_home, budget, summary_path = sys.argv[1:6]
 expected_markers = {
+    "primary": "OH_NO_FUSION_PANEL_PRIMARY_CLAUDE",
     "adversarial": "OH_NO_FUSION_PANEL_ADVERSARIAL",
     "pragmatic": "OH_NO_FUSION_PANEL_PRAGMATIC",
 }
 required_final_markers = [
     "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
     "OH_NO_CLAUDE_FUSION_PANEL_OK",
+    "OH_NO_FUSION_PANEL_PRIMARY_CLAUDE",
     "OH_NO_FUSION_PANEL_ADVERSARIAL",
     "OH_NO_FUSION_PANEL_PRAGMATIC",
+    "Codex permission preflight",
+    "danger-full-access confirmed",
     "panels completed: primary, adversarial, pragmatic",
     "panel availability/fallback notes",
+    "opposite-host response path",
+    "Codex cross-host subagent",
     "fusion depth: 1",
 ]
 required_synthesis_fields = [
@@ -2708,7 +2716,6 @@ required_claude_argv = [
     budget,
     "--permission-mode",
     "dontAsk",
-    "--tools",
     "--no-session-persistence",
 ]
 secret_patterns = [
@@ -2728,6 +2735,12 @@ forbidden_command_patterns = [
     re.compile(r"(^|[;&|'\"]\s*)sed\s+-i\b"),
     re.compile(r"(^|[;&|'\"]\s*)cat\s+>"),
     re.compile(r"(^|[;&|'\"]\s*)printf\b[^|;&]*>"),
+]
+claude_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(\$\{CLAUDE_BIN:-claude\}|claude)\b"),
+    re.compile(r"\bexecFile\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bspawnSync\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*claude", re.IGNORECASE),
 ]
 forbidden_fallbacks = [
     "Claude unavailable",
@@ -2751,26 +2764,34 @@ def role_of_event(data):
     message = data.get("message") or {}
     return item.get("role") or data.get("role") or message.get("role") or ""
 
-def receiver_agent_role(receiver):
+def receiver_transcript_and_agent_role(receiver):
     sessions_root = Path(live_home) / "sessions"
     session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
     if not session_candidates:
         raise SystemExit(f"Fusion Rescue Codex live could not find session transcript for receiver: {receiver}")
+    transcript_parts = []
+    agent_role = None
     for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                thread_spawn = (
-                    payload.get("source", {})
-                    .get("subagent", {})
-                    .get("thread_spawn", {})
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
+        text = path.read_text(encoding="utf-8", errors="replace")
+        transcript_parts.append(text)
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("type") != "session_meta":
+                continue
+            payload = data.get("payload") or {}
+            thread_spawn = (
+                payload.get("source", {})
+                .get("subagent", {})
+                .get("thread_spawn", {})
+            )
+            agent_role = payload.get("agent_role") or thread_spawn.get("agent_role")
+            break
+        if agent_role is not None:
+            break
+    if agent_role is not None:
+        return "\n".join(transcript_parts), agent_role
     raise SystemExit(f"Fusion Rescue Codex live transcript lacked session_meta: {receiver}")
 
 def assert_meaningful_domain_analysis(label, text):
@@ -2795,6 +2816,116 @@ def assert_meaningful_domain_analysis(label, text):
                 f"{marker!r}; text={text[:2000]!r}"
             )
 
+def inspect_primary_claude_call(transcript):
+    tool_text_parts = []
+    command_outputs = []
+    claude_call_events = []
+
+    for line_number, line in enumerate(transcript.splitlines(), 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(f"Fusion Rescue Codex live primary transcript exposed a secret-like value near line {line_number}")
+        item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if payload.get("type") == "function_call":
+            tool_lower = str(payload.get("name") or tool_lower).lower()
+            arguments_text = str(payload.get("arguments") or "")
+            try:
+                arguments_data = json.loads(arguments_text) if arguments_text else {}
+            except json.JSONDecodeError:
+                arguments_data = {}
+            if isinstance(arguments_data, dict) and arguments_data.get("cmd"):
+                command_text = str(arguments_data.get("cmd"))
+        is_exec_command_call = (
+            (
+                payload.get("type") == "function_call"
+                and payload.get("name") in {"exec_command", "functions.exec_command"}
+            )
+            or (
+                item_type_lower == "command_execution"
+                and item.get("status") == "completed"
+            )
+        )
+        if is_exec_command_call and command_text and any(
+            pattern.search(command_text) for pattern in claude_command_patterns
+        ):
+            claude_call_events.append((line_number, command_text[:1000]))
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Fusion Rescue Codex live primary subagent saw write-capable event at line {line_number}: "
+                f"type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        if (
+            item_type_lower == "command_execution"
+            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
+        ) and any(
+            pattern.search(command_text) for pattern in forbidden_command_patterns
+        ):
+            raise SystemExit(
+                f"Fusion Rescue Codex live primary subagent saw write-like command at line {line_number}: "
+                f"{command_text[:1000]!r}"
+            )
+        item_type = item.get("type") or data.get("type")
+        tool_name = item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or ""
+        if (
+            "claude" in event_text.lower()
+            and item_type in {"collab_tool_call", "command_execution", "function_call", "tool_call", "tool_use"}
+            and tool_name not in {"spawn_agent", "wait", "wait_agent", "close_agent"}
+        ):
+            tool_text_parts.append(event_text)
+        if (
+            "claude" in event_text.lower()
+            and payload.get("type") == "function_call"
+            and payload.get("name") in {"exec_command", "functions.exec_command"}
+        ):
+            tool_text_parts.append(event_text)
+        if (
+            item.get("type") == "command_execution"
+            and item.get("status") == "completed"
+            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(item.get("aggregated_output") or "")
+        ):
+            command_outputs.append(str(item.get("aggregated_output") or ""))
+        if (
+            payload.get("type") == "function_call_output"
+            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(payload.get("output") or "")
+        ):
+            command_outputs.append(str(payload.get("output") or ""))
+
+    tool_text = "\n".join(tool_text_parts)
+    if not tool_text:
+        raise SystemExit("Fusion Rescue Codex live primary subagent did not expose a Claude CLI tool call")
+    if len(claude_call_events) != 1:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary subagent must invoke Claude exactly once; "
+            f"saw {len(claude_call_events)} candidate command call(s): {claude_call_events!r}"
+        )
+    if re.search(r"(?<![\w-])--tools(?![\w-])", tool_text):
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude tool call specified a Claude tools override; "
+            f"tool_text={tool_text[:2000]!r}"
+        )
+    for marker in required_claude_argv:
+        if marker.lower() not in tool_text.lower():
+            raise SystemExit(
+                f"Fusion Rescue Codex live primary Claude tool call missed argv marker {marker!r}; "
+                f"tool_text={tool_text[:2000]!r}"
+            )
+    if "--print" not in tool_text and " -p" not in tool_text:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude tool call did not use --print or -p; "
+            f"tool_text={tool_text[:2000]!r}"
+        )
+    command_output = "\n".join(command_outputs)
+    if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in command_output:
+        raise SystemExit("Fusion Rescue Codex live primary subagent did not capture Claude marker in command output")
+    return tool_text, command_output
+
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
 if (
@@ -2809,12 +2940,11 @@ failed_spawns = []
 all_spawn_receivers = []
 receiver_to_lens = {}
 receiver_agent_roles = {}
+receiver_transcripts = {}
 panel_result_by_receiver = {}
-claude_panel_output = ""
 wait_index_by_receiver = {}
 close_index_by_receiver = {}
 non_user_text_parts = []
-claude_tool_text_parts = []
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -2842,22 +2972,6 @@ with open(out_path, "r", encoding="utf-8") as fh:
             )
         if role_of_event(data) != "user":
             non_user_text_parts.append(event_text)
-        if (
-            item.get("type") == "command_execution"
-            and item.get("status") == "completed"
-            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(item.get("aggregated_output") or "")
-        ):
-            claude_panel_output += "\n" + str(item.get("aggregated_output") or "")
-
-        item_type = item.get("type") or data.get("type")
-        tool_name = item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or ""
-        if (
-            "claude" in event_text.lower()
-            and item_type in {"collab_tool_call", "command_execution", "function_call", "tool_call", "tool_use"}
-            and tool_name not in {"spawn_agent", "wait", "wait_agent", "close_agent"}
-        ):
-            claude_tool_text_parts.append(event_text)
-
         if item.get("type") != "collab_tool_call":
             continue
         tool = item.get("tool")
@@ -2882,7 +2996,18 @@ with open(out_path, "r", encoding="utf-8") as fh:
             if len(receivers) != 1:
                 raise SystemExit(
                     f"Fusion Rescue Codex live expected one receiver for {matched[0]}, got {receivers!r}"
-                )
+            )
+            if matched[0] == "primary":
+                for required in required_claude_argv + [
+                    "OH_NO_CLAUDE_FUSION_PANEL_OK",
+                    "Codex permission preflight",
+                    "danger-full-access confirmed",
+                ]:
+                    if required.lower() not in spawn_text.lower():
+                        raise SystemExit(
+                            f"Fusion Rescue Codex live primary spawn prompt missed {required!r}; "
+                            f"text={spawn_text[:2000]!r}"
+                        )
             receiver_to_lens[receivers[0]] = matched[0]
         if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
             text = collect_text(item)
@@ -2912,15 +3037,16 @@ if missing_lenses:
         f"got={receiver_to_lens!r}"
     )
 if len(receiver_to_lens) != len(expected_markers):
-    raise SystemExit(f"Fusion Rescue Codex live expected exactly two Codex panel receivers, got {receiver_to_lens!r}")
+    raise SystemExit(f"Fusion Rescue Codex live expected exactly three Codex panel receivers, got {receiver_to_lens!r}")
 if sorted(all_spawn_receivers) != sorted(receiver_to_lens):
     raise SystemExit(
-        "Fusion Rescue Codex live saw spawned receivers outside the two expected panels: "
+        "Fusion Rescue Codex live saw spawned receivers outside the three expected panels: "
         f"all={all_spawn_receivers!r} expected={sorted(receiver_to_lens)!r}"
     )
 
 for receiver, lens in receiver_to_lens.items():
-    actual_agent_role = receiver_agent_role(receiver)
+    transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
+    receiver_transcripts[receiver] = transcript
     receiver_agent_roles[receiver] = actual_agent_role
     if actual_agent_role != "oh-no-fusion-rescue-analyst":
         raise SystemExit(
@@ -2964,6 +3090,29 @@ for receiver, lens in receiver_to_lens.items():
             )
     assert_meaningful_domain_analysis(f"panel {lens}", result_text)
 
+primary_receivers = [receiver for receiver, lens in receiver_to_lens.items() if lens == "primary"]
+if len(primary_receivers) != 1:
+    raise SystemExit(f"Fusion Rescue Codex live expected exactly one primary receiver, got {primary_receivers!r}")
+primary_receiver = primary_receivers[0]
+primary_result = panel_result_by_receiver.get(primary_receiver, "")
+if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in primary_result:
+    raise SystemExit(
+        "Fusion Rescue Codex live primary Codex subagent result did not include Claude marker "
+        "OH_NO_CLAUDE_FUSION_PANEL_OK"
+    )
+primary_claude_tool_text, claude_panel_output = inspect_primary_claude_call(receiver_transcripts[primary_receiver])
+combined_claude_evidence = primary_result + "\n" + claude_panel_output
+lower_claude_panel_output = combined_claude_evidence.lower()
+if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in combined_claude_evidence:
+    raise SystemExit("Fusion Rescue Codex live did not capture Claude panel return marker")
+for field in required_panel_fields:
+    if field not in lower_claude_panel_output:
+        raise SystemExit(
+            f"Fusion Rescue Codex live Claude evidence missed field {field!r}; "
+            f"output={combined_claude_evidence[:2000]!r}"
+        )
+assert_meaningful_domain_analysis("Claude primary panel", combined_claude_evidence)
+
 non_user_text = "\n".join(non_user_text_parts)
 success_text = "\n".join(
     part for part in non_user_text_parts
@@ -2982,33 +3131,6 @@ for marker in forbidden_fallbacks:
     if marker.lower() in lower_success_text:
         raise SystemExit(f"Fusion Rescue Codex live reported forbidden fallback marker: {marker!r}")
 
-claude_tool_text = "\n".join(claude_tool_text_parts)
-if not claude_tool_text:
-    raise SystemExit("Fusion Rescue Codex live did not expose a tool call containing the Claude CLI invocation")
-for marker in required_claude_argv:
-    if marker.lower() not in claude_tool_text.lower():
-        raise SystemExit(
-            f"Fusion Rescue Codex live Claude tool call missed argv marker {marker!r}; "
-            f"tool_text={claude_tool_text[:2000]!r}"
-        )
-if "--print" not in claude_tool_text and " -p" not in claude_tool_text:
-    raise SystemExit(
-        "Fusion Rescue Codex live Claude tool call did not use --print or -p; "
-        f"tool_text={claude_tool_text[:2000]!r}"
-    )
-if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in non_user_text:
-    raise SystemExit("Fusion Rescue Codex live did not capture Claude panel return marker")
-lower_claude_panel_output = claude_panel_output.lower()
-if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in claude_panel_output:
-    raise SystemExit("Fusion Rescue Codex live did not capture Claude marker in command output")
-for field in required_panel_fields:
-    if field not in lower_claude_panel_output:
-        raise SystemExit(
-            f"Fusion Rescue Codex live Claude command output missed field {field!r}; "
-            f"output={claude_panel_output[:2000]!r}"
-        )
-assert_meaningful_domain_analysis("Claude primary panel", claude_panel_output)
-
 summary = {
     "status": "passed",
     "codex_panel_receivers": [
@@ -3023,19 +3145,442 @@ summary = {
         for receiver in sorted(receiver_to_lens, key=lambda item: receiver_to_lens[item])
     ],
     "claude_consult": {
+        "codex_permission_preflight": "danger-full-access confirmed",
         "model": "opus",
         "budget": budget,
         "print_mode": True,
         "permission_mode": "dontAsk",
-        "tools": "",
+        "tools": "host-default",
+        "path": "Codex primary subagent -> Claude CLI",
+        "primary_receiver": primary_receiver,
         "session_persistence": "disabled",
         "marker": "OH_NO_CLAUDE_FUSION_PANEL_OK",
+        "tool_call_preview": primary_claude_tool_text[:1000],
     },
     "final_marker": "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
 }
 Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-print("ok - live Codex Fusion Rescue spawned panel agents, called Claude Opus, and synthesized")
+print("ok - live Codex Fusion Rescue spawned three panel agents, primary called Claude Opus, and main synthesized")
+PY
+
+  log "Running live Codex Fusion Rescue permission fallback smoke test"
+  local fallback_out_file="$RUN_DIR/fusion-rescue-codex-permission-fallback.jsonl"
+  local fallback_err_file="$RUN_DIR/fusion-rescue-codex-permission-fallback.err"
+  local fallback_summary_file="$RUN_DIR/fusion-rescue-codex-permission-fallback.summary.json"
+  local fallback_workspace="$RUN_DIR/fusion-rescue-codex-permission-fallback-workspace"
+  local fallback_prompt
+  mkdir -p "$fallback_workspace"
+  fallback_prompt=$(cat <<'PROMPT'
+Use the oh-no-harness:fusion-rescue skill. Read-only live integration permission fallback smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. Use default Fusion Rescue behavior, not require-cross-host behavior.
+
+This run is intentionally launched with Codex read-only sandbox permissions. Before any Claude consult or cross-host panel assignment, inspect the current Codex permission/sandbox context. Because the permission state is not danger-full-access, you must not invoke Claude, must state that Claude cannot be used because Codex permission is not danger-full-access, and must use three current-host Codex panel agents only.
+
+Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. The team must choose whether to quarantine the test, add automatic retries, or root-cause/fix the failure before release. Every panel result must discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence rather than only saying the smoke test is formatted correctly.
+
+Build exactly three current-host Codex panel slots and then synthesize as the current Codex main judge.
+
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_SELF; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must provide the strongest constructive diagnosis for quarantine, auto-retry, root-cause, CI signal, and release risk.
+
+Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
+
+Panel 3 pragmatic must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+
+Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_PERMISSION_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; panels completed: primary, adversarial, pragmatic; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_SELF, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude unavailable because Codex permission state is not danger-full-access, self-host fallback used with Codex primary, Codex adversarial, Codex pragmatic; opposite-host response path: unavailable due to Codex permission state; fusion depth: 1. Do not include OH_NO_CLAUDE_FUSION_PANEL_OK.
+PROMPT
+)
+
+  local fallback_cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$fallback_workspace"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    fallback_cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${fallback_cmd[@]}" "$fallback_prompt" >"$fallback_out_file" 2>"$fallback_err_file"
+
+  "$PYTHON_BIN" - "$fallback_out_file" "$fallback_err_file" "$CODEX_HOME_DIR" "$fallback_summary_file" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, live_home, summary_path = sys.argv[1:5]
+expected_markers = {
+    "primary": "OH_NO_FUSION_PANEL_PRIMARY_SELF",
+    "adversarial": "OH_NO_FUSION_PANEL_ADVERSARIAL",
+    "pragmatic": "OH_NO_FUSION_PANEL_PRAGMATIC",
+}
+required_final_markers = [
+    "OH_NO_CODEX_FUSION_PERMISSION_FALLBACK_OK",
+    "Codex permission preflight",
+    "not danger-full-access",
+    "Claude unavailable: Codex permission state is not danger-full-access",
+    "panels completed: primary, adversarial, pragmatic",
+    "panel availability/fallback notes",
+    "self-host fallback",
+    "opposite-host response path",
+    "fusion depth: 1",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+    "confidence and why",
+]
+required_panel_fields = [
+    "lens name",
+    "strongest finding",
+    "evidence used",
+    "assumption under test",
+    "likely failure mode",
+    "recommended next action",
+    "confidence",
+    "what would change",
+]
+domain_markers = ["ci", "integration", "quarantine", "retry", "root-cause", "release", "risk"]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tools = {"apply_patch", "edit", "write", "write_file", "file_change", "patch"}
+forbidden_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(apply_patch|touch|mkdir|rm|cp|mv|tee)\b"),
+    re.compile(r"(^|[;&|'\"]\s*)sed\s+-i\b"),
+    re.compile(r"(^|[;&|'\"]\s*)cat\s+>"),
+    re.compile(r"(^|[;&|'\"]\s*)printf\b[^|;&]*>"),
+]
+claude_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(\$\{CLAUDE_BIN:-claude\}|claude)\b"),
+    re.compile(r"\bexecFile\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bspawnSync\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*claude", re.IGNORECASE),
+]
+codex_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(codex)\b"),
+    re.compile(r"\bexecFile\([^)]*codex", re.IGNORECASE),
+    re.compile(r"\bspawnSync\([^)]*codex", re.IGNORECASE),
+    re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*codex", re.IGNORECASE),
+]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def role_of_event(data):
+    item = data.get("item") or {}
+    message = data.get("message") or {}
+    return item.get("role") or data.get("role") or message.get("role") or ""
+
+def receiver_transcript_and_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Fusion Rescue Codex permission fallback could not find session transcript for receiver: {receiver}")
+    transcript_parts = []
+    agent_role = None
+    for path in session_candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        transcript_parts.append(text)
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("type") != "session_meta":
+                continue
+            payload = data.get("payload") or {}
+            thread_spawn = (
+                payload.get("source", {})
+                .get("subagent", {})
+                .get("thread_spawn", {})
+            )
+            agent_role = payload.get("agent_role") or thread_spawn.get("agent_role")
+            break
+        if agent_role is not None:
+            break
+    if agent_role is not None:
+        return "\n".join(transcript_parts), agent_role
+    raise SystemExit(f"Fusion Rescue Codex permission fallback transcript lacked session_meta: {receiver}")
+
+def assert_meaningful_domain_analysis(label, text):
+    lower_text = text.lower()
+    hits = [marker for marker in domain_markers if marker in lower_text]
+    if len(hits) < 4:
+        raise SystemExit(
+            f"Fusion Rescue Codex permission fallback {label} did not include meaningful CI release-risk analysis; "
+            f"domain_hits={hits!r} text={text[:2000]!r}"
+        )
+
+def inspect_fallback_receiver_transcript(receiver, lens, transcript):
+    host_command_hits = []
+    for line_number, line in enumerate(transcript.splitlines(), 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(
+                f"Fusion Rescue Codex permission fallback receiver {receiver} exposed a secret-like value near line {line_number}"
+            )
+        item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if payload.get("type") == "function_call":
+            tool_lower = str(payload.get("name") or tool_lower).lower()
+            arguments_text = str(payload.get("arguments") or "")
+            try:
+                arguments_data = json.loads(arguments_text) if arguments_text else {}
+            except json.JSONDecodeError:
+                arguments_data = {}
+            if isinstance(arguments_data, dict) and arguments_data.get("cmd"):
+                command_text = str(arguments_data.get("cmd"))
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Fusion Rescue Codex permission fallback receiver {receiver} ({lens}) saw write-capable event "
+                f"at line {line_number}: type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        is_exec_command_call = (
+            item_type_lower == "command_execution"
+            or (
+                payload.get("type") == "function_call"
+                and payload.get("name") in {"exec_command", "functions.exec_command"}
+            )
+        )
+        if not is_exec_command_call:
+            continue
+        if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+            raise SystemExit(
+                f"Fusion Rescue Codex permission fallback receiver {receiver} ({lens}) saw write-like command "
+                f"at line {line_number}: {command_text[:1000]!r}"
+            )
+        if any(pattern.search(command_text) for pattern in claude_command_patterns):
+            host_command_hits.append((line_number, "claude", command_text[:1000]))
+        if any(pattern.search(command_text) for pattern in codex_command_patterns):
+            host_command_hits.append((line_number, "codex", command_text[:1000]))
+    if host_command_hits:
+        raise SystemExit(
+            f"Fusion Rescue Codex permission fallback receiver {receiver} ({lens}) invoked a forbidden host command: "
+            f"{host_command_hits!r}"
+        )
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Fusion Rescue Codex permission fallback saw spawn failure in stderr: {err_text[:2000]!r}")
+
+failed_spawns = []
+all_spawn_receivers = []
+receiver_to_lens = {}
+receiver_agent_roles = {}
+panel_result_by_receiver = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+non_user_text_parts = []
+claude_command_hits = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(f"Fusion Rescue Codex permission fallback transcript exposed a secret-like value near line {index}")
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if payload.get("type") == "function_call":
+            arguments_text = str(payload.get("arguments") or "")
+            try:
+                arguments_data = json.loads(arguments_text) if arguments_text else {}
+            except json.JSONDecodeError:
+                arguments_data = {}
+            if isinstance(arguments_data, dict) and arguments_data.get("cmd"):
+                command_text = str(arguments_data.get("cmd"))
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Fusion Rescue Codex permission fallback saw write-capable event at line {index}: "
+                f"type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        if (
+            item_type_lower == "command_execution"
+            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
+        ):
+            if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+                raise SystemExit(
+                    f"Fusion Rescue Codex permission fallback saw write-like command at line {index}: "
+                    f"{command_text[:1000]!r}"
+                )
+            if any(pattern.search(command_text) for pattern in claude_command_patterns):
+                claude_command_hits.append((index, command_text[:1000]))
+        if role_of_event(data) != "user":
+            non_user_text_parts.append(event_text)
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            all_spawn_receivers.extend(item.get("receiver_thread_ids") or [])
+            spawn_text = collect_text(item)
+            matched = [lens for lens, marker in expected_markers.items() if marker in spawn_text]
+            if len(matched) != 1:
+                raise SystemExit(
+                    f"Fusion Rescue Codex permission fallback spawn payload matched {matched!r}; "
+                    f"text={spawn_text[:2000]!r}"
+                )
+            receivers = item.get("receiver_thread_ids") or []
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"Fusion Rescue Codex permission fallback expected one receiver for {matched[0]}, got {receivers!r}"
+                )
+            if "OH_NO_CLAUDE_FUSION_PANEL_OK" in spawn_text:
+                raise SystemExit("Fusion Rescue Codex permission fallback primary spawn prompt leaked Claude success marker")
+            receiver_to_lens[receivers[0]] = matched[0]
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            text = collect_text(item)
+            mentioned = set(item.get("receiver_thread_ids") or [])
+            mentioned.update(receiver for receiver in receiver_to_lens if receiver in text)
+            mentioned.update(
+                receiver for receiver in (item.get("agents_states") or {})
+                if receiver in receiver_to_lens
+            )
+            if tool in {"wait", "wait_agent"}:
+                for receiver in mentioned:
+                    state = (item.get("agents_states") or {}).get(receiver) or {}
+                    if state.get("status") == "completed" and state.get("message"):
+                        wait_index_by_receiver.setdefault(receiver, index)
+                        panel_result_by_receiver.setdefault(receiver, str(state.get("message")))
+            if tool == "close_agent":
+                for receiver in mentioned:
+                    close_index_by_receiver.setdefault(receiver, index)
+
+if failed_spawns:
+    raise SystemExit(f"Fusion Rescue Codex permission fallback saw failed spawn_agent calls: {failed_spawns!r}")
+if claude_command_hits:
+    raise SystemExit(f"Fusion Rescue Codex permission fallback invoked Claude despite read-only permission: {claude_command_hits!r}")
+missing_lenses = sorted(set(expected_markers) - set(receiver_to_lens.values()))
+if missing_lenses:
+    raise SystemExit(
+        f"Fusion Rescue Codex permission fallback did not spawn required panel lenses: {missing_lenses!r}; "
+        f"got={receiver_to_lens!r}"
+    )
+if len(receiver_to_lens) != len(expected_markers):
+    raise SystemExit(f"Fusion Rescue Codex permission fallback expected exactly three Codex panel receivers, got {receiver_to_lens!r}")
+if sorted(all_spawn_receivers) != sorted(receiver_to_lens):
+    raise SystemExit(
+        "Fusion Rescue Codex permission fallback saw spawned receivers outside the three expected panels: "
+        f"all={all_spawn_receivers!r} expected={sorted(receiver_to_lens)!r}"
+    )
+
+for receiver, lens in receiver_to_lens.items():
+    transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
+    receiver_agent_roles[receiver] = actual_agent_role
+    if actual_agent_role != "oh-no-fusion-rescue-analyst":
+        raise SystemExit(
+            f"Fusion Rescue Codex permission fallback spawned receiver {receiver} for {lens} with "
+            f"agent_role={actual_agent_role!r}; expected oh-no-fusion-rescue-analyst"
+        )
+    inspect_fallback_receiver_transcript(receiver, lens, transcript)
+
+missing_waits = sorted(set(receiver_to_lens) - set(wait_index_by_receiver))
+missing_closes = sorted(set(receiver_to_lens) - set(close_index_by_receiver))
+if missing_waits:
+    raise SystemExit(f"Fusion Rescue Codex permission fallback did not capture wait_agent results: {missing_waits!r}")
+if missing_closes:
+    raise SystemExit(f"Fusion Rescue Codex permission fallback did not close completed receivers: {missing_closes!r}")
+for receiver in receiver_to_lens:
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]:
+        raise SystemExit(f"Fusion Rescue Codex permission fallback closed receiver before wait result: {receiver}")
+
+for receiver, lens in receiver_to_lens.items():
+    result_text = panel_result_by_receiver.get(receiver, "")
+    lower_result_text = result_text.lower()
+    marker = expected_markers[lens]
+    if marker not in result_text:
+        raise SystemExit(
+            f"Fusion Rescue Codex permission fallback panel {lens} did not return marker {marker!r}; "
+            f"result={result_text[:2000]!r}"
+        )
+    if "OH_NO_CLAUDE_FUSION_PANEL_OK" in result_text:
+        raise SystemExit("Fusion Rescue Codex permission fallback panel returned forbidden Claude marker")
+    if lens not in lower_result_text:
+        raise SystemExit(
+            f"Fusion Rescue Codex permission fallback panel {lens} wait result did not name its lens; "
+            f"result={result_text[:2000]!r}"
+        )
+    for field in required_panel_fields:
+        if field not in lower_result_text:
+            raise SystemExit(
+                f"Fusion Rescue Codex permission fallback panel {lens} wait result missed field {field!r}; "
+                f"result={result_text[:2000]!r}"
+            )
+    assert_meaningful_domain_analysis(f"panel {lens}", result_text)
+
+non_user_text = "\n".join(non_user_text_parts)
+if "OH_NO_CLAUDE_FUSION_PANEL_OK" in non_user_text:
+    raise SystemExit("Fusion Rescue Codex permission fallback included forbidden Claude success marker")
+success_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_CODEX_FUSION_PERMISSION_FALLBACK_OK" in part
+)
+if not success_text:
+    raise SystemExit("Fusion Rescue Codex permission fallback did not return success marker")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex permission fallback missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex permission fallback missing synthesis field: {field!r}")
+for marker in expected_markers.values():
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Fusion Rescue Codex permission fallback missing final panel marker: {marker!r}")
+
+summary = {
+    "status": "passed",
+    "codex_permission_preflight": "not danger-full-access",
+    "claude_consult": {
+        "status": "skipped",
+        "reason": "Codex permission state is not danger-full-access",
+    },
+    "codex_panel_receivers": [
+        {
+            "receiver": receiver,
+            "lens": receiver_to_lens[receiver],
+            "agent_role": receiver_agent_roles[receiver],
+            "wait_result_line": wait_index_by_receiver[receiver],
+            "close_result_line": close_index_by_receiver[receiver],
+            "returned_marker": expected_markers[receiver_to_lens[receiver]],
+        }
+        for receiver in sorted(receiver_to_lens, key=lambda item: receiver_to_lens[item])
+    ],
+    "final_marker": "OH_NO_CODEX_FUSION_PERMISSION_FALLBACK_OK",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Codex Fusion Rescue skipped Claude without danger-full-access and used self-host panels")
 PY
 }
 
