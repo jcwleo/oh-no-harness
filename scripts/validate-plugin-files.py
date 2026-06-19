@@ -1148,6 +1148,10 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         "redacted and minimized problem packet",
         "openai/codex-plugin-cc",
         "/codex:rescue",
+        "Codex consult must run synchronously",
+        "Pass `--wait` to force foreground",
+        "not a valid opposite-host panel response",
+        "do not let it run as a detached\nbackground job",
     ):
         if not has_required_marker(cross_host, marker):
             die(f"{path} Cross-Host Consult section is missing marker: {marker!r}")
