@@ -19,8 +19,9 @@ Claude Code UserPromptSubmit for Ralph
 Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
-  -> docs/skill-core/<skill>.md
-  -> docs/platforms/claude-code.md
+  -> generated runtime document composed from docs/skill-core/<skill>.md,
+     docs/platforms/claude-code.md, and optional
+     docs/platforms/claude-code-<skill>.md
 
 Codex
   -> root .agents/plugins/marketplace.json
@@ -30,8 +31,9 @@ Codex
   -> hooks/session-start
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
-  -> docs/skill-core/<skill>.md through the Codex-facing wrapper
-  -> docs/platforms/codex.md
+  -> skills/<skill>/SKILL.md generated runtime document composed from
+     docs/skill-core/<skill>.md, docs/platforms/codex.md, and optional
+     docs/platforms/codex-<skill>.md
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
 
@@ -122,7 +124,8 @@ systematic-debugging
 
 fusion-rescue
   -> fusion-rescue-analyst for current-host panel lenses
-  -> optional bounded cross-host consult when the host capability is available
+  -> optional bounded cross-host consult through the active platform-specific
+     Fusion Rescue adapter when the host capability is available
   -> returns synthesis to ralph, systematic-debugging, ultrawork active phase, or the direct caller
 ```
 
@@ -132,19 +135,24 @@ Provider guidance is a maintenance reference, not an extra runtime layer:
 
 ```text
 Codex runtime
-  -> docs/skill-core/<skill>.md
-  -> docs/platforms/codex.md
+  -> skills/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
+  -> docs/platforms/codex.md and optional docs/platforms/codex-<skill>.md
+  -> docs/platforms/codex-fusion-rescue.md for fusion-rescue only
+  -> docs/platforms/codex-simplify.md for simplify only
   -> summarized OpenAI guidance from docs/providers/openai.md
 
 Claude Code runtime
-  -> docs/skill-core/<skill>.md
-  -> docs/platforms/claude-code.md
+  -> skills-claude/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
+  -> docs/platforms/claude-code.md and optional docs/platforms/claude-code-<skill>.md
+  -> docs/platforms/claude-code-fusion-rescue.md for fusion-rescue only
+  -> docs/platforms/claude-code-simplify.md for simplify only
   -> summarized Anthropic guidance from docs/providers/anthropic.md
 ```
 
-Do not make skill wrappers load `docs/providers/*.md` directly. Update provider
+Do not add `docs/providers/*.md` as generated runtime sources. Update provider
 docs first when official company guidance changes, then copy only stable,
-runtime-critical rules into the matching platform doc.
+runtime-critical rules into the matching platform doc and regenerate skill
+runtime documents with `scripts/generate-skill-wrappers.py --write`.
 
 ## Agent Relationship Summary
 

@@ -142,22 +142,21 @@ Ultrawork normally reaches most roles by reading and following `interview`,
 Dispatch each phase's listed agents as separate subagents on subagent-capable
 platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
 Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
-active platform wrapper. For the `ralplan` phase, Planner and Plan-Reviewer
-are sequential and should keep separate role contexts; dispatch them as
-subagents when the active host supports dispatch and the separation can improve
-planning or review quality. Plan-Reviewer runs as a single review dispatch;
+active platform runtime document. For the `ralplan` phase, Planner and
+Plan-Reviewer are sequential and should keep separate role contexts; dispatch
+them as subagents when the active host supports dispatch and the separation can
+improve planning or review quality. Plan-Reviewer runs as a single review dispatch;
 re-review only when blocking findings require it. The phase boundaries below
 still hold either way.
 
-On Codex, when SessionStart injects
-`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
-standing explicit user request for eligible Ultrawork phase agents without
-per-run subagent approval. Do not pause Ultrawork only to ask whether subagents
-may be used. Apply the authorization to the phase-owned roles below:
-`interview`/`explore` for brownfield facts, `ralplan` planning roles, `ralph`
-execution and review roles, QA Loop roles, and Final Validation roles. Preserve
-all content gates, spec review, Ultrawork's internal plan approval record, final
-evidence, role isolation, fallback reasons, and lifecycle cleanup requirements.
+Apply the active platform's dispatch authorization for eligible Ultrawork phase
+agents without per-run subagent approval when that standing authorization is
+present. Do not pause Ultrawork only to ask whether subagents may be used. Apply
+the authorization to the phase-owned roles below: `interview`/`explore` for
+brownfield facts, `ralplan` planning roles, `ralph` execution and review roles,
+QA Loop roles, and Final Validation roles. Preserve all content gates, spec
+review, Ultrawork's internal plan approval record, final evidence, role
+isolation, fallback reasons, and lifecycle cleanup requirements.
 Eligibility still depends on whether the role can change quality, risk,
 latency, or context management enough to justify dispatch; final narrow
 re-checks may stay inline when they have equal evidence.

@@ -46,20 +46,19 @@ For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
 and `docs/shared/parallel-subagents.md` for role isolation, fallback reasons, and
 eligible batch dispatch.
 
-On Codex, when SessionStart injects
-`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
-standing explicit user request for this skill's diagnostic, fix, evidence, and
-post-fix review roles. Do not ask for per-run subagent approval before
-dispatching `debugger`, `explore`, isolated `executor`, `verifier`,
-conditional `plan-reviewer`, or warranted post-fix review roles. Use inline fallback
-only when dispatch is unavailable, unsafe to isolate, or too small to benefit,
-and record the fallback reason.
+Apply the active platform's dispatch authorization for this skill's diagnostic,
+fix, evidence, and post-fix review roles. Do not ask for per-run subagent
+approval when the active platform already supplies standing authorization for
+eligible `debugger`, `explore`, isolated `executor`, `verifier`, conditional
+`plan-reviewer`, or warranted post-fix review roles. Use inline fallback only
+when dispatch is unavailable, unsafe to isolate, or too small to benefit, and
+record the fallback reason.
 
-Respect the active platform wrapper for dispatch versus inline execution. Do not
-collapse diagnostic or evidence roles inline when the host can dispatch them
-with an isolated scope. When any listed role is dispatched, apply the active platform's role prompt and
-dispatch requirements before the task-specific failure, scope, expected output,
-and verification responsibility.
+Respect the active platform runtime document for dispatch versus inline
+execution. Do not collapse diagnostic or evidence roles inline when the host can
+dispatch them with an isolated scope. When any listed role is dispatched, apply
+the active platform's role prompt and dispatch requirements before the
+task-specific failure, scope, expected output, and verification responsibility.
 
 | Agent | Dispatch (when) |
 |---|---|

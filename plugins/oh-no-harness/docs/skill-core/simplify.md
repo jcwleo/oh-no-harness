@@ -11,7 +11,7 @@ altitude issues, then applies behavior-preserving fixes.
 
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
 selected mode's required review is satisfied and before final verification;
-the active platform wrapper supplies the matching simplify skill.
+the active platform runtime document supplies the matching simplify skill.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.
@@ -34,9 +34,10 @@ isolate the pass work when it is available and useful.
 Phase 1 owns the small-diff gate and decides whether cleanup review uses one
 combined pass or four separate role passes. On either path the report must keep
 the four labeled viewpoints: Reuse, Simplification, Efficiency, and Altitude.
-On Codex, the `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` SessionStart
-context is the standing explicit user request for this cleanup delegation; do
-not ask another approval question merely to launch these cleanup subagents.
+Apply the active platform's Simplify dispatch authorization and lifecycle rules
+before launching cleanup subagents. Do not ask another approval question merely
+to launch cleanup subagents when the active platform already supplies standing
+authorization for eligible skill-local delegation.
 If the active host cannot dispatch subagents, record the dispatch-unavailable
 reason before continuing inline: above the gate, preserve the same four role
 boundaries as separate inline fallback blocks; for a small diff, run the
@@ -124,20 +125,17 @@ touches at most 3 changed files AND at most 100 changed lines AND no
 generated files. When any bound is exceeded, unknown, or uncertain, default
 to the four parallel cleanup subagents.
 
-For diffs above the small-diff gate, launch four independent cleanup subagents in parallel because the review requires four cleanup role passes. Start them in one
-batch before waiting for any result. Pass each subagent the review diff and assign exactly
-one angle: Reuse, Simplification, Efficiency, or Altitude. On Claude Code,
-prefer Workflow `Promise.all` for this four-pass path when available; otherwise
-issue all four background Task or Agent requests before inspecting or
-summarizing task results. For a small diff,
-launch one cleanup subagent with the review diff and all four angles; this is the
-single pass that still reports all four labeled sections: Reuse, Simplification, Efficiency, and Altitude, and it must not drop or merge them. Use the active
-platform's approved mechanism, such as Claude Code's Task tool or Codex
-subagent dispatch when available. For Codex, SessionStart standing authorization
-means this skill may use sub-agents, delegation, and parallel agent work
-proactively for these cleanup roles without per-run approval. The caller owns
-lifecycle: after each cleanup subagent result is captured, close or clean up the
-completed subagent using the active platform mechanism.
+For diffs above the small-diff gate, launch four independent cleanup subagents
+in parallel because the review requires four cleanup role passes. Start them in
+one batch before waiting for any result. Pass each subagent the review diff and
+assign exactly one angle: Reuse, Simplification, Efficiency, or Altitude. For a
+small diff, launch one cleanup subagent with the review diff and all four
+angles; this is the single pass that still reports all four labeled sections:
+Reuse, Simplification, Efficiency, and Altitude, and it must not drop or merge
+them. Use the active platform's approved mechanism and Simplify platform overlay
+when available. The caller owns lifecycle: after each cleanup subagent result is
+captured, close or clean up the completed subagent using the active platform
+mechanism.
 
 If subagent dispatch is unavailable, run the selected path inline: above the
 gate, run Reuse, Simplification, Efficiency, and Altitude as

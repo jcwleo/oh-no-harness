@@ -87,11 +87,10 @@ subsystems or independent fact-finding questions, dispatch one or more
 `explore` subagents, one per independent subsystem, as a single batch, and
 synthesize their results before asking the user codebase questions.
 
-On Codex, when SessionStart injects
-`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION`, treat that block as the
-standing explicit user request for the `explore` role inside Interview. Do not
-ask for per-run subagent approval before dispatching `explore` for needed
-repository facts. If dispatch is unavailable or not worth the split, keep the
+Apply the active platform's dispatch authorization for the `explore` role
+inside Interview. Do not ask for per-run subagent approval when the active
+platform already supplies standing authorization for eligible brownfield
+exploration. If dispatch is unavailable or not worth the split, keep the
 `explore` role inline and record the inline fallback reason.
 
 Do not use execution, review, or planning agents inside this skill. Once the spec is approved, use the next skill selected by the user.

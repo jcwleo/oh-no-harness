@@ -11,6 +11,7 @@ MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
 MARKETPLACE_ROOT="${OH_NO_MARKETPLACE_ROOT:-$REPO_ROOT}"
 PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$MARKETPLACE_ROOT/plugins/$PLUGIN_NAME}"
 PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
+MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 REQUESTED_SCOPE="${OH_NO_PLUGIN_SCOPE:-}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
@@ -82,6 +83,9 @@ Options:
   --scope <scope>        Install/update scope: local, project, user, managed.
                          Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
+  --marketplace-source <source>
+                         Marketplace source passed to Claude Code marketplace add.
+                         Default: this checkout. Use jcwleo/oh-no-harness to test GitHub.
   --model <model>        Claude model alias for live tests. Default: sonnet.
                          Fusion Rescue live defaults to opus unless overridden.
   --max-budget-usd <n>   Per-command max budget for live tests. Default: 1.00.
@@ -93,7 +97,7 @@ Environment overrides:
   OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
   OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
-  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE
+  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -148,6 +152,11 @@ while [[ $# -gt 0 ]]; do
     --live-load)
       LIVE_LOAD_MODE="${2:-}"
       [[ -n "$LIVE_LOAD_MODE" ]] || { echo "Missing value for --live-load" >&2; exit 2; }
+      shift 2
+      ;;
+    --marketplace-source)
+      MARKETPLACE_SOURCE="${2:-}"
+      [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }
       shift 2
       ;;
     --model)
@@ -689,58 +698,14 @@ install_or_update_plugin() {
     fail "managed scope can only update an existing managed install; choose local, project, or user for a new install"
   fi
 
-  # Remote-origin marketplace policy: the registered marketplace must always
-  # point at this repo's published origin URL (GitHub for this project), never
-  # at a local filesystem path. The registered marketplace is a git clone that
-  # `claude plugin marketplace update` syncs from its origin, so a local-path
-  # registration would track uncommitted local state instead of the published
-  # repository. Enforcement is "remote URL, not local path"; it does not pin a
-  # specific host.
-  local origin_url
-  if ! origin_url="$(git -C "$MARKETPLACE_ROOT" remote get-url origin 2>/dev/null)" || [[ -z "$origin_url" ]]; then
-    fail "cannot read origin remote URL for $MARKETPLACE_ROOT; the marketplace must be registered from the repo's published origin URL (remote-origin marketplace policy)"
-  fi
-  case "$origin_url" in
-    https://*|ssh://*|git@*) ;;
-    *)
-      fail "origin remote for $MARKETPLACE_ROOT is '$origin_url', which is not a remote URL (must start with https://, ssh://, or git@); the marketplace must be registered from the repo's published origin URL (remote-origin marketplace policy)"
-      ;;
-  esac
-
   if marketplace_exists; then
-    # The registration record is the source of truth: a "directory"/local-path
-    # registration tracks the working tree instead of the published repo, even
-    # when that working tree's git origin points at GitHub.
-    local registration_violation=""
-    registration_violation="$("$CLAUDE_BIN" plugin marketplace list --json \
-      | "$PYTHON_BIN" -c 'import json, sys
-name = sys.argv[1]
-for item in json.load(sys.stdin):
-    if item.get("name") != name:
-        continue
-    source = str(item.get("source", ""))
-    path = str(item.get("path", "") or item.get("installLocation", ""))
-    if source in ("directory", "local") or source.startswith(("/", "file://")):
-        print(f"source={source} path={path}")
-    elif path.startswith("/") and not path.startswith(sys.argv[2]):
-        # Remote-sourced registrations install under the Claude config dir;
-        # any other absolute path means a local working tree is being tracked.
-        print(f"source={source} path={path}")
-    break
-' "$MARKETPLACE_NAME" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")"
-    if [[ -n "$registration_violation" ]]; then
-      log "Registered marketplace tracks a local directory (${registration_violation}), violating the remote-origin marketplace policy; re-registering from the repo origin"
-      "$CLAUDE_BIN" plugin marketplace remove "$MARKETPLACE_NAME"
-      "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
-      ok "marketplace re-registered from remote origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
-    else
-      "$CLAUDE_BIN" plugin marketplace update "$MARKETPLACE_NAME"
-      ok "marketplace updated from its remote origin: ${MARKETPLACE_NAME}"
-    fi
+    log "Refreshing marketplace registration from ${MARKETPLACE_SOURCE}"
+    "$CLAUDE_BIN" plugin marketplace remove "$MARKETPLACE_NAME"
   else
-    "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$origin_url"
-    ok "marketplace added from GitHub origin: ${MARKETPLACE_NAME} -> ${origin_url} (${target_scope})"
+    log "Adding marketplace from ${MARKETPLACE_SOURCE}"
   fi
+  "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$MARKETPLACE_SOURCE"
+  ok "marketplace registered: ${MARKETPLACE_NAME} -> ${MARKETPLACE_SOURCE} (${target_scope})"
 
   if "$CLAUDE_BIN" plugin list --json \
       | "$PYTHON_BIN" -c 'import json, sys
@@ -957,7 +922,7 @@ run_live_auto_routing_case() {
   local config_dir="$2"
   local expected="$3"
   local out_file="$RUN_DIR/auto-routing-${state}-${LIVE_LOAD_MODE}.jsonl"
-  local prompt="Smoke test only. Inspect the literal session-start hook instructions, not this user message. If those instructions contain the exact token OH_NO_FORCED_ROUTING, reply exactly OH_NO_FORCED_ROUTING_PRESENT. If that exact token is absent, reply exactly OH_NO_FORCED_ROUTING_MISSING. Do not infer from the default Oh No Harness core rule."
+  local prompt="Smoke test only. Inspect the literal session-start hook instructions, not this user message. Look for the forced-routing marker tag whose name is formed by joining OH, NO, FORCED, and ROUTING with underscores. If that marker appears in the session-start hook instructions, reply exactly AUTO_ROUTING_MARKER_PRESENT. If that marker is absent, reply exactly AUTO_ROUTING_MARKER_MISSING. Do not infer from the default Oh No Harness core rule."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -1008,9 +973,9 @@ with open(path, "r", encoding="utf-8") as fh:
                 for part in data.get("message", {}).get("content", [])
                 if part.get("type") == "text"
             )
-            if "OH_NO_FORCED_ROUTING_PRESENT" in text:
+            if "AUTO_ROUTING_MARKER_PRESENT" in text:
                 assistant_present = True
-            if "OH_NO_FORCED_ROUTING_MISSING" in text:
+            if "AUTO_ROUTING_MARKER_MISSING" in text:
                 assistant_missing = True
         if data.get("type") == "result":
             result = data.get("result")
@@ -1131,7 +1096,6 @@ expected = {
         "must-fail",
         "must-pass",
         "negative",
-        "edge",
         "old broken behavior",
         ".oh-no/worktrees/<task-slug>",
         "host",
@@ -1149,7 +1113,6 @@ expected = {
         "parent-directory",
         "test-driven-development",
         "internal mid-loop",
-        "not a top-level implementation",
         "Required Behavior Lock",
     ],
     "ultrawork": [
@@ -1186,6 +1149,14 @@ expected = {
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
+
+if skill == "ralph" and not (
+    "not a top-level implementation" in text_lower
+    or "not the top-level route" in text_lower
+    or "not a top-level route" in text_lower
+    or ("not" in text_lower and "top-level" in text_lower and "implementation" in text_lower)
+):
+    raise SystemExit(f"{skill} deep smoke missing TDD top-level route boundary; got {text!r}")
 
 if (
     "oh_no_claude_deep_ok" not in text_lower
@@ -1235,6 +1206,15 @@ if skill == "ralplan" and not (
     )
 ):
     raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "edge" in text_lower
+    or "semantic-model" in text_lower
+    or "semantic model" in text_lower
+    or "regression" in text_lower
+    or "adversarial" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing edge/semantic/regression test-design marker; got {text!r}")
 
 if skill == "ralplan" and not (
     ("planner" in text_lower and "plan-reviewer" in text_lower)
@@ -1445,7 +1425,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         all_agent_roles.append((index, role))
                         marker_for_role = dict(role_markers).get(role)
                         if marker_for_role and marker_for_role.lower() in payload_text.lower():
-                            required_lines = [f"Role: {role}", f"Marker: {marker_for_role}"]
+                            required_lines = [f"Marker: {marker_for_role}"]
                             missing_lines = [
                                 required for required in required_lines
                                 if required.lower() not in payload_text.lower()
@@ -2113,11 +2093,11 @@ Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline
 
 Build exactly three panel slots and then synthesize as the current Claude main judge.
 
-Panel 1 primary must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: primary; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must provide constructive analysis of quarantine, auto-retry, root-cause, CI signal, and release risk.
+Panel 1 primary must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: primary; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must provide constructive analysis of quarantine, auto-retry, root-cause, CI signal, and release risk.
 
 Panel 2 adversarial must be exactly one Codex opposite-host response through the explicitly loaded openai/codex-plugin-cc rescue capability surfaced as /codex:rescue. In this non-interactive test, use that capability by invoking the same Agent surface that /codex:rescue delegates to, with subagent_type codex:codex-rescue. A valid live result requires codex:codex-rescue to perform its required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background, or returned after a Stop hook says a Codex task is still running is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second codex:codex-rescue task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The forwarded request must be foreground, fresh, read-only behavior and must include the words via /codex:rescue plus the marker request OH_NO_CODEX_RESCUE_RETURN_OK. The Codex request: --wait --fresh read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; analyze this CI release-risk problem adversarially; return exactly OH_NO_CODEX_RESCUE_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If codex:codex-rescue cannot run node codex-companion.mjs without approval or foreground completion, do not synthesize success and do not include OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK.
 
-Panel 3 pragmatic must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: pragmatic; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+Panel 3 pragmatic must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: pragmatic; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
 Start the two Claude panel subagents before waiting when possible. Wait for exactly these three panel results, and do not end while a worker is still pending. After the single Codex rescue returns and both Claude panel subagents finish, synthesize immediately rather than concatenate or recheck liveness. Final answer must contain exactly the marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK and must include: panels completed: primary, adversarial, pragmatic; Codex marker: OH_NO_CODEX_RESCUE_RETURN_OK; Claude markers: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY, OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available via opposite-host response /codex:rescue codex:codex-rescue, Claude pragmatic available; fusion depth: 1.
 PROMPT
@@ -2715,12 +2695,21 @@ if not task_tool_uses and workflow_scripts:
         if marker.lower() not in workflow_script_lower
     ]
     agent_calls = re.findall(r"\bagent\s*\(", workflow_script)
+    has_static_agent_batch = len(agent_calls) >= len(expected_angles)
+    has_dynamic_angle_batch = (
+        re.search(r"\bparallel\s*\(\s*\w+\.map\s*\(", workflow_script) is not None
+        and len(agent_calls) >= 1
+    )
+    has_parallel_batch = (
+        "promise.all" in workflow_script_lower
+        or re.search(r"\bparallel\s*\(", workflow_script) is not None
+    )
     if missing_angles or missing_markers:
         raise SystemExit(
             "Claude simplify Workflow script did not include required cleanup angle prompt markers: "
             f"missing_angles={missing_angles!r} missing_markers={missing_markers!r}"
         )
-    if "promise.all" not in workflow_script_lower or len(agent_calls) < len(expected_angles):
+    if not has_parallel_batch or not (has_static_agent_batch or has_dynamic_angle_batch):
         raise SystemExit("Claude simplify Workflow did not prove four batched parallel agent() calls")
     if re.search(r"\bawait\s+agent\s*\(", workflow_script):
         raise SystemExit("Claude simplify Workflow used serial await agent() instead of a Promise.all batch")

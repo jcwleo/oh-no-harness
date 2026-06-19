@@ -1,12 +1,14 @@
 # Codex Platform Rules
 
-Use this file only from Codex-facing skill wrappers.
+This platform section is source content for generated Codex-facing runtime
+skill documents.
 
 ## Skill Loading
 
-Codex-facing public skills live under `skills/`. Each wrapper applies the
-matching `docs/skill-core/<skill>.md` file as the shared workflow source of
-truth, then applies this Codex platform file.
+Codex-facing public skills live under `skills/`. Files in
+`skills/<skill>/SKILL.md` are generated runtime documents composed from the
+matching `docs/skill-core/<skill>.md` file, this Codex platform file, and any
+Codex skill-specific overlay such as `docs/platforms/codex-<skill>.md`.
 
 ## User Approval
 
@@ -26,8 +28,9 @@ core bodies.
 ## OpenAI-Aligned Prompting
 
 This file carries the runtime-sized OpenAI guidance for Codex. The longer
-maintenance reference lives in `docs/providers/openai.md`, but Codex-facing
-skill wrappers do not load provider docs as an extra runtime layer.
+maintenance reference lives in `docs/providers/openai.md`, but generated
+Codex-facing runtime skill documents do not include provider docs as an extra
+runtime source.
 
 For OpenAI/Codex models, keep prompts outcome-first:
 
@@ -119,7 +122,10 @@ generic subagent for this lane. When this lane spawns `oh-no-explore`, use
 returns that receiver with final status `completed`, before calling
 `close_agent`; a timeout, empty wait, or no-completion result is not captured
 evidence. `close_agent` output is not a substitute for the required wait result
-and must not be the first result capture.
+and must not be the first result capture. The forbidden order is `spawn_agent`
+then `close_agent`. Even if `close_agent` returns output, that output is not
+valid first result capture. If you will not call `wait_agent` first, do not
+spawn; perform the lookup inline.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as dispatch authorization for
@@ -236,5 +242,3 @@ Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
 <matching docs/agent-core/<role>.md prompt content>
 ```
-
-For `ralph`, also apply `docs/platforms/codex-ralph.md`.

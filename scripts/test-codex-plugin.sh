@@ -256,8 +256,10 @@ required = [
     "Do not use this lane for planning, debugging",
     "redact credential values",
     "otherwise perform the lookup inline",
-    "wait_agent first until a final result is captured",
-    "close_agent is never first",
+    "required order is spawn_agent -> wait_agent",
+    "Forbidden order: spawn_agent -> close_agent",
+    "close_agent output is never valid first result capture",
+    "If you will not wait_agent first",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -812,6 +814,18 @@ validate_codex_agent_installer() {
   ok "Codex custom-agent installer installs, removes, and protects unmarked files"
 }
 
+codex_marketplace_exists() {
+  CODEX_HOME="$CODEX_HOME_DIR" "$CODEX_BIN" plugin marketplace list --json \
+    | "$PYTHON_BIN" -c 'import json, sys
+name = sys.argv[1]
+data = json.load(sys.stdin)
+for item in data.get("marketplaces", []):
+    if item.get("name") == name:
+        sys.exit(0)
+sys.exit(1)
+' "$MARKETPLACE_NAME"
+}
+
 install_codex_agents_user_scope() {
   [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex custom-agent user-scope install (--no-install)"; return; }
 
@@ -835,10 +849,13 @@ install_codex_agents_user_scope() {
 install_via_codex_plugins() {
   [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex marketplace install (--no-install)"; return; }
 
-  log "Adding marketplace through Codex CLI"
+  log "Registering marketplace through Codex CLI"
   mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  if codex_marketplace_exists; then
+    CODEX_HOME="$CODEX_HOME_DIR" "$CODEX_BIN" plugin marketplace remove "$MARKETPLACE_NAME" >/dev/null
+  fi
   CODEX_HOME="$CODEX_HOME_DIR" "$CODEX_BIN" plugin marketplace add "$MARKETPLACE_SOURCE"
-  ok "Codex marketplace added from ${MARKETPLACE_SOURCE}"
+  ok "Codex marketplace registered from ${MARKETPLACE_SOURCE}"
 
   log "Installing through Codex /plugins app-server path"
   local app_log="$RUN_DIR/app-server-plugin-install.jsonl"
@@ -1239,7 +1256,6 @@ expected = {
         "parent-directory",
         "test-driven-development",
         "internal mid-loop",
-        "not a top-level implementation",
         "Required Behavior Lock",
     ],
     "ultrawork": [
@@ -1277,6 +1293,14 @@ expected = {
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
     raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
+
+if skill == "ralph" and not (
+    "not a top-level implementation" in text_lower
+    or "not the top-level route" in text_lower
+    or "not a top-level route" in text_lower
+    or ("not" in text_lower and "top-level" in text_lower and "implementation" in text_lower)
+):
+    raise SystemExit(f"{skill} deep smoke missing TDD top-level route boundary; got {text!r}")
 
 def terms_appear_in_order(*terms: str) -> bool:
     cursor = -1
@@ -2625,13 +2649,13 @@ Before any Claude consult or cross-host panel assignment, inspect the current Co
 
 Build exactly three panel slots and then synthesize as the current Codex main judge.
 
-Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --no-session-persistence. Do not specify a Claude tools override because Claude may use its own permitted read-only tools for analysis. Do not require Claude Task/Agent proof. The Claude prompt must be read-only and must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: read-only analysis tools may be used only if permitted by the active Claude host; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --tools "", --no-session-persistence. The empty --tools value is required: Claude Opus must answer from the redacted prompt packet with no file, shell, network, write, Task, Agent, Workflow, or plugin tools available. Do not require Claude Task/Agent proof. Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue. The Claude prompt must be read-only and must state that Claude Opus must answer the assigned panel directly. It must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: no tools are available in this consult; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
 
 Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
 
 Panel 3 pragmatic must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
-Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: Codex permission preflight: danger-full-access confirmed; panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: primary available via Codex cross-host subagent using claude -p --model opus with host-default Claude tools policy after danger-full-access preflight, Codex adversarial available, Codex pragmatic available; opposite-host response path: Claude via Codex primary subagent; fusion depth: 1.
+Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: Codex permission preflight: danger-full-access confirmed; panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: primary available via Codex cross-host subagent using claude -p --model opus with no Claude tools enabled after danger-full-access preflight, Codex adversarial available, Codex pragmatic available; opposite-host response path: Claude via Codex primary subagent; fusion depth: 1.
 PROMPT
 )
 
@@ -2716,8 +2740,35 @@ required_claude_argv = [
     budget,
     "--permission-mode",
     "dontAsk",
+    "--tools",
     "--no-session-persistence",
 ]
+required_claude_direct_prompt_terms = ("claude opus", "assigned", "panel", "direct")
+forbidden_claude_prompt_patterns = [
+    re.compile(r"(?i)(?<!do not )\b(?:ask\s+Claude\s+Code\s+to\s+)?(?:use|run|invoke|call|execute|delegate\s+to)\s+(?:the\s+)?(?:Claude\s+Code\s+)?/?(?:oh-no-harness:)?fusion-rescue\b"),
+    re.compile(r"(?i)(?<!do not )\b(?:ask\s+Claude\s+Code\s+to\s+)?(?:use|run|invoke|call|execute|delegate\s+to)\s+(?:the\s+)?(?:/codex:rescue|codex:codex-rescue)\b"),
+    re.compile(r"(?i)(?<!do not )\b(?:ask\s+Claude\s+Code\s+to\s+)?(?:use|run|invoke|call|execute|delegate\s+to)\s+(?:Claude\s+)?(?:Task|Agent|Workflow|subagents?)\b"),
+]
+allowed_claude_prompt_fixtures = [
+    "Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue.",
+    "Do not invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel.",
+]
+forbidden_claude_prompt_fixtures = [
+    "Please run /oh-no-harness:fusion-rescue for this panel.",
+    "Invoke oh-no-harness:fusion-rescue directly.",
+    "Ask Claude Code to run /codex:rescue.",
+    "Execute codex:codex-rescue.",
+    "Delegate to Claude Workflow.",
+    "Run subagent for this panel.",
+    "Use subagents for this review.",
+]
+for fixture in allowed_claude_prompt_fixtures:
+    hits = [pattern.pattern for pattern in forbidden_claude_prompt_patterns if pattern.search(fixture)]
+    if hits:
+        raise SystemExit(f"Fusion Rescue Codex live forbidden prompt guard rejects allowed fixture {fixture!r}: {hits!r}")
+for fixture in forbidden_claude_prompt_fixtures:
+    if not any(pattern.search(fixture) for pattern in forbidden_claude_prompt_patterns):
+        raise SystemExit(f"Fusion Rescue Codex live forbidden prompt guard misses fixture {fixture!r}")
 secret_patterns = [
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
@@ -2905,9 +2956,18 @@ def inspect_primary_claude_call(transcript):
             "Fusion Rescue Codex live primary subagent must invoke Claude exactly once; "
             f"saw {len(claude_call_events)} candidate command call(s): {claude_call_events!r}"
         )
-    if re.search(r"(?<![\w-])--tools(?![\w-])", tool_text):
+    if not re.search(r"(?<![\w-])--tools(?![\w-])", tool_text):
         raise SystemExit(
-            "Fusion Rescue Codex live primary Claude tool call specified a Claude tools override; "
+            "Fusion Rescue Codex live primary Claude tool call missed required no-tools boundary; "
+            f"tool_text={tool_text[:2000]!r}"
+        )
+    no_tools_patterns = [
+        re.compile(r"(?<![\w-])--tools(?![\w-])\s+(?:\"\"|'')"),
+        re.compile(r"['\"]--tools['\"]\s*,\s*['\"]{2}"),
+    ]
+    if not any(pattern.search(tool_text) for pattern in no_tools_patterns):
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude tool call did not show empty --tools value; "
             f"tool_text={tool_text[:2000]!r}"
         )
     for marker in required_claude_argv:
@@ -2916,6 +2976,26 @@ def inspect_primary_claude_call(transcript):
                 f"Fusion Rescue Codex live primary Claude tool call missed argv marker {marker!r}; "
                 f"tool_text={tool_text[:2000]!r}"
             )
+    tool_text_lower = tool_text.lower()
+    missing_direct_terms = [
+        term for term in required_claude_direct_prompt_terms if term not in tool_text_lower
+    ]
+    if missing_direct_terms:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude prompt missed a direct Opus panel-review instruction; "
+            f"missing_terms={missing_direct_terms!r}; "
+            f"tool_text={tool_text[:2000]!r}"
+        )
+    forbidden_prompt_hits = [
+        pattern.pattern for pattern in forbidden_claude_prompt_patterns
+        if pattern.search(tool_text)
+    ]
+    if forbidden_prompt_hits:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude prompt appears to delegate to "
+            f"Claude-side workflow tooling instead of direct Opus review: {forbidden_prompt_hits!r}; "
+            f"tool_text={tool_text[:2000]!r}"
+        )
     if "--print" not in tool_text and " -p" not in tool_text:
         raise SystemExit(
             "Fusion Rescue Codex live primary Claude tool call did not use --print or -p; "
@@ -3150,7 +3230,7 @@ summary = {
         "budget": budget,
         "print_mode": True,
         "permission_mode": "dontAsk",
-        "tools": "host-default",
+        "tools": "disabled",
         "path": "Codex primary subagent -> Claude CLI",
         "primary_receiver": primary_receiver,
         "session_persistence": "disabled",

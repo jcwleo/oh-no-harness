@@ -6,8 +6,8 @@ argument-hint: "[task, question, or routing need]"
 
 # Using Oh No Harness
 
-Oh No Harness is a lightweight skill harness. Platform-specific public skill
-wrappers load this shared core and then apply the active platform rules from
+Oh No Harness is a lightweight skill harness. Generated platform-specific public
+skill documents compose this shared core with the active platform rules from
 `docs/platforms/`.
 
 ## Software Development Stage
@@ -68,11 +68,11 @@ failing test first, select `ralph` for concrete implementation (or
 `systematic-debugging` when failure/root-cause investigation is still needed)
 and let that workflow invoke TDD internally when behavior changes.
 
-The host agent, not the user, operates the workflow. The active platform wrapper
-reads the selected skill core, invokes any allowed role agents, writes
-artifacts, and runs verification. The user should only need to approve stage
-outputs, choose a clearly named next workflow step, or correct direction when
-the agent asks.
+The host agent, not the user, operates the workflow. The active generated
+runtime skill document composes the selected skill core, invokes any allowed
+role agents, writes artifacts, and runs verification. The user should only need
+to approve stage outputs, choose a clearly named next workflow step, or correct
+direction when the agent asks.
 
 When describing the staged workflow, call the requirements-discovery stage `interview`, not a generic clarify phase.
 
@@ -131,8 +131,9 @@ If the user overrides any recommendation, follow the user's instruction unless i
 
 ## Platform Notes
 
-This core file does not define platform invocation syntax. Apply the active
-public skill wrapper and the matching platform file named by that wrapper.
+This core file does not define platform invocation syntax. Use the active
+generated public skill document, which already composes this core with the
+matching platform source files named in its runtime composition metadata.
 
 When a skill names an agent role, adapt the role through the active platform
 file. Agents remain role prompts inside a selected skill, not workflow

@@ -47,6 +47,10 @@ security, code review, and other independent review roles. It is not a command
 to spawn roles whose output would not change the implementation, review,
 verification, or ship/block decision.
 
+When Ralph reaches cleanup on Codex, use the Oh No Harness `simplify` skill.
+Apply `docs/platforms/codex-simplify.md` through the generated Codex Simplify
+runtime document.
+
 ## Invocation
 
 When dispatch is selected, use Codex `spawn_agent`.

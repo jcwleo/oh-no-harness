@@ -48,10 +48,14 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Purpose |
 |---|---|
-| `docs/platforms/claude-code-ralph.md` | Claude Code-specific Ralph subagent invocation adapter injected by the Ralph hook |
-| `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter injected by the Ralph hook |
-| `docs/platforms/claude-code.md` | Claude Code-specific public skill wrapper rules |
-| `docs/platforms/codex.md` | Codex-specific public skill wrapper rules |
+| `docs/platforms/claude-code-ralph.md` | Claude Code-specific Ralph subagent invocation adapter included only in the generated Claude Code Ralph runtime document |
+| `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter included only in the generated Codex Ralph runtime document |
+| `docs/platforms/claude-code-fusion-rescue.md` | Claude Code-specific Fusion Rescue Codex consult adapter included only in the generated Claude Code Fusion Rescue runtime document |
+| `docs/platforms/codex-fusion-rescue.md` | Codex-specific Fusion Rescue Claude Opus consult adapter included only in the generated Codex Fusion Rescue runtime document |
+| `docs/platforms/claude-code-simplify.md` | Claude Code-specific Simplify cleanup dispatch overlay included only in the generated Claude Code Simplify runtime document |
+| `docs/platforms/codex-simplify.md` | Codex-specific Simplify cleanup dispatch overlay included only in the generated Codex Simplify runtime document |
+| `docs/platforms/claude-code.md` | Claude Code-specific runtime skill rules included in generated Claude Code skill documents |
+| `docs/platforms/codex.md` | Codex-specific runtime skill rules included in generated Codex skill documents |
 | `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `plugins/oh-no-harness/scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by repository-root `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for read-only roles such as `oh-no-explore` and `oh-no-fusion-rescue-analyst` |
 
 ## Local Provider Guidance
@@ -85,13 +89,14 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Purpose |
 |---|---|
-| `commands/*.md` | local Claude Code slash-command wrappers that mirror public skills and delegate to `skills-claude/<name>/SKILL.md` |
-| `skills/<name>/SKILL.md` | Codex-facing public skill wrappers over `docs/skill-core/<name>.md` |
-| `skills-claude/<name>/SKILL.md` | Claude Code-facing public skill wrappers over `docs/skill-core/<name>.md` |
+| `commands/*.md` | local Claude Code slash-command wrappers that mirror public skills and delegate to generated `skills-claude/<name>/SKILL.md` runtime documents |
+| `skills/<name>/SKILL.md` | generated Codex-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/codex.md`, and optional `docs/platforms/codex-<name>.md` |
+| `skills-claude/<name>/SKILL.md` | generated Claude Code-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/claude-code.md`, and optional `docs/platforms/claude-code-<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
-| `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with fallback-aware cross-host consultation guidance and no OpenRouter API integration |
+| `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral cross-host consultation contracts and no OpenRouter API integration |
 | `docs/agent-core/fusion-rescue-analyst.md` | local panel-lens role body used by `fusion-rescue` for current-host analysis slots |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
+| repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |
 

@@ -68,7 +68,10 @@ unknown or unavailable, or only generic/default agents are available, keep the
 lookup inline. If `oh-no-explore` is spawned, the next lifecycle tool for that
 receiver must be the active wait mechanism, repeated until it returns that
 receiver with final status `completed`; only then close or clean it up.
-Close/cleanup output is not a substitute for the required wait result.
+Close/cleanup output is not a substitute for the required wait result, even if
+it contains the subagent answer. The forbidden order is spawn first and close or
+cleanup second without an intervening wait result. If the caller will not wait
+first, keep the no-skill lookup inline.
 
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role that would provide

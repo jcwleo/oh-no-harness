@@ -1,15 +1,18 @@
 # Claude Code Platform Rules
 
-Use this file only from Claude Code-facing skill wrappers.
+This platform section is source content for generated Claude Code-facing
+runtime skill documents.
 
 ## Skill Loading
 
-Claude Code-facing public skills live under `skills-claude/`. Each wrapper
-applies the matching `docs/skill-core/<skill>.md` file as the shared workflow
-source of truth, then applies this Claude Code platform file.
+Claude Code-facing public skills live under `skills-claude/`. Files in
+`skills-claude/<skill>/SKILL.md` are generated runtime documents composed from
+the matching `docs/skill-core/<skill>.md` file, this Claude Code platform file,
+and any Claude Code skill-specific overlay such as
+`docs/platforms/claude-code-<skill>.md`.
 
 Claude slash commands must delegate to `skills-claude/<skill>/SKILL.md` so the
-model sees this platform wrapper before the shared core.
+model sees the generated Claude Code runtime document for that skill.
 
 ## User Approval
 
@@ -55,8 +58,9 @@ session, app restart, `/clear`, or compaction.
 ## Anthropic-Aligned Prompting
 
 This file carries the runtime-sized Anthropic guidance for Claude Code. The
-longer maintenance reference lives in `docs/providers/anthropic.md`, but Claude
-Code-facing skill wrappers do not load provider docs as an extra runtime layer.
+longer maintenance reference lives in `docs/providers/anthropic.md`, but
+generated Claude Code-facing runtime skill documents do not include provider
+docs as an extra runtime source.
 
 For Anthropic/Claude models, keep instructions explicit and sectioned:
 
@@ -111,5 +115,3 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
-
-For `ralph`, also apply `docs/platforms/claude-code-ralph.md`.

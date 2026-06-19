@@ -30,9 +30,9 @@ Do not use as a substitute for skill selection inside the current session — fo
 
 ## Platform Behavior
 
-Apply the active platform wrapper before changing settings. Some platforms
-support persistent bootstrap routing; others can only explain the setting and
-leave runtime behavior unchanged.
+Apply the active platform runtime document before changing settings. Some
+platforms support persistent bootstrap routing; others can only explain the
+setting and leave runtime behavior unchanged.
 
 When the active platform supports persistent bootstrap routing, changes take
 effect on the next bootstrap or session-start event, such as a new session, app
@@ -50,7 +50,7 @@ Preferred location when the active platform provides plugin data:
 ```
 
 The bundled `scripts/oh-no-config` script resolves the data directory; the
-platform wrapper names the plugin root.
+platform runtime document names the plugin root.
 
 Fallback location when no platform plugin-data directory exists:
 
@@ -72,7 +72,7 @@ Stored shape:
 
 When Bash is available, use the bundled script instead of editing config by hand.
 
-When the active platform wrapper exposes the plugin root:
+When the active platform runtime document exposes the plugin root:
 
 ```bash
 "<plugin-root>/scripts/oh-no-config" status
@@ -81,7 +81,7 @@ When the active platform wrapper exposes the plugin root:
 ```
 
 If the plugin root is not exposed, locate the installed script first according
-to the active platform wrapper.
+to the active platform runtime document.
 
 ```bash
 script="$(find <platform-plugin-cache> -path '*/oh-no-harness/*/scripts/oh-no-config' -print -quit)"

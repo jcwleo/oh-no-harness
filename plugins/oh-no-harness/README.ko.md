@@ -16,9 +16,10 @@ surface, 유지보수 참고 문서를 담고 있습니다.
 
 - `.claude-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `skills/` (Codex-facing wrapper)
-- `skills-claude/` (Claude Code-facing wrapper)
+- `skills/` (생성된 Codex-facing runtime skill 문서)
+- `skills-claude/` (생성된 Claude Code-facing runtime skill 문서)
 - `docs/skill-core/` (공용 workflow core)
+- `docs/platforms/` (platform 공통 runtime 지침과 skill별 overlay)
 - `docs/agent-core/` (플랫폼 공통 role prompt 본문과 agent 동작 source of truth)
 - `docs/platforms/codex-agents/` (생성된 선택적 Codex custom-agent 템플릿)
 - `docs/providers/` (platform 문서를 유지보수하기 위한 회사별 prompt guide 참고 문서, 실행 경로 아님)

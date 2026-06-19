@@ -16,9 +16,10 @@ references used by Claude Code and Codex:
 
 - `.claude-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `skills/` (Codex-facing wrappers)
-- `skills-claude/` (Claude Code-facing wrappers)
+- `skills/` (generated Codex-facing runtime skill documents)
+- `skills-claude/` (generated Claude Code-facing runtime skill documents)
 - `docs/skill-core/` (shared workflow core)
+- `docs/platforms/` (platform-wide runtime guidance and skill overlays)
 - `docs/agent-core/` (platform-neutral role prompt bodies and agent behavior source of truth)
 - `docs/platforms/codex-agents/` (generated optional Codex custom-agent templates)
 - `docs/providers/` (maintenance-only company prompt guidance for platform docs)

@@ -172,7 +172,7 @@ ROLE_POLICY_MARKERS = {
 PLATFORM_SUBAGENT_MARKERS = {
     "using-oh-no-harness": (
         "This core file does not define platform invocation syntax",
-        "matching platform file named by that wrapper",
+        "matching platform source files named in its runtime composition metadata",
         "Agents remain role prompts inside a selected skill",
     ),
     "ralph": (
@@ -193,7 +193,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "ordinary `oh-no-harness:ralph` choice is the parallel-capable execution",
         "keep sequential role boundaries",
         "parallel subagent dispatch plan",
-        "active platform wrapper's dispatch policy",
+        "active platform runtime document's dispatch policy",
         "Planner Draft Contract",
         "Plan Review Contract",
         "Planner Revision Contract",
@@ -205,8 +205,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Parallel trigger: natural-dispatch",
         "should keep separate role contexts",
         "independent delegated phase work",
-        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-        "standing explicit user request",
+        "active platform's dispatch authorization",
+        "standing authorization",
         "per-run subagent approval",
         "`interview`/`explore`",
         "QA Loop roles",
@@ -214,8 +214,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "lifecycle cleanup requirements",
     ),
     "interview": (
-        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-        "standing explicit user request",
+        "active platform's dispatch authorization",
+        "standing authorization",
         "per-run subagent approval",
         "`explore` role",
         "inline fallback reason",
@@ -225,8 +225,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "collapse diagnostic or evidence roles inline",
         "docs/shared/ralph-subagent-policy.md",
         "eligible batch dispatch",
-        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-        "standing explicit user request",
+        "active platform's dispatch authorization",
+        "standing authorization",
         "per-run subagent approval",
         "post-fix review roles",
         "`code-reviewer`",
@@ -241,8 +241,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "## Acceptance-To-Evidence Mapping",
         "## Risk Check Before Completion",
         "Completion claim",
-        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-        "standing explicit user request",
+        "active platform's dispatch authorization",
+        "standing authorization",
         "per-run subagent approval",
         "the eligible `verifier` and risk-gated `code-reviewer` roles",
     ),
@@ -274,6 +274,8 @@ PLATFORM_RULE_DOC_MARKERS = {
         "credential values must be redacted",
         "if that agent is unavailable, answer inline",
         'If `agent_type =\n"oh-no-explore"` is rejected as unknown or unavailable',
+        "The forbidden order is `spawn_agent`",
+        "If you will not call `wait_agent` first",
         "Custom agents are standalone TOML files",
         "not defined inside `config.toml`",
         "scripts/install-codex-agents --scope user --ensure --quiet",
@@ -282,7 +284,6 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## Role Prompt Embedding",
         "Agent prompt source: docs/agent-core/<role>.md",
         "Claude-only",
-        "docs/platforms/codex-ralph.md",
     ),
     "claude-code.md": (
         "# Claude Code Platform Rules",
@@ -300,7 +301,6 @@ PLATFORM_RULE_DOC_MARKERS = {
         "oh-no-harness:<role>",
         "close or clean\nup the completed subagent",
         "record that fallback",
-        "docs/platforms/claude-code-ralph.md",
     ),
 }
 PROVIDER_DOC_MARKERS = {
@@ -360,6 +360,8 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "credential values must be redacted",
     "only generic/default agents are available",
     "keep the lookup inline",
+    "forbidden order is spawn first",
+    "If the caller will not wait",
     "explicit session-level authorization",
     "per-run subagent approval",
     "## Subagent-Unavailable Environments",
@@ -599,7 +601,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
     "ultrawork": (
         "docs/shared/execution-modes.md",
         "execution mode and mode source",
-        "active platform wrapper",
+        "active platform runtime document",
     ),
 }
 SKILL_REQUIRED_AGENT_ROLES = {
@@ -705,8 +707,8 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "requires four cleanup role passes",
     "at most 3 changed files AND at most 100 changed lines AND no generated files",
     "subagents in parallel",
-    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-    "standing explicit user request",
+    "active platform's Simplify dispatch authorization",
+    "standing authorization for eligible skill-local delegation",
     "single pass that still reports all four labeled sections: Reuse, Simplification, Efficiency, and Altitude",
     "separate inline fallback blocks",
     "dispatch-unavailable",
@@ -718,8 +720,9 @@ SIMPLIFY_PARALLEL_MARKERS = (
     "clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
-    "Read and follow `../../docs/skill-core/simplify.md`",
-    "Preserve the core skill's artifact paths, approval gates, role boundaries",
+    "oh-no-harness-generated-skill-wrapper",
+    "Source order:",
+    "../../docs/skill-core/simplify.md",
 )
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
@@ -931,24 +934,21 @@ FUSION_RESCUE_SKILL_MARKERS = (
     "primary",
     "adversarial",
     "pragmatic",
-    "Codex performs the adversarial lens when Codex is available",
+    "platform-specific Fusion Rescue rules",
     "## Cross-Host Consult",
-    "${CLAUDE_BIN:-claude}",
-    "--permission-mode",
-    "dontAsk",
-    "--no-session-persistence",
-    "Claude tools override",
-    "danger-full-access",
-    "Codex permission state",
-    "openai/codex-plugin-cc",
-    "/codex:rescue",
+    "real assigned-lens analysis from the opposite host",
+    "command or plugin capability",
+    "permission preflight",
+    "background acknowledgement",
+    "single allowed opposite-host consult path",
     "require-cross-host",
     "redacted and minimized problem",
     "read-only analysis tools are allowed only when the active opposite host permits them",
     "[REDACTED_TOKEN]",
     "Do not record credential values",
     "## Fallback Behavior",
-    "Codex adversarial unavailable",
+    "failure class",
+    "missing response proof",
     "## Recursion Guard",
     "fusion depth: 1",
     "one-hop",
@@ -964,7 +964,7 @@ FUSION_RESCUE_SKILL_MARKERS = (
     "## Semantic Scenario Checks",
     "Intentional contradiction",
     "Missing opposite host",
-    "Codex permission below `danger-full-access`",
+    "Platform preflight denied",
     "require-cross-host unavailable",
     "Recursive consult",
     "## Caller Return",
@@ -997,11 +997,12 @@ FUSION_RESCUE_SCENARIO_MARKERS = {
         "three current-host panel slots",
         "panel availability/fallback notes",
     ),
-    "Codex permission below `danger-full-access`": (
-        "check the current permission state",
-        "must not call Claude",
-        "three current-host Codex panel agents",
-        "Codex permission state is not `danger-full-access`",
+    "Platform preflight denied": (
+        "active platform-specific Fusion Rescue rules",
+        "permission, auth, budget, command, plugin, foreground, or response-proof preflight",
+        "must prevent the consult",
+        "three current-host panel slots",
+        "failure class",
     ),
     "require-cross-host unavailable": (
         "required host, command, plugin, auth, or budget is unavailable",
@@ -1021,7 +1022,57 @@ FUSION_RESCUE_FORBIDDEN_MARKERS = (
     "weaker mode",
     "approves a weaker",
     "weaker cross-host",
+    "${CLAUDE_BIN:-claude}",
+    "`--permission-mode`",
+    "`dontAsk`",
+    "`--no-session-persistence`",
+    "Claude Opus must answer the assigned panel directly",
+    "Claude-side skill or slash command",
+    "Codex permission state",
+    "openai/codex-plugin-cc",
+    "`/codex:rescue`",
+    "Codex adversarial unavailable",
 )
+FUSION_RESCUE_PLATFORM_DOC_MARKERS = {
+    "codex-fusion-rescue.md": (
+        "This platform overlay is source content for the generated Codex-facing",
+        "Codex remains responsible for the `adversarial` lens when Codex is available",
+        "assign exactly one\nnon-adversarial panel slot",
+        "`${CLAUDE_BIN:-claude}`",
+        "current Codex permission state is exactly `danger-full-access`",
+        "Codex permission preflight confirms `danger-full-access`",
+        "argument vector",
+        "`--print`",
+        "`--model`",
+        "`opus`",
+        "`--permission-mode`",
+        "`dontAsk`",
+        "`--tools`",
+        "`\"\"`",
+        "mechanical read-only boundary",
+        "no-tools consult",
+        "`--no-session-persistence`",
+        "Claude Opus must answer the assigned panel directly",
+        "Claude-side skill or slash command",
+        "`/oh-no-harness:fusion-rescue`",
+        "`/codex:rescue`",
+        "treat the cross-host consult as unavailable",
+        "redacted and minimized problem packet",
+        "Claude unavailable: Codex permission state is not danger-full-access",
+    ),
+    "claude-code-fusion-rescue.md": (
+        "This platform overlay is source content for the generated Claude Code-facing",
+        "`openai/codex-plugin-cc`",
+        "`/codex:rescue`",
+        "`codex:codex-rescue`",
+        "Codex consult must run synchronously",
+        "Pass `--wait` to force foreground",
+        "do not let it run as a detached background job",
+        "not a valid opposite-host panel response",
+        "Codex adversarial unavailable",
+        "Codex consult returned no analysis (background job acknowledgment only)",
+    ),
+}
 
 
 def die(message: str) -> None:
@@ -1127,31 +1178,24 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
             f"{path} must define exactly these Fusion Rescue panel lenses in order: "
             f"{FUSION_RESCUE_PANEL_LENSES!r}; found {tuple(lens_matches)!r}"
         )
-    if "Codex performs the adversarial lens when Codex is available" not in panel_contract:
-        die(f"{path} Panel Contract must keep Codex-preferred adversarial ownership")
+    if not has_required_marker(panel_contract, "active platform-specific Fusion Rescue rules"):
+        die(f"{path} Panel Contract must delegate lens pinning to platform Fusion Rescue rules")
 
     cross_host = markdown_section(body, "## Cross-Host Consult")
     if not cross_host:
         die(f"{path} is missing required Fusion Rescue Cross-Host Consult section")
     for marker in (
-        "${CLAUDE_BIN:-claude}",
-        "argument vector",
-        "`--print`",
-        "`--model`",
-        "`opus`",
-        "`--permission-mode`",
-        "`dontAsk`",
-        "`--no-session-persistence`",
-        "Codex permission preflight confirms `danger-full-access`",
-        "Do not specify a\nClaude tools override",
+        "real assigned-lens analysis from the opposite host",
+        "active platform-specific Fusion Rescue rules",
+        "command or plugin capability",
+        "permission preflight",
+        "foreground or response proof",
+        "launch notice, queued-job message, background acknowledgement",
+        "assigned panel analysis",
+        "single allowed opposite-host consult path",
         "treat the cross-host consult as unavailable",
         "redacted and minimized problem packet",
-        "openai/codex-plugin-cc",
-        "/codex:rescue",
-        "Codex consult must run synchronously",
-        "Pass `--wait` to force foreground",
-        "not a valid opposite-host panel response",
-        "do not let it run as a detached\nbackground job",
+        "read-only consult: no edits, no writes, no installs",
     ):
         if not has_required_marker(cross_host, marker):
             die(f"{path} Cross-Host Consult section is missing marker: {marker!r}")
@@ -1162,7 +1206,9 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
     for marker in (
         "Default mode degrades instead of blocking",
         "all three panel slots on the current host",
-        "Codex adversarial unavailable",
+        "platform-specific permission, auth, budget, command, plugin",
+        "missing response proof",
+        "not opposite-host evidence",
         "Require-cross-host mode blocks",
         "failure class",
     ):
@@ -1176,7 +1222,7 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         "fusion depth: 1",
         "Do not invoke rescue, fusion-rescue, cross-host consult",
         "one-hop guard",
-        "must not call Claude, then let Claude call Codex",
+        "current host must not call the opposite host",
     ):
         if not has_required_marker(recursion, marker):
             die(f"{path} Recursion Guard section is missing marker: {marker!r}")
@@ -1219,6 +1265,25 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
     ):
         if not has_required_marker(caller_return, marker):
             die(f"{path} Caller Return section is missing marker: {marker!r}")
+
+
+def assert_fusion_rescue_platform_contracts(root: Path) -> None:
+    platform_root = root / "docs" / "platforms"
+    for filename, markers in FUSION_RESCUE_PLATFORM_DOC_MARKERS.items():
+        path = platform_root / filename
+        body = read_text(path)
+        for marker in markers:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing required Fusion-Rescue platform marker: {marker!r}")
+
+    codex_body = read_text(platform_root / "codex-fusion-rescue.md")
+    claude_body = read_text(platform_root / "claude-code-fusion-rescue.md")
+    for marker in ("`openai/codex-plugin-cc`",):
+        if marker in codex_body:
+            die(f"{platform_root / 'codex-fusion-rescue.md'} contains Claude Code consult marker: {marker!r}")
+    for marker in ("`${CLAUDE_BIN:-claude}`", "`--permission-mode`", "`dontAsk`"):
+        if marker in claude_body:
+            die(f"{platform_root / 'claude-code-fusion-rescue.md'} contains Codex consult marker: {marker!r}")
 
 
 def is_guardrail_line(line: str) -> bool:
@@ -1274,26 +1339,38 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
         forbidden = (
             "docs/platforms/claude-code.md",
             "docs/platforms/claude-code-ralph.md",
-            "docs/providers/",
             "CLAUDE_PLUGIN_ROOT",
         )
         if skill == "ralph" and "docs/platforms/codex-ralph.md" not in body:
             die(f"{path} should reference Codex Ralph adapter")
+        if skill == "fusion-rescue":
+            if "docs/platforms/codex-fusion-rescue.md" not in body:
+                die(f"{path} should reference Codex Fusion Rescue adapter")
+            if "docs/platforms/claude-code-fusion-rescue.md" in body:
+                die(f"{path} contains forbidden Claude Code Fusion Rescue adapter marker")
     elif platform == "claude":
         required = "docs/platforms/claude-code.md"
         forbidden = (
             "docs/platforms/codex.md",
             "docs/platforms/codex-ralph.md",
-            "docs/providers/",
             "spawn_agent",
         )
         if skill == "ralph" and "docs/platforms/claude-code-ralph.md" not in body:
             die(f"{path} should reference Claude Code Ralph adapter")
+        if skill == "fusion-rescue":
+            if "docs/platforms/claude-code-fusion-rescue.md" not in body:
+                die(f"{path} should reference Claude Code Fusion Rescue adapter")
+            if "docs/platforms/codex-fusion-rescue.md" in body:
+                die(f"{path} contains forbidden Codex Fusion Rescue adapter marker")
     else:
         die(f"unknown platform for wrapper validation: {platform}")
 
     if required not in body:
         die(f"{path} should reference platform rules: {required!r}")
+    if "oh-no-harness-generated-skill-wrapper" not in body:
+        die(f"{path} should be a generated runtime skill wrapper")
+    if "DO NOT EDIT. Run: python3 scripts/generate-skill-wrappers.py --write" not in body:
+        die(f"{path} should include generated skill wrapper regeneration marker")
     for marker in forbidden:
         if marker in body:
             die(f"{path} contains forbidden cross-platform wrapper marker: {marker!r}")
@@ -1381,6 +1458,7 @@ def assert_skill(root: Path, skill: str) -> None:
             if not has_required_marker(body, marker):
                 die(f"{path} is missing required Fusion-Rescue marker: {marker!r}")
         assert_fusion_rescue_contract(path, body)
+        assert_fusion_rescue_platform_contracts(root)
 
 
 def assert_command(root: Path, skill: str) -> None:
@@ -1641,6 +1719,7 @@ def assert_expected_references(root: Path) -> None:
             die(f"relationships.md does not mention agent `{agent}`")
     for marker in (
         "docs/agent-core/<role>.md",
+        "scripts/generate-skill-wrappers.py",
         "scripts/generate-agent-wrappers.py",
         "scripts/install-codex-agents",
         "docs/platforms/codex-agents/*.toml",
@@ -1909,6 +1988,8 @@ def assert_hook_contract(root: Path) -> None:
         "never allowed for no-skill read-only lookup",
         "Do not call spawn_agent for",
         "otherwise perform the lookup inline",
+        "Forbidden order: spawn_agent -> close_agent",
+        "close_agent output is never valid first result capture",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",
     ):
@@ -1956,6 +2037,11 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
             "OH_NO_FUSION_RESCUE_LIVE",
             "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
             "OH_NO_CLAUDE_FUSION_PANEL_OK",
+            "Claude Opus must answer the assigned panel directly",
+            "forbidden_claude_prompt_patterns",
+            "allowed_claude_prompt_fixtures",
+            "forbidden_claude_prompt_fixtures",
+            "Claude-side workflow tooling instead of direct Opus review",
         ),
         "scripts/test-claude-plugin.sh": (
             "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
@@ -2191,6 +2277,31 @@ def assert_generated_agent_wrappers(marketplace_root: Path, root: Path) -> None:
         die(f"generated agent wrappers are stale:\n{details}")
 
 
+def assert_generated_skill_wrappers(marketplace_root: Path, root: Path) -> None:
+    script_candidates = [
+        marketplace_root / "scripts" / "generate-skill-wrappers.py",
+        root.parent.parent / "scripts" / "generate-skill-wrappers.py",
+    ]
+    if len(root.parents) >= 3:
+        script_candidates.append(root.parents[2] / "scripts" / "generate-skill-wrappers.py")
+    script = next((candidate for candidate in script_candidates if candidate.exists()), None)
+    if script is None:
+        searched = ", ".join(str(candidate) for candidate in script_candidates)
+        die(f"generate-skill-wrappers.py is missing; searched: {searched}")
+    result = subprocess.run(
+        [sys.executable, str(script), "--plugin-root", str(root), "--check"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part
+            for part in (result.stdout.strip(), result.stderr.strip())
+            if part
+        )
+        die(f"generated skill wrappers are stale:\n{details}")
+
+
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         die("usage: validate-plugin-files.py <marketplace-root> [plugin-root]")
@@ -2202,6 +2313,7 @@ def main() -> None:
         nested = marketplace_root / "plugins" / PLUGIN_NAME
         root = nested if nested.exists() else marketplace_root
 
+    assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)

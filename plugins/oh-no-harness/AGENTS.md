@@ -36,15 +36,30 @@ the same public skill names above. Each command must delegate to its matching
 `skills-claude/<name>/SKILL.md`, preserve the user's raw arguments, and must not
 add a new workflow, hidden automation, or separate source of truth.
 
-Shared workflow behavior lives in `docs/skill-core/<name>.md`. Codex-facing
-public skill wrappers live in `skills/<name>/SKILL.md`; Claude Code-facing
-public skill wrappers live in `skills-claude/<name>/SKILL.md`. Keep wrappers
-thin and platform-specific. Do not duplicate the full workflow body in both
-platform skill directories.
+Shared workflow behavior lives in `docs/skill-core/<name>.md`. Platform-wide
+runtime guidance lives in `docs/platforms/codex.md` and
+`docs/platforms/claude-code.md`; skill-specific platform overlays live in
+`docs/platforms/codex-<name>.md` or `docs/platforms/claude-code-<name>.md` only
+when needed. Codex-facing runtime skill documents are generated into
+`skills/<name>/SKILL.md`; Claude Code-facing runtime skill documents are
+generated into `skills-claude/<name>/SKILL.md`. Do not hand-edit those generated
+runtime skill documents. Regenerate them with
+`python3 scripts/generate-skill-wrappers.py --write` from the repository root
+after changing skill core, platform guidance, or generator metadata.
+
+For ongoing skill maintenance, fixes, and improvements, edit the source
+documents, not the generated runtime documents. Put shared skill behavior,
+workflow rules, approval gates, artifacts, and verification requirements in
+`docs/skill-core/<name>.md`; this is the default and primary edit surface for
+skill content changes. Touch `docs/platforms/*.md` only for host-specific
+invocation syntax, permissions, tool behavior, or prompt-shaping that truly
+differs between Codex and Claude Code. After any source-doc change, regenerate
+the runtime skill documents and keep the generated `skills/` and
+`skills-claude/` files as outputs only.
 
 Company-specific prompt guidance lives in `docs/providers/openai.md` and
 `docs/providers/anthropic.md` as maintenance reference only. Do not add provider
-docs to the runtime wrapper chain. Summarize stable OpenAI guidance in
+docs as generated runtime sources. Summarize stable OpenAI guidance in
 `docs/platforms/codex.md` and stable Anthropic guidance in
 `docs/platforms/claude-code.md`.
 

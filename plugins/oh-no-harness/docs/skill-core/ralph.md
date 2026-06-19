@@ -123,9 +123,8 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-`simplify` is a skill, not an agent. On Claude Code, use the host built-in
-`simplify` skill when available; on Codex, use the Oh No Harness `simplify`
-skill.
+`simplify` is a skill, not an agent. Use the active platform's Simplify route
+and cleanup invocation rules.
 
 `verification-before-completion` and `systematic-debugging` are skills, not agents.
 
@@ -294,10 +293,10 @@ review roles. Inline execution is the fallback, not the default, when
 `agentPolicy` is not `inline-only`, but final narrow re-checks may stay inline
 when a subagent result would not change the decision.
 
-Respect the platform rules from the active public skill wrapper and the Ralph
-platform adapter. A `UserPromptSubmit` hook injects the active adapter
-immediately before Ralph runs when plugin hooks are enabled; if no hook context
-is visible, read the active platform document named by the wrapper directly.
+Respect the platform rules from the active public skill runtime document and
+the Ralph platform adapter composed into that document. If no platform adapter
+context is visible, read the active platform source document named by the
+runtime composition metadata.
 Without a dispatch-worthy role or scope, without host authorization, or in a
 subagent-unavailable environment from `docs/shared/ralph-subagent-policy.md`,
 perform roles inline and record `Parallel trigger: none` plus the fallback
@@ -321,7 +320,7 @@ Respect the same active platform dispatch policy noted in
 `## Mode-Gated Agent Dispatch`. Read and apply
 `docs/shared/ralph-subagent-policy.md`; `docs/shared/parallel-subagents.md` is
 only a quick pointer back to that source of truth. Then use only the active
-adapter named by the public skill wrapper.
+adapter named by the generated runtime skill document.
 
 If two or more roles or scopes are independent and the platform policy allows
 subagents, create the whole eligible batch before waiting for any one result.

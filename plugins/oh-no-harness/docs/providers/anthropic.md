@@ -1,9 +1,9 @@
 # Anthropic Provider Prompt Guidance
 
 This is a maintenance reference for Claude Code-facing platform guidance.
-Runtime skill wrappers should read `docs/skill-core/<skill>.md` and
-`docs/platforms/claude-code.md`; they should not load this provider document as
-an extra runtime layer.
+Generated Claude Code runtime skill documents compose
+`docs/skill-core/<skill>.md` and `docs/platforms/claude-code.md`; they should
+not include this provider document as an extra runtime source.
 
 Keep this file company-scoped, not model-scoped. When Anthropic publishes a
 newer Claude, Claude Code, or prompting guide, update this file and then copy

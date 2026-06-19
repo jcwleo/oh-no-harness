@@ -1,9 +1,9 @@
 # OpenAI Provider Prompt Guidance
 
-This is a maintenance reference for Codex-facing platform guidance. Runtime
-skill wrappers should read `docs/skill-core/<skill>.md` and
-`docs/platforms/codex.md`; they should not load this provider document as an
-extra runtime layer.
+This is a maintenance reference for Codex-facing platform guidance. Generated
+Codex runtime skill documents compose `docs/skill-core/<skill>.md` and
+`docs/platforms/codex.md`; they should not include this provider document as an
+extra runtime source.
 
 Keep this file company-scoped, not model-scoped. When OpenAI publishes a newer
 coding or prompting guide, update this file and then copy only the stable,

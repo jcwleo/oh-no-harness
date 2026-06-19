@@ -20,10 +20,11 @@ Use it after `interview` has produced an approved spec, or when the user already
 
 Create a concrete implementation plan that is drafted by Planner, reviewed by Plan-Reviewer through both the architecture and quality-gate lenses, and revised by Planner until the accepted feedback is reflected in the plan body before execution begins.
 
-The host agent operates the planning roles through the active platform wrapper.
-The user does not need to pick Planner or Plan-Reviewer manually; the user
-approves the plan, requests changes, chooses the next workflow step, or approves
-direction changes when a role finds one. Ralph execution is parallel-capable for
+The host agent operates the planning roles through the active platform runtime
+document. The user does not need to pick Planner or Plan-Reviewer manually; the
+user approves the plan, requests changes, chooses the next workflow step, or
+approves direction changes when a role finds one. Ralph execution is
+parallel-capable for
 eligible isolated roles that can provide decision-changing evidence; do not
 split the handoff into a separate "parallel Ralph" option.
 
@@ -106,8 +107,9 @@ not authorize dispatch, or the role lacks a concrete input artifact, isolated
 responsibility, or expected output. Record the inline fallback reason in the
 plan.
 
-Use the active platform wrapper's dispatch rules for Planner and Plan-Reviewer.
-They are sequential, never parallel. Record the trigger as `Planning
+Use the active platform runtime document's dispatch rules for Planner and
+Plan-Reviewer. They are sequential, never parallel. Record the trigger as
+`Planning
 dispatch: natural-dispatch`, `Planning dispatch: explicit-user-request`, or
 `Planning dispatch: inline-fallback`; `natural-dispatch` means
 host-authorized proactive dispatch, not a weak preference to stay inline.
@@ -734,8 +736,9 @@ Ralplan uses these roles directly.
 
 This table governs *agent role* dispatch only — workflow-skill chaining
 (`ralph`, `ultrawork`) still goes through `## Next Skill Handoff` HARD-GATE. Use
-the active platform wrapper's dispatch policy. Planner and Plan-Reviewer must
-keep sequential role boundaries because Planner owns the draft and
+the active platform runtime document's dispatch policy. Planner and
+Plan-Reviewer must keep sequential role boundaries because Planner owns the
+draft and
 Plan-Reviewer reviews that exact draft. Dispatch them as sequential subagents
 on subagent-capable hosts when independent context can improve planning or
 review quality; otherwise run the roles inline while preserving the same role
