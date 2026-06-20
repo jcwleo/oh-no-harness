@@ -1,6 +1,6 @@
 {
   "name": "oh-no-harness",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Lightweight Markdown-first coding workflow harness with interview, ralplan, ralph, ultrawork, fusion-rescue, TDD, debugging, verification, and cleanup skills.",
   "author": {
     "name": "oh-no-harness maintainers"
