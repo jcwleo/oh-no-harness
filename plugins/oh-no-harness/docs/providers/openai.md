@@ -2,12 +2,13 @@
 
 This is a maintenance reference for Codex-facing platform guidance. Generated
 Codex runtime skill documents compose `docs/skill-core/<skill>.md` and
-`docs/platforms/codex.md`; they should not include this provider document as an
-extra runtime source.
+`docs/platforms/codex-runtime.md`; they should not include this provider
+document as an extra runtime source.
 
 Keep this file company-scoped, not model-scoped. When OpenAI publishes a newer
 coding or prompting guide, update this file and then copy only the stable,
-runtime-critical rules into `docs/platforms/codex.md`.
+runtime-critical rules into `docs/platforms/codex-runtime.md`. Keep longer
+maintenance notes in `docs/platforms/codex.md`.
 
 ## Source Snapshot
 
@@ -69,6 +70,6 @@ When refreshing OpenAI guidance:
 
 1. Confirm the current official guide URLs.
 2. Update this provider reference first.
-3. Copy only short, stable runtime rules into `docs/platforms/codex.md`.
+3. Copy only short, stable runtime rules into `docs/platforms/codex-runtime.md`.
 4. Do not create model-named provider files such as `gpt-*.md`.
 5. Run plugin validation after changing platform guidance.

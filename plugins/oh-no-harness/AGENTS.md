@@ -36,11 +36,14 @@ the same public skill names above. Each command must delegate to its matching
 `skills-claude/<name>/SKILL.md`, preserve the user's raw arguments, and must not
 add a new workflow, hidden automation, or separate source of truth.
 
-Shared workflow behavior lives in `docs/skill-core/<name>.md`. Platform-wide
-runtime guidance lives in `docs/platforms/codex.md` and
-`docs/platforms/claude-code.md`; skill-specific platform overlays live in
-`docs/platforms/codex-<name>.md` or `docs/platforms/claude-code-<name>.md` only
-when needed. Codex-facing runtime skill documents are generated into
+Shared workflow behavior lives in `docs/skill-core/<name>.md`. Generated
+skill documents embed compact platform runtime guidance from
+`docs/platforms/codex-runtime.md` and
+`docs/platforms/claude-code-runtime.md`. Longer platform maintenance references
+live in `docs/platforms/codex.md` and `docs/platforms/claude-code.md`.
+Skill-specific platform overlays live in `docs/platforms/codex-<name>.md` or
+`docs/platforms/claude-code-<name>.md` only when needed. Codex-facing runtime
+skill documents are generated into
 `skills/<name>/SKILL.md`; Claude Code-facing runtime skill documents are
 generated into `skills-claude/<name>/SKILL.md`. Do not hand-edit those generated
 runtime skill documents. Regenerate them with
@@ -51,17 +54,19 @@ For ongoing skill maintenance, fixes, and improvements, edit the source
 documents, not the generated runtime documents. Put shared skill behavior,
 workflow rules, approval gates, artifacts, and verification requirements in
 `docs/skill-core/<name>.md`; this is the default and primary edit surface for
-skill content changes. Touch `docs/platforms/*.md` only for host-specific
-invocation syntax, permissions, tool behavior, or prompt-shaping that truly
-differs between Codex and Claude Code. After any source-doc change, regenerate
-the runtime skill documents and keep the generated `skills/` and
-`skills-claude/` files as outputs only.
+skill content changes. Touch compact `docs/platforms/*-runtime.md` files only
+for host-specific rules that every generated skill document must actually carry.
+Use the longer `docs/platforms/codex.md` and `docs/platforms/claude-code.md`
+for maintenance detail that should not be repeated in every generated skill
+document. After any source-doc change, regenerate the runtime skill documents
+and keep the generated `skills/` and `skills-claude/` files as outputs only.
 
 Company-specific prompt guidance lives in `docs/providers/openai.md` and
 `docs/providers/anthropic.md` as maintenance reference only. Do not add provider
 docs as generated runtime sources. Summarize stable OpenAI guidance in
-`docs/platforms/codex.md` and stable Anthropic guidance in
-`docs/platforms/claude-code.md`.
+`docs/platforms/codex-runtime.md` and stable Anthropic guidance in
+`docs/platforms/claude-code-runtime.md`; keep longer platform notes in
+`docs/platforms/codex.md` and `docs/platforms/claude-code.md`.
 
 When adapting OMC content:
 

@@ -42,7 +42,7 @@ PLATFORMS = (
         key="codex",
         display_name="Codex",
         skill_root="skills",
-        platform_doc="docs/platforms/codex.md",
+        platform_doc="docs/platforms/codex-runtime.md",
         source_prefix="codex",
         runtime_note=(
             "This generated file is the Codex-facing runtime skill document. "
@@ -54,7 +54,7 @@ PLATFORMS = (
         key="claude",
         display_name="Claude Code",
         skill_root="skills-claude",
-        platform_doc="docs/platforms/claude-code.md",
+        platform_doc="docs/platforms/claude-code-runtime.md",
         source_prefix="claude-code",
         runtime_note=(
             "This generated file is the Claude Code-facing runtime skill "

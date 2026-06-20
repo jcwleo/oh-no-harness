@@ -20,7 +20,7 @@ Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
   -> generated runtime document composed from docs/skill-core/<skill>.md,
-     docs/platforms/claude-code.md, and optional
+     docs/platforms/claude-code-runtime.md, and optional
      docs/platforms/claude-code-<skill>.md
 
 Codex
@@ -32,7 +32,7 @@ Codex
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
   -> skills/<skill>/SKILL.md generated runtime document composed from
-     docs/skill-core/<skill>.md, docs/platforms/codex.md, and optional
+     docs/skill-core/<skill>.md, docs/platforms/codex-runtime.md, and optional
      docs/platforms/codex-<skill>.md
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
@@ -55,6 +55,8 @@ using-oh-no-harness
 auto-routing
   -> writes persistent user preference for stronger SessionStart skill-selection guidance
   -> Claude Code hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
+  -> docs/platforms/claude-code-auto-routing.md on Claude Code
+  -> docs/platforms/codex-auto-routing.md on Codex
 
 interview
   -> explore for brownfield context
@@ -136,14 +138,16 @@ Provider guidance is a maintenance reference, not an extra runtime layer:
 ```text
 Codex runtime
   -> skills/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
-  -> docs/platforms/codex.md and optional docs/platforms/codex-<skill>.md
+  -> docs/platforms/codex-runtime.md and optional docs/platforms/codex-<skill>.md
+  -> docs/platforms/codex-auto-routing.md for auto-routing only
   -> docs/platforms/codex-fusion-rescue.md for fusion-rescue only
   -> docs/platforms/codex-simplify.md for simplify only
   -> summarized OpenAI guidance from docs/providers/openai.md
 
 Claude Code runtime
   -> skills-claude/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
-  -> docs/platforms/claude-code.md and optional docs/platforms/claude-code-<skill>.md
+  -> docs/platforms/claude-code-runtime.md and optional docs/platforms/claude-code-<skill>.md
+  -> docs/platforms/claude-code-auto-routing.md for auto-routing only
   -> docs/platforms/claude-code-fusion-rescue.md for fusion-rescue only
   -> docs/platforms/claude-code-simplify.md for simplify only
   -> summarized Anthropic guidance from docs/providers/anthropic.md
@@ -151,8 +155,9 @@ Claude Code runtime
 
 Do not add `docs/providers/*.md` as generated runtime sources. Update provider
 docs first when official company guidance changes, then copy only stable,
-runtime-critical rules into the matching platform doc and regenerate skill
-runtime documents with `scripts/generate-skill-wrappers.py --write`.
+runtime-critical rules into the matching compact platform runtime doc and
+regenerate skill runtime documents with
+`scripts/generate-skill-wrappers.py --write`.
 
 ## Agent Relationship Summary
 

@@ -1,14 +1,16 @@
 # Codex Platform Rules
 
-This platform section is source content for generated Codex-facing runtime
-skill documents.
+This platform document is the longer Codex maintenance reference. Generated
+Codex-facing skill documents embed the compact
+`docs/platforms/codex-runtime.md` section instead.
 
 ## Skill Loading
 
 Codex-facing public skills live under `skills/`. Files in
 `skills/<skill>/SKILL.md` are generated runtime documents composed from the
-matching `docs/skill-core/<skill>.md` file, this Codex platform file, and any
-Codex skill-specific overlay such as `docs/platforms/codex-<skill>.md`.
+matching `docs/skill-core/<skill>.md` file,
+`docs/platforms/codex-runtime.md`, and any Codex skill-specific overlay such as
+`docs/platforms/codex-<skill>.md`.
 
 ## User Approval
 
@@ -27,10 +29,11 @@ core bodies.
 
 ## OpenAI-Aligned Prompting
 
-This file carries the runtime-sized OpenAI guidance for Codex. The longer
-maintenance reference lives in `docs/providers/openai.md`, but generated
-Codex-facing runtime skill documents do not include provider docs as an extra
-runtime source.
+This file carries extended OpenAI guidance for Codex maintainers. The compact
+runtime-sized rules copied into generated skill documents live in
+`docs/platforms/codex-runtime.md`. The longer provider reference lives in
+`docs/providers/openai.md`, but generated Codex-facing runtime skill documents
+do not include provider docs as an extra runtime source.
 
 For OpenAI/Codex models, keep prompts outcome-first:
 
@@ -57,9 +60,9 @@ the role has an isolated read-only scope, disjoint write ownership, or an
 independent review or verification responsibility.
 
 When dispatching an Oh No Harness role in any Codex context, including active
-skills, approved plan handoffs, SessionStart-authorized read-only exploration,
-or general user-requested subagent work outside a selected skill, use the
-registered custom agent first. If the host recognizes or accepts
+skills, approved plan handoffs, or general user-requested subagent work outside
+a selected skill, use the registered custom agent first. If the host recognizes
+or accepts
 `oh-no-<role>`, call
 `spawn_agent(agent_type="oh-no-<role>", ...)`. Do not choose built-in
 `explorer`, `worker`, `default`, or a prompt-embedded generic subagent for an Oh
@@ -68,8 +71,8 @@ Do not infer custom-agent unavailability from rendered schema text, display
 comments, or uncertainty. Generic/default fallback is allowed only inside an
 active Oh No Harness workflow or explicit user-requested subagent task after an
 actual `agent_type="oh-no-<role>"` attempt is rejected as unknown or unavailable
-and the confirmed fallback reason is recorded. The no-skill read-only
-exploration lane below must not use generic/default fallback.
+and the confirmed fallback reason is recorded. No-skill read-only repository
+lookups must stay inline and must not use generic/default fallback.
 
 Do not combine `agent_type = "oh-no-<role>"` with `fork_context = true` or any
 full-history fork request. Codex full-history forks inherit the parent agent
@@ -104,28 +107,19 @@ skill dispatch policy exists, do not spawn Codex subagents merely because a role
 could be named. Keep the role inline and record the fallback reason when the
 core skill requires it.
 
-The only no-skill exception is the Codex SessionStart block named
-`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION`. It authorizes one
-exploration subagent for simple read-only repository fact lookup prompts such as
+There is no no-skill subagent exception. The Codex SessionStart block named
+`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY` keeps simple read-only
+repository fact lookup prompts inline when no active Oh No Harness workflow or
+explicit user-requested subagent task exists. Eligible inline work includes
 locating logic, tracing a symbol, identifying related tests, or summarizing an
-existing file/config path. It does not authorize planning, debugging,
-implementation, review (security lens included), scenario QA, completion
-verification, ambiguous-requirements work, or file edits. It must not read or
-reproduce secrets unless the user explicitly asks for that sensitive lookup, and
-credential values must be redacted in subagent output. This no-skill lane may
-dispatch only the registered read-only `oh-no-explore` custom agent when the
-current host recognizes it; if that agent is unavailable, answer inline instead
-of falling back to a generic or prompt-embedded subagent. If `agent_type =
-"oh-no-explore"` is rejected as unknown or unavailable, do not retry with a
-generic subagent for this lane. When this lane spawns `oh-no-explore`, use
-`wait_agent` as the next lifecycle tool for that receiver, repeated until it
-returns that receiver with final status `completed`, before calling
-`close_agent`; a timeout, empty wait, or no-completion result is not captured
-evidence. `close_agent` output is not a substitute for the required wait result
-and must not be the first result capture. The forbidden order is `spawn_agent`
-then `close_agent`. Even if `close_agent` returns output, that output is not
-valid first result capture. If you will not call `wait_agent` first, do not
-spawn; perform the lookup inline.
+existing file/config path. This no-skill lane must not call `spawn_agent`,
+`wait_agent`, or `close_agent`; if independent role work would be useful, first
+select the relevant Oh No Harness skill or get an explicit subagent request,
+then follow that active workflow policy. It does not authorize planning,
+debugging, implementation, review (security lens included), scenario QA,
+completion verification, ambiguous-requirements work, or file edits. It must
+not read or reproduce secrets unless the user explicitly asks for that
+sensitive lookup, and credential values must be redacted in any output.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as dispatch authorization for
@@ -144,9 +138,16 @@ After `wait_agent` returns a final status for any Codex-dispatched role,
 capture the output and any changed-file set before cleanup. A timeout, empty
 wait result, or "No agents completed yet" result is not a final status and is
 not permission to close the subagent. Hard rule: MUST NOT call `close_agent`
-for a running or pending subagent merely because it is slow. Leave the subagent
-running, wait longer when its result is still needed, continue with
-non-overlapping local work, or record the role as pending or blocked. Close
+for a running or pending subagent merely because it is slow. Once a role is
+dispatched, its assigned scope, role, and expected output become a workflow
+dependency. The caller must wait until every in-scope dispatched subagent reaches
+a final status, capture its result, and use that result in synthesis,
+implementation, review, verification, or an explicit blocked/abandoned record
+before advancing past the dependent step or claiming completion. While waiting,
+continue only genuinely non-overlapping local work. Do not redo the delegated
+work inline, do not spawn a duplicate replacement, and do not let the parent
+agent's own inline analysis substitute for the subagent result merely because
+the subagent is slow. Close
 without a captured final result only when the user explicitly cancels or stops
 that subagent, the task scope invalidates the work, the spawn was duplicate or
 mis-scoped, or continuing creates a safety, security, or filesystem risk. Record
@@ -197,12 +198,13 @@ recognizes that registered custom agent. Inside an active Oh No Harness
 workflow, use the generic prompt-embedded fallback below or built-in `explorer`
 only after the host returns `unknown agent_type` or an equivalent explicit
 rejection for `oh-no-<role>`, or the user-scope templates are unavailable and
-the host cannot recognize the custom agent. Outside an active workflow, the
-no-skill read-only exploration lane must stay inline unless registered
-`oh-no-explore` is available.
+the host cannot recognize the custom agent. Outside an active workflow or
+explicit user-requested subagent task, no-skill read-only repository lookup must
+stay inline even when registered `oh-no-*` agents are available.
 The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
-no-skill exploration lane does not rely on prompt text alone for write
-isolation.
+read-only exploration role does not rely on prompt text alone for write
+isolation when it is dispatched by an active workflow or explicit subagent
+request.
 
 The generated templates pin `gpt-5.5` and a per-agent
 `model_reasoning_effort` so custom-agent role files do not depend on

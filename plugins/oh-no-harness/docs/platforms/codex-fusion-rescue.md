@@ -2,7 +2,7 @@
 
 This platform overlay is source content for the generated Codex-facing
 `fusion-rescue` runtime document, after the shared core and
-`docs/platforms/codex.md`.
+`docs/platforms/codex-runtime.md`.
 
 ## Lens Ownership
 

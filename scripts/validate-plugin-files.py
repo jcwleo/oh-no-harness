@@ -268,14 +268,16 @@ PLATFORM_RULE_DOC_MARKERS = {
         "use generic prompt-embedded fallback only after confirmed custom-agent unavailability",
         '"No agents completed yet" result is not a final status',
         "MUST NOT call `close_agent` for a running or pending subagent",
+        "become a workflow\ndependency",
+        "must wait until every in-scope dispatched subagent reaches\na final status",
+        "do not let the parent\nagent's own inline analysis substitute for the subagent result",
         "never use missing output as completion evidence",
-        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY",
         "simple read-only repository fact lookup prompts",
+        "must not call `spawn_agent`,\n`wait_agent`, or `close_agent`",
         "credential values must be redacted",
-        "if that agent is unavailable, answer inline",
-        'If `agent_type =\n"oh-no-explore"` is rejected as unknown or unavailable',
-        "The forbidden order is `spawn_agent`",
-        "If you will not call `wait_agent` first",
+        "No-skill read-only repository\nlookups must stay inline",
+        "explicit user-requested subagent task",
         "Custom agents are standalone TOML files",
         "not defined inside `config.toml`",
         "scripts/install-codex-agents --scope user --ensure --quiet",
@@ -284,6 +286,28 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## Role Prompt Embedding",
         "Agent prompt source: docs/agent-core/<role>.md",
         "Claude-only",
+    ),
+    "codex-runtime.md": (
+        "# Codex Runtime Rules",
+        "compact platform section is embedded in generated Codex-facing skill",
+        "## Skill Loading",
+        "docs/platforms/codex-<skill>.md",
+        "## User Approval And Prompting",
+        "outcome-first",
+        "## Role Dispatch",
+        "spawn_agent",
+        'spawn_agent(agent_type="oh-no-<role>", ...)',
+        "Do not infer custom-agent\nunavailability",
+        "fork_context=true",
+        "workflow-level\nauthorization",
+        "eligible isolated subagents",
+        "wait_agent",
+        "become a\nworkflow dependency",
+        "Wait until every in-scope dispatched subagent reaches final\nstatus",
+        "Do not redo delegated work inline",
+        "Never use missing output\nas completion evidence",
+        "## Generic Role Prompt Fallback",
+        "docs/agent-core/<role>.md",
     ),
     "claude-code.md": (
         "# Claude Code Platform Rules",
@@ -302,13 +326,32 @@ PLATFORM_RULE_DOC_MARKERS = {
         "close or clean\nup the completed subagent",
         "record that fallback",
     ),
+    "claude-code-runtime.md": (
+        "# Claude Code Runtime Rules",
+        "compact platform section is embedded in generated Claude Code-facing skill",
+        "skills-claude/",
+        "docs/platforms/claude-code-<skill>.md",
+        "## User Approval, Tasks, And Prompting",
+        "structured question tool",
+        "task\ntracking",
+        "explicit and sectioned",
+        "## Role Dispatch",
+        "Workflow `agent()`",
+        "oh-no-harness:<role>",
+        "Promise.all",
+        "final status",
+        "close or\nclean up the completed subagent",
+        "Parallel trigger: approved-plan-handoff",
+        "embedding the matching `agents/<role>.md`",
+        "record the fallback reason",
+    ),
 }
 PROVIDER_DOC_MARKERS = {
     "openai.md": (
         "# OpenAI Provider Prompt Guidance",
         "maintenance reference",
         "company-scoped, not model-scoped",
-        "docs/platforms/codex.md",
+        "docs/platforms/codex-runtime.md",
         "https://developers.openai.com/api/docs/guides/latest-model",
         "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
         "https://developers.openai.com/codex/concepts/subagents",
@@ -322,7 +365,7 @@ PROVIDER_DOC_MARKERS = {
         "# Anthropic Provider Prompt Guidance",
         "maintenance reference",
         "company-scoped, not model-scoped",
-        "docs/platforms/claude-code.md",
+        "docs/platforms/claude-code-runtime.md",
         "https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8",
         "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices",
         "https://code.claude.com/docs/en/sub-agents",
@@ -356,12 +399,11 @@ RALPH_SUBAGENT_POLICY_MARKERS = (
     "prefer dispatch",
     "decision-changing delegation",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY",
     "credential values must be redacted",
-    "only generic/default agents are available",
     "keep the lookup inline",
-    "forbidden order is spawn first",
-    "If the caller will not wait",
+    "do not call `spawn_agent`,\n`wait_agent`, or `close_agent`",
+    "explicit user-requested subagent task",
     "explicit session-level authorization",
     "per-run subagent approval",
     "## Subagent-Unavailable Environments",
@@ -1335,28 +1377,34 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
         die(f"{path} should reference shared skill core: {core_marker!r}")
 
     if platform == "codex":
-        required = "docs/platforms/codex.md"
+        required = "docs/platforms/codex-runtime.md"
         forbidden = (
+            "docs/platforms/claude-code-runtime.md",
             "docs/platforms/claude-code.md",
             "docs/platforms/claude-code-ralph.md",
             "CLAUDE_PLUGIN_ROOT",
         )
         if skill == "ralph" and "docs/platforms/codex-ralph.md" not in body:
             die(f"{path} should reference Codex Ralph adapter")
+        if skill == "auto-routing" and "docs/platforms/codex-auto-routing.md" not in body:
+            die(f"{path} should reference Codex Auto Routing overlay")
         if skill == "fusion-rescue":
             if "docs/platforms/codex-fusion-rescue.md" not in body:
                 die(f"{path} should reference Codex Fusion Rescue adapter")
             if "docs/platforms/claude-code-fusion-rescue.md" in body:
                 die(f"{path} contains forbidden Claude Code Fusion Rescue adapter marker")
     elif platform == "claude":
-        required = "docs/platforms/claude-code.md"
+        required = "docs/platforms/claude-code-runtime.md"
         forbidden = (
+            "docs/platforms/codex-runtime.md",
             "docs/platforms/codex.md",
             "docs/platforms/codex-ralph.md",
             "spawn_agent",
         )
         if skill == "ralph" and "docs/platforms/claude-code-ralph.md" not in body:
             die(f"{path} should reference Claude Code Ralph adapter")
+        if skill == "auto-routing" and "docs/platforms/claude-code-auto-routing.md" not in body:
+            die(f"{path} should reference Claude Code Auto Routing overlay")
         if skill == "fusion-rescue":
             if "docs/platforms/claude-code-fusion-rescue.md" not in body:
                 die(f"{path} should reference Claude Code Fusion Rescue adapter")
@@ -1982,14 +2030,17 @@ def assert_hook_contract(root: Path) -> None:
         "using-oh-no-harness",
         "OH_NO_FORCED_ROUTING",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY",
         "sub-agents, delegation, and parallel agent work proactively",
+        "every in-scope subagent result is a workflow dependency",
+        "wait to final status, capture it, and use it",
+        "MUST NOT redo delegated work inline",
         "redact credential values",
         "never allowed for no-skill read-only lookup",
-        "Do not call spawn_agent for",
-        "otherwise perform the lookup inline",
-        "Forbidden order: spawn_agent -> close_agent",
-        "close_agent output is never valid first result capture",
+        "Do not call spawn_agent, wait_agent, or close_agent for this no-skill lane",
+        "keep the lookup inline",
+        "first select the relevant Oh No Harness skill",
+        "spawned in-scope subagent results are workflow dependencies",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",
     ):

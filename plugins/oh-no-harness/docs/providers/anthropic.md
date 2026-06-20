@@ -2,12 +2,14 @@
 
 This is a maintenance reference for Claude Code-facing platform guidance.
 Generated Claude Code runtime skill documents compose
-`docs/skill-core/<skill>.md` and `docs/platforms/claude-code.md`; they should
-not include this provider document as an extra runtime source.
+`docs/skill-core/<skill>.md` and `docs/platforms/claude-code-runtime.md`; they
+should not include this provider document as an extra runtime source.
 
 Keep this file company-scoped, not model-scoped. When Anthropic publishes a
 newer Claude, Claude Code, or prompting guide, update this file and then copy
-only the stable, runtime-critical rules into `docs/platforms/claude-code.md`.
+only the stable, runtime-critical rules into
+`docs/platforms/claude-code-runtime.md`. Keep longer maintenance notes in
+`docs/platforms/claude-code.md`.
 
 ## Source Snapshot
 
@@ -58,6 +60,6 @@ When refreshing Anthropic guidance:
 1. Confirm the current official Claude and Claude Code guide URLs.
 2. Update this provider reference first.
 3. Copy only short, stable runtime rules into
-   `docs/platforms/claude-code.md`.
+   `docs/platforms/claude-code-runtime.md`.
 4. Do not create model-named provider files such as `opus-*.md`.
 5. Run plugin validation after changing platform guidance.

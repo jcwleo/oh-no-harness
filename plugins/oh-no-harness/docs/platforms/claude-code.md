@@ -1,14 +1,15 @@
 # Claude Code Platform Rules
 
-This platform section is source content for generated Claude Code-facing
-runtime skill documents.
+This platform document is the longer Claude Code maintenance reference.
+Generated Claude Code-facing skill documents embed the compact
+`docs/platforms/claude-code-runtime.md` section instead.
 
 ## Skill Loading
 
 Claude Code-facing public skills live under `skills-claude/`. Files in
 `skills-claude/<skill>/SKILL.md` are generated runtime documents composed from
-the matching `docs/skill-core/<skill>.md` file, this Claude Code platform file,
-and any Claude Code skill-specific overlay such as
+the matching `docs/skill-core/<skill>.md` file,
+`docs/platforms/claude-code-runtime.md`, and any Claude Code skill-specific overlay such as
 `docs/platforms/claude-code-<skill>.md`.
 
 Claude slash commands must delegate to `skills-claude/<skill>/SKILL.md` so the
@@ -57,10 +58,11 @@ session, app restart, `/clear`, or compaction.
 
 ## Anthropic-Aligned Prompting
 
-This file carries the runtime-sized Anthropic guidance for Claude Code. The
-longer maintenance reference lives in `docs/providers/anthropic.md`, but
-generated Claude Code-facing runtime skill documents do not include provider
-docs as an extra runtime source.
+This file carries extended Anthropic guidance for Claude Code maintainers. The
+compact runtime-sized rules copied into generated skill documents live in
+`docs/platforms/claude-code-runtime.md`. The longer provider reference lives in
+`docs/providers/anthropic.md`, but generated Claude Code-facing runtime skill
+documents do not include provider docs as an extra runtime source.
 
 For Anthropic/Claude models, keep instructions explicit and sectioned:
 

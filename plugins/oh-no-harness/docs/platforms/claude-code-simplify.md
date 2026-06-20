@@ -2,7 +2,7 @@
 
 This platform overlay is source content for the generated Claude Code-facing
 `simplify` runtime document, after the shared core and
-`docs/platforms/claude-code.md`.
+`docs/platforms/claude-code-runtime.md`.
 
 ## Ralph Cleanup Route
 

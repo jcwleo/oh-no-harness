@@ -16,7 +16,7 @@ This generated file is the Claude Code-facing runtime skill document. Claude Cod
 Source order:
 
 - `../../docs/skill-core/using-oh-no-harness.md`
-- `../../docs/platforms/claude-code.md`
+- `../../docs/platforms/claude-code-runtime.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
 
@@ -177,97 +177,36 @@ Oh No Harness does not include an automatic mode controller or external state le
 
 If a workflow requires persistence, the persistence requirement lives in the skill text and in written artifacts.
 
-## Source: docs/platforms/claude-code.md
+## Source: docs/platforms/claude-code-runtime.md
 
-# Claude Code Platform Rules
+# Claude Code Runtime Rules
 
-This platform section is source content for generated Claude Code-facing
-runtime skill documents.
+This compact platform section is embedded in generated Claude Code-facing skill
+documents.
 
 ## Skill Loading
 
-Claude Code-facing public skills live under `skills-claude/`. Files in
-`skills-claude/<skill>/SKILL.md` are generated runtime documents composed from
-the matching `docs/skill-core/<skill>.md` file, this Claude Code platform file,
-and any Claude Code skill-specific overlay such as
-`docs/platforms/claude-code-<skill>.md`.
+Claude Code-facing public skills live under `skills-claude/`. Generated
+`skills-claude/<skill>/SKILL.md` files compose the matching skill core, this
+compact runtime section, and any Claude Code skill-specific overlay such as
+`docs/platforms/claude-code-<skill>.md`. Slash commands must delegate to the
+matching generated skill document.
 
-Claude slash commands must delegate to `skills-claude/<skill>/SKILL.md` so the
-model sees the generated Claude Code runtime document for that skill.
+## User Approval, Tasks, And Prompting
 
-## User Approval
-
-When asking the user for approval, preference, scope, or next-step selection,
-use the available structured question tool when the host exposes one. Prefer one
-focused question at a time. For option questions, provide a small set of
-mutually exclusive choices and put the recommended option first when there is a
-clear recommendation.
-
-If a structured question tool is unavailable, ask in plain text and wait for the
-user's answer. Present options as actions the host agent will take. Do not tell
-the user to run a command manually when the skill handoff expects the host agent
-to invoke the next skill.
-
-## Task Tracking
+Use the host's structured question tool when available for approval,
+preference, scope, or next-step selection; otherwise ask one focused plain-text
+question and wait. Present options as actions the host agent will take.
 
 When a core skill has a multi-phase approval handoff and the host exposes task
-tracking, create one task per phase and complete them sequentially. Do not
-collapse content approval and next-step selection into one hidden step.
+tracking, create one task per phase and complete them sequentially.
 
-## Auto Routing
-
-The `auto-routing` skill controls whether the Claude Code SessionStart hook adds
-stronger skill-selection guidance to `using-oh-no-harness`.
-
-Preferred config location:
-
-```text
-$HOME/.claude/plugins/data/<oh-no-harness-*>/config.json
-```
-
-When `CLAUDE_PLUGIN_ROOT` is set, use:
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" status
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" on
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" off
-```
-
-Changes take effect on the next Claude Code `SessionStart`, such as a new
-session, app restart, `/clear`, or compaction.
-
-## Anthropic-Aligned Prompting
-
-This file carries the runtime-sized Anthropic guidance for Claude Code. The
-longer maintenance reference lives in `docs/providers/anthropic.md`, but
-generated Claude Code-facing runtime skill documents do not include provider
-docs as an extra runtime source.
-
-For Anthropic/Claude models, keep instructions explicit and sectioned:
-
-- state scope, non-goals, constraints, approval gates, and expected evidence in
-  stable headings or tagged sections
-- avoid relying on implication; say what the agent may do, must not do, and must
-  ask before changing
-- give one focused user question at a time when approval or direction is needed
-- preserve long-running context in artifacts before compaction, task handoff, or
-  subagent dispatch
-- keep final answers concise unless the active skill requires a structured plan,
-  review, or verification report
-
-When the host exposes extended thinking or effort controls, use higher effort
-for agentic coding, architecture review, plan critique, and ambiguous debugging.
-Use lower effort for small, already-bounded edits.
+Keep Claude prompts explicit and sectioned: state scope, non-goals,
+constraints, approval gates, expected evidence, and output format. Preserve
+long-running context in artifacts before compaction, task handoff, or subagent
+dispatch.
 
 ## Role Dispatch
-
-Claude Code subagent descriptions are delegation metadata. Generated
-`agents/*.md` descriptions may keep the `Use proactively` trigger so Claude can
-select useful role agents, but they must bind that proactivity to active Oh No
-Harness workflows and caller-owned approval and handoff gates. The agent body
-contains the stable role contract; the Task, Agent, or Workflow prompt supplies
-the current story scope, acceptance criteria, contract surface, baseline guard,
-expected output, and lifecycle.
 
 Use the available Task, Agent, Workflow `agent()`, or subagent mechanism for
 role dispatch. Prefer plugin-scoped agents named `oh-no-harness:<role>` when
@@ -275,16 +214,14 @@ the host lists them.
 
 For independent read-only, review, verification, QA, security, or exploration
 work, request background subagents and start the whole independent batch before
-waiting for any one result.
-When a skill requires an atomic same-phase batch, prefer Workflow `Promise.all`
-if available; direct Task or Agent background notifications may arrive before
-the model has emitted later task requests, so do not inspect or summarize those
-results until the full intended batch has been requested.
+waiting for any one result. When a skill requires an atomic same-phase batch,
+prefer Workflow `Promise.all` if available; otherwise do not inspect or
+summarize early task results until the full intended batch has been requested.
 
-After a Claude Code subagent reaches a final status, capture the output and any
-changed-file set before cleanup. When no further input is needed, close or clean
-up the completed subagent with the mechanism exposed by the host; if none is
-available, record that fallback.
+After a Claude Code subagent reaches final status, capture the output and any
+changed-file set before cleanup. When no further input is needed, close or
+clean up the completed subagent with the mechanism exposed by the host; if none
+is available, record that fallback.
 
 For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
 `Parallel trigger: approved-plan-handoff` as dispatch authorization for

@@ -251,15 +251,16 @@ required = [
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "sub-agents, delegation, and parallel agent work proactively",
     "explicit user request for eligible Oh No Harness workflow",
-    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
+    "every in-scope subagent result is a workflow dependency",
+    "wait to final status, capture it, and use it",
+    "MUST NOT redo delegated work inline",
+    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY",
     "simple read-only repository fact lookup prompts",
-    "Do not use this lane for planning, debugging",
+    "keep the lookup inline",
+    "Do not call spawn_agent, wait_agent, or close_agent for this no-skill lane",
+    "This lane is not for planning, debugging",
     "redact credential values",
-    "otherwise perform the lookup inline",
-    "required order is spawn_agent -> wait_agent",
-    "Forbidden order: spawn_agent -> close_agent",
-    "close_agent output is never valid first result capture",
-    "If you will not wait_agent first",
+    "first select the relevant Oh No Harness skill",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -327,6 +328,7 @@ required = [
     "prompt-embedded fallback requires confirmed unavailability",
     "no-skill exploration stays inline",
     "MUST NOT call close_agent for a running or pending subagent",
+    "spawned in-scope subagent results are workflow dependencies",
     "never use missing output as completion evidence",
 ]
 missing = [needle for needle in required if needle not in text]
@@ -359,6 +361,7 @@ required = [
     "prompt-embedded fallback requires confirmed unavailability",
     "no-skill exploration stays inline",
     "MUST NOT call close_agent for a running or pending subagent",
+    "spawned in-scope subagent results are workflow dependencies",
     "never use missing output as completion evidence",
 ]
 missing = [needle for needle in required if needle not in text]
@@ -1571,22 +1574,22 @@ natural_session_start_prompt_for_skill() {
   case "$1" in
     interview)
       cat <<'PROMPT'
-Use the oh-no-harness:interview skill. Read-only natural SessionStart smoke test. Vague request: make Codex live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-codex-plugin.sh only. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
+Use the oh-no-harness:interview skill. Read-only natural SessionStart smoke test. Vague request: make Codex live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-codex-plugin.sh only. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. After any worker starts, the parent must not inspect or analyze that worker's Scope inline while waiting; wait for worker results and use them. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers.
 PROMPT
       ;;
     ultrawork)
       cat <<'PROMPT'
-Use the oh-no-harness:ultrawork skill. Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-codex-plugin.sh has enough live natural smoke coverage for a release handoff. Do not create artifacts, do not edit files, and do not run write-capable execution. Follow a dry-run phase path for repository facts, planning readiness, and final evidence. Required worker messages: Role: explore with Marker: OH_NO_ULTRAWORK_EXPLORE_READONLY; Role: planner with Marker: OH_NO_ULTRAWORK_PLANNER_READONLY; Role: verifier with Marker: OH_NO_ULTRAWORK_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: one short phase finding. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_ULTRAWORK_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
+Use the oh-no-harness:ultrawork skill. Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-codex-plugin.sh has enough live natural smoke coverage for a release handoff. Do not create artifacts, do not edit files, and do not run write-capable execution. Follow a dry-run phase path for repository facts, planning readiness, and final evidence. Required worker messages: Role: explore with Marker: OH_NO_ULTRAWORK_EXPLORE_READONLY; Role: planner with Marker: OH_NO_ULTRAWORK_PLANNER_READONLY; Role: verifier with Marker: OH_NO_ULTRAWORK_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: one short phase finding. After any worker starts, the parent must not inspect or analyze that worker's Scope inline while waiting; wait for worker results and use them. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_ULTRAWORK_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers.
 PROMPT
       ;;
     systematic-debugging)
       cat <<'PROMPT'
-Use the oh-no-harness:systematic-debugging skill. Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-codex-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Required worker messages: Role: debugger with Marker: OH_NO_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers.
+Use the oh-no-harness:systematic-debugging skill. Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-codex-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Required worker messages: Role: debugger with Marker: OH_NO_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. After any worker starts, the parent must not inspect or analyze that worker's Scope inline while waiting; wait for worker results and use them. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers.
 PROMPT
       ;;
     verification-before-completion)
       cat <<'PROMPT'
-Use the oh-no-harness:verification-before-completion skill. Read-only natural SessionStart smoke test. Claim to verify: ../../scripts/test-codex-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-codex-plugin.sh only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers.
+Use the oh-no-harness:verification-before-completion skill. Read-only natural SessionStart smoke test. Claim to verify: ../../scripts/test-codex-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-codex-plugin.sh only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-codex-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. After any worker starts, the parent must not inspect or analyze that worker's Scope inline while waiting; wait for worker results and use them. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers.
 PROMPT
       ;;
     *)
@@ -1663,6 +1666,21 @@ def receiver_agent_role(receiver):
                 return payload.get("agent_role") or thread_spawn.get("agent_role")
     raise SystemExit(f"{label} natural role smoke transcript for receiver lacked session_meta: {receiver}")
 
+def command_text_from_event(data):
+    item = data.get("item") or {}
+    payload = data.get("payload") or {}
+    if item.get("type") == "command_execution":
+        return str(item.get("command") or "")
+    if payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}:
+        arguments_text = str(payload.get("arguments") or "")
+        try:
+            arguments_data = json.loads(arguments_text) if arguments_text else {}
+        except json.JSONDecodeError:
+            arguments_data = {}
+        if isinstance(arguments_data, dict):
+            return str(arguments_data.get("cmd") or "")
+    return ""
+
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
 if (
@@ -1681,6 +1699,9 @@ wait_index_by_receiver = {}
 close_index_by_receiver = {}
 marker = False
 forbidden_hits = []
+pending_receiver_to_role = {}
+overlapping_inline_scope_events = []
+delegated_scope_pattern = re.compile(r"(?:\.\./\.\./|/)?scripts/test-codex-plugin\.sh")
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -1688,6 +1709,11 @@ with open(out_path, "r", encoding="utf-8") as fh:
             continue
         data = json.loads(line)
         item = data.get("item") or {}
+        command_text = command_text_from_event(data)
+        if command_text and pending_receiver_to_role and delegated_scope_pattern.search(command_text):
+            overlapping_inline_scope_events.append(
+                (index, sorted(pending_receiver_to_role.items()), command_text[:1000])
+            )
         if success_marker in collect_text(data):
             marker = True
         if item.get("type") != "collab_tool_call":
@@ -1699,6 +1725,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
             if tool in {"wait", "wait_agent"}:
                 for receiver in receivers:
                     wait_index_by_receiver.setdefault(receiver, index)
+                    pending_receiver_to_role.pop(receiver, None)
             if tool == "close_agent":
                 for receiver in receivers:
                     close_index_by_receiver.setdefault(receiver, index)
@@ -1743,9 +1770,15 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 )
             successful_role_spawns.append((index, role, receivers[0], spawn_text))
             receiver_to_role[receivers[0]] = role
+            pending_receiver_to_role[receivers[0]] = role
 
 if forbidden_hits:
     raise SystemExit(f"{label} natural role smoke saw forbidden role markers in spawn payloads: {forbidden_hits!r}")
+if overlapping_inline_scope_events:
+    raise SystemExit(
+        f"{label} natural role smoke saw parent inline commands against worker scope while worker results were pending: "
+        f"{overlapping_inline_scope_events!r}"
+    )
 
 roles_seen = [role for _, role, _, _ in successful_role_spawns]
 if roles_seen != expected_roles:
@@ -1918,18 +1951,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
             failed_spawns.append((index, collect_text(item)[:2000]))
         if tool == "spawn_agent" and status == "completed":
             receivers = item.get("receiver_thread_ids") or []
-            if len(receivers) != 1:
-                raise SystemExit(
-                    f"no-skill read-only smoke expected one receiver per spawn, got {receivers!r}"
-                )
-            receiver = receivers[0]
-            receiver_ids.add(receiver)
-            actual_agent_role = receiver_agent_role(receiver)
-            if actual_agent_role != "oh-no-explore":
-                raise SystemExit(
-                    f"no-skill read-only smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}; "
-                    "only registered oh-no-explore is allowed, otherwise the lookup must stay inline"
-                )
+            receiver_ids.update(receivers)
         if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
             text = collect_text(item)
             mentioned = set(item.get("receiver_thread_ids") or [])
@@ -1950,21 +1972,12 @@ if failed_spawns:
 if not marker:
     raise SystemExit("no-skill read-only smoke did not return success marker OH_NO_CODEX_NOSKILL_READONLY_OK")
 if receiver_ids:
-    missing_waits = sorted(receiver_ids - set(wait_index_by_receiver))
-    missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
-    if missing_waits:
-        raise SystemExit(f"no-skill read-only smoke did not capture wait_agent results: {missing_waits!r}")
-    if missing_closes:
-        raise SystemExit(f"no-skill read-only smoke did not close completed receivers: {missing_closes!r}")
-    early_closes = {
-        receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-        for receiver in receiver_ids
-        if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-    }
-    if early_closes:
-        raise SystemExit(f"no-skill read-only smoke closed before wait results: {early_closes!r}")
+    raise SystemExit(
+        "no-skill read-only smoke unexpectedly spawned receivers "
+        f"{sorted(receiver_ids)!r}; no-skill repository lookups must stay inline"
+    )
 
-print("ok - no-skill read-only SessionStart smoke used only oh-no-explore or stayed inline")
+print("ok - no-skill read-only SessionStart smoke stayed inline")
 PY
 }
 
