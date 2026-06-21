@@ -2713,7 +2713,10 @@ if not task_tool_uses and workflow_scripts:
         raise SystemExit("Claude simplify Workflow did not prove four batched parallel agent() calls")
     if re.search(r"\bawait\s+agent\s*\(", workflow_script):
         raise SystemExit("Claude simplify Workflow used serial await agent() instead of a Promise.all batch")
-    if not workflow_completed:
+    # A backgrounded Workflow may not surface a status=="completed" task event in the
+    # --print stream; the success marker is emitted only after all four cleanup subagents
+    # finish, so an emitted marker is itself sufficient proof the Workflow completed.
+    if not workflow_completed and not marker:
         raise SystemExit("Claude simplify Workflow task did not report completion")
     if not marker:
         raise SystemExit("Claude simplify cleanup smoke did not return success marker")

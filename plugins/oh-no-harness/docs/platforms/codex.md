@@ -72,7 +72,8 @@ comments, or uncertainty. Generic/default fallback is allowed only inside an
 active Oh No Harness workflow or explicit user-requested subagent task after an
 actual `agent_type="oh-no-<role>"` attempt is rejected as unknown or unavailable
 and the confirmed fallback reason is recorded. No-skill read-only repository
-lookups must stay inline and must not use generic/default fallback.
+lookups may dispatch only the read-only `oh-no-explore` custom agent and must
+not use generic/default fallback.
 
 Do not combine `agent_type = "oh-no-<role>"` with `fork_context = true` or any
 full-history fork request. Codex full-history forks inherit the parent agent
@@ -107,17 +108,22 @@ skill dispatch policy exists, do not spawn Codex subagents merely because a role
 could be named. Keep the role inline and record the fallback reason when the
 core skill requires it.
 
-There is no no-skill subagent exception. The Codex SessionStart block named
-`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY` keeps simple read-only
-repository fact lookup prompts inline when no active Oh No Harness workflow or
-explicit user-requested subagent task exists. Eligible inline work includes
-locating logic, tracing a symbol, identifying related tests, or summarizing an
-existing file/config path. This no-skill lane must not call `spawn_agent`,
-`wait_agent`, or `close_agent`; if independent role work would be useful, first
-select the relevant Oh No Harness skill or get an explicit subagent request,
-then follow that active workflow policy. It does not authorize planning,
-debugging, implementation, review (security lens included), scenario QA,
-completion verification, ambiguous-requirements work, or file edits. It must
+The Codex SessionStart block named
+`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION` governs simple read-only
+repository fact lookup prompts when no active Oh No Harness workflow or explicit
+user-requested subagent task exists. Eligible work includes locating logic,
+tracing a symbol, identifying related tests, or summarizing an existing
+file/config path. This no-skill lane may dispatch the registered read-only
+`oh-no-explore` custom agent, as many as the lookup needs and not capped at one.
+If `oh-no-explore` is unknown or unavailable, answer inline; do not fall back to
+a generic or prompt-embedded subagent for this lane. When this lane dispatches
+`oh-no-explore`, each dispatched result is a dependency: use `wait_agent` until
+that receiver reaches final status `completed`, capture the result, and use it
+before the next action; a timeout, empty wait, or no-completion result is not
+final and is not captured evidence, and you must not call `close_agent` for a
+running or pending subagent merely because it is slow. It does not authorize
+planning, debugging, implementation, review (security lens included), scenario
+QA, completion verification, ambiguous-requirements work, or file edits. It must
 not read or reproduce secrets unless the user explicitly asks for that
 sensitive lookup, and credential values must be redacted in any output.
 
@@ -199,12 +205,13 @@ workflow, use the generic prompt-embedded fallback below or built-in `explorer`
 only after the host returns `unknown agent_type` or an equivalent explicit
 rejection for `oh-no-<role>`, or the user-scope templates are unavailable and
 the host cannot recognize the custom agent. Outside an active workflow or
-explicit user-requested subagent task, no-skill read-only repository lookup must
-stay inline even when registered `oh-no-*` agents are available.
+explicit user-requested subagent task, the no-skill read-only repository lookup
+lane may dispatch the registered read-only `oh-no-explore` agent when the host
+recognizes it, and must wait for each dispatched result before the next action.
 The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
 read-only exploration role does not rely on prompt text alone for write
-isolation when it is dispatched by an active workflow or explicit subagent
-request.
+isolation when it is dispatched by an active workflow, an explicit subagent
+request, or the no-skill read-only lookup lane.
 
 The generated templates pin `gpt-5.5` and a per-agent
 `model_reasoning_effort` so custom-agent role files do not depend on

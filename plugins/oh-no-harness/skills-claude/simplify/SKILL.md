@@ -292,13 +292,6 @@ This platform overlay is source content for the generated Claude Code-facing
 `simplify` runtime document, after the shared core and
 `docs/platforms/claude-code-runtime.md`.
 
-## Ralph Cleanup Route
-
-Direct Oh No Harness plugin invocation and Ralph-internal cleanup both use this
-generated Claude Code Simplify runtime document. Do not route Ralph-internal
-cleanup to a host built-in `/simplify` skill, because that route may not load
-the Oh No Harness cleanup contract for the current plugin version.
-
 ## Cleanup Dispatch
 
 For diffs above the small-diff gate, prefer Workflow `Promise.all` for the

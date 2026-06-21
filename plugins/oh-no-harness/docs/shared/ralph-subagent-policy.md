@@ -54,17 +54,23 @@ Oh No Harness workflows; do not ask for per-run subagent approval only to satisf
 that authorization.
 
 A separate Codex SessionStart block named
-`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY` keeps simple no-skill
-repository fact lookup inline when no active Oh No Harness workflow or explicit
-user-requested subagent task exists. That inline lane is limited to locating,
+`CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION` governs simple no-skill
+repository fact lookup when no active Oh No Harness workflow or explicit
+user-requested subagent task exists. That lane is limited to locating,
 tracing, or summarizing existing code/config/tests/docs; it does not authorize
 planning, debugging, implementation, review (security lens included), scenario
 QA, completion verification, ambiguous requirements, or edits. It must not read
 or reproduce secrets unless the user explicitly asks for that sensitive lookup,
-and credential values must be redacted in any output; keep the lookup inline.
-Without an active workflow or explicit user-requested subagent task, do not call `spawn_agent`,
-`wait_agent`, or `close_agent`; if independent role work would be useful, select
-the relevant Oh No Harness skill or get explicit subagent authorization first.
+and credential values must be redacted in any output. The lane may dispatch the
+registered read-only `oh-no-explore` custom agent, as many as the lookup needs
+and not capped at one; if `oh-no-explore` is unavailable, answer inline rather
+than falling back to a generic or prompt-embedded subagent. When the lane
+dispatches, each dispatched result is a dependency: wait for the receiver to
+reach a final status, capture it, and use it before the next action; never close
+a running or pending subagent merely because it is slow, and never treat a
+timeout or empty wait as completion evidence. If role work beyond read-only
+exploration would be useful, select the relevant Oh No Harness skill or get
+explicit subagent authorization first.
 
 When the host is subagent-capable and the work has concrete isolated roles,
 prefer dispatch over silently compressing every role that would provide

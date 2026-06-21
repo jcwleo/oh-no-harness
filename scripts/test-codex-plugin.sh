@@ -254,10 +254,10 @@ required = [
     "every in-scope subagent result is a workflow dependency",
     "wait to final status, capture it, and use it",
     "MUST NOT redo delegated work inline",
-    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_INLINE_BOUNDARY",
+    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
     "simple read-only repository fact lookup prompts",
-    "keep the lookup inline",
-    "Do not call spawn_agent, wait_agent, or close_agent for this no-skill lane",
+    "as many as the lookup needs and not capped at one",
+    "you may dispatch the registered read-only oh-no-explore custom agent",
     "This lane is not for planning, debugging",
     "redact credential values",
     "first select the relevant Oh No Harness skill",
@@ -326,7 +326,7 @@ required = [
     "Codex custom-agent ensure warning",
     "oh-no-* custom-agent dispatch remains the default",
     "prompt-embedded fallback requires confirmed unavailability",
-    "no-skill exploration stays inline",
+    "no-skill read-only exploration may dispatch oh-no-explore",
     "MUST NOT call close_agent for a running or pending subagent",
     "spawned in-scope subagent results are workflow dependencies",
     "never use missing output as completion evidence",
@@ -359,7 +359,7 @@ required = [
     "Codex custom-agent ensure warning",
     "oh-no-* custom-agent dispatch remains the default",
     "prompt-embedded fallback requires confirmed unavailability",
-    "no-skill exploration stays inline",
+    "no-skill read-only exploration may dispatch oh-no-explore",
     "MUST NOT call close_agent for a running or pending subagent",
     "spawned in-scope subagent results are workflow dependencies",
     "never use missing output as completion evidence",
@@ -1971,13 +1971,25 @@ if failed_spawns:
     raise SystemExit(f"no-skill read-only smoke saw failed spawn_agent calls: {failed_spawns!r}")
 if not marker:
     raise SystemExit("no-skill read-only smoke did not return success marker OH_NO_CODEX_NOSKILL_READONLY_OK")
-if receiver_ids:
-    raise SystemExit(
-        "no-skill read-only smoke unexpectedly spawned receivers "
-        f"{sorted(receiver_ids)!r}; no-skill repository lookups must stay inline"
-    )
+for receiver in sorted(receiver_ids):
+    wait_idx = wait_index_by_receiver.get(receiver)
+    close_idx = close_index_by_receiver.get(receiver)
+    if wait_idx is None:
+        raise SystemExit(
+            f"no-skill read-only smoke dispatched receiver {receiver!r} but never waited for its result"
+        )
+    if close_idx is not None and close_idx < wait_idx:
+        raise SystemExit(
+            f"no-skill read-only smoke closed receiver {receiver!r} before its waited result"
+        )
 
-print("ok - no-skill read-only SessionStart smoke stayed inline")
+if receiver_ids:
+    print(
+        "ok - no-skill read-only SessionStart smoke dispatched "
+        f"{len(receiver_ids)} oh-no-explore receiver(s) with wait-before-close"
+    )
+else:
+    print("ok - no-skill read-only SessionStart smoke answered inline (no dispatch)")
 PY
 }
 
@@ -2662,7 +2674,7 @@ Before any Claude consult or cross-host panel assignment, inspect the current Co
 
 Build exactly three panel slots and then synthesize as the current Codex main judge.
 
-Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --tools "", --no-session-persistence. The empty --tools value is required: Claude Opus must answer from the redacted prompt packet with no file, shell, network, write, Task, Agent, Workflow, or plugin tools available. Do not require Claude Task/Agent proof. Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue. The Claude prompt must be read-only and must state that Claude Opus must answer the assigned panel directly. It must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: no tools are available in this consult; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --no-session-persistence. Do not pass a --tools override: Claude Opus may use its own read-only tools to analyze, but the prompt and host permissions must forbid file edits, writes, installs, and mutating commands. Do not require Claude Task/Agent proof. Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue. The Claude prompt must be read-only and must state that Claude Opus must answer the assigned panel directly. It must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: this consult is read-only; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
 
 Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
 
@@ -2753,7 +2765,6 @@ required_claude_argv = [
     budget,
     "--permission-mode",
     "dontAsk",
-    "--tools",
     "--no-session-persistence",
 ]
 required_claude_direct_prompt_terms = ("claude opus", "assigned", "panel", "direct")
@@ -2968,20 +2979,6 @@ def inspect_primary_claude_call(transcript):
         raise SystemExit(
             "Fusion Rescue Codex live primary subagent must invoke Claude exactly once; "
             f"saw {len(claude_call_events)} candidate command call(s): {claude_call_events!r}"
-        )
-    if not re.search(r"(?<![\w-])--tools(?![\w-])", tool_text):
-        raise SystemExit(
-            "Fusion Rescue Codex live primary Claude tool call missed required no-tools boundary; "
-            f"tool_text={tool_text[:2000]!r}"
-        )
-    no_tools_patterns = [
-        re.compile(r"(?<![\w-])--tools(?![\w-])\s+(?:\"\"|'')"),
-        re.compile(r"['\"]--tools['\"]\s*,\s*['\"]{2}"),
-    ]
-    if not any(pattern.search(tool_text) for pattern in no_tools_patterns):
-        raise SystemExit(
-            "Fusion Rescue Codex live primary Claude tool call did not show empty --tools value; "
-            f"tool_text={tool_text[:2000]!r}"
         )
     for marker in required_claude_argv:
         if marker.lower() not in tool_text.lower():

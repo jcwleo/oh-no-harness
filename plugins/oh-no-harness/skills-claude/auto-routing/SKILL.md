@@ -196,5 +196,5 @@ When `CLAUDE_PLUGIN_ROOT` is set, use:
 "${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" off
 ```
 
-Changes take effect on the next Claude Code `SessionStart`, such as a new
-session, app restart, `/clear`, or compaction.
+On Claude Code, the shared core's bootstrap/session-start timing applies as the
+`SessionStart` event, and the clear/reset command is `/clear`.

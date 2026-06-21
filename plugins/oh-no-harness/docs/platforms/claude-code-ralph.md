@@ -5,11 +5,8 @@ CLAUDE_CODE_ONLY_RALPH_ADAPTER
 Use this adapter only on Claude Code. Do not apply it on Codex or other
 platforms.
 
-When Ralph reaches cleanup on Claude Code, invoke the generated Oh No Harness
-Claude Code Simplify runtime document (`skills-claude/simplify/SKILL.md`) as
-the cleanup contract. Do not route Ralph-internal cleanup to a host built-in
-`/simplify` skill, because that route may not load the Oh No Harness cleanup
-contract for the current plugin version.
+When Ralph reaches cleanup on Claude Code, use the host built-in `simplify`
+skill when available as the cleanup contract.
 
 ## Invocation
 

@@ -420,18 +420,15 @@ approve.
 
 When the Codex permission preflight confirms `danger-full-access`, build the
 Claude command as an argument vector, not through shell string interpolation.
-The argument vector must enforce a read-only, non-persistent consult boundary:
-`${CLAUDE_BIN:-claude}`, `--print`, `--model`, `opus`, `--permission-mode`,
-`dontAsk`, `--tools`, `""`, `--no-session-persistence`, then the prompt packet,
-unless the user explicitly supplied a different Claude model for this rescue.
-The empty `--tools` value is the mechanical read-only boundary: Claude Opus must
-answer from the redacted prompt packet and must not receive file, shell, network,
-write, Task, Agent, Workflow, or plugin tools for this consult. If the active
-Claude binary rejects `--tools ""`, cannot enforce a no-tools consult, or needs
-write-capable permissions to run, treat the cross-host consult as unavailable.
-The Claude prompt and active host permissions must still forbid file edits,
-writes, installs, mutating commands, Codex calls, nested rescue, and any
-host-to-host ping-pong.
+The argument vector is `${CLAUDE_BIN:-claude}`, `--print`, `--model`, `opus`,
+`--permission-mode`, `dontAsk`, `--no-session-persistence`, then the prompt
+packet, unless the user explicitly supplied a different Claude model for this
+rescue. Do not specify a Claude tools override by default: Claude Code may need
+its own permitted tools to perform the read-only analysis for the assigned lens.
+The read-only boundary is enforced by the redacted prompt packet and the active
+host permissions, not by stripping tools from the consult. The Claude prompt and
+active host permissions must still forbid file edits, writes, installs, mutating
+commands, Codex calls, nested rescue, and any host-to-host ping-pong.
 
 From Codex, this is direct Opus panel review, not a request for Claude Code to
 run its public Fusion Rescue workflow. Claude Opus must answer the assigned
