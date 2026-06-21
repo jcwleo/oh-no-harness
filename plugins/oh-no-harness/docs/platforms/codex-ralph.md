@@ -57,18 +57,15 @@ When dispatch is selected, use Codex `spawn_agent`.
 
 Codex SessionStart is the primary custom-agent preparation path. It runs
 `scripts/install-codex-agents --scope user --ensure --quiet` so missing
-generated `oh-no-*` agents are installed and stale generated files refresh
-without adding success noise to every prompt.
-
-The Codex Ralph adapter repeats the same best-effort user-scope quiet ensure as
-a fallback before this point. The installed files carry the plugin version
-marker, so stale generated agents can refresh after a plugin update without
-requiring the user to ask for agent installation again. Generated templates
-also pin `gpt-5.5` and a per-agent `model_reasoning_effort` so they do not
-depend on inheriting a user-specific model config. If ensure fails, named custom-agent
-dispatch remains the default whenever the current host still recognizes
-`agent_type = "oh-no-<role>"`; record the ensure failure and use the generic
-prompt-embedded fallback only after confirmed custom-agent unavailability.
+generated `oh-no-*` agents install and stale ones refresh quietly; the Codex
+Ralph adapter repeats the same best-effort user-scope ensure as a fallback.
+Installed files carry the plugin version marker (so they refresh after a plugin
+update without the user re-requesting installation) and pin `gpt-5.5` plus a
+per-agent `model_reasoning_effort` so they do not depend on a user-specific
+model config. If ensure fails, named custom-agent dispatch stays the default
+whenever the host still recognizes `agent_type = "oh-no-<role>"`; record the
+ensure failure and use the generic prompt-embedded fallback only after confirmed
+custom-agent unavailability.
 
 Use this dispatch order:
 
@@ -103,22 +100,21 @@ Spawn every independent non-blocking agent in the eligible batch before calling
 `wait_agent`. Do not spawn one agent, wait, then spawn the rest.
 
 After `wait_agent` returns a final status, capture the result and inspect any
-changed-file set. A timeout, empty wait result, or "No agents completed yet"
-result is not a final status and must not be treated as result capture. Do not
-close a running subagent merely because it is slow. Hard rule: MUST NOT call
-`close_agent` for a running or pending Ralph subagent after timeout,
-no-completion, or empty wait output. Leave it running, wait longer when its
-result is needed, continue non-overlapping work, or record the role as pending
-or blocked. Close without a captured final result only when the user explicitly
-cancels or stops that subagent, the task scope invalidates the work, the spawn
-was duplicate or mis-scoped, or continuing creates a safety, security, or
-filesystem risk. Record that close as cancelled or abandoned and never use
-missing output as completion evidence. When no more input is needed for a
-completed, failed, cancelled, user-cancelled, scope-invalidated, or unsafe
-subagent and the host exposes `close_agent`, call `close_agent`. If
-`close_agent` reports that the agent was already closed or unavailable, record
-that result instead of retrying. If the host does not expose explicit close,
-record that closure is host-managed or unavailable.
+changed-file set. A timeout, empty wait result, or "No agents completed yet" is
+not a final status and is not result capture. Do not close a running subagent
+merely because it is slow. Hard rule: MUST NOT call `close_agent` for a running
+or pending Ralph subagent after timeout, no-completion, or empty wait output —
+leave it running, wait longer when its result is needed, continue
+non-overlapping work, or record the role as pending or blocked. Close without a
+captured final result only when the user explicitly cancels or stops that
+subagent, the task scope invalidates the work, the spawn was duplicate or
+mis-scoped, or continuing creates a safety, security, or filesystem risk; record
+that close as cancelled or abandoned and never use missing output as completion
+evidence. When no more input is needed for a completed, failed, cancelled,
+user-cancelled, scope-invalidated, or unsafe subagent and the host exposes
+`close_agent`, call it. If `close_agent` reports the agent was already closed or
+unavailable, record that instead of retrying. If the host exposes no explicit
+close, record that closure is host-managed or unavailable.
 
 ## Role Prompt Embedding
 
@@ -142,21 +138,16 @@ content.
 
 If the role is handled inline, keep the same role boundary in the caller's
 notes. If the role is dispatched with a generic Codex agent type, the
-spawned-agent message must include:
-
-```text
-Agent prompt source: docs/agent-core/<role>.md
-Agent prompt content:
-<paste the matching docs/agent-core/<role>.md prompt content>
-```
+spawned-agent message must embed the role prompt using the generic shape in
+Prompt Shape below.
 
 ## Prompt Shape
 
-Every registered custom-agent role dispatch should include:
+Every role dispatch should include this task shape:
 
 ```text
 Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer>
-Codex agent type: oh-no-<role>
+Codex agent type: oh-no-<role>   # or <explorer|worker|default> for the generic fallback
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>
 Do not touch: <other agents' scopes>
@@ -168,22 +159,18 @@ Coordination: You are not alone in the codebase. Do not revert or overwrite
 other agents' work. Stay inside your assigned scope.
 ```
 
-When using a registered `oh-no-<role>` custom agent, the TOML
-`developer_instructions` already supplies the role prompt body. Keep the task
-prompt focused on story, scope, expected output, verification, and lifecycle;
-if the host rejects that `agent_type`, retry only through the generic
-prompt-embedded path and record the fallback.
-
-Every generic Codex role dispatch should include the same task shape plus the
+For a registered `oh-no-<role>` custom agent, the TOML `developer_instructions`
+already supplies the role prompt body, so keep the task prompt focused on the
+fields above. For a generic `explorer`/`worker`/`default` fallback, add the
 embedded role prompt:
 
 ```text
-Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer>
-Codex agent type: <explorer|worker|default>
 Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
 <matching docs/agent-core/<role>.md prompt content>
 ```
 
-For `worker` tasks, give each agent an explicit ownership boundary. For
-read-only reviewers, state that they must not edit files.
+If the host rejects `oh-no-<role>`, retry only through this generic
+prompt-embedded path and record the fallback. For `worker` tasks, give each
+agent an explicit ownership boundary; for read-only reviewers, state that they
+must not edit files.

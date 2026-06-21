@@ -154,14 +154,12 @@ credible loop that can prove the work without skipping a stated requirement.
 
 If the input lacks acceptance criteria, derive them from the approved request and record them in the PRD. Ask before editing when an assumption changes user-visible behavior, architecture, data handling, security posture, or delivery scope.
 
-For each story, record:
+For each story, record (the named gate owns the detail — do not restate it here):
 
-- expected outcome
-- acceptance criteria
+- expected outcome and acceptance criteria
 - story execution mode
 - owned files or investigation targets
-- scope trace: how each intended file or change class maps to the request,
-  approved plan, acceptance criterion, TDD evidence, or cleanup behavior lock
+- scope trace — see Scope Trace Gate
 - contract surface: the actual public, caller, or verifier-facing entrypoint,
   schema, format, protocol, command, or prompt surface; the source used to
   identify it; and any compatibility constraint or uncertainty that blocks editing
@@ -170,17 +168,12 @@ For each story, record:
 - TDD requirement or exception
 - Worktree decision and location, or the fact that the worktree gate has not yet been resolved
 - verification command or evidence type
-- acceptance-to-evidence mapping plan: which evidence will directly prove each
-  criterion, and which criteria only have indirect or manual evidence
-- story risk check: the most likely failure-taxonomy risk from
-  `docs/shared/failure-taxonomy.md`, including contract-surface, semantic-model,
-  baseline, and adjacent-subsystem risks when applicable
-- validation check when measurable evidence influenced the task: evidence,
-  recurring software engineering failure mode, user or maintainer outcome, similar-work expectation,
-  deliberately excluded case-specific details, and added process cost
-- verification budget: the intended focused checks, broad checks, and stop rule
-- diff-budget expectation: expected changed-file scope and what would trigger a
-  scope review before completion
+- acceptance-to-evidence mapping plan and verification budget — see Verification
+  Budget Policy
+- story risk check — the most likely `docs/shared/failure-taxonomy.md` risk
+  (contract-surface, semantic-model, baseline, adjacent-subsystem)
+- validation check when measurable evidence influenced the task — see Validation Gate
+- diff-budget expectation — see Diff-Budget Gate
 
 ## Worktree Isolation Gate
 
@@ -331,15 +324,11 @@ Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever 
 
 ## Parallel Subagent Policy
 
-Use parallel subagents when the selected execution mode and agent policy allow
-dispatch, the current platform supports it, the work can be safely isolated, and
-the delegated results can change a decision.
-
-Respect the same active platform dispatch policy noted in
-`## Mode-Gated Agent Dispatch`. Read and apply
-`docs/shared/ralph-subagent-policy.md`; `docs/shared/parallel-subagents.md` is
-only a quick pointer back to that source of truth. Then use only the active
-adapter named by the generated runtime skill document.
+Parallelize under the dispatch conditions and platform deference already set in
+`## Mode-Gated Agent Dispatch`, once the work can be safely isolated. Read and
+apply `docs/shared/ralph-subagent-policy.md` (`docs/shared/parallel-subagents.md`
+only points back to it), then use only the active adapter named by the generated
+runtime skill document.
 
 If two or more roles or scopes are independent and the platform policy allows
 subagents, create the whole eligible batch before waiting for any one result.
@@ -423,8 +412,7 @@ When review is required, the reviewer pass must answer:
   config, logs, sandbox, or destructive operations were touched, did
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
-- For behavior-changing work, does RED/GREEN/REFACTOR evidence exist or is an exception documented?
-- Are TDD exceptions specific and justified rather than vague convenience claims?
+- For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
 - Are tests or verification sufficient for the risk?
 - Did broad-suite verification add meaningful confidence, or should a focused
   semantic or baseline check replace another broad rerun?
