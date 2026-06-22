@@ -89,6 +89,12 @@ Direct evidence is a focused test, scenario, or inspection that would fail if
 the requested behavior were absent or wrong. Indirect evidence, broad suites,
 lint, typecheck, formatting, and compile checks are useful support, but they do
 not replace direct acceptance evidence for behavior-changing work.
+In STANDARD or THOROUGH mode, for user-facing or behavior-changing work, direct
+evidence must be an artifact observed from the real surface — actual command
+output, terminal or UI capture, an HTTP response body, or an equivalent observed
+result. "Should work", "looks correct", and a printed or `--dry-run` command are
+indirect evidence at best. This bar does not apply to LIGHT or trivial work such
+as a pure-logic helper edit, which needs no captured real-surface artifact.
 New tests are supporting evidence, not sufficient completion proof, when nearby
 existing tests, smoke checks, or behavior-preserving inspections are available
 and could catch regressions.
@@ -140,6 +146,9 @@ real user, maintainer, operator, or public contract.
   behavior is directly represented in that suite.
 - A local test that would pass against the wrong public, caller, or
   verifier-facing surface does not prove the real contract.
+- A tautological test is not valid evidence: a test that only asserts a mock was
+  called, pins a constant, or cannot fail under any plausible regression confirms
+  itself, not the behavior.
 - A new test does not replace a viable nearby baseline or smoke check for
   regression-sensitive work.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception.

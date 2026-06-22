@@ -446,6 +446,12 @@ proof. For behavior-changing work:
   semantic check.
 - Treat lint, typecheck, compile, formatting, and `git diff --check` as support
   evidence. They do not replace direct behavior evidence.
+- In STANDARD or THOROUGH mode, for user-facing or behavior-changing stories,
+  the direct evidence must be a real-surface artifact (actual command output,
+  terminal or UI capture, or response body); a printed or `--dry-run` command is
+  indirect at best. See `verification-before-completion`'s
+  `## Acceptance-To-Evidence Mapping` for the full rule. This does not apply to
+  LIGHT or trivial work.
 
 Record skipped broad checks and residual risk honestly. Do not claim stronger
 coverage than the evidence supports.

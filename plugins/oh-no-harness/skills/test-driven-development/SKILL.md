@@ -102,6 +102,9 @@ A valid RED test:
 - fails because the behavior is missing or wrong
 - does not fail because of typos, broken imports, invalid setup, or missing fixtures
 - uses mocks only when real dependencies are impractical
+- is not tautological: a test that only asserts a mock was called, pins a
+  constant, or cannot fail under any plausible regression is self-confirming, not
+  RED evidence
 
 If the test passes immediately, it is not RED. Change the test or choose a behavior that is not already covered.
 
