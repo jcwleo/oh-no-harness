@@ -33,7 +33,7 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 | Agent | Use |
 |---|---|
 | `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. |
-| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. |
+| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; degrade to current-host-only otherwise). |
 
 On subagent-capable hosts, dispatch `verifier` for nontrivial completion claims
 when independent evidence mapping can change the ship/block decision or expose

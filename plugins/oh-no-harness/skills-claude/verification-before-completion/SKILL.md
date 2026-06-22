@@ -51,7 +51,7 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 | Agent | Use |
 |---|---|
 | `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. |
-| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. |
+| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; degrade to current-host-only otherwise). |
 
 On subagent-capable hosts, dispatch `verifier` for nontrivial completion claims
 when independent evidence mapping can change the ship/block decision or expose
@@ -247,3 +247,34 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
+opposite host is Codex. This section carries only the Claude-to-Codex
+invocation; the activation, synthesis, and recursion-guard semantics live in the
+calling skill core and the shared doc.
+
+From Claude Code, consult Codex only through an available, explicitly loaded
+`openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
+is installed. If the capability is unavailable, treat the opposite host as
+unavailable: degrade to current-host-only in default mode, and block only in
+require-cross-host mode while naming the failure class and the current-host
+fallback.
+
+The consult must run synchronously and return Codex's actual assigned analysis.
+Pass `--wait` to force foreground execution, for example `/codex:rescue --wait`,
+and request read-only Codex behavior; do not let it run as a detached background
+job and do not authorize write-capable edits for an analysis-only consult. A
+response that only acknowledges a queued or background job — text that a task
+started in the background with a status command for a job id — is not a valid
+opposite-host response; treat it as no Codex response and degrade (default) or
+block (require-cross-host). Do not poll status or fetch a deferred result to
+compensate; the consult call itself must return the analysis.
+
+The outbound prompt must request only the assigned analysis and must forbid the
+opposite host from invoking further rescue, another workflow skill, or any
+host-to-host call back to Claude Code or a third host (one cross-host hop).
+Redact secrets before sending; on failure record only the failure class and
+capability/path/auth status, never secret values.

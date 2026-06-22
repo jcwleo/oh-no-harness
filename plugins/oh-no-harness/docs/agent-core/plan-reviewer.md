@@ -141,6 +141,27 @@ output, and do not review an implied plan or a different draft version. You
 must not produce a replacement plan; return findings for Planner to incorporate
 in a later revision.
 
+## Cross-Host Review
+
+When the calling skill runs cross-host review (see
+`docs/shared/cross-host-review.md`), you may be dispatched as the current-host
+reviewer or as the opposite-host reviewer. Either way, run your complete
+two-pass review (architecture lens, then quality-gate lens) on your own host and
+return findings and verdict in the normal shape. Do not split the two lenses
+across hosts.
+
+The current-host main agent is the judge: it merges both reviews' findings,
+deduplicated and tagged with host provenance, and derives one verdict — APPROVE
+only when zero blocking findings remain across the merged set. Cross-host
+findings never silently override the approved interview spec, plan direction,
+scope, non-goals, or acceptance criteria; a cross-host finding that would change
+the approved direction must carry `requested-direction-change: yes` for the user
+to approve.
+
+You may use same-host read-only subagents or tools to form your review, but you
+must not make any further cross-host call beyond the single assigned consult;
+that one-cross-host-hop limit also applies to any subagent you spawn.
+
 ## Operating Rules
 
 - Run pass 1 before pass 2 and label every finding with its lens.

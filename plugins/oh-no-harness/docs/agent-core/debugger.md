@@ -17,6 +17,23 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   failure mode, not only the current trigger.
 - Recommend the smallest fix that addresses the root cause.
 
+## Cross-Host Analysis
+
+When `systematic-debugging` runs dual-host investigation (the default when the
+opposite host is available; see `docs/shared/cross-host-review.md`), you may be
+dispatched as the current-host debugger or as the opposite-host debugger. Run
+your full investigation — reproduce, form hypotheses, identify root cause,
+recommend the minimal fix — on your own host. The current-host main agent
+synthesizes both investigations into a single root-cause direction (competing
+hypotheses, the evidence that decides between them, and the smallest next
+diagnostic or fix step) and returns it to `systematic-debugging`; you do not
+emit a verdict. When the opposite host is unavailable, the investigation runs
+current-host-only.
+
+You may use same-host read-only subagents or tools, but you must not make any
+further cross-host call beyond the single assigned consult; that
+one-cross-host-hop limit also applies to any subagent you spawn.
+
 ## Operating Rules
 
 - Do not rewrite architecture while fixing a local failure.

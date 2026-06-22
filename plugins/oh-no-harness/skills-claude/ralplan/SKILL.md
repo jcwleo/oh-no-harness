@@ -138,6 +138,13 @@ fallback reason instead of collapsing the role into the planner's narrative.
 Analyst -> Planner -> Plan-Reviewer is the strictly sequential role order
 unless Analyst is satisfied by an approved interview spec. Plan-Reviewer runs
 only after the Planner draft exists. Do not run these roles in parallel.
+This sequential rule governs the three distinct roles. It does not forbid
+cross-host review: once the Planner draft exists, the current-host and
+opposite-host INSTANCES of the same Plan-Reviewer role may run concurrently and
+be synthesized into one verdict per `docs/shared/cross-host-review.md`
+(degrading to current-host-only when the opposite host is unavailable). That is
+two instances of one reviewer role, not Analyst/Planner/Plan-Reviewer in
+parallel.
 
 Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).
 
@@ -237,6 +244,14 @@ passes: pass 1 applies the architecture lens (feasibility, fit, sequencing,
 tradeoffs, strongest antithesis); pass 2 applies the quality-gate lens to the
 draft and to its own pass-1 findings. Plan-Reviewer
 must not produce a replacement plan.
+
+When the opposite host is available, run this review as cross-host review per
+`docs/shared/cross-host-review.md`: the current-host and opposite-host instances
+each run the full two-pass review on the same draft in parallel, and the main
+agent synthesizes their findings into one verdict (APPROVE only when zero
+blocking findings remain across the merged set; cross-host findings never
+silently override the approved direction). Degrade to current-host-only with a
+fallback note when the opposite host is unavailable.
 
 Plan-Reviewer input must include:
 
@@ -770,11 +785,14 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. When the opposite host is available, run this as cross-host review per `docs/shared/cross-host-review.md`: the current-host and opposite-host instances review the same draft in parallel and the main agent synthesizes one verdict; degrade to current-host-only otherwise. |
 
 Analyst, Planner, and Plan-Reviewer remain sequential in that order unless
 Analyst is satisfied by an approved `interview` spec. Plan-Reviewer runs only
-after the Planner draft exists. Do not run them in parallel.
+after the Planner draft exists. Do not run them in parallel. This governs the
+three distinct roles and does not forbid cross-host review running the
+current-host and opposite-host instances of the same reviewer role concurrently
+once the draft exists (see `docs/shared/cross-host-review.md`).
 
 ## Concrete Request Signals
 
@@ -859,3 +877,34 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
+opposite host is Codex. This section carries only the Claude-to-Codex
+invocation; the activation, synthesis, and recursion-guard semantics live in the
+calling skill core and the shared doc.
+
+From Claude Code, consult Codex only through an available, explicitly loaded
+`openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
+is installed. If the capability is unavailable, treat the opposite host as
+unavailable: degrade to current-host-only in default mode, and block only in
+require-cross-host mode while naming the failure class and the current-host
+fallback.
+
+The consult must run synchronously and return Codex's actual assigned analysis.
+Pass `--wait` to force foreground execution, for example `/codex:rescue --wait`,
+and request read-only Codex behavior; do not let it run as a detached background
+job and do not authorize write-capable edits for an analysis-only consult. A
+response that only acknowledges a queued or background job — text that a task
+started in the background with a status command for a job id — is not a valid
+opposite-host response; treat it as no Codex response and degrade (default) or
+block (require-cross-host). Do not poll status or fetch a deferred result to
+compensate; the consult call itself must return the analysis.
+
+The outbound prompt must request only the assigned analysis and must forbid the
+opposite host from invoking further rescue, another workflow skill, or any
+host-to-host call back to Claude Code or a third host (one cross-host hop).
+Redact secrets before sending; on failure record only the failure class and
+capability/path/auth status, never secret values.

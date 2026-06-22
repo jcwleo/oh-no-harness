@@ -104,11 +104,13 @@ Each panel receives:
 - non-goals and forbidden behavior
 - any known budget, auth, safety, or environment constraints
 - explicit instruction not to invoke nested rescue, `fusion-rescue`, another
-  workflow skill, or any host-to-host call except the single assigned
-  cross-host consult when this panel owns the opposite-host response slot
+  workflow skill, or any cross-host call except the single assigned cross-host
+  consult when this panel owns the opposite-host response slot; same-host
+  read-only subagents and read-only tools remain allowed
 - explicit read-only instructions: do not edit files, run mutating commands,
-  write state, install plugins, or make extra network calls from a panel beyond
-  the single assigned cross-host consult
+  write state, or install plugins from a panel; same-host read-only analysis
+  tools and subagents are allowed, but make no cross-host call beyond the single
+  assigned cross-host consult
 
 Each panel returns:
 
@@ -201,15 +203,24 @@ Every ordinary panel and every outbound cross-host consult packet must state:
 ```text
 fusion depth: 1
 Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel.
-Return only your assigned lens analysis to the caller.
+Same-host read-only subagents and read-only tools are allowed; the prohibition above is the cross-host hop, not same-host fan-out.
+Return your assigned lens analysis to the caller (a same-host read-only subagent or tool you used to produce it is fine).
 ```
+
+`fusion depth: 1` is a cross-host-hop count: this panel sits one cross-host hop
+from the caller and must not add another cross-host hop. The "from inside this
+panel" prohibition above scopes to cross-host calls (rescue, fusion-rescue,
+cross-host consult, or another host); a panel MAY use same-host read-only
+subagents or read-only tools to form its assigned-lens analysis.
 
 When a panel is assigned to collect the opposite-host response, its panel prompt
 must state that the assigned consult is the only permitted cross-host call, and
 the outbound consult prompt itself must contain the strict guard above.
 
 This is a one-hop guard. The current host must not call the opposite host and
-allow that host to call back into the current host or another host.
+allow that host to call back into the current host or another host. The
+cross-host block applies transitively: a same-host read-only subagent spawned by
+a panel inherits the same no-further-cross-host-hop rule.
 
 ## Judge And Synthesis
 
@@ -265,7 +276,9 @@ these scenarios:
   exposing secret values.
 - Recursive consult: a panel attempts to call rescue, `fusion-rescue`, or
   another host. The workflow must reject the nested call using `fusion depth: 1`
-  and the one-hop guard.
+  and the one-hop guard. This rejection targets the nested CROSS-HOST call; a
+  panel using same-host read-only subagents or read-only tools to form its
+  assigned-lens analysis is not a recursive consult and is allowed.
 
 ## Caller Return
 
@@ -384,6 +397,38 @@ When generic Codex agent types are used after confirmed custom-agent
 unavailability, embed the matching `docs/agent-core/<role>.md` prompt body in
 the spawned-agent message. If only `agents/<role>.md` exists, strip Claude Code
 YAML frontmatter before embedding.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
+host is Claude Code. This section carries only the Codex-to-Claude invocation;
+the activation, synthesis, and recursion-guard semantics live in the calling
+skill core and the shared doc.
+
+From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
+active Codex permission state is exactly `danger-full-access`. If the state is
+missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
+Claude: treat the opposite host as unavailable, degrade to current-host-only in
+default mode, and block only in require-cross-host mode while naming the failure
+class and the current-host fallback.
+
+When the `danger-full-access` preflight confirms, build the Claude command as an
+argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,
+`--print`, `--model`, `opus`, `--permission-mode`, `dontAsk`,
+`--no-session-persistence`, then the redacted prompt packet, unless the user
+supplied a different Claude model. Do not strip Claude's tools by default; Claude
+may need its own read-only tools to produce the assigned analysis. The read-only
+boundary is enforced by the redacted packet and host permissions, not by
+removing tools.
+
+The consult must return Claude's actual assigned analysis synchronously. A launch
+notice, queued-job message, background acknowledgement, or status pointer is not
+a valid opposite-host response; treat it as unavailable. The Claude prompt must
+request only the assigned analysis and must forbid file edits, writes, installs,
+mutating commands, nested rescue, and any host-to-host ping-pong back to Codex or
+a third host (one cross-host hop). Redact secrets before sending; on failure
+record only the failure class and command/path/auth status, never secret values.
 
 ## Source: docs/platforms/codex-fusion-rescue.md
 

@@ -251,3 +251,35 @@ When generic Codex agent types are used after confirmed custom-agent
 unavailability, embed the matching `docs/agent-core/<role>.md` prompt body in
 the spawned-agent message. If only `agents/<role>.md` exists, strip Claude Code
 YAML frontmatter before embedding.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
+host is Claude Code. This section carries only the Codex-to-Claude invocation;
+the activation, synthesis, and recursion-guard semantics live in the calling
+skill core and the shared doc.
+
+From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
+active Codex permission state is exactly `danger-full-access`. If the state is
+missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
+Claude: treat the opposite host as unavailable, degrade to current-host-only in
+default mode, and block only in require-cross-host mode while naming the failure
+class and the current-host fallback.
+
+When the `danger-full-access` preflight confirms, build the Claude command as an
+argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,
+`--print`, `--model`, `opus`, `--permission-mode`, `dontAsk`,
+`--no-session-persistence`, then the redacted prompt packet, unless the user
+supplied a different Claude model. Do not strip Claude's tools by default; Claude
+may need its own read-only tools to produce the assigned analysis. The read-only
+boundary is enforced by the redacted packet and host permissions, not by
+removing tools.
+
+The consult must return Claude's actual assigned analysis synchronously. A launch
+notice, queued-job message, background acknowledgement, or status pointer is not
+a valid opposite-host response; treat it as unavailable. The Claude prompt must
+request only the assigned analysis and must forbid file edits, writes, installs,
+mutating commands, nested rescue, and any host-to-host ping-pong back to Codex or
+a third host (one cross-host hop). Redact secrets before sending; on failure
+record only the failure class and command/path/auth status, never secret values.

@@ -1853,6 +1853,50 @@ def assert_validation_check_contract(root: Path) -> None:
         if marker not in text:
             die(f"{path} is missing required Validation-Check contract marker: {marker!r}")
 
+
+def assert_cross_host_review_contract(root: Path) -> None:
+    # D1: governance content-marker for the neutral shared cross-host-review doc,
+    # so it cannot be silently gutted or drift from the fusion-rescue mechanism.
+    path = root / "docs" / "shared" / "cross-host-review.md"
+    text = read_text(path)
+    for marker in (
+        "# Cross-Host Review",
+        "## Cross-Host Consult Channel",
+        "run the review on BOTH the current host and the opposite host",
+        "degrade to current-host-only",
+        "require-cross-host",
+        "Recursion Guard (Cross-Host Hop Scope)",
+        "one cross-host hop",
+        "requested-direction-change: yes",
+    ):
+        if not has_required_marker(text, marker):
+            die(f"{path} is missing required Cross-Host-Review marker: {marker!r}")
+
+    # D2: runtime-doc Cross-Host Consult Channel cross-leak hygiene. Each runtime
+    # doc's channel section must carry only its own outbound-to-opposite-host
+    # invocation, mirroring the fusion-rescue overlay cross-leak guard.
+    platform_root = root / "docs" / "platforms"
+    heading = "## Cross-Host Consult Channel"
+
+    codex_channel = markdown_section(read_text(platform_root / "codex-runtime.md"), heading)
+    if not codex_channel:
+        die(f"{platform_root / 'codex-runtime.md'} is missing required {heading!r} section")
+    if not has_required_marker(codex_channel, "`${CLAUDE_BIN:-claude}`"):
+        die(f"codex-runtime.md {heading!r} must carry the Codex-to-Claude argument vector")
+    for marker in ("openai/codex-plugin-cc", "`/codex:rescue`"):
+        if marker in codex_channel:
+            die(f"codex-runtime.md {heading!r} contains opposite-host (Claude-side) consult marker: {marker!r}")
+
+    claude_channel = markdown_section(read_text(platform_root / "claude-code-runtime.md"), heading)
+    if not claude_channel:
+        die(f"{platform_root / 'claude-code-runtime.md'} is missing required {heading!r} section")
+    if not has_required_marker(claude_channel, "`/codex:rescue`"):
+        die(f"claude-code-runtime.md {heading!r} must carry the Claude-to-Codex consult invocation")
+    for marker in ("`${CLAUDE_BIN:-claude}`", "`--permission-mode`", "`dontAsk`"):
+        if marker in claude_channel:
+            die(f"claude-code-runtime.md {heading!r} contains opposite-host (Codex-side) consult marker: {marker!r}")
+
+
 def assert_provider_guidance(root: Path) -> None:
     provider_root = root / PROVIDER_DOC_ROOT
     if not provider_root.is_dir():
@@ -2401,6 +2445,7 @@ def main() -> None:
     assert_execution_mode_contract(root)
     assert_verification_tier_contract(root)
     assert_validation_check_contract(root)
+    assert_cross_host_review_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

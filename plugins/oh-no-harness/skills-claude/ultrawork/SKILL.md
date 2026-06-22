@@ -185,7 +185,7 @@ re-checks may stay inline when they have equal evidence.
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. |
+| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; degrade to current-host-only otherwise). |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -298,6 +298,10 @@ cross-phase risk:
 - `code-reviewer` for correctness and maintainability, with its security lens
   for security-sensitive behavior
 - `verifier` with its scenario lens for user-facing behavior
+- When the opposite host is available, run `plan-reviewer` and `code-reviewer`
+  as cross-host review per `docs/shared/cross-host-review.md` (current-host +
+  opposite-host instances synthesized into one result; degrade to
+  current-host-only with a fallback note otherwise)
 
 If execution was handled inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
@@ -436,3 +440,34 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
+opposite host is Codex. This section carries only the Claude-to-Codex
+invocation; the activation, synthesis, and recursion-guard semantics live in the
+calling skill core and the shared doc.
+
+From Claude Code, consult Codex only through an available, explicitly loaded
+`openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
+is installed. If the capability is unavailable, treat the opposite host as
+unavailable: degrade to current-host-only in default mode, and block only in
+require-cross-host mode while naming the failure class and the current-host
+fallback.
+
+The consult must run synchronously and return Codex's actual assigned analysis.
+Pass `--wait` to force foreground execution, for example `/codex:rescue --wait`,
+and request read-only Codex behavior; do not let it run as a detached background
+job and do not authorize write-capable edits for an analysis-only consult. A
+response that only acknowledges a queued or background job — text that a task
+started in the background with a status command for a job id — is not a valid
+opposite-host response; treat it as no Codex response and degrade (default) or
+block (require-cross-host). Do not poll status or fetch a deferred result to
+compensate; the consult call itself must return the analysis.
+
+The outbound prompt must request only the assigned analysis and must forbid the
+opposite host from invoking further rescue, another workflow skill, or any
+host-to-host call back to Claude Code or a third host (one cross-host hop).
+Redact secrets before sending; on failure record only the failure class and
+capability/path/auth status, never secret values.

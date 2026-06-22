@@ -136,9 +136,9 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
-| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. |
+| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized into one verdict; degrade to current-host-only otherwise). |
 | `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. |
-| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. |
+| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; degrade to current-host-only otherwise). |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
@@ -412,6 +412,10 @@ When review is required, the reviewer pass must answer:
   config, logs, sandbox, or destructive operations were touched, did
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
+- When the opposite host was available, were `plan-reviewer`/`code-reviewer` run
+  as cross-host review (current-host + opposite-host instances synthesized) per
+  `docs/shared/cross-host-review.md`, or was the degrade-to-current-host fallback
+  recorded?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
 - Are tests or verification sufficient for the risk?
 - Did broad-suite verification add meaningful confidence, or should a focused
@@ -609,6 +613,37 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
+
+## Cross-Host Consult Channel
+
+This is the shared cross-host consult mechanism used by Fusion Rescue and by
+cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
+opposite host is Codex. This section carries only the Claude-to-Codex
+invocation; the activation, synthesis, and recursion-guard semantics live in the
+calling skill core and the shared doc.
+
+From Claude Code, consult Codex only through an available, explicitly loaded
+`openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
+is installed. If the capability is unavailable, treat the opposite host as
+unavailable: degrade to current-host-only in default mode, and block only in
+require-cross-host mode while naming the failure class and the current-host
+fallback.
+
+The consult must run synchronously and return Codex's actual assigned analysis.
+Pass `--wait` to force foreground execution, for example `/codex:rescue --wait`,
+and request read-only Codex behavior; do not let it run as a detached background
+job and do not authorize write-capable edits for an analysis-only consult. A
+response that only acknowledges a queued or background job — text that a task
+started in the background with a status command for a job id — is not a valid
+opposite-host response; treat it as no Codex response and degrade (default) or
+block (require-cross-host). Do not poll status or fetch a deferred result to
+compensate; the consult call itself must return the analysis.
+
+The outbound prompt must request only the assigned analysis and must forbid the
+opposite host from invoking further rescue, another workflow skill, or any
+host-to-host call back to Claude Code or a third host (one cross-host hop).
+Redact secrets before sending; on failure record only the failure class and
+capability/path/auth status, never secret values.
 
 ## Source: docs/platforms/claude-code-ralph.md
 
