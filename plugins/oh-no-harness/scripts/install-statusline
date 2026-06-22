@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install the Oh No Harness developer statusline into the user's Claude Code
+# settings. Human-invoked through the install-statusline skill; never run
+# automatically by the model.
+#
+# Subcommands:
+#   check            Report current install state. Makes no changes.
+#   apply            Install when not present or outdated. Refuses on a
+#                    conflicting existing statusLine (use --replace).
+#   apply --replace  Back up any existing statusline script and settings.json,
+#                    then install.
+#
+# Requires jq. Targets ~/.claude (override the directory with OH_NO_CLAUDE_DIR,
+# used by the test harness to install into a temp HOME).
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAYLOAD_SRC="${SCRIPT_DIR}/statusline-command"
+
+CLAUDE_DIR="${OH_NO_CLAUDE_DIR:-${HOME}/.claude}"
+DEST_SCRIPT="${CLAUDE_DIR}/statusline-command.sh"
+SETTINGS="${CLAUDE_DIR}/settings.json"
+
+# The literal command value written into settings.json (keeps ~ unexpanded so it
+# resolves at statusline runtime, matching a hand-written config).
+STATUSLINE_COMMAND="bash ~/.claude/statusline-command.sh"
+REFRESH_INTERVAL=3
+
+die() { printf 'install-statusline: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+require_jq() {
+  command -v jq >/dev/null 2>&1 \
+    || die "jq is required but was not found on PATH; no changes made" 4
+}
+
+require_payload() {
+  [ -f "$PAYLOAD_SRC" ] || die "bundled statusline payload not found at $PAYLOAD_SRC" 5
+}
+
+settings_valid_json() {
+  # True when settings.json is absent (nothing to corrupt) or parses as JSON.
+  [ -f "$SETTINGS" ] || return 0
+  jq -e . "$SETTINGS" >/dev/null 2>&1
+}
+
+current_command() {
+  if [ -f "$SETTINGS" ] && settings_valid_json; then
+    jq -r '.statusLine.command // empty' "$SETTINGS"
+  fi
+}
+
+compute_status() {
+  # not-installed | installed-matching | installed-outdated | conflict
+  local cmd
+  cmd="$(current_command)"
+  if [ -z "$cmd" ]; then
+    printf 'not-installed'
+  elif [ "$cmd" = "$STATUSLINE_COMMAND" ]; then
+    if [ -f "$DEST_SCRIPT" ] && cmp -s "$PAYLOAD_SRC" "$DEST_SCRIPT"; then
+      printf 'installed-matching'
+    else
+      printf 'installed-outdated'
+    fi
+  else
+    printf 'conflict'
+  fi
+}
+
+backup_file() {
+  # Echo the backup path when a backup was made; nothing otherwise.
+  local f="$1"
+  [ -e "$f" ] || return 0
+  local b
+  b="${f}.bak.$(date +%Y%m%d%H%M%S)"
+  cp -p "$f" "$b"
+  printf '%s' "$b"
+}
+
+write_settings() {
+  require_jq
+  mkdir -p "$CLAUDE_DIR"
+  local tmp
+  tmp="$(mktemp "${CLAUDE_DIR}/.settings.json.XXXXXX")"
+  if [ -f "$SETTINGS" ]; then
+    if ! settings_valid_json; then
+      rm -f "$tmp"
+      die "existing $SETTINGS is not valid JSON; no changes made" 6
+    fi
+    if ! jq --arg cmd "$STATUSLINE_COMMAND" --argjson ri "$REFRESH_INTERVAL" \
+         '.statusLine = {type: "command", command: $cmd, refreshInterval: $ri}' \
+         "$SETTINGS" >"$tmp"; then
+      rm -f "$tmp"
+      die "failed to update $SETTINGS; no changes made" 6
+    fi
+  else
+    if ! jq -n --arg cmd "$STATUSLINE_COMMAND" --argjson ri "$REFRESH_INTERVAL" \
+         '{statusLine: {type: "command", command: $cmd, refreshInterval: $ri}}' >"$tmp"; then
+      rm -f "$tmp"
+      die "failed to create $SETTINGS; no changes made" 6
+    fi
+  fi
+  mv "$tmp" "$SETTINGS"
+}
+
+install_payload() {
+  mkdir -p "$CLAUDE_DIR"
+  cp "$PAYLOAD_SRC" "$DEST_SCRIPT"
+  chmod +x "$DEST_SCRIPT"
+}
+
+cmd_check() {
+  require_jq
+  require_payload
+  printf 'claude dir:        %s\n' "$CLAUDE_DIR"
+  printf 'statusline script: %s\n' "$DEST_SCRIPT"
+  printf 'settings file:     %s\n' "$SETTINGS"
+  if [ -f "$SETTINGS" ] && ! settings_valid_json; then
+    printf 'current statusLine.command: <settings.json is not valid JSON>\n'
+    printf 'STATUS: invalid-json\n'
+    return 0
+  fi
+  local cmd
+  cmd="$(current_command)"
+  printf 'current statusLine.command: %s\n' "${cmd:-<none>}"
+  printf 'target statusLine.command:  %s\n' "$STATUSLINE_COMMAND"
+  printf 'STATUS: %s\n' "$(compute_status)"
+}
+
+cmd_apply() {
+  local replace="$1"
+  require_jq
+  require_payload
+
+  if [ -f "$SETTINGS" ] && ! settings_valid_json; then
+    die "existing $SETTINGS is not valid JSON; no changes made" 6
+  fi
+
+  local status
+  status="$(compute_status)"
+  if [ "$status" = "installed-matching" ]; then
+    printf 'already installed and current; no changes made.\n'
+    printf 'STATUS: installed-matching\n'
+    return 0
+  fi
+  if [ "$status" = "conflict" ] && [ "$replace" != "true" ]; then
+    die "a different statusLine is already configured (command: $(current_command)); re-run with 'apply --replace' to back up and replace it" 3
+  fi
+
+  local backups=()
+  if [ "$replace" = "true" ]; then
+    local b
+    b="$(backup_file "$SETTINGS")"
+    if [ -n "$b" ]; then backups+=("$b"); fi
+    b="$(backup_file "$DEST_SCRIPT")"
+    if [ -n "$b" ]; then backups+=("$b"); fi
+  fi
+
+  write_settings
+  install_payload
+
+  printf 'installed statusline script: %s\n' "$DEST_SCRIPT"
+  printf 'set settings.json statusLine in: %s\n' "$SETTINGS"
+  if [ "${#backups[@]}" -gt 0 ]; then
+    printf 'backups created:\n'
+    printf '  %s\n' "${backups[@]}"
+  fi
+  printf 'the statusline refreshes within a few seconds (/clear forces it).\n'
+  printf 'STATUS: installed\n'
+}
+
+usage() {
+  cat <<'USAGE'
+Usage: install-statusline <check|apply [--replace]>
+
+  check            Report current statusline install state (no changes).
+  apply            Install when not present or outdated; refuses on a conflicting
+                   existing statusLine (use --replace).
+  apply --replace  Back up any existing statusline script and settings.json, then
+                   install.
+
+Requires jq. Targets ~/.claude (override with OH_NO_CLAUDE_DIR).
+USAGE
+}
+
+main() {
+  local sub="${1:-check}"
+  case "$sub" in
+    check)
+      cmd_check
+      ;;
+    apply)
+      shift || true
+      local replace=false
+      case "${1:-}" in
+        --replace|replace) replace=true ;;
+        "") ;;
+        *) die "unknown apply option: $1 (use --replace)" 2 ;;
+      esac
+      cmd_apply "$replace"
+      ;;
+    -h|--help|help)
+      usage
+      ;;
+    *)
+      usage >&2
+      die "unknown subcommand: $sub (use check | apply [--replace])" 2
+      ;;
+  esac
+}
+
+main "$@"

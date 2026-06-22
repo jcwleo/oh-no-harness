@@ -97,9 +97,13 @@ This file records the source material used to build Oh No Harness.
 | `skills/<name>/SKILL.md` | generated Codex-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/codex-runtime.md`, and optional `docs/platforms/codex-<name>.md` |
 | `skills-claude/<name>/SKILL.md` | generated Claude Code-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/claude-code-runtime.md`, and optional `docs/platforms/claude-code-<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
+| `docs/skill-core/install-statusline.md` | local Claude-Code-only, human-invoke-only setup skill core (`disable-model-invocation: true`) for installing the developer statusline |
+| `docs/platforms/claude-code-install-statusline.md` | Claude Code-specific Install Statusline overlay included only in the generated Claude Code Install Statusline runtime document (no Codex variant) |
 | `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral cross-host consultation contracts and no OpenRouter API integration |
 | `docs/agent-core/fusion-rescue-analyst.md` | local panel-lens role body used by `fusion-rescue` for current-host analysis slots |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
+| `scripts/statusline-command` | bundled developer statusline payload copied to `~/.claude/statusline-command.sh` by `install-statusline` |
+| `scripts/install-statusline` | installer for the `install-statusline` skill; `check`/`apply [--replace]` modes, jq non-clobbering settings.json merge, timestamped backups, refuses without jq or on invalid JSON |
 | repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |

@@ -15,6 +15,13 @@ Keep the external skill surface limited to:
 - `verification-before-completion`
 - `systematic-debugging`
 - `fusion-rescue`
+- `install-statusline`
+
+`install-statusline` is a Claude-Code-only, human-invoke-only setup skill: its
+frontmatter sets `disable-model-invocation: true` (so the model never
+auto-invokes it), it is intentionally left out of the SessionStart routing map,
+and it ships no Codex wrapper. It is tracked by `CLAUDE_ONLY_SKILLS` (platform)
+and `MODEL_UNINVOCABLE_SKILLS` (invocation) in the generator and validator.
 
 Treat `docs/agent-core/*.md`, `agents/*.md`, and
 `docs/platforms/codex-agents/*.toml` as internal role prompts, not additional

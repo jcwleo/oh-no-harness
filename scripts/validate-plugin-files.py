@@ -26,9 +26,22 @@ PUBLIC_SKILLS = [
     "verification-before-completion",
     "systematic-debugging",
     "fusion-rescue",
+    "install-statusline",
 ]
 
 ALL_SKILLS = PUBLIC_SKILLS
+
+# Skills that ship a Claude Code wrapper only (no Codex wrapper). For these,
+# assert_skill validates only the Claude wrapper and asserts the Codex wrapper is
+# absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
+# (this validator runs that generator's `--check` as a subprocess).
+CLAUDE_ONLY_SKILLS = {"install-statusline"}
+
+# Skills whose slash-command wrapper may set disable-model-invocation: true (the
+# model must never auto-invoke them). This is the invocation dimension and is kept
+# separate from CLAUDE_ONLY_SKILLS (the platform dimension) on purpose. Every other
+# command wrapper must still set disable-model-invocation: false.
+MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
 
 AGENTS = [
     "explore",
@@ -1424,7 +1437,12 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
 
 
 def assert_skill(root: Path, skill: str) -> None:
-    assert_skill_wrapper(root, skill, CODEX_SKILL_ROOT, "codex")
+    if skill in CLAUDE_ONLY_SKILLS:
+        codex_wrapper = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
+        if codex_wrapper.exists():
+            die(f"{codex_wrapper} should not exist; {skill} is a Claude-Code-only skill")
+    else:
+        assert_skill_wrapper(root, skill, CODEX_SKILL_ROOT, "codex")
     assert_skill_wrapper(root, skill, CLAUDE_SKILL_ROOT, "claude")
 
     path = root / SKILL_CORE_ROOT / f"{skill}.md"
@@ -1514,7 +1532,14 @@ def assert_command(root: Path, skill: str) -> None:
     missing = REQUIRED_COMMAND_FIELDS - set(fm)
     if missing:
         die(f"{path} missing frontmatter fields: {sorted(missing)}")
-    if fm.get("disable-model-invocation") != "false":
+    dmi = fm.get("disable-model-invocation")
+    if skill in MODEL_UNINVOCABLE_SKILLS:
+        if dmi != "true":
+            die(
+                f"{path} should set disable-model-invocation: true "
+                f"({skill} must never be model-invocable)"
+            )
+    elif dmi != "false":
         die(f"{path} should set disable-model-invocation: false")
 
     skill_fm = parse_frontmatter(root / CLAUDE_SKILL_ROOT / skill / "SKILL.md")

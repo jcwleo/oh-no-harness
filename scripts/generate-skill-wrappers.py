@@ -24,7 +24,15 @@ PUBLIC_SKILLS = [
     "verification-before-completion",
     "systematic-debugging",
     "fusion-rescue",
+    "install-statusline",
 ]
+
+# Skills that ship a Claude Code wrapper only (no Codex wrapper). The Codex
+# platform is skipped for these in expected_files(); the validator mirrors this
+# set and asserts the Codex wrapper is absent. Keep this set identical to the
+# one in scripts/validate-plugin-files.py (the validator runs `--check` here as
+# a subprocess, so any divergence fails loudly).
+CLAUDE_ONLY_SKILLS = {"install-statusline"}
 
 
 @dataclass(frozen=True)
@@ -163,8 +171,14 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
         f"name: {frontmatter['name']}\n"
         f"description: {frontmatter['description']}\n"
         f"argument-hint: \"{frontmatter['argument-hint']}\"\n"
-        "---\n"
     )
+    # Propagate disable-model-invocation only when the skill core sets it, so
+    # wrappers for skills that omit it stay byte-identical after regeneration.
+    if "disable-model-invocation" in frontmatter:
+        frontmatter_text += (
+            f"disable-model-invocation: {frontmatter['disable-model-invocation']}\n"
+        )
+    frontmatter_text += "---\n"
     return f"{frontmatter_text}\n{generated_header}\n" + "\n".join(sections)
 
 
@@ -172,6 +186,8 @@ def expected_files(plugin_root: Path) -> dict[Path, str]:
     files: dict[Path, str] = {}
     for platform in PLATFORMS:
         for skill in PUBLIC_SKILLS:
+            if platform.key == "codex" and skill in CLAUDE_ONLY_SKILLS:
+                continue  # Claude-Code-only skill ships no Codex wrapper.
             files[plugin_root / platform.skill_root / skill / "SKILL.md"] = render_skill(
                 plugin_root, platform, skill
             )

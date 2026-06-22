@@ -58,6 +58,12 @@ auto-routing
   -> docs/platforms/claude-code-auto-routing.md on Claude Code
   -> docs/platforms/codex-auto-routing.md on Codex
 
+install-statusline
+  -> user-invoked Claude-Code-only setup action; never model-invoked (disable-model-invocation: true on both the skill and the command wrapper)
+  -> kept out of the SessionStart routing map so the model has no auto-invoke path
+  -> copies scripts/statusline-command to ~/.claude/statusline-command.sh and sets settings.json statusLine via scripts/install-statusline
+  -> docs/platforms/claude-code-install-statusline.md on Claude Code (no Codex variant)
+
 interview
   -> explore for brownfield context
   -> docs/shared/execution-modes.md for provisional Ralph sizing

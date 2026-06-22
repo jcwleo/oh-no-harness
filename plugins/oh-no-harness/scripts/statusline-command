@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# Claude Code statusline — developer-focused layout
+# Sections: [dir] [git] [model+effort] [context] [rate limits]
+
+input=$(cat)
+
+# UTF-8 locale so ${#str} counts display characters (not bytes) for the
+# multibyte gauge glyphs when measuring width.
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+# All color codes are emitted as LITERAL "\033" sequences and only interpreted
+# by the final `printf "%b"`. Keeping them literal (not real ESC bytes) lets
+# vis_len() strip them with one regex when measuring visible width.
+RESET="\033[0m"
+BOLD="\033[1m"
+DIM="\033[2m"
+
+# 256-color foreground
+fg() { printf '\\033[38;5;%sm' "$1"; }
+# standard foreground
+fg16() { printf '\\033[%sm' "$1"; }
+
+SEP="$(fg 238)│${RESET}"
+
+# Build a 10-block gauge bar (▰▱) given percentage and fill color
+# Usage: make_gauge <pct_int> <fill_color_escape> <empty_color_escape>
+make_gauge() {
+  local pct=$1
+  local fill_col=$2
+  local empty_col=$3
+  local filled=$(( pct * 10 / 100 ))
+  local bar=""
+  local i
+  for i in $(seq 1 10); do
+    if [ "$i" -le "$filled" ]; then
+      bar+="${fill_col}▰${RESET}"
+    else
+      bar+="${empty_col}▱${RESET}"
+    fi
+  done
+  printf "%s" "$bar"
+}
+
+# Format seconds as "Xh Ym" (if >= 1h) or "Xm" (if < 1h)
+format_duration() {
+  local secs=$1
+  local h=$(( secs / 3600 ))
+  local m=$(( (secs % 3600) / 60 ))
+  if [ "$h" -gt 0 ]; then
+    printf "%dh %dm" "$h" "$m"
+  else
+    printf "%dm" "$m"
+  fi
+}
+
+# ── data extraction ───────────────────────────────────────────────────────────
+cwd=$(echo "$input"       | jq -r '.workspace.current_dir // .cwd // ""')
+model=$(echo "$input"     | jq -r '.model.display_name // ""')
+effort=$(echo "$input"    | jq -r '.effort.level // empty')
+
+# Compact the context-window suffix: "Opus 4.8 (1M context)" → "Opus 4.8 (1M)"
+model=${model/ context)/)}
+used_pct=$(echo "$input"  | jq -r '.context_window.used_percentage // empty')
+five_pct=$(echo "$input"  | jq -r '.rate_limits.five_hour.used_percentage // empty')
+week_pct=$(echo "$input"  | jq -r '.rate_limits.seven_day.used_percentage // empty')
+five_rst=$(echo "$input"  | jq -r '.rate_limits.five_hour.resets_at // empty')
+
+# ── 1. directory ─────────────────────────────────────────────────────────────
+# Shorten home prefix and keep last 2 path segments when long
+short_dir="${cwd/#$HOME/~}"
+# If more than 3 segments, collapse middle with …
+seg_count=$(echo "$short_dir" | tr -cd '/' | wc -c | tr -d ' ')
+if [ "$seg_count" -gt 3 ]; then
+  parent=$(dirname "$short_dir")
+  grandparent=$(dirname "$parent")
+  base=$(basename "$short_dir")
+  short_dir="${grandparent}/…/${base}"
+fi
+
+dir_part="$(fg 75)$(fg16 1)${short_dir}${RESET}"
+
+# ── 2. git branch + status ───────────────────────────────────────────────────
+git_part=""
+if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
+  branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
+
+  # count staged / unstaged / untracked
+  staged=$(git -C "$cwd" diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
+  unstaged=$(git -C "$cwd" diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+  untracked=$(git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+  branch_color=$(fg 141)   # soft purple
+  status_str=""
+  [ "$staged"    -gt 0 ] && status_str+=" $(fg 114)+${staged}${RESET}"    # green staged
+  [ "$unstaged"  -gt 0 ] && status_str+=" $(fg 214)~${unstaged}${RESET}"  # orange modified
+  [ "$untracked" -gt 0 ] && status_str+=" $(fg 203)?${untracked}${RESET}" # red untracked
+
+  git_part="${branch_color} ${branch}${RESET}${status_str}"
+fi
+
+# ── 3. model (+ reasoning effort) ─────────────────────────────────────────────
+# .effort.level is the live session value (low/medium/high/xhigh/max). The field
+# is absent for models that don't support effort — in that case we show nothing.
+# Effort color ramps cool→hot with intensity: green → gold → orange → red.
+effort_color() {
+  case "$1" in
+    low)    fg 114 ;;  # green  — calm
+    medium) fg 222 ;;  # gold
+    high)   fg 214 ;;  # orange
+    xhigh)  fg 208 ;;  # deep orange
+    max)    fg 203 ;;  # red    — max intensity
+    *)      fg 215 ;;  # peach  — unknown level fallback
+  esac
+}
+
+model_part=""
+if [ -n "$model" ]; then
+  model_part="$(fg 180)✦ ${model}${RESET}"
+  if [ -n "$effort" ]; then
+    ecol=$(effort_color "$effort")
+    model_part+=" $(fg 180)${DIM}·${RESET} ${ecol}${effort}${RESET}"
+  fi
+fi
+
+# ── helper: pick threshold color ─────────────────────────────────────────────
+# Usage: threshold_color <pct_int>
+# Returns color code (203=red, 214=orange, 114/110=green)
+threshold_color_ctx() {
+  local pct=$1
+  if   [ "$pct" -ge 80 ]; then fg 203
+  elif [ "$pct" -ge 50 ]; then fg 214
+  else                          fg 114
+  fi
+}
+threshold_color_rate() {
+  local pct=$1
+  if   [ "$pct" -ge 80 ]; then fg 203
+  elif [ "$pct" -ge 50 ]; then fg 214
+  else                          fg 110
+  fi
+}
+
+# ── 4. context window ────────────────────────────────────────────────────────
+ctx_part=""
+if [ -n "$used_pct" ]; then
+  used_int=$(printf "%.0f" "$used_pct")
+  num_col=$(threshold_color_ctx "$used_int")
+  empty_col=$(fg 238)
+  gauge=$(make_gauge "$used_int" "$num_col" "$empty_col")
+  # label dim, number bold+colored
+  ctx_part="${DIM}$(fg 246)ctx${RESET} ${gauge} ${BOLD}${num_col}${used_int}%${RESET}"
+fi
+
+# ── 5. rate limits (5h / 7d as independent units) ────────────────────────────
+five_part=""
+if [ -n "$five_pct" ]; then
+  five_int=$(printf "%.0f" "$five_pct")
+  num_col=$(threshold_color_rate "$five_int")
+  empty_col=$(fg 238)
+  gauge=$(make_gauge "$five_int" "$num_col" "$empty_col")
+
+  # time until reset — "↻ Xh Ym" or "↻ Xm"
+  reset_str=""
+  if [ -n "$five_rst" ]; then
+    now=$(date +%s)
+    diff=$(( five_rst - now ))
+    if [ "$diff" -gt 0 ]; then
+      dur=$(format_duration "$diff")
+      reset_str=" $(fg 238)↻ ${dur}${RESET}"
+    fi
+  fi
+
+  # label dim, number bold+colored
+  five_part="${DIM}$(fg 246)5h${RESET} ${gauge} ${BOLD}${num_col}${five_int}%${RESET}${reset_str}"
+fi
+
+week_part=""
+if [ -n "$week_pct" ]; then
+  week_int=$(printf "%.0f" "$week_pct")
+  num_col=$(threshold_color_rate "$week_int")
+  empty_col=$(fg 238)
+  gauge=$(make_gauge "$week_int" "$num_col" "$empty_col")
+  week_part="${DIM}$(fg 246)7d${RESET} ${gauge} ${BOLD}${num_col}${week_int}%${RESET}"
+fi
+
+# ── assemble: pack units into lines based on terminal width ───────────────────
+# Each section is an independent unit; joined with " │ " on a line. When the
+# next unit would overflow $COLUMNS, wrap to a new line instead of truncating.
+parts=()
+[ -n "$dir_part"   ] && parts+=("$dir_part")
+[ -n "$git_part"   ] && parts+=("$git_part")
+[ -n "$model_part" ] && parts+=("$model_part")
+[ -n "$ctx_part"   ] && parts+=("$ctx_part")
+[ -n "$five_part"  ] && parts+=("$five_part")
+[ -n "$week_part"  ] && parts+=("$week_part")
+
+# Visible width: strip literal \033[...m escapes, then count characters.
+# (All glyphs used — ▰ ▱ │ ✦  — are single display columns.)
+vis_len() {
+  local stripped
+  stripped=$(printf '%s' "$1" | sed -E 's/\\033\[[0-9;]*m//g')
+  printf '%s' "${#stripped}"
+}
+
+# Terminal width — Claude Code sets COLUMNS at render time (v2.1.153+).
+cols=${COLUMNS:-0}
+[ "$cols" -le 0 ] && cols=80
+
+sep_w=3   # " │ " is 3 visible columns
+
+out=""
+line_w=0
+first_on_line=1
+for p in "${parts[@]}"; do
+  pw=$(vis_len "$p")
+  if [ "$first_on_line" -eq 1 ]; then
+    out+="$p"
+    line_w=$pw
+    first_on_line=0
+  elif [ $(( line_w + sep_w + pw )) -le "$cols" ]; then
+    out+=" ${SEP} ${p}"
+    line_w=$(( line_w + sep_w + pw ))
+  else
+    # wrap: start a new line with this unit
+    out+=$'\n'"$p"
+    line_w=$pw
+  fi
+done
+
+printf "%b" "$out"

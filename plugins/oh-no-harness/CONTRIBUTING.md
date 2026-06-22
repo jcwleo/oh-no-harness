@@ -111,8 +111,8 @@ plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
 plugins/oh-no-harness/hooks/ralph-platform-adapter # Ralph UserPromptSubmit platform adapter
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
-plugins/oh-no-harness/skills/<name>/SKILL.md       # Generated Codex-facing runtime skill document (11 total)
-plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Generated Claude Code-facing runtime skill document (11 total)
+plugins/oh-no-harness/skills/<name>/SKILL.md       # Generated Codex-facing runtime skill document (11 total; no Codex wrapper for the Claude-only install-statusline)
+plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Generated Claude Code-facing runtime skill document (12 total)
 plugins/oh-no-harness/docs/skill-core/<name>.md    # Shared workflow source of truth
 plugins/oh-no-harness/docs/platforms/<platform>.md # Platform-wide runtime guidance and skill overlays
 plugins/oh-no-harness/docs/agent-core/<name>.md    # Platform-neutral role prompt body
@@ -134,8 +134,9 @@ plugins/oh-no-harness/docs/specs/                  # Design specs
 
 ## Conventions
 
-- Public skill surface is the 11 skills listed in `AGENTS.md`. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
-- Claude Code command wrappers must mirror those same 11 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file.
+- Public skill surface is the 12 skills listed in `AGENTS.md` (one, `install-statusline`, is Claude-Code-only and human-invoke-only). Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
+- Claude Code command wrappers must mirror those same 12 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file. The `install-statusline` wrapper is the one exception that sets `disable-model-invocation: true` (it must never be model-invoked); all others set `false`.
+- Claude-Code-only or human-invoke-only skills use two carve-outs, kept conceptually distinct, in both `scripts/generate-skill-wrappers.py` and `scripts/validate-plugin-files.py`: `CLAUDE_ONLY_SKILLS` (ships only the Claude wrapper; the Codex wrapper is asserted absent and `test-codex-plugin.sh` must NOT list the skill) and `MODEL_UNINVOCABLE_SKILLS` (its command wrapper sets `disable-model-invocation: true`). Keep the two sets identical across the generator and validator — the validator runs the generator's `--check` as a subprocess.
 - Keep generated runtime skill documents out of hand edits. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax and host-specific behavior belong in `docs/platforms/`; after changing either source, run `python3 scripts/generate-skill-wrappers.py --write`.
 - Keep role behavior in `docs/agent-core/`. Do not hand-edit generated Claude Code wrappers in `agents/` or generated Codex custom-agent templates in `docs/platforms/codex-agents/`; after changing agent-core content or wrapper metadata in `scripts/generate-agent-wrappers.py`, run `python3 scripts/generate-agent-wrappers.py --write`.
 - Use `python3 scripts/generate-skill-wrappers.py --check` and `python3 scripts/generate-agent-wrappers.py --check` before release-facing changes. The validator and release script also run these checks and fail when generated files are stale.

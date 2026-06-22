@@ -42,6 +42,7 @@ PUBLIC_SKILLS=(
   verification-before-completion
   systematic-debugging
   fusion-rescue
+  install-statusline
 )
 
 ALL_SKILLS=(
@@ -774,6 +775,9 @@ live_prompt_for_skill() {
       ;;
     fusion-rescue)
       printf '/%s:fusion-rescue Approved no-op smoke-test problem: compare three panel views, make no file changes, and report synthesis fields. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the panel slots and judge/synthesis fields you would use.' "$PLUGIN_NAME"
+      ;;
+    install-statusline)
+      printf '/%s:install-statusline check Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files or run the installer. Reply with what this setup skill installs and that it is user-invoked only.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No live prompt for skill: $1"
