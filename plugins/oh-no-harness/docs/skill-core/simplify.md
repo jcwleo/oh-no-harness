@@ -31,20 +31,20 @@ These are skill-local cleanup role passes, not public workflow skills and not
 `docs/agent-core` agents. Use the active platform's subagent mechanism only to
 isolate the pass work when it is available and useful.
 
-Phase 1 owns the small-diff gate and decides whether cleanup review uses one
-combined pass or four separate role passes. On either path the report must keep
-the four labeled viewpoints: Reuse, Simplification, Efficiency, and Altitude.
+Cleanup review always runs all four labeled viewpoints — Reuse, Simplification,
+Efficiency, and Altitude — as four separate role passes. There is no
+single-combined-pass shortcut and no diff-size gate: every cleanup review keeps
+the four viewpoints distinct so none is silently dropped.
+Run the four passes in parallel using the active platform's subagent mechanism.
 Apply the active platform's Simplify dispatch authorization and lifecycle rules
 before launching cleanup subagents. Do not ask another approval question merely
 to launch cleanup subagents when the active platform already supplies standing
 authorization for eligible skill-local delegation.
-If the active host cannot dispatch subagents, record the dispatch-unavailable
-reason before continuing inline: above the gate, preserve the same four role
-boundaries as separate inline fallback blocks; for a small diff, run the
-single pass inline with the same four labeled sections. If a cleanup change
-needs additional independent evidence after the fixes, return that need to
-the caller so `verifier` or `code-reviewer` can review the result after the
-cleanup pass.
+If the active host cannot dispatch subagents, run the four passes inline as four
+separate labeled blocks with the same role boundaries, and record the
+dispatch-unavailable reason. If a cleanup change needs additional independent
+evidence after the fixes, return that need to the caller so `verifier` or
+`code-reviewer` can review the result after the cleanup pass.
 
 ## When To Use
 
@@ -120,28 +120,18 @@ the review scope.
 
 ## Phase 1 - Review
 
-Apply the small-diff gate to the review diff first: a diff is small when it
-touches at most 3 changed files AND at most 100 changed lines AND no
-generated files. When any bound is exceeded, unknown, or uncertain, default
-to the four parallel cleanup subagents.
+Launch four independent cleanup subagents in parallel — the review always runs
+all four cleanup role passes regardless of diff size. Start them in one batch
+before waiting for any result. Pass each subagent the review diff and assign
+exactly one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
+platform's approved mechanism and Simplify platform overlay when available. The
+caller owns lifecycle: after each cleanup subagent result is captured, close or
+clean up the completed subagent using the active platform mechanism.
 
-For diffs above the small-diff gate, launch four independent cleanup subagents
-in parallel because the review requires four cleanup role passes. Start them in
-one batch before waiting for any result. Pass each subagent the review diff and
-assign exactly one angle: Reuse, Simplification, Efficiency, or Altitude. For a
-small diff, launch one cleanup subagent with the review diff and all four
-angles; this is the single pass that still reports all four labeled sections:
-Reuse, Simplification, Efficiency, and Altitude, and it must not drop or merge
-them. Use the active platform's approved mechanism and Simplify platform overlay
-when available. The caller owns lifecycle: after each cleanup subagent result is
-captured, close or clean up the completed subagent using the active platform
-mechanism.
-
-If subagent dispatch is unavailable, run the selected path inline: above the
-gate, run Reuse, Simplification, Efficiency, and Altitude as
-four separate inline fallback blocks with the same assigned scope, expected
-output, and fallback reason; for a small diff, run the single pass inline
-with the same four labeled sections and record the fallback reason.
+If subagent dispatch is unavailable, run the same four passes inline as four
+separate labeled blocks — Reuse, Simplification, Efficiency, and Altitude — each
+with its assigned scope and expected output, and record the dispatch-unavailable
+fallback reason. Do not drop or merge any of the four viewpoints.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -176,12 +166,10 @@ the reviewed scope.
 
 ## Phase 2 - Apply The Fixes
 
-On the parallel path, wait for all four cleanup subagent results, capture
-every result, and close or clean up each completed cleanup subagent.
-On the small-diff path, capture the single cleanup subagent's result and
-close or clean up that completed subagent. Then deduplicate findings that
-point at the same line or mechanism and fix each remaining
-behavior-preserving cleanup directly.
+Capture all four cleanup pass results — the four parallel subagents, or the four
+inline blocks when dispatch was unavailable — and close or clean up each
+completed cleanup subagent. Then deduplicate findings that point at the same line
+or mechanism and fix each remaining behavior-preserving cleanup directly.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather

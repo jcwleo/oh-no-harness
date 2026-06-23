@@ -477,11 +477,13 @@ Cleanup is mode-gated:
   reuse, simplification, efficiency, or altitude cleanup candidates, or when
   candidate uncertainty remains after that scan; otherwise record cleanup as not
   needed.
-- `STANDARD`: run cleanup when behavior is locked and a quick diff or required
-  review shows cleanup candidates, or when candidate uncertainty remains after
-  that scan; rerun relevant verification afterward.
-- `THOROUGH`: run `simplify` after required review unless explicitly disabled,
-  then rerun verification and any focused post-cleanup review required by risk.
+- `STANDARD`: run `simplify` after behavior is locked and required review is
+  satisfied, unless the user explicitly disabled it; "not needed" is a LIGHT-only
+  skip. Rerun relevant verification afterward.
+- `THOROUGH`: run `simplify` after required review; THOROUGH cleanup is not
+  skippable as "not needed" (only LIGHT may skip) — only an explicit user opt-out
+  disables it. Then rerun verification and any focused post-cleanup review
+  required by risk.
 
 The post-cleanup pass must answer:
 

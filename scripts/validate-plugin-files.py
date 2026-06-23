@@ -759,20 +759,21 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
     ),
 }
 SIMPLIFY_PARALLEL_MARKERS = (
-    "requires four cleanup role passes",
-    "at most 3 changed files AND at most 100 changed lines AND no generated files",
-    "subagents in parallel",
+    # Cleanup always runs the four role passes in parallel — no diff-size gate,
+    # no single-combined-pass shortcut. These markers guard that contract so it
+    # cannot be silently reverted to a gated/single-pass form.
+    "always runs all four labeled viewpoints",
+    "no single-combined-pass shortcut and no diff-size gate",
+    "Run the four passes in parallel",
     "active platform's Simplify dispatch authorization",
     "standing authorization for eligible skill-local delegation",
-    "single pass that still reports all four labeled sections: Reuse, Simplification, Efficiency, and Altitude",
-    "separate inline fallback blocks",
     "dispatch-unavailable",
-    "For diffs above the small-diff gate, launch four independent cleanup subagents in parallel",
+    "Launch four independent cleanup subagents in parallel",
+    "the review always runs all four cleanup role passes regardless of diff size",
     "in one batch before",
-    "When any bound is exceeded, unknown, or uncertain, default to the four parallel cleanup subagents",
-    "four separate inline fallback blocks",
-    "wait for all four cleanup subagent results, capture every result, and close or clean up each completed cleanup subagent",
-    "clean up each completed cleanup subagent",
+    "run the same four passes inline as four separate labeled blocks",
+    "Capture all four cleanup pass results",
+    "close or clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
     "oh-no-harness-generated-skill-wrapper",
