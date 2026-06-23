@@ -1863,7 +1863,9 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "# Cross-Host Review",
         "## Cross-Host Consult Channel",
         "run the review on BOTH the current host and the opposite host",
-        "degrade to current-host-only",
+        # The default-mode degrade is now the Same-Host Parallel Fallback (two
+        # same-host agents), guarded by the D1b markers below; the obsolete
+        # "degrade to current-host-only" single-pass marker was retired.
         "require-cross-host",
         "Recursion Guard (Cross-Host Hop Scope)",
         "one cross-host hop",

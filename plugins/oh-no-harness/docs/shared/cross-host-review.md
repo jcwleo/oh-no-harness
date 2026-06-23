@@ -28,8 +28,7 @@ Cross-host review applies wherever a skill dispatches `plan-reviewer`,
 - `code-reviewer`: `ralph` (review gate), `systematic-debugging` (post-fix),
   `verification-before-completion` (risk-gated), `ultrawork` (final validation).
 - `debugger`: `systematic-debugging` (root-cause investigation). Dual-host is
-  the default for the debugger, not only an escalation; when the opposite host is
-  unavailable it runs the Same-Host Parallel Fallback (below), not a single pass.
+  the default for the debugger, not only an escalation.
 - `verifier`: `verification-before-completion` (completion-evidence
   verification), `ralph` (acceptance-evidence packaging), `ultrawork` (final
   validation), `systematic-debugging` (post-fix validation). Same default and
@@ -47,11 +46,9 @@ platform's `## Cross-Host Consult Channel` rules, run the review on BOTH the
 current host and the opposite host. When the opposite host is unavailable,
 unproven, or its response cannot be collected, run the Same-Host Parallel
 Fallback (see below) — two same-host agents in parallel under distinct
-complementary lenses, synthesized by the current-host main agent — rather than
-degrade to current-host-only as a single review pass, and record a fallback note.
-In default mode, "current-host-only review" therefore MEANS this two-agent
-fallback, not a single pass; a host without the opposite host installed still
-gets a complete, synthesized review.
+complementary lenses, synthesized by the current-host main agent, and record a
+fallback note. A host without the opposite host installed still gets a complete,
+synthesized review, not a single pass.
 
 require-cross-host mode (opt-in): when the caller or user explicitly requests
 require-cross-host, the review blocks if the opposite host cannot be reached.
@@ -87,10 +84,8 @@ same-host agents of the SAME role in parallel, each running the COMPLETE role, a
 synthesizes their two analyses into one result using the same judge rules as the
 cross-host synthesis below. The two same-host agents differ ONLY by a stance/lens
 EMPHASIS — each still runs every lens, pass, or investigation step its role
-requires (the Full Review Per Host rule applies to each same-host agent). This is
-the default-mode meaning of "current-host-only review"; it is same-host fan-out,
-not a cross-host hop (see Recursion Guard). require-cross-host mode does not use
-this fallback — it blocks instead.
+requires (the Full Review Per Host rule applies to each same-host agent). It is
+same-host fan-out, not a cross-host hop (see Recursion Guard).
 
 Stance/lens pairs (emphasis only — both agents always run the full role):
 
@@ -101,11 +96,9 @@ Stance/lens pairs (emphasis only — both agents always run the full role):
 | `debugger` | leading-hypothesis-A angle | competing-hypothesis-B angle (feeds the competing-hypotheses synthesis) |
 | `verifier` | adversarial emphasis: "find how the claim is false or unmet" | coverage emphasis: "map every acceptance criterion to evidence" |
 
-The lens names bias emphasis only; they never split responsibilities. In
-particular, BOTH `verifier` agents perform the full acceptance-to-evidence mapping
-AND the adversarial false-or-unmet check; Lens A and Lens B only change which one
-they lead with. The two same-host results are merged by the same synthesis rules
-below (for `verifier`, the union/conservative merge).
+Both `verifier` agents perform the full acceptance-to-evidence mapping AND the
+adversarial false-or-unmet check; Lens A and Lens B only change which one they
+lead with.
 
 ## Parallel Execution And Synthesis
 
