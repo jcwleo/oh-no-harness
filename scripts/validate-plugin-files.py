@@ -865,6 +865,17 @@ SAFETY_REVIEW_AGENT_MARKERS = {
         "user data",
     ),
 }
+# review-scope-discipline: every Bash-wielding analysis/review role must stay
+# bounded to its assigned work and must not turn into a system-wide security or
+# penetration sweep against real sensitive files. Checked whitespace-tolerant
+# (has_required_marker) so a wrapped marker still matches.
+REVIEW_SCOPE_DISCIPLINE_MARKERS = {
+    agent: (
+        "system-wide security or penetration",
+        "clearly synthetic placeholder path",
+    )
+    for agent in ("code-reviewer", "debugger", "verifier", "plan-reviewer", "explore")
+}
 APPROVED_DIRECTION_AGENT_MARKERS = {
     "plan-reviewer": (
         "approved interview spec",
@@ -1627,6 +1638,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in SAFETY_REVIEW_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Safety-Review agent marker: {marker!r}")
+    if agent in REVIEW_SCOPE_DISCIPLINE_MARKERS:
+        for marker in REVIEW_SCOPE_DISCIPLINE_MARKERS[agent]:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing required Review-Scope-Discipline marker: {marker!r}")
     if agent in APPROVED_DIRECTION_AGENT_MARKERS:
         for marker in APPROVED_DIRECTION_AGENT_MARKERS[agent]:
             if marker not in body:

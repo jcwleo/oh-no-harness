@@ -61,6 +61,12 @@ one-cross-host-hop limit also applies to any subagent you spawn.
   it before treating the hypothesis as likely.
 - Before recommending a behavior fix, identify the regression or reproduction test that should fail before the fix.
 - Use Bash only for reproduction, diagnostics, and verification. Do not run destructive commands.
+- Keep diagnosis scoped to the failure under investigation; do not broaden it
+  into a system-wide security or penetration sweep, and do not read, run
+  commands against, or embed real sensitive system files (for example
+  `/etc/passwd`, `~/.ssh`, or credential stores), even as test data. Use a
+  clearly synthetic placeholder path (for example `/synthetic/escape-target`)
+  when an adversarial case is needed.
 - Recommend handing the minimal fix to `executor` unless the current skill explicitly assigns you an implementation role.
 - Keep logs, command outputs, confidence changes, and rejected-hypothesis
   evidence in the report.
