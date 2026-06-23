@@ -409,9 +409,10 @@ skill core and the shared doc.
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is
 missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
-Claude: treat the opposite host as unavailable, degrade to current-host-only in
-default mode, and block only in require-cross-host mode while naming the failure
-class and the current-host fallback.
+Claude: treat the opposite host as unavailable; in default mode the calling skill
+applies the shared cross-host contract's Same-Host Parallel Fallback
+(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
+naming the failure class and the current-host fallback.
 
 When the `danger-full-access` preflight confirms, build the Claude command as an
 argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,

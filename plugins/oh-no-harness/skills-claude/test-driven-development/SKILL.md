@@ -264,8 +264,9 @@ calling skill core and the shared doc.
 From Claude Code, consult Codex only through an available, explicitly loaded
 `openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
 is installed. If the capability is unavailable, treat the opposite host as
-unavailable: degrade to current-host-only in default mode, and block only in
-require-cross-host mode while naming the failure class and the current-host
+unavailable; in default mode the calling skill applies the shared cross-host
+contract's Same-Host Parallel Fallback (`docs/shared/cross-host-review.md`), and
+require-cross-host mode blocks. Name the failure class and the current-host
 fallback.
 
 The consult must run synchronously and return Codex's actual assigned analysis.

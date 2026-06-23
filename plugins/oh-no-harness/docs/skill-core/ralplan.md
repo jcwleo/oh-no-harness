@@ -124,9 +124,9 @@ This sequential rule governs the three distinct roles. It does not forbid
 cross-host review: once the Planner draft exists, the current-host and
 opposite-host INSTANCES of the same Plan-Reviewer role may run concurrently and
 be synthesized into one verdict per `docs/shared/cross-host-review.md`
-(degrading to current-host-only when the opposite host is unavailable). That is
-two instances of one reviewer role, not Analyst/Planner/Plan-Reviewer in
-parallel.
+(falling back to the Same-Host Parallel Fallback when the opposite host is
+unavailable). That is two instances of one reviewer role, not
+Analyst/Planner/Plan-Reviewer in parallel.
 
 Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).
 
@@ -232,8 +232,8 @@ When the opposite host is available, run this review as cross-host review per
 each run the full two-pass review on the same draft in parallel, and the main
 agent synthesizes their findings into one verdict (APPROVE only when zero
 blocking findings remain across the merged set; cross-host findings never
-silently override the approved direction). Degrade to current-host-only with a
-fallback note when the opposite host is unavailable.
+silently override the approved direction). Otherwise use the Same-Host Parallel
+Fallback with a fallback note when the opposite host is unavailable.
 
 Plan-Reviewer input must include:
 
@@ -767,7 +767,7 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. When the opposite host is available, run this as cross-host review per `docs/shared/cross-host-review.md`: the current-host and opposite-host instances review the same draft in parallel and the main agent synthesizes one verdict; degrade to current-host-only otherwise. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. When the opposite host is available, run this as cross-host review per `docs/shared/cross-host-review.md`: the current-host and opposite-host instances review the same draft in parallel and the main agent synthesizes one verdict; otherwise use the Same-Host Parallel Fallback. |
 
 Analyst, Planner, and Plan-Reviewer remain sequential in that order unless
 Analyst is satisfied by an approved `interview` spec. Plan-Reviewer runs only

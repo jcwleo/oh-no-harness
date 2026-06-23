@@ -1863,7 +1863,9 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "# Cross-Host Review",
         "## Cross-Host Consult Channel",
         "run the review on BOTH the current host and the opposite host",
-        "degrade to current-host-only",
+        # The default-mode degrade is now the Same-Host Parallel Fallback (two
+        # same-host agents), guarded by the D1b markers below; the obsolete
+        # "degrade to current-host-only" single-pass marker was retired.
         "require-cross-host",
         "Recursion Guard (Cross-Host Hop Scope)",
         "one cross-host hop",
@@ -1871,6 +1873,27 @@ def assert_cross_host_review_contract(root: Path) -> None:
     ):
         if not has_required_marker(text, marker):
             die(f"{path} is missing required Cross-Host-Review marker: {marker!r}")
+
+    # D1b: verifier is in cross-host scope, and the same-host parallel fallback
+    # contract is present. Slice the When-It-Applies section at the out-of-scope
+    # sentence so the in-scope check cannot be satisfied by the exclusion mention.
+    when_applies = markdown_section(text, "## When It Applies")
+    if not when_applies:
+        die(f"{path} is missing required '## When It Applies' section")
+    split_idx = when_applies.find("does not apply")
+    in_scope_text = when_applies if split_idx < 0 else when_applies[:split_idx]
+    out_of_scope_text = "" if split_idx < 0 else when_applies[split_idx:]
+    if "verifier" not in in_scope_text:
+        die(f"{path} '## When It Applies' must list `verifier` as an in-scope cross-host role")
+    if "verifier" in out_of_scope_text:
+        die(f"{path} out-of-scope sentence must not list `verifier` (it is now in cross-host scope)")
+    for marker in (
+        "Same-Host Parallel Fallback",
+        "exactly two same-host",
+        "treat the criterion as unmet if either",
+    ):
+        if not has_required_marker(text, marker):
+            die(f"{path} is missing required same-host-fallback contract marker: {marker!r}")
 
     # D2: runtime-doc Cross-Host Consult Channel cross-leak hygiene. Each runtime
     # doc's channel section must carry only its own outbound-to-opposite-host

@@ -169,7 +169,10 @@ only when zero blocking findings remain across the merged set. Cross-host
 findings never silently override the approved interview spec, plan direction,
 scope, non-goals, or acceptance criteria; a cross-host finding that would change
 the approved direction must carry `requested-direction-change: yes` for the user
-to approve.
+to approve. When the opposite host is unavailable in default mode, the calling
+skill runs the Same-Host Parallel Fallback (two same-host reviewers under distinct
+lenses, synthesized) per the shared doc instead of a single pass;
+require-cross-host mode blocks.
 
 You may use same-host read-only subagents or tools to form your review, but you
 must not make any further cross-host call beyond the single assigned consult;

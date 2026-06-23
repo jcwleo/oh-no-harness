@@ -185,7 +185,7 @@ re-checks may stay inline when they have equal evidence.
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; degrade to current-host-only otherwise). |
+| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. When the opposite host is available, run `plan-reviewer`, `code-reviewer`, and `verifier` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback). |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -298,10 +298,10 @@ cross-phase risk:
 - `code-reviewer` for correctness and maintainability, with its security lens
   for security-sensitive behavior
 - `verifier` with its scenario lens for user-facing behavior
-- When the opposite host is available, run `plan-reviewer` and `code-reviewer`
-  as cross-host review per `docs/shared/cross-host-review.md` (current-host +
-  opposite-host instances synthesized into one result; degrade to
-  current-host-only with a fallback note otherwise)
+- When the opposite host is available, run `plan-reviewer`, `code-reviewer`, and
+  `verifier` as cross-host review per `docs/shared/cross-host-review.md`
+  (current-host + opposite-host instances synthesized into one result; otherwise
+  use the Same-Host Parallel Fallback with a fallback note)
 
 If execution was handled inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
@@ -452,8 +452,9 @@ calling skill core and the shared doc.
 From Claude Code, consult Codex only through an available, explicitly loaded
 `openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
 is installed. If the capability is unavailable, treat the opposite host as
-unavailable: degrade to current-host-only in default mode, and block only in
-require-cross-host mode while naming the failure class and the current-host
+unavailable; in default mode the calling skill applies the shared cross-host
+contract's Same-Host Parallel Fallback (`docs/shared/cross-host-review.md`), and
+require-cross-host mode blocks. Name the failure class and the current-host
 fallback.
 
 The consult must run synchronously and return Codex's actual assigned analysis.

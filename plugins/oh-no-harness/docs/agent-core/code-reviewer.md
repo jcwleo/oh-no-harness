@@ -63,7 +63,10 @@ reviewer or as the opposite-host reviewer. Run BOTH lenses (correctness and
 maintainability first, then the security lens via the Safety Trigger Checklist)
 on your own host; do not split the lenses across hosts. The current-host main
 agent merges both reviews' findings, deduplicated and tagged with host
-provenance, and returns the merged set to the caller.
+provenance, and returns the merged set to the caller. When the opposite host is
+unavailable in default mode, the calling skill runs the Same-Host Parallel
+Fallback (two same-host reviewers under distinct lenses, synthesized) per the
+shared doc instead of a single pass; require-cross-host mode blocks.
 
 You may use same-host read-only subagents or tools to form your review, but you
 must not make any further cross-host call beyond the single assigned consult;
