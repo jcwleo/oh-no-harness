@@ -117,9 +117,9 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
-| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized into one verdict; degrade to current-host-only otherwise). |
-| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. |
-| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; degrade to current-host-only otherwise). |
+| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized into one verdict; otherwise use the Same-Host Parallel Fallback). |
+| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. When the opposite host is available, run this verification as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, union/conservative merged result); otherwise use the Same-Host Parallel Fallback. |
+| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; otherwise use the Same-Host Parallel Fallback). |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
@@ -393,9 +393,9 @@ When review is required, the reviewer pass must answer:
   config, logs, sandbox, or destructive operations were touched, did
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
-- When the opposite host was available, were `plan-reviewer`/`code-reviewer` run
-  as cross-host review (current-host + opposite-host instances synthesized) per
-  `docs/shared/cross-host-review.md`, or was the degrade-to-current-host fallback
+- When the opposite host was available, were `plan-reviewer`/`code-reviewer`/`verifier`
+  run as cross-host review (current-host + opposite-host instances synthesized) per
+  `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
   recorded?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
 - Are tests or verification sufficient for the risk?

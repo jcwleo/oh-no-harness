@@ -80,12 +80,12 @@ task-specific failure, scope, expected output, and verification responsibility.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. By default, when the opposite host is available, run the investigation as cross-host analysis per `docs/shared/cross-host-review.md`: the current-host and opposite-host debuggers investigate in parallel and the main agent synthesizes one root-cause direction (competing hypotheses, deciding evidence, smallest next diagnostic). Degrade to current-host-only when the opposite host is unavailable. |
+| `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. By default, when the opposite host is available, run the investigation as cross-host analysis per `docs/shared/cross-host-review.md`: the current-host and opposite-host debuggers investigate in parallel and the main agent synthesizes one root-cause direction (competing hypotheses, deciding evidence, smallest next diagnostic). Otherwise use the Same-Host Parallel Fallback per the shared doc. |
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
-| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. When the opposite host is available, run this escalation as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized into one verdict; degrade to current-host-only otherwise). |
-| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. When the opposite host is available, run this post-fix review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances; merged findings; degrade to current-host-only otherwise). |
+| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. When the opposite host is available, run this verification as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, union/conservative merged result); otherwise use the Same-Host Parallel Fallback. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. When the opposite host is available, run this escalation as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized into one verdict; otherwise use the Same-Host Parallel Fallback). |
+| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. When the opposite host is available, run this post-fix review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances; merged findings; otherwise use the Same-Host Parallel Fallback). |
 
 ## Debugging Flow
 
@@ -265,9 +265,10 @@ skill core and the shared doc.
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is
 missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
-Claude: treat the opposite host as unavailable, degrade to current-host-only in
-default mode, and block only in require-cross-host mode while naming the failure
-class and the current-host fallback.
+Claude: treat the opposite host as unavailable; in default mode the calling skill
+applies the shared cross-host contract's Same-Host Parallel Fallback
+(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
+naming the failure class and the current-host fallback.
 
 When the `danger-full-access` preflight confirms, build the Claude command as an
 argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,

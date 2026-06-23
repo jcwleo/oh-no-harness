@@ -44,6 +44,26 @@ Run the scenario lens when user-facing behavior changed; otherwise record
 
 Not in scope: line-level defects and security-specific risks in changed code (see `code-reviewer`), plan- or evidence-level adversarial critique (see `plan-reviewer`).
 
+## Cross-Host Verification
+
+When the calling skill runs cross-host verification (see
+`docs/shared/cross-host-review.md`), you may be dispatched as the current-host
+verifier or as the opposite-host verifier. Run your FULL verification
+responsibilities (acceptance-to-evidence mapping, the checks the claim needs, and
+the scenario lens when it applies) on your own host. The current-host main agent
+is the judge: it merges the two results with the union/conservative merge defined
+in that shared doc and returns one verification result. When the opposite host is
+unavailable in default mode, run the Same-Host Parallel Fallback (two same-host
+verifiers under distinct lenses, synthesized) per the shared doc instead of a
+single pass; require-cross-host mode blocks. Same default and require-cross-host
+behavior as the review roles.
+
+You may use same-host read-only subagents or tools to form your verification —
+the Same-Host Parallel Fallback is this kind of same-host fan-out and does not
+consume a cross-host hop — but you must not make any further cross-host call
+beyond the single assigned consult; that one-cross-host-hop limit also applies to
+any subagent you spawn.
+
 ## Operating Rules
 
 - Evidence before claims.

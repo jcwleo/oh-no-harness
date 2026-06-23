@@ -1,12 +1,15 @@
 # Cross-Host Review
 
-Cross-host review lets the `plan-reviewer`, `code-reviewer`, and `debugger`
-roles run on both the current host and the opposite host in parallel when the
-opposite host is available, then have the current-host main agent synthesize the
-two analyses into one result (a single verdict for the review roles, a single
-root-cause direction for the debugger). It reuses the Fusion Rescue cross-host
-mechanism; it is not a new channel, daemon, background job, weight fusion, or
-hidden runtime.
+Cross-host review lets the `plan-reviewer`, `code-reviewer`, `debugger`, and
+`verifier` roles run on both the current host and the opposite host in parallel
+when the opposite host is available, then have the current-host main agent
+synthesize the two analyses into one result (a single verdict for the review
+roles, a single root-cause direction for the debugger, and a single
+union/conservative merged result for the verifier). When the opposite host is
+unavailable in default mode, the same synthesis runs over the Same-Host Parallel
+Fallback (two same-host agents) instead of a single pass. It reuses the Fusion
+Rescue cross-host mechanism; it is not a new channel, daemon, background job,
+weight fusion, or hidden runtime.
 
 This is a platform-neutral contract. For the actual invocation (how the current
 host reaches the opposite host), the synchronous-response requirement, the
@@ -17,7 +20,7 @@ hard-code host binaries, plugin or capability names, or permission states here.
 ## When It Applies
 
 Cross-host review applies wherever a skill dispatches `plan-reviewer`,
-`code-reviewer`, or `debugger`:
+`code-reviewer`, `debugger`, or `verifier`:
 
 - `plan-reviewer`: `ralplan` (consensus plan review), `ralph` (completion-
   evidence review), `ultrawork` (final validation), `systematic-debugging`
@@ -25,22 +28,30 @@ Cross-host review applies wherever a skill dispatches `plan-reviewer`,
 - `code-reviewer`: `ralph` (review gate), `systematic-debugging` (post-fix),
   `verification-before-completion` (risk-gated), `ultrawork` (final validation).
 - `debugger`: `systematic-debugging` (root-cause investigation). Dual-host is
-  the default for the debugger, not only an escalation; it still degrades to
-  current-host-only when the opposite host is unavailable.
+  the default for the debugger, not only an escalation; when the opposite host is
+  unavailable it runs the Same-Host Parallel Fallback (below), not a single pass.
+- `verifier`: `verification-before-completion` (completion-evidence
+  verification), `ralph` (acceptance-evidence packaging), `ultrawork` (final
+  validation), `systematic-debugging` (post-fix validation). Same default and
+  require-cross-host behavior as the review roles.
 
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
-dispatches it, nor to any other role. The `verifier`, `executor`, `explore`,
-`analyst`, `planner`, and `fusion-rescue-analyst` roles are out of scope for
-cross-host review.
+dispatches it, nor to any other role. The `executor`, `explore`, `analyst`,
+`planner`, and `fusion-rescue-analyst` roles are out of scope for cross-host
+review.
 
 ## Activation
 
 Default mode (auto): when the opposite host is available per the active
 platform's `## Cross-Host Consult Channel` rules, run the review on BOTH the
 current host and the opposite host. When the opposite host is unavailable,
-unproven, or its response cannot be collected, degrade to current-host-only
-review and record a fallback note. Default behavior is otherwise identical to
-single-host review; a host without the opposite host installed sees no change.
+unproven, or its response cannot be collected, run the Same-Host Parallel
+Fallback (see below) — two same-host agents in parallel under distinct
+complementary lenses, synthesized by the current-host main agent — rather than
+degrade to current-host-only as a single review pass, and record a fallback note.
+In default mode, "current-host-only review" therefore MEANS this two-agent
+fallback, not a single pass; a host without the opposite host installed still
+gets a complete, synthesized review.
 
 require-cross-host mode (opt-in): when the caller or user explicitly requests
 require-cross-host, the review blocks if the opposite host cannot be reached.
@@ -60,16 +71,49 @@ Each host runs the COMPLETE role review independently — not a split of lenses:
   security lens via the Safety Trigger Checklist) on each host.
 - `debugger`: the full root-cause investigation (reproduce, form hypotheses,
   identify root cause, recommend the minimal fix) on each host.
+- `verifier`: the full verification (map the claim to evidence, run or inspect
+  the required checks, apply the scenario lens) on each host.
 
 Do not assign one lens or one investigation step to the current host and a
-different one to the opposite host; each host produces its full analysis.
+different one to the opposite host; each host produces its full analysis. The
+same "full role per agent" rule applies to the two agents of the Same-Host
+Parallel Fallback.
+
+## Same-Host Parallel Fallback
+
+When the opposite host is unavailable in default mode, the review does not collapse
+to a single pass. The current-host main agent instead dispatches exactly two
+same-host agents of the SAME role in parallel, each running the COMPLETE role, and
+synthesizes their two analyses into one result using the same judge rules as the
+cross-host synthesis below. The two same-host agents differ ONLY by a stance/lens
+EMPHASIS — each still runs every lens, pass, or investigation step its role
+requires (the Full Review Per Host rule applies to each same-host agent). This is
+the default-mode meaning of "current-host-only review"; it is same-host fan-out,
+not a cross-host hop (see Recursion Guard). require-cross-host mode does not use
+this fallback — it blocks instead.
+
+Stance/lens pairs (emphasis only — both agents always run the full role):
+
+| Role | Lens A (same-host agent 1) | Lens B (same-host agent 2) |
+|---|---|---|
+| `plan-reviewer` | strongest-antithesis / feasibility-risk emphasis ("why this plan fails or is infeasible") | acceptance-coverage / quality-gate completeness emphasis ("which acceptance criteria or gates are unmet") |
+| `code-reviewer` | adversarial correctness + security skeptic ("what breaks or is exploitable") | maintainability + coverage completeness ("what is missing or regresses") |
+| `debugger` | leading-hypothesis-A angle | competing-hypothesis-B angle (feeds the competing-hypotheses synthesis) |
+| `verifier` | adversarial emphasis: "find how the claim is false or unmet" | coverage emphasis: "map every acceptance criterion to evidence" |
+
+The lens names bias emphasis only; they never split responsibilities. In
+particular, BOTH `verifier` agents perform the full acceptance-to-evidence mapping
+AND the adversarial false-or-unmet check; Lens A and Lens B only change which one
+they lead with. The two same-host results are merged by the same synthesis rules
+below (for `verifier`, the union/conservative merge).
 
 ## Parallel Execution And Synthesis
 
 The current-host analysis and the opposite-host analysis run in parallel against
 the same artifact or problem: the exact Planner draft for `plan-reviewer`, the
-same stable diff for `code-reviewer`, or the same failure, reproduction, and
-evidence packet for `debugger`.
+same stable diff for `code-reviewer`, the same failure, reproduction, and
+evidence packet for `debugger`, or the same completion claim, acceptance
+criteria, and evidence for `verifier`.
 
 The current-host main agent is the judge. It compares, decomposes, and
 recombines the two reviews — it must not only concatenate them. The synthesis
@@ -92,6 +136,20 @@ review does not add a new verdict type:
   debugger does not emit a findings-verdict; `systematic-debugging` remains
   responsible for reproduction, causal-chain closure, fix evidence, and
   verification-before-completion.
+- `verifier`: the judge produces ONE merged verification result. For the merge,
+  union the evidence from both verifier results into a single
+  acceptance-to-evidence mapping, deduplicated per criterion, with host or
+  same-host-lens provenance per evidence item. For each acceptance criterion, if
+  both results agree use that judgment; if they DISAGREE, resolve conservatively —
+  treat the criterion as unmet if either result says unmet — so the per-criterion
+  `Acceptance criteria status` line reads `unmet`. Surface every disagreement ONLY
+  on a separate top-level `Acceptance inconsistency: <criteria>` line that lists
+  each criterion where the two results disagreed, and escalate; the caller does
+  not silently treat an inconsistent criterion as met. The merged result keeps the
+  verifier's normal output fields (tier, acceptance criteria status,
+  acceptance-to-evidence mapping, residual risk) plus that one inconsistency line.
+  `inconsistent` never appears on the per-criterion status line, so existing gate
+  parsing is unaffected.
 
 A cross-host finding that would change the approved direction must surface as
 `requested-direction-change: yes`; it is never auto-incorporated. The
@@ -130,13 +188,15 @@ platform runtime document's `## Cross-Host Consult Channel` section:
 
 The recursion guard restricts CROSS-HOST hops, not same-host work:
 
-- A reviewer or debugger, and any subagent it spawns, MAY use same-host
-  read-only subagents and read-only tools to form its analysis. Same-host
-  fan-out is allowed.
-- A reviewer or debugger MUST NOT make any cross-host call beyond the single
-  assigned consult, and MUST NOT call back to the origin host or a third host.
-  This cross-host block applies transitively: a same-host subagent spawned by a
-  reviewer or debugger inherits the same no-further-cross-host-hop rule.
+- A reviewer, debugger, or verifier, and any subagent it spawns, MAY use
+  same-host read-only subagents and read-only tools to form its analysis.
+  Same-host fan-out is allowed. The Same-Host Parallel Fallback's two same-host
+  agents are this kind of same-host fan-out: they do NOT consume a cross-host hop.
+- A reviewer, debugger, or verifier MUST NOT make any cross-host call beyond the
+  single assigned consult, and MUST NOT call back to the origin host or a third
+  host. This cross-host block applies transitively: a same-host subagent — or a
+  Same-Host Parallel Fallback agent — spawned by a reviewer, debugger, or verifier
+  inherits the same no-further-cross-host-hop rule.
 - The review consult is one cross-host hop. The current host must not call the
   opposite host and allow that host to call back into the current host or
   another host.
@@ -147,9 +207,10 @@ The recursion guard restricts CROSS-HOST hops, not same-host work:
 ## Fallback Notes
 
 Record a cross-host review fallback note whenever the opposite host is not used:
-state whether it was unavailable, unproven, or returned no valid review, and
-that the review ran current-host-only in default mode. In require-cross-host
-mode, block instead of degrading and name the failure class plus the next local
-fallback. Record only the failure class, command/plugin/capability name, and
-path or auth status — never secret values, config contents, or environment
-dumps.
+state whether it was unavailable, unproven, or returned no valid review, and that
+the review ran via the Same-Host Parallel Fallback (two same-host agents
+synthesized) in default mode rather than as a single current-host pass. In
+require-cross-host mode, block instead of degrading and name the failure class
+plus the next local fallback. Record only the failure class,
+command/plugin/capability name, and path or auth status — never secret values,
+config contents, or environment dumps.

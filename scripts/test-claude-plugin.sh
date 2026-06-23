@@ -19,6 +19,7 @@ RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
+RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CROSS_HOST_FALLBACK_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
@@ -74,6 +75,10 @@ Options:
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
   --fusion-rescue-live   Run live Fusion Rescue /codex:rescue and panel-subagent smoke test.
+  --cross-host-fallback-live
+                         Run live cross-host Same-Host Parallel Fallback smoke test:
+                         opposite host (Codex) forced unavailable, so code-reviewer
+                         runs two same-host lens agents synthesized into one result.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
                          Run live natural role-worker smoke tests for Interview, Ultrawork,
@@ -96,7 +101,8 @@ Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
   OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
-  OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_SIMPLIFY_LIVE,
+  OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_CROSS_HOST_FALLBACK_LIVE,
+  OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
 USAGE
@@ -122,6 +128,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fusion-rescue-live)
       RUN_FUSION_RESCUE_LIVE=1
+      shift
+      ;;
+    --cross-host-fallback-live)
+      RUN_CROSS_HOST_FALLBACK_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -2530,6 +2540,297 @@ print("ok - live Claude Fusion Rescue used /codex:rescue, captured Codex output,
 PY
 }
 
+run_cross_host_fallback_live_test() {
+  if [[ "$RUN_CROSS_HOST_FALLBACK_LIVE" != "1" ]]; then
+    log "Skipping live Claude cross-host Same-Host Parallel Fallback smoke test"
+    printf 'Run with --cross-host-fallback-live or OH_NO_CROSS_HOST_FALLBACK_LIVE=1 to verify the default-mode opposite-host-unavailable two-same-host-agent fallback.\n' >&2
+    return
+  fi
+
+  log "Running live Claude cross-host Same-Host Parallel Fallback smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/cross-host-fallback-claude.jsonl"
+  local err_file="$RUN_DIR/cross-host-fallback-claude.err"
+  local summary_file="$RUN_DIR/cross-host-fallback-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:simplify --review Read-only live cross-host fallback smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
+
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the /codex:rescue cross-host consult capability is not loaded or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT invoke /codex:rescue, codex:codex-rescue, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
+
+Lightweight contract pre-check (read-only). From ${read_root}/docs/shared/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback; (3) verifier is in scope for cross-host review; (4) the verifier merge rule unions the evidence and resolves disagreements conservatively (a criterion is unmet if either result says unmet). Include the exact phrases "exactly two same-host agents", "require-cross-host", "verifier", and "union" or "conservative" so this pre-check is machine-checkable.
+
+Behavioral fallback task. Drive the code-reviewer role over this tiny fixed diff under the Same-Host Parallel Fallback. The diff under review (treat as the stable diff):
+--- a/auth.py
++++ b/auth.py
+@@
+-def is_admin(user):
+-    return user.role == "admin"
++def is_admin(user):
++    return user.role == "admin" or user.get("debug", False)
+The reviewed change adds a debug bypass to an admin check. Because the opposite host is unavailable in default mode, dispatch EXACTLY TWO same-host code-reviewer agents in parallel, each running the COMPLETE code-reviewer role, differing only by lens emphasis, then synthesize as the current-host main judge.
+
+Same-host agent Lens A must be an adversarial correctness + security skeptic ("what breaks or is exploitable"). Its task prompt must include exactly these lines: Lens: A adversarial correctness and security; Marker: OH_NO_XHOST_FALLBACK_LENS_A; Scope: the fixed auth.py diff only; Do not edit files; Do not make any cross-host or opposite-host call; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+
+Same-host agent Lens B must be a maintainability + coverage completeness reviewer ("what is missing or regresses"). Its task prompt must include exactly these lines: Lens: B maintainability and coverage; Marker: OH_NO_XHOST_FALLBACK_LENS_B; Scope: the fixed auth.py diff only; Do not edit files; Do not make any cross-host or opposite-host call; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+
+Start both same-host agents before waiting when possible. Wait for exactly these two same-host results and do not end while a worker is still pending. After both finish, synthesize immediately as the current-host main judge rather than concatenate. The final answer must contain exactly the marker OH_NO_XHOST_FALLBACK_OK and must include: same-host agents: 2; lens markers: OH_NO_XHOST_FALLBACK_LENS_A, OH_NO_XHOST_FALLBACK_LENS_B; a single synthesis block marked OH_NO_XHOST_FALLBACK_SYNTHESIS with consensus, contradictions, and recommended next action; and a fallback note stating the opposite host (Codex) was treated as unavailable and the review ran via the Same-Host Parallel Fallback of two same-host agents rather than as a single current-host pass or a cross-host consult. Do NOT emit any Codex or opposite-host success marker and do NOT claim a cross-host consult occurred.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --tools default
+    --add-dir "$read_root"
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill and Claude same-host subagents only. The opposite host (Codex) and the /codex:rescue cross-host consult capability are unavailable and not authorized in this run; do not attempt any cross-host or opposite-host call. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+out_path, err_path, summary_path, model = sys.argv[1:5]
+
+expected_lens_markers = {
+    "A": "OH_NO_XHOST_FALLBACK_LENS_A",
+    "B": "OH_NO_XHOST_FALLBACK_LENS_B",
+}
+required_final_markers = [
+    "OH_NO_XHOST_FALLBACK_OK",
+    "OH_NO_XHOST_FALLBACK_LENS_A",
+    "OH_NO_XHOST_FALLBACK_LENS_B",
+    "OH_NO_XHOST_FALLBACK_SYNTHESIS",
+    "same-host agents: 2",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "recommended next action",
+]
+# Markers that would prove the cross-host path (NOT the fallback) was taken.
+# Their presence anywhere in non-user transcript text fails the lane: the whole
+# point is that the default-mode fallback, not the opposite-host hop, ran.
+forbidden_crosshost_markers = [
+    "OH_NO_CODEX_RESCUE_RETURN_OK",
+    "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude cross-host fallback live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+errors = []
+lens_task_uses = defaultdict(list)
+codex_agent_uses = []
+codex_bash_uses = []
+unexpected_write_uses = []
+permission_denials = []
+non_user_text_parts = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude cross-host fallback live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    if "codex-companion.mjs" in command or "codex" in command.lower():
+                        codex_bash_uses.append((index, command[:500]))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if subagent_type == "codex:codex-rescue" or "codex" in subagent_type.lower():
+                        codex_agent_uses.append((index, subagent_type, payload_text[:1000]))
+                        continue
+                    matched = [
+                        lens for lens, marker in expected_lens_markers.items()
+                        if marker in payload_text
+                    ]
+                    if len(matched) == 1:
+                        lens_task_uses[matched[0]].append((index, payload_text))
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        tool_result = data.get("tool_use_result") or {}
+        if isinstance(tool_result, dict) and tool_result.get("agentType", ""):
+            non_user_text_parts.append(collect_text(tool_result))
+        if data.get("type") == "system":
+            non_user_text_parts.append(text)
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude cross-host fallback live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude cross-host fallback live used write-capable tools: {unexpected_write_uses!r}")
+if permission_denials:
+    raise SystemExit(f"Claude cross-host fallback live had permission denials: {permission_denials!r}")
+
+# Wrong-surface guard: the fallback path, not the cross-host hop, must have run.
+if codex_agent_uses:
+    raise SystemExit(
+        "Claude cross-host fallback live took the cross-host path instead of the "
+        f"Same-Host Parallel Fallback (codex agent dispatched): {codex_agent_uses!r}"
+    )
+if codex_bash_uses:
+    raise SystemExit(
+        "Claude cross-host fallback live invoked a Codex/opposite-host command instead "
+        f"of staying same-host: {codex_bash_uses!r}"
+    )
+
+non_user_text = "\n".join(non_user_text_parts)
+lower_non_user_text = non_user_text.lower()
+for marker in forbidden_crosshost_markers:
+    if marker.lower() in lower_non_user_text:
+        raise SystemExit(
+            "Claude cross-host fallback live exposed an opposite-host success marker "
+            f"(cross-host path taken, not the fallback): {marker!r}"
+        )
+
+# Two distinct same-host lens agents (two agents, not one pass).
+missing_lenses = sorted(set(expected_lens_markers) - set(lens_task_uses))
+if missing_lenses:
+    raise SystemExit(
+        "Claude cross-host fallback live did not dispatch both same-host lens agents; "
+        f"missing={missing_lenses!r} got={ {k: len(v) for k, v in lens_task_uses.items()} !r}"
+    )
+duplicate_lenses = {lens: uses for lens, uses in lens_task_uses.items() if len(uses) != 1}
+if duplicate_lenses:
+    raise SystemExit(
+        f"Claude cross-host fallback live expected exactly one task per same-host lens: {duplicate_lenses!r}"
+    )
+
+# Final synthesized success marker and its required content.
+success_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_XHOST_FALLBACK_OK" in part
+)
+if not success_text:
+    raise SystemExit("Claude cross-host fallback live did not return success marker OH_NO_XHOST_FALLBACK_OK")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude cross-host fallback live missing final marker/text: {marker!r}")
+
+# At least one synthesis marker across the transcript. The model may legitimately
+# reference the marker more than once (e.g. a synthesis heading plus the final
+# OH_NO_XHOST_FALLBACK_OK summary); a raw "exactly one" count is brittle. The
+# required_synthesis_fields check below proves a real synthesis block exists, not
+# just a marker echo, and the dispatch-based two-lens guard above stays strict.
+synthesis_count = non_user_text.count("OH_NO_XHOST_FALLBACK_SYNTHESIS")
+if synthesis_count < 1:
+    raise SystemExit(
+        f"Claude cross-host fallback live expected at least one synthesis marker, got {synthesis_count}"
+    )
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude cross-host fallback live missing synthesis field: {field!r}")
+
+# Fallback note: the opposite host was treated as unavailable.
+if not (
+    ("unavailable" in lower_success_text)
+    and ("same-host" in lower_success_text or "same host" in lower_success_text)
+    and ("opposite host" in lower_success_text or "codex" in lower_success_text)
+):
+    raise SystemExit(
+        "Claude cross-host fallback live missing fallback note that the opposite host was "
+        f"unavailable and the review ran via the Same-Host Parallel Fallback; success_text={success_text[:2000]!r}"
+    )
+
+# Lightweight contract pre-check (deep-live-style read-only assertion).
+deep_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_CLAUDE_DEEP_OK" in part
+)
+if not deep_text:
+    raise SystemExit(
+        "Claude cross-host fallback live did not return the contract pre-check marker "
+        "OH_NO_CLAUDE_DEEP_OK cross-host-fallback"
+    )
+lower_deep_text = deep_text.lower()
+for needle in (
+    "exactly two same-host agents",
+    "require-cross-host",
+    "verifier",
+):
+    if needle not in lower_deep_text:
+        raise SystemExit(
+            f"Claude cross-host fallback live contract pre-check missing {needle!r}; deep_text={deep_text[:2000]!r}"
+        )
+if not ("union" in lower_deep_text or "conservative" in lower_deep_text):
+    raise SystemExit(
+        f"Claude cross-host fallback live contract pre-check missing verifier union/conservative merge rule; "
+        f"deep_text={deep_text[:2000]!r}"
+    )
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "same_host_lens_agents": [
+        {"lens": lens, "returned_marker": expected_lens_markers[lens]}
+        for lens in sorted(lens_task_uses)
+    ],
+    "opposite_host": "unavailable",
+    "codex_agent_uses": len(codex_agent_uses),
+    "synthesis_marker": "OH_NO_XHOST_FALLBACK_SYNTHESIS",
+    "final_marker": "OH_NO_XHOST_FALLBACK_OK",
+    "contract_precheck_marker": "OH_NO_CLAUDE_DEEP_OK cross-host-fallback",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude cross-host Same-Host Parallel Fallback dispatched two same-host lens agents and synthesized")
+PY
+}
+
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
     log "Skipping live Claude simplify cleanup-subagent smoke test"
@@ -2814,6 +3115,7 @@ main() {
   run_ralplan_live_test
   run_parallel_live_test
   run_fusion_rescue_live_test
+  run_cross_host_fallback_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
   log "All requested checks passed"

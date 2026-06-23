@@ -50,8 +50,8 @@ Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup
 
 | Agent | Use |
 |---|---|
-| `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. |
-| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; degrade to current-host-only otherwise). |
+| `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. When the opposite host is available, run this verification as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, union/conservative merged result); otherwise use the Same-Host Parallel Fallback. |
+| `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. When the opposite host is available, run this review as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances, merged findings; otherwise use the Same-Host Parallel Fallback). |
 
 On subagent-capable hosts, dispatch `verifier` for nontrivial completion claims
 when independent evidence mapping can change the ship/block decision or expose
@@ -259,8 +259,9 @@ calling skill core and the shared doc.
 From Claude Code, consult Codex only through an available, explicitly loaded
 `openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
 is installed. If the capability is unavailable, treat the opposite host as
-unavailable: degrade to current-host-only in default mode, and block only in
-require-cross-host mode while naming the failure class and the current-host
+unavailable; in default mode the calling skill applies the shared cross-host
+contract's Same-Host Parallel Fallback (`docs/shared/cross-host-review.md`), and
+require-cross-host mode blocks. Name the failure class and the current-host
 fallback.
 
 The consult must run synchronously and return Codex's actual assigned analysis.
