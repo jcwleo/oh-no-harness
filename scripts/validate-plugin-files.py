@@ -780,6 +780,16 @@ SIMPLIFY_WRAPPER_MARKERS = (
     "Source order:",
     "../../docs/skill-core/simplify.md",
 )
+SIMPLIFY_FORBIDDEN_MARKERS = (
+    # The small-diff gate and the single-combined-pass shortcut were retired:
+    # cleanup always runs the four role passes in parallel. Forbid the old
+    # phrasing on every simplify surface (core + both wrappers) so a stale
+    # platform overlay or a revert fails CI instead of shipping a self-
+    # contradicting runtime doc.
+    "small-diff gate",
+    "For a small diff",
+    "single cleanup pass",
+)
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
         "smallest approach",
@@ -1494,12 +1504,18 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in SIMPLIFY_PARALLEL_MARKERS:
             if not has_required_marker(body, marker):
                 die(f"{path} is missing required Simplify-Parallel marker: {marker!r}")
+        for forbidden in SIMPLIFY_FORBIDDEN_MARKERS:
+            if has_required_marker(body, forbidden):
+                die(f"{path} still contains retired small-diff-gate language: {forbidden!r}")
         for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
             wrapper_path = root / wrapper_root / skill / "SKILL.md"
             wrapper_body = read_text(wrapper_path)
             for marker in SIMPLIFY_WRAPPER_MARKERS:
                 if not has_required_marker(wrapper_body, marker):
                     die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
+            for forbidden in SIMPLIFY_FORBIDDEN_MARKERS:
+                if has_required_marker(wrapper_body, forbidden):
+                    die(f"{wrapper_path} still contains retired small-diff-gate language: {forbidden!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:

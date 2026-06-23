@@ -337,13 +337,11 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Use Codex subagent dispatch when the active Codex host exposes it and the
-cleanup pass is worth isolating. For diffs above the small-diff gate, launch the
-Reuse, Simplification, Efficiency, and Altitude cleanup subagents as one
-eligible batch before waiting for any result. For a small diff, launch one
-cleanup subagent only when it provides useful context separation; otherwise keep
-the single cleanup pass inline with all four labeled sections.
+Cleanup always runs the four cleanup role passes in parallel. When the active
+Codex host exposes subagent dispatch, launch the Reuse, Simplification,
+Efficiency, and Altitude cleanup subagents as one eligible batch before waiting
+for any result.
 
-If Codex subagent dispatch is unavailable, unsafe, or not useful, preserve the
-same cleanup role boundary inline and record the fallback reason required by the
-shared core.
+If Codex subagent dispatch is unavailable, preserve the same four cleanup role
+passes inline as four labeled blocks and record the fallback reason required by
+the shared core.
