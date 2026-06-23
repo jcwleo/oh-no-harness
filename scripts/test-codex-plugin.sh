@@ -20,6 +20,7 @@ RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
+RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
@@ -68,6 +69,9 @@ Options:
                      Run live Codex custom-agent name spawn smoke test.
   --fusion-rescue-live
                      Run live Fusion Rescue cross-host and panel-subagent smoke test.
+  --cross-host-fallback-live
+                     Run live Codex cross-host Same-Host Parallel Fallback smoke test
+                     (opposite host unavailable, two same-host agents synthesized).
   --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
   --natural-session-start-live
                      Run live natural SessionStart role-worker smoke tests for Interview, Ultrawork,
@@ -86,6 +90,7 @@ Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
   OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
+  OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE,
   OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
   OH_NO_MARKETPLACE_SOURCE
 USAGE
@@ -115,6 +120,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fusion-rescue-live)
       RUN_FUSION_RESCUE_LIVE=1
+      shift
+      ;;
+    --cross-host-fallback-live)
+      RUN_CROSS_HOST_FALLBACK_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -3681,6 +3690,465 @@ print("ok - live Codex Fusion Rescue skipped Claude without danger-full-access a
 PY
 }
 
+run_codex_cross_host_fallback_live_test() {
+  if [[ "$RUN_CROSS_HOST_FALLBACK_LIVE" != "1" ]]; then
+    log "Skipping live Codex cross-host Same-Host Parallel Fallback smoke test"
+    printf 'Run with --cross-host-fallback-live or OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE=1 to verify the default-mode opposite-host-unavailable two-same-host-agent fallback on Codex.\n' >&2
+    return
+  fi
+
+  log "Running live Codex cross-host Same-Host Parallel Fallback smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/cross-host-fallback-codex.jsonl"
+  local err_file="$RUN_DIR/cross-host-fallback-codex.err"
+  local summary_file="$RUN_DIR/cross-host-fallback-codex.summary.json"
+  local live_workspace="$RUN_DIR/cross-host-fallback-codex-workspace"
+  local prompt
+  mkdir -p "$live_workspace"
+  prompt=$(cat <<'PROMPT'
+Use the oh-no-harness:simplify skill with cross-host review. Read-only live cross-host fallback smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. This run is in DEFAULT mode (NOT require-cross-host).
+
+This run is intentionally launched with Codex read-only sandbox permissions. Before any cross-host review or opposite-host consult, inspect the current Codex permission/sandbox context. Because the permission state is not danger-full-access, the Claude Code cross-host consult is UNAVAILABLE and UNAUTHORIZED: you must NOT invoke ${CLAUDE_BIN:-claude}, must NOT shell out to claude, must NOT make any cross-host or opposite-host hop, and must NOT invoke /codex:rescue, codex:codex-rescue, rescue, fusion-rescue, or another host. Treat the opposite host (Claude Code) as unavailable and take the default-mode Same-Host Parallel Fallback (two same-host Codex agents synthesized), NOT the cross-host path.
+
+The diff under review (treat as the stable diff):
+--- a/auth.py
++++ b/auth.py
+@@
+-def is_admin(user):
+-    return user.role == "admin"
++def is_admin(user):
++    return user.role == "admin" or user.get("debug", False)
+The reviewed change adds a debug bypass to an admin check. Because the opposite host is unavailable in default mode, dispatch EXACTLY TWO same-host Codex code-reviewer agents in parallel under distinct lenses, each running the COMPLETE code-reviewer role differing only by lens emphasis, then synthesize as the current Codex main judge.
+
+Same-host agent Lens A must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-code-reviewer", an adversarial correctness + security skeptic ("what breaks or is exploitable"). Its message must include exactly these lines: Lens: A adversarial correctness and security; Marker: OH_NO_XHOST_FALLBACK_LENS_A; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+
+Same-host agent Lens B must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-code-reviewer", a maintainability + coverage completeness reviewer ("what is missing or regresses"). Its message must include exactly these lines: Lens: B maintainability and coverage; Marker: OH_NO_XHOST_FALLBACK_LENS_B; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+
+Start both Codex subagents before waiting when possible. Wait for each receiver until completed, capture both results, then close both completed receivers. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After both same-host agents finish, synthesize immediately as the current Codex main judge rather than concatenate. Final answer must contain exactly the marker OH_NO_XHOST_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; same-host agents: 2; lens markers: OH_NO_XHOST_FALLBACK_LENS_A, OH_NO_XHOST_FALLBACK_LENS_B; a single synthesis block marked OH_NO_XHOST_FALLBACK_SYNTHESIS with consensus, contradictions, and recommended next action; and a fallback note stating the opposite host (Claude Code) was treated as unavailable and the review ran via the Same-Host Parallel Fallback of two same-host agents rather than as a single current-host pass or a cross-host consult. Do NOT emit OH_NO_CLAUDE_FUSION_PANEL_OK or any Claude/opposite-host success marker and do NOT claim a cross-host consult occurred.
+PROMPT
+)
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$live_workspace"
+    --sandbox read-only
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$summary_file" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, live_home, summary_path = sys.argv[1:5]
+expected_lens_markers = {
+    "A": "OH_NO_XHOST_FALLBACK_LENS_A",
+    "B": "OH_NO_XHOST_FALLBACK_LENS_B",
+}
+required_final_markers = [
+    "OH_NO_XHOST_FALLBACK_OK",
+    "OH_NO_XHOST_FALLBACK_LENS_A",
+    "OH_NO_XHOST_FALLBACK_LENS_B",
+    "OH_NO_XHOST_FALLBACK_SYNTHESIS",
+    "Codex permission preflight",
+    "not danger-full-access",
+    "same-host agents: 2",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "recommended next action",
+]
+required_panel_fields = [
+    "strongest finding",
+    "evidence used",
+    "likely failure mode",
+    "recommended next action",
+]
+# Markers that would prove the cross-host path (NOT the fallback) was taken.
+# Their presence anywhere in non-user transcript text fails the lane: the whole
+# point is that the default-mode fallback, not the opposite-host hop, ran.
+forbidden_crosshost_markers = [
+    "OH_NO_CLAUDE_FUSION_PANEL_OK",
+    "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
+    "OH_NO_CODEX_RESCUE_RETURN_OK",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tools = {"apply_patch", "edit", "write", "write_file", "file_change", "patch"}
+forbidden_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)(apply_patch|touch|mkdir|rm|cp|mv|tee)\b"),
+    re.compile(r"(^|[;&|'\"]\s*)sed\s+-i\b"),
+    re.compile(r"(^|[;&|'\"]\s*)cat\s+>"),
+    re.compile(r"(^|[;&|'\"]\s*)printf\b[^|;&]*>"),
+]
+# Any of these in an exec command proves a cross-host hop to Claude (the wrong
+# surface): the fallback must stay same-host and never shell out to claude.
+# The unexpanded `${CLAUDE_BIN:-claude}` token ends in `}` (a non-word char), so
+# it must NOT carry a trailing \b; only the bare `claude` word form does.
+claude_command_patterns = [
+    re.compile(r"(^|[;&|'\"]\s*)\$\{CLAUDE_BIN:-claude\}"),
+    re.compile(r"(^|[;&|'\"]\s*)claude\b"),
+    re.compile(r"\bexecFile\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bspawnSync\([^)]*claude", re.IGNORECASE),
+    re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*claude", re.IGNORECASE),
+]
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def role_of_event(data):
+    item = data.get("item") or {}
+    message = data.get("message") or {}
+    return item.get("role") or data.get("role") or message.get("role") or ""
+
+def receiver_transcript_and_agent_role(receiver):
+    sessions_root = Path(live_home) / "sessions"
+    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
+    if not session_candidates:
+        raise SystemExit(f"Codex cross-host fallback live could not find session transcript for receiver: {receiver}")
+    transcript_parts = []
+    agent_role = None
+    for path in session_candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        transcript_parts.append(text)
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("type") != "session_meta":
+                continue
+            payload = data.get("payload") or {}
+            thread_spawn = (
+                payload.get("source", {})
+                .get("subagent", {})
+                .get("thread_spawn", {})
+            )
+            agent_role = payload.get("agent_role") or thread_spawn.get("agent_role")
+            break
+        if agent_role is not None:
+            break
+    if agent_role is not None:
+        return "\n".join(transcript_parts), agent_role
+    raise SystemExit(f"Codex cross-host fallback live transcript lacked session_meta: {receiver}")
+
+def inspect_fallback_receiver_transcript(receiver, lens, transcript):
+    host_command_hits = []
+    for line_number, line in enumerate(transcript.splitlines(), 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(
+                f"Codex cross-host fallback live receiver {receiver} exposed a secret-like value near line {line_number}"
+            )
+        item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if payload.get("type") == "function_call":
+            tool_lower = str(payload.get("name") or tool_lower).lower()
+            arguments_text = str(payload.get("arguments") or "")
+            try:
+                arguments_data = json.loads(arguments_text) if arguments_text else {}
+            except json.JSONDecodeError:
+                arguments_data = {}
+            if isinstance(arguments_data, dict) and arguments_data.get("cmd"):
+                command_text = str(arguments_data.get("cmd"))
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Codex cross-host fallback live receiver {receiver} ({lens}) saw write-capable event "
+                f"at line {line_number}: type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        is_exec_command_call = (
+            item_type_lower == "command_execution"
+            or (
+                payload.get("type") == "function_call"
+                and payload.get("name") in {"exec_command", "functions.exec_command"}
+            )
+        )
+        if not is_exec_command_call:
+            continue
+        if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+            raise SystemExit(
+                f"Codex cross-host fallback live receiver {receiver} ({lens}) saw write-like command "
+                f"at line {line_number}: {command_text[:1000]!r}"
+            )
+        if any(pattern.search(command_text) for pattern in claude_command_patterns):
+            host_command_hits.append((line_number, "claude", command_text[:1000]))
+    if host_command_hits:
+        raise SystemExit(
+            f"Codex cross-host fallback live receiver {receiver} ({lens}) invoked a forbidden Claude/opposite-host command: "
+            f"{host_command_hits!r}"
+        )
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex cross-host fallback live saw spawn failure in stderr: {err_text[:2000]!r}")
+
+failed_spawns = []
+all_spawn_receivers = []
+receiver_to_lens = {}
+receiver_agent_roles = {}
+agent_result_by_receiver = {}
+wait_index_by_receiver = {}
+close_index_by_receiver = {}
+non_user_text_parts = []
+claude_command_hits = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        event_text = collect_text(data)
+        if any(pattern.search(event_text) for pattern in secret_patterns):
+            raise SystemExit(f"Codex cross-host fallback live transcript exposed a secret-like value near line {index}")
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
+        command_text = str(item.get("command") or "")
+        if payload.get("type") == "function_call":
+            arguments_text = str(payload.get("arguments") or "")
+            try:
+                arguments_data = json.loads(arguments_text) if arguments_text else {}
+            except json.JSONDecodeError:
+                arguments_data = {}
+            if isinstance(arguments_data, dict) and arguments_data.get("cmd"):
+                command_text = str(arguments_data.get("cmd"))
+        if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
+            raise SystemExit(
+                f"Codex cross-host fallback live saw write-capable event at line {index}: "
+                f"type={item_type_lower!r} tool={tool_lower!r}"
+            )
+        if (
+            item_type_lower == "command_execution"
+            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
+        ):
+            if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+                raise SystemExit(
+                    f"Codex cross-host fallback live saw write-like command at line {index}: "
+                    f"{command_text[:1000]!r}"
+                )
+            if any(pattern.search(command_text) for pattern in claude_command_patterns):
+                claude_command_hits.append((index, command_text[:1000]))
+        if role_of_event(data) != "user":
+            non_user_text_parts.append(event_text)
+        if item.get("type") != "collab_tool_call":
+            continue
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool == "spawn_agent" and status == "failed":
+            failed_spawns.append((index, collect_text(item)[:2000]))
+        if tool == "spawn_agent" and status == "completed":
+            all_spawn_receivers.extend(item.get("receiver_thread_ids") or [])
+            spawn_text = collect_text(item)
+            matched = [lens for lens, marker in expected_lens_markers.items() if marker in spawn_text]
+            if not matched:
+                raise SystemExit(
+                    "Codex cross-host fallback live saw an unexpected spawn_agent call "
+                    f"without a required lens marker at line {index}: {spawn_text[:2000]!r}"
+                )
+            if len(matched) != 1:
+                raise SystemExit(
+                    f"Codex cross-host fallback live spawn payload matched multiple lenses {matched!r}; "
+                    f"text={spawn_text[:2000]!r}"
+                )
+            receivers = item.get("receiver_thread_ids") or []
+            if len(receivers) != 1:
+                raise SystemExit(
+                    f"Codex cross-host fallback live expected one receiver for lens {matched[0]}, got {receivers!r}"
+                )
+            for forbidden in forbidden_crosshost_markers:
+                if forbidden in spawn_text:
+                    raise SystemExit(
+                        f"Codex cross-host fallback live spawn prompt leaked opposite-host success marker {forbidden!r}"
+                    )
+            receiver_to_lens[receivers[0]] = matched[0]
+        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
+            text = collect_text(item)
+            mentioned = set(item.get("receiver_thread_ids") or [])
+            mentioned.update(receiver for receiver in receiver_to_lens if receiver in text)
+            mentioned.update(
+                receiver for receiver in (item.get("agents_states") or {})
+                if receiver in receiver_to_lens
+            )
+            if tool in {"wait", "wait_agent"}:
+                for receiver in mentioned:
+                    state = (item.get("agents_states") or {}).get(receiver) or {}
+                    if state.get("status") == "completed" and state.get("message"):
+                        wait_index_by_receiver.setdefault(receiver, index)
+                        agent_result_by_receiver.setdefault(receiver, str(state.get("message")))
+            if tool == "close_agent":
+                for receiver in mentioned:
+                    close_index_by_receiver.setdefault(receiver, index)
+
+if failed_spawns:
+    raise SystemExit(f"Codex cross-host fallback live saw failed spawn_agent calls: {failed_spawns!r}")
+
+# Wrong-surface guard: the fallback path, not the cross-host hop, must have run.
+if claude_command_hits:
+    raise SystemExit(
+        "Codex cross-host fallback live invoked a Claude/opposite-host command instead of staying "
+        f"same-host (cross-host path taken, not the fallback): {claude_command_hits!r}"
+    )
+
+# Two distinct same-host lens agents (two agents, not one pass).
+missing_lenses = sorted(set(expected_lens_markers) - set(receiver_to_lens.values()))
+if missing_lenses:
+    raise SystemExit(
+        f"Codex cross-host fallback live did not dispatch both same-host lens agents; "
+        f"missing={missing_lenses!r} got={receiver_to_lens!r}"
+    )
+if len(receiver_to_lens) != len(expected_lens_markers):
+    raise SystemExit(
+        f"Codex cross-host fallback live expected exactly two same-host lens receivers, got {receiver_to_lens!r}"
+    )
+if sorted(all_spawn_receivers) != sorted(receiver_to_lens):
+    raise SystemExit(
+        "Codex cross-host fallback live saw spawned receivers outside the two expected lenses: "
+        f"all={all_spawn_receivers!r} expected={sorted(receiver_to_lens)!r}"
+    )
+
+for receiver, lens in receiver_to_lens.items():
+    transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
+    receiver_agent_roles[receiver] = actual_agent_role
+    if actual_agent_role != "oh-no-code-reviewer":
+        raise SystemExit(
+            f"Codex cross-host fallback live spawned receiver {receiver} for lens {lens} with "
+            f"agent_role={actual_agent_role!r}; expected oh-no-code-reviewer"
+        )
+    inspect_fallback_receiver_transcript(receiver, lens, transcript)
+
+missing_waits = sorted(set(receiver_to_lens) - set(wait_index_by_receiver))
+missing_closes = sorted(set(receiver_to_lens) - set(close_index_by_receiver))
+if missing_waits:
+    raise SystemExit(f"Codex cross-host fallback live did not capture wait_agent results: {missing_waits!r}")
+if missing_closes:
+    raise SystemExit(f"Codex cross-host fallback live did not close completed receivers: {missing_closes!r}")
+for receiver in receiver_to_lens:
+    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]:
+        raise SystemExit(f"Codex cross-host fallback live closed receiver before wait result: {receiver}")
+
+for receiver, lens in receiver_to_lens.items():
+    result_text = agent_result_by_receiver.get(receiver, "")
+    lower_result_text = result_text.lower()
+    marker = expected_lens_markers[lens]
+    if marker not in result_text:
+        raise SystemExit(
+            f"Codex cross-host fallback live lens {lens} did not return marker {marker!r}; "
+            f"result={result_text[:2000]!r}"
+        )
+    for forbidden in forbidden_crosshost_markers:
+        if forbidden in result_text:
+            raise SystemExit(
+                f"Codex cross-host fallback live lens {lens} returned forbidden opposite-host marker {forbidden!r}"
+            )
+    for field in required_panel_fields:
+        if field not in lower_result_text:
+            raise SystemExit(
+                f"Codex cross-host fallback live lens {lens} wait result missed field {field!r}; "
+                f"result={result_text[:2000]!r}"
+            )
+
+non_user_text = "\n".join(non_user_text_parts)
+lower_non_user_text = non_user_text.lower()
+for forbidden in forbidden_crosshost_markers:
+    if forbidden.lower() in lower_non_user_text:
+        raise SystemExit(
+            "Codex cross-host fallback live exposed an opposite-host success marker "
+            f"(cross-host path taken, not the fallback): {forbidden!r}"
+        )
+
+success_text = "\n".join(
+    part for part in non_user_text_parts
+    if "OH_NO_XHOST_FALLBACK_OK" in part
+)
+if not success_text:
+    raise SystemExit("Codex cross-host fallback live did not return success marker OH_NO_XHOST_FALLBACK_OK")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Codex cross-host fallback live missing final marker/text: {marker!r}")
+
+# At least one synthesis marker across the transcript. The model may legitimately
+# reference the marker more than once (e.g. a synthesis heading plus the final
+# OH_NO_XHOST_FALLBACK_OK summary); a raw "exactly one" count is brittle. The
+# required_synthesis_fields check below proves a real synthesis block exists, not
+# just a marker echo, and the dispatch-based two-lens guard above stays strict.
+synthesis_count = non_user_text.count("OH_NO_XHOST_FALLBACK_SYNTHESIS")
+if synthesis_count < 1:
+    raise SystemExit(
+        f"Codex cross-host fallback live expected at least one synthesis marker, got {synthesis_count}"
+    )
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Codex cross-host fallback live missing synthesis field: {field!r}")
+
+# Fallback note: the opposite host (Claude Code) was treated as unavailable and
+# the review ran via the Same-Host Parallel Fallback.
+if not (
+    ("unavailable" in lower_success_text)
+    and ("same-host" in lower_success_text or "same host" in lower_success_text)
+    and ("opposite host" in lower_success_text or "claude" in lower_success_text)
+):
+    raise SystemExit(
+        "Codex cross-host fallback live missing fallback note that the opposite host (Claude Code) was "
+        f"unavailable and the review ran via the Same-Host Parallel Fallback; success_text={success_text[:2000]!r}"
+    )
+
+summary = {
+    "status": "passed",
+    "codex_permission_preflight": "not danger-full-access",
+    "opposite_host": "unavailable",
+    "claude_consult": {
+        "status": "skipped",
+        "reason": "Codex permission state is not danger-full-access",
+    },
+    "same_host_lens_agents": [
+        {
+            "receiver": receiver,
+            "lens": receiver_to_lens[receiver],
+            "agent_role": receiver_agent_roles[receiver],
+            "wait_result_line": wait_index_by_receiver[receiver],
+            "close_result_line": close_index_by_receiver[receiver],
+            "returned_marker": expected_lens_markers[receiver_to_lens[receiver]],
+        }
+        for receiver in sorted(receiver_to_lens, key=lambda item: receiver_to_lens[item])
+    ],
+    "synthesis_marker": "OH_NO_XHOST_FALLBACK_SYNTHESIS",
+    "final_marker": "OH_NO_XHOST_FALLBACK_OK",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Codex cross-host Same-Host Parallel Fallback dispatched two same-host lens agents and synthesized")
+PY
+}
+
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Codex parallel-subagent smoke test"
@@ -4476,6 +4944,7 @@ main() {
   run_ralplan_live_test
   run_named_agents_live_test
   run_fusion_rescue_live_test
+  run_codex_cross_host_fallback_live_test
   run_parallel_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
