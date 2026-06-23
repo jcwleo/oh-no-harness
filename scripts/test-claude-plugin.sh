@@ -2223,7 +2223,6 @@ def assert_meaningful_domain_analysis(label, text):
         "only format",
         "format/scope smoke",
         "no actionable problem packet",
-        "only smoke",
         "does the cross-host fusion rescue panel integration work",
     )
     for marker in weak_markers:
@@ -2232,6 +2231,14 @@ def assert_meaningful_domain_analysis(label, text):
                 f"Claude Fusion Rescue live {label} returned weak/non-substantive analysis marker "
                 f"{marker!r}; text={text[:2000]!r}"
             )
+    # "only smoke" flags a panel that treats the task as merely a smoke check.
+    # Exclude legitimate analysis phrasing like "read-only smoke scope", where
+    # the substring "only smoke" appears inside "read-only" without being weak.
+    if re.search(r"(?<!read-)only smoke", lower_text):
+        raise SystemExit(
+            f"Claude Fusion Rescue live {label} returned weak/non-substantive analysis marker "
+            f"'only smoke'; text={text[:2000]!r}"
+        )
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
