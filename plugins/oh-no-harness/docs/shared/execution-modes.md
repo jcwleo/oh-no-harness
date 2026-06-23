@@ -135,9 +135,10 @@ Ralph behavior:
 - run the diff-budget gate when changed files, insertions, generated artifacts,
   public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
-- run cleanup only after the behavior lock exists and a quick diff or required
-  review shows cleanup candidates, or when candidate uncertainty remains after
-  that scan; rerun the relevant verification after cleanup
+- run `simplify` after the behavior lock exists and required review is satisfied,
+  unless the user explicitly disabled it; a STANDARD plan sets `Cleanup policy:
+  required` and does not skip cleanup as "not needed" (only LIGHT may). Rerun the
+  relevant verification after cleanup
 - run `verification-before-completion` before the final claim
 
 ## THOROUGH
@@ -174,8 +175,10 @@ Ralph behavior:
   verification budget decisions, and diff-budget scope review in the final
   evidence
 - record the `Worktree decision` before editing when the task is write-capable
-- run `simplify` after required review is satisfied unless explicitly disabled,
-  then rerun verification and any needed focused review
+- run `simplify` after required review is satisfied; a THOROUGH plan sets
+  `Cleanup policy: required`, so cleanup is NOT skippable as "not needed" (only
+  LIGHT may skip) — only an explicit user opt-out disables it. Then rerun
+  verification and any needed focused review
 - run `verification-before-completion` before the final claim
 
 ## Escalation And De-Escalation

@@ -477,11 +477,14 @@ Cleanup is mode-gated:
   reuse, simplification, efficiency, or altitude cleanup candidates, or when
   candidate uncertainty remains after that scan; otherwise record cleanup as not
   needed.
-- `STANDARD`: run cleanup when behavior is locked and a quick diff or required
-  review shows cleanup candidates, or when candidate uncertainty remains after
-  that scan; rerun relevant verification afterward.
-- `THOROUGH`: run `simplify` after required review unless explicitly disabled,
-  then rerun verification and any focused post-cleanup review required by risk.
+- `STANDARD`: run `simplify` after behavior is locked and required review is
+  satisfied, unless the user explicitly disabled it; a STANDARD plan sets
+  `Cleanup policy: required` and "not needed" is a LIGHT-only skip. Rerun relevant
+  verification afterward.
+- `THOROUGH`: run `simplify` after required review; a THOROUGH plan sets
+  `Cleanup policy: required`, so cleanup is not skippable as "not needed" (only
+  LIGHT may skip) — only an explicit user opt-out disables it. Then rerun
+  verification and any focused post-cleanup review required by risk.
 
 The post-cleanup pass must answer:
 
@@ -500,7 +503,7 @@ Ship when all completion criteria are satisfied:
   indirect/manual gaps for every acceptance criterion
 - required TDD evidence exists, or each exception is documented
 - review required by the selected mode is approved or a blocking reason is documented
-- `simplify` ran, was explicitly disabled, or was recorded as not needed by the selected mode
+- `simplify` ran, was explicitly disabled by the user, or — in LIGHT only — was recorded as not needed
 - post-cleanup verification passed when cleanup changed files
 - `verification-before-completion` ran for the final completion claim
 - acceptance-to-evidence mapping, contract-surface evidence, baseline guard,

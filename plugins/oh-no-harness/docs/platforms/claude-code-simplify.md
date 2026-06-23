@@ -6,12 +6,12 @@ This platform overlay is source content for the generated Claude Code-facing
 
 ## Cleanup Dispatch
 
-For diffs above the small-diff gate, prefer Workflow `Promise.all` for the
-four-pass cleanup path when available. Otherwise, issue all four background Task
-or Agent requests before inspecting or summarizing task results. Each request
-gets exactly one angle: Reuse, Simplification, Efficiency, or Altitude.
+Cleanup always runs the four cleanup role passes in parallel. Prefer Workflow
+`Promise.all` for the four-pass cleanup path when available; otherwise issue all
+four background Task or Agent requests before inspecting or summarizing task
+results. Each request gets exactly one angle: Reuse, Simplification, Efficiency,
+or Altitude.
 
-For a small diff, use one cleanup subagent with all four angles only when the
-active host exposes an appropriate mechanism and the separation is useful. If
-Claude Code subagent dispatch is unavailable, preserve the same cleanup role
-boundary inline and record the fallback reason required by the shared core.
+If Claude Code subagent dispatch is unavailable, preserve the same four cleanup
+role passes inline as four labeled blocks and record the fallback reason required
+by the shared core.

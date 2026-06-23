@@ -759,25 +759,36 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
     ),
 }
 SIMPLIFY_PARALLEL_MARKERS = (
-    "requires four cleanup role passes",
-    "at most 3 changed files AND at most 100 changed lines AND no generated files",
-    "subagents in parallel",
+    # Cleanup always runs the four role passes in parallel — no diff-size gate,
+    # no single-combined-pass shortcut. These markers guard that contract so it
+    # cannot be silently reverted to a gated/single-pass form.
+    "always runs all four labeled viewpoints",
+    "no single-combined-pass shortcut and no diff-size gate",
+    "Run the four passes in parallel",
     "active platform's Simplify dispatch authorization",
     "standing authorization for eligible skill-local delegation",
-    "single pass that still reports all four labeled sections: Reuse, Simplification, Efficiency, and Altitude",
-    "separate inline fallback blocks",
     "dispatch-unavailable",
-    "For diffs above the small-diff gate, launch four independent cleanup subagents in parallel",
+    "Launch four independent cleanup subagents in parallel",
+    "the review always runs all four cleanup role passes regardless of diff size",
     "in one batch before",
-    "When any bound is exceeded, unknown, or uncertain, default to the four parallel cleanup subagents",
-    "four separate inline fallback blocks",
-    "wait for all four cleanup subagent results, capture every result, and close or clean up each completed cleanup subagent",
-    "clean up each completed cleanup subagent",
+    "run the same four passes inline as four separate labeled blocks",
+    "Capture all four cleanup pass results",
+    "close or clean up each completed cleanup subagent",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
     "oh-no-harness-generated-skill-wrapper",
     "Source order:",
     "../../docs/skill-core/simplify.md",
+)
+SIMPLIFY_FORBIDDEN_MARKERS = (
+    # The small-diff gate and the single-combined-pass shortcut were retired:
+    # cleanup always runs the four role passes in parallel. Forbid the old
+    # phrasing on every simplify surface (core + both wrappers) so a stale
+    # platform overlay or a revert fails CI instead of shipping a self-
+    # contradicting runtime doc.
+    "small-diff gate",
+    "For a small diff",
+    "single cleanup pass",
 )
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
@@ -1493,12 +1504,18 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in SIMPLIFY_PARALLEL_MARKERS:
             if not has_required_marker(body, marker):
                 die(f"{path} is missing required Simplify-Parallel marker: {marker!r}")
+        for forbidden in SIMPLIFY_FORBIDDEN_MARKERS:
+            if has_required_marker(body, forbidden):
+                die(f"{path} still contains retired small-diff-gate language: {forbidden!r}")
         for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
             wrapper_path = root / wrapper_root / skill / "SKILL.md"
             wrapper_body = read_text(wrapper_path)
             for marker in SIMPLIFY_WRAPPER_MARKERS:
                 if not has_required_marker(wrapper_body, marker):
                     die(f"{wrapper_path} is missing required Simplify-Wrapper marker: {marker!r}")
+            for forbidden in SIMPLIFY_FORBIDDEN_MARKERS:
+                if has_required_marker(wrapper_body, forbidden):
+                    die(f"{wrapper_path} still contains retired small-diff-gate language: {forbidden!r}")
     if skill in PLATFORM_SUBAGENT_MARKERS:
         body = read_text(path)
         for marker in PLATFORM_SUBAGENT_MARKERS[skill]:
