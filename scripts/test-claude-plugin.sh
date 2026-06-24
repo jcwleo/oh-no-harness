@@ -20,6 +20,7 @@ RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CROSS_HOST_FALLBACK_LIVE:-0}"
+RUN_PARALLEL_EXECUTOR_LIVE="${OH_NO_PARALLEL_EXECUTOR_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
@@ -79,6 +80,11 @@ Options:
                          Run live cross-host Same-Host Parallel Fallback smoke test:
                          opposite host (Codex) forced unavailable, so code-reviewer
                          runs two same-host lens agents synthesized into one result.
+  --parallel-executor-live
+                         Run live Ralph proactive disjoint-executor parallel-batch
+                         smoke test: an ordinary STANDARD/THOROUGH run over two
+                         disjoint stories must proactively dispatch a concurrent
+                         executor batch plus a post-batch per-executor scope check.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
                          Run live natural role-worker smoke tests for Interview, Ultrawork,
@@ -102,6 +108,7 @@ Environment overrides:
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
   OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
   OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_CROSS_HOST_FALLBACK_LIVE,
+  OH_NO_PARALLEL_EXECUTOR_LIVE,
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
@@ -132,6 +139,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cross-host-fallback-live)
       RUN_CROSS_HOST_FALLBACK_LIVE=1
+      shift
+      ;;
+    --parallel-executor-live)
+      RUN_PARALLEL_EXECUTOR_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -2831,6 +2842,577 @@ print("ok - live Claude cross-host Same-Host Parallel Fallback dispatched two sa
 PY
 }
 
+run_parallel_executor_live_test() {
+  if [[ "$RUN_PARALLEL_EXECUTOR_LIVE" != "1" ]]; then
+    log "Skipping live Claude Ralph proactive disjoint-executor parallel-batch smoke test"
+    printf 'Run with --parallel-executor-live or OH_NO_PARALLEL_EXECUTOR_LIVE=1 to verify the STANDARD/THOROUGH proactive disjoint-executor parallel batch plus post-batch per-executor scope check.\n' >&2
+    return
+  fi
+
+  log "Running live Claude Ralph proactive disjoint-executor parallel-batch smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/parallel-executor-claude.jsonl"
+  local err_file="$RUN_DIR/parallel-executor-claude.err"
+  local summary_file="$RUN_DIR/parallel-executor-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # Containment: a write-capable fixture sandbox OUTSIDE the repo/marketplace/worktree.
+  # This is both the working directory of the run and the SOLE writable --add-dir.
+  local fixture_dir
+  fixture_dir="$(mktemp -d)"
+
+  # rm -rf the fixture sandbox on EVERY exit path, including when set -e kills the
+  # script on a nonzero exit. The done-guard makes the cleanup idempotent so the
+  # multi-signal trap cannot double-run rm. The non-empty + is-dir guard prevents
+  # rm -rf ""/"/" if fixture_dir is ever unset.
+  local _parallel_executor_cleanup_done=0
+  _parallel_executor_cleanup() {
+    if [[ "$_parallel_executor_cleanup_done" == "0" && -n "$fixture_dir" && -d "$fixture_dir" ]]; then
+      rm -rf "$fixture_dir"
+      _parallel_executor_cleanup_done=1
+    fi
+  }
+  trap '_parallel_executor_cleanup' RETURN EXIT INT TERM
+
+  # Two genuinely disjoint stories, each in its own file, independent, no shared
+  # file and no dependency. Each story instructs the implementer to write one
+  # specific file containing its unique marker. The stories themselves describe
+  # ONLY the disjoint work; they never mention parallelism, batching, or dispatch.
+  cat >"$fixture_dir/story_a.md" <<STORY_A
+# Story A: greeting module
+
+Create a new file named module_a.py in this directory. It must define a
+function greet(name) that returns the string "hello, " followed by name.
+Add a module-level comment line containing the exact token OH_NO_RALPH_EXECUTOR_A
+so the finished file is identifiable. This story is independent of Story B:
+it shares no file with Story B and does not depend on Story B.
+STORY_A
+
+  cat >"$fixture_dir/story_b.md" <<STORY_B
+# Story B: arithmetic module
+
+Create a new file named module_b.py in this directory. It must define a
+function add(x, y) that returns x plus y. Add a module-level comment line
+containing the exact token OH_NO_RALPH_EXECUTOR_B so the finished file is
+identifiable. This story is independent of Story A: it shares no file with
+Story A and does not depend on Story A.
+STORY_B
+
+  # CONTRACT-NOT-PROMPT-COMPLIANCE: an ORDINARY direct STANDARD/THOROUGH Ralph run
+  # over two disjoint stories. The prompt describes the two stories and asks Ralph
+  # to run them and report. It does NOT instruct parallelism, batching, "dispatch
+  # two executors", or background dispatch — the EDITED ralph contract loaded via
+  # the plugin is what must drive proactive concurrent executor dispatch.
+  local prompt
+  prompt=$(cat <<PROMPT
+Use ${PLUGIN_NAME}:ralph in THOROUGH mode. Work entirely inside the current working directory; do not read, write, or touch anything outside it. There are two stories to implement, described in story_a.md and story_b.md in this directory. Read both story files.
+
+Story A and Story B are independent of each other: they touch different files and neither depends on the other. Implement both stories so each described file is created exactly as its story specifies, then run them and report the result.
+
+When you are completely finished and both files exist, emit a final summary that contains the exact token OH_NO_RALPH_POST_BATCH_CHECK followed by, for each implemented unit, the file it owns and the marker contained in that file, confirming each unit stayed within its own file. Then emit the exact final marker OH_NO_RALPH_PARALLEL_EXECUTOR_OK on its own line.
+PROMPT
+)
+
+  # Containment snapshot BEFORE: any new/modified marketplace entry attributable
+  # to the run is a hard failure (defense-in-depth, see below).
+  local repo_status_before
+  repo_status_before="$(git -C "$MARKETPLACE_ROOT" status --porcelain 2>/dev/null || true)"
+
+  # Out-of-fixture sentinel snapshot (defense-in-depth): one probe captures
+  # path+mtime+size of a few sensitive targets plus the fixture's parent dir
+  # listing. The SAME probe is used for the BEFORE and AFTER captures so they can
+  # never drift apart; any change after the run is a containment breach.
+  _pexec_sentinel() {
+    "$PYTHON_BIN" - "$1" <<'SENTINEL'
+import json, os, sys
+fixture_dir = sys.argv[1]
+parent = os.path.dirname(os.path.realpath(fixture_dir))
+home = os.path.expanduser("~")
+targets = [
+    os.path.join(home, ".ssh"),
+    os.path.join(home, ".bashrc"),
+    os.path.join(home, ".zshrc"),
+]
+manifest = {}
+for t in targets:
+    try:
+        st = os.stat(t)
+        manifest[t] = [st.st_mtime_ns, st.st_size]
+    except OSError:
+        manifest[t] = None
+try:
+    siblings = sorted(os.listdir(parent))
+except OSError:
+    siblings = []
+manifest["__parent__"] = parent
+manifest["__siblings__"] = siblings
+print(json.dumps(manifest, sort_keys=True))
+SENTINEL
+  }
+  local sentinel_before
+  sentinel_before="$(_pexec_sentinel "$fixture_dir")"
+
+  # CONTAINMENT (authoritative): acceptEdits is the real OS/permission-level
+  # enforcement. Under --permission-mode acceptEdits in --print mode, file edits
+  # inside the working directory (the run's cwd = fixture_dir) are auto-accepted,
+  # while edits OUTSIDE the workspace and Bash commands require permission and are
+  # auto-denied non-interactively -- so they are actually blocked, not merely
+  # detected after the fact. We therefore do NOT pass the plugin/repo root as a
+  # writable --add-dir (under acceptEdits an added dir becomes writable); skill
+  # content loads via --plugin-dir and the fixture stories are self-contained, so
+  # fixture_dir is the SOLE accessible write workspace. The transcript
+  # path-containment scan, the marketplace git-status check, and the out-of-fixture
+  # sentinel below are DEFENSE-IN-DEPTH (belt-and-suspenders), not the sole
+  # containment.
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode acceptEdits
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a live smoke test runner for an Oh No Harness Ralph run. Implement only the two disjoint stories in the current working directory. Write only inside the current working directory. Do not edit, create, or delete any file outside it, and do not install plugins."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  # Run with fixture_dir as the WORKING DIRECTORY (do NOT inherit cwd=repo).
+  # Capture the run exit code without tripping set -e so cleanup always runs.
+  local run_rc=0
+  if (
+    cd "$fixture_dir"
+    "${cmd[@]}" "$prompt"
+  ) >"$out_file" 2>"$err_file"; then
+    run_rc=0
+  else
+    run_rc=$?
+    log "Claude parallel-executor live invocation exited non-zero (rc=$run_rc); proceeding to parser for diagnosis"
+  fi
+
+  # Containment snapshot AFTER.
+  local repo_status_after
+  repo_status_after="$(git -C "$MARKETPLACE_ROOT" status --porcelain 2>/dev/null || true)"
+
+  local sentinel_after
+  sentinel_after="$(_pexec_sentinel "$fixture_dir")"
+
+  local parser_rc=0
+  if OH_NO_PEXEC_STATUS_BEFORE="$repo_status_before" \
+    OH_NO_PEXEC_STATUS_AFTER="$repo_status_after" \
+    OH_NO_PEXEC_SENTINEL_BEFORE="$sentinel_before" \
+    OH_NO_PEXEC_SENTINEL_AFTER="$sentinel_after" \
+    "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" "$fixture_dir" "$MARKETPLACE_ROOT" <<'PY'
+import json
+import os
+import re
+import shlex
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+out_path, err_path, summary_path, model, fixture_dir, marketplace_root = sys.argv[1:7]
+
+# Containment baseline (DEFENSE-IN-DEPTH; acceptEdits is the authoritative
+# containment): any new/modified marketplace entry attributable to the run is a
+# hard failure. The before/after porcelain snapshots are passed via env.
+status_before = os.environ.get("OH_NO_PEXEC_STATUS_BEFORE", "")
+status_after = os.environ.get("OH_NO_PEXEC_STATUS_AFTER", "")
+# Out-of-fixture sentinel snapshots (defense-in-depth): sensitive targets plus
+# the fixture parent dir listing, captured before/after the run.
+sentinel_before = os.environ.get("OH_NO_PEXEC_SENTINEL_BEFORE", "")
+sentinel_after = os.environ.get("OH_NO_PEXEC_SENTINEL_AFTER", "")
+
+EXECUTOR_MARKERS = {
+    "A": "OH_NO_RALPH_EXECUTOR_A",
+    "B": "OH_NO_RALPH_EXECUTOR_B",
+}
+POST_BATCH_MARKER = "OH_NO_RALPH_POST_BATCH_CHECK"
+FINAL_MARKER = "OH_NO_RALPH_PARALLEL_EXECUTOR_OK"
+
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+write_tool_names = {"Edit", "Write", "NotebookEdit"}
+fixture_real = os.path.realpath(fixture_dir)
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+def under_fixture(path):
+    """Positive path-containment guard: True iff path resolves under fixture_dir."""
+    if not path:
+        return False
+    candidate = path
+    if not os.path.isabs(candidate):
+        candidate = os.path.join(fixture_real, candidate)
+    real = os.path.realpath(candidate)
+    return real == fixture_real or real.startswith(fixture_real + os.sep)
+
+# Bash commands that write somewhere. We only need to catch escapes OUTSIDE
+# fixture_dir; a redirection/move/copy/remove target that does not resolve under
+# the sandbox is treated as an escape.
+WRITE_BASH_TOKENS = (">", ">>", "tee", "cp", "mv", "rm", "mkdir", "touch", "dd", "install", "sed -i", "ln")
+
+# Standard non-persistent device targets are not containment escapes: writing to
+# them discards output (or is a tty/fd), so a benign command like
+# `command -v python 2>/dev/null` must not be flagged. acceptEdits is the
+# authoritative write boundary; this Bash scan is defense-in-depth and must not
+# false-positive on these.
+DISCARD_WRITE_TARGETS = {"/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/zero"}
+
+def clean_write_target(target):
+    """Strip surrounding quotes and trailing shell metacharacters (e.g. the `;`
+    fused onto `2>/dev/null;`) so containment matching sees the real path."""
+    t = target.strip().strip("\"'")
+    return t.rstrip(";|&)" + " \t")
+
+def is_benign_write_target(target):
+    t = clean_write_target(target)
+    if not t or t in (">", ">>", "&>", "|"):
+        return True
+    return t in DISCARD_WRITE_TARGETS or t.startswith("/dev/fd/")
+
+def bash_write_targets(command):
+    """Best-effort extraction of write targets from a bash command string."""
+    targets = []
+    try:
+        tokens = shlex.split(command, posix=True)
+    except ValueError:
+        tokens = command.split()
+    # Redirection targets: token immediately following > or >> (or fused like >file).
+    for i, tok in enumerate(tokens):
+        if tok in (">", ">>", "1>", "2>", "&>", ">|") and i + 1 < len(tokens):
+            targets.append(tokens[i + 1])
+        else:
+            m = re.match(r"^(?:[12]?>>?|&>)([^>].*)$", tok)
+            if m and m.group(1):
+                targets.append(m.group(1))
+    # File-mutating commands: treat their non-flag path arguments as write targets.
+    mutating = {"tee", "cp", "mv", "rm", "mkdir", "touch", "dd", "install", "ln"}
+    if tokens:
+        head = os.path.basename(tokens[0])
+        if head in mutating:
+            for tok in tokens[1:]:
+                if tok.startswith("-"):
+                    continue
+                if "=" in tok and tok.split("=", 1)[0].isalpha():
+                    continue
+                targets.append(tok)
+        if head == "sed" and "-i" in tokens:
+            for tok in tokens[1:]:
+                if tok.startswith("-"):
+                    continue
+                targets.append(tok)
+    return targets
+
+def command_writes(command):
+    lowered = command.lower()
+    return any(tok in lowered or tok in command for tok in WRITE_BASH_TOKENS)
+
+errors = []
+# (tool_use_index, marker_letter) for each distinct executor dispatch.
+executor_dispatch_uses = defaultdict(list)
+task_starts = []
+task_notifications = []          # (index, status, summary)
+first_task_notification_index = None
+executor_completion_indexes = {}  # marker_letter -> completion index (best effort)
+post_batch_indexes = []          # indexes of non-user text containing POST_BATCH_MARKER
+final_marker_seen = False
+init_ok = False
+saw_any_task_event = False
+# Same-assistant-turn co-occurrence (CORROBORATION ONLY).
+same_turn_cooccurrence = False
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude parallel-executor live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+# F4: the secret scan also covers stderr, not just the JSONL transcript.
+if any(pattern.search(err_text) for pattern in secret_patterns):
+    raise SystemExit("Claude parallel-executor live stderr exposed a secret-like value")
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude parallel-executor live transcript exposed a secret-like value near line {index}")
+
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            available_agents = set(data.get("agents", []))
+            init_ok = "Task" in data.get("tools", []) and (
+                "oh-no-harness:executor" in available_agents
+            )
+
+        if data.get("type") == "assistant":
+            turn_markers = set()
+            for part in data.get("message", {}).get("content", []):
+                ptype = part.get("type")
+                if ptype == "tool_use" and part.get("name") in write_tool_names:
+                    payload = part.get("input", {})
+                    target = payload.get("file_path") or payload.get("path") or payload.get("notebook_path") or ""
+                    if not under_fixture(target):
+                        raise SystemExit(
+                            "Claude parallel-executor live wrote OUTSIDE the fixture sandbox via "
+                            f"{part.get('name')!r}: target={target!r} fixture={fixture_real!r}"
+                        )
+                if ptype == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    if command_writes(command):
+                        for target in bash_write_targets(command):
+                            # Skip non-path tokens and benign discard/device targets
+                            # (e.g. `2>/dev/null`), then strip trailing shell
+                            # metacharacters before the containment check.
+                            if is_benign_write_target(target):
+                                continue
+                            cleaned = clean_write_target(target)
+                            if not under_fixture(cleaned):
+                                raise SystemExit(
+                                    "Claude parallel-executor live ran a write Bash command targeting OUTSIDE "
+                                    f"the fixture sandbox: target={cleaned!r} command={command[:300]!r} fixture={fixture_real!r}"
+                                )
+                if ptype == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    # F5: only count dispatches whose subagent_type is the executor
+                    # role. Two concurrent NON-executor subagents (e.g. explore) that
+                    # merely quote a marker must not false-pass the disjoint-executor
+                    # batch proof.
+                    is_executor = "executor" in subagent_type.lower()
+                    matched = [
+                        letter for letter, marker in EXECUTOR_MARKERS.items()
+                        if marker in payload_text
+                    ]
+                    if is_executor and len(matched) == 1:
+                        executor_dispatch_uses[matched[0]].append(index)
+                        turn_markers.add(matched[0])
+                if ptype == "text":
+                    if FINAL_MARKER in part.get("text", ""):
+                        final_marker_seen = True
+                    if POST_BATCH_MARKER in part.get("text", ""):
+                        post_batch_indexes.append(index)
+            # CORROBORATION ONLY: both executors dispatched in one assistant turn.
+            if {"A", "B"}.issubset(turn_markers):
+                same_turn_cooccurrence = True
+
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            saw_any_task_event = True
+            task_starts.append((index, data.get("task_id")))
+
+        if data.get("type") == "system" and data.get("subtype") == "task_notification":
+            saw_any_task_event = True
+            if first_task_notification_index is None:
+                first_task_notification_index = index
+            status = data.get("status")
+            summary = str(data.get("summary", ""))
+            task_notifications.append((index, status, summary))
+            if status == "completed":
+                for letter, marker in EXECUTOR_MARKERS.items():
+                    if marker in summary and letter not in executor_completion_indexes:
+                        executor_completion_indexes[letter] = index
+
+        if data.get("type") == "result":
+            result_text = str(data.get("result", ""))
+            if FINAL_MARKER in result_text:
+                final_marker_seen = True
+            if POST_BATCH_MARKER in result_text:
+                post_batch_indexes.append(index)
+            if data.get("is_error") is True:
+                errors.append((index, result_text[:1000]))
+
+if not init_ok:
+    raise SystemExit("Claude parallel-executor live did not expose Task tool and the oh-no-harness:executor role")
+if errors:
+    raise SystemExit(f"Claude parallel-executor live returned errors: {errors!r}")
+
+# CONTAINMENT (defense-in-depth): no new/modified marketplace entry attributable
+# to the run. acceptEdits is the authoritative containment; this is belt-and-
+# suspenders.
+def porcelain_set(text):
+    return {line for line in text.splitlines() if line.strip()}
+
+new_entries = sorted(porcelain_set(status_after) - porcelain_set(status_before))
+if new_entries:
+    raise SystemExit(
+        "Claude parallel-executor live mutated the marketplace working tree (containment breach): "
+        f"{new_entries!r}"
+    )
+
+# CONTAINMENT (defense-in-depth): out-of-fixture sentinel must be unchanged and
+# no new file may appear next to the fixture sandbox.
+if sentinel_before or sentinel_after:
+    try:
+        before_manifest = json.loads(sentinel_before) if sentinel_before else {}
+        after_manifest = json.loads(sentinel_after) if sentinel_after else {}
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Claude parallel-executor live could not parse the containment sentinel: {exc}")
+    changed = sorted(
+        key for key in set(before_manifest) | set(after_manifest)
+        if key not in ("__parent__", "__siblings__")
+        and before_manifest.get(key) != after_manifest.get(key)
+    )
+    if changed:
+        raise SystemExit(
+            "Claude parallel-executor live changed a sensitive out-of-fixture target "
+            f"(containment breach): {changed!r}"
+        )
+    before_siblings = set(before_manifest.get("__siblings__", []))
+    after_siblings = set(after_manifest.get("__siblings__", []))
+    new_siblings = sorted(after_siblings - before_siblings)
+    if new_siblings:
+        raise SystemExit(
+            "Claude parallel-executor live created a new file next to the fixture sandbox "
+            f"(containment breach): {new_siblings!r} parent={after_manifest.get('__parent__')!r}"
+        )
+
+# CONCURRENCY PROOF (mirror run_parallel_live_test; NOT the foreground lane).
+# Both executors must be dispatched exactly once, identified by unique markers.
+missing_executors = sorted(set(EXECUTOR_MARKERS) - set(executor_dispatch_uses))
+if missing_executors:
+    raise SystemExit(
+        "INCONCLUSIVE: Ralph did not dispatch both disjoint executors (single-executor or inline run is a FAIL); "
+        f"missing={missing_executors!r} got={ {k: len(v) for k, v in executor_dispatch_uses.items()} !r}"
+    )
+duplicate_executors = {
+    letter: idxs for letter, idxs in executor_dispatch_uses.items() if len(idxs) != 1
+}
+if duplicate_executors:
+    raise SystemExit(
+        "Claude parallel-executor live expected exactly one dispatch per disjoint executor; "
+        f"duplicates={duplicate_executors!r}"
+    )
+
+dispatch_index_a = executor_dispatch_uses["A"][0]
+dispatch_index_b = executor_dispatch_uses["B"][0]
+
+# PRIMARY proof: both executor dispatch tool_use indices occur BEFORE the first
+# task completion notification. No task_notification to order against => the run
+# never produced an observable concurrent batch => INCONCLUSIVE (FAIL).
+if not saw_any_task_event:
+    raise SystemExit(
+        "INCONCLUSIVE: no task_started/task_notification events in the stream, so a concurrent "
+        "executor batch was not observable (an inline/sequential run is a FAIL, never a soft pass)"
+    )
+if first_task_notification_index is None:
+    raise SystemExit(
+        "INCONCLUSIVE: no task_notification event to order executor dispatches against; cannot prove a "
+        "concurrent batch (sequential/inline run is a FAIL)"
+    )
+
+both_before_first_notification = (
+    dispatch_index_a < first_task_notification_index
+    and dispatch_index_b < first_task_notification_index
+)
+if not both_before_first_notification:
+    # Sequential dispatch: the second executor was dispatched only after the first
+    # completed. That is the explicit FAIL case, not a soft pass.
+    raise SystemExit(
+        "INCONCLUSIVE: disjoint-executor dispatches were not both started before the first task completion "
+        "notification (sequential dispatch is a FAIL, never a concurrent batch); "
+        f"dispatch_a={dispatch_index_a} dispatch_b={dispatch_index_b} "
+        f"first_task_notification_index={first_task_notification_index}"
+    )
+
+# F6: corroborator - at least two background tasks must have actually started, so
+# the two executor dispatches map to two real concurrent task lifecycles.
+if len(task_starts) < 2:
+    raise SystemExit(
+        "INCONCLUSIVE: fewer than two task_started events for a two-executor batch "
+        f"(no observable concurrent lifecycle); task_starts={task_starts!r}"
+    )
+
+# Post-batch per-executor scope check must appear AFTER both executor completions.
+# Prefer completion notifications; if the host did not tag summaries with the
+# markers, fall back to the last task completion notification index.
+completed_notification_indexes = [idx for idx, status, _ in task_notifications if status == "completed"]
+if len(completed_notification_indexes) >= 2:
+    both_completions_index = sorted(completed_notification_indexes)[1]
+elif executor_completion_indexes and len(executor_completion_indexes) == 2:
+    both_completions_index = max(executor_completion_indexes.values())
+else:
+    both_completions_index = None
+
+if both_completions_index is None:
+    raise SystemExit(
+        "INCONCLUSIVE: could not observe both disjoint-executor completions to anchor the post-batch scope check; "
+        f"completed_notifications={completed_notification_indexes!r} "
+        f"executor_completion_indexes={executor_completion_indexes!r}"
+    )
+
+post_batch_after_completions = [idx for idx in post_batch_indexes if idx > both_completions_index]
+if len(post_batch_after_completions) < 1:
+    raise SystemExit(
+        "Claude parallel-executor live did not emit the post-batch per-executor scope-check marker "
+        f"OH_NO_RALPH_POST_BATCH_CHECK after both executor completions; post_batch_indexes={post_batch_indexes!r} "
+        f"both_completions_index={both_completions_index}"
+    )
+
+if not final_marker_seen:
+    raise SystemExit(
+        "Claude parallel-executor live did not return the final marker OH_NO_RALPH_PARALLEL_EXECUTOR_OK"
+    )
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "fixture_dir": fixture_real,
+    "executors": {
+        "A": {"marker": EXECUTOR_MARKERS["A"], "dispatch_index": dispatch_index_a},
+        "B": {"marker": EXECUTOR_MARKERS["B"], "dispatch_index": dispatch_index_b},
+    },
+    "first_task_notification_index": first_task_notification_index,
+    "both_dispatched_before_first_notification": both_before_first_notification,
+    "same_turn_cooccurrence_corroboration": same_turn_cooccurrence,
+    "task_started_count": len(task_starts),
+    "both_completions_index": both_completions_index,
+    "post_batch_check_after_completions": len(post_batch_after_completions),
+    "post_batch_marker": POST_BATCH_MARKER,
+    "final_marker": FINAL_MARKER,
+    "permission_mode": "acceptEdits",
+    "marketplace_containment": "clean",
+    "out_of_fixture_sentinel": "clean",
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude Ralph proactively dispatched a concurrent disjoint-executor batch with a post-batch per-executor scope check")
+PY
+  then
+    parser_rc=0
+  else
+    parser_rc=$?
+  fi
+
+  # Always clean up the fixture sandbox, then surface the parser verdict. The
+  # RETURN/EXIT/INT/TERM trap is the backstop; this explicit call clears it on the
+  # normal path so a later EXIT does not double-run.
+  _parallel_executor_cleanup
+  trap - RETURN EXIT INT TERM
+
+  if [[ "$parser_rc" != "0" ]]; then
+    return "$parser_rc"
+  fi
+}
+
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
     log "Skipping live Claude simplify cleanup-subagent smoke test"
@@ -3116,6 +3698,7 @@ main() {
   run_parallel_live_test
   run_fusion_rescue_live_test
   run_cross_host_fallback_live_test
+  run_parallel_executor_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
   log "All requested checks passed"

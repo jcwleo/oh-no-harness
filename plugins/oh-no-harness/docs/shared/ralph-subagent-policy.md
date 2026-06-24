@@ -32,9 +32,17 @@ isolated roles, not as a command to spawn every possible role. On
 subagent-capable hosts, prefer dispatch for read-heavy exploration, triage,
 test/log analysis, summarization, verification (scenario QA lens included),
 code review (security lens included), and other independent review roles when
-the result can change the next decision. Inline execution is
-appropriate when work is too small to benefit, cannot be isolated, requires
-tight TDD sequencing, lacks host support, has been explicitly made inline-only,
+the result can change the next decision. On the same hosts, also prefer
+dispatch for disjoint implementation (executor) work: when two or more pending
+stories or tasks have verifiably non-overlapping write scopes and no
+inter-dependency, run them as a concurrent executor batch for latency and
+context-window relief. This makes independent implementation a first-class
+dispatch reason, not only review or exploration — but it is justified
+delegation, not parallelism for its own sake, and it stays bound by the
+`## Safe Parallel Work` conditions and the Subagent-Unavailable fallbacks below.
+Inline execution is appropriate when work is too small to benefit, cannot be
+isolated, requires tight TDD sequencing, lacks host support, has been
+explicitly made inline-only,
 or can be checked with an equally credible final narrow checklist.
 Requests to maximize subagents mean maximize useful, decision-changing
 delegation within those eligibility limits; they do not mean unconditional
@@ -203,7 +211,14 @@ Do not parallelize when:
 
 After subagents finish:
 
-1. Inspect each result and changed-file set.
+1. Inspect each result and changed-file set. For executor results from a
+   parallel batch, run a per-executor scope check before integrating: a
+   lightweight scope/correctness check that each executor touched only its owned
+   files, satisfied its assigned slice, and left no conflict. Escalate only a
+   stray or risky slice — one that wrote outside its scope, missed its slice, or
+   carries real risk — to `code-reviewer` or `verifier`; a clean slice needs no
+   escalation. This per-executor check is distinct from, and does not replace,
+   the end-of-run review gate.
 2. Resolve conflicts deliberately.
 3. Reconcile docs, tests, generated artifacts, and assumptions.
 4. Close or clean up every completed subagent after its output has been captured
