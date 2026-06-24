@@ -24,9 +24,7 @@ Use `oh-no-harness:<agent>` as the agent name when the tool lists plugin agents.
 When explicit prompt text or a user-facing manual mention is needed, use
 `@agent-oh-no-harness:<agent>`.
 
-For independent read-only, review, verification, QA, security, or exploration
-work, request background subagents and start the whole independent batch before
-waiting for any one result.
+For independent read-only, review, verification, QA, security, or exploration work — and for disjoint implementation (executor) work in STANDARD/THOROUGH, when write scopes are non-overlapping per `docs/shared/ralph-subagent-policy.md` — request background subagents and start the whole independent batch before waiting for any one result.
 
 After each background subagent reaches a final status, capture its result and
 changed-file set. When no further input is needed, close or clean up that

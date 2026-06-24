@@ -126,6 +126,11 @@ Ralph behavior:
   security, or log/test analysis when the platform supports them, coordination
   cost is reasonable, and the result can change the implementation, review,
   verification, or ship/block decision
+- proactively partition disjoint implementation into parallel `executor`
+  batches when two or more stories have non-overlapping write scopes, no
+  inter-dependency, and the dispatch/isolation gates hold, and run the
+  post-batch per-executor scope check before integrating, per
+  `docs/shared/ralph-subagent-policy.md`
 - use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
   where independent evidence is useful
 - run STANDARD verification from `docs/shared/verification-tiers.md`
@@ -166,6 +171,10 @@ Ralph behavior:
   policy, available host subagent support, `docs/shared/agent-tiers.md`,
   `docs/shared/ralph-subagent-policy.md`, and the active platform adapter;
   inline only for documented subagent-unavailable or unsafe-to-isolate cases
+- proactively partition disjoint implementation into parallel `executor`
+  batches when write scopes are non-overlapping and the dispatch/isolation
+  gates hold, and run the post-batch per-executor scope check before
+  integrating, per `docs/shared/ralph-subagent-policy.md`
 - run reviewer roles for correctness and maintainability; add plan-reviewer
   review, the code-reviewer security lens, or the verifier scenario lens when
   the risk signal matches

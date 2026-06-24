@@ -199,6 +199,10 @@ PLATFORM_SUBAGENT_MARKERS = {
         "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
         "MUST NOT be used to close a running or pending subagent",
+        # parallel-executor-dispatch (AC1/AC3): proactive disjoint-executor
+        # batching is first-class in ralph skill-core and survives composition
+        # into the generated wrapper.
+        "proactively partition disjoint",
     ),
     "ralplan": (
         "eligible isolated subagents when they add decision-changing evidence",
@@ -2476,6 +2480,52 @@ def assert_generated_skill_wrappers(marketplace_root: Path, root: Path) -> None:
         die(f"generated skill wrappers are stale:\n{details}")
 
 
+def assert_parallel_executor_contract(root: Path) -> None:
+    # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
+    # marker cannot be satisfied by unrelated or wrong-section text, and so the
+    # canonical homes (bias + per-executor check in the shared policy; loop and
+    # dispatch shape in ralph.md) cannot silently drift. Pre-edit docs lack these
+    # phrases, so this guard fails before the change and passes after it.
+    shared = root / "docs" / "shared"
+    policy = read_text(shared / "ralph-subagent-policy.md")
+    bias = markdown_section(policy, "## Subagent Bias")
+    if not has_required_marker(bias, "disjoint implementation (executor) work"):
+        die(
+            "ralph-subagent-policy.md `## Subagent Bias` must name "
+            "disjoint implementation (executor) work as a first-class dispatch reason"
+        )
+    integration = markdown_section(policy, "## Integration")
+    for marker in (
+        "per-executor scope check",
+        "scope/correctness check",
+        "only a stray or risky slice",
+    ):
+        if not has_required_marker(integration, marker):
+            die(
+                "ralph-subagent-policy.md `## Integration` is missing the "
+                f"post-batch per-executor check marker: {marker!r}"
+            )
+
+    ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
+    loop = markdown_section(ralph_core, "## Execution Loop")
+    if not has_required_marker(loop, "scan remaining work for disjoint scopes"):
+        die("ralph.md `## Execution Loop` must direct scanning remaining work for disjoint scopes")
+    dispatch = markdown_section(ralph_core, "## Mode-Gated Agent Dispatch")
+    if not has_required_marker(dispatch, "proactively partition disjoint"):
+        die("ralph.md `## Mode-Gated Agent Dispatch` must make proactive disjoint-executor partition first-class")
+
+    modes = read_text(shared / "execution-modes.md")
+    if not has_required_marker(modes, "proactively partition disjoint"):
+        die("execution-modes.md must reference proactive disjoint-executor partition in STANDARD/THOROUGH")
+
+    platforms = root / "docs" / "platforms"
+    for adapter in ("claude-code-ralph.md", "codex-ralph.md"):
+        if not has_required_marker(
+            read_text(platforms / adapter), "disjoint implementation (executor) work"
+        ):
+            die(f"{adapter} must list disjoint implementation (executor) work as eligible for a background batch")
+
+
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         die("usage: validate-plugin-files.py <marketplace-root> [plugin-root]")
@@ -2501,6 +2551,7 @@ def main() -> None:
     assert_verification_tier_contract(root)
     assert_validation_check_contract(root)
     assert_cross_host_review_contract(root)
+    assert_parallel_executor_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

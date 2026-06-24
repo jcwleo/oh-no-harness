@@ -40,10 +40,7 @@ permits proactive dispatch; otherwise record the explicit standing preference,
 approved profile, or fallback reason.
 
 A standing user or plan preference to maximize subagents is an explicit dispatch
-signal for the whole eligible Ralph run. Use it to dispatch isolated roles when
-they provide decision-changing benefit within Codex host-policy limits,
-especially read-heavy exploration, test/log analysis, verification, QA,
-security, code review, and other independent review roles. It is not a command
+signal for the whole eligible Ralph run. Use it to dispatch isolated roles when they provide decision-changing benefit within Codex host-policy limits, especially read-heavy exploration, test/log analysis, verification, QA, security, code review, other independent review roles, and disjoint implementation (executor) work in STANDARD/THOROUGH when write scopes are non-overlapping per `docs/shared/ralph-subagent-policy.md`. It is not a command
 to spawn roles whose output would not change the implementation, review,
 verification, or ship/block decision.
 

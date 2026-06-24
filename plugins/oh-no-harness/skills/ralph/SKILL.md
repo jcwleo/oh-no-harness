@@ -266,7 +266,7 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
-7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier.
+7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier. In STANDARD and THOROUGH on subagent-capable hosts, scan remaining work for disjoint scopes before implementing serially: when two or more pending stories or tasks have non-overlapping write scopes and no inter-dependency, proactively partition disjoint implementation into one concurrent `executor` batch (recorded as `Parallel trigger: natural-dispatch`) per `## Parallel Subagent Policy` and `docs/shared/ralph-subagent-policy.md`, then apply the post-batch per-executor scope check before integrating. This is conditional on isolation, dependency safety, and benefit gates — never unconditional parallelism.
 8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual
    diff. Mark the story complete only when acceptance criteria, TDD evidence
    (or documented exception), scope-trace evidence, acceptance-to-evidence
@@ -301,7 +301,7 @@ possible role: dispatch when the result can change quality, risk, latency, or
 context management enough to justify lifecycle and integration cost. Ralph should actively look for safe parallel batches
 for exploration, disjoint executors, test/log analysis, verification (scenario
 QA lens included), code review (security lens included), and other independent
-review roles. Inline execution is the fallback, not the default, when
+review roles. In STANDARD and THOROUGH, treat disjoint implementation as first-class parallel work, not only review or exploration: scan remaining work for disjoint scopes and proactively partition disjoint executors into one batch when, and only when, the `docs/shared/ralph-subagent-policy.md` dispatch conditions, the `## Safe Parallel Work` isolation rules, and TDD/dependency safety all hold. Inline execution is the fallback, not the default, when
 `agentPolicy` is not `inline-only`, but final narrow re-checks may stay inline
 when a subagent result would not change the decision.
 
@@ -318,7 +318,7 @@ user request or standing preference to maximize subagents, record
 `Parallel trigger: explicit-user-request`. Preserve `Parallel trigger:
 natural-dispatch` only when the host permits proactive dispatch and the active
 skill policy itself authorizes eligible isolated roles without a ralplan
-handoff.
+handoff. This includes proactive disjoint-executor batching mid-loop in STANDARD/THOROUGH: the active Ralph policy authorizes it, so record it as `natural-dispatch` even when the overall run arrived by another trigger.
 
 Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
 
@@ -372,7 +372,7 @@ Coordination: You are not alone in the codebase. Do not revert, overwrite, or re
 
 After parallel work completes, integrate sequentially:
 
-1. Inspect each subagent result and changed-file set.
+1. Inspect each subagent result and changed-file set. For executor results, apply the per-executor scope check defined in `docs/shared/ralph-subagent-policy.md` `## Integration` (owned-files-only, slice satisfied, no conflict) and escalate only a stray or risky slice before integrating.
 2. Resolve conflicts deliberately.
 3. Close or clean up each completed subagent after its output has been captured
    and integrated, rejected, or recorded as blocked.
@@ -712,10 +712,7 @@ permits proactive dispatch; otherwise record the explicit standing preference,
 approved profile, or fallback reason.
 
 A standing user or plan preference to maximize subagents is an explicit dispatch
-signal for the whole eligible Ralph run. Use it to dispatch isolated roles when
-they provide decision-changing benefit within Codex host-policy limits,
-especially read-heavy exploration, test/log analysis, verification, QA,
-security, code review, and other independent review roles. It is not a command
+signal for the whole eligible Ralph run. Use it to dispatch isolated roles when they provide decision-changing benefit within Codex host-policy limits, especially read-heavy exploration, test/log analysis, verification, QA, security, code review, other independent review roles, and disjoint implementation (executor) work in STANDARD/THOROUGH when write scopes are non-overlapping per `docs/shared/ralph-subagent-policy.md`. It is not a command
 to spawn roles whose output would not change the implementation, review,
 verification, or ship/block decision.
 
