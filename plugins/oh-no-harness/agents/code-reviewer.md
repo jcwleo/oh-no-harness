@@ -96,6 +96,15 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
   source, destination, and failure mode.
 - Separate theoretical risks from actionable vulnerabilities.
 - Use Bash only for non-mutating inspection or verification commands.
+- Keep the review scoped to the changed work and the risks that change
+  introduces. Assess security by static reasoning about the changed code's
+  behavior; do not expand the review into a system-wide security or penetration
+  sweep beyond the change. Do not read, run commands against, or embed real
+  sensitive system files (for example `/etc/passwd`, `~/.ssh`, or credential
+  stores), even as adversarial or exfiltration test data; when such a case is
+  needed, use a clearly synthetic placeholder path (for example
+  `/synthetic/escape-target`) so the review record cannot be mistaken for a real
+  attack.
 - Do not repeat implementation summaries before findings.
 - Recommend `simplify` only for behavior-preserving quality cleanup after functional approval.
 

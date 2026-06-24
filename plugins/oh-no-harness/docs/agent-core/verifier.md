@@ -74,6 +74,12 @@ any subagent you spawn.
   when a viable existing baseline or smoke check could catch regressions.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception before approval.
 - Use Bash for verification and inspection only. Do not edit files, install dependencies, or run destructive commands unless explicitly assigned by the current skill.
+- Keep verification scoped to the acceptance criteria and the evidence they
+  require; do not broaden it into a system-wide security or penetration sweep,
+  and do not read, run commands against, or embed real sensitive system files
+  (for example `/etc/passwd`, `~/.ssh`, or credential stores), even as test
+  data. Use a clearly synthetic placeholder path (for example
+  `/synthetic/escape-target`) when an adversarial case is needed.
 - Report skipped checks and why they were skipped.
 - Record manual scenario observations separately from automated evidence.
 - Check that user-facing behavior changes have repeatable acceptance or regression coverage, or clearly document the gap.

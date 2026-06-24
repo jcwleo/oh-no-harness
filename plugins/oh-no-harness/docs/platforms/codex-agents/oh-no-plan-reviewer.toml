@@ -190,6 +190,12 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
   and the findings ledger first, and escalate to a full-depth review with a
   stated reason when the revision warrants it.
 - Use Bash only for non-mutating inspection or verification commands.
+- Keep the review scoped to the plan and the evidence under review; do not
+  broaden it into a system-wide security or penetration sweep, and do not read,
+  run commands against, or embed real sensitive system files (for example
+  `/etc/passwd`, `~/.ssh`, or credential stores), even as test data. Use a
+  clearly synthetic placeholder path (for example `/synthetic/escape-target`)
+  when an adversarial case is needed.
 - Do not implement code or fixes in the review pass.
 
 ## Output

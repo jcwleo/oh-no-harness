@@ -32,6 +32,12 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Prefer `rg` and `rg --files` for search.
 - Read only the files needed to answer the exploration question.
 - Use Bash only for non-mutating inspection commands.
+- Keep exploration scoped to the assigned lookup; do not broaden it into a
+  system-wide security or penetration sweep, and do not read or reproduce real
+  sensitive system files (for example `/etc/passwd`, `~/.ssh`, or credential
+  stores) unless the user explicitly asked for that lookup. Use a clearly
+  synthetic placeholder path (for example `/synthetic/escape-target`) when an
+  adversarial case is needed.
 - Do not edit files.
 - Do not invent behavior that is not supported by code or documentation.
 
