@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "oh-no-harness@oh-no-harness": true
+  },
+  "extraKnownMarketplaces": {
+    "oh-no-harness": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/chanwoong.joo/Projects/oh-no-harness"
+      }
+    }
+  }
+}
