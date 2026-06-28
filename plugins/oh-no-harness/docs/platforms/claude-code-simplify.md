@@ -6,12 +6,9 @@ This platform overlay is source content for the generated Claude Code-facing
 
 ## Cleanup Dispatch
 
-Cleanup always runs the four cleanup role passes in parallel. Prefer Workflow
-`Promise.all` for the four-pass cleanup path when available; otherwise issue all
-four background Task or Agent requests before inspecting or summarizing task
-results. Each request gets exactly one angle: Reuse, Simplification, Efficiency,
-or Altitude.
-
-If Claude Code subagent dispatch is unavailable, preserve the same four cleanup
-role passes inline as four labeled blocks and record the fallback reason required
-by the shared core.
+Run the four cleanup passes in parallel: prefer Workflow `Promise.all` when
+available; otherwise issue all four background Task or Agent requests before
+inspecting or summarizing results. Each request gets exactly one angle: Reuse,
+Simplification, Efficiency, or Altitude. If dispatch is unavailable, use the
+shared core's inline labeled-block fallback (the core owns the fallback-reason
+rule).

@@ -346,11 +346,7 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Cleanup always runs the four cleanup role passes in parallel. When the active
-Codex host exposes subagent dispatch, launch the Reuse, Simplification,
-Efficiency, and Altitude cleanup subagents as one eligible batch before waiting
-for any result.
-
-If Codex subagent dispatch is unavailable, preserve the same four cleanup role
-passes inline as four labeled blocks and record the fallback reason required by
-the shared core.
+Launch the four cleanup passes via Codex `spawn_agent` following the shared
+core's one batch before waiting dispatch rule; if Codex subagent dispatch is
+unavailable, use the core's inline labeled-block fallback. The core owns the
+batch, inline-fallback, and fallback-reason rules; do not restate them here.
