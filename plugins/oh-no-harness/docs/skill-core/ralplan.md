@@ -767,14 +767,9 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. When the opposite host is available, run this as cross-host review per `docs/shared/cross-host-review.md`: the current-host and opposite-host instances review the same draft in parallel and the main agent synthesizes one verdict; otherwise use the Same-Host Parallel Fallback. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. Cross-host review runs per the `## Plan Review Contract`. |
 
-Analyst, Planner, and Plan-Reviewer remain sequential in that order unless
-Analyst is satisfied by an approved `interview` spec. Plan-Reviewer runs only
-after the Planner draft exists. Do not run them in parallel. This governs the
-three distinct roles and does not forbid cross-host review running the
-current-host and opposite-host instances of the same reviewer role concurrently
-once the draft exists (see `docs/shared/cross-host-review.md`).
+Analyst/Planner/Plan-Reviewer stay strictly sequential per the rule above — Plan-Reviewer only after the Planner draft exists. Cross-host runs two instances of the one reviewer role, not the three roles (see `docs/shared/cross-host-review.md`).
 
 ## Concrete Request Signals
 

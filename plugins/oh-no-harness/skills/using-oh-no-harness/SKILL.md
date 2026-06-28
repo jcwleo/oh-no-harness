@@ -60,8 +60,8 @@ The available public skills are:
 For LLM software development, prefer this order when the request is not already a small, concrete edit:
 
 1. `using-oh-no-harness`: route the request and choose the right workflow surface.
-2. `interview`: discover requirements, constraints, users, acceptance criteria, and brownfield facts for vague or requirement-light work.
-3. `ralplan`: turn the approved spec or clear task into an implementation plan, sequencing, TDD expectations, required Ralph execution mode, risk handling, and verification strategy.
+2. `interview`: for vague or requirement-light work.
+3. `ralplan`: turn the approved spec or clear task into the implementation plan and required Ralph execution mode.
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
 5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `ultrawork`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.

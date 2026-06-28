@@ -190,8 +190,7 @@ re-checks may stay inline when they have equal evidence.
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
-`docs/shared/ralph-subagent-policy.md`; `docs/shared/parallel-subagents.md` is
-only a short pointer back to that policy.
+`docs/shared/ralph-subagent-policy.md`.
 Use the same ownership and integration rules as `ralph`. If the approved plan
 selects `Parallel trigger: approved-plan-handoff`, preserve that trigger in the
 Ralph handoff and treat it as the parallel-capable execution path for eligible

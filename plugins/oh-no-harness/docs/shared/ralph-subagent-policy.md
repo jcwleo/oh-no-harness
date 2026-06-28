@@ -74,9 +74,7 @@ registered read-only `oh-no-explore` custom agent, as many as the lookup needs
 and not capped at one; if `oh-no-explore` is unavailable, answer inline rather
 than falling back to a generic or prompt-embedded subagent. When the lane
 dispatches, each dispatched result is a dependency: wait for the receiver to
-reach a final status, capture it, and use it before the next action; never close
-a running or pending subagent merely because it is slow, and never treat a
-timeout or empty wait as completion evidence. If role work beyond read-only
+reach a final status, capture it, and use it before the next action, per the `## Subagent Lifecycle` hard rule below. If role work beyond read-only
 exploration would be useful, select the relevant Oh No Harness skill or get
 explicit subagent authorization first.
 
