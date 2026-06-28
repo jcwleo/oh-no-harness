@@ -194,8 +194,10 @@ Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather
 than debating it.
 
-Run the behavior lock again after cleanup. If cleanup changed structure, tests,
-or control flow, return that need to the caller so `code-reviewer` or
+Run the behavior lock again after cleanup. If the post-cleanup behavior lock does
+not match the pre-cleanup result, revert the offending cleanup before reporting;
+never ship a cleanup whose behavior lock regressed. If cleanup changed structure,
+tests, or control flow, return that need to the caller so `code-reviewer` or
 `verifier` can inspect the result.
 
 ## Output
