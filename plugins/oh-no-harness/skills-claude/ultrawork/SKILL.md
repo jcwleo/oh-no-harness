@@ -92,7 +92,8 @@ start_or_resume
 - Existing approved specs or plans may skip earlier phases only when the skip
   reason and source artifact are recorded.
 - Any scope change, missing authority artifact, failed worktree gate, or failed
-  verification transitions to `paused` or `blocked`, not silent continuation.
+  verification transitions to `paused_for_user`, `scope_change_pending_approval`,
+  or `blocked`, not silent continuation.
 - QA failures transition to `systematic-debugging`, then back to
   `execution_handoff` or `final_validation` only after root-cause evidence.
 

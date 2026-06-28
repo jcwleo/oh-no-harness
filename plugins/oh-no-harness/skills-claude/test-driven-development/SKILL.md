@@ -155,11 +155,15 @@ Run those tests before refactoring, then rerun them after each meaningful refact
 
 ## Evidence To Record
 
-When this skill is used from `ralph`, record TDD evidence in:
+When this skill is used from a session-scoped workflow (`ralph`, `ultrawork`, or
+`systematic-debugging` operating in a session), record TDD evidence in:
 
 ```text
 .oh-no/sessions/{sessionId}/verification.md
 ```
+
+On a direct edit path with no session, record the same RED/GREEN/REFACTOR
+evidence inline in the final report or completion claim instead.
 
 Record:
 

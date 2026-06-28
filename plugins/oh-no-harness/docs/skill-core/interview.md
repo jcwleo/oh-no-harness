@@ -287,6 +287,7 @@ Acceptance criteria:
 - Failure signal: observable behavior, artifact, regression, or omission that means the work is wrong
 - Insufficient evidence: checks or outputs that are useful but insufficient proof
 - Scope boundary most likely to be misunderstood:
+- Contract surface most likely to be missed:
 - Confirmation status: confirmed by user | inferred from repo | inferred from request | open
 ```
 
@@ -388,8 +389,8 @@ The spec must include:
 - acceptance criteria, each carrying at least one concrete example when
   applicable
 - acceptance criteria details: who validates success, success signal, failure
-  signal, insufficient proofs, likely misunderstood boundary, and confirmation
-  status
+  signal, insufficient proofs, likely misunderstood boundary, contract surface
+  most likely to be missed, and confirmation status
 - constraints
 - risks
 - open questions
