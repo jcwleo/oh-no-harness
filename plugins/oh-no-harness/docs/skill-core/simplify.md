@@ -73,10 +73,10 @@ Before editing, establish one of:
 
 For a cleanup that alters control flow, structure, or shared/altitude mechanisms,
 an executable lock — passing tests or a focused verification command — is
-required; a manual checklist or before/after description alone is sufficient only
-for purely local, non-control-flow edits. If only a prose lock exists for such a
-structural change, record it as `reviewer follow-up` under the
-`Maintainability Debt Boundary` instead of applying it.
+required; a prose lock (checklist or before/after description) suffices only for
+purely local edits. If only a prose lock exists for such a change, record it as
+`reviewer follow-up` under the `Maintainability Debt Boundary` instead of
+applying it.
 
 If no behavior lock exists, create a verification plan first and state the risk.
 
@@ -182,11 +182,10 @@ Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather
 than debating it.
 
-Run the behavior lock again after cleanup. If the post-cleanup behavior lock does
-not match the pre-cleanup result, revert the offending cleanup before reporting;
-never ship a cleanup whose behavior lock regressed. If cleanup changed structure,
-tests, or control flow, return that need to the caller so `code-reviewer` or
-`verifier` can inspect the result.
+Run the behavior lock again after cleanup. If the post-cleanup behavior lock
+regresses from the pre-cleanup result, revert the offending cleanup before
+reporting. If cleanup changed structure, tests, or control flow, return that need
+to the caller so `code-reviewer` or `verifier` can inspect the result.
 
 ## Output
 

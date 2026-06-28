@@ -187,8 +187,8 @@ For direct Ralph execution that created an automatic worktree, completion is not
 finished while the work sits in the worktree. After the verification, review, and
 cleanup gates pass, either merge the task branch back into the originating
 checkout and run post-merge verification, or — when the user asked for a branch or
-PR handoff — leave the task branch intact and report its name and the merge or PR
-path. Remove the task worktree only after a successful merge and post-merge
+PR handoff — leave the task branch intact and report its name and the handoff
+path. Remove the worktree only after a successful merge and post-merge
 verification, or on explicit user cancellation, per
 `docs/shared/worktree-isolation.md`. If merge or post-merge verification fails,
 report the blocker and leave the worktree intact instead of claiming completion.
@@ -266,7 +266,7 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
    If this story changed files or shared behavior that an already-completed
    story's acceptance depended on, re-verify that earlier story before
    continuing; never leave a stale `passes: true`.
-9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story implementation attempts: if a story still fails its verification for the same root cause after one `systematic-debugging` pass and one further fix attempt, stop retrying it — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals that the approved plan or an acceptance criterion is wrong or infeasible as written — not merely an unrelated adjacent problem — stop and route back to the user or `ralplan` with the evidence instead of silently improvising a different approach.
+9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` with the evidence instead of silently improvising.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
@@ -454,17 +454,14 @@ proof. For behavior-changing work:
   indirect at best. See `verification-before-completion`'s
   `## Acceptance-To-Evidence Mapping` for the full rule. This does not apply to
   LIGHT or trivial work.
-- Inspect each real-surface artifact for silent failure: a success status is not
-  acceptance. Confirm the intended effect actually appears — not HTTP 2xx with an
-  empty or error body, not exit 0 with no state change, not a log line that only
-  says "done". A success code without the observable effect is missing evidence,
-  not a pass.
+- Inspect each real-surface artifact for silent failure: a success status (HTTP
+  2xx, exit 0, a "done" log line) without the observable effect is missing
+  evidence, not a pass. See `verification-before-completion`'s `## Evidence Rules`.
 - Before writing a real-surface artifact, command output, or log into a `.oh-no`
-  session file or the final report, redact secrets and sensitive data: replace
-  tokens, credentials, API keys, cookies, auth headers, and PII with a labeled
-  placeholder such as `[REDACTED_TOKEN]`, keeping only the non-sensitive shape
-  needed as evidence (status line, lengths, hashes, short non-secret prefixes).
-  Use the redaction convention from `docs/shared/cross-host-review.md`.
+  session file or the final report, redact secrets and PII to a labeled
+  placeholder, keeping only the non-sensitive shape needed as evidence (status
+  line, lengths, hashes, short non-secret prefixes), per the redaction convention
+  in `docs/shared/cross-host-review.md`.
 
 Record skipped broad checks and residual risk honestly. Do not claim stronger
 coverage than the evidence supports.
@@ -528,13 +525,13 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 
 1. Re-read the input artifact and `.oh-no/sessions/{sessionId}/prd.json`,
    `progress.md`, and `verification.md` when present.
-2. Recompute the set of incomplete stories from each story's `status`/`passes`,
-   not from memory.
-3. Re-confirm the selected execution mode and the recorded `Worktree decision`
-   and location before any further edit.
-4. Treat any story that was in progress when the loop stopped as unverified:
-   re-run its story-specific verification before marking it complete, because its
-   evidence may be stale or partial.
+2. Recompute the incomplete-story set from each story's `status`/`passes`, not
+   from memory.
+3. Re-confirm the execution mode and recorded `Worktree decision` and location
+   before any further edit.
+4. Treat any story in progress when the loop stopped as unverified — its evidence
+   may be stale or partial: re-run its story-specific verification before marking
+   it complete.
 5. Resume the Execution Loop at the first incomplete story.
 
 ## Persistence Rule

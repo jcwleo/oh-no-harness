@@ -89,12 +89,12 @@ task-specific failure, scope, expected output, and verification responsibility.
 8. Trace the causal chain from the observed symptom back to the source that made
    the symptom possible. Do not accept a fix plan that only removes the visible
    trigger while leaving the failure mode latent. Before accepting a root cause,
-   confirm it falsifiably with a causal toggle: show that toggling the suspected
-   cause makes the failure appear and reverting it makes the failure disappear.
-   When a clean toggle is not feasible (for example a race or
-   environment-dependent failure), state why and name the next-strongest
-   confirming evidence, such as a deterministic reproduction under the cause,
-   instead of treating a plausible-looking trace as proof.
+   confirm it falsifiably with a causal toggle: toggling the suspected cause
+   makes the failure appear and reverting it makes it disappear. When a clean
+   toggle is not feasible (for example a race or environment-dependent failure),
+   state why and name the next-strongest confirming evidence (such as a
+   deterministic reproduction under the cause) instead of treating a plausible
+   trace as proof.
 9. For behavior fixes, read and follow `test-driven-development` to create a
    failing reproduction test before changing production code.
 10. If reproduction and hypothesis evidence exist but the diagnosis remains
@@ -154,7 +154,7 @@ Return:
 - Hypothesis ledger, including rejected hypotheses and evidence.
 - Root cause and evidence.
 - Causal chain and why the fix removes the failure mode.
-- Causal toggle: the cause toggled on/off observation, or not feasible with the reason and the next-strongest confirming evidence.
+- Causal toggle: the on/off observation, or "not feasible" with the reason and next-strongest confirming evidence.
 - Reproduction test or documented exception.
 - Fix summary.
 - Verification commands and results.

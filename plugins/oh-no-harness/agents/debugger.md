@@ -23,10 +23,10 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Confirm or reject the active hypothesis with specific evidence.
 - Trace the causal chain from symptom to source so the proposed fix removes the
   failure mode, not only the current trigger.
-- Confirm the root cause falsifiably with a causal toggle when feasible: toggling
-  the suspected cause makes the failure appear and reverting it makes the failure
-  disappear. When a clean toggle is not feasible, state why and give the
-  next-strongest confirming evidence instead of treating a plausible trace as proof.
+- Confirm the root cause falsifiably with a causal toggle when feasible (the
+  failure appears when the suspected cause is toggled on and disappears when
+  reverted); when no clean toggle is feasible, state why and give the
+  next-strongest confirming evidence rather than treating a plausible trace as proof.
 - Recommend the smallest fix that addresses the root cause.
 
 ## Cross-Host Analysis

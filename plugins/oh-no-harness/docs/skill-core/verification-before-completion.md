@@ -153,10 +153,9 @@ real user, maintainer, operator, or public contract.
   regression-sensitive work.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception.
 - When an agent reports success, inspect the changed files or artifacts before repeating the claim.
-- A success status is not acceptance: confirm the intended effect actually
-  appears in the real-surface artifact — not HTTP 2xx with an empty or error
-  body, not exit 0 with no state change, not a log line that only says "done". A
-  success code without the observable effect is missing evidence, not a pass.
+- A success status is not acceptance: an HTTP 2xx with an empty or error body,
+  exit 0 with no state change, or a "done" log line without the observable
+  effect is missing evidence, not a pass.
 
 ## Output
 
