@@ -48,12 +48,20 @@ Run all of these **from the repository root**.
 
 ```sh
 # Fast static checks (frontmatter, manifests, public-skill surface, no Task/Skill in bodies).
-# Also fails if generated files are stale.
+# Also fails if generated files are stale, and runs the deterministic
+# skill-reachability deep-smoke (below) for both platforms.
 python3 scripts/validate-plugin-files.py .
 
 # Verify generated outputs are up to date (CI/release-style check; no writes).
 python3 scripts/generate-skill-wrappers.py --check
 python3 scripts/generate-agent-wrappers.py --check
+
+# Deterministic deep-smoke: assert each skill's load-bearing workflow rules are
+# reachable in its composed wrapper plus the docs/shared and sub-skills it
+# references (replaces gating on flaky live-model phrase grep; the live
+# `--deep-live` test below is now a non-gating signal). Run for each platform.
+python3 scripts/check-skill-reachability.py --platform codex --plugin-root plugins/oh-no-harness
+python3 scripts/check-skill-reachability.py --platform claude --plugin-root plugins/oh-no-harness
 
 # Local install + offline smoke tests (resyncs the plugin cache when source differs).
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh

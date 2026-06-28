@@ -284,8 +284,9 @@ assert_json_valid() {
 }
 
 validate_frontmatter() {
+  # validate-plugin-files.py also runs the deterministic skill-reachability
+  # deep-smoke (both platforms); no separate invocation needed here.
   "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/validate-plugin-files.py" "$MARKETPLACE_ROOT" "$PLUGIN_ROOT"
-  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-skill-reachability.py" --platform claude --plugin-root "$PLUGIN_ROOT"
 }
 
 plugin_version() {

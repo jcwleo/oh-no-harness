@@ -2480,6 +2480,33 @@ def assert_generated_skill_wrappers(marketplace_root: Path, root: Path) -> None:
         die(f"generated skill wrappers are stale:\n{details}")
 
 
+def assert_skill_reachability(marketplace_root: Path, root: Path) -> None:
+    """Deterministic deep-smoke: each skill's load-bearing workflow rules must be
+    reachable in its composed wrapper plus the docs/sub-skills it references, on
+    both platforms. Replaces flaky live-model phrase grepping as the gate."""
+    script_candidates = [
+        marketplace_root / "scripts" / "check-skill-reachability.py",
+        root.parent.parent / "scripts" / "check-skill-reachability.py",
+    ]
+    if len(root.parents) >= 3:
+        script_candidates.append(root.parents[2] / "scripts" / "check-skill-reachability.py")
+    script = next((candidate for candidate in script_candidates if candidate.exists()), None)
+    if script is None:
+        searched = ", ".join(str(candidate) for candidate in script_candidates)
+        die(f"check-skill-reachability.py is missing; searched: {searched}")
+    for platform in ("codex", "claude"):
+        result = subprocess.run(
+            [sys.executable, str(script), "--platform", platform, "--plugin-root", str(root)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            details = "\n".join(
+                part for part in (result.stdout.strip(), result.stderr.strip()) if part
+            )
+            die(f"skill reachability check failed ({platform}):\n{details}")
+
+
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
     # marker cannot be satisfied by unrelated or wrong-section text, and so the
@@ -2539,6 +2566,7 @@ def main() -> None:
 
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
+    assert_skill_reachability(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)
     for skill in COMMAND_WRAPPERS:

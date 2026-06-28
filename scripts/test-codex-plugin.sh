@@ -215,7 +215,6 @@ validate_codex_manifest() {
   log "Validating Codex plugin manifest"
   assert_json_valid "$PLUGIN_ROOT/.codex-plugin/plugin.json"
   "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/validate-plugin-files.py" "$MARKETPLACE_ROOT" "$PLUGIN_ROOT"
-  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-skill-reachability.py" --platform codex --plugin-root "$PLUGIN_ROOT"
 
   local manifest_name manifest_version
   manifest_name="$(json_value name)"
