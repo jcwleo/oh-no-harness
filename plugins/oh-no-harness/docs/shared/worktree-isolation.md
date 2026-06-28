@@ -132,6 +132,14 @@ left for inspection.
 If worktree creation, merge, or post-merge verification fails, report the blocker
 instead of silently editing the original checkout.
 
+Direct `ralph` automatic worktrees carry the same post-execution responsibility
+for their own scope: once the work passes the verification, review, and cleanup
+gates, direct `ralph` must either merge the task branch back into the originating
+checkout and run post-merge verification, or — when the user requested a branch or
+PR handoff — leave the task branch intact and report its name and the merge or PR
+path. Remove the worktree only after a successful merge and post-merge
+verification, or on explicit user cancellation.
+
 ## Artifact Handoff
 
 When execution moves from the planning checkout into a worktree, preserve access
