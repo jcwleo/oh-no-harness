@@ -71,6 +71,13 @@ Before editing, establish one of:
 - a manual acceptance checklist
 - a clear before/after behavior description when no command exists
 
+For a cleanup that alters control flow, structure, or shared/altitude mechanisms,
+an executable lock — passing tests or a focused verification command — is
+required; a manual checklist or before/after description alone is sufficient only
+for purely local, non-control-flow edits. If only a prose lock exists for such a
+structural change, record it as `reviewer follow-up` under the
+`Maintainability Debt Boundary` instead of applying it.
+
 If no behavior lock exists, create a verification plan first and state the risk.
 
 ## Maintainability Debt Boundary
