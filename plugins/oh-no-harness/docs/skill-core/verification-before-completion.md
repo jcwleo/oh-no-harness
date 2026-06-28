@@ -158,6 +158,10 @@ real user, maintainer, operator, or public contract.
 - A success status is not acceptance: an HTTP 2xx with an empty or error body,
   exit 0 with no state change, or a "done" log line without the observable
   effect is missing evidence, not a pass.
+- Before recording a real-surface artifact, command output, or log as evidence —
+  here or in any `.oh-no` file, PR body, or handoff — redact secrets and PII to a
+  labeled placeholder, keeping only the non-sensitive shape needed (status line,
+  lengths, hashes, short non-secret prefixes), per `docs/shared/cross-host-review.md`.
 
 ## Output
 

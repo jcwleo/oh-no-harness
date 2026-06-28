@@ -207,9 +207,10 @@ integration checkout and post-merge verification.
 For direct Ralph execution that created an automatic worktree, completion is not
 finished while the work sits in the worktree. After the verification, review, and
 cleanup gates pass, either merge the task branch back into the originating
-checkout and run post-merge verification, or — when the user asked for a branch or
-PR handoff — leave the task branch intact and report its name and the handoff
-path. Remove the worktree only after a successful merge and post-merge
+checkout and run post-merge verification, or — when the user asked for a branch
+or PR handoff, or to leave the worktree in place for inspection — leave the task
+branch intact and report its name and the handoff path. Remove the worktree only
+after a successful merge and post-merge
 verification, or on explicit user cancellation, per
 `docs/shared/worktree-isolation.md`. If merge or post-merge verification fails,
 report the blocker and leave the worktree intact instead of claiming completion.
@@ -287,7 +288,7 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
    If this story changed files or shared behavior that an already-completed
    story's acceptance depended on, re-verify that earlier story before
    continuing; never leave a stale `passes: true`.
-9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` with the evidence instead of silently improvising.
+9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` (present the options; do not auto-invoke) with the evidence instead of silently improvising.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
@@ -552,7 +553,11 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 4. Treat any story in progress when the loop stopped as unverified — its evidence
    may be stale or partial: re-run its story-specific verification before marking
    it complete.
-5. Resume the Execution Loop at the first incomplete story.
+5. If the worktree diverged since the last pass (a `git status`/`git diff` shows
+   changes not attributable to recorded work — a rebase, manual edit, or conflict
+   resolution), re-verify any already-completed story whose acceptance depended on
+   the changed files before trusting its `passes: true`.
+6. Resume the Execution Loop at the first incomplete story.
 
 ## Persistence Rule
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic deep-smoke: verify each skill's load-bearing workflow rules are
-REACHABLE from its composed runtime wrapper plus the docs/shared files and
-sub-skills it references.
+REACHABLE from its composed runtime wrapper plus the docs/shared files and the
+sub-skills it hands off to.
 
 This replaces the flaky live-model phrase-grep deep-smoke for GATING purposes:
 the live test sampled one stochastic model answer and asserted exact substrings,
@@ -10,11 +10,16 @@ non-deterministically. What we actually want to gate on is "does the skill, as
 composed, make the rule reachable" — a static, deterministic property.
 
 For each skill we build a resolved text bag = the platform wrapper body + every
-`docs/shared/<name>.md` it references + the same-platform wrapper of every public
-skill it backtick-references (bounded depth, cycle-guarded), then assert each
-required canonical rule phrase appears in that bag. Phrases that are genuinely
-platform-asymmetric (e.g. Codex spawn_agent vs Claude agent naming) are tagged so
-they are only required on their platform.
+`docs/shared/<name>.md` it references + the same-platform wrapper of every skill
+it hands off to via the explicit SKILL_REFERENCES graph (bounded depth,
+cycle-guarded), then assert each required canonical rule phrase appears there.
+Phrases that are genuinely platform-asymmetric (e.g. Codex spawn_agent vs Claude
+agent naming) are tagged so they are only required on their platform.
+
+The reference graph is explicit (not regex over every backticked skill name) so a
+required cross-skill rule only counts as reachable through a real handoff edge —
+an incidental skill mention cannot satisfy it, and removing a genuine handoff
+fails the check.
 
 Usage:
     python3 scripts/check-skill-reachability.py --platform codex  [--plugin-root .]
@@ -27,21 +32,23 @@ import re
 import sys
 from pathlib import Path
 
-PUBLIC_SKILLS = [
-    "interview", "ralplan", "ralph", "ultrawork", "simplify",
-    "systematic-debugging", "verification-before-completion",
-    "test-driven-development", "fusion-rescue", "using-oh-no-harness",
-    "auto-routing",
-]
-
 WRAPPER_DIR = {"codex": "skills", "claude": "skills-claude"}
 
 BOTH, CODEX, CLAUDE = "both", "codex", "claude"
+VALID_PLATFORMS = {BOTH, CODEX, CLAUDE}
+
+# Explicit handoff edges that a required cross-skill phrase is reached through.
+# Only these edges are followed when resolving a skill's reachable text, so an
+# incidental backtick mention cannot satisfy a required rule and dropping a real
+# handoff fails the check.
+SKILL_REFERENCES: dict[str, list[str]] = {
+    "ralph": ["simplify"],                       # 'Required Behavior Lock'
+    "ultrawork": ["interview", "ralplan", "ralph"],  # spec path / 2 loops / cleanup heading
+}
 
 # skill -> list of (canonical phrase, platform). platform=both unless the rule is
-# genuinely platform-specific. Every phrase was rg-verified reachable on its
-# platform(s); the checker re-verifies on each run, so drift fails loudly here
-# instead of intermittently in a live test.
+# genuinely platform-specific. Every phrase is re-verified reachable on each run,
+# so drift fails loudly here instead of intermittently in a paid live test.
 REQUIRED: dict[str, list[tuple[str, str]]] = {
     "interview": [
         ("consider advisory context", BOTH),
@@ -77,12 +84,12 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("parent-directory siblings", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
-        ("Required Behavior Lock", BOTH),  # reachable via the `simplify` reference
+        ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
-        (".oh-no/specs/interview-", BOTH),  # via the `interview` reference
-        ("at most 2 loops", BOTH),  # via the `ralplan` reference
+        (".oh-no/specs/interview-", BOTH),  # via the interview handoff edge
+        ("at most 2 loops", BOTH),  # via the ralplan handoff edge
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("git worktree add", BOTH),
         ("Worktree decision: ultrawork automatic worktree", BOTH),
@@ -91,7 +98,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Read and follow `ralph`", BOTH),
         ("Ultrawork-approved", BOTH),
         ("execution mode and mode source", BOTH),
-        ("## Cleanup And Final Verification", BOTH),  # via the `ralph` reference
+        ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -111,6 +118,21 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("intended behavior", BOTH),
         ("Maintainability Debt Boundary", BOTH),
     ],
+    "systematic-debugging": [
+        ("Find the root cause before changing behavior", BOTH),
+        ("hypothesis ledger", BOTH),
+        ("causal toggle", BOTH),  # the falsifiable root-cause confirmation gate
+        ("the failure mode is gone", BOTH),
+        ("verification-before-completion", BOTH),
+    ],
+    "verification-before-completion": [
+        ("Do not claim success without fresh evidence", BOTH),
+        ("Acceptance-To-Evidence Mapping", BOTH),
+        ("Risk Check Before Completion", BOTH),
+        ("A success status is not acceptance", BOTH),  # the silent-success gate
+        ("A previous run is not fresh evidence", BOTH),
+        ("redact secrets", BOTH),  # the evidence-redaction rule
+    ],
 }
 
 
@@ -124,31 +146,40 @@ def find_plugin_root(start: Path) -> Path:
     return start
 
 
-def read(path: Path) -> str:
+def read(path: Path) -> str | None:
+    """Return file text, or None if the path is missing."""
     try:
         return path.read_text(encoding="utf-8")
     except OSError:
-        return ""
+        return None
 
 
 def resolve(root: Path, platform: str, skill: str, depth: int = 2,
-            seen: set[str] | None = None) -> str:
-    """Wrapper body + referenced shared docs + backtick-referenced sub-skills."""
+            seen: set[str] | None = None, missing: list[str] | None = None) -> str:
+    """Wrapper body + referenced shared docs + explicit handoff sub-skills."""
     if seen is None:
         seen = set()
+    if missing is None:
+        missing = []
     if skill in seen or depth < 0:
         return ""
     seen.add(skill)
-    text = read(root / WRAPPER_DIR[platform] / skill / "SKILL.md")
+    wrapper = root / WRAPPER_DIR[platform] / skill / "SKILL.md"
+    text = read(wrapper)
+    if text is None:
+        missing.append(str(wrapper))
+        return ""
     parts = [text]
     for name in sorted(set(re.findall(r"docs/shared/([a-z0-9-]+)\.md", text))):
-        parts.append(read(root / "docs" / "shared" / f"{name}.md"))
+        shared = read(root / "docs" / "shared" / f"{name}.md")
+        if shared is None:
+            missing.append(f"docs/shared/{name}.md (referenced by {skill})")
+        else:
+            parts.append(shared)
     if depth > 0:
-        for sub in PUBLIC_SKILLS:
-            if sub == skill or sub in seen:
-                continue
-            if re.search(r"`" + re.escape(sub) + r"`", text):
-                parts.append(resolve(root, platform, sub, depth - 1, seen))
+        for sub in SKILL_REFERENCES.get(skill, []):
+            if sub not in seen:
+                parts.append(resolve(root, platform, sub, depth - 1, seen, missing))
     return "\n".join(parts)
 
 
@@ -159,10 +190,20 @@ def main() -> int:
     args = ap.parse_args()
     root = find_plugin_root(Path(args.plugin_root))
 
+    # Fail on a typo'd platform tag rather than silently skipping a check.
+    for skill, reqs in REQUIRED.items():
+        for phrase, platform in reqs:
+            if platform not in VALID_PLATFORMS:
+                print(f"FAIL - invalid platform tag {platform!r} for {skill}: {phrase!r}")
+                return 1
+
     failures: list[str] = []
+    warnings: list[str] = []
     checked = 0
     for skill, reqs in REQUIRED.items():
-        bag = resolve(root, args.platform, skill).lower()
+        missing: list[str] = []
+        bag = resolve(root, args.platform, skill, missing=missing).lower()
+        warnings.extend(missing)
         if not bag.strip():
             failures.append(f"{skill}: composed wrapper not found under {WRAPPER_DIR[args.platform]}/")
             continue
@@ -172,6 +213,9 @@ def main() -> int:
             checked += 1
             if phrase.lower() not in bag:
                 failures.append(f"{skill} [{args.platform}]: rule not reachable -> {phrase!r}")
+
+    for w in sorted(set(warnings)):
+        print(f"WARN - missing referenced doc/wrapper: {w}", file=sys.stderr)
 
     if failures:
         print(f"FAIL - skill reachability ({args.platform}): {len(failures)} issue(s)")
