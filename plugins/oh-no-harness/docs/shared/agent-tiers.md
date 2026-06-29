@@ -28,12 +28,10 @@ This file is not a dispatch contract. Ralph dispatch uses
 lightest credible level of scrutiny for a role after the active skill has
 decided that the role is needed.
 
-Inline execution is appropriate only for tiny LIGHT work, platforms without
-subagents, missing dispatch-worthy scope, tight sequencing, or checks that have
-no meaningful context-separation benefit. Prefer dispatch for read-heavy,
-review, verification, QA, security, and exploration roles whenever the active
-skill and host policy allow it. The Escalation Rules below still govern when to
-climb tiers.
+Whether to inline or dispatch a role is the dispatch contract's call, not this
+file's: see `docs/shared/ralph-subagent-policy.md` for the inline-eligibility
+conditions and the prefer-dispatch guidance. The Escalation Rules below still
+govern when to climb tiers.
 
 ## Skill Boundary
 

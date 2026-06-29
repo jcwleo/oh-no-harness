@@ -34,6 +34,21 @@ Cross-host review applies wherever a skill dispatches `plan-reviewer`,
   validation), `systematic-debugging` (post-fix validation). Same default and
   require-cross-host behavior as the review roles.
 
+Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
+Gate and `ultrawork`'s Final Validation the `code-reviewer` runs first as the
+parallel pair (cross-host, or the Same-Host Parallel Fallback), and the
+subsequent confirming `verifier` runs as a single independent pass at STANDARD;
+at THOROUGH (or when the required independent verifier audit warrants the extra
+redundancy) the confirming verifier also runs as the cross-host pair (or
+Same-Host Parallel Fallback), because the code-review pair does not redundantly
+cover the verifier's own acceptance-to-evidence and test-genuineness function.
+This is scoped to those two flows; the `verifier` in-scope listing
+above still governs its standalone use elsewhere
+(`verification-before-completion`, `systematic-debugging` post-fix, and any
+`ralph`/`ultrawork` verifier dispatch not preceded by the parallel code-review
+pair). The confirming verifier remains an independent dispatch (never the
+maker).
+
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
 dispatches it, nor to any other role. The `executor`, `explore`, `analyst`,
 `planner`, and `fusion-rescue-analyst` roles are out of scope for cross-host
@@ -196,6 +211,25 @@ The recursion guard restricts CROSS-HOST hops, not same-host work:
 - Same-host read-only analysis stays non-mutating: no edits, writes, installs,
   or mutating commands from a review consult beyond producing the assigned
   review.
+
+## Recording the Independence Mode
+
+A skill records how each review or verification pass ran using exactly one
+independence-mode value:
+
+- `cross-host`: the synthesized current-host + opposite-host pair.
+- `same-host-parallel-fallback`: the two-same-host-agent fallback above,
+  synthesized when the opposite host was unavailable.
+- `inline-fallback`: a single inline pass — compliant only with an explicit
+  subagent-unavailable or unsafe-to-isolate reason recorded with it. An
+  unlabelled single inline pass is a gap, not a pass.
+
+The calling skill (`ralph` Review Gate, `ultrawork` Final Validation, `ralplan`
+plan review) owns the consequence of a missing or non-compliant mode. The other
+in-scope dispatchers (`verification-before-completion` risk-gated, and
+`systematic-debugging` post-fix) already require an explicit inline-fallback
+reason through their own per-role recording, so they are not separately
+enumerated here.
 
 ## Fallback Notes
 

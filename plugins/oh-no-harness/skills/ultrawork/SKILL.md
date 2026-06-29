@@ -133,7 +133,10 @@ Checker outputs:
 - Record role, reviewed artifact or diff, findings, evidence status, follow-up,
   verdict when applicable, dispatch/fallback mode, and lifecycle status.
 - Maker roles do not self-approve; inline checker fallback is still checker
-  output.
+  output. At STANDARD and THOROUGH on subagent-capable hosts, an inline check by
+  the maker, or by the agent that accepted the maker's output, does not satisfy
+  the independent verifier audit under the carve-out in
+  `docs/shared/ralph-subagent-policy.md`; dispatch an independent `verifier`.
 
 Escalation rules:
 
@@ -178,7 +181,13 @@ review, Ultrawork's internal plan approval record, final evidence, role
 isolation, fallback reasons, and lifecycle cleanup requirements.
 Eligibility still depends on whether the role can change quality, risk,
 latency, or context management enough to justify dispatch; final narrow
-re-checks may stay inline when they have equal evidence.
+re-checks may stay inline when they have equal evidence. This inline allowance
+does not extend to the independent verifier audit under the carve-out in
+`docs/shared/ralph-subagent-policy.md`: at STANDARD and THOROUGH on
+subagent-capable hosts, when the proving tests or implementation were authored
+or accepted by the same agent, that audit is not inline-eligible and must be
+dispatched to an independent `verifier` (record the fallback reason if the host
+cannot dispatch).
 
 | Phase | Agents |
 |---|---|
@@ -186,7 +195,7 @@ re-checks may stay inline when they have equal evidence.
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
-| Final Validation | Dispatch `plan-reviewer`, `code-reviewer` (security lens included), and `verifier` (scenario lens) only for additional orchestration-level risk not already covered by Ralph's satisfied gates. When the opposite host is available, run `plan-reviewer`, `code-reviewer`, and `verifier` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback). |
+| Final Validation | Dispatch `plan-reviewer` and `code-reviewer` (security lens included) for additional orchestration-level risk not already covered by Ralph's satisfied gates. Dispatch `verifier` as an independent pass — required at STANDARD and THOROUGH on subagent-capable hosts whenever execution produced or changed proving tests, or the implementation/tests were authored or accepted by the same agent, per the carve-out in `docs/shared/ralph-subagent-policy.md` (record the fallback reason if the host cannot dispatch); otherwise (scenario lens) only for additional orchestration-level risk. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback); the `verifier` is the confirming pass per the Review-then-verify order below — single at STANDARD, or a cross-host/parallel pair at THOROUGH. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -210,6 +219,8 @@ end-to-end orchestration: it uses a registered Git worktree under
 back into the integration checkout. `git clone`, `cp -R`, and plain directories
 are not valid substitutes.
 
+worktree_gate: no source file edit until a `Worktree decision` is recorded per `docs/shared/worktree-isolation.md` (a reference to that canonical gate, not a re-hosted copy).
+
 Before editing files, Ultrawork must:
 
 1. Create or select a registered Git worktree under
@@ -219,12 +230,10 @@ Before editing files, Ultrawork must:
    worktree by copying the relevant artifact, recording an absolute artifact
    path, or quoting the approved task definition.
 
-After the implementation passes verification in the task worktree, Ultrawork
-must merge the completed work into the integration checkout, run post-merge
-verification, and record whether the worktree was cleaned up or left for
-inspection.
-
-If worktree creation, merge, or post-merge verification fails, report the blocker
+After the implementation passes verification in the task worktree, Ultrawork must
+merge it back into the integration checkout, run post-merge verification, and
+record cleanup-or-left-for-inspection, per `docs/shared/worktree-isolation.md`. If
+worktree creation, merge, or post-merge verification fails, report the blocker
 instead of silently editing the original checkout.
 
 ## Phases
@@ -240,6 +249,8 @@ Before leaving this phase, make sure the requirements source is explicit: either
 the user approved the interview spec, an existing approved spec or plan was
 found, or the original request is already concrete enough to plan without
 inventing product intent.
+
+requirements_gate: planning must not start until the requirements source is recorded.
 
 ### Phase 1: Plan
 
@@ -290,24 +301,48 @@ Repeat until checks pass or a blocking reason is documented.
 ### Phase 4: Final Validation
 
 Final Validation does not repeat Ralph's required internal gates when Ralph has
-already completed them. Dispatch only the additional orchestration-level review
+already completed them. Dispatch the additional orchestration-level review
 subagents warranted by integration, merge, public-contract, security, or
-cross-phase risk:
+cross-phase risk, and — at STANDARD and THOROUGH on subagent-capable hosts —
+always dispatch an independent `verifier` when execution produced or changed
+proving tests or the implementation/tests were authored or accepted by the same
+agent, regardless of extra orchestration risk (record the fallback reason if the
+host cannot dispatch):
 
 - `plan-reviewer` for architecture-sensitive changes
 - `code-reviewer` for correctness and maintainability, with its security lens
   for security-sensitive behavior
-- `verifier` with its scenario lens for user-facing behavior
-- When the opposite host is available, run `plan-reviewer`, `code-reviewer`, and
-  `verifier` as cross-host review per `docs/shared/cross-host-review.md`
-  (current-host + opposite-host instances synthesized into one result; otherwise
-  use the Same-Host Parallel Fallback with a fallback note)
+- `verifier`: required as an independent pass (acceptance-to-evidence mapping +
+  adversarial test-genuineness audit) under the carve-out in
+  `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation
+  were authored or accepted by the same agent; plus its scenario lens for
+  user-facing behavior
+- When the opposite host is available, run `plan-reviewer` and `code-reviewer`
+  as cross-host review per `docs/shared/cross-host-review.md` (current-host +
+  opposite-host instances synthesized into one result; otherwise use the
+  Same-Host Parallel Fallback with a fallback note); the `verifier` is the
+  confirming pass per the Review-then-verify order below — single at STANDARD, or
+  a cross-host/parallel pair at THOROUGH
+- Record each pass's independence mode per `docs/shared/cross-host-review.md`
+  `## Recording the Independence Mode`: for `plan-reviewer` and `code-reviewer`,
+  and for the `verifier` confirming pass (single at STANDARD, or a cross-host /
+  parallel pair at THOROUGH)
+
+Review-then-verify order: run the `code-reviewer` pair first, then the confirming
+independent `verifier` pass (never the maker), per the canonical contract in
+`docs/shared/cross-host-review.md` `## When It Applies` Exception and the bullets
+above. This mirrors `ralph`'s Review Gate.
 
 If execution was handled inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
 evidence requirements here before reporting success.
 
 ### Phase 5: Report
+
+<HARD-GATE>
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass.
+Run `verification-before-completion` before any completion claim or final report.
+</HARD-GATE>
 
 Before writing the final report, read and follow `verification-before-completion`
 for the final delivery claim unless Ralph already ran it for the same final

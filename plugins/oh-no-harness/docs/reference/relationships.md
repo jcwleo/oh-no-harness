@@ -84,7 +84,6 @@ ralph
   -> docs/shared/execution-modes.md before editing
   -> explore when files, tests, or integration surfaces are not obvious
   -> docs/shared/ralph-subagent-policy.md before subagent dispatch
-  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
   -> docs/platforms/claude-code-ralph.md on Claude Code
   -> docs/platforms/codex-ralph.md on Codex
   -> test-driven-development before behavior-changing production edits
@@ -96,6 +95,7 @@ ralph
   -> fusion-rescue when ordinary analysis or debugging stalls after credible evidence exists
   -> simplify after functional reviewer approval
   -> verification-before-completion before final completion claims
+  -> user or ralplan when execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written (present options; do not auto-invoke)
 
 ultrawork
   -> interview stage when requirements are vague
@@ -105,7 +105,6 @@ ultrawork
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report
   -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
-  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
   -> explore / analyst / planner / plan-reviewer / executor when phases are handled inline
   -> inline QA loop with debugger, verifier (scenario lens included), code-reviewer (security lens included)
 
@@ -128,7 +127,9 @@ systematic-debugging
   -> test-driven-development for bug reproduction tests
   -> executor for the minimal fix after root cause is known
   -> fusion-rescue when competing hypotheses remain contradictory or stalled after ordinary diagnostics
+  -> code-reviewer for post-fix review when risk requires (security lens included)
   -> verifier and verification-before-completion for fix evidence
+  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
 
 fusion-rescue
   -> fusion-rescue-analyst for current-host panel lenses
@@ -178,7 +179,7 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `executor` | `ralph`, implementation phases | `explore`, `plan-reviewer`, `debugger`, `verifier` |
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
 | `verifier` | `ralph`, `ultrawork`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
-| `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, security-sensitive validation | `verifier`, `simplify` recommendation |
+| `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, `systematic-debugging` (post-fix), security-sensitive validation | `verifier`, `simplify` recommendation |
 | `fusion-rescue-analyst` | `fusion-rescue` panel analysis | returns one assigned panel lens to the caller for current-host synthesis |
 
 ## Hook Boundary

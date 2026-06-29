@@ -76,7 +76,10 @@ output, and no-edit instruction for read-only review roles.
 
 ## Required Gate
 
-Before making a completion claim:
+<HARD-GATE>
+No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass.
+
+Before making a completion claim, complete every step below; the claim is invalid if any step is skipped or rests on stale evidence:
 
 1. State the exact claim to verify.
 2. Identify the command, artifact, diff inspection, or checklist that can prove it.
@@ -85,6 +88,8 @@ Before making a completion claim:
 5. Compare evidence to acceptance criteria.
 6. Complete the Risk Check Before Completion below.
 7. Report skipped checks and residual risk.
+8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm an independent `verifier` audit ran per the carve-out in `docs/shared/ralph-subagent-policy.md` — this self-gate does not substitute for it (record the dispatch-unavailable fallback if the host cannot dispatch).
+</HARD-GATE>
 
 If no meaningful command exists, inspect the changed files and write a manual verification checklist instead of implying automated confidence.
 

@@ -103,8 +103,8 @@ never reclassify it.
 - Reject plans that recommend `ralph` without a visible execution profile, task sizing, and final execution profile recap.
 - Reject write-capable execution plans that skip `Worktree policy`, skip direct
   Ralph's automatic registered Git worktree execution under
-  `.oh-no/worktrees/<task-slug>`, substitute `git clone`, `cp -R`, or a plain
-  directory for a task worktree, or fail to make Ultrawork's automatic
+  `.oh-no/worktrees/<task-slug>`, substitute a non-registered worktree (per
+  `docs/shared/worktree-isolation.md`), or fail to make Ultrawork's automatic
   registered project-local worktree execution and merge responsibility explicit.
 - Reject speculative abstraction, configurability, dependencies, or broad
   refactors unless they are tied to current acceptance criteria.

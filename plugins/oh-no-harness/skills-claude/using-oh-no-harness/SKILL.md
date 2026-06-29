@@ -99,21 +99,16 @@ When describing the staged workflow, call the requirements-discovery stage `inte
 For write-capable coding work, apply `docs/shared/worktree-isolation.md` before
 editing source files.
 
-`interview` and `ralplan` do not need to run inside a worktree by default because
-they produce pre-execution artifacts. The worktree gate starts at execution:
-direct `ralph` creates or selects a registered Git worktree under
-`.oh-no/worktrees/<task-slug>` by default, records
-`Worktree decision: direct automatic worktree`, and does not edit files until
-that decision is visible.
-Automatic task worktrees should stay inside the project rather than appearing as
-parent-directory siblings unless an explicit fallback is recorded. Do not treat
-`git clone`, `cp -R`, or a plain directory as a valid Ralph task worktree.
-
-`ultrawork` is the orchestration exception because it also owns integration back
-into the original checkout. When it reaches write-capable execution, it records
-`Worktree decision: ultrawork automatic worktree`, creates or selects a task
-registered Git worktree under `.oh-no/worktrees/<task-slug>`, executes there,
-merges into the integration checkout, and runs post-merge verification.
+`interview` and `ralplan` do not need a worktree by default because they produce
+pre-execution artifacts; the worktree gate starts at execution. Direct `ralph`
+creates a registered Git worktree under `.oh-no/worktrees/<task-slug>` and records
+`Worktree decision: direct automatic worktree` before editing; keep automatic
+worktrees project-local rather than parent-directory siblings, and never
+`git clone`, `cp -R`, or a plain directory. `ultrawork` does the same and additionally owns
+merge-back into the integration checkout
+(`Worktree decision: ultrawork automatic worktree`). See
+`docs/shared/worktree-isolation.md` for the allowed decisions and merge
+responsibilities.
 
 ## Interview Gate
 

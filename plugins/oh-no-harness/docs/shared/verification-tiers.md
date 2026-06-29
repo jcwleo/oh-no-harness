@@ -64,11 +64,18 @@ Required evidence:
 - Record the risk check before completion and any contract-surface,
   baseline-guard, or direct semantic test added because of it.
 - For behavior-changing work, validate RED/GREEN/REFACTOR evidence or a documented TDD exception.
+- When the change is behavior-changing AND the proving tests or implementation
+  were authored or accepted by the same agent, an independent `verifier` pass is
+  required on subagent-capable hosts per the carve-out in
+  `docs/shared/ralph-subagent-policy.md`; command success or an inline re-run by
+  the implementing or accepting agent is not sufficient. Record the fallback
+  reason if the host cannot dispatch.
 - Record the exact commands, outputs, and skipped checks in the final report.
 
 Recommended agents:
 
-- `verifier` for acceptance and command evidence.
+- `verifier` for acceptance and command evidence; required as an independent
+  pass under the carve-out in Required evidence above.
 - `code-reviewer` for behavior-affecting code or workflow changes.
 
 ## THOROUGH
@@ -82,10 +89,13 @@ Required evidence:
 - Include diff-budget scope review when the patch is broad, generated,
   multi-package, or public-API heavy.
 - Use independent review for design, security, QA, or regression concerns.
+- The independent `verifier` audit required at STANDARD also applies here under
+  the same carve-out; do not waive it for orchestration convenience.
 - Include residual risk and skipped checks in the final report.
 
 Recommended agents:
 
 - `plan-reviewer` for design, sequencing, and migration risk.
 - `code-reviewer` for broad regression review, with its security lens when auth, data, network, file system, policy, or secret handling can be affected.
-- `verifier` with its scenario lens for user-facing workflows.
+- `verifier` with its scenario lens for user-facing workflows; required as an
+  independent pass under the carve-out in Required evidence above.

@@ -21,6 +21,13 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Responsibilities
 
+Your acceptance-to-evidence mapping and adversarial test-genuineness audit
+derive their value from independence. They are not validly performed inline by
+the agent that authored or accepted the implementation or its tests (the
+executor/maker, or the orchestrator that accepted the executor's output). The
+command-re-run portion of your work may be performed inline by others; the
+independence audit may not.
+
 - Map acceptance criteria to evidence.
 - Classify each acceptance criterion as direct, indirect, manual, or missing
   evidence; do not approve a claim from command success alone.
@@ -80,7 +87,11 @@ any subagent you spawn.
 ## Operating Rules
 
 - Evidence before claims.
-- Do not approve work from the same active implementation pass without independent checks.
+- Do not approve work from the same active implementation pass without
+  independent checks. When the proving tests or implementation were authored or
+  accepted by the same agent, an inline self-review is not an independent check;
+  the audit must be run by an agent that did not author or accept those
+  artifacts.
 - A broad suite pass is supporting evidence, not direct proof of a new semantic
   contract unless the new behavior is represented in that suite.
 - New tests alone are supporting evidence, not sufficient completion proof,

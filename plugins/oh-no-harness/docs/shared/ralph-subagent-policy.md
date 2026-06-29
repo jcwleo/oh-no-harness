@@ -48,6 +48,19 @@ Requests to maximize subagents mean maximize useful, decision-changing
 delegation within those eligibility limits; they do not mean unconditional
 dispatch.
 
+The equal-evidence / final-narrow-checklist inline exception covers re-running
+or re-inspecting verification commands only, and that legitimate inline command
+re-run remains valid. It does not cover the independent verifier audit — the
+acceptance-to-evidence mapping plus the adversarial test-genuineness audit —
+when the proving tests or implementation were authored or accepted by the same
+agent (the executor/maker, or the orchestrator that accepted the executor's
+output). That audit has no equal inline evidence because it is a self-review of
+maker artifacts; at STANDARD and THOROUGH on subagent-capable hosts it must be
+dispatched to an independent `verifier`. "Equal evidence" means identical
+command output, not a self-assessment of one's own tests. LIGHT work is
+unaffected, and on a genuinely subagent-unavailable host run the audit inline
+and record the fallback reason.
+
 Explicit user requests, standing preferences, approved plan triggers, or active
 skill dispatch policies are sufficient when the host platform permits dispatch.
 Natural dispatch is allowed only when the host tool definition permits
@@ -117,6 +130,13 @@ Perform roles inline and record the fallback reason when any of these apply:
   with equal evidence
 - lifecycle, waiting, or integration cost is higher than the risk reduction for
   the selected execution mode
+
+The independent verifier audit named in "Subagent Bias" is never one of these
+fallback cases on a subagent-capable host: when the proving tests or
+implementation were authored or accepted by the same agent, "the output would
+not change the decision" and "equal evidence" do not apply, because the audit's
+value is its independence. Inline it only on a genuinely subagent-unavailable
+host, and record the fallback reason.
 
 These are fallback conditions, not permission to collapse role boundaries. When
 subagents are unavailable, keep the same role blocks inline and state why

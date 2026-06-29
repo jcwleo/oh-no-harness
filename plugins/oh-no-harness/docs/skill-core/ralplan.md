@@ -331,6 +331,7 @@ Consensus loop:
 - Planner revision v2: not needed | completed from blocking findings
 - Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
 - Re-review: not required (no blocking findings) | completed
+- Plan review independence mode: cross-host | same-host-parallel-fallback | inline-fallback (reason)
 
 Findings ledger:
 - <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | disposition: accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
@@ -350,6 +351,12 @@ roles, keep the same role boundary inline and record the platform, role,
 missing capability or authorization, draft id, and fallback reason. Do not move
 to the approval brief until the gate passes or the plan is explicitly marked
 `pending approval` with the blocking issue.
+
+The plan is also invalid if the plan review's independence mode is missing or
+non-compliant per `docs/shared/cross-host-review.md`
+`## Recording the Independence Mode`: a recorded `cross-host` or
+`same-host-parallel-fallback` mode, or an explicit `inline-fallback` with reason,
+is required before the approval brief.
 
 ## Direction Preservation Gate
 
@@ -519,11 +526,11 @@ isolate under `docs/shared/ralph-subagent-policy.md`.
 
 End every Plan Approval Brief with `Execution profile recap:` immediately before `Approval needed`. This block is the required complete profile for approval, so do not duplicate the same field list earlier in the brief unless a platform or user-requested artifact requires it.
 
-Use `LIGHT` only when direct implementation and light verification can prove the
-acceptance criteria without durable PRD tracking. Use `STANDARD` for localized
-behavior, prompt, skill, config, or workflow changes with bounded risk. Use
-`THOROUGH` for security, data, permissions, public contracts, release-critical
-surfaces, broad architecture changes, or multi-subsystem work.
+Choose the mode using the LIGHT/STANDARD/THOROUGH definitions and *Typical
+signals* in `docs/shared/execution-modes.md`: LIGHT for small isolated work
+provable without a durable PRD loop, STANDARD for localized bounded-risk changes,
+THOROUGH for security/data/permission/public-contract/release-critical or
+multi-subsystem work.
 
 If the execution mode is unclear after repository exploration, choose the higher
 credible mode and list the uncertainty under risks or open questions. Do not
@@ -626,6 +633,7 @@ Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposit
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 - Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
 - Re-review: {not required (no blocking findings) | completed}
+- Plan review independence mode: {cross-host | same-host-parallel-fallback | inline-fallback (reason)}
 
 Findings ledger:
 - {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}

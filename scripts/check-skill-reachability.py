@@ -74,6 +74,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("old broken behavior", BOTH),
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("Re-reviews run only when the previous", BOTH),
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("Codex role dispatch is host-policy controlled", CODEX),
     ],
     "ralph": [
@@ -85,6 +86,12 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("parent-directory siblings", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph.md body + ralph-subagent-policy.md)
+        ("the implementing or accepting agent is not sufficient", BOTH),  # STANDARD/THOROUGH verifier-required rule (verification-tiers.md, path-referenced)
+        ("cross-host/parallel pair at THOROUGH", BOTH),  # Edit 8 THOROUGH verifier-pair branch (guards multi-surface drift)
+        ("Read and follow `verification-before-completion` before any completion claim", BOTH),  # G1 thin VBC reference (ralph.md:274)
+        ("The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
+        ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -99,6 +106,13 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Ultrawork-approved", BOTH),
         ("execution mode and mode source", BOTH),
         ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + ralph-subagent-policy.md)
+        ("cross-host/parallel pair at THOROUGH", BOTH),  # Edit 8 THOROUGH verifier-pair branch (guards multi-surface drift)
+        ("Run `verification-before-completion` before any completion claim or final report", BOTH),  # G1 thin VBC reference (ultrawork Phase 5)
+        ("The run is invalid if the session ledger does not show each required phase gate satisfied", BOTH),  # ultrawork Phase 5 ledger-invalidation chokepoint
+        ("reviewer pass, independent verifier pass, simplify/cleanup, and VBC", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
+        ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
+        ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -124,8 +138,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("causal toggle", BOTH),  # the falsifiable root-cause confirmation gate
         ("the failure mode is gone", BOTH),
         ("verification-before-completion", BOTH),
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
     ],
     "verification-before-completion": [
+        ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
+        ("confirm an independent `verifier` audit ran per the carve-out", BOTH),  # standalone-VBC check-for: maker-authored STANDARD/THOROUGH must confirm the independent verifier ran (not a substitute)
         ("Do not claim success without fresh evidence", BOTH),
         ("Acceptance-To-Evidence Mapping", BOTH),
         ("Risk Check Before Completion", BOTH),

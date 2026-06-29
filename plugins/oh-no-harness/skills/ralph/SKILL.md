@@ -137,12 +137,12 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
 | `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. Cross-host merge: one verdict. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Cross-host merge: union/conservative. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. Cross-host merge: union/conservative. |
 | `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-When the opposite host is available, run the dispatched review/verification roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback.
+When the opposite host is available, run the dispatched review/verification roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: in the `## Review Gate` review-then-verify order the confirming `verifier` is single at STANDARD (a cross-host/parallel pair only at THOROUGH) — see that section and the review-then-verify exception in `docs/shared/cross-host-review.md`.
 
 `simplify` is a skill, not an agent. Use the active platform's Simplify route
 and cleanup invocation rules.
@@ -192,12 +192,11 @@ decision from `docs/shared/worktree-isolation.md` before the first edit.
 
 For direct Ralph execution, create or select a registered Git worktree using
 `git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default
-before editing and record
-`Worktree decision: direct automatic worktree`. Do not ask a worktree approval
-question. Keep automatic task worktrees project-local under `.oh-no/worktrees/`
-unless the shared policy allows and records an explicit fallback. Do not use
-the parent workspace directory by default, and do not use `git clone`, `cp -R`,
-a plain directory, or a manual checkout as a substitute.
+before editing and record `Worktree decision: direct automatic worktree`. Do not
+ask a worktree approval question. Keep automatic task worktrees project-local
+under `.oh-no/worktrees/` — not the parent workspace directory by default — and do
+not use `git clone`, `cp -R`, a plain directory, or a manual checkout as a
+substitute, per `docs/shared/worktree-isolation.md`.
 
 When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
 create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
@@ -205,15 +204,11 @@ execute there, then return control to Ultrawork for merge into the
 integration checkout and post-merge verification.
 
 For direct Ralph execution that created an automatic worktree, completion is not
-finished while the work sits in the worktree. After the verification, review, and
-cleanup gates pass, either merge the task branch back into the originating
-checkout and run post-merge verification, or — when the user asked for a branch
-or PR handoff, or to leave the worktree in place for inspection — leave the task
-branch intact and report its name and the handoff path. Remove the worktree only
-after a successful merge and post-merge
-verification, or on explicit user cancellation, per
-`docs/shared/worktree-isolation.md`. If merge or post-merge verification fails,
-report the blocker and leave the worktree intact instead of claiming completion.
+finished while the work sits in the worktree: after the verification, review, and
+cleanup gates pass, carry out the merge-back, post-merge verification, branch/PR
+handoff, and worktree-removal responsibilities in `docs/shared/worktree-isolation.md`.
+If merge or post-merge verification fails, report the blocker and leave the
+worktree intact instead of claiming completion.
 
 When execution moves to a worktree, preserve access to the approved `.oh-no`
 spec, plan, PRD, or task definition before editing by applying the artifact
@@ -296,19 +291,14 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 
 This section governs *agent role* dispatch only. Workflow-skill chaining (`interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
 
-Ralph must follow the selected execution mode and agent policy:
-
-- `LIGHT`: stay inline only for tiny direct edits or checks with no meaningful
-  context-separation benefit. Dispatch isolated read-heavy, review, or
-  verification checks when they would keep the main thread cleaner.
-- `STANDARD`: use targeted subagents on subagent-capable hosts when they improve
-  evidence, reduce risk, save context window, reduce latency, or handle an
-  isolated scope, and when the result can change the implementation, review,
-  verification, or ship/block decision. Use `verifier` or `code-reviewer` for
-  behavior-affecting or workflow changes when independent evidence is useful.
-- `THOROUGH`: use the full role set warranted by the risk. Dispatch every
-  required role that can be isolated on subagent-capable platforms; inline only
-  for documented subagent-unavailable or unsafe-to-isolate cases.
+Ralph must follow the selected execution mode and agent policy. The per-mode
+dispatch behavior is defined under each mode's *Ralph behavior* in
+`docs/shared/execution-modes.md` — follow it: `LIGHT` stays inline for tiny work
+with no context-separation benefit; in `STANDARD`, use targeted subagents on
+subagent-capable hosts when the result can change the implementation, review,
+verification, or ship/block decision; `THOROUGH` dispatches every isolable
+required role, inline only for documented subagent-unavailable or
+unsafe-to-isolate cases.
 
 Ralph execution is parallel-capable. An approved ralplan handoff to ordinary
 `oh-no-harness:ralph` authorizes every eligible isolated role in the
@@ -319,7 +309,12 @@ for exploration, disjoint executors, test/log analysis, verification (scenario
 QA lens included), code review (security lens included), and other independent
 review roles. In STANDARD and THOROUGH, treat disjoint implementation as first-class parallel work, not only review or exploration: scan remaining work for disjoint scopes and proactively partition disjoint executors into one batch when, and only when, the `docs/shared/ralph-subagent-policy.md` dispatch conditions, the `## Safe Parallel Work` isolation rules, and TDD/dependency safety all hold. Inline execution is the fallback, not the default, when
 `agentPolicy` is not `inline-only`, but final narrow re-checks may stay inline
-when a subagent result would not change the decision.
+when a subagent result would not change the decision. The independent verifier
+audit is not such a re-check under the carve-out in
+`docs/shared/ralph-subagent-policy.md`: at STANDARD and THOROUGH on
+subagent-capable hosts, when the proving tests or implementation were authored
+or accepted by the same agent, dispatch an independent `verifier` (record the
+fallback reason if the host cannot dispatch).
 
 Respect the platform rules from the active public skill runtime document and
 the Ralph platform adapter composed into that document. If no platform adapter
@@ -345,23 +340,14 @@ Parallelize under the dispatch conditions and platform deference already set in
 apply `docs/shared/ralph-subagent-policy.md`, then use only the active adapter named by the generated
 runtime skill document.
 
-If two or more roles or scopes are independent and the platform policy allows
-subagents, create the whole eligible batch before waiting for any one result.
-Continue local critical-path work only when it does not overlap with delegated
-scopes.
-
-Before dispatching, partition the work and write down:
-
-- story or task id
-- owned files, directories, or read-only scope
-- files or directories that must not be touched
-- expected output
-- verification responsibility
-- dependencies on other subagents
-- lifecycle owner: who captures output and closes or cleans up the completed
-  subagent
-- platform invocation: active adapter invocation syntax
-- start timing: foreground, background, or sequential after another role
+Apply the `## Batch Rule` and `## Isolation Contract` from
+`docs/shared/ralph-subagent-policy.md`: create the whole eligible batch before
+waiting on any one result, and before dispatching partition the work into the
+per-task fields that contract lists (id, role, owned and forbidden scope,
+expected output, verification responsibility, dependencies, integration owner,
+and start timing). Continue local critical-path work only when it does not
+overlap with delegated scopes; the dispatch packet below adds the active
+adapter's platform-invocation syntax.
 
 Use the allowed and forbidden parallelization rules from
 `docs/shared/ralph-subagent-policy.md`. In particular, do not parallelize
@@ -404,6 +390,18 @@ inspection unless the selected mode or risk requires independence. `STANDARD`
 uses targeted review for behavior-affecting or workflow changes. `THOROUGH`
 uses independent review roles for the applicable risk.
 
+Review-then-verify order — follow the canonical contract in
+`docs/shared/cross-host-review.md` `## When It Applies` Exception; do not restate
+it here. In short: when both code review and an independent verifier pass are
+required (STANDARD and THOROUGH behavior-changing or workflow changes), run them
+in that order, not concurrently — first the `code-reviewer` pair (cross-host, or
+the Same-Host Parallel Fallback with a recorded note), integrating and resolving
+blocking findings, then a confirming independent `verifier` pass: single at
+STANDARD, or a cross-host/parallel pair at THOROUGH, never the maker, satisfying
+the carve-out in `docs/shared/ralph-subagent-policy.md`. Record each pass's
+independence mode (`cross-host`, `same-host-parallel-fallback`, or
+`inline-fallback` with reason).
+
 When review is required, the reviewer pass must answer:
 
 - Do all stories satisfy their acceptance criteria?
@@ -427,10 +425,12 @@ When review is required, the reviewer pass must answer:
   config, logs, sandbox, or destructive operations were touched, did
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
-- When the opposite host was available, were `plan-reviewer`/`code-reviewer`/`verifier`
+- When the opposite host was available, were `plan-reviewer`/`code-reviewer`
   run as cross-host review (current-host + opposite-host instances synthesized) per
   `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
-  recorded?
+  recorded? Was the `verifier` run as the confirming pass after the code-review
+  pair (per the Review-then-verify order) — single at STANDARD, or a
+  cross-host/parallel pair at THOROUGH?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
 - For STANDARD or THOROUGH behavior-changing work, were the applicable
   negative-path scenarios — malformed or boundary input, stale or cached state,
@@ -441,9 +441,15 @@ When review is required, the reviewer pass must answer:
   semantic or baseline check replace another broad rerun?
 
 If review rejects the work, return to the relevant story and continue within the
-review loop budget: one required review pass and one verifier pass when
-required by mode or risk; after a blocker fix, run one focused re-check of the
-blocked scope. Do not run more than one re-review after the original blocking
+review loop budget: one required review cycle (the parallel `code-reviewer` pair
+per the Review-then-verify order) and one confirming `verifier` pass — at
+STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
+when execution produced or changed proving tests, or the implementation/tests
+were authored or accepted by the same agent (record the fallback reason if the
+host cannot dispatch), and otherwise when required by mode or risk; after a
+blocker fix, run one focused re-check of the blocked scope. Record each pass's
+independence mode per `docs/shared/cross-host-review.md`
+`## Recording the Independence Mode`. Do not run more than one re-review after the original blocking
 review unless the user explicitly authorizes it. If a blocker remains after that
 budget, enter `systematic-debugging` for unknown root cause or report `blocked`
 or `failed_verification` instead of looping.
@@ -453,20 +459,13 @@ or `failed_verification` instead of looping.
 Ralph should be rigorous without confusing repeated broad commands for semantic
 proof. For behavior-changing work:
 
-- Prefer a focused test, scenario, or inspection that directly proves each
-  acceptance criterion before running broad suites.
-- Run nearby existing tests, smoke checks, or behavior-preserving inspections
-  from the baseline guard when they exist. New tests alone are insufficient
-  when a viable existing baseline could catch regressions.
-- Run a broad suite once after the behavior stabilizes, or when shared code,
-  public APIs, generated artifacts, concurrency, persistence, or cross-package
-  behavior could be affected.
-- Do not rerun the same broad suite repeatedly unless it failed for a reason
-  likely caused by the current patch or the rerun follows a meaningful change
-  that could affect broad behavior.
-- When a broad suite is slow, flaky, external-service-dependent, or noisy,
-  document the limitation and spend the next verification step on a smaller
-  semantic check.
+- Apply the verification budget policy from `docs/shared/verification-tiers.md`:
+  prove each acceptance criterion with focused evidence before broad suites,
+  prefer a nearby baseline or smoke check over new tests alone, run a broad suite
+  once after behavior stabilizes or when shared/public/generated/concurrency/
+  persistence/cross-package surfaces could be affected, and do not rerun it
+  without a patch-related reason; on a slow, flaky, or noisy suite, document the
+  limitation and spend the next step on a smaller semantic check.
 - Treat lint, typecheck, compile, formatting, and `git diff --check` as support
   evidence. They do not replace direct behavior evidence.
 - In STANDARD or THOROUGH mode, for user-facing or behavior-changing stories,
@@ -517,20 +516,12 @@ presenting the work as complete.
 Cleanup happens only after the review required by the selected mode is satisfied
 and a behavior lock exists.
 
-Cleanup is mode-gated:
-
-- `LIGHT`: run `simplify` when a quick diff or required review shows actual
-  reuse, simplification, efficiency, or altitude cleanup candidates, or when
-  candidate uncertainty remains after that scan; otherwise record cleanup as not
-  needed.
-- `STANDARD`: run `simplify` after behavior is locked and required review is
-  satisfied, unless the user explicitly disabled it; a STANDARD plan sets
-  `Cleanup policy: required` and "not needed" is a LIGHT-only skip. Rerun relevant
-  verification afterward.
-- `THOROUGH`: run `simplify` after required review; a THOROUGH plan sets
-  `Cleanup policy: required`, so cleanup is not skippable as "not needed" (only
-  LIGHT may skip) — only an explicit user opt-out disables it. Then rerun
-  verification and any focused post-cleanup review required by risk.
+Cleanup is mode-gated per each mode's *Ralph behavior* in
+`docs/shared/execution-modes.md`: `LIGHT` may record cleanup as not needed after
+the scan; `STANDARD` and `THOROUGH` set `Cleanup policy: required` (only LIGHT may
+skip it as "not needed", and only an explicit user opt-out disables it), then
+rerun the relevant verification — and at THOROUGH any focused post-cleanup review
+the risk requires — after cleanup.
 
 The post-cleanup pass must answer:
 
@@ -561,6 +552,10 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 
 ## Persistence Rule
 
+<HARD-GATE>
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass.
+</HARD-GATE>
+
 Ship when all completion criteria are satisfied:
 
 - the selected execution mode is recorded and followed
@@ -568,7 +563,8 @@ Ship when all completion criteria are satisfied:
 - verification evidence exists, with direct evidence or explicitly classified
   indirect/manual gaps for every acceptance criterion
 - required TDD evidence exists, or each exception is documented
-- review required by the selected mode is approved or a blocking reason is documented
+- the reviewer (code-review) pass required by the selected mode is approved, or a blocking reason is documented
+- the independent `verifier` pass required by the selected mode or the verifier carve-out ran (per the Review-then-verify order, never the maker), or its dispatch-unavailable or not-required reason is recorded
 - `simplify` ran, was explicitly disabled by the user, or — in LIGHT only — was recorded as not needed
 - post-cleanup verification passed when cleanup changed files
 - a direct-Ralph automatic worktree was merged back with post-merge verification, or its task branch and handoff path were reported
