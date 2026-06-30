@@ -48,6 +48,19 @@ Do not use when the task is a small concrete fix whose contract surface,
 baseline or smoke evidence, and verification command are already clear. Use
 direct implementation or `ralph` if persistence is needed.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/execution-modes.md` — the Ralph execution profile the plan must carry.
+- `docs/shared/worktree-isolation.md` — the automatic worktree plus merge-back gate.
+- `docs/shared/ralph-subagent-policy.md` — phase-agent dispatch and isolation.
+- `docs/shared/cross-host-review.md` — Final Validation cross-host review and the independence-mode recording rule.
+
 ## Artifact Discovery
 
 Before asking new questions, check:
@@ -340,7 +353,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 

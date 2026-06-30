@@ -28,6 +28,18 @@ Use for:
 
 Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task is broader than a bounded failure.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/cross-host-review.md` — the dual-host `debugger` default, cross-host post-fix review, and the independence-mode recording the Output Gate requires.
+- `docs/shared/ralph-subagent-policy.md` — when to dispatch the debugger/verifier/reviewer versus inline.
+- `docs/shared/parallel-subagents.md` — the dispatch-policy pointer for parallel investigation.
+
 ## Agent Roles
 
 Use the listed roles as the failure requires. On subagent-capable hosts, use
@@ -147,6 +159,12 @@ Stop and ask or escalate to `plan-reviewer` when:
   causal chain was not closed.
 - Skipping competing hypotheses for an unknown or repeated failure because one
   log line looks familiar.
+
+## Output Gate
+
+<HARD-GATE>
+Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `verifier`/`code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
+</HARD-GATE>
 
 ## Output
 

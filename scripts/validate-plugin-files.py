@@ -175,6 +175,39 @@ ULTRAWORK_RUNTIME_GUARDRAIL_TERMS = (
     "never ",
 )
 
+# The read-contract applies to ANY skill-core that references a docs/shared
+# contract: such a core must declare every docs/shared/<name>.md it references in
+# a `## Required Reading` section. The in-scope set is DERIVED at check time from
+# the cores that actually reference docs/shared (not a hardcoded allowlist), so a
+# future skill-core that starts referencing a shared doc cannot silently escape
+# the parity check. The parity invariant is scoped to the skill-core SOURCE body,
+# NOT the composed wrapper: the platform runtime doc composes
+# docs/shared/cross-host-review.md into every wrapper, so a wrapper-scoped check
+# would false-positive on skills (interview, using-oh-no-harness) whose own body
+# does not reference it.
+#
+# Stable strong-contract substring that must appear (whitespace-normalized) in
+# every `## Required Reading` section so the wording cannot be silently weakened.
+REQUIRED_READING_CONTRACT_MARKER = (
+    "A path reference here is a pointer, not a substitute for reading"
+)
+REQUIRED_READING_BLOCKER_MARKER = (
+    "record the blocker instead of proceeding past the gate that depends on it"
+)
+# Skills that dispatch review/verify/debug roles and must HARD-GATE the recorded
+# independence mode (cross-host | same-host-parallel-fallback | inline-fallback).
+# ralplan already carries this via its Findings Ledger Gate and is intentionally
+# excluded here (it is the template, not a target).
+INDEPENDENCE_MODE_GATE_MARKER = (
+    "no recorded independence mode is a named ledger gap"
+)
+INDEPENDENCE_MODE_GATE_SKILLS = (
+    "ralph",
+    "ultrawork",
+    "verification-before-completion",
+    "systematic-debugging",
+)
+
 ROLE_POLICY_MARKERS = {
     "ralph": "## Mode-Gated Agent Dispatch",
     "ralplan": "Dispatch (when)",
@@ -1890,6 +1923,93 @@ def assert_validation_check_contract(root: Path) -> None:
             die(f"{path} is missing required Validation-Check contract marker: {marker!r}")
 
 
+def assert_required_reading_contract(root: Path) -> None:
+    """Layer 1 read-contract: any skill-core that references a docs/shared
+    contract must declare every docs/shared/<name>.md it references in a
+    `## Required Reading` section (S_ref subset of S_declared), each declared
+    file must exist, and the strong-contract wording must be present. The
+    in-scope set is DERIVED from the cores that actually reference docs/shared
+    (not a hardcoded allowlist), so a future referencing core cannot silently
+    escape. Scoped to the skill-core SOURCE body only. Accumulates all problems
+    and dies once so a RED run names every offending skill-core."""
+    shared_ref = re.compile(r"docs/shared/([a-z0-9-]+)\.md")
+    problems: list[str] = []
+    for skill in ALL_SKILLS:
+        path = root / SKILL_CORE_ROOT / f"{skill}.md"
+        body = read_text(path)
+        referenced = set(shared_ref.findall(body))
+        section = markdown_section(body, "## Required Reading")
+        if not referenced and not section.strip():
+            continue  # no shared-doc dependency and no section -> nothing to enforce
+        if not section.strip():
+            problems.append(
+                f"{path}: references "
+                f"{sorted('docs/shared/%s.md' % n for n in referenced)} but has "
+                f"no '## Required Reading' section"
+            )
+            continue
+        if not has_required_marker(section, REQUIRED_READING_CONTRACT_MARKER):
+            problems.append(
+                f"{path}: '## Required Reading' is missing the strong-contract "
+                f"marker {REQUIRED_READING_CONTRACT_MARKER!r}"
+            )
+        if not has_required_marker(section, REQUIRED_READING_BLOCKER_MARKER):
+            problems.append(
+                f"{path}: '## Required Reading' is missing the blocker clause "
+                f"{REQUIRED_READING_BLOCKER_MARKER!r}"
+            )
+        declared = set(shared_ref.findall(section))
+        undeclared = referenced - declared
+        if undeclared:
+            problems.append(
+                f"{path}: '## Required Reading' must declare every docs/shared "
+                f"doc the body references; undeclared: "
+                f"{sorted(f'docs/shared/{name}.md' for name in undeclared)}"
+            )
+        for name in sorted(declared):
+            shared_path = root / "docs" / "shared" / f"{name}.md"
+            if not shared_path.exists():
+                problems.append(
+                    f"{path}: '## Required Reading' declares "
+                    f"docs/shared/{name}.md which does not exist on disk"
+                )
+    if problems:
+        die(
+            "Required Reading read-contract failed for "
+            f"{len(set(p.split(':')[0] for p in problems))} skill-core file(s):\n  - "
+            + "\n  - ".join(problems)
+        )
+
+
+def assert_independence_mode_gates(root: Path) -> None:
+    """Layer 2: each review/verify-dispatching skill-core must HARD-GATE the
+    recorded independence mode so an unlabelled single inline pass is a named
+    ledger gap (mirrors ralplan's already-correct Findings Ledger Gate).
+    The marker must appear INSIDE a `<HARD-GATE>...</HARD-GATE>` block, not in
+    ordinary prose, so a future edit cannot demote the clause out of the gate
+    while still passing this check. Accumulates problems and dies once."""
+    gate_re = re.compile(r"<HARD-GATE>(.*?)</HARD-GATE>", re.DOTALL)
+    problems: list[str] = []
+    for skill in INDEPENDENCE_MODE_GATE_SKILLS:
+        path = root / SKILL_CORE_ROOT / f"{skill}.md"
+        body = read_text(path)
+        gate_text = "\n".join(gate_re.findall(body))
+        if not gate_text:
+            problems.append(f"{path}: has no <HARD-GATE> block to carry the independence-mode clause")
+            continue
+        if not has_required_marker(gate_text, INDEPENDENCE_MODE_GATE_MARKER):
+            problems.append(
+                f"{path}: the independence-mode clause "
+                f"{INDEPENDENCE_MODE_GATE_MARKER!r} must appear inside a "
+                f"<HARD-GATE> block"
+            )
+    if problems:
+        die(
+            "Independence-mode HARD-GATE missing/misplaced in "
+            f"{len(problems)} skill-core file(s):\n  - " + "\n  - ".join(problems)
+        )
+
+
 def assert_cross_host_review_contract(root: Path) -> None:
     # D1: governance content-marker for the neutral shared cross-host-review doc,
     # so it cannot be silently gutted or drift from the fusion-rescue mechanism.
@@ -2579,6 +2699,8 @@ def main() -> None:
     assert_verification_tier_contract(root)
     assert_validation_check_contract(root)
     assert_cross_host_review_contract(root)
+    assert_required_reading_contract(root)
+    assert_independence_mode_gates(root)
     assert_parallel_executor_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)

@@ -37,6 +37,16 @@ The available public skills are:
 - `systematic-debugging`: investigate bugs, failing commands, regressions, and unexpected behavior before fixing.
 - `fusion-rescue`: run bounded three-panel rescue analysis with mandatory adversarial critique and fallback-aware synthesis when a hard problem stalls.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/worktree-isolation.md` — the write-capable worktree default the recommended flow relies on.
+
 ## Recommended Development Flow
 
 For LLM software development, prefer this order when the request is not already a small, concrete edit:

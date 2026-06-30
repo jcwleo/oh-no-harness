@@ -28,6 +28,18 @@ Use before saying that:
 
 Do not use as a substitute for `ralph` when the work needs PRD tracking, cleanup, and review loops.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/validation-check.md` — distinguishing measurable evidence from real acceptance.
+- `docs/shared/ralph-subagent-policy.md` — the independent-verifier-audit carve-out.
+- `docs/shared/cross-host-review.md` — the independence-mode recording for a dispatched verifier/code-reviewer and the secret-redaction convention.
+
 ## Agent Roles
 
 | Agent | Use |
@@ -71,6 +83,7 @@ Before making a completion claim, complete every step below; the claim is invali
 6. Complete the Risk Check Before Completion below.
 7. Report skipped checks and residual risk.
 8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm an independent `verifier` audit ran per the carve-out in `docs/shared/ralph-subagent-policy.md` — this self-gate does not substitute for it (record the dispatch-unavailable fallback if the host cannot dispatch).
+9. When a `verifier` or `code-reviewer` was dispatched for this claim, record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
 </HARD-GATE>
 
 If no meaningful command exists, inspect the changed files and write a manual verification checklist instead of implying automated confidence.

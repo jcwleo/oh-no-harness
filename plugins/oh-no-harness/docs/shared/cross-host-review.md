@@ -224,12 +224,19 @@ independence-mode value:
   subagent-unavailable or unsafe-to-isolate reason recorded with it. An
   unlabelled single inline pass is a gap, not a pass.
 
-The calling skill (`ralph` Review Gate, `ultrawork` Final Validation, `ralplan`
-plan review) owns the consequence of a missing or non-compliant mode. The other
-in-scope dispatchers (`verification-before-completion` risk-gated, and
-`systematic-debugging` post-fix) already require an explicit inline-fallback
-reason through their own per-role recording, so they are not separately
-enumerated here.
+The calling skill owns the consequence of a missing or non-compliant mode, and
+every in-scope dispatcher records the independence mode through its own
+completion gate so an unlabelled single inline pass is a named ledger gap, not a
+pass:
+
+- `ralph`: the Review Gate plus the Persistence Rule `<HARD-GATE>`.
+- `ultrawork`: Final Validation plus the Phase 5 Report `<HARD-GATE>`.
+- `ralplan`: the Findings Ledger Gate — its `Plan review independence mode`
+  field plus the "plan is invalid if the independence mode is missing or
+  non-compliant" clause (an invalidation rule, not a `<HARD-GATE>` block).
+- `verification-before-completion`: the Required Gate `<HARD-GATE>`.
+- `systematic-debugging`: the Output Gate `<HARD-GATE>` (cross-host-default
+  `debugger` and any post-fix `verifier`/`code-reviewer`).
 
 ## Fallback Notes
 

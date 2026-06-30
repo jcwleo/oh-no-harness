@@ -31,6 +31,23 @@ Do not use when requirements are still vague. Use `interview` or `ralplan` first
 
 When entering directly from `interview`, accept the path only if the spec's provisional Ralph mode is `LIGHT`. If a non-LIGHT spec arrives without a `ralplan` plan, re-confirm with the user before editing — the interview-side gate should have routed to `ralplan` first.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/execution-modes.md` — LIGHT/STANDARD/THOROUGH selection and each mode's required Ralph behavior.
+- `docs/shared/worktree-isolation.md` — the write-capable Worktree decision gate.
+- `docs/shared/ralph-subagent-policy.md` — when and how to dispatch, isolate, and integrate subagents, including the independent-verifier carve-out.
+- `docs/shared/agent-tiers.md` — the role/scrutiny tier to pick whenever a role is used.
+- `docs/shared/verification-tiers.md` — what evidence is enough for the claim.
+- `docs/shared/validation-check.md` — required when measurable evidence influenced the work.
+- `docs/shared/cross-host-review.md` — cross-host (or Same-Host Parallel Fallback) review and the independence-mode recording rule the Review Gate and Persistence Rule depend on.
+- `docs/shared/failure-taxonomy.md` — the recurring-risk labels used in the story risk check.
+
 ## Artifacts
 
 Use artifacts according to the selected execution mode from
@@ -244,7 +261,7 @@ This loop is the top-level shape. Detail for review, cleanup, agent dispatch, pa
 
 Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
 
-1. Read the input artifact (PRD, plan, or spec) and the shared references: `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`, `docs/shared/agent-tiers.md`, `docs/shared/verification-tiers.md`, `docs/shared/validation-check.md`, and `docs/shared/ralph-subagent-policy.md`.
+1. Read the input artifact (PRD, plan, or spec) and every shared contract listed in `## Required Reading` before working — that section is the authoritative superset (it adds `docs/shared/cross-host-review.md` and `docs/shared/failure-taxonomy.md`, which the Review Gate, Persistence Rule, and story risk check depend on).
 2. Set or confirm the required execution mode before editing. Record mode
    source, verification tier, artifact policy, agent policy, parallel trigger,
    cleanup policy, task sizing, and escalation triggers. When the input is an
@@ -534,7 +551,7 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass.
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:

@@ -29,6 +29,17 @@ Use when:
 
 Do not use when the user provides a concrete task with files, failing commands, and testable acceptance criteria.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/execution-modes.md` — to write only the provisional execution sizing hint.
+- `docs/shared/company-context-interface.md` — how optional org/project context is consumed (advisory only).
+
 ## Depth Modes
 
 | Mode | Use |

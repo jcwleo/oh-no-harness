@@ -59,6 +59,20 @@ Do not use when user intent, scope, or acceptance criteria are still vague; use
 `interview` first. Do not use when the task is a single obvious edit with clear
 acceptance criteria.
 
+## Required Reading
+
+Before acting on any gate below that routes a decision through a shared
+contract, read that contract. A path reference here is a pointer, not a
+substitute for reading: do not apply one of these rules from memory when this
+skill hands a decision to it. If a listed file cannot be read, record the
+blocker instead of proceeding past the gate that depends on it.
+
+- `docs/shared/execution-modes.md` — to set the required Ralph execution profile.
+- `docs/shared/worktree-isolation.md` — to set the plan's worktree policy.
+- `docs/shared/ralph-subagent-policy.md` — to write the parallel subagent dispatch plan.
+- `docs/shared/validation-check.md` — required when measurable evidence influenced the plan.
+- `docs/shared/cross-host-review.md` — the Plan review independence mode (cross-host / Same-Host Parallel Fallback) the Findings Ledger Gate requires.
+
 ## Required Flow
 
 1. Dispatch `explore` subagent when repository context is needed. Exploration
@@ -68,9 +82,7 @@ acceptance criteria.
 2. Apply `## Requirements Source And Analyst Gate`. If an approved `interview`
    spec already covers the needed requirements, record `Analyst: satisfied by
    approved interview spec`; otherwise complete `analyst` before Planner drafts.
-3. Read `docs/shared/execution-modes.md` and
-   `docs/shared/worktree-isolation.md` so the plan can set a required Ralph
-   execution profile and worktree policy.
+3. Read every shared contract listed in `## Required Reading` before drafting — that section is the authoritative superset (it adds `docs/shared/cross-host-review.md`, `docs/shared/ralph-subagent-policy.md`, and `docs/shared/validation-check.md`) so the plan can set a required Ralph execution profile, worktree policy, parallel dispatch plan, and the Plan review independence mode.
 4. Complete `planner` to create `Planner draft v1` from the requirements source,
    Analyst or gap-check output, and repository evidence.
 5. Complete `plan-reviewer` only after `Planner draft v1` exists. Apply the

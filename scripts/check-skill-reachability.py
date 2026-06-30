@@ -92,6 +92,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Read and follow `verification-before-completion` before any completion claim", BOTH),  # G1 thin VBC reference (ralph.md:274)
         ("The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
+        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Persistence Rule)
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -113,6 +114,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("reviewer pass, independent verifier pass, simplify/cleanup, and VBC", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
+        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Phase 5 Report gate)
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -139,6 +141,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("the failure mode is gone", BOTH),
         ("verification-before-completion", BOTH),
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
+        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Output Gate)
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
@@ -149,6 +152,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("A success status is not acceptance", BOTH),  # the silent-success gate
         ("A previous run is not fresh evidence", BOTH),
         ("redact secrets", BOTH),  # the evidence-redaction rule
+        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Required Gate step 9)
     ],
 }
 
