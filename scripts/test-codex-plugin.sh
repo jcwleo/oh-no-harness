@@ -2780,7 +2780,13 @@ required_claude_argv = [
     "dontAsk",
     "--no-session-persistence",
 ]
-required_claude_direct_prompt_terms = ("claude opus", "assigned", "panel", "direct")
+# opus model is verified authoritatively via required_claude_argv (--model opus,
+# checked against tool_text above); do NOT also require the literal "claude opus"
+# phrase in the model-generated prompt text — that bigram is a brittle phrase-grep
+# the model can satisfy semantically (e.g. an `--model opus` invocation plus a
+# panel prompt) without echoing those exact words. Keep only the direct-panel
+# intent terms here.
+required_claude_direct_prompt_terms = ("assigned", "panel", "direct")
 forbidden_claude_prompt_patterns = [
     re.compile(r"(?i)(?<!do not )\b(?:ask\s+Claude\s+Code\s+to\s+)?(?:use|run|invoke|call|execute|delegate\s+to)\s+(?:the\s+)?(?:Claude\s+Code\s+)?/?(?:oh-no-harness:)?fusion-rescue\b"),
     re.compile(r"(?i)(?<!do not )\b(?:ask\s+Claude\s+Code\s+to\s+)?(?:use|run|invoke|call|execute|delegate\s+to)\s+(?:the\s+)?(?:/codex:rescue|codex:codex-rescue)\b"),
