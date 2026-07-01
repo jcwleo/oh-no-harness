@@ -1,11 +1,16 @@
 # Cross-Host Review
 
-Cross-host review lets the `plan-reviewer`, `code-reviewer`, `debugger`, and
-`verifier` roles run on both the current host and the opposite host in parallel
-when the opposite host is available, then have the current-host main agent
-synthesize the two analyses into one result (a single verdict for the review
-roles, a single root-cause direction for the debugger, and a single
-union/conservative merged result for the verifier). When the opposite host is
+Cross-host review lets two instances of the SAME assigned role run on both the
+current host and the opposite host in parallel when the opposite host is
+available, then have the current-host main agent synthesize the two analyses into
+one result (a single verdict for the review roles, a single root-cause direction
+for the debugger, and a single union/conservative merged result for the
+verifier). It does not make dependent DIFFERENT roles eligible for the same
+batch. In `ralph`'s Review Gate and `ultrawork`'s Final Validation, the
+`code-reviewer` pair is the first review batch; the confirming `verifier` is not
+eligible for that batch and may be dispatched only after the code-reviewer pair
+has completed, its outputs have been captured and synthesized, and blocking
+findings have been resolved or recorded as blocking. When the opposite host is
 unavailable in default mode, the same synthesis runs over the Same-Host Parallel
 Fallback (two same-host agents) instead of a single pass. It reuses the Fusion
 Rescue cross-host mechanism; it is not a new channel, daemon, background job,
@@ -36,18 +41,23 @@ Cross-host review applies wherever a skill dispatches `plan-reviewer`,
 
 Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
 Gate and `ultrawork`'s Final Validation the `code-reviewer` runs first as the
-parallel pair (cross-host, or the Same-Host Parallel Fallback), and the
-subsequent confirming `verifier` runs as a single independent pass at STANDARD;
-at THOROUGH (or when the required independent verifier audit warrants the extra
-redundancy) the confirming verifier also runs as the cross-host pair (or
-Same-Host Parallel Fallback), because the code-review pair does not redundantly
-cover the verifier's own acceptance-to-evidence and test-genuineness function.
-This is scoped to those two flows; the `verifier` in-scope listing
-above still governs its standalone use elsewhere
+parallel pair (cross-host, or the Same-Host Parallel Fallback). The confirming
+`verifier` is a dependent later stage, not part of the first review batch:
+dispatch it only after the code-reviewer pair has completed, the caller has
+captured and synthesized both reviewer outputs, and blocking findings have been
+resolved or recorded as blocking. At STANDARD the confirming `verifier` runs as a
+single independent pass; at THOROUGH (or when the required independent verifier
+audit warrants the extra redundancy) the confirming verifier also runs as the
+cross-host pair (or Same-Host Parallel Fallback), because the code-review pair
+does not redundantly cover the verifier's own acceptance-to-evidence and
+test-genuineness function. This is scoped to those two flows; the `verifier`
+in-scope listing above still governs its standalone use elsewhere
 (`verification-before-completion`, `systematic-debugging` post-fix, and any
 `ralph`/`ultrawork` verifier dispatch not preceded by the parallel code-review
 pair). The confirming verifier remains an independent dispatch (never the
-maker).
+maker). A verifier spawned before the code-reviewer pair completes is stale
+evidence for these flows and must be discarded and rerun after review findings
+are resolved or recorded as blocking.
 
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
 dispatches it, nor to any other role. The `executor`, `explore`, `analyst`,
@@ -90,6 +100,26 @@ Do not assign one lens or one investigation step to the current host and a
 different one to the opposite host; each host produces its full analysis. The
 same "full role per agent" rule applies to the two agents of the Same-Host
 Parallel Fallback.
+
+## Role-Owned Review Instances
+
+Cross-host review is a role-dispatch contract, not permission for the current
+main agent to perform the opposite-host role inline. The current-host main agent
+is the judge, not either review instance: it prepares the exact packet, performs
+only the platform preflight the runtime permits, waits for role outputs, and
+synthesizes the results.
+
+On subagent-capable hosts, the current-host role pass is owned by a spawned or
+host-dispatched role agent of the same role. The opposite-host pass is likewise
+owned by the platform-specific role agent or role-owned bridge that the active
+runtime requires. Parent inline opposite-host consult is not a valid cross-host
+review response. If the required role-owned current-host or opposite-host
+receiver cannot be dispatched, default mode treats that side as unavailable and
+uses the Same-Host Parallel Fallback; require-cross-host mode blocks.
+
+Fusion Rescue panel slots keep their own panel contract. This ownership rule is
+only for shared cross-host review of `plan-reviewer`, `code-reviewer`,
+`debugger`, and `verifier`.
 
 ## Same-Host Parallel Fallback
 
@@ -167,12 +197,24 @@ direction, scope, non-goals, or acceptance criteria.
 
 ## Sequencing Preserved
 
-Cross-host review does not change role ordering. For `ralplan`, the sequential
-`Analyst -> Planner -> Plan-Reviewer` order is preserved and Plan-Reviewer still
-runs only after the Planner draft exists. What is new is that the two reviewer
-INSTANCES of the SAME reviewer role (current-host and opposite-host) may run
-concurrently once the draft exists; this does not violate the rule that the
-distinct Analyst, Planner, and Plan-Reviewer roles are not run in parallel.
+Cross-host review does not change role ordering or erase dependencies between
+different roles. For `ralplan`, the sequential `Analyst -> Planner ->
+Plan-Reviewer` order is preserved and Plan-Reviewer still runs only after the
+Planner draft exists. For `ralph` and `ultrawork`, the Review-then-verify
+dependency graph is:
+
+```text
+code-reviewer pair
+  -> wait/capture both reviewer outputs
+  -> synthesize findings
+  -> resolve findings or record a blocker
+  -> confirming verifier pass
+```
+
+What is new is that the two reviewer INSTANCES of the SAME reviewer role
+(current-host and opposite-host) may run concurrently once their artifact exists;
+this does not violate the rule that dependent distinct roles are not run in
+parallel.
 
 ## Reuse Of The Cross-Host Mechanism
 
@@ -183,6 +225,9 @@ platform runtime document's `## Cross-Host Consult Channel` section:
   investigation contract; the problem packet is the exact Planner draft
   (plan-reviewer), the stable diff (code-reviewer), or the failure/reproduction/
   evidence packet (debugger).
+- Preserve the role-owned review instance boundary from
+  `## Role-Owned Review Instances`; the platform consult runner is not allowed to
+  collapse the opposite-host role into parent inline analysis.
 - Redact secrets before sending (credentials, tokens, API keys, cookies, private
   keys, payment or personal data, unrelated user data); include only the minimal
   excerpts the review needs, and label secret-like values such as

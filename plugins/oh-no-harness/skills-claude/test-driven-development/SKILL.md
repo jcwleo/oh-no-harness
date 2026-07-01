@@ -283,6 +283,19 @@ opposite-host response; treat it as no Codex response and degrade (default) or
 block (require-cross-host). Do not poll status or fetch a deferred result to
 compensate; the consult call itself must return the analysis.
 
+For shared cross-host review, the `/codex:rescue --wait` request must require
+Codex to dispatch the matching `oh-no-<role>` role subagent for the assigned
+opposite-host pass, where `<role>` is `plan-reviewer`, `code-reviewer`,
+`debugger`, or `verifier`. Codex must wait for that spawned role subagent and
+return the subagent's assigned role result. A direct Codex parent answer is not a
+valid opposite-host shared review response. If Codex cannot dispatch the
+matching role subagent, treat the opposite host as unavailable in default mode or
+block in require-cross-host mode; do not accept inline Codex parent analysis as
+the cross-host pass.
+
+Fusion Rescue panel slots remain governed by the Fusion Rescue panel contract;
+the role-subagent requirement above applies only to shared cross-host review.
+
 The outbound prompt must request only the assigned analysis and must forbid the
 opposite host from invoking further rescue, another workflow skill, or any
 host-to-host call back to Claude Code or a third host (one cross-host hop).

@@ -346,6 +346,30 @@ independent `verifier` pass (never the maker), per the canonical contract in
 `docs/shared/cross-host-review.md` `## When It Applies` Exception and the bullets
 above. This mirrors `ralph`'s Review Gate.
 
+Before dispatching Final Validation review roles, write the dependency graph into
+the session ledger:
+
+```text
+Final Validation dependency graph:
+- code-reviewer pair: pending | complete | blocked | not-required
+- code-reviewer synthesis captured: yes | no | not-required
+- blocking reviewer findings: resolved | blocking | none | not-reviewed
+- verifier eligible to start: yes | no
+- verifier started after reviewer completion: yes | no | not-required
+- early verifier discarded and rerun: yes | no | not-applicable
+```
+
+`verifier eligible to start` is `yes` only after the code-reviewer pair has
+completed (or a compliant fallback/not-required reason is recorded), the caller
+has captured and synthesized reviewer outputs, and blocking findings are either
+resolved or recorded as blocking. A verifier spawned before that point is stale
+evidence for Final Validation, must be recorded as discarded, and must be rerun
+after the reviewer dependency is satisfied before it can count as the
+independent verifier pass. When both code-reviewer and verifier are required,
+the Final Validation ledger must show
+`verifier started after reviewer completion: yes` or the verifier pass is stale
+and does not count.
+
 If execution was handled inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
 evidence requirements here before reporting success.
@@ -353,7 +377,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 
@@ -522,6 +546,23 @@ Claude: treat the opposite host as unavailable; in default mode the calling skil
 applies the shared cross-host contract's Same-Host Parallel Fallback
 (`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
 naming the failure class and the current-host fallback.
+
+For shared cross-host review, the Codex parent must not run
+`${CLAUDE_BIN:-claude}` inline. After the preflight confirms
+`danger-full-access`, dispatch the matching Codex role subagent with
+`spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
+owner, where `<role>` is `plan-reviewer`, `code-reviewer`, `debugger`, or
+`verifier`. The spawned role subagent receives the redacted role packet, performs
+the single Claude consult through this channel, and returns the assigned role
+analysis. The Codex parent waits for that subagent, captures its result, closes
+or records lifecycle cleanup, and only then synthesizes. A parent inline Claude
+consult is not a valid shared cross-host review pass. If the role subagent cannot
+be dispatched, treat the opposite host as unavailable in default mode or block in
+require-cross-host mode; do not fall back to a parent inline Claude call.
+
+Fusion Rescue is separate: its Codex-specific panel overlay may assign a
+`fusion-rescue-analyst` panel subagent to own the Claude consult. The paragraph
+above applies only to shared cross-host review roles.
 
 When the `danger-full-access` preflight confirms, build the Claude command as an
 argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,

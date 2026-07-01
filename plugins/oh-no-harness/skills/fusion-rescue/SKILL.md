@@ -414,6 +414,23 @@ applies the shared cross-host contract's Same-Host Parallel Fallback
 (`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
 naming the failure class and the current-host fallback.
 
+For shared cross-host review, the Codex parent must not run
+`${CLAUDE_BIN:-claude}` inline. After the preflight confirms
+`danger-full-access`, dispatch the matching Codex role subagent with
+`spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
+owner, where `<role>` is `plan-reviewer`, `code-reviewer`, `debugger`, or
+`verifier`. The spawned role subagent receives the redacted role packet, performs
+the single Claude consult through this channel, and returns the assigned role
+analysis. The Codex parent waits for that subagent, captures its result, closes
+or records lifecycle cleanup, and only then synthesizes. A parent inline Claude
+consult is not a valid shared cross-host review pass. If the role subagent cannot
+be dispatched, treat the opposite host as unavailable in default mode or block in
+require-cross-host mode; do not fall back to a parent inline Claude call.
+
+Fusion Rescue is separate: its Codex-specific panel overlay may assign a
+`fusion-rescue-analyst` panel subagent to own the Claude consult. The paragraph
+above applies only to shared cross-host review roles.
+
 When the `danger-full-access` preflight confirms, build the Claude command as an
 argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,
 `--print`, `--model`, `opus`, `--permission-mode`, `dontAsk`,

@@ -1242,6 +1242,10 @@ def strip_frontmatter(text: str, path: Path) -> str:
 def markdown_section(text: str, heading: str) -> str:
     lines = text.splitlines()
     start = None
+    heading_level = None
+    heading_match = re.match(r"^(#{1,6})\s+\S", heading.strip())
+    if heading_match:
+        heading_level = len(heading_match.group(1))
     for index, line in enumerate(lines):
         if line.strip() == heading:
             start = index + 1
@@ -1252,7 +1256,8 @@ def markdown_section(text: str, heading: str) -> str:
     end = len(lines)
     for index in range(start, len(lines)):
         stripped = lines[index].strip()
-        if stripped.startswith("## ") and stripped != heading:
+        match = re.match(r"^(#{1,6})\s+\S", stripped)
+        if match and heading_level is not None and len(match.group(1)) <= heading_level:
             end = index
             break
     return "\n".join(lines[start:end])
@@ -2019,6 +2024,7 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "# Cross-Host Review",
         "## Cross-Host Consult Channel",
         "run the review on BOTH the current host and the opposite host",
+        "does not make dependent DIFFERENT roles eligible for the same\nbatch",
         # The default-mode degrade is now the Same-Host Parallel Fallback (two
         # same-host agents), guarded by the D1b markers below; the obsolete
         # "degrade to current-host-only" single-pass marker was retired.
@@ -2047,9 +2053,62 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "Same-Host Parallel Fallback",
         "exactly two same-host",
         "treat the criterion as unmet if either",
+        "The confirming\n`verifier` is a dependent later stage, not part of the first review batch",
+        "A verifier spawned before the code-reviewer pair completes is stale\nevidence",
     ):
         if not has_required_marker(text, marker):
             die(f"{path} is missing required same-host-fallback contract marker: {marker!r}")
+
+    role_owned = markdown_section(text, "## Role-Owned Review Instances")
+    if not role_owned:
+        die(f"{path} is missing required '## Role-Owned Review Instances' section")
+    for marker in (
+        "Cross-host review is a role-dispatch contract",
+        "Parent inline opposite-host consult is not a valid cross-host\nreview response",
+        "only for shared cross-host review of `plan-reviewer`, `code-reviewer`,\n`debugger`, and `verifier`",
+    ):
+        if not has_required_marker(role_owned, marker):
+            die(f"{path} '## Role-Owned Review Instances' is missing marker: {marker!r}")
+
+    sequencing = markdown_section(text, "## Sequencing Preserved")
+    if not sequencing:
+        die(f"{path} is missing required '## Sequencing Preserved' section")
+    for marker in (
+        "code-reviewer pair\n  -> wait/capture both reviewer outputs",
+        "-> resolve findings or record a blocker\n  -> confirming verifier pass",
+        "dependent distinct roles are not run in\nparallel",
+    ):
+        if not has_required_marker(sequencing, marker):
+            die(f"{path} '## Sequencing Preserved' is missing review-then-verify dependency marker: {marker!r}")
+
+    ralph_review_gate = markdown_section(read_text(root / "docs" / "skill-core" / "ralph.md"), "## Review Gate")
+    if not ralph_review_gate:
+        die("docs/skill-core/ralph.md is missing required '## Review Gate' section")
+    for marker in (
+        "Review Gate dependency graph",
+        "verifier eligible to start: yes | no",
+        "verifier started after reviewer completion: yes | no | not-required",
+        "A verifier spawned before that point is stale",
+        "ledger must show `verifier started after reviewer completion: yes`",
+    ):
+        if not has_required_marker(ralph_review_gate, marker):
+            die(f"docs/skill-core/ralph.md Review Gate is missing sequencing marker: {marker!r}")
+
+    ultrawork_final_validation = markdown_section(
+        read_text(root / "docs" / "skill-core" / "ultrawork.md"),
+        "### Phase 4: Final Validation",
+    )
+    if not ultrawork_final_validation:
+        die("docs/skill-core/ultrawork.md is missing required '### Phase 4: Final Validation' section")
+    for marker in (
+        "Final Validation dependency graph",
+        "verifier eligible to start: yes | no",
+        "verifier started after reviewer completion: yes | no | not-required",
+        "A verifier spawned before that point is stale",
+        "ledger must show `verifier started after reviewer completion: yes`",
+    ):
+        if not has_required_marker(ultrawork_final_validation, marker):
+            die(f"docs/skill-core/ultrawork.md Final Validation is missing sequencing marker: {marker!r}")
 
     # D2: runtime-doc Cross-Host Consult Channel cross-leak hygiene. Each runtime
     # doc's channel section must carry only its own outbound-to-opposite-host
@@ -2062,6 +2121,13 @@ def assert_cross_host_review_contract(root: Path) -> None:
         die(f"{platform_root / 'codex-runtime.md'} is missing required {heading!r} section")
     if not has_required_marker(codex_channel, "`${CLAUDE_BIN:-claude}`"):
         die(f"codex-runtime.md {heading!r} must carry the Codex-to-Claude argument vector")
+    for marker in (
+        "the Codex parent must not run\n`${CLAUDE_BIN:-claude}` inline",
+        "spawn_agent(agent_type=\"oh-no-<role>\"",
+        "A parent inline Claude\nconsult is not a valid shared cross-host review pass",
+    ):
+        if not has_required_marker(codex_channel, marker):
+            die(f"codex-runtime.md {heading!r} is missing shared-review ownership marker: {marker!r}")
     for marker in ("openai/codex-plugin-cc", "`/codex:rescue`"):
         if marker in codex_channel:
             die(f"codex-runtime.md {heading!r} contains opposite-host (Claude-side) consult marker: {marker!r}")
@@ -2071,6 +2137,12 @@ def assert_cross_host_review_contract(root: Path) -> None:
         die(f"{platform_root / 'claude-code-runtime.md'} is missing required {heading!r} section")
     if not has_required_marker(claude_channel, "`/codex:rescue`"):
         die(f"claude-code-runtime.md {heading!r} must carry the Claude-to-Codex consult invocation")
+    for marker in (
+        "the `/codex:rescue --wait` request must require\nCodex to dispatch the matching `oh-no-<role>` role subagent",
+        "A direct Codex parent answer is not a\nvalid opposite-host shared review response",
+    ):
+        if not has_required_marker(claude_channel, marker):
+            die(f"claude-code-runtime.md {heading!r} is missing shared-review ownership marker: {marker!r}")
     for marker in ("`${CLAUDE_BIN:-claude}`", "`--permission-mode`", "`dontAsk`"):
         if marker in claude_channel:
             die(f"claude-code-runtime.md {heading!r} contains opposite-host (Codex-side) consult marker: {marker!r}")

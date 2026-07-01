@@ -148,6 +148,14 @@ When two or more independent subagents are allowed, Ralph must create the full
 eligible batch first and then wait for results. Do not start one independent
 subagent, wait for it, and only then decide whether to start the rest.
 
+The batch rule applies only to independent work at the same dependency depth. It
+must not merge dependent review stages. In `ralph`'s Review Gate and
+`ultrawork`'s Final Validation, when `code-reviewer` and a confirming
+independent `verifier` are both required, the `verifier` is not eligible for the
+first batch: run the `code-reviewer` pair first, capture and synthesize reviewer
+outputs, resolve findings or record a blocker, and only then dispatch the
+confirming verifier pass per `docs/shared/cross-host-review.md`.
+
 While a batch is running, Ralph may continue only on local work that does not
 overlap with the delegated scopes.
 
@@ -213,14 +221,16 @@ Parallelize when:
 - read-only agents inspect different subsystems
 - executor write scopes are disjoint
 - reviewers inspect the same final diff without editing
-- code review (security lens included) and verification (scenario QA lens
-  included) run after implementation is stable
+- same-role review or verification instances inspect the same stable artifact
+  under the cross-host or Same-Host Parallel Fallback contract
 
 Do not parallelize when:
 
 - two agents would edit the same file, directory, schema, migration, generated
   artifact, lockfile, or shared config
 - one task depends on another task's output
+- a verifier's evidence depends on code-reviewer findings being completed,
+  synthesized, and resolved or recorded as blocking
 - one behavior's TDD RED/GREEN order would be split across agents
 - file ownership is unclear
 - an implementer is still fixing unresolved reviewer findings

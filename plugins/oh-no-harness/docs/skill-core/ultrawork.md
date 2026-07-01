@@ -328,6 +328,30 @@ independent `verifier` pass (never the maker), per the canonical contract in
 `docs/shared/cross-host-review.md` `## When It Applies` Exception and the bullets
 above. This mirrors `ralph`'s Review Gate.
 
+Before dispatching Final Validation review roles, write the dependency graph into
+the session ledger:
+
+```text
+Final Validation dependency graph:
+- code-reviewer pair: pending | complete | blocked | not-required
+- code-reviewer synthesis captured: yes | no | not-required
+- blocking reviewer findings: resolved | blocking | none | not-reviewed
+- verifier eligible to start: yes | no
+- verifier started after reviewer completion: yes | no | not-required
+- early verifier discarded and rerun: yes | no | not-applicable
+```
+
+`verifier eligible to start` is `yes` only after the code-reviewer pair has
+completed (or a compliant fallback/not-required reason is recorded), the caller
+has captured and synthesized reviewer outputs, and blocking findings are either
+resolved or recorded as blocking. A verifier spawned before that point is stale
+evidence for Final Validation, must be recorded as discarded, and must be rerun
+after the reviewer dependency is satisfied before it can count as the
+independent verifier pass. When both code-reviewer and verifier are required,
+the Final Validation ledger must show
+`verifier started after reviewer completion: yes` or the verifier pass is stale
+and does not count.
+
 If execution was handled inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
 evidence requirements here before reporting success.
@@ -335,7 +359,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 

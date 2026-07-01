@@ -400,6 +400,29 @@ the carve-out in `docs/shared/ralph-subagent-policy.md`. Record each pass's
 independence mode (`cross-host`, `same-host-parallel-fallback`, or
 `inline-fallback` with reason).
 
+Before dispatching review roles, build the Review Gate dependency graph and write
+it into the PRD/progress ledger:
+
+```text
+Review Gate dependency graph:
+- code-reviewer pair: pending | complete | blocked | not-required
+- code-reviewer synthesis captured: yes | no | not-required
+- blocking reviewer findings: resolved | blocking | none | not-reviewed
+- verifier eligible to start: yes | no
+- verifier started after reviewer completion: yes | no | not-required
+- early verifier discarded and rerun: yes | no | not-applicable
+```
+
+`verifier eligible to start` is `yes` only after the code-reviewer pair has
+completed (or a compliant fallback/not-required reason is recorded), the caller
+has captured and synthesized reviewer outputs, and blocking findings are either
+resolved or recorded as blocking. A verifier spawned before that point is stale
+evidence for this Review Gate, must be recorded as discarded, and must be rerun
+after the reviewer dependency is satisfied before it can count as the independent
+verifier pass. When both code-reviewer and verifier are required, the Review
+Gate ledger must show `verifier started after reviewer completion: yes` or the
+verifier pass is stale and does not count.
+
 When review is required, the reviewer pass must answer:
 
 - Do all stories satisfy their acceptance criteria?
@@ -428,7 +451,9 @@ When review is required, the reviewer pass must answer:
   `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
   recorded? Was the `verifier` run as the confirming pass after the code-review
   pair (per the Review-then-verify order) — single at STANDARD, or a
-  cross-host/parallel pair at THOROUGH?
+  cross-host/parallel pair at THOROUGH? Does the ledger show
+  `verifier started after reviewer completion: yes` or a compliant not-required
+  reason?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
 - For STANDARD or THOROUGH behavior-changing work, were the applicable
   negative-path scenarios — malformed or boundary input, stale or cached state,
@@ -551,7 +576,7 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:
