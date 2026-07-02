@@ -116,3 +116,4 @@ This file records the source material used to build Oh No Harness.
 | `docs/specs/2026-05-11-oh-no-harness-design.md` | approved project design |
 | `docs/reference/relationships.md` | retained skill, agent, and hook graph |
 | `docs/reference/migration-from-omc.md` | removed OMC features and migration policy |
+| `docs/reference/test-harness-lanes.md` | deterministic smoke, live, and deep-live lane contract matrix used by `scripts/test-harness-lane-contract.py` |

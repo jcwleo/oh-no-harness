@@ -2699,6 +2699,34 @@ def assert_skill_reachability(marketplace_root: Path, root: Path) -> None:
             die(f"skill reachability check failed ({platform}):\n{details}")
 
 
+def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> None:
+    script_candidates = [
+        marketplace_root / "scripts" / "test-harness-lane-contract.py",
+        root.parent.parent / "scripts" / "test-harness-lane-contract.py",
+    ]
+    script = next((candidate for candidate in script_candidates if candidate.exists()), None)
+    if script is None:
+        searched = ", ".join(str(candidate) for candidate in script_candidates)
+        die(f"test-harness-lane-contract.py is missing; searched: {searched}")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--marketplace-root",
+            str(marketplace_root),
+            "--plugin-root",
+            str(root),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout.strip(), result.stderr.strip()) if part
+        )
+        die(f"test harness lane contract failed:\n{details}")
+
+
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
     # marker cannot be satisfied by unrelated or wrong-section text, and so the
@@ -2745,19 +2773,33 @@ def assert_parallel_executor_contract(root: Path) -> None:
             die(f"{adapter} must list disjoint implementation (executor) work as eligible for a background batch")
 
 
+def find_marketplace_root(start: Path) -> Path:
+    start = start.resolve()
+    for candidate in (start, *start.parents):
+        if (
+            (candidate / "scripts" / "test-codex-plugin.sh").exists()
+            and (candidate / "scripts" / "test-claude-plugin.sh").exists()
+            and (candidate / "scripts" / "release").exists()
+        ):
+            return candidate
+    return start
+
+
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         die("usage: validate-plugin-files.py <marketplace-root> [plugin-root]")
 
-    marketplace_root = Path(sys.argv[1]).resolve()
+    requested_root = Path(sys.argv[1]).resolve()
+    marketplace_root = find_marketplace_root(requested_root)
     if len(sys.argv) == 3:
         root = Path(sys.argv[2]).resolve()
     else:
-        nested = marketplace_root / "plugins" / PLUGIN_NAME
-        root = nested if nested.exists() else marketplace_root
+        nested = requested_root / "plugins" / PLUGIN_NAME
+        root = nested if nested.exists() else requested_root
 
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
+    assert_test_harness_lane_contract(marketplace_root, root)
     assert_skill_reachability(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)

@@ -26,7 +26,7 @@ RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
-LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-1.00}"
+LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-3.00}"
 FUSION_RESCUE_LIVE_MODEL="${OH_NO_FUSION_RESCUE_MODEL:-${OH_NO_TEST_MODEL:-opus}}"
 FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files.}"
@@ -100,7 +100,7 @@ Options:
                          Default: this checkout. Use jcwleo/oh-no-harness to test GitHub.
   --model <model>        Claude model alias for live tests. Default: sonnet.
                          Fusion Rescue live defaults to opus unless overridden.
-  --max-budget-usd <n>   Per-command max budget for live tests. Default: 1.00.
+  --max-budget-usd <n>   Per-command max budget for live tests. Default: 3.00.
   -h, --help             Show this help.
 
 Environment overrides:
@@ -1109,12 +1109,16 @@ assert_deep_json_output() {
 import json
 import sys
 
+SEMANTIC_VARIANCE_EXIT = 88
+
 path, skill = sys.argv[1], sys.argv[2]
 with open(path, "r", encoding="utf-8") as fh:
     data = json.load(fh)
 
 if data.get("is_error"):
     raise SystemExit(f"{skill} deep smoke failed: {data.get('result')}")
+if data.get("permission_denials"):
+    raise SystemExit(f"{skill} deep smoke had permission denials: {data.get('permission_denials')!r}")
 
 text = str(data.get("result", ""))
 if text.strip().startswith("Unknown command:"):
@@ -1193,7 +1197,8 @@ expected = {
 
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
-    raise SystemExit(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
+    print(f"{skill} deep smoke missing markers: {missing}; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralph" and not (
     "not a top-level implementation" in text_lower
@@ -1201,13 +1206,15 @@ if skill == "ralph" and not (
     or "not a top-level route" in text_lower
     or ("not" in text_lower and "top-level" in text_lower and "implementation" in text_lower)
 ):
-    raise SystemExit(f"{skill} deep smoke missing TDD top-level route boundary; got {text!r}")
+    print(f"{skill} deep smoke missing TDD top-level route boundary; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if (
     "oh_no_claude_deep_ok" not in text_lower
     and f"oh_no_claude_deep_ok {skill}".lower() not in text_lower
 ):
-    raise SystemExit(f"{skill} deep smoke missing success marker; got {text!r}")
+    print(f"{skill} deep smoke missing success marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 def terms_appear_in_order(*terms: str) -> bool:
     cursor = -1
@@ -1222,14 +1229,16 @@ if skill == "interview" and not (
     or "already in the session" in text_lower
     or "already present" in text_lower
 ):
-    raise SystemExit(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
+    print(f"{skill} deep smoke missing company-context availability marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "interview" and not (
     "do not search remote" in text_lower
     or "should not be searched" in text_lower
     or ("remote" in text_lower and "not" in text_lower and "search" in text_lower)
 ):
-    raise SystemExit(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
+    print(f"{skill} deep smoke missing remote-search policy marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
     "analyst" in text_lower
@@ -1250,7 +1259,8 @@ if skill == "ralplan" and not (
         )
     )
 ):
-    raise SystemExit(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
+    print(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
     "edge" in text_lower
@@ -1259,7 +1269,8 @@ if skill == "ralplan" and not (
     or "regression" in text_lower
     or "adversarial" in text_lower
 ):
-    raise SystemExit(f"{skill} deep smoke missing edge/semantic/regression test-design marker; got {text!r}")
+    print(f"{skill} deep smoke missing edge/semantic/regression test-design marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
     ("planner" in text_lower and "plan-reviewer" in text_lower)
@@ -1271,12 +1282,14 @@ if skill == "ralplan" and not (
         or "never run them in parallel" in text_lower
     )
 ):
-    raise SystemExit(f"{skill} deep smoke missing Planner/Plan-Reviewer single-dispatch ordering marker; got {text!r}")
+    print(f"{skill} deep smoke missing Planner/Plan-Reviewer single-dispatch ordering marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
     "blocking" in text_lower and "re-review" in text_lower
 ):
-    raise SystemExit(f"{skill} deep smoke missing blocking-findings re-review marker; got {text!r}")
+    print(f"{skill} deep smoke missing blocking-findings re-review marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 linked_doc_markers = {
     "ralph": [
@@ -1292,14 +1305,16 @@ linked_doc_markers = {
 }
 
 if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
-    raise SystemExit(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
+    print(f"{skill} deep smoke missing linked-doc marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "simplify" and not (
     ("host" in text_lower and "policy" in text_lower)
     or "subagent dispatch is unavailable" in text_lower
     or ("dispatch" in text_lower and "unavailable" in text_lower)
 ):
-    raise SystemExit(f"{skill} deep smoke missing host dispatch/fallback policy marker; got {text!r}")
+    print(f"{skill} deep smoke missing host dispatch/fallback policy marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 print(f"ok - deep Claude linked-doc smoke: {skill} cost={data.get('total_cost_usd')}")
 PY
@@ -1335,11 +1350,16 @@ run_deep_live_skill_test() {
 
   cmd+=("$prompt")
   "${cmd[@]}" >"$out_file"
-  # Live deep-smoke is a non-gating signal only: deterministic reachability is
-  # gated by scripts/check-skill-reachability.py. A live marker miss here is
-  # model paraphrase/dereference variance, not a harness defect.
-  assert_deep_json_output "$out_file" "$skill" \
-    || log "WARN: live deep-smoke for $skill flagged paraphrase/dereference variance (non-gating)"
+  # Live deep-smoke demotes only semantic marker/paraphrase variance. Tool,
+  # permission, malformed-output, and command failures remain hard failures per
+  # the lane contract.
+  local deep_rc=0
+  assert_deep_json_output "$out_file" "$skill" || deep_rc=$?
+  if [[ "$deep_rc" == "88" ]]; then
+    log "WARN: live deep-smoke for $skill flagged paraphrase/dereference variance (non-gating)"
+  elif [[ "$deep_rc" != "0" ]]; then
+    return "$deep_rc"
+  fi
 }
 
 run_deep_live_tests() {
@@ -2135,8 +2155,8 @@ run_fusion_rescue_live_test() {
   local err_file="$RUN_DIR/fusion-rescue-claude-codex.err"
   local summary_file="$RUN_DIR/fusion-rescue-claude-codex.summary.json"
   local prompt
-  prompt=$(cat <<PROMPT
-/${PLUGIN_NAME}:fusion-rescue require-cross-host read-only live integration smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue.
+  prompt=$(cat <<'PROMPT'
+/oh-no-harness:fusion-rescue require-cross-host read-only live integration smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue.
 
 Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. The team must choose whether to quarantine the test, add automatic retries, or root-cause/fix the failure before release. Every panel result must discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence rather than only saying the smoke test is formatted correctly.
 
@@ -2144,7 +2164,7 @@ Build exactly three panel slots and then synthesize as the current Claude main j
 
 Panel 1 primary must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: primary; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must provide constructive analysis of quarantine, auto-retry, root-cause, CI signal, and release risk.
 
-Panel 2 adversarial must be exactly one Codex opposite-host response through the explicitly loaded openai/codex-plugin-cc rescue capability surfaced as /codex:rescue. In this non-interactive test, use that capability by invoking the same Agent surface that /codex:rescue delegates to, with subagent_type codex:codex-rescue. A valid live result requires codex:codex-rescue to perform its required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background, or returned after a Stop hook says a Codex task is still running is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second codex:codex-rescue task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The forwarded request must be foreground, fresh, read-only behavior and must include the words via /codex:rescue plus the marker request OH_NO_CODEX_RESCUE_RETURN_OK. The Codex request: --wait --fresh read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; analyze this CI release-risk problem adversarially; return exactly OH_NO_CODEX_RESCUE_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If codex:codex-rescue cannot run node codex-companion.mjs without approval or foreground completion, do not synthesize success and do not include OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK.
+Panel 2 adversarial must be exactly one Codex opposite-host response through the explicitly loaded openai/codex-plugin-cc rescue capability surfaced as /codex:rescue. In this non-interactive test, use that capability by invoking the same Agent surface that /codex:rescue delegates to, with subagent_type codex:codex-rescue. A valid live result requires codex:codex-rescue to perform exactly one required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background without a later captured foreground codex-companion stdout completion, or returned after a Stop hook still says a Codex task is running after codex-companion stdout completion is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second codex:codex-rescue task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The forwarded request must be foreground, fresh, explicitly read-only behavior and must include the words via /codex:rescue plus the marker request OH_NO_CODEX_RESCUE_RETURN_OK. The codex-companion Bash command MUST NOT include --write; this explicit read-only request overrides the codex:codex-rescue default write-capable mode, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The Codex request: --wait --fresh explicitly read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; analyze this CI release-risk problem adversarially; return exactly OH_NO_CODEX_RESCUE_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If codex:codex-rescue cannot run exactly one node codex-companion.mjs Bash call without approval or foreground completion, do not synthesize success and do not include OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK.
 
 Panel 3 pragmatic must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: pragmatic; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
@@ -2303,12 +2323,15 @@ task_started_roles = []
 task_completed_roles = []
 codex_bash_tool_ids = set()
 codex_bash_success_texts = []
+codex_bash_success_indexes = []
 codex_bash_failures = []
+codex_write_commands = []
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
 non_user_text_parts = []
 permission_denials = []
+pending_background_events = []
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -2320,10 +2343,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
             "Command running in background" in text
             or ("Codex task" in text and "still running" in text)
         ):
-            raise SystemExit(
-                f"Claude Fusion Rescue live left background work instead of foreground completion near line {index}: "
-                f"{text[:2000]!r}"
-            )
+            pending_background_events.append((index, text[:2000]))
         if any(pattern.search(text) for pattern in secret_patterns):
             raise SystemExit(f"Claude Fusion Rescue live transcript exposed a secret-like value near line {index}")
         if data.get("type") == "system" and data.get("subtype") == "init":
@@ -2340,6 +2360,8 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     command = str(payload.get("command", ""))
                     if "codex-companion.mjs" in command:
                         codex_bash_tool_ids.add(part.get("id"))
+                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                            codex_write_commands.append((index, command[:2000]))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -2366,7 +2388,14 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     if script:
                         workflow_scripts.append((index, script))
                 if part.get("type") == "text":
-                    non_user_text_parts.append(part.get("text", ""))
+                    part_text = part.get("text", "")
+                    non_user_text_parts.append(part_text)
+                    matched_result_markers = [
+                        lens for lens, marker in expected_claude_markers.items()
+                        if marker in part_text
+                    ]
+                    if len(matched_result_markers) == 1:
+                        claude_panel_results.setdefault(matched_result_markers[0], part_text)
         if data.get("type") == "system" and data.get("subtype") == "task_started":
             subagent_type = data.get("subagent_type", "")
             if subagent_type:
@@ -2402,6 +2431,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 if is_error:
                     codex_bash_failures.append((index, result_text[:1000]))
                 else:
+                    codex_bash_success_indexes.append(index)
                     codex_bash_success_texts.append(result_text)
         if isinstance(tool_result, dict):
             agent_type = tool_result.get("agentType", "")
@@ -2433,6 +2463,8 @@ if errors:
     raise SystemExit(f"Claude Fusion Rescue live returned errors: {errors!r}")
 if unexpected_write_uses:
     raise SystemExit(f"Claude Fusion Rescue live used write-capable tools: {unexpected_write_uses!r}")
+if codex_write_commands:
+    raise SystemExit(f"Claude Fusion Rescue live invoked codex-companion with --write: {codex_write_commands!r}")
 if permission_denials:
     raise SystemExit(f"Claude Fusion Rescue live had permission denials: {permission_denials!r}")
 if "codex:rescue" not in init_slash_commands:
@@ -2489,11 +2521,6 @@ for marker in ("/codex:rescue", "OH_NO_CODEX_RESCUE_RETURN_OK", "read-only behav
             f"Claude Fusion Rescue live codex rescue payload missed marker {marker!r}; "
             f"payload={codex_payload[:2000]!r}"
         )
-forbidden_payload_markers = ("--write", "write-capable")
-leaked = [marker for marker in forbidden_payload_markers if marker.lower() in codex_payload.lower()]
-if leaked:
-    raise SystemExit(f"Claude Fusion Rescue live codex rescue payload requested write behavior: {leaked!r}")
-
 started_role_names = [role for _, role in task_started_roles]
 if "codex:codex-rescue" not in started_role_names and not workflow_scripts:
     raise SystemExit(f"Claude Fusion Rescue live did not start codex:codex-rescue task; starts={task_started_roles!r}")
@@ -2505,13 +2532,27 @@ if (
     raise SystemExit(f"Claude Fusion Rescue live did not complete codex rescue or capture its marker; completions={task_completed_roles!r}")
 if not codex_bash_tool_ids:
     raise SystemExit("Claude Fusion Rescue live did not invoke codex-companion.mjs through codex:codex-rescue Bash")
+if len(codex_bash_tool_ids) != 1:
+    raise SystemExit(f"Claude Fusion Rescue live expected exactly one codex-companion.mjs Bash invocation, got {sorted(codex_bash_tool_ids)!r}")
 if codex_bash_failures:
     raise SystemExit(f"Claude Fusion Rescue live codex-companion Bash failed: {codex_bash_failures!r}")
+if len(codex_bash_success_indexes) != 1:
+    raise SystemExit(f"Claude Fusion Rescue live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
 codex_bash_text = "\n".join(codex_bash_success_texts)
 if "OH_NO_CODEX_RESCUE_RETURN_OK" not in codex_bash_text:
     raise SystemExit(
         "Claude Fusion Rescue live did not capture OH_NO_CODEX_RESCUE_RETURN_OK "
         "from codex-companion.mjs stdout"
+    )
+last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
+late_pending_background_events = [
+    event for event in pending_background_events
+    if last_codex_bash_success_index is None or event[0] > last_codex_bash_success_index
+]
+if late_pending_background_events:
+    raise SystemExit(
+        "Claude Fusion Rescue live left background/still-running work after Codex "
+        f"foreground completion: {late_pending_background_events!r}"
     )
 lower_codex_bash_text = codex_bash_text.lower()
 for field in required_codex_result_fields:
@@ -2538,7 +2579,8 @@ success_text = "\n".join(
     if "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK" in part
 )
 if not success_text:
-    raise SystemExit("Claude Fusion Rescue live did not return success marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK")
+    detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
+    raise SystemExit(f"Claude Fusion Rescue live did not return success marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK{detail}")
 lower_success_text = success_text.lower()
 for marker in required_final_markers:
     if marker.lower() not in lower_success_text:
@@ -2886,17 +2928,20 @@ run_parallel_executor_live_test() {
 
   # Containment: a write-capable fixture sandbox OUTSIDE the repo/marketplace/worktree.
   # This is both the working directory of the run and the SOLE writable --add-dir.
+  local fixture_parent
+  fixture_parent="$(mktemp -d)"
   local fixture_dir
-  fixture_dir="$(mktemp -d)"
+  fixture_dir="$fixture_parent/work"
+  mkdir -p "$fixture_dir"
 
-  # rm -rf the fixture sandbox on EVERY exit path, including when set -e kills the
-  # script on a nonzero exit. The done-guard makes the cleanup idempotent so the
-  # multi-signal trap cannot double-run rm. The non-empty + is-dir guard prevents
-  # rm -rf ""/"/" if fixture_dir is ever unset.
+  # rm -rf the private fixture parent on EVERY exit path, including when set -e
+  # kills the script on a nonzero exit. The done-guard makes cleanup idempotent
+  # so the multi-signal trap cannot double-run rm. The non-empty + is-dir guard
+  # prevents rm -rf ""/"/" if setup is ever interrupted.
   local _parallel_executor_cleanup_done=0
   _parallel_executor_cleanup() {
-    if [[ "$_parallel_executor_cleanup_done" == "0" && -n "$fixture_dir" && -d "$fixture_dir" ]]; then
-      rm -rf "$fixture_dir"
+    if [[ "$_parallel_executor_cleanup_done" == "0" && -n "$fixture_parent" && -d "$fixture_parent" ]]; then
+      rm -rf "$fixture_parent"
       _parallel_executor_cleanup_done=1
     fi
   }
@@ -2926,14 +2971,14 @@ identifiable. This story is independent of Story A: it shares no file with
 Story A and does not depend on Story A.
 STORY_B
 
-  # CONTRACT-NOT-PROMPT-COMPLIANCE: an ORDINARY direct STANDARD/THOROUGH Ralph run
+  # CONTRACT-NOT-PROMPT-COMPLIANCE: an ORDINARY direct STANDARD Ralph run
   # over two disjoint stories. The prompt describes the two stories and asks Ralph
   # to run them and report. It does NOT instruct parallelism, batching, "dispatch
   # two executors", or background dispatch — the EDITED ralph contract loaded via
   # the plugin is what must drive proactive concurrent executor dispatch.
   local prompt
   prompt=$(cat <<PROMPT
-Use ${PLUGIN_NAME}:ralph in THOROUGH mode. Work entirely inside the current working directory; do not read, write, or touch anything outside it. There are two stories to implement, described in story_a.md and story_b.md in this directory. Read both story files.
+Use ${PLUGIN_NAME}:ralph in STANDARD mode. Work entirely inside the current working directory; do not read, write, or touch anything outside it. Do not create helper files in /tmp, /var/tmp, your home directory, the plugin directory, or any absolute path outside the current working directory; if a helper file is needed, put it under .oh-no/ inside the current working directory. There are two stories to implement, described in story_a.md and story_b.md in this directory. Read both story files. This is a throwaway smoke-test fixture, so keep verification focused on the two story files and the files they require.
 
 Story A and Story B are independent of each other: they touch different files and neither depends on the other. Implement both stories so each described file is created exactly as its story specifies, then run them and report the result.
 
@@ -2980,18 +3025,11 @@ SENTINEL
   local sentinel_before
   sentinel_before="$(_pexec_sentinel "$fixture_dir")"
 
-  # CONTAINMENT (authoritative): acceptEdits is the real OS/permission-level
-  # enforcement. Under --permission-mode acceptEdits in --print mode, file edits
-  # inside the working directory (the run's cwd = fixture_dir) are auto-accepted,
-  # while edits OUTSIDE the workspace and Bash commands require permission and are
-  # auto-denied non-interactively -- so they are actually blocked, not merely
-  # detected after the fact. We therefore do NOT pass the plugin/repo root as a
-  # writable --add-dir (under acceptEdits an added dir becomes writable); skill
-  # content loads via --plugin-dir and the fixture stories are self-contained, so
-  # fixture_dir is the SOLE accessible write workspace. The transcript
-  # path-containment scan, the marketplace git-status check, and the out-of-fixture
-  # sentinel below are DEFENSE-IN-DEPTH (belt-and-suspenders), not the sole
-  # containment.
+  # Live-fidelity execution: use bypassPermissions so the scripted run can read
+  # the installed/plugin-dir skill docs and run ordinary verification commands
+  # the way a real live Ralph invocation would. Permission denials are hard
+  # failures in the parser below; containment is enforced by the temp cwd plus
+  # transcript path scans, marketplace git-status, and out-of-fixture sentinels.
   local cmd=(
     "$CLAUDE_BIN"
     --print
@@ -3000,10 +3038,10 @@ SENTINEL
     --include-hook-events
     --model "$FUSION_RESCUE_LIVE_MODEL"
     --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
-    --permission-mode acceptEdits
+    --permission-mode bypassPermissions
     --tools default
     --no-session-persistence
-    --system-prompt "You are a live smoke test runner for an Oh No Harness Ralph run. Implement only the two disjoint stories in the current working directory. Write only inside the current working directory. Do not edit, create, or delete any file outside it, and do not install plugins."
+    --system-prompt "You are a live smoke test runner for an Oh No Harness Ralph run. Implement only the two disjoint stories in the current working directory. Write only inside the current working directory. Do not edit, create, or delete any file outside it, including /tmp, /var/tmp, home directories, plugin directories, or absolute helper-file paths. Do not install plugins."
   )
 
   if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
@@ -3046,9 +3084,8 @@ from pathlib import Path
 
 out_path, err_path, summary_path, model, fixture_dir, marketplace_root = sys.argv[1:7]
 
-# Containment baseline (DEFENSE-IN-DEPTH; acceptEdits is the authoritative
-# containment): any new/modified marketplace entry attributable to the run is a
-# hard failure. The before/after porcelain snapshots are passed via env.
+# Containment baseline: any new/modified marketplace entry attributable to the
+# run is a hard failure. The before/after porcelain snapshots are passed via env.
 status_before = os.environ.get("OH_NO_PEXEC_STATUS_BEFORE", "")
 status_after = os.environ.get("OH_NO_PEXEC_STATUS_AFTER", "")
 # Out-of-fixture sentinel snapshots (defense-in-depth): sensitive targets plus
@@ -3083,7 +3120,10 @@ def under_fixture(path):
     """Positive path-containment guard: True iff path resolves under fixture_dir."""
     if not path:
         return False
-    candidate = path
+    candidate = str(path).strip().strip("\"'")
+    candidate = os.path.expanduser(os.path.expandvars(candidate))
+    if "$" in candidate:
+        return False
     if not os.path.isabs(candidate):
         candidate = os.path.join(fixture_real, candidate)
     real = os.path.realpath(candidate)
@@ -3096,9 +3136,8 @@ WRITE_BASH_TOKENS = (">", ">>", "tee", "cp", "mv", "rm", "mkdir", "touch", "dd",
 
 # Standard non-persistent device targets are not containment escapes: writing to
 # them discards output (or is a tty/fd), so a benign command like
-# `command -v python 2>/dev/null` must not be flagged. acceptEdits is the
-# authoritative write boundary; this Bash scan is defense-in-depth and must not
-# false-positive on these.
+# `command -v python 2>/dev/null` must not be flagged. This Bash scan is a
+# defense-in-depth containment guard and must not false-positive on these.
 DISCARD_WRITE_TARGETS = {"/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "/dev/zero"}
 
 def clean_write_target(target):
@@ -3150,7 +3189,134 @@ def command_writes(command):
     lowered = command.lower()
     return any(tok in lowered or tok in command for tok in WRITE_BASH_TOKENS)
 
+INTERPRETER_WRITE_PATTERNS = (
+    re.compile(r"\bopen\(\s*['\"][^'\"]+['\"]\s*,\s*['\"][^'\"]*[wax+][^'\"]*['\"]"),
+    re.compile(r"\bopen\(\s*(?:os\.environ\[[^\]]+\]|[^,]+)\s*,\s*['\"][^'\"]*[wax+][^'\"]*['\"]"),
+    re.compile(r"\bopen\(.*?\bmode\s*=\s*['\"][^'\"]*[wax+][^'\"]*['\"]", re.S),
+    re.compile(r"(?:\b[A-Za-z_]\w*\(|\bpathlib\.Path\(|\.joinpath\().{0,300}\.(?:write_text|write_bytes|touch|mkdir|open)\s*\("),
+    re.compile(r"\btempfile\."),
+)
+FORBIDDEN_ENV_OR_HOME_REF = re.compile(
+    r"(?:\$HOME|\$\{HOME\}|\$TMPDIR|\$\{TMPDIR\}|~(?:/|$)|"
+    r"os\.environ\s*\[\s*['\"](?:HOME|TMPDIR)['\"]\s*\]|"
+    r"os\.environ\.get\(\s*['\"](?:HOME|TMPDIR)['\"]\s*\)|Path\.home\(\)|tempfile\.)"
+)
+RISKY_ABSOLUTE_PATH_RE = re.compile(
+    r"(?<![\w@%+=:.-])/(?:tmp|var/tmp|var/folders|private/tmp|private/var/tmp|private/var/folders|Users|home|root|etc)(?:[^\s'\"`;<>()|&]*)"
+)
+EXECUTABLE_PATH_PREFIXES = (
+    "/bin/",
+    "/sbin/",
+    "/usr/bin/",
+    "/usr/sbin/",
+    "/usr/local/bin/",
+    "/opt/homebrew/bin/",
+    "/System/",
+    "/Library/",
+)
+
+def command_may_write(command):
+    return command_writes(command) or any(pattern.search(command) for pattern in INTERPRETER_WRITE_PATTERNS)
+
+def interpreter_write_targets(command):
+    targets = []
+    # open("path", "w") or open(os.environ["HOME"] + "/x", "w").
+    for match in re.finditer(r"\bopen\(\s*(?P<expr>.+?)\s*,\s*['\"][^'\"]*[wax+][^'\"]*['\"]", command, flags=re.S):
+        expr = match.group("expr").strip()
+        literal = re.match(r"^['\"]([^'\"]+)['\"]$", expr)
+        if literal:
+            targets.append(literal.group(1))
+        elif re.search(r"os\.environ\s*\[\s*['\"](?:HOME|TMPDIR)['\"]\s*\]|Path\.home\(\)|tempfile\.", expr):
+            targets.append("__DYNAMIC_OUT_OF_FIXTURE__")
+        else:
+            targets.append("__AMBIGUOUS_INTERPRETER_WRITE_TARGET__")
+    # open("path", mode="w"), open(file="path", mode="w"), and dynamic keyword forms.
+    for match in re.finditer(r"\bopen\((?P<args>.*?\bmode\s*=\s*['\"][^'\"]*[wax+][^'\"]*['\"][^)]*)\)", command, flags=re.S):
+        args = match.group("args")
+        file_expr = None
+        file_match = re.search(r"\bfile\s*=\s*(?P<expr>[^,]+)", args)
+        if file_match:
+            file_expr = file_match.group("expr").strip()
+        else:
+            first_arg = args.split(",", 1)[0].strip()
+            if first_arg and not first_arg.startswith("mode"):
+                file_expr = first_arg
+        if not file_expr:
+            targets.append("__AMBIGUOUS_INTERPRETER_WRITE_TARGET__")
+            continue
+        literal = re.match(r"^['\"]([^'\"]+)['\"]$", file_expr)
+        if literal:
+            targets.append(literal.group(1))
+        elif re.search(
+            r"os\.environ\s*\[\s*['\"](?:HOME|TMPDIR)['\"]\s*\]|"
+            r"os\.environ\.get\(\s*['\"](?:HOME|TMPDIR)['\"]\s*\)|Path\.home\(\)|tempfile\.",
+            file_expr,
+        ):
+            targets.append("__DYNAMIC_OUT_OF_FIXTURE__")
+        else:
+            targets.append("__AMBIGUOUS_INTERPRETER_WRITE_TARGET__")
+    # Path("path").write_text(...), pathlib.Path("path").touch(), or aliased
+    # Path constructors such as `from pathlib import Path as P; P("/tmp/x").write_text(...)`.
+    for match in re.finditer(
+        r"(?:\b[A-Za-z_]\w*|\bpathlib\.Path)\(\s*['\"](?P<path>[^'\"]+)['\"]\s*\)"
+        r"(?:\.[A-Za-z_]\w*\([^)]*\))*\.(?:write_text|write_bytes|touch|mkdir|open)\s*\(",
+        command,
+        flags=re.S,
+    ):
+        targets.append(match.group("path"))
+    return targets
+
+def command_write_escape_reasons(command):
+    if not command_may_write(command):
+        return []
+
+    reasons = []
+    if FORBIDDEN_ENV_OR_HOME_REF.search(command):
+        reasons.append("forbidden env/home path reference in write-capable command")
+
+    explicit_targets = []
+
+    for target in bash_write_targets(command):
+        explicit_targets.append(target)
+        if is_benign_write_target(target):
+            continue
+        cleaned = clean_write_target(target)
+        if not under_fixture(cleaned):
+            reasons.append(f"write target outside fixture: {cleaned!r}")
+
+    for target in interpreter_write_targets(command):
+        explicit_targets.append(target)
+        if target == "__DYNAMIC_OUT_OF_FIXTURE__":
+            reasons.append("dynamic interpreter write target resolves outside fixture")
+            continue
+        if target == "__AMBIGUOUS_INTERPRETER_WRITE_TARGET__":
+            reasons.append("ambiguous interpreter write target cannot be proven under fixture")
+            continue
+        cleaned = clean_write_target(target)
+        if not under_fixture(cleaned):
+            reasons.append(f"interpreter write target outside fixture: {cleaned!r}")
+
+    # Last-resort fallback for nested shell/interpreter commands where the write
+    # intent is visible but no concrete target was extracted (for example
+    # `bash -lc 'touch /tmp/x'`). Avoid using this when explicit write targets
+    # were found, because absolute paths may be harmless string content written
+    # into a fixture-local file.
+    if explicit_targets:
+        return reasons
+
+    for raw_path in RISKY_ABSOLUTE_PATH_RE.findall(command):
+        cleaned = clean_write_target(raw_path)
+        if is_benign_write_target(cleaned):
+            continue
+        if cleaned.startswith(EXECUTABLE_PATH_PREFIXES):
+            continue
+        if not under_fixture(cleaned):
+            reasons.append(f"absolute path in write-capable command outside fixture: {cleaned!r}")
+
+    return reasons
+
 errors = []
+permission_denials = []
 # (tool_use_index, marker_letter) for each distinct executor dispatch.
 executor_dispatch_uses = defaultdict(list)
 task_starts = []
@@ -3201,19 +3367,13 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         )
                 if ptype == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if command_writes(command):
-                        for target in bash_write_targets(command):
-                            # Skip non-path tokens and benign discard/device targets
-                            # (e.g. `2>/dev/null`), then strip trailing shell
-                            # metacharacters before the containment check.
-                            if is_benign_write_target(target):
-                                continue
-                            cleaned = clean_write_target(target)
-                            if not under_fixture(cleaned):
-                                raise SystemExit(
-                                    "Claude parallel-executor live ran a write Bash command targeting OUTSIDE "
-                                    f"the fixture sandbox: target={cleaned!r} command={command[:300]!r} fixture={fixture_real!r}"
-                                )
+                    escape_reasons = command_write_escape_reasons(command)
+                    if escape_reasons:
+                        raise SystemExit(
+                            "Claude parallel-executor live ran a write-capable Bash command with "
+                            "out-of-fixture containment escapes: "
+                            f"reasons={escape_reasons!r} command={command[:500]!r} fixture={fixture_real!r}"
+                        )
                 if ptype == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -3256,6 +3416,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         executor_completion_indexes[letter] = index
 
         if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
             result_text = str(data.get("result", ""))
             if FINAL_MARKER in result_text:
                 final_marker_seen = True
@@ -3268,10 +3429,10 @@ if not init_ok:
     raise SystemExit("Claude parallel-executor live did not expose Task tool and the oh-no-harness:executor role")
 if errors:
     raise SystemExit(f"Claude parallel-executor live returned errors: {errors!r}")
+if permission_denials:
+    raise SystemExit(f"Claude parallel-executor live had permission denials: {permission_denials!r}")
 
-# CONTAINMENT (defense-in-depth): no new/modified marketplace entry attributable
-# to the run. acceptEdits is the authoritative containment; this is belt-and-
-# suspenders.
+# CONTAINMENT: no new/modified marketplace entry attributable to the run.
 def porcelain_set(text):
     return {line for line in text.splitlines() if line.strip()}
 
@@ -3377,20 +3538,13 @@ else:
     both_completions_index = None
 
 if both_completions_index is None:
-    # Concurrency is already PROVEN above (both disjoint executors dispatched
-    # before the first task notification, and >=2 task_started events). The only
-    # thing missing here is observing BOTH completions to anchor the post-batch
-    # scope-check timing this run — a live-observability gap, NOT a sequential or
-    # inline run (those are caught as hard-FAIL INCONCLUSIVE cases earlier and stay
-    # gating). Degrade only this completion-observation gap to a non-gating WARN,
-    # consistent with the de-gated live deep-smoke direction, instead of failing.
-    print(
-        "WARN (non-gating): parallel-executor concurrency was proven, but could not observe both "
-        "disjoint-executor completions to anchor the post-batch scope check this run; "
+    raise SystemExit(
+        "INCONCLUSIVE: could not observe both disjoint-executor completions to anchor "
+        "the post-batch scope check (completion-observation gaps are hard failures for "
+        "this lane); "
         f"completed_notifications={completed_notification_indexes!r} "
         f"executor_completion_indexes={executor_completion_indexes!r}"
     )
-    raise SystemExit(0)
 
 post_batch_after_completions = [idx for idx in post_batch_indexes if idx > both_completions_index]
 if len(post_batch_after_completions) < 1:
@@ -3421,7 +3575,7 @@ summary = {
     "post_batch_check_after_completions": len(post_batch_after_completions),
     "post_batch_marker": POST_BATCH_MARKER,
     "final_marker": FINAL_MARKER,
-    "permission_mode": "acceptEdits",
+    "permission_mode": "bypassPermissions",
     "marketplace_containment": "clean",
     "out_of_fixture_sentinel": "clean",
 }
@@ -3441,10 +3595,14 @@ PY
   _parallel_executor_cleanup
   trap - RETURN EXIT INT TERM
 
-  if [[ "$parser_rc" != "0" ]]; then
-    return "$parser_rc"
-  fi
-}
+	  if [[ "$parser_rc" != "0" ]]; then
+	    return "$parser_rc"
+	  fi
+	  if [[ "$run_rc" != "0" ]]; then
+	    log "Claude parallel-executor live command invocation failed despite parser-accepted transcript (rc=$run_rc)"
+	    return "$run_rc"
+	  fi
+	}
 
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then

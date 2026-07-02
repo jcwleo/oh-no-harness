@@ -1618,14 +1618,15 @@ assert_natural_role_spawn_smoke() {
   local label="$4"
   local role_marker_specs="$5"
   local forbidden_markers="${6:-}"
+  local role_order_mode="${7:-exact}"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" "$CODEX_HOME_DIR" "$role_order_mode" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers, live_home = sys.argv[1:8]
+out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers, live_home, role_order_mode = sys.argv[1:9]
 role_markers = []
 for spec in role_marker_specs.split(","):
     if not spec:
@@ -1794,15 +1795,35 @@ if overlapping_inline_scope_events:
     )
 
 roles_seen = [role for _, role, _, _ in successful_role_spawns]
-if roles_seen != expected_roles:
-    raise SystemExit(
-        f"{label} natural role smoke expected role order {expected_roles!r}, got {roles_seen!r}; "
-        f"spawns={successful_role_spawns!r}"
-    )
-
-for role in expected_roles:
-    if roles_seen.count(role) != 1:
-        raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
+if role_order_mode == "exact":
+    if roles_seen != expected_roles:
+        raise SystemExit(
+            f"{label} natural role smoke expected role order {expected_roles!r}, got {roles_seen!r}; "
+            f"spawns={successful_role_spawns!r}"
+        )
+    for role in expected_roles:
+        if roles_seen.count(role) != 1:
+            raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
+elif role_order_mode == "grouped-fanout":
+    role_groups = []
+    for role in roles_seen:
+        if role not in expected_roles:
+            raise SystemExit(
+                f"{label} natural role smoke saw unexpected role {role!r}; "
+                f"expected grouped fan-out roles {expected_roles!r}; spawns={successful_role_spawns!r}"
+            )
+        if not role_groups or role_groups[-1] != role:
+            role_groups.append(role)
+    if role_groups != expected_roles:
+        raise SystemExit(
+            f"{label} natural role smoke expected grouped role order {expected_roles!r}, got groups {role_groups!r} "
+            f"from roles {roles_seen!r}; spawns={successful_role_spawns!r}"
+        )
+    for role in expected_roles:
+        if roles_seen.count(role) < 1:
+            raise SystemExit(f"{label} natural role smoke expected at least one spawn for {role}, got {roles_seen!r}")
+else:
+    raise SystemExit(f"unsupported role_order_mode for {label}: {role_order_mode!r}")
 
 for receiver, role in receiver_to_role.items():
     expected_agent_role = f"oh-no-{role}"
@@ -1844,6 +1865,7 @@ run_natural_session_start_live_skill_test() {
   local success_marker="$2"
   local role_marker_specs="$3"
   local forbidden_markers="${4:-}"
+  local role_order_mode="${5:-exact}"
   local safe_skill="${skill//\//-}"
   local out_file="$RUN_DIR/natural-session-start-${safe_skill}.jsonl"
   local err_file="$RUN_DIR/natural-session-start-${safe_skill}.err"
@@ -1867,7 +1889,7 @@ run_natural_session_start_live_skill_test() {
   fi
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
+  assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers" "$role_order_mode"
 }
 
 run_no_skill_readonly_session_start_live_test() {
@@ -2030,7 +2052,8 @@ run_natural_session_start_live_tests() {
     systematic-debugging \
     OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK \
     debugger:OH_NO_DEBUGGER_READONLY,verifier:OH_NO_DEBUG_VERIFIER_READONLY \
-    "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY"
+    "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_COMPLETION_VERIFIER_READONLY" \
+    grouped-fanout
   run_natural_session_start_live_skill_test \
     verification-before-completion \
     OH_NO_CODEX_VERIFICATION_NATURAL_OK \
@@ -2325,10 +2348,15 @@ PY
   log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralplan-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed workers: yes.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Required worker messages: Role: planner with Marker: OH_NO_CODEX_RALPLAN_PLANNER_READONLY; Role: plan-reviewer with Marker: OH_NO_CODEX_RALPLAN_REVIEWER_READONLY. Each message must include Scope: inline synthetic planning task, Do not edit files, and Expected output: one short planning or review section. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After any worker starts, the parent must not inspect or analyze the worker scope inline while waiting; wait for worker results and use them. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Wait results captured, and Closed workers: yes.'
   assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_natural_spawn_smoke "$out_file" "$err_file" 2 "OH_NO_CODEX_RALPLAN_NATURAL_OK" "ralplan"
+  assert_natural_role_spawn_smoke \
+    "$out_file" \
+    "$err_file" \
+    OH_NO_CODEX_RALPLAN_NATURAL_OK \
+    ralplan \
+    "planner:OH_NO_CODEX_RALPLAN_PLANNER_READONLY,plan-reviewer:OH_NO_CODEX_RALPLAN_REVIEWER_READONLY"
 }
 
 run_named_agents_live_test() {
