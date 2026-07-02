@@ -272,13 +272,12 @@ Execution must preserve Ralph's selected execution mode, PRD or compact artifact
 
 Inline execution is a documented fallback, permitted only when the host cannot
 load or execute the `ralph` skill; record that fallback reason in the session
-ledger (an explicit user instruction always overrides, per instruction
-priority — no bespoke carve-out needed). When executing inline under that
-fallback, first read `docs/shared/execution-modes.md`, set the required
-`LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's
-mode-gated loop. Apply Ralph's TDD gate before behavior-changing production
-edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR
-evidence, and document any approved exception.
+ledger (an explicit user instruction always overrides). When executing
+inline under that fallback, first read `docs/shared/execution-modes.md`, set
+the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply
+Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing
+production edits: read and follow `test-driven-development`, record
+RED/GREEN/REFACTOR evidence, and document any approved exception.
 
 ### Phase 3: QA Loop
 

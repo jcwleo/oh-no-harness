@@ -85,11 +85,13 @@ unchanged-evidence bar: a previous run is not fresh evidence unless nothing it
 depends on changed), do not dispatch a second `verifier` for that claim. A
 compliant pass recorded its independence mode and used the tier shape the
 `ralph`/`ultrawork` exception in `docs/shared/cross-host-review.md` requires
-for that mode. Record the reused pass id, its independence mode, and its tier
-shape. This reuse satisfies only the verifier-dispatch expectation above:
-Required Gate steps 1–9 still execute in full, and this clause never licenses
-skipping this skill itself. Dispatch a fresh `verifier` when evidence changed
-after the caller's pass or when no compliant pass exists.
+for the active execution mode. Record the reused pass (as a reference to the
+caller's ledger entry for it), its independence mode, and its tier shape.
+This reuse satisfies only the verifier-dispatch expectation above: every
+Required Gate step still executes in full (currently steps 1–9), and this
+clause never licenses skipping this skill itself. Dispatch a fresh `verifier`
+when evidence changed after the caller's pass or when no compliant pass
+exists.
 
 Apply the active platform's dispatch authorization for the eligible `verifier`
 and risk-gated `code-reviewer` roles in this skill. Do not ask for per-run
