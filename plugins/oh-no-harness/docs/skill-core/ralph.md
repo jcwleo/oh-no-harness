@@ -171,7 +171,7 @@ For each story, record (the named gate owns the detail — do not restate it her
 - acceptance-to-evidence mapping plan and verification budget — see Verification
   Budget Policy
 - story risk check — the most likely `docs/shared/failure-taxonomy.md` risk
-  (contract-surface, semantic-model, baseline, adjacent-subsystem)
+  (for example `contract-surface mismatch`, `semantic-lifecycle/state miss`, `hidden regression`)
 - validation check when measurable evidence influenced the task — see Validation Gate
 - diff-budget expectation — see Diff-Budget Gate
 

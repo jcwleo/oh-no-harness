@@ -140,7 +140,7 @@ be synthesized into one verdict per `docs/shared/cross-host-review.md`
 unavailable). That is two instances of one reviewer role, not
 Analyst/Planner/Plan-Reviewer in parallel.
 
-Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).
+Worst-case consensus role dispatch chain: 8 (explore, analyst, Planner draft v1, Plan review v1 as a two-instance pair, Planner revision v2, Plan review v2 as a two-instance pair).
 
 ## Requirements Source And Analyst Gate
 
@@ -190,6 +190,11 @@ Acceptance criteria:
 - Source: approved interview spec | approved PRD/ticket | user request | analyst gap check
 - Confidence: confirmed | inferred | open
 ```
+
+When the source is an approved `interview` spec, derive `Source` and
+`Confidence` from the spec's `Confirmation status`: confirmed by user →
+confirmed; inferred from repo → inferred; inferred from request → inferred;
+open → open. The same mapping governs the brief's `Source/confidence` line.
 
 If the acceptance criteria are missing, contradictory, or only inferred for a
 decision that changes behavior, architecture, data handling, security posture,

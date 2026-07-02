@@ -942,7 +942,7 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Findings ledger:",
     "Re-review scope: delta | full",
     "Re-review: not required (no blocking findings)",
-    "Worst-case consensus role dispatch chain: 6 (explore, analyst, Planner draft v1, Plan review v1, Planner revision v2, Plan review v2).",
+    "Worst-case consensus role dispatch chain: 8 (explore, analyst, Planner draft v1, Plan review v1 as a two-instance pair, Planner revision v2, Plan review v2 as a two-instance pair).",
     "The plan is invalid if it contains only Planner output",
     "if Plan-Reviewer is skipped",
     "accepted feedback is logged but not reflected in the final plan body",

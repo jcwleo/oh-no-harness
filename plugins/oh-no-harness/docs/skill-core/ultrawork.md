@@ -189,7 +189,7 @@ cannot dispatch).
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
-| QA Loop | Dispatch `debugger` and `verifier` (scenario lens for user-facing flows); use `systematic-debugging` before fixes. |
+| QA Loop | Follow `systematic-debugging` for failure investigation; it owns `debugger` dispatch per its own contract. Dispatch `verifier` (scenario lens for user-facing flows). |
 | Final Validation | Dispatch `plan-reviewer` and `code-reviewer` (security lens included) for additional orchestration-level risk not already covered by Ralph's satisfied gates. Dispatch `verifier` as an independent pass — required at STANDARD and THOROUGH on subagent-capable hosts whenever execution produced or changed proving tests, or the implementation/tests were authored or accepted by the same agent, per the carve-out in `docs/shared/ralph-subagent-policy.md` (record the fallback reason if the host cannot dispatch); otherwise (scenario lens) only for additional orchestration-level risk. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback); the `verifier` is the confirming pass per the Review-then-verify order below — single at STANDARD, or a cross-host/parallel pair at THOROUGH. |
 
 When independent delegated phase work can run in parallel, or when inline
@@ -214,7 +214,7 @@ end-to-end orchestration: it uses a registered Git worktree under
 back into the integration checkout. `git clone`, `cp -R`, and plain directories
 are not valid substitutes.
 
-worktree_gate: no source file edit until a `Worktree decision` is recorded per `docs/shared/worktree-isolation.md` (a reference to that canonical gate, not a re-hosted copy).
+worktree_gate: no source file edit until a `Worktree decision` is recorded per `docs/shared/worktree-isolation.md` (the canonical gate lives in that shared doc; the numbered steps below are Ultrawork's own responsibilities under it).
 
 Before editing files, Ultrawork must:
 
@@ -270,7 +270,15 @@ the planning phase was triggered.
 
 Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
 
-If execution is handled inline instead of through `ralph`, first read `docs/shared/execution-modes.md`, set the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing production edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR evidence, and document any approved exception.
+Inline execution is a documented fallback, permitted only when the host cannot
+load or execute the `ralph` skill; record that fallback reason in the session
+ledger (an explicit user instruction always overrides, per instruction
+priority — no bespoke carve-out needed). When executing inline under that
+fallback, first read `docs/shared/execution-modes.md`, set the required
+`LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply Ralph's
+mode-gated loop. Apply Ralph's TDD gate before behavior-changing production
+edits: read and follow `test-driven-development`, record RED/GREEN/REFACTOR
+evidence, and document any approved exception.
 
 ### Phase 3: QA Loop
 
@@ -286,8 +294,10 @@ integration or when Ralph reports a blocker.
 
 Dispatch:
 
-- `systematic-debugging` (skill, not agent) for root-cause investigation before fixes
-- `debugger` subagent for failures
+- `systematic-debugging` (skill, not agent) for root-cause investigation of
+  failures before fixes; it owns `debugger` dispatch per its own contract
+  (dual-host default, hypothesis ledger) — do not dispatch a raw `debugger`
+  outside that flow
 - `verifier` subagent for evidence packaging and, via its scenario lens,
   user-facing flows
 

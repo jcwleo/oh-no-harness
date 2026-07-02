@@ -106,7 +106,7 @@ ultrawork
   -> verification-before-completion before the final report
   -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
   -> explore / analyst / planner / plan-reviewer / executor when phases are handled inline
-  -> inline QA loop with debugger, verifier (scenario lens included), code-reviewer (security lens included)
+  -> QA loop via systematic-debugging, which owns debugger dispatch; verifier (scenario lens included), code-reviewer (security lens included)
 
 test-driven-development
   -> no outbound skill dependency
