@@ -55,8 +55,7 @@ skill hands a decision to it. If a listed file cannot be read, record the
 blocker instead of proceeding past the gate that depends on it.
 
 - `docs/shared/cross-host-review.md` — the dual-host `debugger` default, cross-host post-fix review, and the independence-mode recording the Output Gate requires.
-- `docs/shared/ralph-subagent-policy.md` — when to dispatch the debugger/verifier/reviewer versus inline.
-- `docs/shared/parallel-subagents.md` — the dispatch-policy pointer for parallel investigation.
+- `docs/shared/ralph-subagent-policy.md` — when to dispatch the debugger/verifier/reviewer versus inline, plus role isolation, fallback reasons, and eligible batch dispatch.
 
 ## Agent Roles
 
@@ -73,8 +72,7 @@ fix would change broad APIs, product behavior, data handling, security, or
 delivery scope. Dispatch is governed by the active skill's platform policy and
 Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
 For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
-and `docs/shared/parallel-subagents.md` for role isolation, fallback reasons, and
-eligible batch dispatch.
+for role isolation, fallback reasons, and eligible batch dispatch.
 
 Apply the active platform's dispatch authorization for this skill's diagnostic,
 fix, evidence, and post-fix review roles. Do not ask for per-run subagent
