@@ -813,6 +813,7 @@ run_live_skill_test() {
   local out_file="$RUN_DIR/${skill}.json"
   local prompt
   prompt="$(live_prompt_for_skill "$skill")"
+  prompt="$prompt Ground your reply in the skill document the command tells you to read; if you cannot read it, say so instead of answering from memory."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -821,7 +822,10 @@ run_live_skill_test() {
     --model "$LIVE_MODEL"
     --max-budget-usd "$LIVE_MAX_BUDGET_USD"
     --permission-mode dontAsk
-    --tools ""
+    # Read is required: the plugin command wrapper instructs the model to Read
+    # the generated SKILL.md, so with --tools "" the skill body never reaches
+    # context and the smoke result is a prior-knowledge guess or a refusal.
+    --tools "Read"
     --no-session-persistence
     --system-prompt "$LIVE_SYSTEM_PROMPT"
   )
