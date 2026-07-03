@@ -83,6 +83,9 @@ Write transient orchestration notes under:
 .oh-no/sessions/{sessionId}/ultrawork.md
 ```
 
+Ultrawork establishes the chain session directory at `start_or_resume`;
+downstream skills in the same run reuse it.
+
 ## Loop Contract
 
 Ultrawork is the foreground orchestration loop around the existing skill chain.

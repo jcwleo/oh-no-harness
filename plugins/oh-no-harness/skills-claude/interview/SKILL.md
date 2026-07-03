@@ -66,6 +66,11 @@ blocker instead of proceeding past the gate that depends on it.
 | Standard | default; enough rounds to clarify objective, constraints, and acceptance. |
 | Deep | multi-component systems, high risk, or major product uncertainty. |
 
+Explicit user depth selection wins: a `--quick`, `--standard`, or `--deep`
+flag, or an explicit prose request for a depth, selects that mode. Otherwise
+choose by the table's Use column; when uncertain between Quick and Standard,
+use Standard.
+
 Interview Milestones, Refine Confirmation, Hidden-Assumption Persona Check,
 Breadth And Question Tactics, and the Standard/Deep additions inside the Spec
 Closure Gate apply in Standard and Deep modes only; Quick mode is exempt and keeps current behavior.
@@ -403,6 +408,12 @@ Use transient notes only under:
 ```text
 .oh-no/sessions/{sessionId}/interview.md
 ```
+
+In a chained run, `{sessionId}` is the chain session directory established
+earlier in the run; interview owns its `interview.md` file there. When no
+chain session directory exists yet, interview establishes one as a timestamped
+directory under `.oh-no/sessions/`. Cross-session continuity flows through the
+durable spec, not the session directory.
 
 The spec must include:
 

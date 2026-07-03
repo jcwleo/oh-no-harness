@@ -80,9 +80,12 @@ Full session artifacts are:
 .oh-no/sessions/{sessionId}/verification.md
 ```
 
-If the selected mode requires a session and no session id exists, create a
-timestamped directory under `.oh-no/sessions/`. `LIGHT` mode may use a compact
-session note instead of full PRD scaffolding unless the input requires stories.
+Reuse the chain session directory established earlier in this run when one
+exists; if the selected mode requires a session and no chain session directory
+was established earlier in this run, create a timestamped directory under
+`.oh-no/sessions/`. On resume, the session directory recorded in the run's
+artifacts wins. `LIGHT` mode may use a compact session note instead of full PRD
+scaffolding unless the input requires stories.
 
 ## Required Execution Mode
 

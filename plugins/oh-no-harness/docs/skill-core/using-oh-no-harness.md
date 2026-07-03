@@ -154,6 +154,21 @@ Use `.oh-no/plans/` for generated plans.
 
 Use `.oh-no/sessions/` for transient session artifacts.
 
+Session continuity is scoped to one continuous workflow run. The first skill in
+a run that needs a session establishes `.oh-no/sessions/<id>/` (Ultrawork
+establishes it at `start_or_resume`); downstream skills in the same run reuse
+that directory. Skills in a chain share the session directory; each artifact
+file has one owning workflow stage, and internal mid-loop skills (for example,
+`test-driven-development` recording RED/GREEN evidence into `verification.md`)
+write into their caller's session files by design. Create a new timestamped
+directory only when no chain session exists in the current run. On resume or
+re-entry, the session directory recorded in the run's artifacts wins; never
+mint a new directory when artifacts name one. Across host sessions, durable
+specs and plans (their `Next skill` headers) are the continuity bridge, not
+session directories. The chain session directory lives in the integration
+checkout, not in task worktrees (worktree access follows
+`docs/shared/worktree-isolation.md` `## Artifact Handoff`).
+
 Use `.oh-no/worktrees/` for project-local Ralph and Ultrawork task worktrees.
 
 Do not use legacy harness artifact paths.
