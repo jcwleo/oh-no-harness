@@ -211,8 +211,10 @@ the current checkout. If the task escalates
 from LIGHT mid-run, stop editing immediately; continue only after the user
 explicitly approves the current checkout (record
 `user declined/current checkout` from that point) or an automatic worktree is
-created for all further edits, with already-landed edits listed in the final
-report. STANDARD and THOROUGH work keeps the automatic-worktree default.
+created for all further edits (re-record
+`Worktree decision: direct automatic worktree` from that point), with
+already-landed edits listed in the final report. STANDARD and THOROUGH work
+keeps the automatic-worktree default.
 
 When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
 create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,

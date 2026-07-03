@@ -129,9 +129,9 @@ checkout only when ALL of these conditions hold:
 
 1. the task's mode is LIGHT per the LIGHT definition and Typical signals in
    `docs/shared/execution-modes.md`
-2. the edit is a single file or a tightly bounded edit set
-3. the change is non-runtime per LIGHT's signals — no agent-behavior,
-   public-surface, or release-critical change
+2. the edit set is one obvious file or a tightly bounded repeated edit
+3. the change is non-runtime per LIGHT's Typical signals — no agent-behavior,
+   public-support-claim, data/security, or release-critical change
 4. `git status` shows no uncommitted changes overlapping the intended edit set
 5. no approved-plan worktree policy applies to this run — Ralph derives and
    owns the worktree decision
@@ -147,8 +147,9 @@ If the task escalates from LIGHT mid-run (see the escalation triggers in
 `docs/shared/execution-modes.md`), stop editing immediately. Continue only
 after either (a) the user explicitly approves continuing in the current
 checkout — record `user declined/current checkout` from that point — or (b) an
-automatic task worktree is created for ALL further edits, with already-landed
-checkout edits listed in the final report.
+automatic task worktree is created for ALL further edits — re-record
+`Worktree decision: direct automatic worktree` from that point — with
+already-landed checkout edits listed in the final report.
 
 Once a direct-Ralph worktree decision is recorded, do not ask again for the same
 task/session unless the user changes the scope or the recorded decision becomes
