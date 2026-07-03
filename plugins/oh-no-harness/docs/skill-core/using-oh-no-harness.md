@@ -96,11 +96,12 @@ pre-execution artifacts; the worktree gate starts at execution. Direct `ralph`
 creates a registered Git worktree under `.oh-no/worktrees/<task-slug>` and records
 `Worktree decision: direct automatic worktree` before editing; keep automatic
 worktrees project-local rather than parent-directory siblings, and never
-`git clone`, `cp -R`, or a plain directory. `ultrawork` does the same and additionally owns
-merge-back into the integration checkout
-(`Worktree decision: ultrawork automatic worktree`). See
-`docs/shared/worktree-isolation.md` for the allowed decisions and merge
-responsibilities.
+`git clone`, `cp -R`, or a plain directory. `ultrawork` also creates an
+automatic worktree and additionally owns merge-back into the integration
+checkout (`Worktree decision: ultrawork automatic worktree`). A narrow LIGHT
+carve-out (`light direct checkout`) exists for direct `ralph` only — never for
+`ultrawork` or non-LIGHT work. See `docs/shared/worktree-isolation.md` for the
+carve-out conditions, the allowed decisions, and merge responsibilities.
 
 ## Interview Gate
 

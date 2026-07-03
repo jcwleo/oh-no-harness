@@ -107,8 +107,8 @@ Represent work as stories:
     "artifactPolicy": "compact | session-verification | full-prd-session",
     "agentPolicy": "inline-only | targeted-subagents | full-review-set",
     "parallelTrigger": "approved-plan-handoff | explicit-user-request | natural-dispatch | none",
-    "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | user declined/current checkout | ultrawork automatic worktree | read-only/not applicable | blocked",
-    "worktreeLocation": ".oh-no/worktrees/<task-slug> | not-applicable | explicit fallback path",
+    "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | light direct checkout | user declined/current checkout | ultrawork automatic worktree | read-only/not applicable | blocked",
+    "worktreeLocation": ".oh-no/worktrees/<task-slug> | current checkout | not-applicable | explicit fallback path",
     "cleanupPolicy": "not-needed | conditional | required"
   },
   "stories": [
@@ -125,6 +125,9 @@ Represent work as stories:
   ]
 }
 ```
+
+Both `user declined/current checkout` and `light direct checkout` runs record
+`Worktree location: current checkout`.
 
 If the selected artifact policy requires a PRD and one does not exist, scaffold
 one from the approved input before editing.
@@ -198,6 +201,18 @@ ask a worktree approval question. Keep automatic task worktrees project-local
 under `.oh-no/worktrees/` — not the parent workspace directory by default — and do
 not use `git clone`, `cp -R`, a plain directory, or a manual checkout as a
 substitute, per `docs/shared/worktree-isolation.md`.
+
+A narrow LIGHT carve-out exists for direct Ralph: when every condition of the
+LIGHT carve-out in `docs/shared/worktree-isolation.md` holds — it applies only
+when "no approved-plan worktree policy applies to this run — Ralph derives and
+owns the worktree decision" — record
+`Worktree decision: light direct checkout` plus a one-line reason and edit in
+the current checkout. If the task escalates
+from LIGHT mid-run, stop editing immediately; continue only after the user
+explicitly approves the current checkout (record
+`user declined/current checkout` from that point) or an automatic worktree is
+created for all further edits, with already-landed edits listed in the final
+report. STANDARD and THOROUGH work keeps the automatic-worktree default.
 
 When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
 create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
@@ -593,7 +608,7 @@ Ship when all completion criteria are satisfied:
 - the independent `verifier` pass required by the selected mode or the verifier carve-out ran (per the Review-then-verify order, never the maker), or its dispatch-unavailable or not-required reason is recorded
 - `simplify` ran, was explicitly disabled by the user, or — in LIGHT only — was recorded as not needed
 - post-cleanup verification passed when cleanup changed files
-- a direct-Ralph automatic worktree was merged back with post-merge verification, or its task branch and handoff path were reported
+- a direct-Ralph automatic worktree was merged back with post-merge verification, or its task branch and handoff path were reported, or no direct-Ralph automatic worktree existed per the recorded `Worktree decision`
 - `verification-before-completion` ran for the final completion claim
 - acceptance-to-evidence mapping, contract-surface evidence, baseline guard,
   story risk checks, and the final risk check before completion were completed

@@ -7,6 +7,11 @@ Code, terminal, or GUI sessions.
 This policy is separate from parallel subagent dispatch. A single agent working
 alone still applies the worktree gate before editing source files.
 
+The LIGHT carve-out under `## Direct Ralph` is a recorded decision under the
+gate, not a gate skip; its dirty-checkout condition reduces the multi-session
+risk this contract targets, though it does not protect against concurrent
+edits mid-run.
+
 ## Non-Execution Phases
 
 `interview` and `ralplan` do not need to run inside a worktree by default. They
@@ -30,6 +35,10 @@ Allowed decisions:
   task worktree.
 - `direct automatic worktree`: direct `ralph` created or selected a task
   worktree by default without asking a worktree approval question.
+- `light direct checkout`: direct `ralph` recorded a LIGHT-mode carve-out
+  decision to edit in the current checkout because every condition in the LIGHT
+  carve-out under `## Direct Ralph` held. Not a substitute for
+  `user declined/current checkout`, which requires an explicit user decline.
 - `user declined/current checkout`: the user explicitly declined worktree use
   for this task, so execution continues in the current checkout.
 - `ultrawork automatic worktree`: `ultrawork` created or selected a task
@@ -101,8 +110,9 @@ For direct `ralph` execution, create or select a registered Git worktree under
 `.oh-no/worktrees/<task-slug>` by default before editing. Do not ask a worktree
 approval question. Skip automatic worktree creation only when the user
 explicitly asks to decide the execution location, the current checkout is
-already an approved task worktree, the task is read-only, or the repository
-cannot support `git worktree add`.
+already an approved task worktree, the task is read-only, the repository
+cannot support `git worktree add`, or the LIGHT direct-checkout carve-out below
+applies.
 
 Record `Worktree decision: direct automatic worktree` in the session note or PRD
 before editing. If the current checkout is already the approved task worktree,
@@ -111,6 +121,34 @@ use, record `user declined/current checkout` and continue only after that
 decision is visible in the execution artifact.
 If the repository cannot support a worktree and no explicit current-checkout
 fallback is approved, record `blocked` and stop before editing.
+
+**LIGHT carve-out.** This carve-out applies only when direct `ralph` itself
+derives or owns the worktree decision; when an approved-plan worktree policy
+applies to the run, follow the plan. Direct `ralph` may edit in the current
+checkout only when ALL of these conditions hold:
+
+1. the task's mode is LIGHT per the LIGHT definition and Typical signals in
+   `docs/shared/execution-modes.md`
+2. the edit is a single file or a tightly bounded edit set
+3. the change is non-runtime per LIGHT's signals — no agent-behavior,
+   public-surface, or release-critical change
+4. `git status` shows no uncommitted changes overlapping the intended edit set
+5. no approved-plan worktree policy applies to this run — Ralph derives and
+   owns the worktree decision
+
+When all five hold, record `Worktree decision: light direct checkout` AND a
+one-line reason before editing; the run's `Worktree location` is
+`current checkout`, as for `user declined/current checkout` runs. This is a
+recorded decision under the HARD-GATE, not a gate skip. Any other path —
+including all STANDARD and THOROUGH work — keeps the automatic-worktree
+default.
+
+If the task escalates from LIGHT mid-run (see the escalation triggers in
+`docs/shared/execution-modes.md`), stop editing immediately. Continue only
+after either (a) the user explicitly approves continuing in the current
+checkout — record `user declined/current checkout` from that point — or (b) an
+automatic task worktree is created for ALL further edits, with already-landed
+checkout edits listed in the final report.
 
 Once a direct-Ralph worktree decision is recorded, do not ask again for the same
 task/session unless the user changes the scope or the recorded decision becomes
@@ -132,7 +170,8 @@ left for inspection.
 If worktree creation, merge, or post-merge verification fails, report the blocker
 instead of silently editing the original checkout.
 
-Direct `ralph` carries the same post-execution responsibility for its own scope:
+Direct `ralph` **that created an automatic worktree** carries the same
+post-execution responsibility for its own scope:
 once the work passes the verification, review, and cleanup gates, it must merge the
 task branch back and run post-merge verification as above — except when the user
 requested a branch or PR handoff, in which case it leaves the task branch intact
