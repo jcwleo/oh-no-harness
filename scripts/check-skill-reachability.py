@@ -50,6 +50,23 @@ SKILL_REFERENCES: dict[str, list[str]] = {
 # genuinely platform-specific. Every phrase is re-verified reachable on each run,
 # so drift fails loudly here instead of intermittently in a paid live test.
 REQUIRED: dict[str, list[tuple[str, str]]] = {
+    "auto-routing": [
+        # Shared codexExecutor toggle facts from the skill core (both platforms).
+        ("executor role's implementation work to Codex", BOTH),
+        ("Default OFF.", BOTH),
+        ("they run one at a time, not in parallel", BOTH),  # serial-forced fact
+        ("escape-DETECTION net", BOTH),
+        ("not a sandbox guarantee", BOTH),  # honest best-effort, not-a-guarantee framing
+        ("oh-no-config codex-executor on|off|status", BOTH),  # command token
+        # Claude-Code-only overlay: the delegation block is injected via
+        # SessionStart and dispatches executor-codex. Tagged CLAUDE so it is NOT
+        # required on Codex (Codex has no such SessionStart block).
+        ("injected via `SessionStart` on Claude Code only", CLAUDE),
+        ("dispatches `oh-no-harness:executor-codex` in place of", CLAUDE),
+        # Codex overlay: no Codex SessionStart block; delegated role stays native.
+        ("adds NO Codex SessionStart block", CODEX),
+        ("executor role behaves as the native `oh-no-executor`", CODEX),
+    ],
     "interview": [
         ("consider advisory context", BOTH),
         ("## Question Routing", BOTH),

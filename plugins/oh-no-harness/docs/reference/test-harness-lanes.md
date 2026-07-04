@@ -430,6 +430,30 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
     {
       "host": "claude",
       "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--codex-executor-delegation-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "containment",
+        "worktree",
+        "host-boundary",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output plus integration-checkout git-status + filesystem-sentinel snapshots and worktree diff proving executor-codex delegation, escape-net clean, RED->GREEN with an unchanged RED file, executor-only negative+positive, sequential dispatch, and caller-mediated degrade fallback",
+      "non_proofs": [
+        "marker-only output",
+        "model self-report alone",
+        "positive-only writes-exist-in-worktree claim without an escape-detection net",
+        "escape net relying only on git-status blind to the ignored .oh-no/ subtree"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
       "flag": "--simplify-live",
       "release_status": "opt-in-live",
       "hard_failures": [

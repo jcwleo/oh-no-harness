@@ -49,6 +49,7 @@ AGENTS = [
     "planner",
     "plan-reviewer",
     "executor",
+    "executor-codex",
     "debugger",
     "verifier",
     "code-reviewer",
@@ -748,6 +749,13 @@ READ_ONLY_CODEX_AGENT_ROLES = {
     "explore",
     "fusion-rescue-analyst",
 }
+# Claude-Code-only delegation roles: Claude delegates write work TO Codex, so on
+# the Codex host there is nothing to delegate and no Codex custom-agent wrapper is
+# generated. These agents ship a Claude wrapper (agents/<role>.md) only and MUST NOT
+# require a docs/platforms/codex-agents/oh-no-<role>.toml template.
+CLAUDE_ONLY_AGENT_ROLES = {
+    "executor-codex",
+}
 EXECUTION_MODE_AGENT_MARKERS = {
     "planner": (
         "execution profile",
@@ -784,6 +792,39 @@ EXECUTION_MODE_AGENT_MARKERS = {
         "Safety Trigger Checklist",
     ),
 }
+
+# Load-bearing phrases the Codex-delegation executor role body must keep. This
+# dict is only load-bearing if it is WIRED into assert_agent's if-chain (a
+# defined-but-unreferenced dict gates nothing), so the wiring below is
+# mandatory. Each phrase pins one clause of the executor-codex delegation
+# contract: the write-capable companion invocation, the escape-detection
+# protected set, the caller-mediated degrade, the maker-verifier fence, the
+# one-hop guard, and the honest best-effort framing.
+DELEGATION_CONTRACT_AGENT_MARKERS = {
+    "executor-codex": (
+        "--write --cwd",
+        "PROTECTED TARGET SET",
+        "caller-mediated degrade",
+        "does NOT author RED, verify, review, or merge",
+        "one-hop guard",
+        "best-effort",
+    ),
+}
+
+# Load-bearing phrases the reframed auto-routing skill core (T4) must carry so
+# the codexExecutor toggle content is statically gated: the codexExecutor toggle
+# key, the `codex-executor` command token, the default-OFF fact, the
+# serial-forced fact, and the honest escape-DETECTION / not-a-guarantee framing.
+# This is only load-bearing if WIRED into assert_skill's if-chain below.
+AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
+    "codexExecutor",
+    "codex-executor on|off|status",
+    "Default OFF.",
+    "serial-forced",
+    "they run one at a time, not in parallel",
+    "escape-DETECTION net",
+    "not a sandbox guarantee",
+)
 
 SIMPLICITY_SCOPE_SKILL_MARKERS = {
     "ralplan": (
@@ -1588,6 +1629,11 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS:
             if marker in body:
                 die(f"{path} contains forbidden old Ralph split-option marker: {marker!r}")
+    if skill == "auto-routing":
+        body = read_text(path)
+        for marker in AUTO_ROUTING_CODEX_EXECUTOR_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Auto-Routing codex-executor marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
         body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
@@ -1670,6 +1716,10 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in EXECUTION_MODE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode agent marker: {marker!r}")
+    if agent in DELEGATION_CONTRACT_AGENT_MARKERS:
+        for marker in DELEGATION_CONTRACT_AGENT_MARKERS[agent]:
+            if marker not in body:
+                die(f"{path} is missing required Delegation-Contract agent marker: {marker!r}")
     if agent in SIMPLICITY_SCOPE_AGENT_MARKERS:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
             if marker not in body:
@@ -2368,6 +2418,22 @@ def assert_hook_contract(root: Path) -> None:
         "spawned in-scope subagent results are workflow dependencies",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",
+        # Codex-executor delegation block (T3 hook-only rule). These statically
+        # gate the OH_NO_CODEX_EXECUTOR_DELEGATION block's load-bearing phrases so
+        # the hook-only override is not a reachability blind spot: open/close
+        # tags, the executor-codex re-bind, the executor-only fence, the
+        # serial-forced override, the caller-mediated degrade, and the honest
+        # best-effort escape-DETECTION framing.
+        "<OH_NO_CODEX_EXECUTOR_DELEGATION>",
+        "</OH_NO_CODEX_EXECUTOR_DELEGATION>",
+        "Codex-executor delegation is ON (session-scoped, Claude-Code-only)",
+        "dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`",
+        "Executor-only fence: ONLY the executor role is delegated",
+        "Serial-forced dispatch (highest priority, session-scoped override)",
+        "Caller-mediated degrade:",
+        "SIGNALS companion-unavailable and returns without writing",
+        "Best-effort framing (honest)",
+        "escape-DETECTION net",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
@@ -2813,7 +2879,9 @@ def main() -> None:
         assert_command(root, skill)
     for agent in AGENTS:
         assert_agent(root, agent)
-        assert_codex_agent_template(root, agent)
+        # Claude-only delegation roles ship no Codex custom-agent template.
+        if agent not in CLAUDE_ONLY_AGENT_ROLES:
+            assert_codex_agent_template(root, agent)
     assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)
     assert_verification_tier_contract(root)

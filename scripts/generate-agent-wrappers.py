@@ -25,6 +25,7 @@ class AgentMetadata:
     codex_description: str
     codex_sandbox_mode: str | None = None
     codex_reasoning_effort: str = "xhigh"
+    claude_only: bool = False
 
 
 AGENTS = [
@@ -99,6 +100,26 @@ AGENTS = [
             "Oh No Harness executor role: implement scoped tasks with clear ownership, "
             "acceptance criteria, and verification responsibility."
         ),
+    ),
+    AgentMetadata(
+        role="executor-codex",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows to run the "
+            "write-capable Codex companion call for a scoped executor slice when "
+            "executor delegation is on; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Bash, Grep, Glob",
+        claude_model="inherit",
+        claude_color="red",
+        codex_description=(
+            "Oh No Harness executor-codex role: construct and run the write-capable "
+            "Codex companion call for one scoped executor slice and return git-derived "
+            "evidence, without authoring RED, verifying, reviewing, or merging."
+        ),
+        # Claude-Code-only delegation agent: Claude delegates write work TO Codex.
+        # On the Codex host there is nothing to delegate, so no Codex custom-agent
+        # wrapper is emitted (a self-delegation degrade-to-native would be a no-op).
+        claude_only=True,
     ),
     AgentMetadata(
         role="debugger",
@@ -223,6 +244,10 @@ def expected_files(plugin_root: Path) -> dict[Path, str]:
         files[plugin_root / "agents" / f"{meta.role}.md"] = render_claude_agent(
             plugin_root, meta
         )
+        # Claude-only agents (Claude-Code delegation roles) get no Codex wrapper:
+        # they are never registered as a Codex custom agent.
+        if meta.claude_only:
+            continue
         files[
             plugin_root / "docs" / "platforms" / "codex-agents" / f"oh-no-{meta.role}.toml"
         ] = render_codex_agent(plugin_root, meta)

@@ -26,6 +26,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/planner.md` and `agents/planner.md` | `omc/raw/agents/planner.md` |
 | `docs/agent-core/plan-reviewer.md` and `agents/plan-reviewer.md` | merged from `omc/raw/agents/architect.md` and `omc/raw/agents/critic.md` |
 | `docs/agent-core/executor.md` and `agents/executor.md` | `omc/raw/agents/executor.md` |
+| `docs/agent-core/executor-codex.md` and `agents/executor-codex.md` | new in oh-no-harness; Claude-Code-only Codex-delegation write path for the executor role; ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
 | `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
 | `docs/agent-core/verifier.md` and `agents/verifier.md` | merged from `omc/raw/agents/verifier.md` and `omc/raw/agents/qa-tester.md` |
 | `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | merged from `omc/raw/agents/code-reviewer.md` and `omc/raw/agents/security-reviewer.md` |

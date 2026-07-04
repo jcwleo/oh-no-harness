@@ -103,6 +103,13 @@ LIVE_HARD_REQUIREMENTS = {
     "--worktree-live": {"lifecycle", "worktree", "containment", "forensic invariant"},
     "--live-hook-only": {"hook policy", "malformed output"},
     "--parallel-executor-live": {"lifecycle", "containment", "forensic invariant"},
+    "--codex-executor-delegation-live": {
+        "lifecycle",
+        "containment",
+        "worktree",
+        "host-boundary",
+        "forensic invariant",
+    },
 }
 
 LIVE_BASELINE_HARD_REQUIREMENTS = {"install/load", "command invocation", "tool/permission"}

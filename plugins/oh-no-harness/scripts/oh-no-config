@@ -33,47 +33,58 @@ config_path() {
   printf '%s/config.json\n' "$(config_dir)"
 }
 
-is_enabled() {
-  local path
+read_key() {
+  # Prints "true" when <key>.enabled is true, else "false" (missing key/file
+  # defaults to false). Whitespace-strips so it works on pretty or compact JSON.
+  local key="$1" path
   path="$(config_path)"
-  [ -f "$path" ] || return 1
-  tr -d '\n\r\t ' <"$path" | grep -q '"autoRouting":{"enabled":true'
-}
-
-write_config() {
-  local enabled="$1"
-  local path dir
-  path="$(config_path)"
-  dir="$(dirname "$path")"
-  mkdir -p "$dir"
-  if [ "$enabled" = "true" ]; then
-    cat >"$path" <<'JSON'
-{
-  "autoRouting": {
-    "enabled": true
-  }
-}
-JSON
+  if [ -f "$path" ] && tr -d '\n\r\t ' <"$path" | grep -q "\"${key}\":{\"enabled\":true"; then
+    printf 'true\n'
   else
-    cat >"$path" <<'JSON'
-{
-  "autoRouting": {
-    "enabled": false
-  }
-}
-JSON
+    printf 'false\n'
   fi
 }
 
+is_enabled() {
+  local key="${1:-autoRouting}"
+  [ "$(read_key "$key")" = "true" ]
+}
+
+write_config() {
+  # write_config <key> <true|false>: set one key while preserving the sibling.
+  local key="$1" enabled="$2"
+  local path dir auto codex
+  path="$(config_path)"
+  dir="$(dirname "$path")"
+  mkdir -p "$dir"
+  auto="$(read_key autoRouting)"
+  codex="$(read_key codexExecutor)"
+  case "$key" in
+    autoRouting) auto="$enabled" ;;
+    codexExecutor) codex="$enabled" ;;
+  esac
+  cat >"$path" <<JSON
+{
+  "autoRouting": {
+    "enabled": ${auto}
+  },
+  "codexExecutor": {
+    "enabled": ${codex}
+  }
+}
+JSON
+}
+
 show_status() {
+  local key="${1:-autoRouting}" label="${2:-auto-routing}"
   local path state
   path="$(config_path)"
-  if is_enabled; then
+  if is_enabled "$key"; then
     state="on"
   else
     state="off"
   fi
-  printf 'auto-routing: %s\nconfig: %s\n' "$state" "$path"
+  printf '%s: %s\nconfig: %s\n' "$label" "$state" "$path"
 }
 
 show_restart_notice() {
@@ -83,8 +94,12 @@ show_restart_notice() {
 usage() {
   cat <<'USAGE'
 Usage: scripts/oh-no-config <on|off|status|path|is-enabled>
+       scripts/oh-no-config codex-executor <on|off|status|is-enabled>
 
-Manages Oh No Harness user settings outside the plugin cache.
+Manages Oh No Harness user settings outside the plugin cache. The bare verbs
+operate on auto-routing; the codex-executor subcommand operates on the
+codexExecutor key. Both keys are stored side by side and preserved
+independently.
 
 Stored at $HOME/.claude/plugins/data/<oh-no-harness-*>/config.json on
 Claude Code, or $XDG_CONFIG_HOME/oh-no-harness/config.json (default
@@ -97,12 +112,12 @@ USAGE
 
 case "${1:-status}" in
   on|enable|enabled|true)
-    write_config true
+    write_config autoRouting true
     show_status
     show_restart_notice
     ;;
   off|disable|disabled|false)
-    write_config false
+    write_config autoRouting false
     show_status
     show_restart_notice
     ;;
@@ -114,6 +129,33 @@ case "${1:-status}" in
     ;;
   is-enabled)
     is_enabled
+    ;;
+  codex-executor)
+    case "${2:-status}" in
+      on|enable|enabled|true)
+        write_config codexExecutor true
+        show_status codexExecutor codex-executor
+        show_restart_notice
+        ;;
+      off|disable|disabled|false)
+        write_config codexExecutor false
+        show_status codexExecutor codex-executor
+        show_restart_notice
+        ;;
+      status|show)
+        show_status codexExecutor codex-executor
+        ;;
+      is-enabled)
+        is_enabled codexExecutor
+        ;;
+      -h|--help|help)
+        usage
+        ;;
+      *)
+        usage >&2
+        exit 2
+        ;;
+    esac
     ;;
   -h|--help|help)
     usage

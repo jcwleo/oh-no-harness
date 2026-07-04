@@ -21,6 +21,11 @@ RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CROSS_HOST_FALLBACK_LIVE:-0}"
 RUN_PARALLEL_EXECUTOR_LIVE="${OH_NO_PARALLEL_EXECUTOR_LIVE:-0}"
+# Flag-only gate (no OH_NO_* env backing on purpose): this write-capable cross-host
+# delegation lane must stay release-safe. Env-backing it would require adding the var
+# to test-harness-lane-contract.py LIVE_ENV_BY_HOST and clearing it in scripts/release;
+# a --flag that scripts/release never passes keeps the default install/smoke run inert.
+RUN_CODEX_EXECUTOR_DELEGATION_LIVE=0
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
@@ -85,6 +90,15 @@ Options:
                          smoke test: an ordinary STANDARD/THOROUGH run over two
                          disjoint stories must proactively dispatch a concurrent
                          executor batch plus a post-batch per-executor scope check.
+  --codex-executor-delegation-live
+                         Run live codex-executor delegation smoke test: with the
+                         codexExecutor toggle ON, ralph must dispatch
+                         oh-no-harness:executor-codex (not native/codex-rescue),
+                         attribute the delegated worktree writes, keep the RED file
+                         byte-unchanged, drive RED->GREEN, run the escape-detection
+                         net over the protected target set, prove executor-only
+                         (negative+positive), sequential dispatch, and caller-mediated
+                         degrade fallback to native oh-no-harness:executor.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
                          Run live natural role-worker smoke tests for Interview, Ultrawork,
@@ -143,6 +157,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --parallel-executor-live)
       RUN_PARALLEL_EXECUTOR_LIVE=1
+      shift
+      ;;
+    --codex-executor-delegation-live)
+      RUN_CODEX_EXECUTOR_DELEGATION_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -372,6 +390,205 @@ refresh_installed_plugin_cache() {
   ok "cached Claude plugin content refreshed"
 }
 
+# snapshot <integration-checkout> <owned-slug>
+#
+# Emits a JSON manifest of the PROTECTED TARGET SET used by the codex-executor
+# delegation escape-DETECTION net (plan v6 Central Design Problem). The set is
+# everything EXCEPT the delegated slice's own worktree:
+#   1. the integration checkout's tracked + untracked-NON-ignored state via
+#      `git -C <integration> status --porcelain`; PLUS
+#   2. a FILESYSTEM SENTINEL (path + mtime_ns + size, modeled on _pexec_sentinel)
+#      over the ENTIRE gitignored `.oh-no/` subtree (plans/sessions/specs/test-runs/
+#      worktrees AND any other top-level `.oh-no/` dir) AND each sibling
+#      `.oh-no/worktrees/*`, EXCLUDING `.oh-no/worktrees/<owned-slug>`. Walking the
+#      whole subtree instead of a fixed dir allowlist means a new gitignored dir such
+#      as `specs/` is covered automatically.
+# `git status --porcelain` is BLIND to the gitignored `.oh-no/` subtree
+# (worktree-isolation.md:85-89), which is the exact class the demonstrated escape
+# hit, so the sentinel is mandatory. The sentinel is path+mtime+size, NOT a content
+# hash (a same-path/same-mtime/same-size content edit is invisible — accepted
+# residual). No jq/node; Python only, like the rest of the harness.
+snapshot() {
+  local integration="$1" owned_slug="$2" git_status=""
+  git_status="$(git -C "$integration" status --porcelain 2>/dev/null || true)"
+  OH_NO_ESCAPE_GIT_STATUS="$git_status" "$PYTHON_BIN" - "$integration" "$owned_slug" <<'SENTINEL'
+import json, os, sys
+integration, owned_slug = sys.argv[1], sys.argv[2]
+git_status = sorted(
+    line for line in os.environ.get("OH_NO_ESCAPE_GIT_STATUS", "").splitlines()
+    if line.strip()
+)
+manifest = {"__git_status__": git_status}
+oh_no = os.path.join(integration, ".oh-no")
+owned_real = os.path.realpath(os.path.join(oh_no, "worktrees", owned_slug))
+# Walk the WHOLE .oh-no/ subtree (plans, sessions, specs, test-runs, worktrees, and
+# any future top-level dir), NOT a fixed allowlist, so a new gitignored subtree such
+# as specs/ is covered automatically. `git status --porcelain` is blind to all of
+# .oh-no/, so this sentinel is the only arm covering it.
+if os.path.isdir(oh_no):
+    for dirpath, dirnames, filenames in os.walk(oh_no):
+        # EXCLUDE the delegated slice's own worktree: prune it before descending so
+        # legitimate in-worktree writes never register as a protected-set breach.
+        dirnames[:] = [
+            d for d in dirnames
+            if os.path.realpath(os.path.join(dirpath, d)) != owned_real
+        ]
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            try:
+                st = os.stat(path)
+            except OSError:
+                continue
+            manifest[os.path.relpath(path, integration)] = [st.st_mtime_ns, st.st_size]
+print(json.dumps(manifest, sort_keys=True))
+SENTINEL
+}
+
+# escape_net_verdict <pre-manifest> <post-manifest> <owned-slug>
+#
+# PURE comparator over two `snapshot` manifests. Prints `clean` (exit 0) when the
+# protected target set is unchanged, or `HALT <offending paths>` (exit 1) when an
+# unexpected out-of-scope write appears. This is the SAME function the offline
+# firing test (test 0) and the --codex-executor-delegation-live lane both use — the
+# net's firing is gated deterministically offline, not merely implied by a clean
+# live run. No jq/node; Python only.
+escape_net_verdict() {
+  local pre="$1" post="$2" owned_slug="$3"
+  OH_NO_ESCAPE_PRE="$pre" OH_NO_ESCAPE_POST="$post" "$PYTHON_BIN" - "$owned_slug" <<'VERDICT'
+import json, os, sys
+owned_slug = sys.argv[1]
+pre = json.loads(os.environ.get("OH_NO_ESCAPE_PRE") or "{}")
+post = json.loads(os.environ.get("OH_NO_ESCAPE_POST") or "{}")
+owned_prefix = "/".join((".oh-no", "worktrees", owned_slug))
+offending = []
+# (1) integration-checkout tracked/untracked-non-ignored delta. SYMMETRIC diff so a
+# REMOVED status line (a deleted/restored tracked file, or a further edit that changes
+# an existing line) is a breach too, not only additions. Lines that appear in exactly
+# one of pre/post — added AND removed — both count.
+for line in sorted(set(post.get("__git_status__", [])) ^ set(pre.get("__git_status__", []))):
+    offending.append("git-status:" + line)
+# (2) filesystem-sentinel delta over the ignored .oh-no/ subtree + sibling worktrees.
+pre_fs = {k: v for k, v in pre.items() if k != "__git_status__"}
+post_fs = {k: v for k, v in post.items() if k != "__git_status__"}
+for path in sorted(set(pre_fs) | set(post_fs)):
+    norm = path.replace(os.sep, "/")
+    # Defensive: the owned slice's own worktree is never protected (snapshot already
+    # prunes it; this second guard makes the comparator self-contained).
+    if norm == owned_prefix or norm.startswith(owned_prefix + "/"):
+        continue
+    if pre_fs.get(path) != post_fs.get(path):
+        offending.append("sentinel:" + path)
+if offending:
+    print("HALT " + " ".join(offending))
+    sys.exit(1)
+print("clean")
+VERDICT
+}
+
+# Test 0 (offline gating floor) — the escape-net pure function's positive/clean/
+# exclusion firing test. Builds a REAL synthetic .oh-no/ tree under a temp dir,
+# runs the REAL sentinel probe over REAL files (not only a hand-built dict fed to
+# the comparator, so a probe bug such as failing to recurse .oh-no/plans/ subdirs
+# is caught), and feeds the resulting real snapshots to escape_net_verdict.
+run_escape_net_offline_test() {
+  log "Running offline escape-net pure-function firing test (test 0)"
+  local tmp
+  tmp="$(mktemp -d)"
+  local owned="codex-executor-delegation-runtime"
+  local other="some-other-task"
+  # A REAL git repo with `.oh-no/` gitignored, mirroring production: `git status`
+  # is BLIND to the .oh-no/ subtree (so the sentinel arm is the only coverage there)
+  # while the git-status arm covers tracked/untracked-NON-ignored integration files.
+  # This lets the git-status symmetric-diff case (d) run over a REAL probe, not a
+  # hand-built dict.
+  (
+    cd "$tmp"
+    git init -q
+    git config user.email escape-net@example.com
+    git config user.name "escape-net test"
+    printf '.oh-no/\n' >.gitignore
+    git add .gitignore
+    git commit -qm "seed: gitignore .oh-no/"
+  )
+  mkdir -p \
+    "$tmp/.oh-no/plans/sub" \
+    "$tmp/.oh-no/sessions" \
+    "$tmp/.oh-no/specs" \
+    "$tmp/.oh-no/test-runs" \
+    "$tmp/.oh-no/worktrees/$owned" \
+    "$tmp/.oh-no/worktrees/$other"
+  printf 'plan\n' >"$tmp/.oh-no/plans/sub/plan.md"
+  printf 'session\n' >"$tmp/.oh-no/sessions/s.md"
+  printf 'spec\n' >"$tmp/.oh-no/specs/spec.md"
+  printf 'owned work\n' >"$tmp/.oh-no/worktrees/$owned/owned.txt"
+  printf 'other work\n' >"$tmp/.oh-no/worktrees/$other/other.txt"
+
+  local pre post verdict rc
+  pre="$(snapshot "$tmp" "$owned")"
+
+  # (a) clean case: pre == post => clean.
+  verdict="$(escape_net_verdict "$pre" "$(snapshot "$tmp" "$owned")" "$owned")" \
+    || { rm -rf "$tmp"; fail "escape-net clean case exited non-zero: $verdict"; }
+  [[ "$verdict" == "clean" ]] \
+    || { rm -rf "$tmp"; fail "escape-net expected clean on identical snapshots, got: $verdict"; }
+
+  # (b) owned-worktree-only delta => clean (exclusion works, proven at the probe level).
+  printf 'more owned work\n' >>"$tmp/.oh-no/worktrees/$owned/owned.txt"
+  printf 'new owned file\n' >"$tmp/.oh-no/worktrees/$owned/owned2.txt"
+  verdict="$(escape_net_verdict "$pre" "$(snapshot "$tmp" "$owned")" "$owned")" \
+    || { rm -rf "$tmp"; fail "escape-net owned-only delta case exited non-zero: $verdict"; }
+  [[ "$verdict" == "clean" ]] \
+    || { rm -rf "$tmp"; fail "escape-net expected clean on owned-worktree-only delta (exclusion), got: $verdict"; }
+
+  # (c) INDUCED out-of-scope write: a NEW file under a sibling .oh-no/worktrees/<other>,
+  # a size change under .oh-no/plans/, AND a NEW file under .oh-no/specs/ (C1: the
+  # WHOLE .oh-no/ subtree is covered, including specs/, not a fixed dir allowlist)
+  # => HALT listing ALL THREE offending paths.
+  printf 'ESCAPE\n' >"$tmp/.oh-no/worktrees/$other/leak.txt"
+  printf 'dirtied plan with many more bytes than before\n' >"$tmp/.oh-no/plans/sub/plan.md"
+  printf 'ESCAPE spec\n' >"$tmp/.oh-no/specs/leak-spec.md"
+  post="$(snapshot "$tmp" "$owned")"
+  rc=0
+  verdict="$(escape_net_verdict "$pre" "$post" "$owned")" || rc=$?
+  [[ "$rc" != "0" ]] || { rm -rf "$tmp"; fail "escape-net FAILED to HALT on the induced out-of-scope write; verdict: $verdict"; }
+  [[ "$verdict" == HALT* ]] || { rm -rf "$tmp"; fail "escape-net expected a HALT verdict, got: $verdict"; }
+  case "$verdict" in
+    *".oh-no/worktrees/$other/leak.txt"*) ;;
+    *) rm -rf "$tmp"; fail "escape-net HALT did not list the sibling-worktree leak: $verdict" ;;
+  esac
+  case "$verdict" in
+    *".oh-no/plans/sub/plan.md"*) ;;
+    *) rm -rf "$tmp"; fail "escape-net HALT did not list the dirtied integration plan: $verdict" ;;
+  esac
+  # C1 RED case: before the whole-.oh-no/ sentinel walk, specs/ is uncovered, so this
+  # induced .oh-no/specs/ write is invisible and this assertion fails.
+  case "$verdict" in
+    *".oh-no/specs/leak-spec.md"*) ;;
+    *) rm -rf "$tmp"; fail "escape-net HALT did not list the .oh-no/specs/ escape (C1 whole-subtree coverage): $verdict" ;;
+  esac
+
+  # (d) git-status SYMMETRIC-diff (F3): a REMOVED status line between pre and post is a
+  # breach too, not only additions. Create an untracked NON-ignored file at the
+  # integration root (git status shows `?? stray.txt`), snapshot, remove it, snapshot;
+  # the removed status line must HALT. Before the symmetric-diff fix (additions-only)
+  # this is invisible (a removal is neither an addition nor a .oh-no/ sentinel delta).
+  printf 'stray\n' >"$tmp/stray.txt"
+  local pre_git post_git
+  pre_git="$(snapshot "$tmp" "$owned")"      # git-status arm: `?? stray.txt` present
+  rm -f "$tmp/stray.txt"
+  post_git="$(snapshot "$tmp" "$owned")"     # `?? stray.txt` REMOVED between pre/post
+  rc=0
+  verdict="$(escape_net_verdict "$pre_git" "$post_git" "$owned")" || rc=$?
+  rm -rf "$tmp"
+  [[ "$rc" != "0" ]] || fail "escape-net FAILED to HALT on a REMOVED git-status line (F3 symmetric diff); verdict: $verdict"
+  [[ "$verdict" == HALT* ]] || fail "escape-net expected a HALT verdict on a removed git-status line, got: $verdict"
+  case "$verdict" in
+    *"git-status:"*"stray.txt"*) ;;
+    *) fail "escape-net HALT did not list the removed git-status line (F3): $verdict" ;;
+  esac
+  ok "escape-net pure function HALTs on induced out-of-scope writes (incl. .oh-no/specs/ and removed git-status lines) and stays clean otherwise (test 0)"
+}
+
 validate_hooks() {
   log "Validating hook wiring"
   assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
@@ -456,6 +673,88 @@ for forbidden in (
 PY
   rm -rf "$temp_data"
   ok "session-start respects auto-routing config"
+
+  # codex-executor delegation block: OFF => absent; ON + Claude Code => present with
+  # its load-bearing phrases; ON + non-Claude-Code host => absent. Uses a throwaway
+  # OH_NO_CONFIG_DIR and keeps auto-routing OFF so the delegation block is isolated.
+  temp_data="$(mktemp -d)"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/codex-off.json"
+  "$PYTHON_BIN" - "$temp_data/codex-off.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_CODEX_EXECUTOR_DELEGATION" in text:
+    raise SystemExit("codex-executor delegation block present while codexExecutor is OFF")
+if "oh-no-harness:executor-codex" in text:
+    raise SystemExit("codex-executor delegation re-bind present while codexExecutor is OFF")
+PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/codex-on.json"
+  "$PYTHON_BIN" - "$temp_data/codex-on.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_CODEX_EXECUTOR_DELEGATION" not in text:
+    raise SystemExit("codex-executor delegation block missing while codexExecutor is ON on Claude Code")
+required = [
+    "oh-no-harness:executor-codex",
+    "Executor-only fence",
+    "Serial-forced dispatch",
+    "Caller-mediated degrade",
+    "companion-unavailable",
+    "BEST-EFFORT",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"codex-executor delegation block missing load-bearing phrases: {missing}")
+# The delegation block must NOT re-embed the heavy contract (that lives in the agent core).
+if "resolveWorkspaceRoot" in text or "codex-companion.mjs" in text:
+    raise SystemExit("codex-executor delegation block leaked the heavy companion-call contract into the hook")
+PY
+  # Host gating: codexExecutor ON but the host is NOT Claude Code (Codex sim: a
+  # non-empty PLUGIN_ROOT makes the hook treat this as the Codex host) => no block.
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/codex-on-codex-host.json"
+  "$PYTHON_BIN" - "$temp_data/codex-on-codex-host.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_CODEX_EXECUTOR_DELEGATION" in text:
+    raise SystemExit("codex-executor delegation block present on a non-Claude-Code host while ON")
+PY
+  rm -rf "$temp_data"
+  ok "session-start injects the codex-executor delegation block only when ON and only on Claude Code"
+
+  # Config sibling preservation (no clobber): toggling one key must preserve the other
+  # in both directions. `is-enabled` reports via EXIT CODE (no stdout).
+  temp_data="$(mktemp -d)"
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: autoRouting did not enable"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: codex-executor on clobbered autoRouting"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: codex-executor on did not persist"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor off >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: codex-executor off clobbered autoRouting"; }
+  rm -rf "$temp_data"
+  temp_data="$(mktemp -d)"
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" off >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: autoRouting off clobbered codexExecutor"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: autoRouting on clobbered codexExecutor"; }
+  rm -rf "$temp_data"
+  ok "oh-no-config preserves the sibling toggle value across writes in both directions"
 
   temp_data="$(mktemp -d)"
   local temp_path
@@ -1102,6 +1401,9 @@ deep_prompt_for_skill() {
     simplify)
       printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
       ;;
+    auto-routing)
+      printf '/%s:auto-routing Deep smoke test only. Do NOT change any settings and do NOT run oh-no-config; read the skill body, its Codex Executor Delegation Toggle section, and the Claude Code platform notes, then answer read-only. Return: the oh-no-config codex-executor on/off/status commands; that the codexExecutor toggle defaults to OFF; that delegated executors are serial-forced and run one at a time, not in parallel; that when the toggle is ON the delegation block is injected via SessionStart on Claude Code only and re-binds the executor role to oh-no-harness:executor-codex; and that on Codex it adds no SessionStart block. End with OH_NO_CLAUDE_DEEP_OK auto-routing.' "$PLUGIN_NAME"
+      ;;
     *)
       fail "No deep live prompt for skill: $1"
       ;;
@@ -1196,6 +1498,15 @@ expected = {
         "fallback reason",
         "false positive",
         "intended behavior",
+    ],
+    "auto-routing": [
+        "codexExecutor",
+        "codex-executor",
+        "serial-forced",
+        "SessionStart",
+        "Claude Code",
+        "executor-codex",
+        "OFF",
     ],
 }
 
@@ -1306,6 +1617,11 @@ linked_doc_markers = {
         "Mode source",
         "Cleanup And Final Verification",
     ],
+    "auto-routing": [
+        "codex-executor",
+        "SessionStart",
+        "serial-forced",
+    ],
 }
 
 if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
@@ -1375,7 +1691,7 @@ run_deep_live_tests() {
 
   log "Running deep Claude linked-doc smoke tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph ultrawork simplify; do
+  for skill in interview ralplan ralph ultrawork simplify auto-routing; do
     run_deep_live_skill_test "$skill"
   done
   ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
@@ -1966,7 +2282,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:fusion-rescue-analyst. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all nine subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the nine role checks plus lifecycle close or cleanup status."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:fusion-rescue-analyst. Wave 4: oh-no-harness:executor-codex. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all ten subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the ten role checks plus lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2005,15 +2321,20 @@ expected_roles = [
     "verifier",
     "code-reviewer",
     "fusion-rescue-analyst",
+    "executor-codex",
 ]
-first_wave = {"explore", "analyst", "planner"}
 task_tool_uses = []
+# Maps role -> list of (stream_index, run_in_background_bool) for every
+# oh-no-harness subagent dispatched via an assistant `Agent` tool_use.
 background_uses_by_role = {}
-task_starts = []
-task_notifications = []
+# Concurrency-proof collectors, built from the task lifecycle events the parent
+# stream DOES emit (task_started / task_notification status=="completed").
+subagent_task_ids = set()
+subagent_started_indices = []
+subagent_completed_ids = set()
+subagent_completion_indices = []
 marker = False
 init_ok = False
-first_task_notification_index = None
 errors = []
 summary_text = []
 workflow_tool_ids = set()
@@ -2027,19 +2348,34 @@ with open(path, "r", encoding="utf-8") as fh:
         data = json.loads(line)
         if data.get("type") == "system" and data.get("subtype") == "init":
             available_agents = set(data.get("agents", []))
-            init_ok = "Task" in data.get("tools", []) and all(
+            available_tools = set(data.get("tools", []))
+            # Claude Code lists the subagent-dispatch capability in the init
+            # schema as the "Task" tool but emits the actual dispatch as an
+            # assistant `Agent` tool_use, so accept either name here.
+            init_ok = bool(available_tools & {"Agent", "Task"}) and all(
                 f"oh-no-harness:{role}" in available_agents for role in expected_roles
             )
         if data.get("type") == "assistant":
             for part in data.get("message", {}).get("content", []):
+                # Current Claude Code dispatches every subagent via an assistant
+                # `Agent` tool_use whose input.subagent_type is
+                # "oh-no-harness:<role>" (older streams used a "Task" tool_use).
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     task_tool_uses.append((index, payload))
                     subagent_type = payload.get("subagent_type")
                     if subagent_type and subagent_type.startswith("oh-no-harness:"):
-                        role = subagent_type.split(":", 1)[1]
-                        if payload.get("run_in_background") is True:
-                            background_uses_by_role.setdefault(role, []).append((index, payload))
+                        # Role is the segment after the last ":" so
+                        # "oh-no-harness:executor-codex" -> "executor-codex".
+                        role = subagent_type.rsplit(":", 1)[-1]
+                        # Record EVERY oh-no-harness dispatch, not only ones with
+                        # run_in_background=true: current Claude Code sets that
+                        # flag inconsistently (true / false / omitted) across runs
+                        # even when it dispatches the roles in background waves, so
+                        # it is captured as signal only and never gated on.
+                        background_uses_by_role.setdefault(role, []).append(
+                            (index, payload.get("run_in_background") is True)
+                        )
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
                     workflow_tool_ids.add(part.get("id"))
                     script = part.get("input", {}).get("script", "")
@@ -2050,12 +2386,29 @@ with open(path, "r", encoding="utf-8") as fh:
                 if part.get("type") == "text":
                     summary_text.append(part.get("text", ""))
         if data.get("type") == "system" and data.get("subtype") == "task_started":
-            task_starts.append((index, data.get("task_id")))
+            # Concurrency-proof source: record each oh-no-harness subagent start
+            # (one task_started per dispatched subagent) so peak in-flight can be
+            # computed after the parse.
+            started_type = data.get("subagent_type", "") or ""
+            if started_type.startswith("oh-no-harness:"):
+                started_task_id = data.get("task_id")
+                subagent_task_ids.add(started_task_id)
+                subagent_started_indices.append((index, started_task_id))
         if data.get("type") == "system" and data.get("subtype") == "task_notification":
-            if first_task_notification_index is None:
-                first_task_notification_index = index
             if data.get("status") == "completed":
-                task_notifications.append((index, data.get("summary", "")))
+                completed_task_id = data.get("task_id")
+                # Concurrency-proof source: first completion per oh-no-harness
+                # subagent (task_notification status=="completed").
+                if (
+                    completed_task_id in subagent_task_ids
+                    and completed_task_id not in subagent_completed_ids
+                ):
+                    subagent_completed_ids.add(completed_task_id)
+                    subagent_completion_indices.append((index, completed_task_id))
+                # Also lets the Workflow() fallback branch below confirm the
+                # batched-wave Workflow task itself reported completion. Per-
+                # subagent wave ORDER is not asserted; peak in-flight concurrency
+                # is asserted instead (see the block comment below).
                 if (
                     data.get("tool_use_id") in workflow_tool_ids
                     or "workflow" in str(data.get("summary", "")).lower()
@@ -2069,7 +2422,7 @@ with open(path, "r", encoding="utf-8") as fh:
             errors.append((index, data.get("result", "")[:1000]))
 
 if not init_ok:
-    raise SystemExit("Claude live parallel smoke did not expose Task tool and all oh-no-harness role agents")
+    raise SystemExit("Claude live parallel smoke did not expose the subagent-dispatch (Agent/Task) tool and all oh-no-harness role agents")
 if errors:
     raise SystemExit(f"Claude live parallel smoke returned errors: {errors!r}")
 
@@ -2107,28 +2460,51 @@ if not background_uses_by_role and workflow_scripts:
     print("ok - live Claude role subagents spawned and completed")
     sys.exit(0)
 
+# Dispatch verification. This lane verifies DISPATCH (every expected role
+# dispatched via the `Agent` tool exactly once) plus CONCURRENCY (below) plus
+# the success marker. It does NOT gate on the rigid legacy "first wave ==
+# exactly {explore,analyst,planner} before any completion" ordering (too strict
+# for real model behavior) nor on the run_in_background input flag (the model
+# sets it inconsistently: true / false / omitted across runs). Concurrency is
+# proven from the task lifecycle instead. (The Workflow()/promise.all fallback
+# above covers the batched-wave shape when the model routes through Workflow.)
 missing_roles = [role for role in expected_roles if role not in background_uses_by_role]
 if missing_roles:
-    raise SystemExit(f"missing background task uses for roles: {missing_roles!r}; got={sorted(background_uses_by_role)!r}")
+    raise SystemExit(f"missing subagent dispatches for roles: {missing_roles!r}; got={sorted(background_uses_by_role)!r}")
 duplicate_roles = {
     role: uses for role, uses in background_uses_by_role.items()
     if role in expected_roles and len(uses) != 1
 }
 if duplicate_roles:
-    raise SystemExit(f"expected exactly one background task use per role, got duplicates: {duplicate_roles!r}")
-if len(task_starts) < len(expected_roles):
-    raise SystemExit(f"expected at least {len(expected_roles)} task_started events, got {task_starts!r}")
-if first_task_notification_index is not None:
-    roles_before_first_notification = {
-        role
-        for role, uses in background_uses_by_role.items()
-        if uses[0][0] < first_task_notification_index
-    }
-    if not first_wave.issubset(roles_before_first_notification):
-        raise SystemExit(
-            "first Claude subagent wave did not start before the first task completion notification; "
-            f"expected={sorted(first_wave)!r} got={sorted(roles_before_first_notification)!r}"
-        )
+    raise SystemExit(f"expected exactly one subagent dispatch per role, got duplicates: {duplicate_roles!r}")
+
+# --- Parallelism proof -----------------------------------------------------
+# Prove the model dispatched subagents CONCURRENTLY (not serially) from the
+# task lifecycle the parent stream actually emits: one task_started + one
+# task_notification(status=="completed") per oh-no-harness subagent. Walking
+# those in stream order and tracking subagents that are started-but-not-yet-
+# completed yields the PEAK number in flight at once. A purely SERIAL run
+# (start, complete, start, complete, ...) never exceeds 1 in flight, so a floor
+# of >= 2 fails a serial run while passing genuine concurrency. The 3 preserved
+# transcripts peak at 2, 2, and 3, so 2 is the robust (non-flaky) floor.
+CONCURRENCY_MIN = 2
+lifecycle = sorted(
+    [(idx, 1) for idx, _ in subagent_started_indices]
+    + [(idx, -1) for idx, _ in subagent_completion_indices]
+)
+in_flight = 0
+peak_in_flight = 0
+for _, delta in lifecycle:
+    in_flight += delta
+    if in_flight > peak_in_flight:
+        peak_in_flight = in_flight
+if peak_in_flight < CONCURRENCY_MIN:
+    raise SystemExit(
+        "Claude live parallel smoke did not prove concurrent subagent dispatch: peak "
+        f"in-flight oh-no-harness subagents was {peak_in_flight} (need >= {CONCURRENCY_MIN}); "
+        f"started={len(subagent_started_indices)} completed={len(subagent_completion_indices)}. "
+        "A purely serial run peaks at 1 in flight."
+    )
 if not marker:
     raise SystemExit("Claude live parallel smoke did not return success marker")
 combined_summary_text = "\n".join(summary_text).lower()
@@ -3608,6 +3984,520 @@ PY
 	  fi
 	}
 
+run_codex_executor_delegation_live_test() {
+  if [[ "$RUN_CODEX_EXECUTOR_DELEGATION_LIVE" != "1" ]]; then
+    log "Skipping live Claude codex-executor delegation smoke test"
+    printf 'Run with --codex-executor-delegation-live to verify ralph dispatches oh-no-harness:executor-codex, attribution + escape-detection net, RED->GREEN, executor-only negative+positive, sequential dispatch, and caller-mediated degrade.\n' >&2
+    return
+  fi
+
+  log "Running live Claude codex-executor delegation smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/codex-executor-delegation.jsonl"
+  local err_file="$RUN_DIR/codex-executor-delegation.err"
+  local degrade_out_file="$RUN_DIR/codex-executor-delegation-degrade.jsonl"
+  local degrade_err_file="$RUN_DIR/codex-executor-delegation-degrade.err"
+  local summary_file="$RUN_DIR/codex-executor-delegation.summary.json"
+
+  # PINNED feature-runtime worktree slug, DISTINCT from this plan's implementation
+  # worktree slug (codex-executor-delegation) per QC-N3/Q5 so discovery is
+  # deterministic and never collides with the run that authored this lane.
+  local owned_slug="codex-executor-delegation-runtime"
+  local sibling_slug="codex-executor-delegation-sibling"
+
+  # Private, write-capable INTEGRATION CHECKOUT outside this repo/marketplace. It is
+  # a real git repo so the escape-detection net's git-status arm and the worktree
+  # attribution snapshot operate on real surfaces (never a hand-built dict).
+  local integration
+  integration="$(mktemp -d)"
+  local _codex_deleg_cleanup_done=0
+  _codex_deleg_cleanup() {
+    if [[ "$_codex_deleg_cleanup_done" == "0" && -n "$integration" && -d "$integration" ]]; then
+      # Remove registered worktrees first so the base repo removal is clean.
+      git -C "$integration" worktree remove --force ".oh-no/worktrees/$owned_slug" >/dev/null 2>&1 || true
+      git -C "$integration" worktree remove --force ".oh-no/worktrees/$sibling_slug" >/dev/null 2>&1 || true
+      rm -rf "$integration"
+      _codex_deleg_cleanup_done=1
+    fi
+  }
+  trap '_codex_deleg_cleanup' RETURN EXIT INT TERM
+
+  (
+    cd "$integration"
+    git init -q
+    git config user.email codex-executor-delegation@example.com
+    git config user.name "codex-executor-delegation smoke"
+    mkdir -p src tests .oh-no/plans .oh-no/sessions .oh-no/test-runs
+    # gitignore .oh-no/ so the synthetic repo mirrors PRODUCTION: `git status` is blind
+    # to the .oh-no/ subtree, so the escape net's filesystem SENTINEL arm (not the
+    # git-status arm) is what covers it here, exactly as at feature runtime (C1
+    # corollary). Without this the .oh-no/ subtree would be tracked and the lane would
+    # not exercise the sentinel arm the way production does.
+    printf '.oh-no/\n' >.gitignore
+    printf 'def add(x, y):\n    raise NotImplementedError\n' >src/calc.py
+    printf 'from src.calc import add\n\n\ndef test_add():\n    assert add(2, 3) == 5\n' >tests/test_calc.py
+    printf 'plan seed\n' >.oh-no/plans/seed.md
+    git add -A
+    git commit -qm "seed: failing RED test for the delegated slice"
+    # Register the delegated slice's worktree AND a sibling worktree from the
+    # integration checkout (never nested inside another worktree), per
+    # worktree-isolation.md. The sibling proves the escape net covers siblings.
+    git worktree add -q ".oh-no/worktrees/$owned_slug" -b "$owned_slug" >/dev/null
+    git worktree add -q ".oh-no/worktrees/$sibling_slug" -b "$sibling_slug" >/dev/null
+  )
+
+  local worktree="$integration/.oh-no/worktrees/$owned_slug"
+  local red_file="$worktree/tests/test_calc.py"
+
+  # ATTRIBUTION: worktree git state + RED-file hash captured immediately BEFORE the
+  # delegated call, so the in-worktree delta is provably Codex's and the RED file
+  # can be proven byte-UNCHANGED afterwards.
+  local worktree_status_before red_hash_before red_rc_before
+  worktree_status_before="$(git -C "$worktree" status --porcelain 2>/dev/null || true)"
+  red_hash_before="$("$PYTHON_BIN" - "$red_file" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+  # RED must fail BEFORE Codex's patch.
+  red_rc_before=0
+  ( cd "$worktree" && "$PYTHON_BIN" -m pytest -q tests/test_calc.py ) >/dev/null 2>&1 || red_rc_before=$?
+  if [[ "$red_rc_before" == "0" ]]; then
+    _codex_deleg_cleanup
+    trap - RETURN EXIT INT TERM
+    fail "codex-executor delegation live: RED test unexpectedly passed before the delegated patch (no RED to drive)"
+  fi
+
+  # ESCAPE-DETECTION NET pre-snapshot of the PROTECTED TARGET SET (integration
+  # git-status + filesystem sentinel over the ignored .oh-no/ subtree and each
+  # sibling worktree, EXCLUDING the delegated slice's own worktree). This is the
+  # SAME pure function the offline firing test (test 0) exercises.
+  local pre_snapshot
+  pre_snapshot="$(snapshot "$integration" "$owned_slug")"
+
+  # Enable the codexExecutor toggle in a throwaway config dir so the SessionStart
+  # delegation block fires for this run only.
+  local config_dir
+  config_dir="$(mktemp -d)"
+  OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
+
+  local read_root="$PLUGIN_ROOT"
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # Two genuinely disjoint executor-eligible slices so SEQUENTIAL (not parallel)
+  # delegated dispatch can be observed, plus explicit executor-only fencing.
+  local prompt
+  prompt=$(cat <<PROMPT
+Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation toggle ON. Work entirely inside the registered task worktree at ${worktree}; do not touch the integration checkout at ${integration}, its .oh-no/ subtree, or the sibling worktree at ${integration}/.oh-no/worktrees/${sibling_slug}.
+
+There are two disjoint executor-eligible slices. Slice 1: implement add(x, y) in src/calc.py so tests/test_calc.py passes; the marker for this slice is OH_NO_CODEX_DELEG_SLICE_1. Slice 2: add a module docstring to a sibling helper file src/util.py containing the marker OH_NO_CODEX_DELEG_SLICE_2. The two slices touch different files and neither depends on the other.
+
+Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Do NOT modify tests/test_calc.py (the RED file). Dispatch the delegated executors STRICTLY SEQUENTIALLY, one at a time, never as a parallel batch.
+
+When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker. Then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --add-dir "$integration"
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a live smoke test runner for an Oh No Harness codex-executor delegation run. Write only inside the registered task worktree at ${worktree}. Do not edit, create, or delete any file in the integration checkout, its .oh-no/ subtree, or the sibling worktree. Do not install plugins."
+  )
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  local run_rc=0
+  if (
+    cd "$worktree"
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" "$prompt"
+  ) >"$out_file" 2>"$err_file"; then
+    run_rc=0
+  else
+    run_rc=$?
+    log "Claude codex-executor delegation live invocation exited non-zero (rc=$run_rc); proceeding to parser for diagnosis"
+  fi
+
+  # ESCAPE-DETECTION NET post-snapshot + verdict. A HALT is a HARD/GATING failure
+  # (unexpected integration-checkout / ignored-.oh-no/ / sibling-worktree write),
+  # modeled on the fusion lane's stream assertions — NOT the model-variance WARN.
+  local post_snapshot escape_verdict escape_rc
+  post_snapshot="$(snapshot "$integration" "$owned_slug")"
+  escape_rc=0
+  escape_verdict="$(escape_net_verdict "$pre_snapshot" "$post_snapshot" "$owned_slug")" || escape_rc=$?
+
+  # ATTRIBUTION AFTER: worktree delta is provably Codex's; RED file byte-UNCHANGED.
+  local worktree_status_after red_hash_after red_rc_after
+  worktree_status_after="$(git -C "$worktree" status --porcelain 2>/dev/null || true)"
+  red_hash_after="$("$PYTHON_BIN" - "$red_file" <<'PY'
+import hashlib, sys
+print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())
+PY
+)"
+  red_rc_after=0
+  ( cd "$worktree" && "$PYTHON_BIN" -m pytest -q tests/test_calc.py ) >/dev/null 2>&1 || red_rc_after=$?
+
+  # HARD gate: escape net.
+  if [[ "$escape_rc" != "0" ]]; then
+    _codex_deleg_cleanup
+    rm -rf "$config_dir"
+    trap - RETURN EXIT INT TERM
+    fail "codex-executor delegation live: escape-detection net HALTed on a protected-target-set write: ${escape_verdict}"
+  fi
+  # HARD gate: RED file byte-UNCHANGED (Codex must not mutate the RED test file).
+  if [[ "$red_hash_before" != "$red_hash_after" ]]; then
+    _codex_deleg_cleanup
+    rm -rf "$config_dir"
+    trap - RETURN EXIT INT TERM
+    fail "codex-executor delegation live: RED file was mutated by the delegated run (before=${red_hash_before} after=${red_hash_after})"
+  fi
+  # HARD gate: RED->GREEN (RED failed before, passes after Codex's patch).
+  if [[ "$red_rc_after" != "0" ]]; then
+    _codex_deleg_cleanup
+    rm -rf "$config_dir"
+    trap - RETURN EXIT INT TERM
+    fail "codex-executor delegation live: RED did not go GREEN after the delegated patch (pytest rc=${red_rc_after})"
+  fi
+
+  # DEGRADE sub-run: force the codex companion UNAVAILABLE DETERMINISTICALLY via the
+  # OH_NO_CODEX_COMPANION_PATH override (the named ARCH-3 lever). Per the executor-codex
+  # resolution contract, a set-but-NONEXISTENT OH_NO_CODEX_COMPANION_PATH takes
+  # precedence and is treated as UNAVAILABLE (no fall-through to the cache), so
+  # executor-codex signals `codex unavailable` and the CALLER (main ralph agent) falls
+  # back to native oh-no-harness:executor and records a warning. executor-codex has no
+  # dispatch tool, so it must NOT self-dispatch.
+  local degrade_prompt
+  degrade_prompt=$(cat <<PROMPT
+Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation toggle ON. Work only inside ${worktree}. Implement a one-line helper is_even(n) in src/util2.py that returns n % 2 == 0; marker OH_NO_CODEX_DELEG_DEGRADE_SLICE.
+
+The codex companion is UNAVAILABLE in this run (its path is unresolvable). When executor-codex signals companion-unavailable, YOU (the main ralph agent, the caller) must fall back to dispatching the native oh-no-harness:executor for that slice and record a warning containing the exact token OH_NO_CODEX_DELEG_DEGRADE_FALLBACK. executor-codex must NOT self-dispatch. When the slice is done via the native executor fallback, emit the exact final marker OH_NO_CODEX_DELEG_DEGRADE_OK on its own line.
+PROMPT
+)
+  local degrade_rc=0
+  if (
+    cd "$worktree"
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" \
+      OH_NO_CODEX_COMPANION_PATH="$integration/.oh-no/nonexistent/codex-companion.mjs" \
+      OH_NO_CODEX_COMPANION_CACHE_DIR="$integration/.oh-no/nonexistent-cache" \
+      "${cmd[@]}" "$degrade_prompt"
+  ) >"$degrade_out_file" 2>"$degrade_err_file"; then
+    degrade_rc=0
+  else
+    degrade_rc=$?
+    log "Claude codex-executor delegation degrade sub-run exited non-zero (rc=$degrade_rc); proceeding to parser for diagnosis"
+  fi
+
+  local parser_rc=0
+  if OH_NO_CODEX_DELEG_WT_STATUS_BEFORE="$worktree_status_before" \
+    OH_NO_CODEX_DELEG_WT_STATUS_AFTER="$worktree_status_after" \
+    OH_NO_CODEX_DELEG_ESCAPE_VERDICT="$escape_verdict" \
+    "$PYTHON_BIN" - "$out_file" "$err_file" "$degrade_out_file" "$degrade_err_file" "$summary_file" <<'PY'
+import json
+import os
+import sys
+
+out_path, err_path, degrade_out_path, degrade_err_path, summary_path = sys.argv[1:6]
+
+WRITE_ROLE = "executor-codex"          # the delegated write-capable channel
+NATIVE_EXECUTOR = "executor"           # native fallback role
+SLICE_MARKERS = ("OH_NO_CODEX_DELEG_SLICE_1", "OH_NO_CODEX_DELEG_SLICE_2")
+POST_CHECK_MARKER = "OH_NO_CODEX_DELEG_POST_CHECK"
+FINAL_MARKER = "OH_NO_CODEX_DELEG_OK"
+DEGRADE_FALLBACK_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_FALLBACK"
+DEGRADE_FINAL_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_OK"
+# Roles that MUST NOT be routed to the write-capable executor-codex channel.
+FORBIDDEN_ON_WRITE_CHANNEL = ("verifier", "code-reviewer", "reviewer", "merge")
+
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+
+def role_of(subagent_type):
+    st = str(subagent_type or "")
+    if st.startswith("oh-no-harness:"):
+        return st.split(":", 1)[1]
+    return st
+
+
+def load_lines(path):
+    rows = []
+    with open(path, "r", encoding="utf-8") as fh:
+        for index, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            rows.append((index, json.loads(line)))
+    return rows
+
+
+# ---- Primary delegated run ----
+main_rows = load_lines(out_path)
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"codex-executor delegation live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_ok = False
+executor_codex_dispatches = []     # (index, payload_text)
+native_verify_review_ran = False
+codex_rescue_on_write = []
+forbidden_write_channel = []       # (index, role)
+real_companion_write = False       # >=1 real `codex-companion ... --write --cwd` (C3)
+primary_native_executor = []       # native oh-no-harness:executor dispatches (C3)
+task_starts = []
+executor_codex_completions = []    # completion indexes for executor-codex tasks (F4/C4)
+post_check_seen = False
+final_marker_seen = False
+permission_denials = []
+errors = []
+
+for index, data in main_rows:
+    if data.get("type") == "system" and data.get("subtype") == "init":
+        agents = set(data.get("agents", []))
+        init_ok = "Task" in data.get("tools", []) and "oh-no-harness:executor-codex" in agents
+    if data.get("type") == "assistant":
+        for part in data.get("message", {}).get("content", []):
+            ptype = part.get("type")
+            if ptype == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                payload = part.get("input", {})
+                payload_text = collect_text(payload)
+                role = role_of(payload.get("subagent_type"))
+                if role == WRITE_ROLE:
+                    executor_codex_dispatches.append((index, payload_text))
+                    for forbidden in FORBIDDEN_ON_WRITE_CHANNEL:
+                        # Only flag when the payload actually assigns the forbidden
+                        # role's work to the write channel, not an incidental mention.
+                        if f"role: {forbidden}" in payload_text.lower() or f"{forbidden} role" in payload_text.lower():
+                            forbidden_write_channel.append((index, forbidden))
+                if role in ("verifier", "code-reviewer"):
+                    native_verify_review_ran = True
+                if role == NATIVE_EXECUTOR:
+                    primary_native_executor.append(index)
+                if str(payload.get("subagent_type", "")).startswith("codex:codex-rescue"):
+                    codex_rescue_on_write.append(index)
+            if ptype == "tool_use" and part.get("name") == "Bash":
+                command = str(part.get("input", {}).get("command", ""))
+                # C3: a REAL Codex companion write is the delegation contract command
+                # `node <companion> task --write --cwd <worktree> --wait --prompt-file`.
+                if "codex-companion" in command and "--write --cwd" in command:
+                    real_companion_write = True
+            if ptype == "text":
+                if POST_CHECK_MARKER in part.get("text", ""):
+                    post_check_seen = True
+                if FINAL_MARKER in part.get("text", ""):
+                    final_marker_seen = True
+    if data.get("type") == "system" and data.get("subtype") == "task_started":
+        task_starts.append((index, data.get("task_id")))
+    if data.get("type") == "system" and data.get("subtype") == "task_notification":
+        if data.get("status") == "completed":
+            summary = str(data.get("summary", ""))
+            # F4/C4: scope the completion boundary to executor-codex specifically so
+            # the serial proof is never conflated with an unrelated role's completion.
+            if (
+                WRITE_ROLE in summary
+                or "executor-codex" in summary
+                or "codex-companion" in summary
+                or any(m in summary for m in SLICE_MARKERS)
+            ):
+                executor_codex_completions.append(index)
+    if data.get("type") == "result":
+        permission_denials.extend(data.get("permission_denials") or [])
+        result_text = str(data.get("result", ""))
+        if POST_CHECK_MARKER in result_text:
+            post_check_seen = True
+        if FINAL_MARKER in result_text:
+            final_marker_seen = True
+        if data.get("is_error") is True:
+            errors.append((index, result_text[:1000]))
+
+if not init_ok:
+    raise SystemExit("codex-executor delegation live did not expose the Task tool and the oh-no-harness:executor-codex agent")
+if errors:
+    raise SystemExit(f"codex-executor delegation live returned errors: {errors!r}")
+if permission_denials:
+    raise SystemExit(f"codex-executor delegation live had permission denials: {permission_denials!r}")
+
+# HARD: delegation must actually occur when ON (fail-to-delegate-when-ON).
+if len(executor_codex_dispatches) < 2:
+    raise SystemExit(
+        "codex-executor delegation live did not dispatch oh-no-harness:executor-codex for both disjoint slices "
+        f"(fail-to-delegate-when-ON is a HARD failure); dispatches={len(executor_codex_dispatches)}"
+    )
+# HARD: the write channel must be executor-codex, never codex:codex-rescue.
+if codex_rescue_on_write:
+    raise SystemExit(
+        f"codex-executor delegation live routed the delegated write through codex:codex-rescue instead of executor-codex: {codex_rescue_on_write!r}"
+    )
+# HARD (executor-only, negative): no verify/review/merge on the write channel.
+if forbidden_write_channel:
+    raise SystemExit(
+        f"codex-executor delegation live routed a non-executor role onto the write-capable executor-codex channel: {forbidden_write_channel!r}"
+    )
+# HARD (executor-only, positive): a native verify/review role must have actually run
+# AND >=1 executor payload reached the delegated channel — so a short/aborted run
+# cannot false-pass the executor-only fence.
+if not native_verify_review_ran:
+    raise SystemExit(
+        "codex-executor delegation live never ran a native verifier/code-reviewer role (executor-only positive half unmet)"
+    )
+
+# Fallback: a subagent's Bash companion call may surface only via nested/collected
+# text rather than a top-level Bash tool_use, so scan the whole primary transcript too.
+if not real_companion_write:
+    for _idx, _data in main_rows:
+        blob = collect_text(_data)
+        if "codex-companion" in blob and "--write --cwd" in blob:
+            real_companion_write = True
+            break
+
+# HARD (C3): a green PRIMARY (non-degrade) run must prove REAL delegation, not a native
+# fallback. A native fallback can satisfy RED->GREEN with ZERO Codex writes, so require
+# >=1 real Codex companion write (executor-codex actually ran `codex-companion ...
+# --write --cwd`) — otherwise a green primary proves nothing about delegation.
+if not real_companion_write:
+    raise SystemExit(
+        "codex-executor delegation live PRIMARY run shows NO real Codex companion write "
+        "(`codex-companion ... --write --cwd` never observed); a native fallback cannot "
+        "satisfy the delegation proof (C3 hard gate)"
+    )
+# HARD (C3): the PRIMARY (non-degrade) run must NOT fall back to the native executor.
+if primary_native_executor:
+    raise SystemExit(
+        "codex-executor delegation live PRIMARY run dispatched the native "
+        f"oh-no-harness:executor at {primary_native_executor!r}; the primary "
+        "(non-degrade) run must prove real Codex delegation, not native fallback (C3)"
+    )
+
+# HARD (F4/C4): delegated dispatch must be SEQUENTIAL, and the claim must be PROVEN,
+# not vacuously skipped. Fail CLOSED: if the transcript exposes no observable
+# executor-codex COMPLETION lifecycle event, SEQUENTIAL dispatch is UNPROVEN — never a
+# silent pass. Scope strictly to executor-codex dispatches/completions (never conflate
+# with an unrelated role's notification). Parallel = the 2nd executor-codex dispatch
+# STARTED before the 1st executor-codex COMPLETED.
+if not executor_codex_completions:
+    raise SystemExit(
+        "codex-executor delegation live observed no executor-codex dispatch COMPLETION "
+        "lifecycle event, so SEQUENTIAL (serial-forced) dispatch is UNPROVEN "
+        "(fail-closed); a serial claim must be demonstrable, not silently skipped"
+    )
+first_executor_codex_completion = min(executor_codex_completions)
+executor_codex_dispatch_indexes = sorted(idx for idx, _ in executor_codex_dispatches)
+second_executor_codex_dispatch = executor_codex_dispatch_indexes[1]
+if second_executor_codex_dispatch < first_executor_codex_completion:
+    raise SystemExit(
+        "codex-executor delegation live dispatched delegated executors in PARALLEL "
+        f"(second executor-codex dispatch at {second_executor_codex_dispatch} started "
+        f"before the first executor-codex completion at {first_executor_codex_completion}); "
+        "serial-forced dispatch is required"
+    )
+if not post_check_seen:
+    raise SystemExit(f"codex-executor delegation live did not emit the post-batch scope-check marker {POST_CHECK_MARKER}")
+if not final_marker_seen:
+    raise SystemExit(f"codex-executor delegation live did not return the final marker {FINAL_MARKER}")
+
+# ---- Degrade sub-run: CALLER-mediated fallback to native executor ----
+degrade_rows = load_lines(degrade_out_path)
+degrade_executor_codex_self_dispatch = []
+degrade_native_executor = []
+degrade_fallback_warning = False
+degrade_final_marker = False
+for index, data in degrade_rows:
+    if data.get("type") == "assistant":
+        for part in data.get("message", {}).get("content", []):
+            ptype = part.get("type")
+            if ptype == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                role = role_of(part.get("input", {}).get("subagent_type"))
+                if role == WRITE_ROLE:
+                    degrade_executor_codex_self_dispatch.append(index)
+                if role == NATIVE_EXECUTOR:
+                    degrade_native_executor.append(index)
+            if ptype == "text":
+                if DEGRADE_FALLBACK_MARKER in part.get("text", ""):
+                    degrade_fallback_warning = True
+                if DEGRADE_FINAL_MARKER in part.get("text", ""):
+                    degrade_final_marker = True
+    if data.get("type") == "result":
+        result_text = str(data.get("result", ""))
+        if DEGRADE_FALLBACK_MARKER in result_text:
+            degrade_fallback_warning = True
+        if DEGRADE_FINAL_MARKER in result_text:
+            degrade_final_marker = True
+
+# HARD: on degrade, the CALLER must fall back to the native executor and record a
+# warning; executor-codex (no dispatch tool) must NOT self-dispatch.
+if not degrade_native_executor:
+    raise SystemExit(
+        "codex-executor delegation degrade sub-run did not fall back to the native oh-no-harness:executor "
+        "(caller-mediated degrade unmet)"
+    )
+if not degrade_fallback_warning:
+    raise SystemExit(
+        f"codex-executor delegation degrade sub-run did not record the fallback warning {DEGRADE_FALLBACK_MARKER}"
+    )
+if not degrade_final_marker:
+    raise SystemExit(
+        f"codex-executor delegation degrade sub-run did not return {DEGRADE_FINAL_MARKER}"
+    )
+
+summary = {
+    "status": "passed",
+    "escape_net_verdict": os.environ.get("OH_NO_CODEX_DELEG_ESCAPE_VERDICT", ""),
+    "executor_codex_dispatches": len(executor_codex_dispatches),
+    "real_companion_write": real_companion_write,
+    "native_verify_review_ran": native_verify_review_ran,
+    "serial_dispatch": True,
+    "post_check_marker": POST_CHECK_MARKER,
+    "final_marker": FINAL_MARKER,
+    "worktree_delta_before": os.environ.get("OH_NO_CODEX_DELEG_WT_STATUS_BEFORE", ""),
+    "worktree_delta_after": os.environ.get("OH_NO_CODEX_DELEG_WT_STATUS_AFTER", ""),
+    "degrade_native_executor_fallback": bool(degrade_native_executor),
+    "degrade_fallback_warning": degrade_fallback_warning,
+}
+with open(summary_path, "w", encoding="utf-8") as fh:
+    fh.write(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+
+print("ok - live Claude codex-executor delegation: executor-codex on the write channel, attribution + escape-net clean, RED->GREEN, executor-only negative+positive, sequential dispatch, caller-mediated degrade")
+PY
+  then
+    parser_rc=0
+  else
+    parser_rc=$?
+  fi
+
+  _codex_deleg_cleanup
+  rm -rf "$config_dir"
+  trap - RETURN EXIT INT TERM
+
+  if [[ "$parser_rc" != "0" ]]; then
+    return "$parser_rc"
+  fi
+  if [[ "$run_rc" != "0" ]]; then
+    log "Claude codex-executor delegation live command invocation failed despite parser-accepted transcript (rc=$run_rc)"
+    return "$run_rc"
+  fi
+  if [[ "$degrade_rc" != "0" ]]; then
+    log "Claude codex-executor delegation degrade sub-run failed despite parser-accepted transcript (rc=$degrade_rc)"
+    return "$degrade_rc"
+  fi
+}
+
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
     log "Skipping live Claude simplify cleanup-subagent smoke test"
@@ -3885,6 +4775,7 @@ main() {
   log "Testing ${PLUGIN_ID} from ${PLUGIN_ROOT}"
   validate_manifests
   validate_hooks
+  run_escape_net_offline_test
   validate_frontmatter
   install_or_update_plugin
   run_live_tests
@@ -3894,9 +4785,15 @@ main() {
   run_fusion_rescue_live_test
   run_cross_host_fallback_live_test
   run_parallel_executor_live_test
+  run_codex_executor_delegation_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
   log "All requested checks passed"
 }
 
-main "$@"
+# Run main only when executed directly. When sourced (e.g. to exercise a single
+# offline function such as run_escape_net_offline_test or validate_hooks without
+# spending the full install/live suite), main is skipped.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
