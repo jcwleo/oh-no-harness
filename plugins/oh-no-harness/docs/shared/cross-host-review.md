@@ -3,10 +3,9 @@
 Cross-host review lets two instances of the SAME assigned role run on both the
 current host and the opposite host in parallel when the opposite host is
 available, then have the current-host main agent synthesize the two analyses into
-one result (a single verdict for the review roles, a single root-cause direction
-for the debugger, and a single union/conservative merged result for the
-verifier). It does not make dependent DIFFERENT roles eligible for the same
-batch. In `ralph`'s Review Gate and `ultrawork`'s Final Validation, the
+one result (a single verdict for the review roles and a single root-cause
+direction for the debugger). It does not make dependent DIFFERENT roles eligible
+for the same batch. In `ralph`'s Review Gate and `ultrawork`'s Final Validation, the
 `code-reviewer` pair is the first review batch; the confirming `verifier` is not
 eligible for that batch and may be dispatched only after the code-reviewer pair
 has completed, its outputs have been captured and synthesized, and blocking
@@ -25,7 +24,7 @@ hard-code host binaries, plugin or capability names, or permission states here.
 ## When It Applies
 
 Cross-host review applies wherever a skill dispatches `plan-reviewer`,
-`code-reviewer`, `debugger`, or `verifier`:
+`code-reviewer`, or `debugger`:
 
 - `plan-reviewer`: `ralplan` (consensus plan review), `ralph` (completion-
   evidence review), `ultrawork` (final validation), `systematic-debugging`
@@ -34,10 +33,6 @@ Cross-host review applies wherever a skill dispatches `plan-reviewer`,
   `verification-before-completion` (risk-gated), `ultrawork` (final validation).
 - `debugger`: `systematic-debugging` (root-cause investigation). Dual-host is
   the default for the debugger, not only an escalation.
-- `verifier`: `verification-before-completion` (completion-evidence
-  verification), `ralph` (acceptance-evidence packaging), `ultrawork` (final
-  validation), `systematic-debugging` (post-fix validation). Same default and
-  require-cross-host behavior as the review roles.
 
 Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
 Gate and `ultrawork`'s Final Validation the `code-reviewer` runs first as the
@@ -45,24 +40,24 @@ parallel pair (cross-host, or the Same-Host Parallel Fallback). The confirming
 `verifier` is a dependent later stage, not part of the first review batch:
 dispatch it only after the code-reviewer pair has completed, the caller has
 captured and synthesized both reviewer outputs, and blocking findings have been
-resolved or recorded as blocking. At STANDARD the confirming `verifier` runs as a
-single independent pass; at THOROUGH (or when the required independent verifier
-audit warrants the extra redundancy) the confirming verifier also runs as the
-cross-host pair (or Same-Host Parallel Fallback), because the code-review pair
-does not redundantly cover the verifier's own acceptance-to-evidence and
-test-genuineness function. This is scoped to those two flows; the `verifier`
-in-scope listing above still governs its standalone use elsewhere
-(`verification-before-completion`, `systematic-debugging` post-fix, and any
-`ralph`/`ultrawork` verifier dispatch not preceded by the parallel code-review
-pair). The confirming verifier remains an independent dispatch (never the
-maker). A verifier spawned before the code-reviewer pair completes is stale
-evidence for these flows and must be discarded and rerun after review findings
-are resolved or recorded as blocking.
+resolved or recorded as blocking. The confirming `verifier` is an unconditionally
+single self-host independent pass at STANDARD and THOROUGH — never a cross-host or
+same-host pair — because the verifier is out of cross-host scope (see the
+out-of-scope note below). That single pass still delivers the verifier's own
+acceptance-to-evidence and test-genuineness function, which the code-review pair
+does not redundantly cover; it is simply not doubled. The confirming verifier
+remains an independent dispatch (never the maker). A verifier spawned before the
+code-reviewer pair completes is stale evidence for these flows and must be
+discarded and rerun after review findings are resolved or recorded as blocking.
 
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
-dispatches it, nor to any other role. The `executor`, `explore`, `analyst`,
-`planner`, and `fusion-rescue-analyst` roles are out of scope for cross-host
-review.
+dispatches it, nor to any other role. The `verifier`, `executor`, `explore`,
+`analyst`, `planner`, and `fusion-rescue-analyst` roles are out of scope for
+cross-host review. The `verifier` is an unconditionally single self-host
+independent pass, never cross-host and never a same-host pair; it remains a
+dependent later stage that runs after the code-reviewer pair (see the Exception
+above) and is governed by the maker-verifier carve-out, not the cross-host
+independence-mode enum.
 
 ## Activation
 
@@ -93,8 +88,6 @@ Each host runs the COMPLETE role review independently — not a split of lenses:
   security lens via the Safety Trigger Checklist) on each host.
 - `debugger`: the full root-cause investigation (reproduce, form hypotheses,
   identify root cause, recommend the minimal fix) on each host.
-- `verifier`: the full verification (map the claim to evidence, run or inspect
-  the required checks, apply the scenario lens) on each host.
 
 Do not assign one lens or one investigation step to the current host and a
 different one to the opposite host; each host produces its full analysis. The
@@ -119,7 +112,7 @@ uses the Same-Host Parallel Fallback; require-cross-host mode blocks.
 
 Fusion Rescue panel slots keep their own panel contract. This ownership rule is
 only for shared cross-host review of `plan-reviewer`, `code-reviewer`,
-`debugger`, and `verifier`.
+and `debugger`.
 
 ## Same-Host Parallel Fallback
 
@@ -139,19 +132,13 @@ Stance/lens pairs (emphasis only — both agents always run the full role):
 | `plan-reviewer` | strongest-antithesis / feasibility-risk emphasis ("why this plan fails or is infeasible") | acceptance-coverage / quality-gate completeness emphasis ("which acceptance criteria or gates are unmet") |
 | `code-reviewer` | adversarial correctness + security skeptic ("what breaks or is exploitable") | maintainability + coverage completeness ("what is missing or regresses") |
 | `debugger` | leading-hypothesis-A angle | competing-hypothesis-B angle (feeds the competing-hypotheses synthesis) |
-| `verifier` | adversarial emphasis: "find how the claim is false or unmet" | coverage emphasis: "map every acceptance criterion to evidence" |
-
-Both `verifier` agents perform the full acceptance-to-evidence mapping AND the
-adversarial false-or-unmet check; Lens A and Lens B only change which one they
-lead with.
 
 ## Parallel Execution And Synthesis
 
 The current-host analysis and the opposite-host analysis run in parallel against
 the same artifact or problem: the exact Planner draft for `plan-reviewer`, the
-same stable diff for `code-reviewer`, the same failure, reproduction, and
-evidence packet for `debugger`, or the same completion claim, acceptance
-criteria, and evidence for `verifier`.
+same stable diff for `code-reviewer`, or the same failure, reproduction, and
+evidence packet for `debugger`.
 
 The current-host main agent is the judge. It compares, decomposes, and
 recombines the two reviews — it must not only concatenate them. The synthesis
@@ -174,20 +161,6 @@ review does not add a new verdict type:
   debugger does not emit a findings-verdict; `systematic-debugging` remains
   responsible for reproduction, causal-chain closure, fix evidence, and
   verification-before-completion.
-- `verifier`: the judge produces ONE merged verification result. For the merge,
-  union the evidence from both verifier results into a single
-  acceptance-to-evidence mapping, deduplicated per criterion, with host or
-  same-host-lens provenance per evidence item. For each acceptance criterion, if
-  both results agree use that judgment; if they DISAGREE, resolve conservatively —
-  treat the criterion as unmet if either result says unmet — so the per-criterion
-  `Acceptance criteria status` line reads `unmet`. Surface every disagreement ONLY
-  on a separate top-level `Acceptance inconsistency: <criteria>` line that lists
-  each criterion where the two results disagreed, and escalate; the caller does
-  not silently treat an inconsistent criterion as met. The merged result keeps the
-  verifier's normal output fields (tier, acceptance criteria status,
-  acceptance-to-evidence mapping, residual risk) plus that one inconsistency line.
-  `inconsistent` never appears on the per-criterion status line, so existing gate
-  parsing is unaffected.
 
 A cross-host finding that would change the approved direction must surface as
 `requested-direction-change: yes`; it is never auto-incorporated. The
@@ -245,11 +218,13 @@ The recursion guard restricts CROSS-HOST hops, not same-host work:
   same-host read-only subagents and read-only tools to form its analysis.
   Same-host fan-out is allowed. The Same-Host Parallel Fallback's two same-host
   agents are this kind of same-host fan-out: they do NOT consume a cross-host hop.
-- A reviewer, debugger, or verifier MUST NOT make any cross-host call beyond the
-  single assigned consult, and MUST NOT call back to the origin host or a third
-  host. This cross-host block applies transitively: a same-host subagent — or a
-  Same-Host Parallel Fallback agent — spawned by a reviewer, debugger, or verifier
-  inherits the same no-further-cross-host-hop rule.
+- A reviewer or debugger MUST NOT make any cross-host call beyond the single
+  assigned consult, and MUST NOT call back to the origin host or a third host. The
+  single self-host `verifier` has ZERO assigned cross-host consults — it never
+  runs as a cross-host pair — and likewise MUST NOT make any cross-host call to the
+  opposite, origin, or a third host. This cross-host block applies transitively: a
+  same-host subagent — or a Same-Host Parallel Fallback agent — spawned by a
+  reviewer, debugger, or verifier inherits the same no-further-cross-host-hop rule.
 - The review consult is one cross-host hop. The current host must not call the
   opposite host and allow that host to call back into the current host or
   another host.
@@ -259,7 +234,8 @@ The recursion guard restricts CROSS-HOST hops, not same-host work:
 
 ## Recording the Independence Mode
 
-A skill records how each review or verification pass ran using exactly one
+A skill records how each dispatched cross-host-eligible review pass
+(`plan-reviewer`, `code-reviewer`, `debugger`) ran using exactly one
 independence-mode value:
 
 - `cross-host`: the synthesized current-host + opposite-host pair.
@@ -268,6 +244,11 @@ independence-mode value:
 - `inline-fallback`: a single inline pass — compliant only with an explicit
   subagent-unavailable or unsafe-to-isolate reason recorded with it. An
   unlabelled single inline pass is a gap, not a pass.
+
+The `verifier` is not part of this enum. It is an unconditionally single
+self-host independent pass, governed by the maker-verifier independence carve-out
+(`docs/shared/ralph-subagent-policy.md`) and the `verifier started after reviewer
+completion` sequencing field — not by a cross-host independence-mode value.
 
 The calling skill owns the consequence of a missing or non-compliant mode, and
 every in-scope dispatcher records the independence mode through its own
@@ -281,7 +262,7 @@ pass:
   non-compliant" clause (an invalidation rule, not a `<HARD-GATE>` block).
 - `verification-before-completion`: the Required Gate `<HARD-GATE>`.
 - `systematic-debugging`: the Output Gate `<HARD-GATE>` (cross-host-default
-  `debugger` and any post-fix `verifier`/`code-reviewer`).
+  `debugger` and any post-fix `code-reviewer`).
 
 ## Fallback Notes
 

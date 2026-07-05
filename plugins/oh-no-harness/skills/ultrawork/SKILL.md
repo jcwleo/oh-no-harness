@@ -211,7 +211,7 @@ cannot dispatch).
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Follow `systematic-debugging` for failure investigation; it owns `debugger` dispatch per its own contract. Dispatch `verifier` (scenario lens for user-facing flows). |
-| Final Validation | Dispatch `plan-reviewer` and `code-reviewer` (security lens included) for additional orchestration-level risk not already covered by Ralph's satisfied gates. Dispatch `verifier` as an independent pass — required at STANDARD and THOROUGH on subagent-capable hosts whenever execution produced or changed proving tests, or the implementation/tests were authored or accepted by the same agent, per the carve-out in `docs/shared/ralph-subagent-policy.md` (record the fallback reason if the host cannot dispatch); otherwise (scenario lens) only for additional orchestration-level risk. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback); the `verifier` is the confirming pass per the Review-then-verify order below — single at STANDARD, or a cross-host/parallel pair at THOROUGH. |
+| Final Validation | Dispatch `plan-reviewer` and `code-reviewer` (security lens included) for additional orchestration-level risk not already covered by Ralph's satisfied gates. Dispatch `verifier` as an independent pass — required at STANDARD and THOROUGH on subagent-capable hosts whenever execution produced or changed proving tests, or the implementation/tests were authored or accepted by the same agent, per the carve-out in `docs/shared/ralph-subagent-policy.md` (record the fallback reason if the host cannot dispatch); otherwise (scenario lens) only for additional orchestration-level risk. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback); the `verifier` is the confirming pass per the Review-then-verify order below — an unconditionally single self-host independent pass (never a cross-host or same-host pair). |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -346,12 +346,13 @@ host cannot dispatch):
   as cross-host review per `docs/shared/cross-host-review.md` (current-host +
   opposite-host instances synthesized into one result; otherwise use the
   Same-Host Parallel Fallback with a fallback note); the `verifier` is the
-  confirming pass per the Review-then-verify order below — single at STANDARD, or
-  a cross-host/parallel pair at THOROUGH
-- Record each pass's independence mode per `docs/shared/cross-host-review.md`
-  `## Recording the Independence Mode`: for `plan-reviewer` and `code-reviewer`,
-  and for the `verifier` confirming pass (single at STANDARD, or a cross-host /
-  parallel pair at THOROUGH)
+  confirming pass per the Review-then-verify order below — an unconditionally
+  single self-host independent pass (never a cross-host or same-host pair)
+- Record each code-review pass's independence mode per
+  `docs/shared/cross-host-review.md` `## Recording the Independence Mode` (for
+  `plan-reviewer` and `code-reviewer`); the single self-host `verifier` confirming
+  pass is governed by the maker-verifier carve-out and the `verifier started after
+  reviewer completion` sequencing field, not the independence-mode enum
 
 Review-then-verify order: run the `code-reviewer` pair first, then the confirming
 independent `verifier` pass (never the maker), per the canonical contract in
@@ -389,7 +390,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field above, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 

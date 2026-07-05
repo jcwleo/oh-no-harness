@@ -20,6 +20,10 @@ RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CROSS_HOST_FALLBACK_LIVE:-0}"
+RUN_CROSS_HOST_REVIEW_LIVE="${OH_NO_CROSS_HOST_REVIEW_LIVE:-0}"
+RUN_RALPLAN_XHOST_LIVE="${OH_NO_RALPLAN_XHOST_LIVE:-0}"
+RUN_VBC_XHOST_LIVE="${OH_NO_VBC_XHOST_LIVE:-0}"
+RUN_SYSDEBUG_XHOST_LIVE="${OH_NO_SYSDEBUG_XHOST_LIVE:-0}"
 RUN_PARALLEL_EXECUTOR_LIVE="${OH_NO_PARALLEL_EXECUTOR_LIVE:-0}"
 # Flag-only gate (no OH_NO_* env backing on purpose): this write-capable cross-host
 # delegation lane must stay release-safe. Env-backing it would require adding the var
@@ -80,11 +84,43 @@ Options:
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
-  --fusion-rescue-live   Run live Fusion Rescue /codex:rescue and panel-subagent smoke test.
+  --fusion-rescue-live   Run live Fusion Rescue oh-no-harness:fusion-codex and panel-subagent smoke test.
   --cross-host-fallback-live
                          Run live cross-host Same-Host Parallel Fallback smoke test:
                          opposite host (Codex) forced unavailable, so code-reviewer
                          runs two same-host lens agents synthesized into one result.
+  --cross-host-review-live
+                         Run live cross-host code-review PAIR smoke test: opposite
+                         host (Codex) AVAILABLE, so the current-host
+                         oh-no-harness:code-reviewer and opposite-host
+                         oh-no-harness:code-reviewer-codex are dispatched
+                         concurrently (code-reviewer-codex runs one read-only
+                         foreground codex-companion call that role-owns
+                         oh-no-code-reviewer) and synthesized into one verdict.
+  --ralplan-xhost-live
+                         Run live cross-host PLAN-REVIEW PAIR smoke test via the
+                         real ralplan flow: opposite host (Codex) AVAILABLE, so
+                         after the planner draft the current-host
+                         oh-no-harness:plan-reviewer and opposite-host
+                         oh-no-harness:plan-reviewer-codex run as a pair
+                         (plan-reviewer-codex runs one read-only foreground
+                         codex-companion call that role-owns oh-no-plan-reviewer)
+                         and synthesized into one verdict.
+  --vbc-xhost-live
+                         Run live cross-host CODE-REVIEW PAIR plus self-host
+                         verifier smoke test via the real
+                         verification-before-completion flow: current-host
+                         oh-no-harness:code-reviewer and opposite-host
+                         oh-no-harness:code-reviewer-codex run as a pair, then a
+                         single self-host oh-no-harness:verifier confirms
+                         (verifier=self-1, no verifier-codex, no cross-host
+                         verifier).
+  --sysdebug-xhost-live
+                         Run live cross-host DEBUGGER PAIR smoke test via the real
+                         systematic-debugging flow: current-host
+                         oh-no-harness:debugger and opposite-host
+                         oh-no-harness:debugger-codex run as a pair (dual-host
+                         default) synthesized into one root-cause direction.
   --parallel-executor-live
                          Run live Ralph proactive disjoint-executor parallel-batch
                          smoke test: an ordinary STANDARD/THOROUGH run over two
@@ -122,6 +158,8 @@ Environment overrides:
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
   OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
   OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_CROSS_HOST_FALLBACK_LIVE,
+  OH_NO_CROSS_HOST_REVIEW_LIVE,
+  OH_NO_RALPLAN_XHOST_LIVE, OH_NO_VBC_XHOST_LIVE, OH_NO_SYSDEBUG_XHOST_LIVE,
   OH_NO_PARALLEL_EXECUTOR_LIVE,
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
@@ -153,6 +191,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cross-host-fallback-live)
       RUN_CROSS_HOST_FALLBACK_LIVE=1
+      shift
+      ;;
+    --cross-host-review-live)
+      RUN_CROSS_HOST_REVIEW_LIVE=1
+      shift
+      ;;
+    --ralplan-xhost-live)
+      RUN_RALPLAN_XHOST_LIVE=1
+      shift
+      ;;
+    --vbc-xhost-live)
+      RUN_VBC_XHOST_LIVE=1
+      shift
+      ;;
+    --sysdebug-xhost-live)
+      RUN_SYSDEBUG_XHOST_LIVE=1
       shift
       ;;
     --parallel-executor-live)
@@ -587,6 +641,74 @@ run_escape_net_offline_test() {
     *) fail "escape-net HALT did not list the removed git-status line (F3): $verdict" ;;
   esac
   ok "escape-net pure function HALTs on induced out-of-scope writes (incl. .oh-no/specs/ and removed git-status lines) and stays clean otherwise (test 0)"
+}
+
+# Offline marker asserts (Part B): the four read-only *-codex agent-cores carry
+# their read-only/role-ownership contract and no write flag; the rewritten Claude
+# channel + fusion overlay use the codex-companion transport and no /codex:rescue;
+# and the Codex custom-agent count stays 9. Deterministic, no live model.
+run_fusion_codex_offline_marker_test() {
+  log "Running offline fusion-codex / *-codex marker + Codex-count invariant asserts"
+  "$PYTHON_BIN" - "$PLUGIN_ROOT" <<'PY' || fail "offline fusion-codex marker asserts failed"
+import sys, pathlib
+root = pathlib.Path(sys.argv[1])
+core = root / "docs" / "agent-core"
+platforms = root / "docs" / "platforms"
+
+def read(p):
+    return p.read_text(encoding="utf-8")
+
+shared = ("read-only", "--prompt-file", "caller-mediated degrade",
+          "Same-Host Parallel Fallback", "one-hop guard", "best-effort")
+review_extra = ("role-ownership", "proof that the dispatched role agent",
+                "does NOT judge, verify, or merge")
+fusion_extra = ("one assigned panel lens", "exact panel fields",
+                "never judges or synthesizes", "oh-no-fusion-rescue-analyst")
+review_roles = ("plan-reviewer-codex", "code-reviewer-codex", "debugger-codex")
+
+for role in review_roles + ("fusion-codex",):
+    body = read(core / f"{role}.md")
+    if "--write" in body:
+        raise SystemExit(f"{role}.md is read-only and must not contain --write")
+    if "<!-- codex-companion-kernel:begin -->" not in body or "<!-- codex-companion-kernel:end -->" not in body:
+        raise SystemExit(f"{role}.md is missing the anchored companion-path kernel")
+    for m in shared:
+        if m not in body:
+            raise SystemExit(f"{role}.md missing shared read-only marker {m!r}")
+for role in review_roles:
+    body = read(core / f"{role}.md")
+    for m in review_extra:
+        if m not in body:
+            raise SystemExit(f"{role}.md missing review marker {m!r}")
+fbody = read(core / "fusion-codex.md")
+for m in fusion_extra:
+    if m not in fbody:
+        raise SystemExit(f"fusion-codex.md missing fusion marker {m!r}")
+
+# Rewritten Claude channel: codex-companion transport, no /codex:rescue.
+channel = read(platforms / "claude-code-runtime.md")
+for m in ("codex-companion.mjs", "`oh-no-harness:<role>-codex`",
+          "dispatch the matching `oh-no-<role>` role"):
+    if m not in channel:
+        raise SystemExit(f"claude-code-runtime.md missing codex-companion transport marker {m!r}")
+if "/codex:rescue" in channel:
+    raise SystemExit("claude-code-runtime.md still contains /codex:rescue")
+
+# Rewritten Claude fusion overlay: fusion-codex transport, no /codex:rescue.
+overlay = read(platforms / "claude-code-fusion-rescue.md")
+for m in ("oh-no-harness:fusion-codex", "codex-companion.mjs", "oh-no-fusion-rescue-analyst"):
+    if m not in overlay:
+        raise SystemExit(f"claude-code-fusion-rescue.md missing fusion-codex transport marker {m!r}")
+if "/codex:rescue" in overlay or "codex:codex-rescue" in overlay:
+    raise SystemExit("claude-code-fusion-rescue.md still contains a /codex:rescue transport marker")
+
+# Codex custom-agent count stays 9 (the 4 new *-codex roles are Claude-only).
+templates = sorted((platforms / "codex-agents").glob("oh-no-*.toml"))
+if len(templates) != 9:
+    raise SystemExit(f"expected 9 Codex custom-agent templates, found {len(templates)}: {[p.name for p in templates]}")
+print("ok - offline: 4 *-codex cores read-only + role-owned, channel/overlay use codex-companion, Codex count == 9")
+PY
+  ok "offline fusion-codex / *-codex marker + Codex-count invariant asserts passed"
 }
 
 validate_hooks() {
@@ -2522,14 +2644,158 @@ print("ok - live Claude role subagents spawned and completed")
 PY
 }
 
+# Default-mode degrade sub-run: force the Codex companion UNRESOLVABLE (a
+# nonexistent OH_NO_CODEX_COMPANION_PATH is the deterministic degrade lever in
+# the *-codex resolution kernel). fusion-codex must signal companion-unavailable
+# and return without a panel; the main agent runs the adversarial slot on the
+# current host (Same-Host Parallel Fallback / three current-host panels) and
+# records `Codex adversarial unavailable`. No successful codex-companion Bash,
+# no --write.
+run_fusion_codex_degrade_sub_run() {
+  log "Running live fusion-codex default-mode degrade sub-run (companion unresolvable)"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/fusion-codex-degrade.jsonl"
+  local err_file="$RUN_DIR/fusion-codex-degrade.err"
+  local prompt
+  prompt=$(cat <<'PROMPT'
+/oh-no-harness:fusion-rescue default-mode read-only live integration smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue.
+
+Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline has an intermittently failing integration test two days before release. Discuss release risk, CI signal, quarantine, auto-retry, and root-cause evidence.
+
+This run is DEFAULT mode. The Codex companion is UNRESOLVABLE (OH_NO_CODEX_COMPANION_PATH points at a nonexistent file). Dispatch the opposite-host adversarial slot with subagent_type oh-no-harness:fusion-codex; it MUST detect the unresolvable companion, signal companion-unavailable, and return WITHOUT a panel and WITHOUT any successful node codex-companion.mjs call. Then run the adversarial lens on the current Claude host (Same-Host Parallel Fallback) and synthesize as the current-host judge.
+
+Final answer must contain exactly the marker OH_NO_FUSION_CODEX_DEGRADE_OK and must include: panel availability/fallback notes: Codex adversarial unavailable; degrade path: current-host adversarial panel; fusion depth: 1; consensus; recommended next action.
+PROMPT
+)
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. The Codex companion is unavailable; take the default-mode Same-Host Parallel Fallback. Do not edit files."
+  )
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+  OH_NO_CODEX_COMPANION_PATH="$RUN_DIR/nonexistent/codex-companion.mjs" \
+    "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json, sys
+out_path = sys.argv[1]
+non_user = []
+codex_write_commands = []
+codex_bash_success = []
+with open(out_path, "r", encoding="utf-8") as fh:
+    for line in fh:
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "text":
+                    non_user.append(part.get("text", ""))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    if "codex-companion" in command and "--write" in command:
+                        codex_write_commands.append(command[:500])
+        if data.get("type") == "result":
+            non_user.append(str(data.get("result", "")))
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if isinstance(part, dict) and "codex-companion.mjs" in str(part) and not part.get("is_error"):
+                    codex_bash_success.append(True)
+blob = "\n".join(non_user)
+if codex_write_commands:
+    raise SystemExit(f"fusion-codex degrade sub-run invoked codex-companion with --write: {codex_write_commands!r}")
+if "OH_NO_FUSION_CODEX_DEGRADE_OK" not in blob:
+    raise SystemExit("fusion-codex degrade sub-run did not return OH_NO_FUSION_CODEX_DEGRADE_OK (default-mode Same-Host Parallel Fallback)")
+if "codex adversarial unavailable" not in blob.lower():
+    raise SystemExit("fusion-codex degrade sub-run did not record 'Codex adversarial unavailable'")
+print("ok - fusion-codex default-mode degrade produced the current-host Same-Host Parallel Fallback")
+PY
+}
+
+# require-cross-host block sub-run: same unresolvable companion, but in
+# require-cross-host mode the run must BLOCK (no synthesized success marker) and
+# name the current-host three-panel fallback.
+run_fusion_codex_block_sub_run() {
+  log "Running live fusion-codex require-cross-host block sub-run (companion unresolvable)"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/fusion-codex-block.jsonl"
+  local err_file="$RUN_DIR/fusion-codex-block.err"
+  local prompt
+  prompt=$(cat <<'PROMPT'
+/oh-no-harness:fusion-rescue require-cross-host read-only live integration smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue.
+
+Synthetic smoke-test problem: a CI pipeline has an intermittently failing integration test two days before release.
+
+This run is require-cross-host mode. The Codex companion is UNRESOLVABLE (OH_NO_CODEX_COMPANION_PATH points at a nonexistent file). Dispatch the opposite-host adversarial slot with subagent_type oh-no-harness:fusion-codex; it MUST detect the unresolvable companion and signal companion-unavailable WITHOUT any successful node codex-companion.mjs call. Because this is require-cross-host mode, you MUST BLOCK: do NOT synthesize a passing panel and do NOT emit any success marker. Report the block and name the current-host three-panel fallback the user can approve.
+
+Final answer must contain exactly the marker OH_NO_FUSION_CODEX_BLOCK_OK and must include: blocked: require-cross-host; Codex adversarial unavailable; current-host three-panel fallback. It must NOT contain OH_NO_FUSION_CODEX_PANEL_OK.
+PROMPT
+)
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. The Codex companion is unavailable and this is require-cross-host mode; block and name the current-host fallback. Do not edit files."
+  )
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+  OH_NO_CODEX_COMPANION_PATH="$RUN_DIR/nonexistent/codex-companion.mjs" \
+    "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json, sys
+out_path = sys.argv[1]
+non_user = []
+with open(out_path, "r", encoding="utf-8") as fh:
+    for line in fh:
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "text":
+                    non_user.append(part.get("text", ""))
+        if data.get("type") == "result":
+            non_user.append(str(data.get("result", "")))
+blob = "\n".join(non_user)
+if "OH_NO_FUSION_CODEX_BLOCK_OK" not in blob:
+    raise SystemExit("fusion-codex block sub-run did not return OH_NO_FUSION_CODEX_BLOCK_OK (require-cross-host block)")
+if "OH_NO_FUSION_CODEX_PANEL_OK" in blob:
+    raise SystemExit("fusion-codex block sub-run synthesized a passing panel in require-cross-host mode instead of blocking")
+if "current-host three-panel fallback" not in blob.lower():
+    raise SystemExit("fusion-codex block sub-run did not name the current-host three-panel fallback")
+print("ok - fusion-codex require-cross-host block did not synthesize a passing panel")
+PY
+}
+
 run_fusion_rescue_live_test() {
   if [[ "$RUN_FUSION_RESCUE_LIVE" != "1" ]]; then
-    log "Skipping live Claude Fusion Rescue /codex:rescue smoke test"
-    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus /codex:rescue Codex consult.\n' >&2
+    log "Skipping live Claude Fusion Rescue fusion-codex smoke test"
+    printf 'Run with --fusion-rescue-live or OH_NO_FUSION_RESCUE_LIVE=1 to verify Fusion Rescue panel subagents plus the oh-no-harness:fusion-codex read-only Codex consult.\n' >&2
     return
   fi
 
-  log "Running live Claude Fusion Rescue /codex:rescue smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  log "Running live Claude Fusion Rescue fusion-codex smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/fusion-rescue-claude-codex.jsonl"
   local err_file="$RUN_DIR/fusion-rescue-claude-codex.err"
@@ -2544,11 +2810,11 @@ Build exactly three panel slots and then synthesize as the current Claude main j
 
 Panel 1 primary must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: primary; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must provide constructive analysis of quarantine, auto-retry, root-cause, CI signal, and release risk.
 
-Panel 2 adversarial must be exactly one Codex opposite-host response through the explicitly loaded openai/codex-plugin-cc rescue capability surfaced as /codex:rescue. In this non-interactive test, use that capability by invoking the same Agent surface that /codex:rescue delegates to, with subagent_type codex:codex-rescue. A valid live result requires codex:codex-rescue to perform exactly one required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background without a later captured foreground codex-companion stdout completion, or returned after a Stop hook still says a Codex task is running after codex-companion stdout completion is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second codex:codex-rescue task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The forwarded request must be foreground, fresh, explicitly read-only behavior and must include the words via /codex:rescue plus the marker request OH_NO_CODEX_RESCUE_RETURN_OK. The codex-companion Bash command MUST NOT include --write; this explicit read-only request overrides the codex:codex-rescue default write-capable mode, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The Codex request: --wait --fresh explicitly read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; analyze this CI release-risk problem adversarially; return exactly OH_NO_CODEX_RESCUE_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If codex:codex-rescue cannot run exactly one node codex-companion.mjs Bash call without approval or foreground completion, do not synthesize success and do not include OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK.
+Panel 2 adversarial must be exactly one Codex opposite-host response through the dedicated read-only consult agent, dispatched with subagent_type oh-no-harness:fusion-codex. A valid live result requires oh-no-harness:fusion-codex to perform exactly one required Bash call to node codex-companion.mjs in the foreground, set Bash timeout to at least 600000 ms, wait for completion, and return Codex companion stdout; a marker generated locally by the wrapper, returned after a Bash approval failure, returned while Bash is still running in the background without a later captured foreground codex-companion stdout completion, or returned after a Stop hook still says a Codex task is running after codex-companion stdout completion is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run. Therefore do not call SendMessage, ToolSearch, status, result, or a second oh-no-harness:fusion-codex task for liveness checking. Do not retry the Codex panel if it returns a marker; if it reports a failure, block without success. The fusion-codex packet must instruct Codex to dispatch oh-no-fusion-rescue-analyst for the one assigned adversarial lens and return the role-owned result of that analyst, and it must include the marker request OH_NO_FUSION_CODEX_RETURN_OK plus role-ownership proof that the analyst, not a parent inline Codex answer, produced it. The codex-companion Bash command MUST NOT include --write and MUST NOT include --background; the fusion-codex agent runs codex-companion read-only by design (no --write flag) and synchronously in the foreground, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The Codex packet: --prompt-file with a redacted packet, explicitly read-only behavior; no edits, no writes, no installs; fusion depth: 1; do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host; dispatch oh-no-fusion-rescue-analyst to analyze this CI release-risk problem adversarially; return exactly OH_NO_FUSION_CODEX_RETURN_OK plus lens name adversarial, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, and what would change the conclusion. If oh-no-harness:fusion-codex cannot run exactly one node codex-companion.mjs Bash call without approval or foreground completion, or cannot prove oh-no-fusion-rescue-analyst role ownership, do not synthesize success and do not include OH_NO_FUSION_CODEX_PANEL_OK.
 
 Panel 3 pragmatic must be a Claude current-host subagent using oh-no-harness:fusion-rescue-analyst. Its task prompt must include exactly these lines: Lens: pragmatic; Marker: OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus exact assigned lens fields only: lens name; strongest finding; evidence used; assumption under test; likely failure mode; recommended next action; confidence and why; what would change the conclusion. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
-Start the two Claude panel subagents before waiting when possible. Wait for exactly these three panel results, and do not end while a worker is still pending. After the single Codex rescue returns and both Claude panel subagents finish, synthesize immediately rather than concatenate or recheck liveness. Final answer must contain exactly the marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK and must include: panels completed: primary, adversarial, pragmatic; Codex marker: OH_NO_CODEX_RESCUE_RETURN_OK; Claude markers: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY, OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available via opposite-host response /codex:rescue codex:codex-rescue, Claude pragmatic available; fusion depth: 1.
+Start the two Claude panel subagents before waiting when possible. Wait for exactly these three panel results, and do not end while a worker is still pending. After the single Codex fusion-codex consult returns and both Claude panel subagents finish, synthesize immediately rather than concatenate or recheck liveness. Final answer must contain exactly the marker OH_NO_FUSION_CODEX_PANEL_OK and must include: panels completed: primary, adversarial, pragmatic; Codex marker: OH_NO_FUSION_CODEX_RETURN_OK; Claude markers: OH_NO_CLAUDE_FUSION_PANEL_PRIMARY, OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude primary available, Codex adversarial available via opposite-host response oh-no-harness:fusion-codex, Claude pragmatic available; fusion depth: 1.
 PROMPT
 )
 
@@ -2564,7 +2830,7 @@ PROMPT
     --allowedTools "Bash(node *)"
     --tools default
     --no-session-persistence
-    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness Fusion Rescue skill. You may use Claude subagents and the installed codex:rescue capability only for this requested verification. Do not edit files."
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness Fusion Rescue skill. You may use Claude subagents and the oh-no-harness:fusion-codex read-only consult agent only for this requested verification. Do not edit files."
   )
 
   if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
@@ -2586,16 +2852,15 @@ expected_claude_markers = {
     "pragmatic": "OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC",
 }
 required_final_markers = [
-    "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
-    "OH_NO_CODEX_RESCUE_RETURN_OK",
+    "OH_NO_FUSION_CODEX_PANEL_OK",
+    "OH_NO_FUSION_CODEX_RETURN_OK",
     "OH_NO_CLAUDE_FUSION_PANEL_PRIMARY",
     "OH_NO_CLAUDE_FUSION_PANEL_PRAGMATIC",
     "panels completed",
     "primary, adversarial, pragmatic",
     "panel availability/fallback notes",
     "opposite-host response",
-    "/codex:rescue",
-    "codex:codex-rescue",
+    "oh-no-harness:fusion-codex",
     "fusion depth: 1",
 ]
 required_synthesis_fields = [
@@ -2696,7 +2961,7 @@ init_tools = set()
 errors = []
 claude_panel_uses = defaultdict(list)
 claude_panel_results = {}
-codex_rescue_uses = []
+fusion_codex_uses = []
 unexpected_task_uses = []
 unexpected_write_uses = []
 task_started_roles = []
@@ -2738,7 +3003,11 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     payload = part.get("input", {})
                     command = str(payload.get("command", ""))
-                    if "codex-companion.mjs" in command:
+                    # Count only the actual delegation `task` call (which passes the
+                    # packet via --prompt-file), not the read-only companion-path
+                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
+                    # first to resolve/verify the companion before delegating.
+                    if "codex-companion.mjs" in command and "--prompt-file" in command:
                         codex_bash_tool_ids.add(part.get("id"))
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
@@ -2758,8 +3027,8 @@ with open(out_path, "r", encoding="utf-8") as fh:
                                 f"payload={payload_text[:2000]!r}"
                             )
                         claude_panel_uses[matched[0]].append((index, payload_text))
-                    elif subagent_type == "codex:codex-rescue":
-                        codex_rescue_uses.append((index, payload_text))
+                    elif subagent_type == "oh-no-harness:fusion-codex":
+                        fusion_codex_uses.append((index, payload_text))
                     else:
                         unexpected_task_uses.append((index, subagent_type, payload_text[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
@@ -2847,15 +3116,10 @@ if codex_write_commands:
     raise SystemExit(f"Claude Fusion Rescue live invoked codex-companion with --write: {codex_write_commands!r}")
 if permission_denials:
     raise SystemExit(f"Claude Fusion Rescue live had permission denials: {permission_denials!r}")
-if "codex:rescue" not in init_slash_commands:
+if "oh-no-harness:fusion-codex" not in init_agents:
     raise SystemExit(
-        "Claude Fusion Rescue live did not expose /codex:rescue in slash_commands; "
-        f"got={sorted(cmd for cmd in init_slash_commands if 'codex' in cmd)!r}"
-    )
-if "codex:codex-rescue" not in init_agents:
-    raise SystemExit(
-        "Claude Fusion Rescue live did not expose codex:codex-rescue agent; "
-        f"got={sorted(agent for agent in init_agents if 'codex' in agent)!r}"
+        "Claude Fusion Rescue live did not expose oh-no-harness:fusion-codex agent; "
+        f"got={sorted(agent for agent in init_agents if 'codex' in agent or 'fusion' in agent)!r}"
     )
 if "oh-no-harness:fusion-rescue-analyst" not in init_agents:
     raise SystemExit("Claude Fusion Rescue live did not expose oh-no-harness:fusion-rescue-analyst agent")
@@ -2892,26 +3156,29 @@ for lens, result_text in claude_panel_results.items():
                 f"result={result_text[:2000]!r}"
             )
     assert_meaningful_domain_analysis(f"panel {lens}", result_text)
-if len(codex_rescue_uses) != 1:
-    raise SystemExit(f"Claude Fusion Rescue live expected one codex:codex-rescue task, got {codex_rescue_uses!r}")
-codex_payload = codex_rescue_uses[0][1]
-for marker in ("/codex:rescue", "OH_NO_CODEX_RESCUE_RETURN_OK", "read-only behavior", "fusion depth: 1"):
+if len(fusion_codex_uses) != 1:
+    raise SystemExit(f"Claude Fusion Rescue live expected one oh-no-harness:fusion-codex task, got {fusion_codex_uses!r}")
+codex_payload = fusion_codex_uses[0][1]
+# Role-ownership: the fusion-codex packet must instruct Codex to dispatch
+# oh-no-fusion-rescue-analyst (not answer inline) and must request the return
+# marker; the read-only packet must not authorize a write flag.
+for marker in ("oh-no-fusion-rescue-analyst", "OH_NO_FUSION_CODEX_RETURN_OK", "read-only", "fusion depth: 1"):
     if marker.lower() not in codex_payload.lower():
         raise SystemExit(
-            f"Claude Fusion Rescue live codex rescue payload missed marker {marker!r}; "
+            f"Claude Fusion Rescue live fusion-codex payload missed role-ownership marker {marker!r}; "
             f"payload={codex_payload[:2000]!r}"
         )
 started_role_names = [role for _, role in task_started_roles]
-if "codex:codex-rescue" not in started_role_names and not workflow_scripts:
-    raise SystemExit(f"Claude Fusion Rescue live did not start codex:codex-rescue task; starts={task_started_roles!r}")
+if "oh-no-harness:fusion-codex" not in started_role_names and not workflow_scripts:
+    raise SystemExit(f"Claude Fusion Rescue live did not start oh-no-harness:fusion-codex task; starts={task_started_roles!r}")
 completed_role_names = [role for _, role in task_completed_roles]
 if (
-    "codex:codex-rescue" not in completed_role_names
-    and "OH_NO_CODEX_RESCUE_RETURN_OK" not in "\n".join(non_user_text_parts)
+    "oh-no-harness:fusion-codex" not in completed_role_names
+    and "OH_NO_FUSION_CODEX_RETURN_OK" not in "\n".join(non_user_text_parts)
 ):
-    raise SystemExit(f"Claude Fusion Rescue live did not complete codex rescue or capture its marker; completions={task_completed_roles!r}")
+    raise SystemExit(f"Claude Fusion Rescue live did not complete fusion-codex or capture its marker; completions={task_completed_roles!r}")
 if not codex_bash_tool_ids:
-    raise SystemExit("Claude Fusion Rescue live did not invoke codex-companion.mjs through codex:codex-rescue Bash")
+    raise SystemExit("Claude Fusion Rescue live did not invoke codex-companion.mjs through oh-no-harness:fusion-codex Bash")
 if len(codex_bash_tool_ids) != 1:
     raise SystemExit(f"Claude Fusion Rescue live expected exactly one codex-companion.mjs Bash invocation, got {sorted(codex_bash_tool_ids)!r}")
 if codex_bash_failures:
@@ -2919,10 +3186,17 @@ if codex_bash_failures:
 if len(codex_bash_success_indexes) != 1:
     raise SystemExit(f"Claude Fusion Rescue live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
 codex_bash_text = "\n".join(codex_bash_success_texts)
-if "OH_NO_CODEX_RESCUE_RETURN_OK" not in codex_bash_text:
+if "OH_NO_FUSION_CODEX_RETURN_OK" not in codex_bash_text:
     raise SystemExit(
-        "Claude Fusion Rescue live did not capture OH_NO_CODEX_RESCUE_RETURN_OK "
+        "Claude Fusion Rescue live did not capture OH_NO_FUSION_CODEX_RETURN_OK "
         "from codex-companion.mjs stdout"
+    )
+# Role-ownership proof: the returned Codex stdout must show the assigned role
+# agent (oh-no-fusion-rescue-analyst) owned the panel, not a parent inline answer.
+if "oh-no-fusion-rescue-analyst" not in codex_bash_text.lower():
+    raise SystemExit(
+        "Claude Fusion Rescue live codex-companion stdout did not prove "
+        "oh-no-fusion-rescue-analyst role ownership (possible parent inline answer)"
     )
 last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
 late_pending_background_events = [
@@ -2956,11 +3230,11 @@ for forbidden in (
         raise SystemExit(f"Claude Fusion Rescue live saw non-live Codex rescue evidence: {forbidden!r}")
 success_text = "\n".join(
     part for part in non_user_text_parts
-    if "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK" in part
+    if "OH_NO_FUSION_CODEX_PANEL_OK" in part
 )
 if not success_text:
     detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
-    raise SystemExit(f"Claude Fusion Rescue live did not return success marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK{detail}")
+    raise SystemExit(f"Claude Fusion Rescue live did not return success marker OH_NO_FUSION_CODEX_PANEL_OK{detail}")
 lower_success_text = success_text.lower()
 for marker in required_final_markers:
     if marker.lower() not in lower_success_text:
@@ -2983,18 +3257,22 @@ summary = {
         }
         for lens in sorted(claude_panel_results)
     ],
-    "codex_rescue": {
-        "subagent_type": "codex:codex-rescue",
+    "fusion_codex": {
+        "subagent_type": "oh-no-harness:fusion-codex",
+        "codex_side_role": "oh-no-fusion-rescue-analyst",
         "bash_tool_uses": len(codex_bash_tool_ids),
-        "returned_marker": "OH_NO_CODEX_RESCUE_RETURN_OK",
+        "returned_marker": "OH_NO_FUSION_CODEX_RETURN_OK",
         "permission_denials": len(permission_denials),
     },
-    "final_marker": "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
+    "final_marker": "OH_NO_FUSION_CODEX_PANEL_OK",
 }
 Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-print("ok - live Claude Fusion Rescue used /codex:rescue, captured Codex output, and synthesized")
+print("ok - live Claude Fusion Rescue used oh-no-harness:fusion-codex (read-only codex-companion, no --write/--background), captured Codex output, and synthesized")
 PY
+
+  run_fusion_codex_degrade_sub_run
+  run_fusion_codex_block_sub_run
 }
 
 run_cross_host_fallback_live_test() {
@@ -3019,9 +3297,9 @@ run_cross_host_fallback_live_test() {
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:simplify --review Read-only live cross-host fallback smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the /codex:rescue cross-host consult capability is not loaded or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT invoke /codex:rescue, codex:codex-rescue, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the oh-no-harness:*-codex cross-host consult agents and their codex-companion transport are not available or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT dispatch oh-no-harness:plan-reviewer-codex, oh-no-harness:code-reviewer-codex, oh-no-harness:debugger-codex, oh-no-harness:fusion-codex, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
 
-Lightweight contract pre-check (read-only). From ${read_root}/docs/shared/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback; (3) verifier is in scope for cross-host review; (4) the verifier merge rule unions the evidence and resolves disagreements conservatively (a criterion is unmet if either result says unmet). Include the exact phrases "exactly two same-host agents", "require-cross-host", "verifier", and "union" or "conservative" so this pre-check is machine-checkable.
+Lightweight contract pre-check (read-only). From ${read_root}/docs/shared/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback. Include the exact phrases "exactly two same-host agents" and "require-cross-host" so this pre-check is machine-checkable.
 
 Behavioral fallback task. Drive the code-reviewer role over this tiny fixed diff under the Same-Host Parallel Fallback. The diff under review (treat as the stable diff):
 --- a/auth.py
@@ -3053,7 +3331,7 @@ PROMPT
     --tools default
     --add-dir "$read_root"
     --no-session-persistence
-    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill and Claude same-host subagents only. The opposite host (Codex) and the /codex:rescue cross-host consult capability are unavailable and not authorized in this run; do not attempt any cross-host or opposite-host call. Do not edit files."
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill and Claude same-host subagents only. The opposite host (Codex) and the oh-no-harness:*-codex cross-host consult agents are unavailable and not authorized in this run; do not attempt any cross-host or opposite-host call. Do not edit files."
   )
 
   if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
@@ -3143,7 +3421,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
                     subagent_type = str(payload.get("subagent_type", ""))
-                    if subagent_type == "codex:codex-rescue" or "codex" in subagent_type.lower():
+                    if "codex" in subagent_type.lower():
                         codex_agent_uses.append((index, subagent_type, payload_text[:1000]))
                         continue
                     matched = [
@@ -3257,17 +3535,11 @@ lower_deep_text = deep_text.lower()
 for needle in (
     "exactly two same-host agents",
     "require-cross-host",
-    "verifier",
 ):
     if needle not in lower_deep_text:
         raise SystemExit(
             f"Claude cross-host fallback live contract pre-check missing {needle!r}; deep_text={deep_text[:2000]!r}"
         )
-if not ("union" in lower_deep_text or "conservative" in lower_deep_text):
-    raise SystemExit(
-        f"Claude cross-host fallback live contract pre-check missing verifier union/conservative merge rule; "
-        f"deep_text={deep_text[:2000]!r}"
-    )
 
 summary = {
     "status": "passed",
@@ -3285,6 +3557,369 @@ summary = {
 Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 print("ok - live Claude cross-host Same-Host Parallel Fallback dispatched two same-host lens agents and synthesized")
+PY
+}
+
+run_cross_host_review_live_test() {
+  if [[ "$RUN_CROSS_HOST_REVIEW_LIVE" != "1" ]]; then
+    log "Skipping live Claude cross-host code-review PAIR smoke test"
+    printf 'Run with --cross-host-review-live or OH_NO_CROSS_HOST_REVIEW_LIVE=1 to verify the opposite-host-available cross-host code-review pair (current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex, dispatched concurrently and synthesized into one verdict).\n' >&2
+    return
+  fi
+
+  log "Running live Claude cross-host code-review PAIR smoke test (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/cross-host-review-claude.jsonl"
+  local err_file="$RUN_DIR/cross-host-review-claude.err"
+  local summary_file="$RUN_DIR/cross-host-review-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # NOTE: unquoted heredoc (expands ${read_root}/${PLUGIN_NAME}) inside $(...).
+  # Bash tracks single-quote parity across the whole substitution, so the prompt
+  # text MUST NOT contain apostrophes or an unintended $ (both break `bash -n`).
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:simplify --review require-cross-host read-only live cross-host code-review PAIR smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
+
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the code-reviewer role as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host code-reviewer pair: dispatch no other role (no verifier, explore, analyst, planner, debugger, or plan-reviewer) and no other opposite-host consult agent.
+
+The diff under review (treat as the stable diff):
+--- a/session.py
++++ b/session.py
+@@
+-def verify_token(token, expected):
+-    return token == expected
++def verify_token(token, expected):
++    if token == expected:
++        return True
++    return len(token) == len(expected)
+The reviewed change weakens token verification: on a mismatch it now returns True whenever the two lengths match, which is an authentication bypass. Every review instance must analyze this security regression meaningfully (authentication bypass, constant-time comparison, correctness, and test coverage) rather than only stating the smoke test is formatted correctly.
+
+Dispatch BOTH review instances of the SAME code-reviewer role CONCURRENTLY, starting both before waiting for either result:
+
+Current-host instance: a Claude current-host subagent using subagent_type oh-no-harness:code-reviewer. Its task prompt must include exactly these lines: Instance: current-host; Marker: OH_NO_XHOST_REVIEW_CURRENT_OK; Scope: the fixed session.py diff only; Do not edit files; Do not make any cross-host or opposite-host call; Run the complete code-reviewer role over the diff; Expected output: marker line plus findings with file, line, issue, severity, evidence, and recommended fix.
+
+Opposite-host instance: exactly one Codex response through the dedicated read-only consult agent, dispatched with subagent_type oh-no-harness:code-reviewer-codex. A valid live result requires oh-no-harness:code-reviewer-codex to perform exactly one required Bash call to node codex-companion.mjs task in the foreground, wait for completion, and return the Codex companion stdout; a marker generated locally by the wrapper, a background acknowledgement, or a status pointer is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run, so do not poll status, fetch a deferred result, or run a second codex-companion or consult call for liveness. The codex-companion Bash command MUST NOT include --write and MUST NOT include --background; the code-reviewer-codex agent runs codex-companion read-only by design (no --write flag) and synchronously in the foreground, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The code-reviewer-codex packet MUST use --prompt-file with a redacted packet that: is explicitly read-only with no edits, no writes, and no installs; forbids further rescue, another workflow skill, and any host-to-host call back to Claude or a third host (one cross-host hop); instructs Codex to dispatch the oh-no-code-reviewer role agent to run the complete code-reviewer role over this same session.py diff; and requires Codex to return the role-owned result of oh-no-code-reviewer plus role-ownership proof that oh-no-code-reviewer, not a parent inline Codex answer, produced it, ending with exactly the marker OH_NO_XHOST_REVIEW_CODEX_RETURN_OK. If oh-no-harness:code-reviewer-codex cannot run exactly one node codex-companion.mjs Bash call in the foreground, or cannot prove oh-no-code-reviewer role ownership, do not synthesize success.
+
+Start both instances before waiting when possible. Wait for both results and do not end while a worker is still pending. After the current-host oh-no-harness:code-reviewer subagent and the single opposite-host oh-no-harness:code-reviewer-codex consult both return, synthesize immediately as the current-host main judge into ONE merged findings verdict rather than concatenate: merge the two finding sets, deduplicate by file and line, and record host provenance on each finding. The final answer must contain exactly the marker OH_NO_CLAUDE_CROSS_HOST_REVIEW_OK and must include, as its own lines: both instances dispatched: current-host code-reviewer and opposite-host code-reviewer-codex; started-concurrently: yes; opposite-host codex-companion foreground read-only call: yes; role ownership (oh-no-code-reviewer) proven: yes; synthesized one verdict: yes; the instance markers OH_NO_XHOST_REVIEW_CURRENT_OK and OH_NO_XHOST_REVIEW_CODEX_RETURN_OK; and a single merged findings block recording consensus, contradictions, unique insights, blind spots, and recommended next action.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --add-dir "$read_root"
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill, one Claude current-host oh-no-harness:code-reviewer subagent, and the oh-no-harness:code-reviewer-codex read-only consult agent only for this requested cross-host code-review pair. The opposite host (Codex) is available. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, summary_path, model = sys.argv[1:5]
+
+CURRENT_MARKER = "OH_NO_XHOST_REVIEW_CURRENT_OK"
+CODEX_RETURN_MARKER = "OH_NO_XHOST_REVIEW_CODEX_RETURN_OK"
+FINAL_MARKER = "OH_NO_CLAUDE_CROSS_HOST_REVIEW_OK"
+CURRENT_ROLE = "oh-no-harness:code-reviewer"
+CODEX_ROLE = "oh-no-harness:code-reviewer-codex"
+CODEX_SIDE_ROLE = "oh-no-code-reviewer"
+
+required_final_markers = [
+    FINAL_MARKER,
+    CURRENT_MARKER,
+    CODEX_RETURN_MARKER,
+    "current-host code-reviewer",
+    "opposite-host code-reviewer-codex",
+    "started-concurrently: yes",
+    "foreground read-only call: yes",
+    CODEX_SIDE_ROLE,
+    "synthesized one verdict: yes",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude cross-host review live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_agents = set()
+init_tools = set()
+errors = []
+current_dispatches = []            # (index, payload_text)
+codex_dispatches = []              # (index, payload_text)
+unexpected_write_uses = []
+codex_bash_tool_ids = set()
+codex_write_commands = []
+codex_background_commands = []
+codex_bash_success_texts = []
+codex_bash_success_indexes = []
+codex_bash_failures = []
+permission_denials = []
+non_user_text_parts = []
+pending_background_events = []
+# Concurrency lifecycle for the two reviewer instances only. A task_started per
+# reviewer subagent + a task_notification(status=="completed") per reviewer lets
+# the peak-in-flight walk below prove the two instances overlapped (a serial run
+# peaks at 1). Mirrors the parallel/fusion lanes' concurrency-detection approach.
+reviewer_task_ids = set()
+reviewer_started_indices = []
+reviewer_completed_ids = set()
+reviewer_completion_indices = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if data.get("type") == "system" and (
+            "Command running in background" in text
+            or ("Codex task" in text and "still running" in text)
+        ):
+            pending_background_events.append((index, text[:2000]))
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude cross-host review live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_agents.update(data.get("agents", []))
+            init_tools.update(data.get("tools", []))
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    # Count only the actual delegation `task` call (which passes the
+                    # packet via --prompt-file), not the read-only companion-path
+                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
+                    # first to resolve/verify the companion before delegating.
+                    if "codex-companion.mjs" in command and "--prompt-file" in command:
+                        codex_bash_tool_ids.add(part.get("id"))
+                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                            codex_write_commands.append((index, command[:2000]))
+                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                            codex_background_commands.append((index, command[:2000]))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if subagent_type == CODEX_ROLE:
+                        codex_dispatches.append((index, payload_text))
+                    elif subagent_type == CURRENT_ROLE:
+                        current_dispatches.append((index, payload_text))
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            started_type = str(data.get("subagent_type", "") or "")
+            if started_type in {CURRENT_ROLE, CODEX_ROLE}:
+                reviewer_task_ids.add(data.get("task_id"))
+                reviewer_started_indices.append((index, data.get("task_id")))
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            if data.get("status") == "completed":
+                completed_task_id = data.get("task_id")
+                if (
+                    completed_task_id in reviewer_task_ids
+                    and completed_task_id not in reviewer_completed_ids
+                ):
+                    reviewer_completed_ids.add(completed_task_id)
+                    reviewer_completion_indices.append((index, completed_task_id))
+            non_user_text_parts.append(text)
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict):
+                    continue
+                if part.get("tool_use_id") not in codex_bash_tool_ids:
+                    continue
+                result_text = collect_text(part)
+                if "Command running in background" in result_text or (
+                    "Codex task" in result_text and "still running" in result_text
+                ):
+                    raise SystemExit(
+                        "Claude cross-host review live codex-companion Bash did not complete "
+                        f"in the foreground: {result_text[:1000]!r}"
+                    )
+                if bool(part.get("is_error")):
+                    codex_bash_failures.append((index, result_text[:1000]))
+                else:
+                    codex_bash_success_indexes.append(index)
+                    codex_bash_success_texts.append(result_text)
+        tool_result = data.get("tool_use_result") or {}
+        if isinstance(tool_result, dict) and tool_result.get("agentType", ""):
+            non_user_text_parts.append(collect_text(tool_result))
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude cross-host review live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude cross-host review live used write-capable tools: {unexpected_write_uses!r}")
+if codex_write_commands:
+    raise SystemExit(f"Claude cross-host review live invoked codex-companion with --write: {codex_write_commands!r}")
+if codex_background_commands:
+    raise SystemExit(f"Claude cross-host review live invoked codex-companion with --background: {codex_background_commands!r}")
+if permission_denials:
+    raise SystemExit(f"Claude cross-host review live had permission denials: {permission_denials!r}")
+
+# The dedicated opposite-host consult agent must be exposed by the plugin load.
+if CODEX_ROLE not in init_agents:
+    raise SystemExit(
+        f"Claude cross-host review live did not expose {CODEX_ROLE} agent; "
+        f"got={sorted(agent for agent in init_agents if 'code-reviewer' in agent)!r}"
+    )
+if not ({"Task", "Agent", "Workflow"} & init_tools):
+    raise SystemExit(f"Claude cross-host review live did not expose subagent tooling; tools={sorted(init_tools)!r}")
+
+# (a) BOTH instances of the same reviewer role were dispatched (exactly one each).
+if len(current_dispatches) != 1:
+    raise SystemExit(
+        f"Claude cross-host review live expected exactly one {CURRENT_ROLE} dispatch, got {current_dispatches!r}"
+    )
+if len(codex_dispatches) != 1:
+    raise SystemExit(
+        f"Claude cross-host review live expected exactly one {CODEX_ROLE} dispatch, got {codex_dispatches!r}"
+    )
+
+# The outbound opposite-host packet must preserve role ownership + read-only.
+codex_payload = codex_dispatches[0][1]
+for marker in (CODEX_SIDE_ROLE, CODEX_RETURN_MARKER, "read-only"):
+    if marker.lower() not in codex_payload.lower():
+        raise SystemExit(
+            f"Claude cross-host review live code-reviewer-codex packet missed role-ownership marker {marker!r}; "
+            f"payload={codex_payload[:2000]!r}"
+        )
+
+# (b) The two reviewer instances were started concurrently (peak in-flight >= 2).
+# A purely serial run (start, complete, start, complete) never exceeds 1 in flight.
+CONCURRENCY_MIN = 2
+lifecycle = sorted(
+    [(idx, 1) for idx, _ in reviewer_started_indices]
+    + [(idx, -1) for idx, _ in reviewer_completion_indices]
+)
+in_flight = 0
+peak_in_flight = 0
+for _, delta in lifecycle:
+    in_flight += delta
+    if in_flight > peak_in_flight:
+        peak_in_flight = in_flight
+if peak_in_flight < CONCURRENCY_MIN:
+    raise SystemExit(
+        "Claude cross-host review live did not prove the reviewer pair was dispatched "
+        f"concurrently: peak in-flight reviewer instances was {peak_in_flight} (need >= {CONCURRENCY_MIN}); "
+        f"started={len(reviewer_started_indices)} completed={len(reviewer_completion_indices)}. "
+        "A purely serial run peaks at 1 in flight."
+    )
+
+# (c) The code-reviewer-codex made exactly one read-only foreground codex-companion call.
+if not codex_bash_tool_ids:
+    raise SystemExit("Claude cross-host review live did not invoke codex-companion.mjs through oh-no-harness:code-reviewer-codex Bash")
+if len(codex_bash_tool_ids) != 1:
+    raise SystemExit(f"Claude cross-host review live expected exactly one codex-companion.mjs Bash invocation, got {sorted(codex_bash_tool_ids)!r}")
+if codex_bash_failures:
+    raise SystemExit(f"Claude cross-host review live codex-companion Bash failed: {codex_bash_failures!r}")
+if len(codex_bash_success_indexes) != 1:
+    raise SystemExit(f"Claude cross-host review live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
+
+# (d) The returned opposite-host result proves oh-no-code-reviewer role ownership.
+codex_bash_text = "\n".join(codex_bash_success_texts)
+if CODEX_RETURN_MARKER not in codex_bash_text:
+    raise SystemExit(
+        f"Claude cross-host review live did not capture {CODEX_RETURN_MARKER} from codex-companion.mjs stdout"
+    )
+if CODEX_SIDE_ROLE not in codex_bash_text.lower():
+    raise SystemExit(
+        "Claude cross-host review live codex-companion stdout did not prove "
+        f"{CODEX_SIDE_ROLE} role ownership (possible parent inline Codex answer)"
+    )
+last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
+late_pending_background_events = [
+    event for event in pending_background_events
+    if last_codex_bash_success_index is None or event[0] > last_codex_bash_success_index
+]
+if late_pending_background_events:
+    raise SystemExit(
+        "Claude cross-host review live left background/still-running work after the Codex "
+        f"foreground completion: {late_pending_background_events!r}"
+    )
+
+# (e) Final synthesized success marker and its required merged-verdict content.
+success_text = "\n".join(part for part in non_user_text_parts if FINAL_MARKER in part)
+if not success_text:
+    detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
+    raise SystemExit(f"Claude cross-host review live did not return success marker {FINAL_MARKER}{detail}")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude cross-host review live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude cross-host review live missing synthesis field: {field!r}")
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "current_host_instance": {
+        "subagent_type": CURRENT_ROLE,
+        "returned_marker": CURRENT_MARKER,
+    },
+    "opposite_host_instance": {
+        "subagent_type": CODEX_ROLE,
+        "codex_side_role": CODEX_SIDE_ROLE,
+        "bash_tool_uses": len(codex_bash_tool_ids),
+        "returned_marker": CODEX_RETURN_MARKER,
+        "permission_denials": len(permission_denials),
+    },
+    "started_concurrently": True,
+    "peak_in_flight": peak_in_flight,
+    "final_marker": FINAL_MARKER,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude cross-host code-review pair dispatched oh-no-harness:code-reviewer + oh-no-harness:code-reviewer-codex concurrently (read-only foreground codex-companion, role-owned oh-no-code-reviewer) and synthesized one verdict")
 PY
 }
 
@@ -4767,6 +5402,1006 @@ print("ok - live Claude simplify cleanup subagents spawned in one batch")
 PY
 }
 
+run_ralplan_xhost_live_test() {
+  if [[ "$RUN_RALPLAN_XHOST_LIVE" != "1" ]]; then
+    log "Skipping live Claude cross-host PLAN-REVIEW PAIR smoke test (real ralplan flow)"
+    printf 'Run with --ralplan-xhost-live or OH_NO_RALPLAN_XHOST_LIVE=1 to verify the real ralplan flow dispatching the cross-host plan-review pair (current-host oh-no-harness:plan-reviewer plus opposite-host oh-no-harness:plan-reviewer-codex) after the planner draft, synthesized into one verdict.\n' >&2
+    return
+  fi
+
+  log "Running live Claude cross-host PLAN-REVIEW PAIR smoke test via real ralplan (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/ralplan-xhost-claude.jsonl"
+  local err_file="$RUN_DIR/ralplan-xhost-claude.err"
+  local summary_file="$RUN_DIR/ralplan-xhost-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # NOTE: unquoted heredoc (expands ${read_root}/${PLUGIN_NAME}) inside $(...).
+  # Bash tracks single-quote parity across the whole substitution, so the prompt
+  # text MUST NOT contain apostrophes or an unintended $ (both break `bash -n`).
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:ralplan require-cross-host read-only live cross-host PLAN-REVIEW PAIR smoke test only. Do not edit files, do not create artifacts, do not create a full plan, do not install plugins, and do not run any write-capable command. The requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or debugger. Use only oh-no-harness:planner, oh-no-harness:plan-reviewer, and oh-no-harness:plan-reviewer-codex.
+
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:plan-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the Plan Review stage as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the planner then the cross-host plan-reviewer pair: dispatch no other role and no other opposite-host consult agent.
+
+Synthetic approved task (already analyzed): document that the host asks the user which execution workflow to run after ralplan plan approval.
+
+Step 1 (sequential, per ralplan): dispatch exactly one oh-no-harness:planner subagent FIRST and wait for it to complete before any plan review. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Do not revise the draft after review.
+
+Step 2 (plan-review PAIR, after the Planner draft v1 is captured): dispatch BOTH plan-review instances of the SAME plan-reviewer role over the SAME Planner draft v1 text, starting both before waiting for either result:
+
+Current-host instance: a Claude current-host subagent using subagent_type oh-no-harness:plan-reviewer. Its task prompt must include exactly these lines: Instance: current-host; Marker: OH_NO_XHOST_RALPLAN_CURRENT_OK; Scope: the Planner draft v1 only; Do not edit files; Do not make any cross-host or opposite-host call; Run the complete plan-reviewer role over the draft; Expected output: marker line plus a Plan review v1 section with architecture findings, quality-gate findings, and a verdict.
+
+Opposite-host instance: exactly one Codex response through the dedicated read-only consult agent, dispatched with subagent_type oh-no-harness:plan-reviewer-codex. A valid live result requires oh-no-harness:plan-reviewer-codex to perform exactly one required Bash call to node codex-companion.mjs task in the foreground, wait for completion, and return the Codex companion stdout; a marker generated locally by the wrapper, a background acknowledgement, or a status pointer is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run, so do not poll status, fetch a deferred result, or run a second codex-companion or consult call for liveness. The codex-companion Bash command MUST NOT include --write and MUST NOT include --background; the plan-reviewer-codex agent runs codex-companion read-only by design (no --write flag) and synchronously in the foreground, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The plan-reviewer-codex packet MUST use --prompt-file with a redacted packet that: is explicitly read-only with no edits, no writes, and no installs; forbids further rescue, another workflow skill, and any host-to-host call back to Claude or a third host (one cross-host hop); instructs Codex to dispatch the oh-no-plan-reviewer role agent to run the complete plan-reviewer role over this same Planner draft v1; and requires Codex to return the role-owned result of oh-no-plan-reviewer plus role-ownership proof that oh-no-plan-reviewer, not a parent inline Codex answer, produced it, ending with exactly the marker OH_NO_XHOST_RALPLAN_CODEX_RETURN_OK. If oh-no-harness:plan-reviewer-codex cannot run exactly one node codex-companion.mjs Bash call in the foreground, or cannot prove oh-no-plan-reviewer role ownership, do not synthesize success.
+
+Start both plan-review instances before waiting when possible. Wait for both results and do not end while a worker is still pending. After the current-host oh-no-harness:plan-reviewer subagent and the single opposite-host oh-no-harness:plan-reviewer-codex consult both return, synthesize immediately as the current-host main judge into ONE merged plan-review verdict rather than concatenate: merge the two finding sets, deduplicate, and record host provenance on each finding. The final answer must contain exactly the marker OH_NO_CLAUDE_RALPLAN_XHOST_OK and must include, as its own lines: role order: planner then plan-reviewer pair; both instances dispatched: current-host plan-reviewer and opposite-host plan-reviewer-codex; started-concurrently: yes; foreground read-only call: yes; role ownership (oh-no-plan-reviewer) proven: yes; synthesized one verdict: yes; the instance markers OH_NO_XHOST_RALPLAN_CURRENT_OK and OH_NO_XHOST_RALPLAN_CODEX_RETURN_OK; and a single merged verdict block recording consensus, contradictions, unique insights, blind spots, and recommended next action.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --add-dir "$read_root"
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill, one Claude current-host oh-no-harness:planner subagent, one Claude current-host oh-no-harness:plan-reviewer subagent, and the oh-no-harness:plan-reviewer-codex read-only consult agent only for this requested planner-then-cross-host plan-review pair. The opposite host (Codex) is available. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, summary_path, model = sys.argv[1:5]
+
+CURRENT_MARKER = "OH_NO_XHOST_RALPLAN_CURRENT_OK"
+CODEX_RETURN_MARKER = "OH_NO_XHOST_RALPLAN_CODEX_RETURN_OK"
+FINAL_MARKER = "OH_NO_CLAUDE_RALPLAN_XHOST_OK"
+PLANNER_ROLE = "oh-no-harness:planner"
+CURRENT_ROLE = "oh-no-harness:plan-reviewer"
+CODEX_ROLE = "oh-no-harness:plan-reviewer-codex"
+CODEX_SIDE_ROLE = "oh-no-plan-reviewer"
+
+required_final_markers = [
+    FINAL_MARKER,
+    CURRENT_MARKER,
+    CODEX_RETURN_MARKER,
+    "current-host plan-reviewer",
+    "opposite-host plan-reviewer-codex",
+    "foreground read-only call: yes",
+    CODEX_SIDE_ROLE,
+    "synthesized one verdict: yes",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude ralplan cross-host review live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_agents = set()
+init_tools = set()
+errors = []
+planner_dispatch_indexes = []
+current_dispatches = []
+codex_dispatches = []
+unexpected_write_uses = []
+codex_bash_tool_ids = set()
+codex_write_commands = []
+codex_background_commands = []
+codex_bash_success_texts = []
+codex_bash_success_indexes = []
+codex_bash_failures = []
+permission_denials = []
+non_user_text_parts = []
+pending_background_events = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if data.get("type") == "system" and (
+            "Command running in background" in text
+            or ("Codex task" in text and "still running" in text)
+        ):
+            pending_background_events.append((index, text[:2000]))
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude ralplan cross-host review live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_agents.update(data.get("agents", []))
+            init_tools.update(data.get("tools", []))
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    # Count only the actual delegation `task` call (which passes the
+                    # packet via --prompt-file), not the read-only companion-path
+                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
+                    # first to resolve/verify the companion before delegating.
+                    if "codex-companion.mjs" in command and "--prompt-file" in command:
+                        codex_bash_tool_ids.add(part.get("id"))
+                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                            codex_write_commands.append((index, command[:2000]))
+                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                            codex_background_commands.append((index, command[:2000]))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if subagent_type == CODEX_ROLE:
+                        codex_dispatches.append((index, payload_text))
+                    elif subagent_type == CURRENT_ROLE:
+                        current_dispatches.append((index, payload_text))
+                    elif subagent_type == PLANNER_ROLE:
+                        planner_dispatch_indexes.append(index)
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            non_user_text_parts.append(text)
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict):
+                    continue
+                if part.get("tool_use_id") not in codex_bash_tool_ids:
+                    continue
+                result_text = collect_text(part)
+                if "Command running in background" in result_text or (
+                    "Codex task" in result_text and "still running" in result_text
+                ):
+                    raise SystemExit(
+                        "Claude ralplan cross-host review live codex-companion Bash did not complete "
+                        f"in the foreground: {result_text[:1000]!r}"
+                    )
+                if bool(part.get("is_error")):
+                    codex_bash_failures.append((index, result_text[:1000]))
+                else:
+                    codex_bash_success_indexes.append(index)
+                    codex_bash_success_texts.append(result_text)
+        tool_result = data.get("tool_use_result") or {}
+        if isinstance(tool_result, dict) and tool_result.get("agentType", ""):
+            non_user_text_parts.append(collect_text(tool_result))
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude ralplan cross-host review live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude ralplan cross-host review live used write-capable tools: {unexpected_write_uses!r}")
+if codex_write_commands:
+    raise SystemExit(f"Claude ralplan cross-host review live invoked codex-companion with --write: {codex_write_commands!r}")
+if codex_background_commands:
+    raise SystemExit(f"Claude ralplan cross-host review live invoked codex-companion with --background: {codex_background_commands!r}")
+if permission_denials:
+    raise SystemExit(f"Claude ralplan cross-host review live had permission denials: {permission_denials!r}")
+
+if CODEX_ROLE not in init_agents:
+    raise SystemExit(
+        f"Claude ralplan cross-host review live did not expose {CODEX_ROLE} agent; "
+        f"got={sorted(agent for agent in init_agents if 'plan-reviewer' in agent)!r}"
+    )
+if not ({"Task", "Agent", "Workflow"} & init_tools):
+    raise SystemExit(f"Claude ralplan cross-host review live did not expose subagent tooling; tools={sorted(init_tools)!r}")
+
+# Native plan-reviewer AND plan-reviewer-codex both dispatched (exactly one each).
+if len(current_dispatches) != 1:
+    raise SystemExit(
+        f"Claude ralplan cross-host review live expected exactly one {CURRENT_ROLE} dispatch, got {current_dispatches!r}"
+    )
+if len(codex_dispatches) != 1:
+    raise SystemExit(
+        f"Claude ralplan cross-host review live expected exactly one {CODEX_ROLE} dispatch, got {codex_dispatches!r}"
+    )
+
+# Planner ran first, sequentially, before the plan-review pair (per ralplan).
+if not planner_dispatch_indexes:
+    raise SystemExit(f"Claude ralplan cross-host review live did not dispatch {PLANNER_ROLE} before the plan-review pair")
+first_planner_index = min(planner_dispatch_indexes)
+current_index = current_dispatches[0][0]
+codex_index = codex_dispatches[0][0]
+if not (first_planner_index < current_index and first_planner_index < codex_index):
+    raise SystemExit(
+        "Claude ralplan cross-host review live did not run the planner before the plan-review pair: "
+        f"planner_index={first_planner_index} current_index={current_index} codex_index={codex_index}"
+    )
+
+# The outbound opposite-host packet must preserve role ownership + read-only.
+codex_payload = codex_dispatches[0][1]
+for marker in (CODEX_SIDE_ROLE, CODEX_RETURN_MARKER, "read-only"):
+    if marker.lower() not in codex_payload.lower():
+        raise SystemExit(
+            f"Claude ralplan cross-host review live plan-reviewer-codex packet missed role-ownership marker {marker!r}; "
+            f"payload={codex_payload[:2000]!r}"
+        )
+
+# The plan-reviewer-codex made exactly one read-only foreground codex-companion call.
+if not codex_bash_tool_ids:
+    raise SystemExit("Claude ralplan cross-host review live did not invoke codex-companion.mjs through oh-no-harness:plan-reviewer-codex Bash")
+if len(codex_bash_tool_ids) != 1:
+    raise SystemExit(f"Claude ralplan cross-host review live expected exactly one codex-companion.mjs Bash invocation, got {sorted(codex_bash_tool_ids)!r}")
+if codex_bash_failures:
+    raise SystemExit(f"Claude ralplan cross-host review live codex-companion Bash failed: {codex_bash_failures!r}")
+if len(codex_bash_success_indexes) != 1:
+    raise SystemExit(f"Claude ralplan cross-host review live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
+
+# The returned opposite-host result proves oh-no-plan-reviewer role ownership.
+codex_bash_text = "\n".join(codex_bash_success_texts)
+if CODEX_RETURN_MARKER not in codex_bash_text:
+    raise SystemExit(
+        f"Claude ralplan cross-host review live did not capture {CODEX_RETURN_MARKER} from codex-companion.mjs stdout"
+    )
+if CODEX_SIDE_ROLE not in codex_bash_text.lower():
+    raise SystemExit(
+        "Claude ralplan cross-host review live codex-companion stdout did not prove "
+        f"{CODEX_SIDE_ROLE} role ownership (possible parent inline Codex answer)"
+    )
+last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
+late_pending_background_events = [
+    event for event in pending_background_events
+    if last_codex_bash_success_index is None or event[0] > last_codex_bash_success_index
+]
+if late_pending_background_events:
+    raise SystemExit(
+        "Claude ralplan cross-host review live left background/still-running work after the Codex "
+        f"foreground completion: {late_pending_background_events!r}"
+    )
+
+# Final synthesized success marker and its required merged-verdict content.
+success_text = "\n".join(part for part in non_user_text_parts if FINAL_MARKER in part)
+if not success_text:
+    detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
+    raise SystemExit(f"Claude ralplan cross-host review live did not return success marker {FINAL_MARKER}{detail}")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude ralplan cross-host review live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude ralplan cross-host review live missing synthesis field: {field!r}")
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "planner_first_index": first_planner_index,
+    "current_host_instance": {
+        "subagent_type": CURRENT_ROLE,
+        "returned_marker": CURRENT_MARKER,
+    },
+    "opposite_host_instance": {
+        "subagent_type": CODEX_ROLE,
+        "codex_side_role": CODEX_SIDE_ROLE,
+        "bash_tool_uses": len(codex_bash_tool_ids),
+        "returned_marker": CODEX_RETURN_MARKER,
+        "permission_denials": len(permission_denials),
+    },
+    "final_marker": FINAL_MARKER,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude real ralplan flow dispatched planner then cross-host plan-review pair oh-no-harness:plan-reviewer + oh-no-harness:plan-reviewer-codex (read-only foreground codex-companion, role-owned oh-no-plan-reviewer) and synthesized one verdict")
+PY
+}
+
+run_vbc_xhost_live_test() {
+  if [[ "$RUN_VBC_XHOST_LIVE" != "1" ]]; then
+    log "Skipping live Claude cross-host CODE-REVIEW PAIR plus self-host verifier smoke test (real verification-before-completion flow)"
+    printf 'Run with --vbc-xhost-live or OH_NO_VBC_XHOST_LIVE=1 to verify the real verification-before-completion flow dispatching the cross-host code-review pair (current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex) followed by a single self-host oh-no-harness:verifier (verifier=self-1, no verifier-codex).\n' >&2
+    return
+  fi
+
+  log "Running live Claude cross-host CODE-REVIEW PAIR plus self-host verifier smoke test via real verification-before-completion (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/vbc-xhost-claude.jsonl"
+  local err_file="$RUN_DIR/vbc-xhost-claude.err"
+  local summary_file="$RUN_DIR/vbc-xhost-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # NOTE: unquoted heredoc (expands ${read_root}/${PLUGIN_NAME}) inside $(...).
+  # Bash tracks single-quote parity across the whole substitution, so the prompt
+  # text MUST NOT contain apostrophes or an unintended $ (both break `bash -n`).
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:verification-before-completion require-cross-host read-only live cross-host CODE-REVIEW PAIR plus confirming SELF-HOST verifier smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
+
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## When It Applies", "## Sequencing Preserved", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. The verifier role is out of cross-host scope: it is an unconditional SINGLE self-host pass with ZERO cross-host consults, dispatched only AFTER the code-reviewer pair completes and is synthesized. Exercise ONLY the cross-host code-reviewer pair and then the single self-host verifier: dispatch no other role and no other opposite-host consult agent.
+
+Risk-gated completion claim to verify: I changed auth and session logic; verify it is safe to ship. The reviewed change is this diff (treat as the stable diff):
+--- a/session.py
++++ b/session.py
+@@
+-def verify_token(token, expected):
+-    return token == expected
++def verify_token(token, expected):
++    if token == expected:
++        return True
++    return len(token) == len(expected)
+The reviewed change weakens token verification: on a mismatch it now returns True whenever the two lengths match, which is an authentication bypass. Every review instance must analyze this security regression meaningfully (authentication bypass, constant-time comparison, correctness, and test coverage) rather than only stating the smoke test is formatted correctly.
+
+Stage 1 (code-review PAIR, FIRST): dispatch BOTH code-review instances of the SAME code-reviewer role over the SAME diff CONCURRENTLY, starting both before waiting for either result:
+
+Current-host instance: a Claude current-host subagent using subagent_type oh-no-harness:code-reviewer. Its task prompt must include exactly these lines: Instance: current-host; Marker: OH_NO_XHOST_VBC_CURRENT_OK; Scope: the fixed session.py diff only; Do not edit files; Do not make any cross-host or opposite-host call; Run the complete code-reviewer role over the diff; Expected output: marker line plus findings with file, line, issue, severity, evidence, and recommended fix.
+
+Opposite-host instance: exactly one Codex response through the dedicated read-only consult agent, dispatched with subagent_type oh-no-harness:code-reviewer-codex. A valid live result requires oh-no-harness:code-reviewer-codex to perform exactly one required Bash call to node codex-companion.mjs task in the foreground, wait for completion, and return the Codex companion stdout; a marker generated locally by the wrapper, a background acknowledgement, or a status pointer is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run, so do not poll status, fetch a deferred result, or run a second codex-companion or consult call for liveness. The codex-companion Bash command MUST NOT include --write and MUST NOT include --background; the code-reviewer-codex agent runs codex-companion read-only by design (no --write flag) and synchronously in the foreground, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The code-reviewer-codex packet MUST use --prompt-file with a redacted packet that: is explicitly read-only with no edits, no writes, and no installs; forbids further rescue, another workflow skill, and any host-to-host call back to Claude or a third host (one cross-host hop); instructs Codex to dispatch the oh-no-code-reviewer role agent to run the complete code-reviewer role over this same session.py diff; and requires Codex to return the role-owned result of oh-no-code-reviewer plus role-ownership proof that oh-no-code-reviewer, not a parent inline Codex answer, produced it, ending with exactly the marker OH_NO_XHOST_VBC_CODEX_RETURN_OK. If oh-no-harness:code-reviewer-codex cannot run exactly one node codex-companion.mjs Bash call in the foreground, or cannot prove oh-no-code-reviewer role ownership, do not synthesize success.
+
+Stage 2 (confirming verifier, AFTER the code-reviewer pair returns and is synthesized): dispatch EXACTLY ONE self-host subagent using subagent_type oh-no-harness:verifier. Do NOT dispatch oh-no-harness:verifier-codex, do NOT run any codex-companion or cross-host call for the verifier, and do NOT run a second or fallback verifier instance: the confirming verifier is a single self-host pass with zero cross-host consults. Its task prompt must include exactly these lines: Role: verifier; Marker: OH_NO_XHOST_VBC_VERIFIER_OK; Scope: confirm the synthesized code-review verdict for the session.py diff; Do not edit files; Do not make any cross-host or opposite-host call; Expected output: marker line plus a ship or do-not-ship evidence judgement.
+
+Wait for all results and do not end while a worker is still pending. Keep the review-then-verify order: the single self-host verifier is dispatched only after both code-reviewer instances return and are synthesized. After the code-reviewer pair is synthesized and the single self-host verifier returns, reply as the current-host main judge with exactly the marker OH_NO_CLAUDE_VBC_XHOST_OK and include, as its own lines: both review instances dispatched: current-host code-reviewer and opposite-host code-reviewer-codex; started-concurrently: yes; foreground read-only call: yes; role ownership (oh-no-code-reviewer) proven: yes; confirming verifier: single self-host oh-no-harness:verifier; cross-host verifier consults: zero; review-then-verify order: yes; synthesized one verdict: yes; the instance markers OH_NO_XHOST_VBC_CURRENT_OK, OH_NO_XHOST_VBC_CODEX_RETURN_OK, and OH_NO_XHOST_VBC_VERIFIER_OK; and a single merged verdict block recording consensus, contradictions, unique insights, blind spots, and recommended next action.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --add-dir "$read_root"
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill, one Claude current-host oh-no-harness:code-reviewer subagent, the oh-no-harness:code-reviewer-codex read-only consult agent, and one self-host oh-no-harness:verifier subagent only for this requested cross-host code-review pair plus confirming self-host verifier. The opposite host (Codex) is available. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, summary_path, model = sys.argv[1:5]
+
+CURRENT_MARKER = "OH_NO_XHOST_VBC_CURRENT_OK"
+CODEX_RETURN_MARKER = "OH_NO_XHOST_VBC_CODEX_RETURN_OK"
+VERIFIER_MARKER = "OH_NO_XHOST_VBC_VERIFIER_OK"
+FINAL_MARKER = "OH_NO_CLAUDE_VBC_XHOST_OK"
+CURRENT_ROLE = "oh-no-harness:code-reviewer"
+CODEX_ROLE = "oh-no-harness:code-reviewer-codex"
+CODEX_SIDE_ROLE = "oh-no-code-reviewer"
+VERIFIER_ROLE = "oh-no-harness:verifier"
+VERIFIER_CODEX_ROLE = "oh-no-harness:verifier-codex"
+
+required_final_markers = [
+    FINAL_MARKER,
+    CURRENT_MARKER,
+    CODEX_RETURN_MARKER,
+    VERIFIER_MARKER,
+    "current-host code-reviewer",
+    "opposite-host code-reviewer-codex",
+    "foreground read-only call: yes",
+    CODEX_SIDE_ROLE,
+    "single self-host oh-no-harness:verifier",
+    "cross-host verifier consults: zero",
+    "review-then-verify order: yes",
+    "synthesized one verdict: yes",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude VBC cross-host review live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_agents = set()
+init_tools = set()
+errors = []
+current_dispatches = []
+codex_dispatches = []
+verifier_dispatches = []
+verifier_codex_dispatches = []
+unexpected_write_uses = []
+codex_bash_tool_ids = set()
+codex_write_commands = []
+codex_background_commands = []
+codex_bash_success_texts = []
+codex_bash_success_indexes = []
+codex_bash_failures = []
+permission_denials = []
+non_user_text_parts = []
+pending_background_events = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if data.get("type") == "system" and (
+            "Command running in background" in text
+            or ("Codex task" in text and "still running" in text)
+        ):
+            pending_background_events.append((index, text[:2000]))
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude VBC cross-host review live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_agents.update(data.get("agents", []))
+            init_tools.update(data.get("tools", []))
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    # Count only the actual delegation `task` call (which passes the
+                    # packet via --prompt-file), not the read-only companion-path
+                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
+                    # first to resolve/verify the companion before delegating.
+                    if "codex-companion.mjs" in command and "--prompt-file" in command:
+                        codex_bash_tool_ids.add(part.get("id"))
+                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                            codex_write_commands.append((index, command[:2000]))
+                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                            codex_background_commands.append((index, command[:2000]))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if subagent_type == CODEX_ROLE:
+                        codex_dispatches.append((index, payload_text))
+                    elif subagent_type == CURRENT_ROLE:
+                        current_dispatches.append((index, payload_text))
+                    elif subagent_type == VERIFIER_CODEX_ROLE:
+                        verifier_codex_dispatches.append((index, payload_text))
+                    elif subagent_type == VERIFIER_ROLE:
+                        verifier_dispatches.append((index, payload_text))
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            non_user_text_parts.append(text)
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict):
+                    continue
+                if part.get("tool_use_id") not in codex_bash_tool_ids:
+                    continue
+                result_text = collect_text(part)
+                if "Command running in background" in result_text or (
+                    "Codex task" in result_text and "still running" in result_text
+                ):
+                    raise SystemExit(
+                        "Claude VBC cross-host review live codex-companion Bash did not complete "
+                        f"in the foreground: {result_text[:1000]!r}"
+                    )
+                if bool(part.get("is_error")):
+                    codex_bash_failures.append((index, result_text[:1000]))
+                else:
+                    codex_bash_success_indexes.append(index)
+                    codex_bash_success_texts.append(result_text)
+        tool_result = data.get("tool_use_result") or {}
+        if isinstance(tool_result, dict) and tool_result.get("agentType", ""):
+            non_user_text_parts.append(collect_text(tool_result))
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude VBC cross-host review live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude VBC cross-host review live used write-capable tools: {unexpected_write_uses!r}")
+if codex_write_commands:
+    raise SystemExit(f"Claude VBC cross-host review live invoked codex-companion with --write: {codex_write_commands!r}")
+if codex_background_commands:
+    raise SystemExit(f"Claude VBC cross-host review live invoked codex-companion with --background: {codex_background_commands!r}")
+if permission_denials:
+    raise SystemExit(f"Claude VBC cross-host review live had permission denials: {permission_denials!r}")
+
+if CODEX_ROLE not in init_agents:
+    raise SystemExit(
+        f"Claude VBC cross-host review live did not expose {CODEX_ROLE} agent; "
+        f"got={sorted(agent for agent in init_agents if 'code-reviewer' in agent)!r}"
+    )
+if not ({"Task", "Agent", "Workflow"} & init_tools):
+    raise SystemExit(f"Claude VBC cross-host review live did not expose subagent tooling; tools={sorted(init_tools)!r}")
+
+# (a) code-reviewer + code-reviewer-codex both dispatched (exactly one each).
+if len(current_dispatches) != 1:
+    raise SystemExit(
+        f"Claude VBC cross-host review live expected exactly one {CURRENT_ROLE} dispatch, got {current_dispatches!r}"
+    )
+if len(codex_dispatches) != 1:
+    raise SystemExit(
+        f"Claude VBC cross-host review live expected exactly one {CODEX_ROLE} dispatch, got {codex_dispatches!r}"
+    )
+
+# (b) verifier=self-1: EXACTLY ONE self-host verifier, ZERO verifier-codex.
+if len(verifier_dispatches) != 1:
+    raise SystemExit(
+        f"Claude VBC cross-host review live expected exactly one self-host {VERIFIER_ROLE} dispatch "
+        f"(verifier=self-1), got {verifier_dispatches!r}"
+    )
+if verifier_codex_dispatches:
+    raise SystemExit(
+        f"Claude VBC cross-host review live dispatched {VERIFIER_CODEX_ROLE} (verifier must be self-host only): "
+        f"{verifier_codex_dispatches!r}"
+    )
+
+# (c) review-then-verify order: the confirming verifier runs after the reviewer pair.
+current_index = current_dispatches[0][0]
+codex_index = codex_dispatches[0][0]
+verifier_index = verifier_dispatches[0][0]
+if not (verifier_index > current_index and verifier_index > codex_index):
+    raise SystemExit(
+        "Claude VBC cross-host review live did not keep the review-then-verify order (verifier before the "
+        f"reviewer pair): current_index={current_index} codex_index={codex_index} verifier_index={verifier_index}"
+    )
+
+# The outbound opposite-host packet must preserve role ownership + read-only.
+codex_payload = codex_dispatches[0][1]
+for marker in (CODEX_SIDE_ROLE, CODEX_RETURN_MARKER, "read-only"):
+    if marker.lower() not in codex_payload.lower():
+        raise SystemExit(
+            f"Claude VBC cross-host review live code-reviewer-codex packet missed role-ownership marker {marker!r}; "
+            f"payload={codex_payload[:2000]!r}"
+        )
+
+# (d) The code-reviewer-codex made exactly one read-only foreground codex-companion call.
+# Exactly one total codex-companion delegation also proves ZERO cross-host verifier delegation.
+if not codex_bash_tool_ids:
+    raise SystemExit("Claude VBC cross-host review live did not invoke codex-companion.mjs through oh-no-harness:code-reviewer-codex Bash")
+if len(codex_bash_tool_ids) != 1:
+    raise SystemExit(
+        "Claude VBC cross-host review live expected exactly one codex-companion.mjs Bash invocation "
+        f"(the code-reviewer one; a second would mean a cross-host verifier), got {sorted(codex_bash_tool_ids)!r}"
+    )
+if codex_bash_failures:
+    raise SystemExit(f"Claude VBC cross-host review live codex-companion Bash failed: {codex_bash_failures!r}")
+if len(codex_bash_success_indexes) != 1:
+    raise SystemExit(f"Claude VBC cross-host review live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
+
+# (e) The returned opposite-host result proves oh-no-code-reviewer role ownership.
+codex_bash_text = "\n".join(codex_bash_success_texts)
+if CODEX_RETURN_MARKER not in codex_bash_text:
+    raise SystemExit(
+        f"Claude VBC cross-host review live did not capture {CODEX_RETURN_MARKER} from codex-companion.mjs stdout"
+    )
+if CODEX_SIDE_ROLE not in codex_bash_text.lower():
+    raise SystemExit(
+        "Claude VBC cross-host review live codex-companion stdout did not prove "
+        f"{CODEX_SIDE_ROLE} role ownership (possible parent inline Codex answer)"
+    )
+last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
+late_pending_background_events = [
+    event for event in pending_background_events
+    if last_codex_bash_success_index is None or event[0] > last_codex_bash_success_index
+]
+if late_pending_background_events:
+    raise SystemExit(
+        "Claude VBC cross-host review live left background/still-running work after the Codex "
+        f"foreground completion: {late_pending_background_events!r}"
+    )
+
+# (f) Final synthesized success marker and its required merged-verdict content.
+success_text = "\n".join(part for part in non_user_text_parts if FINAL_MARKER in part)
+if not success_text:
+    detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
+    raise SystemExit(f"Claude VBC cross-host review live did not return success marker {FINAL_MARKER}{detail}")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude VBC cross-host review live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude VBC cross-host review live missing synthesis field: {field!r}")
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "current_host_instance": {
+        "subagent_type": CURRENT_ROLE,
+        "returned_marker": CURRENT_MARKER,
+    },
+    "opposite_host_instance": {
+        "subagent_type": CODEX_ROLE,
+        "codex_side_role": CODEX_SIDE_ROLE,
+        "bash_tool_uses": len(codex_bash_tool_ids),
+        "returned_marker": CODEX_RETURN_MARKER,
+        "permission_denials": len(permission_denials),
+    },
+    "confirming_verifier": {
+        "subagent_type": VERIFIER_ROLE,
+        "dispatches": len(verifier_dispatches),
+        "verifier_codex_dispatches": len(verifier_codex_dispatches),
+        "cross_host_verifier_delegations": 0,
+        "returned_marker": VERIFIER_MARKER,
+    },
+    "review_then_verify": True,
+    "final_marker": FINAL_MARKER,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude real verification-before-completion flow dispatched cross-host code-review pair oh-no-harness:code-reviewer + oh-no-harness:code-reviewer-codex (read-only foreground codex-companion, role-owned oh-no-code-reviewer) then a single self-host oh-no-harness:verifier (verifier=self-1, zero cross-host verifier) and synthesized one verdict")
+PY
+}
+
+run_sysdebug_xhost_live_test() {
+  if [[ "$RUN_SYSDEBUG_XHOST_LIVE" != "1" ]]; then
+    log "Skipping live Claude cross-host DEBUGGER PAIR smoke test (real systematic-debugging flow)"
+    printf 'Run with --sysdebug-xhost-live or OH_NO_SYSDEBUG_XHOST_LIVE=1 to verify the real systematic-debugging flow dispatching the cross-host debugger pair (current-host oh-no-harness:debugger plus opposite-host oh-no-harness:debugger-codex) synthesized into one root-cause direction.\n' >&2
+    return
+  fi
+
+  log "Running live Claude cross-host DEBUGGER PAIR smoke test via real systematic-debugging (${LIVE_LOAD_MODE}, model ${FUSION_RESCUE_LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/sysdebug-xhost-claude.jsonl"
+  local err_file="$RUN_DIR/sysdebug-xhost-claude.err"
+  local summary_file="$RUN_DIR/sysdebug-xhost-claude.summary.json"
+  local read_root="$PLUGIN_ROOT"
+
+  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
+    read_root="$(cached_plugin_root)"
+  fi
+
+  # NOTE: unquoted heredoc (expands ${read_root}/${PLUGIN_NAME}) inside $(...).
+  # Bash tracks single-quote parity across the whole substitution, so the prompt
+  # text MUST NOT contain apostrophes or an unintended $ (both break `bash -n`).
+  local prompt
+  prompt=$(cat <<PROMPT
+/${PLUGIN_NAME}:systematic-debugging require-cross-host read-only live cross-host DEBUGGER PAIR smoke test only. Do not edit files, do not create artifacts, do not install plugins, do not run any write-capable command, and do not run the failing command itself; reason only from the inline failure facts.
+
+First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## When It Applies", "## Full Review Per Host", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:debugger-codex cross-host consult agent and its node codex-companion.mjs transport are available. Dual-host is the default for the debugger; run the root-cause investigation as a CROSS-HOST debugger pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host debugger pair: dispatch no other role and no other opposite-host consult agent.
+
+Synthetic bug (all failure facts inline; no code change requested): a request handler intermittently returns HTTP 200 with an empty body under concurrent load. The response builder writes the body inside a background task, but the handler returns its response object before that background task has finished writing, so the body is occasionally empty. Reproduction: 50 concurrent requests, roughly 1 in 20 returns an empty body. There is no stack trace; logs show the background writer completing AFTER the response is flushed to the client.
+
+Dispatch BOTH debugger instances of the SAME debugger role over the SAME failure and evidence packet CONCURRENTLY, starting both before waiting for either result:
+
+Current-host instance: a Claude current-host subagent using subagent_type oh-no-harness:debugger. Its task prompt must include exactly these lines: Instance: current-host; Marker: OH_NO_XHOST_SYSDEBUG_CURRENT_OK; Scope: the inline failure and evidence packet only; Do not edit files; Do not make any cross-host or opposite-host call; Run the complete debugger root-cause investigation; Expected output: marker line plus a ranked root-cause hypothesis with supporting evidence.
+
+Opposite-host instance: exactly one Codex response through the dedicated read-only consult agent, dispatched with subagent_type oh-no-harness:debugger-codex. A valid live result requires oh-no-harness:debugger-codex to perform exactly one required Bash call to node codex-companion.mjs task in the foreground, wait for completion, and return the Codex companion stdout; a marker generated locally by the wrapper, a background acknowledgement, or a status pointer is not valid. The harness parser, not you, verifies the Bash event stream and codex-companion stdout after the run, so do not poll status, fetch a deferred result, or run a second codex-companion or consult call for liveness. The codex-companion Bash command MUST NOT include --write and MUST NOT include --background; the debugger-codex agent runs codex-companion read-only by design (no --write flag) and synchronously in the foreground, and a permission denial from an attempted --write command is a test failure even if a later retry succeeds. The debugger-codex packet MUST use --prompt-file with a redacted packet that: is explicitly read-only with no edits, no writes, and no installs; forbids further rescue, another workflow skill, and any host-to-host call back to Claude or a third host (one cross-host hop); instructs Codex to dispatch the oh-no-debugger role agent to run the complete debugger root-cause investigation over this same failure and evidence packet; and requires Codex to return the role-owned result of oh-no-debugger plus role-ownership proof that oh-no-debugger, not a parent inline Codex answer, produced it, ending with exactly the marker OH_NO_XHOST_SYSDEBUG_CODEX_RETURN_OK. If oh-no-harness:debugger-codex cannot run exactly one node codex-companion.mjs Bash call in the foreground, or cannot prove oh-no-debugger role ownership, do not synthesize success.
+
+Start both instances before waiting when possible. Wait for both results and do not end while a worker is still pending. After the current-host oh-no-harness:debugger subagent and the single opposite-host oh-no-harness:debugger-codex consult both return, synthesize immediately as the current-host main judge into ONE root-cause direction rather than concatenate: reconcile the competing hypotheses, deduplicate, and record host provenance on each finding. The final answer must contain exactly the marker OH_NO_CLAUDE_SYSDEBUG_XHOST_OK and must include, as its own lines: both instances dispatched: current-host debugger and opposite-host debugger-codex; started-concurrently: yes; foreground read-only call: yes; role ownership (oh-no-debugger) proven: yes; synthesized one root-cause direction: yes; the instance markers OH_NO_XHOST_SYSDEBUG_CURRENT_OK and OH_NO_XHOST_SYSDEBUG_CODEX_RETURN_OK; and a single merged root-cause block recording consensus, contradictions, unique insights, blind spots, and recommended next action.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$FUSION_RESCUE_LIVE_MODEL"
+    --max-budget-usd "$FUSION_RESCUE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --allowedTools "Bash(node *)"
+    --tools default
+    --add-dir "$read_root"
+    --no-session-persistence
+    --system-prompt "You are a read-only live smoke test runner. Use the invoked Oh No Harness skill, one Claude current-host oh-no-harness:debugger subagent, and the oh-no-harness:debugger-codex read-only consult agent only for this requested cross-host debugger pair. The opposite host (Codex) is available. Do not edit files."
+  )
+
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, summary_path, model = sys.argv[1:5]
+
+CURRENT_MARKER = "OH_NO_XHOST_SYSDEBUG_CURRENT_OK"
+CODEX_RETURN_MARKER = "OH_NO_XHOST_SYSDEBUG_CODEX_RETURN_OK"
+FINAL_MARKER = "OH_NO_CLAUDE_SYSDEBUG_XHOST_OK"
+CURRENT_ROLE = "oh-no-harness:debugger"
+CODEX_ROLE = "oh-no-harness:debugger-codex"
+CODEX_SIDE_ROLE = "oh-no-debugger"
+
+required_final_markers = [
+    FINAL_MARKER,
+    CURRENT_MARKER,
+    CODEX_RETURN_MARKER,
+    "current-host debugger",
+    "opposite-host debugger-codex",
+    "foreground read-only call: yes",
+    CODEX_SIDE_ROLE,
+    "synthesized one root-cause direction: yes",
+]
+required_synthesis_fields = [
+    "consensus",
+    "contradictions",
+    "unique insights",
+    "blind spots",
+    "recommended next action",
+]
+secret_patterns = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+with open(err_path, "r", encoding="utf-8") as fh:
+    err_text = fh.read()
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude systematic-debugging cross-host live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+init_agents = set()
+init_tools = set()
+errors = []
+current_dispatches = []
+codex_dispatches = []
+unexpected_write_uses = []
+codex_bash_tool_ids = set()
+codex_write_commands = []
+codex_background_commands = []
+codex_bash_success_texts = []
+codex_bash_success_indexes = []
+codex_bash_failures = []
+permission_denials = []
+non_user_text_parts = []
+pending_background_events = []
+
+with open(out_path, "r", encoding="utf-8") as fh:
+    for index, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        text = collect_text(data)
+        if data.get("type") == "system" and (
+            "Command running in background" in text
+            or ("Codex task" in text and "still running" in text)
+        ):
+            pending_background_events.append((index, text[:2000]))
+        if any(pattern.search(text) for pattern in secret_patterns):
+            raise SystemExit(f"Claude systematic-debugging cross-host live transcript exposed a secret-like value near line {index}")
+        if data.get("type") == "system" and data.get("subtype") == "init":
+            init_agents.update(data.get("agents", []))
+            init_tools.update(data.get("tools", []))
+        if data.get("type") == "assistant":
+            non_user_text_parts.append(text)
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") == "tool_use" and part.get("name") in forbidden_write_tool_names:
+                    unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
+                if part.get("type") == "tool_use" and part.get("name") == "Bash":
+                    command = str(part.get("input", {}).get("command", ""))
+                    # Count only the actual delegation `task` call (which passes the
+                    # packet via --prompt-file), not the read-only companion-path
+                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
+                    # first to resolve/verify the companion before delegating.
+                    if "codex-companion.mjs" in command and "--prompt-file" in command:
+                        codex_bash_tool_ids.add(part.get("id"))
+                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                            codex_write_commands.append((index, command[:2000]))
+                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                            codex_background_commands.append((index, command[:2000]))
+                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
+                    payload = part.get("input", {})
+                    payload_text = collect_text(payload)
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if subagent_type == CODEX_ROLE:
+                        codex_dispatches.append((index, payload_text))
+                    elif subagent_type == CURRENT_ROLE:
+                        current_dispatches.append((index, payload_text))
+                if part.get("type") == "text":
+                    non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            non_user_text_parts.append(text)
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict):
+                    continue
+                if part.get("tool_use_id") not in codex_bash_tool_ids:
+                    continue
+                result_text = collect_text(part)
+                if "Command running in background" in result_text or (
+                    "Codex task" in result_text and "still running" in result_text
+                ):
+                    raise SystemExit(
+                        "Claude systematic-debugging cross-host live codex-companion Bash did not complete "
+                        f"in the foreground: {result_text[:1000]!r}"
+                    )
+                if bool(part.get("is_error")):
+                    codex_bash_failures.append((index, result_text[:1000]))
+                else:
+                    codex_bash_success_indexes.append(index)
+                    codex_bash_success_texts.append(result_text)
+        tool_result = data.get("tool_use_result") or {}
+        if isinstance(tool_result, dict) and tool_result.get("agentType", ""):
+            non_user_text_parts.append(collect_text(tool_result))
+        if data.get("type") == "result":
+            permission_denials.extend(data.get("permission_denials") or [])
+            non_user_text_parts.append(str(data.get("result", "")))
+            if data.get("is_error") is True:
+                errors.append((index, str(data.get("result", ""))[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude systematic-debugging cross-host live returned errors: {errors!r}")
+if unexpected_write_uses:
+    raise SystemExit(f"Claude systematic-debugging cross-host live used write-capable tools: {unexpected_write_uses!r}")
+if codex_write_commands:
+    raise SystemExit(f"Claude systematic-debugging cross-host live invoked codex-companion with --write: {codex_write_commands!r}")
+if codex_background_commands:
+    raise SystemExit(f"Claude systematic-debugging cross-host live invoked codex-companion with --background: {codex_background_commands!r}")
+if permission_denials:
+    raise SystemExit(f"Claude systematic-debugging cross-host live had permission denials: {permission_denials!r}")
+
+if CODEX_ROLE not in init_agents:
+    raise SystemExit(
+        f"Claude systematic-debugging cross-host live did not expose {CODEX_ROLE} agent; "
+        f"got={sorted(agent for agent in init_agents if 'debugger' in agent)!r}"
+    )
+if not ({"Task", "Agent", "Workflow"} & init_tools):
+    raise SystemExit(f"Claude systematic-debugging cross-host live did not expose subagent tooling; tools={sorted(init_tools)!r}")
+
+# debugger AND debugger-codex both dispatched (exactly one each).
+if len(current_dispatches) != 1:
+    raise SystemExit(
+        f"Claude systematic-debugging cross-host live expected exactly one {CURRENT_ROLE} dispatch, got {current_dispatches!r}"
+    )
+if len(codex_dispatches) != 1:
+    raise SystemExit(
+        f"Claude systematic-debugging cross-host live expected exactly one {CODEX_ROLE} dispatch, got {codex_dispatches!r}"
+    )
+
+# The outbound opposite-host packet must preserve role ownership + read-only.
+codex_payload = codex_dispatches[0][1]
+for marker in (CODEX_SIDE_ROLE, CODEX_RETURN_MARKER, "read-only"):
+    if marker.lower() not in codex_payload.lower():
+        raise SystemExit(
+            f"Claude systematic-debugging cross-host live debugger-codex packet missed role-ownership marker {marker!r}; "
+            f"payload={codex_payload[:2000]!r}"
+        )
+
+# The debugger-codex made exactly one read-only foreground codex-companion call.
+if not codex_bash_tool_ids:
+    raise SystemExit("Claude systematic-debugging cross-host live did not invoke codex-companion.mjs through oh-no-harness:debugger-codex Bash")
+if len(codex_bash_tool_ids) != 1:
+    raise SystemExit(f"Claude systematic-debugging cross-host live expected exactly one codex-companion.mjs Bash invocation, got {sorted(codex_bash_tool_ids)!r}")
+if codex_bash_failures:
+    raise SystemExit(f"Claude systematic-debugging cross-host live codex-companion Bash failed: {codex_bash_failures!r}")
+if len(codex_bash_success_indexes) != 1:
+    raise SystemExit(f"Claude systematic-debugging cross-host live expected exactly one successful codex-companion.mjs Bash result, got {codex_bash_success_indexes!r}")
+
+# The returned opposite-host result proves oh-no-debugger role ownership.
+codex_bash_text = "\n".join(codex_bash_success_texts)
+if CODEX_RETURN_MARKER not in codex_bash_text:
+    raise SystemExit(
+        f"Claude systematic-debugging cross-host live did not capture {CODEX_RETURN_MARKER} from codex-companion.mjs stdout"
+    )
+if CODEX_SIDE_ROLE not in codex_bash_text.lower():
+    raise SystemExit(
+        "Claude systematic-debugging cross-host live codex-companion stdout did not prove "
+        f"{CODEX_SIDE_ROLE} role ownership (possible parent inline Codex answer)"
+    )
+last_codex_bash_success_index = max(codex_bash_success_indexes) if codex_bash_success_indexes else None
+late_pending_background_events = [
+    event for event in pending_background_events
+    if last_codex_bash_success_index is None or event[0] > last_codex_bash_success_index
+]
+if late_pending_background_events:
+    raise SystemExit(
+        "Claude systematic-debugging cross-host live left background/still-running work after the Codex "
+        f"foreground completion: {late_pending_background_events!r}"
+    )
+
+# Final synthesized single root-cause direction marker and its required content.
+success_text = "\n".join(part for part in non_user_text_parts if FINAL_MARKER in part)
+if not success_text:
+    detail = f"; pending events={pending_background_events!r}" if pending_background_events else ""
+    raise SystemExit(f"Claude systematic-debugging cross-host live did not return success marker {FINAL_MARKER}{detail}")
+lower_success_text = success_text.lower()
+for marker in required_final_markers:
+    if marker.lower() not in lower_success_text:
+        raise SystemExit(f"Claude systematic-debugging cross-host live missing final marker/text: {marker!r}")
+for field in required_synthesis_fields:
+    if field.lower() not in lower_success_text:
+        raise SystemExit(f"Claude systematic-debugging cross-host live missing synthesis field: {field!r}")
+
+summary = {
+    "status": "passed",
+    "model": model,
+    "current_host_instance": {
+        "subagent_type": CURRENT_ROLE,
+        "returned_marker": CURRENT_MARKER,
+    },
+    "opposite_host_instance": {
+        "subagent_type": CODEX_ROLE,
+        "codex_side_role": CODEX_SIDE_ROLE,
+        "bash_tool_uses": len(codex_bash_tool_ids),
+        "returned_marker": CODEX_RETURN_MARKER,
+        "permission_denials": len(permission_denials),
+    },
+    "final_marker": FINAL_MARKER,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+print("ok - live Claude real systematic-debugging flow dispatched cross-host debugger pair oh-no-harness:debugger + oh-no-harness:debugger-codex (read-only foreground codex-companion, role-owned oh-no-debugger) and synthesized one root-cause direction")
+PY
+}
+
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
@@ -4776,6 +6411,7 @@ main() {
   validate_manifests
   validate_hooks
   run_escape_net_offline_test
+  run_fusion_codex_offline_marker_test
   validate_frontmatter
   install_or_update_plugin
   run_live_tests
@@ -4784,6 +6420,10 @@ main() {
   run_parallel_live_test
   run_fusion_rescue_live_test
   run_cross_host_fallback_live_test
+  run_cross_host_review_live_test
+  run_ralplan_xhost_live_test
+  run_vbc_xhost_live_test
+  run_sysdebug_xhost_live_test
   run_parallel_executor_live_test
   run_codex_executor_delegation_live_test
   run_simplify_live_test

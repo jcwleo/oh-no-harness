@@ -180,6 +180,77 @@ AGENTS = [
         ),
         codex_sandbox_mode="read-only",
     ),
+    AgentMetadata(
+        role="plan-reviewer-codex",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows to run the "
+            "read-only Codex companion call for the opposite-host leg of a "
+            "cross-host plan-reviewer pair; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Bash, Grep, Glob",
+        claude_model="inherit",
+        claude_color="orange",
+        codex_description=(
+            "Oh No Harness plan-reviewer-codex role: run the read-only Codex "
+            "companion call that dispatches oh-no-plan-reviewer for the opposite-host "
+            "leg of a cross-host plan review and return its role-owned result."
+        ),
+        # Claude-Code-only consult agent: Claude delegates the opposite-host review
+        # leg TO Codex. On the Codex host there is nothing to delegate, so no Codex
+        # custom-agent wrapper is emitted.
+        claude_only=True,
+    ),
+    AgentMetadata(
+        role="code-reviewer-codex",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows to run the "
+            "read-only Codex companion call for the opposite-host leg of a "
+            "cross-host code-reviewer pair; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Bash, Grep, Glob",
+        claude_model="inherit",
+        claude_color="pink",
+        codex_description=(
+            "Oh No Harness code-reviewer-codex role: run the read-only Codex "
+            "companion call that dispatches oh-no-code-reviewer for the opposite-host "
+            "leg of a cross-host code review and return its role-owned result."
+        ),
+        claude_only=True,
+    ),
+    AgentMetadata(
+        role="debugger-codex",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows to run the "
+            "read-only Codex companion call for the opposite-host leg of a "
+            "cross-host debugger pair; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Bash, Grep, Glob",
+        claude_model="inherit",
+        claude_color="yellow",
+        codex_description=(
+            "Oh No Harness debugger-codex role: run the read-only Codex companion "
+            "call that dispatches oh-no-debugger for the opposite-host leg of a "
+            "cross-host root-cause pass and return its role-owned result."
+        ),
+        claude_only=True,
+    ),
+    AgentMetadata(
+        role="fusion-codex",
+        claude_description=(
+            "Use proactively inside active Oh No Harness workflows to run the "
+            "read-only Codex companion call for one assigned opposite-host Fusion "
+            "Rescue panel lens; the caller owns approval and handoff gates."
+        ),
+        claude_tools="Read, Bash, Grep, Glob",
+        claude_model="inherit",
+        claude_color="blue",
+        codex_description=(
+            "Oh No Harness fusion-codex role: run the read-only Codex companion "
+            "call that dispatches oh-no-fusion-rescue-analyst for one assigned "
+            "Fusion Rescue panel lens and return its exact panel fields."
+        ),
+        claude_only=True,
+    ),
 ]
 
 

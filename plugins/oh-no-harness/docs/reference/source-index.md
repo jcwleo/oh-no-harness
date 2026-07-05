@@ -30,6 +30,10 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
 | `docs/agent-core/verifier.md` and `agents/verifier.md` | merged from `omc/raw/agents/verifier.md` and `omc/raw/agents/qa-tester.md` |
 | `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | merged from `omc/raw/agents/code-reviewer.md` and `omc/raw/agents/security-reviewer.md` |
+| `docs/agent-core/plan-reviewer-codex.md` and `agents/plan-reviewer-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a plan-reviewer pair (dispatches `oh-no-plan-reviewer` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
+| `docs/agent-core/code-reviewer-codex.md` and `agents/code-reviewer-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a code-reviewer pair (dispatches `oh-no-code-reviewer` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
+| `docs/agent-core/debugger-codex.md` and `agents/debugger-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a debugger pair (dispatches `oh-no-debugger` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
+| `docs/agent-core/fusion-codex.md` and `agents/fusion-codex.md` | new in oh-no-harness; Claude-Code-only read-only Fusion Rescue opposite-host panel slot (dispatches `oh-no-fusion-rescue-analyst` on Codex via `codex-companion.mjs` for one assigned lens); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
 
 ## OMC-Derived Shared Docs
 

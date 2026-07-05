@@ -160,12 +160,12 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
 | `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. Cross-host merge: one verdict. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. Cross-host merge: union/conservative. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
 | `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-When the opposite host is available, run the dispatched review/verification roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: in the `## Review Gate` review-then-verify order the confirming `verifier` is single at STANDARD (a cross-host/parallel pair only at THOROUGH) — see that section and the review-then-verify exception in `docs/shared/cross-host-review.md`.
+When the opposite host is available, run the dispatched review roles (`plan-reviewer`, `code-reviewer`) as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: the confirming `verifier` is out of cross-host scope — an unconditionally single self-host independent pass at both STANDARD and THOROUGH (never a cross-host or same-host pair) — dispatched after the code-reviewer pair per the `## Review Gate` review-then-verify order and the review-then-verify exception in `docs/shared/cross-host-review.md`.
 
 `simplify` is a skill, not an agent. Use the active platform's Simplify route
 and cleanup invocation rules.
@@ -433,11 +433,14 @@ it here. In short: when both code review and an independent verifier pass are
 required (STANDARD and THOROUGH behavior-changing or workflow changes), run them
 in that order, not concurrently — first the `code-reviewer` pair (cross-host, or
 the Same-Host Parallel Fallback with a recorded note), integrating and resolving
-blocking findings, then a confirming independent `verifier` pass: single at
-STANDARD, or a cross-host/parallel pair at THOROUGH, never the maker, satisfying
-the carve-out in `docs/shared/ralph-subagent-policy.md`. Record each pass's
+blocking findings, then a confirming independent `verifier` pass: an
+unconditionally single self-host pass (never a cross-host or same-host pair),
+never the maker, satisfying the carve-out in
+`docs/shared/ralph-subagent-policy.md`. Record each code-review pass's
 independence mode (`cross-host`, `same-host-parallel-fallback`, or
-`inline-fallback` with reason).
+`inline-fallback` with reason); the single self-host verifier pass is governed by
+the carve-out and the `verifier started after reviewer completion` sequencing
+field, not the independence-mode enum.
 
 Before dispatching review roles, build the Review Gate dependency graph and write
 it into the PRD/progress ledger:
@@ -489,8 +492,8 @@ When review is required, the reviewer pass must answer:
   run as cross-host review (current-host + opposite-host instances synthesized) per
   `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
   recorded? Was the `verifier` run as the confirming pass after the code-review
-  pair (per the Review-then-verify order) — single at STANDARD, or a
-  cross-host/parallel pair at THOROUGH? Does the ledger show
+  pair (per the Review-then-verify order) — an unconditionally single self-host
+  independent pass (never a cross-host or same-host pair)? Does the ledger show
   `verifier started after reviewer completion: yes` or a compliant not-required
   reason?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
@@ -509,9 +512,9 @@ STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
 when execution produced or changed proving tests, or the implementation/tests
 were authored or accepted by the same agent (record the fallback reason if the
 host cannot dispatch), and otherwise when required by mode or risk; after a
-blocker fix, run one focused re-check of the blocked scope. Record each pass's
+blocker fix, run one focused re-check of the blocked scope. Record each code-review pass's
 independence mode per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`. Do not run more than one re-review after the original blocking
+`## Recording the Independence Mode`; the single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
 review unless the user explicitly authorizes it. If a blocker remains after that
 budget, enter `systematic-debugging` for unknown root cause or report `blocked`
 or `failed_verification` instead of looping.
@@ -615,7 +618,7 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field below, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:

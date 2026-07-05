@@ -408,6 +408,98 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
     {
       "host": "claude",
       "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--cross-host-review-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "host-boundary",
+        "malformed output",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output proving the opposite-host-available cross-host code-review pair: current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex dispatched concurrently, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer, and one synthesized verdict",
+      "non_proofs": [
+        "marker-only output",
+        "sequential (non-concurrent) reviewer dispatch",
+        "parent inline opposite-host answer",
+        "launch notice without synchronous review"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--ralplan-xhost-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "host-boundary",
+        "malformed output",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output proving the real ralplan flow dispatches the planner first, then the cross-host plan-review pair: current-host oh-no-harness:plan-reviewer plus opposite-host oh-no-harness:plan-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-plan-reviewer, and one synthesized verdict",
+      "non_proofs": [
+        "marker-only output",
+        "plan-review pair without the preceding planner",
+        "parent inline opposite-host answer",
+        "launch notice without synchronous review"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--vbc-xhost-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "host-boundary",
+        "malformed output",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output proving the real verification-before-completion flow dispatches the cross-host code-review pair (current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer) then exactly one self-host oh-no-harness:verifier with zero verifier-codex and zero cross-host verifier delegation",
+      "non_proofs": [
+        "marker-only output",
+        "verifier dispatched as a cross-host pair or before the reviewer pair",
+        "parent inline opposite-host answer",
+        "launch notice without synchronous review"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--sysdebug-xhost-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "host-boundary",
+        "malformed output",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output proving the real systematic-debugging flow dispatches the cross-host debugger pair: current-host oh-no-harness:debugger plus opposite-host oh-no-harness:debugger-codex, one read-only foreground codex-companion call, role-owned oh-no-debugger, and one synthesized root-cause direction",
+      "non_proofs": [
+        "marker-only output",
+        "single-host debugger without the opposite-host pair",
+        "parent inline opposite-host answer",
+        "launch notice without synchronous review"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
       "flag": "--parallel-executor-live",
       "release_status": "opt-in-live",
       "hard_failures": [

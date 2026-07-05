@@ -241,7 +241,7 @@ else
     || tests_failed="true"
   if [ "$tests_failed" = "false" ]; then
     if remote_main_matches_head; then
-      OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_PARALLEL_EXECUTOR_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_LIVE_HOOK_ONLY=0 run scripts/test-claude-plugin.sh \
+      OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_CROSS_HOST_REVIEW_LIVE=0 OH_NO_RALPLAN_XHOST_LIVE=0 OH_NO_VBC_XHOST_LIVE=0 OH_NO_SYSDEBUG_XHOST_LIVE=0 OH_NO_PARALLEL_EXECUTOR_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_LIVE_HOOK_ONLY=0 run scripts/test-claude-plugin.sh \
         || tests_failed="true"
     elif [ "$push" = "true" ]; then
       printf 'release: HEAD does not match main on origin even though main was just pushed (origin unreachable or main moved concurrently); refusing to skip the Claude install test.\n' >&2
