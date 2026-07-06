@@ -85,6 +85,8 @@ claude plugin install oh-no-harness@oh-no-harness
 
 After install, run `/oh-no-harness:auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
 
+**Optional — cross-host consult.** On Claude Code, cross-host review pairs and Fusion Rescue's Codex panel lens reach Codex through the companion script shipped with the Codex plugin for Claude Code. To enable them, also install that plugin (`codex@openai-codex`) and sign in to the Codex CLI. Without it nothing blocks: those workflows automatically degrade to the Same-Host Parallel Fallback (two same-host agents, synthesized).
+
 <details>
 <summary>Interactive install (inside Claude Code)</summary>
 

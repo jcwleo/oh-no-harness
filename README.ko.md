@@ -85,6 +85,8 @@ claude plugin install oh-no-harness@oh-no-harness
 
 설치 후 `/oh-no-harness:auto-routing on`을 한 번 실행하세요. 이후에는 작업을 자연어로 설명하기만 하면 Claude Code가 질문·계획·수정·완료 선언 전에 적절한 skill을 먼저 확인하도록 안내합니다.
 
+**선택 사항 — cross-host consult.** Claude Code에서 cross-host review 쌍과 Fusion Rescue의 Codex 패널 렌즈는 Claude Code용 Codex plugin에 포함된 companion 스크립트를 통해 Codex에 연결됩니다. 사용하려면 해당 plugin(`codex@openai-codex`)도 설치하고 Codex CLI에 로그인하세요. 없어도 막히지 않습니다: 해당 워크플로우는 자동으로 Same-Host Parallel Fallback(같은 호스트 에이전트 2개를 합성)으로 degrade합니다.
+
 <details>
 <summary>Claude Code 내부 대화형 설치</summary>
 
