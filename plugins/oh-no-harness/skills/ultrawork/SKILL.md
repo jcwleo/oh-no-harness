@@ -72,7 +72,7 @@ Before asking new questions, check:
 
 If a relevant approved interview spec exists, use it as the approved requirement source and move to planning.
 
-If a relevant consensus plan exists, it may skip interview and planning only when it is approved (an approved Plan Approval Brief or a passing ralplan Findings Ledger Gate) and matches the current request's scope; record the skip reason and source artifact path per the Loop Contract, then move to execution. A merely relevant plan without approval evidence or with mismatched scope goes through the planning gate instead.
+If a relevant consensus plan exists, it may skip interview and planning only when it is approved (explicit user approval of its Plan Approval Brief, or a recorded ultrawork automatic-approval source from a prior run — a passing Findings Ledger Gate alone is quality evidence, not approval) and matches the current request's scope; record the skip reason and source artifact path per the Loop Contract, then move to execution. A merely relevant plan without approval evidence or with mismatched scope goes through the planning gate instead.
 
 If the existing plan lacks an execution profile, read
 `docs/shared/execution-modes.md` and set the missing profile before execution.
@@ -270,7 +270,8 @@ requirements_gate: planning must not start until the requirements source is reco
 
 ### Phase 1: Plan
 
-Read and follow `ralplan` unless an approved or relevant plan already exists.
+Read and follow `ralplan` unless an approved plan already exists per the
+Artifact Discovery approval-evidence rule.
 
 Inside Ultrawork, the `ralplan` plan is automatically approved for execution
 once the plan satisfies Ralplan's consensus, direction-preservation, execution
