@@ -96,6 +96,7 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
   source, destination, and failure mode.
 - Separate theoretical risks from actionable vulnerabilities.
 - Use Bash only for non-mutating inspection or verification commands.
+- Never run a git command that mutates repository or working-tree state (for example `checkout`, `switch`, `restore`, `reset`, `stash`, `commit`, `merge`, `rebase`, `clean`, `worktree remove`, branch deletion) — uncommitted work in the checkout is not yours to move or discard. Read-only git (`status`, `log`, `diff`, `show`, `blame`) is allowed.
 - Keep the review scoped to the changed work and the risks that change
   introduces. Assess security by static reasoning about the changed code's
   behavior; do not expand the review into a system-wide security or penetration

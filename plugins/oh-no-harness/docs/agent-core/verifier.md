@@ -81,6 +81,7 @@ host, and any subagent you spawn inherits the same no-cross-host-hop rule.
   when a viable existing baseline or smoke check could catch regressions.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a documented TDD exception before approval.
 - Use Bash for verification and inspection only. Do not edit files, install dependencies, or run destructive commands unless explicitly assigned by the current skill.
+- Never run a git command that mutates repository or working-tree state (for example `checkout`, `switch`, `restore`, `reset`, `stash`, `commit`, `merge`, `rebase`, `clean`, `worktree remove`, branch deletion) — uncommitted work in the checkout is not yours to move or discard, and no assignment overrides this. Read-only git (`status`, `log`, `diff`, `show`, `blame`) is allowed.
 - Keep verification scoped to the acceptance criteria and the evidence they
   require; do not broaden it into a system-wide security or penetration sweep,
   and do not read, run commands against, or embed real sensitive system files

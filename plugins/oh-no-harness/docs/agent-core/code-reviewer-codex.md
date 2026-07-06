@@ -75,8 +75,9 @@ This is the caller-mediated degrade.
   (optionally add `--model`/`--effort`). The `--cwd` argument scopes the
   companion's workspace root deterministically.
 - The consult call itself must return the analysis in
-  ONE foreground Bash invocation: set a generous Bash tool timeout (companion
-  consults routinely take several minutes) and wait for stdout inside that same
+  ONE foreground Bash invocation: set the Bash tool timeout explicitly to the
+  host maximum (600000 ms on Claude Code) — the 120000 ms default kills a
+  routine multi-minute consult — and wait for stdout inside that same
   tool call. Never redirect companion output to files and poll for it with
   sleep/tail loops, and never detach the call in any other way — a
   locally-polled or detached run is the same invalid background shape as

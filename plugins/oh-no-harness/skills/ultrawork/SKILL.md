@@ -70,9 +70,9 @@ Before asking new questions, check:
 .oh-no/plans/
 ```
 
-If a relevant interview spec exists, use it as the approved requirement source and move to planning.
+If a relevant approved interview spec exists, use it as the approved requirement source and move to planning.
 
-If a relevant consensus plan exists, skip interview and planning, then move to execution.
+If a relevant consensus plan exists, it may skip interview and planning only when it is approved (an approved Plan Approval Brief or a passing ralplan Findings Ledger Gate) and matches the current request's scope; record the skip reason and source artifact path per the Loop Contract, then move to execution. A merely relevant plan without approval evidence or with mismatched scope goes through the planning gate instead.
 
 If the existing plan lacks an execution profile, read
 `docs/shared/execution-modes.md` and set the missing profile before execution.

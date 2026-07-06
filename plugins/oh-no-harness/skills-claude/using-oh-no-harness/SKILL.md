@@ -48,7 +48,7 @@ The available public skills are:
 - `ralplan`: create a consensus implementation plan before execution.
 - `ralph`: execute a concrete PRD or approved plan until acceptance criteria and verification are satisfied.
 - `ultrawork`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
-- `auto-routing`: toggle stronger SessionStart skill-selection guidance for users who want it.
+- `auto-routing`: manage session toggles — stronger SessionStart skill-selection guidance and Codex executor delegation.
 - `test-driven-development`: internal guardrail discipline for RED/GREEN/REFACTOR before behavior-changing production edits; not a generic implementation entrypoint.
 - `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
 - `verification-before-completion`: verify evidence before claiming work is complete, fixed, passing, or ready.
@@ -269,8 +269,10 @@ assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,
 or `debugger` for shared cross-host review, or `fusion` for a Fusion Rescue panel
 slot. That consult agent resolves the Codex companion path and runs one
 synchronous, read-only `codex-companion.mjs task` call: it omits the write flag
-so the companion stays read-only, and it never runs the call as a detached
-background job. If the companion is unavailable or unresolvable, treat the
+so the companion sandbox is read-only — best-effort, not a guarantee: per host
+limits shell execs are not guaranteed confined, and the caller accepts that
+residual risk (see the consult agent cores) — and it never runs the call as a
+detached background job. If the companion is unavailable or unresolvable, treat the
 opposite host as unavailable; in default mode the calling skill applies the
 shared cross-host contract's Same-Host Parallel Fallback
 (`docs/shared/cross-host-review.md`), and require-cross-host mode blocks. Name the

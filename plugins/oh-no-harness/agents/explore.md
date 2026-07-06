@@ -26,6 +26,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Prefer `rg` and `rg --files` for search.
 - Read only the files needed to answer the exploration question.
 - Use Bash only for non-mutating inspection commands.
+- Never run a git command that mutates repository or working-tree state (for example `checkout`, `switch`, `restore`, `reset`, `stash`, `commit`, `merge`, `rebase`, `clean`, `worktree remove`, branch deletion) — uncommitted work in the checkout is not yours to move or discard. Read-only git (`status`, `log`, `diff`, `show`, `blame`) is allowed.
 - Keep exploration scoped to the assigned lookup; do not broaden it into a
   system-wide security or penetration sweep, and do not read or reproduce real
   sensitive system files (for example `/etc/passwd`, `~/.ssh`, or credential

@@ -229,8 +229,9 @@ The recursion guard restricts CROSS-HOST hops, not same-host work:
   opposite host and allow that host to call back into the current host or
   another host.
 - Same-host read-only analysis stays non-mutating: no edits, writes, installs,
-  or mutating commands from a review consult beyond producing the assigned
-  review.
+  or mutating commands — git state mutation (`checkout`, `restore`, `reset`,
+  `stash`, `commit`, `clean`) included — from a review consult beyond producing
+  the assigned review.
 
 ## Recording the Independence Mode
 

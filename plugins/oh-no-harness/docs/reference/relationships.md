@@ -129,7 +129,7 @@ systematic-debugging
   -> fusion-rescue when competing hypotheses remain contradictory or stalled after ordinary diagnostics
   -> code-reviewer for post-fix review when risk requires (security lens included)
   -> verifier and verification-before-completion for fix evidence
-  -> docs/shared/parallel-subagents.md as a short pointer for parallel dispatch
+  -> docs/shared/ralph-subagent-policy.md for dispatch/inline decisions and batch dispatch
 
 fusion-rescue
   -> fusion-rescue-analyst for current-host panel lenses

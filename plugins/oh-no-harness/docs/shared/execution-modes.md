@@ -246,6 +246,11 @@ authorizes eligible isolated roles for a direct Ralph request. Use `none` only
 for inline-only plans, missing host support, or documented unsafe-to-isolate
 work.
 
+`Cleanup policy: conditional` is LIGHT-only: cleanup depends on LIGHT's quick
+diff scan, and the executing Ralph resolves it in the session ledger to
+`required` (candidates or uncertainty remain) or `not-needed`. STANDARD and
+THOROUGH plans record `required`.
+
 Ralph session notes or PRDs must include:
 
 ```text

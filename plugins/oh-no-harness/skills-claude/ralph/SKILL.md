@@ -56,7 +56,10 @@ Before acting on any gate below that routes a decision through a shared
 contract, read that contract. A path reference here is a pointer, not a
 substitute for reading: do not apply one of these rules from memory when this
 skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+blocker instead of proceeding past the gate that depends on it. For a fresh
+run, Execution Loop step 1 governs the timing: read every listed contract up
+front before working; the gate-time sentence above is the floor for resumed or
+re-entered runs, not permission to defer the initial read.
 
 - `docs/shared/execution-modes.md` — LIGHT/STANDARD/THOROUGH selection and each mode's required Ralph behavior.
 - `docs/shared/worktree-isolation.md` — the write-capable Worktree decision gate.
@@ -740,8 +743,10 @@ assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,
 or `debugger` for shared cross-host review, or `fusion` for a Fusion Rescue panel
 slot. That consult agent resolves the Codex companion path and runs one
 synchronous, read-only `codex-companion.mjs task` call: it omits the write flag
-so the companion stays read-only, and it never runs the call as a detached
-background job. If the companion is unavailable or unresolvable, treat the
+so the companion sandbox is read-only — best-effort, not a guarantee: per host
+limits shell execs are not guaranteed confined, and the caller accepts that
+residual risk (see the consult agent cores) — and it never runs the call as a
+detached background job. If the companion is unavailable or unresolvable, treat the
 opposite host as unavailable; in default mode the calling skill applies the
 shared cross-host contract's Same-Host Parallel Fallback
 (`docs/shared/cross-host-review.md`), and require-cross-host mode blocks. Name the

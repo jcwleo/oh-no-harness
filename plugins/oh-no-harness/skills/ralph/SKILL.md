@@ -56,7 +56,10 @@ Before acting on any gate below that routes a decision through a shared
 contract, read that contract. A path reference here is a pointer, not a
 substitute for reading: do not apply one of these rules from memory when this
 skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+blocker instead of proceeding past the gate that depends on it. For a fresh
+run, Execution Loop step 1 governs the timing: read every listed contract up
+front before working; the gate-time sentence above is the floor for resumed or
+re-entered runs, not permission to defer the initial read.
 
 - `docs/shared/execution-modes.md` — LIGHT/STANDARD/THOROUGH selection and each mode's required Ralph behavior.
 - `docs/shared/worktree-isolation.md` — the write-capable Worktree decision gate.

@@ -30,7 +30,7 @@ The available public skills are:
 - `ralplan`: create a consensus implementation plan before execution.
 - `ralph`: execute a concrete PRD or approved plan until acceptance criteria and verification are satisfied.
 - `ultrawork`: orchestrate interview, planning, execution, QA, and final validation for larger end-to-end work.
-- `auto-routing`: toggle stronger SessionStart skill-selection guidance for users who want it.
+- `auto-routing`: manage session toggles — stronger SessionStart skill-selection guidance and Codex executor delegation.
 - `test-driven-development`: internal guardrail discipline for RED/GREEN/REFACTOR before behavior-changing production edits; not a generic implementation entrypoint.
 - `simplify`: review changed code for reuse, simplification, efficiency, and altitude cleanup while preserving behavior.
 - `verification-before-completion`: verify evidence before claiming work is complete, fixed, passing, or ready.

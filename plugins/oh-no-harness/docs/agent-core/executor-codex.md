@@ -80,9 +80,10 @@ self-dispatch the native executor. This is the caller-mediated degrade.
   directory, outside the repository and the worktree — this packet temp file is
   the ONE write you perform yourself; every repository or worktree write happens
   only inside the companion call — and delete it after the call returns.
-- The delegated call must return in ONE foreground Bash invocation: set a
-  generous Bash tool timeout (delegated write tasks routinely take several
-  minutes) and wait for stdout inside that same tool call. Never redirect
+- The delegated call must return in ONE foreground Bash invocation: set the
+  Bash tool timeout explicitly to the host maximum (600000 ms on Claude Code) —
+  the 120000 ms default kills a routine multi-minute delegated task — and wait
+  for stdout inside that same tool call. Never redirect
   companion output to files and poll for it with sleep/tail loops, and never
   detach the call in any other way — a locally-polled or detached run is the
   invalid background shape this contract forbids. A delegated call that ends

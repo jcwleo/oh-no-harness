@@ -21,10 +21,10 @@ Many files in `plugins/oh-no-harness/` are **generated**. Hand-editing them will
 
 | Edit this source… | …never hand-edit this generated output | Regenerate with |
 |---|---|---|
-| `docs/skill-core/<name>.md` (shared workflow body), `docs/platforms/codex.md` / `docs/platforms/claude-code.md` and optional `docs/platforms/codex-<name>.md` / `docs/platforms/claude-code-<name>.md` overlays | `skills/<name>/SKILL.md` (Codex), `skills-claude/<name>/SKILL.md` (Claude Code) | `python3 scripts/generate-skill-wrappers.py --write` |
+| `docs/skill-core/<name>.md` (shared workflow body), `docs/platforms/codex-runtime.md` / `docs/platforms/claude-code-runtime.md` and optional `docs/platforms/codex-<name>.md` / `docs/platforms/claude-code-<name>.md` overlays | `skills/<name>/SKILL.md` (Codex), `skills-claude/<name>/SKILL.md` (Claude Code) | `python3 scripts/generate-skill-wrappers.py --write` |
 | `docs/agent-core/<name>.md` (platform-neutral role body), wrapper metadata in the generator | `agents/<name>.md` (Claude subagent), `docs/platforms/codex-agents/<name>.toml` (Codex custom agent) | `python3 scripts/generate-agent-wrappers.py --write` |
 
-`docs/skill-core/*.md` is the **default, primary edit surface** for workflow behavior. Only touch `docs/platforms/*.md` for genuinely host-specific invocation syntax, permissions, or tool behavior. Both generators run from the **repository root** (not the plugin dir).
+`docs/skill-core/*.md` is the **default, primary edit surface** for workflow behavior. Only touch the compact `docs/platforms/*-runtime.md` docs for genuinely host-specific invocation syntax, permissions, or tool behavior; `docs/platforms/codex.md` / `docs/platforms/claude-code.md` are longer maintenance references, not generation sources. Both generators run from the **repository root** (not the plugin dir).
 
 `docs/providers/openai.md` and `docs/providers/anthropic.md` are **maintenance references only** — never generated sources. When company guidance changes, update the provider doc, then copy only stable runtime rules into the matching `docs/platforms/*.md` and regenerate.
 
