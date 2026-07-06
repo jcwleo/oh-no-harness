@@ -67,10 +67,8 @@ assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,
 or `debugger` for shared cross-host review, or `fusion` for a Fusion Rescue panel
 slot. That consult agent resolves the Codex companion path and runs one
 synchronous, read-only `codex-companion.mjs task` call: it omits the write flag
-so the companion sandbox is read-only — best-effort, not a guarantee: per host
-limits shell execs are not guaranteed confined, and the caller accepts that
-residual risk (see the consult agent cores) — and it never runs the call as a
-detached background job. If the companion is unavailable or unresolvable, treat the
+so the companion sandbox is read-only (best-effort, not a guarantee — see the
+consult agent cores), and it never runs the call as a detached background job. If the companion is unavailable or unresolvable, treat the
 opposite host as unavailable; in default mode the calling skill applies the
 shared cross-host contract's Same-Host Parallel Fallback
 (`docs/shared/cross-host-review.md`), and require-cross-host mode blocks. Name the
