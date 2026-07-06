@@ -85,8 +85,9 @@ self-dispatch the native executor. This is the caller-mediated degrade.
   `--wait` flag — `task` has none, and an unknown flag degrades into prompt
   text.) The `--cwd` argument scopes Codex's workspace root to the worktree
   deterministically. Write the packet file under the session scratch or OS temp
-  directory, outside the repository and the worktree, and delete it after the
-  call returns.
+  directory, outside the repository and the worktree — this packet temp file is
+  the ONE write you perform yourself; every repository or worktree write happens
+  only inside the companion call — and delete it after the call returns.
 - The delegated call must return in ONE foreground Bash invocation: set a
   generous Bash tool timeout (delegated write tasks routinely take several
   minutes) and wait for stdout inside that same tool call. Never redirect
@@ -96,7 +97,8 @@ self-dispatch the native executor. This is the caller-mediated degrade.
   without a result — a Bash tool timeout or a nonzero exit — is a failed slice,
   not a retry license: still capture the POST snapshot, then report the failure
   to the caller for the caller-mediated degrade; never retry with a detached or
-  polled shape.
+  polled shape. (Empty stdout alone is not a failure for this write path — the
+  git-derived changed-file set, not stdout, is the evidence.)
 - Return to the caller, and let the caller own every judgement:
   - Codex's raw result;
   - the git-derived changed-file set from `git -C <worktree> diff/status` — NEVER
@@ -113,9 +115,12 @@ self-dispatch the native executor. This is the caller-mediated degrade.
   before/after snapshot window attributable to a single slice.
 - Confinement is best-effort, not a guarantee. Do not claim the run is
   sandbox-confined. Writes outside the PROTECTED TARGET SET — arbitrary temp
-  directories and non-`.oh-no/` ignored paths — are not detected, and a same
-  path, mtime, and size content edit inside the set is invisible to the sentinel.
-  State this honestly; residual risk is accepted by the caller.
+  directories and non-`.oh-no/` ignored paths — are not detected, a same
+  path, mtime, and size content edit inside the set is invisible to the sentinel,
+  and the PRE/POST `git status --porcelain` comparison cannot see a content edit
+  to a tracked file that was already dirty before the call (its status line is
+  identical before and after). State this honestly; residual risk is accepted by
+  the caller.
 - Never self-dispatch. On any `codex unavailable` condition, signal the caller and
   return without a write; the caller re-dispatches the native `oh-no-executor` for
   that slice. That is the caller-mediated degrade and it is the caller's decision,

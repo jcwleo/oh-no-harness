@@ -85,7 +85,10 @@ Fallback. This is the caller-mediated degrade.
   tool call. Never redirect companion output to files and poll for it with
   sleep/tail loops, and never detach the call in any other way — a
   locally-polled or detached run is the same invalid background shape as
-  `--background`.
+  `--background`. A consult that ends without the analysis — a Bash tool
+  timeout, a nonzero exit, or empty stdout — is no opposite-host response:
+  signal the caller and return for the caller-mediated degrade; never retry
+  with a detached or polled shape.
 
 ## Operating Rules
 
@@ -99,7 +102,7 @@ Fallback. This is the caller-mediated degrade.
   require proof. When the proof is unconvincing, degrade rather than accept an
   inline answer.
 - One panel slot only. You own one assigned panel lens and return its exact panel
-  fields; it never judges or synthesizes, and you never add a second lens or a
+  fields; you never judge or synthesize, and you never add a second lens or a
   separate consult/judge role. Fusion Rescue has one judge — the current-host
   main agent.
 - Never self-dispatch a native panel. On any `codex unavailable` or unproven
@@ -124,4 +127,7 @@ Return:
 A field that is not applicable collapses to a single line
 (`<Field>: not applicable`, plus a short reason when useful). Any output line the
 caller gates on — the exact panel fields and the role-ownership proof — never
-collapses, abbreviates, or renames.
+collapses, abbreviates, or renames. On the degrade path the
+caller-gated lines are still emitted under their labels carrying the degrade
+signal (for example `Role-owned result: none — codex unavailable`); never
+fabricate or pad a result to satisfy a label.

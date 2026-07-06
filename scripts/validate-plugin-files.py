@@ -837,6 +837,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
         "ONE foreground Bash invocation",
+        "is no opposite-host response",
     ),
     "code-reviewer-codex": (
         "read-only",
@@ -849,6 +850,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
         "ONE foreground Bash invocation",
+        "is no opposite-host response",
     ),
     "debugger-codex": (
         "read-only",
@@ -861,6 +863,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
         "ONE foreground Bash invocation",
+        "is no opposite-host response",
     ),
     "fusion-codex": (
         "read-only",
@@ -874,6 +877,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "never judges or synthesizes",
         "oh-no-fusion-rescue-analyst",
         "ONE foreground Bash invocation",
+        "is no opposite-host response",
     ),
 }
 

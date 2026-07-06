@@ -119,4 +119,7 @@ Return:
 A field that is not applicable collapses to a single line
 (`<Field>: not applicable`, plus a short reason when useful). Any output line the
 caller gates on — the role-owned result and its role-ownership proof — never
-collapses, abbreviates, or renames.
+collapses, abbreviates, or renames. On the degrade path the
+caller-gated lines are still emitted under their labels carrying the degrade
+signal (for example `Role-owned result: none — codex unavailable`); never
+fabricate or pad a result to satisfy a label.
