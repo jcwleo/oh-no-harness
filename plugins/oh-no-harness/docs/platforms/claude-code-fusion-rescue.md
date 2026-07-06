@@ -18,7 +18,8 @@ run blocks unless `oh-no-harness:fusion-codex` returns the assigned panel output
 From Claude Code, the Codex consult must run synchronously and return Codex's
 actual panel analysis as the panel output. The `oh-no-harness:fusion-codex` agent
 runs the `codex-companion.mjs` call read-only: it omits the write flag so the
-companion stays read-only, and it must omit `--background` so the call runs in the
+companion sandbox is read-only (best-effort, not a guarantee — see the consult
+agent core), and it must omit `--background` so the call runs in the
 foreground, not as a detached background job. Do not authorize write-capable edits
 for an analysis-only panel.
 
