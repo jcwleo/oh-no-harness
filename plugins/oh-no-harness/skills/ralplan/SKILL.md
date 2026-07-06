@@ -942,8 +942,10 @@ For shared cross-host review, the Codex parent must not run
 `${CLAUDE_BIN:-claude}` inline. After the preflight confirms
 `danger-full-access`, dispatch the matching Codex role subagent with
 `spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
-owner, where `<role>` is `plan-reviewer`, `code-reviewer`, `debugger`, or
-`verifier`. The spawned role subagent receives the redacted role packet, performs
+owner, where `<role>` is `plan-reviewer`, `code-reviewer`, or `debugger`.
+The `verifier` has no cross-host leg: it stays an unconditionally single
+self-host pass on whichever host runs it (`docs/shared/cross-host-review.md`).
+The spawned role subagent receives the redacted role packet, performs
 the single Claude consult through this channel, and returns the assigned role
 analysis. The Codex parent waits for that subagent, captures its result, closes
 or records lifecycle cleanup, and only then synthesizes. A parent inline Claude

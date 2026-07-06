@@ -98,11 +98,22 @@ LIVE_HARD_REQUIREMENTS = {
     "--named-agents-live": {"lifecycle", "forensic invariant"},
     "--fusion-rescue-live": {"lifecycle", "host-boundary", "forensic invariant"},
     "--cross-host-fallback-live": {"lifecycle", "host-boundary", "containment", "forensic invariant"},
+    "--cross-host-review-live": {"lifecycle", "host-boundary", "forensic invariant"},
+    "--ralplan-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
+    "--vbc-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
+    "--sysdebug-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
     "--simplify-live": {"lifecycle", "forensic invariant"},
     "--natural-session-start-live": {"lifecycle", "hook policy", "forensic invariant"},
     "--worktree-live": {"lifecycle", "worktree", "containment", "forensic invariant"},
     "--live-hook-only": {"hook policy", "malformed output"},
     "--parallel-executor-live": {"lifecycle", "containment", "forensic invariant"},
+    "--codex-executor-delegation-live": {
+        "lifecycle",
+        "containment",
+        "worktree",
+        "host-boundary",
+        "forensic invariant",
+    },
 }
 
 LIVE_BASELINE_HARD_REQUIREMENTS = {"install/load", "command invocation", "tool/permission"}
@@ -132,6 +143,10 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_RALPLAN_LIVE",
         "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CROSS_HOST_FALLBACK_LIVE",
+        "OH_NO_CROSS_HOST_REVIEW_LIVE",
+        "OH_NO_RALPLAN_XHOST_LIVE",
+        "OH_NO_VBC_XHOST_LIVE",
+        "OH_NO_SYSDEBUG_XHOST_LIVE",
         "OH_NO_PARALLEL_EXECUTOR_LIVE",
         "OH_NO_SIMPLIFY_LIVE",
         "OH_NO_NATURAL_SESSION_START_LIVE",
@@ -424,20 +439,35 @@ def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
     script_text = read_text(script_path)
     required_fragments = (
         "codex-companion Bash command MUST NOT include --write",
-        "explicit read-only request overrides the codex:codex-rescue default write-capable mode",
+        "the fusion-codex agent runs codex-companion read-only by design (no --write flag)",
         "codex_write_commands",
         "invoked codex-companion with --write",
+        "invoked codex-companion with --background",
+        # The --write/--background scan must cover every codex-companion
+        # command, not only the --prompt-file-shaped delegation call.
+        'if "codex-companion.mjs" in command:',
         "pending_background_events",
         "late_pending_background_events",
         "left background/still-running work after Codex",
         "expected exactly one codex-companion.mjs Bash invocation",
         "expected exactly one successful codex-companion.mjs Bash result",
-        "did not return success marker OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK{detail}",
+        "did not return success marker OH_NO_FUSION_CODEX_PANEL_OK{detail}",
         "matched_result_markers",
     )
     for fragment in required_fragments:
         if fragment not in script_text:
             die(f"{script_path} Claude Fusion Rescue live read-only guard is missing {fragment!r}")
+    # All five companion lanes (fusion, cross-host-review, ralplan-xhost,
+    # vbc-xhost, sysdebug-xhost) must apply the unconditional scan; a single
+    # lane regressing to a --prompt-file-gated forbid would otherwise hide
+    # behind the other lanes' copies of the fragment.
+    unconditional_scan = 'if "codex-companion.mjs" in command:'
+    scan_count = script_text.count(unconditional_scan)
+    if scan_count < 5:
+        die(
+            f"{script_path} must apply the unconditional codex-companion --write/--background "
+            f"scan in all five live lanes (found {scan_count})"
+        )
 
 
 def assert_claude_deep_live_hard_failure_guard(marketplace_root: Path) -> None:

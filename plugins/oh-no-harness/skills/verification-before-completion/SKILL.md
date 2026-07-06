@@ -56,17 +56,17 @@ blocker instead of proceeding past the gate that depends on it.
 
 - `docs/shared/validation-check.md` — distinguishing measurable evidence from real acceptance.
 - `docs/shared/ralph-subagent-policy.md` — the independent-verifier-audit carve-out.
-- `docs/shared/cross-host-review.md` — the independence-mode recording for a dispatched verifier/code-reviewer and the secret-redaction convention.
+- `docs/shared/cross-host-review.md` — the independence-mode recording for a dispatched `code-reviewer` and the secret-redaction convention.
 - `docs/shared/failure-taxonomy.md` — the risk labels the Risk Check Before Completion records.
 
 ## Agent Roles
 
 | Agent | Use |
 |---|---|
-| `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. Cross-host merge: union/conservative. |
+| `verifier` | Map the claim to evidence and run or inspect the required checks; apply the scenario lens to validate user-facing flows or scenario coverage. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
 | `code-reviewer` | Review behavior-affecting code or workflow prompt changes when risk warrants it; apply the security lens to auth, data, file system, network, secrets, or policy-sensitive changes. Cross-host merge: merged findings. |
 
-When the opposite host is available, run the dispatched verifier/code-reviewer roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback.
+When the opposite host is available, run the dispatched `code-reviewer` role as cross-host review per `docs/shared/cross-host-review.md` using its `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. The dispatched `verifier` is out of cross-host scope — an unconditionally single self-host independent pass (never a cross-host or same-host pair) — governed by the maker-verifier carve-out.
 
 On subagent-capable hosts, dispatch `verifier` for nontrivial completion claims
 when independent evidence mapping can change the ship/block decision or expose
@@ -83,11 +83,11 @@ independent confirming `verifier` pass for the same final claim, and no file,
 dependency, or evidence changed after that pass (the Evidence Rules'
 unchanged-evidence bar: a previous run is not fresh evidence unless nothing it
 depends on changed), do not dispatch a second `verifier` for that claim. A
-compliant pass recorded its independence mode and used the tier shape the
-`ralph`/`ultrawork` exception in `docs/shared/cross-host-review.md` requires
-for the active execution mode. Record the reused pass (as a reference to the
-caller's ledger entry for it), its independence mode, and its tier shape.
-This reuse satisfies only the verifier-dispatch expectation above: every
+compliant pass ran as an independent dispatch (never the maker) after the
+code-reviewer pair completed, per the maker-verifier carve-out in
+`docs/shared/ralph-subagent-policy.md`. Record the reused pass (as a reference to
+the caller's ledger entry for it) and that it ran after reviewer completion under
+the carve-out. This reuse satisfies only the verifier-dispatch expectation above: every
 Required Gate step still executes in full (currently steps 1–9), and this
 clause never licenses skipping this skill itself. Dispatch a fresh `verifier`
 when evidence changed after the caller's pass or when no compliant pass
@@ -118,7 +118,7 @@ Before making a completion claim, complete every step below; the claim is invali
 6. Complete the Risk Check Before Completion below.
 7. Report skipped checks and residual risk.
 8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm an independent `verifier` audit ran per the carve-out in `docs/shared/ralph-subagent-policy.md` — this self-gate does not substitute for it (record the dispatch-unavailable fallback if the host cannot dispatch).
-9. When a `verifier` or `code-reviewer` was dispatched for this claim, record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
+9. When a `code-reviewer` was dispatched for this claim, record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass.
 </HARD-GATE>
 
 If no meaningful command exists, inspect the changed files and write a manual verification checklist instead of implying automated confidence.
@@ -330,8 +330,10 @@ For shared cross-host review, the Codex parent must not run
 `${CLAUDE_BIN:-claude}` inline. After the preflight confirms
 `danger-full-access`, dispatch the matching Codex role subagent with
 `spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
-owner, where `<role>` is `plan-reviewer`, `code-reviewer`, `debugger`, or
-`verifier`. The spawned role subagent receives the redacted role packet, performs
+owner, where `<role>` is `plan-reviewer`, `code-reviewer`, or `debugger`.
+The `verifier` has no cross-host leg: it stays an unconditionally single
+self-host pass on whichever host runs it (`docs/shared/cross-host-review.md`).
+The spawned role subagent receives the redacted role packet, performs
 the single Claude consult through this channel, and returns the assigned role
 analysis. The Codex parent waits for that subagent, captures its result, closes
 or records lifecycle cleanup, and only then synthesizes. A parent inline Claude

@@ -50,6 +50,23 @@ SKILL_REFERENCES: dict[str, list[str]] = {
 # genuinely platform-specific. Every phrase is re-verified reachable on each run,
 # so drift fails loudly here instead of intermittently in a paid live test.
 REQUIRED: dict[str, list[tuple[str, str]]] = {
+    "auto-routing": [
+        # Shared codexExecutor toggle facts from the skill core (both platforms).
+        ("executor role's implementation work to Codex", BOTH),
+        ("Default OFF.", BOTH),
+        ("they run one at a time, not in parallel", BOTH),  # serial-forced fact
+        ("escape-DETECTION net", BOTH),
+        ("not a sandbox guarantee", BOTH),  # honest best-effort, not-a-guarantee framing
+        ("oh-no-config codex-executor on|off|status", BOTH),  # command token
+        # Claude-Code-only overlay: the delegation block is injected via
+        # SessionStart and dispatches executor-codex. Tagged CLAUDE so it is NOT
+        # required on Codex (Codex has no such SessionStart block).
+        ("injected via `SessionStart` on Claude Code only", CLAUDE),
+        ("dispatches `oh-no-harness:executor-codex` in place of", CLAUDE),
+        # Codex overlay: no Codex SessionStart block; delegated role stays native.
+        ("adds NO Codex SessionStart block", CODEX),
+        ("executor role behaves as the native `oh-no-executor`", CODEX),
+    ],
     "interview": [
         ("consider advisory context", BOTH),
         ("## Question Routing", BOTH),
@@ -89,13 +106,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph.md body + ralph-subagent-policy.md)
         ("the implementing or accepting agent is not sufficient", BOTH),  # STANDARD/THOROUGH verifier-required rule (verification-tiers.md, path-referenced)
-        ("cross-host/parallel pair at THOROUGH", BOTH),  # Edit 8 THOROUGH verifier-pair branch (guards multi-surface drift)
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
         ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
         ("A parent inline Claude\nconsult is not a valid shared cross-host review pass", CODEX),
         ("A direct Codex parent answer is not a\nvalid opposite-host shared review response", CLAUDE),
+        ("`oh-no-harness:<role>-codex`", CLAUDE),  # Part B: Claude→Codex transport is the read-only *-codex consult agents
+        ("read-only `codex-companion.mjs task` call", CLAUDE),  # Part B: read-only codex-companion transport, no /codex:rescue
         ("Read and follow `verification-before-completion` before any completion claim", BOTH),  # G1 thin VBC reference (ralph.md:274)
         ("The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
@@ -115,13 +133,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("execution mode and mode source", BOTH),
         ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + ralph-subagent-policy.md)
-        ("cross-host/parallel pair at THOROUGH", BOTH),  # Edit 8 THOROUGH verifier-pair branch (guards multi-surface drift)
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
         ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
         ("A parent inline Claude\nconsult is not a valid shared cross-host review pass", CODEX),
         ("A direct Codex parent answer is not a\nvalid opposite-host shared review response", CLAUDE),
+        ("`oh-no-harness:<role>-codex`", CLAUDE),  # Part B: Claude→Codex transport is the read-only *-codex consult agents
+        ("read-only `codex-companion.mjs task` call", CLAUDE),  # Part B: read-only codex-companion transport, no /codex:rescue
         ("Run `verification-before-completion` before any completion claim or final report", BOTH),  # G1 thin VBC reference (ultrawork Phase 5)
         ("The run is invalid if the session ledger does not show each required phase gate satisfied", BOTH),  # ultrawork Phase 5 ledger-invalidation chokepoint
         ("reviewer pass, independent verifier pass, simplify/cleanup, and VBC", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap

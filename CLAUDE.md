@@ -13,7 +13,7 @@ Contributor workflow detail lives in [`plugins/oh-no-harness/CONTRIBUTING.md`](p
 
 ## What this is
 
-Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 public workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 9 internal role agents.
+Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 public workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 14 internal role agents.
 
 ## The single most important rule: source vs. generated
 
@@ -40,7 +40,7 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Skills are the public workflow stages**; **agents are internal role prompts** the skills (or the host's subagent mechanism) call. Skills own stage selection, artifact creation, approval gates, and next-skill handoffs.
 - **Skill chaining is explicit Markdown only** — no hidden automation. Skill bodies must not contain `Task(...)` / `Skill(...)` calls; the validator rejects them. A skill that hands off presents a `Next Skill Handoff` and the caller decides.
 - **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
-- **Two plugin hook entrypoints only:** a `SessionStart` bootstrap (skill-loading guidance; appends forced-routing only when auto-routing is enabled) and a narrow Ralph `UserPromptSubmit` adapter. Claude Code uses these through `CLAUDE_PLUGIN_ROOT`; Codex also declares the same hook file when plugin hooks are enabled. No `PreToolUse`/`PostToolUse`, no state ledger, no background process.
+- **Two plugin hook entrypoints only:** a `SessionStart` bootstrap (skill-loading guidance; appends forced-routing when auto-routing is enabled, plus a Claude-Code-only codex-executor delegation block when that toggle is on) and a narrow Ralph `UserPromptSubmit` adapter. Claude Code uses these through `CLAUDE_PLUGIN_ROOT`; Codex also declares the same hook file when plugin hooks are enabled. No `PreToolUse`/`PostToolUse`, no state ledger, no background process.
 
 ## Commands
 

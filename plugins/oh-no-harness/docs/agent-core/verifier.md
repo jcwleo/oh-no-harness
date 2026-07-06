@@ -51,25 +51,21 @@ Run the scenario lens when user-facing behavior changed; otherwise record
 
 Not in scope: line-level defects and security-specific risks in changed code (see `code-reviewer`), plan- or evidence-level adversarial critique (see `plan-reviewer`).
 
-## Cross-Host Verification
+## Single Self-Host Verification
 
-When the calling skill runs cross-host verification (see
-`docs/shared/cross-host-review.md`), you may be dispatched as the current-host
-verifier or as the opposite-host verifier. Run your FULL verification
-responsibilities (acceptance-to-evidence mapping, the checks the claim needs, and
-the scenario lens when it applies) on your own host. The current-host main agent
-is the judge: it merges the two results with the union/conservative merge defined
-in that shared doc and returns one verification result. When the opposite host is
-unavailable in default mode, run the Same-Host Parallel Fallback (two same-host
-verifiers under distinct lenses, synthesized) per the shared doc instead of a
-single pass; require-cross-host mode blocks. Same default and require-cross-host
-behavior as the review roles.
+The verifier role is out of scope for cross-host review
+(`docs/shared/cross-host-review.md`): you always run as ONE self-host
+verification pass. You are never dispatched as a current-host/opposite-host
+verifier pair, never as one of two parallel same-host verifier instances, and
+your result is never merged with another verifier's — one independent pass
+returns one verification result to the caller. When the calling skill runs
+cross-host review, that applies to its reviewer and debugger roles only and
+changes nothing about your dispatch shape.
 
 You may use same-host read-only subagents or tools to form your verification —
-the Same-Host Parallel Fallback is this kind of same-host fan-out and does not
-consume a cross-host hop — but you must not make any further cross-host call
-beyond the single assigned consult; that one-cross-host-hop limit also applies to
-any subagent you spawn.
+that is same-host fan-out, not a cross-host hop — but you have ZERO assigned
+cross-host consults: never call the opposite host, the origin host, or a third
+host, and any subagent you spawn inherits the same no-cross-host-hop rule.
 
 ## Operating Rules
 

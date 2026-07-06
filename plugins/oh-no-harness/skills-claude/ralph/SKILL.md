@@ -160,12 +160,12 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
 | `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. Cross-host merge: one verdict. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. Cross-host merge: union/conservative. |
+| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
 | `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-When the opposite host is available, run the dispatched review/verification roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: in the `## Review Gate` review-then-verify order the confirming `verifier` is single at STANDARD (a cross-host/parallel pair only at THOROUGH) — see that section and the review-then-verify exception in `docs/shared/cross-host-review.md`.
+When the opposite host is available, run the dispatched review roles (`plan-reviewer`, `code-reviewer`) as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: the confirming `verifier` is out of cross-host scope — an unconditionally single self-host independent pass at both STANDARD and THOROUGH (never a cross-host or same-host pair) — dispatched after the code-reviewer pair per the `## Review Gate` review-then-verify order and the review-then-verify exception in `docs/shared/cross-host-review.md`.
 
 `simplify` is a skill, not an agent. Use the active platform's Simplify route
 and cleanup invocation rules.
@@ -433,11 +433,14 @@ it here. In short: when both code review and an independent verifier pass are
 required (STANDARD and THOROUGH behavior-changing or workflow changes), run them
 in that order, not concurrently — first the `code-reviewer` pair (cross-host, or
 the Same-Host Parallel Fallback with a recorded note), integrating and resolving
-blocking findings, then a confirming independent `verifier` pass: single at
-STANDARD, or a cross-host/parallel pair at THOROUGH, never the maker, satisfying
-the carve-out in `docs/shared/ralph-subagent-policy.md`. Record each pass's
+blocking findings, then a confirming independent `verifier` pass: an
+unconditionally single self-host pass (never a cross-host or same-host pair),
+never the maker, satisfying the carve-out in
+`docs/shared/ralph-subagent-policy.md`. Record each code-review pass's
 independence mode (`cross-host`, `same-host-parallel-fallback`, or
-`inline-fallback` with reason).
+`inline-fallback` with reason); the single self-host verifier pass is governed by
+the carve-out and the `verifier started after reviewer completion` sequencing
+field, not the independence-mode enum.
 
 Before dispatching review roles, build the Review Gate dependency graph and write
 it into the PRD/progress ledger:
@@ -489,8 +492,8 @@ When review is required, the reviewer pass must answer:
   run as cross-host review (current-host + opposite-host instances synthesized) per
   `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
   recorded? Was the `verifier` run as the confirming pass after the code-review
-  pair (per the Review-then-verify order) — single at STANDARD, or a
-  cross-host/parallel pair at THOROUGH? Does the ledger show
+  pair (per the Review-then-verify order) — an unconditionally single self-host
+  independent pass (never a cross-host or same-host pair)? Does the ledger show
   `verifier started after reviewer completion: yes` or a compliant not-required
   reason?
 - For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
@@ -509,9 +512,9 @@ STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
 when execution produced or changed proving tests, or the implementation/tests
 were authored or accepted by the same agent (record the fallback reason if the
 host cannot dispatch), and otherwise when required by mode or risk; after a
-blocker fix, run one focused re-check of the blocked scope. Record each pass's
+blocker fix, run one focused re-check of the blocked scope. Record each code-review pass's
 independence mode per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`. Do not run more than one re-review after the original blocking
+`## Recording the Independence Mode`; the single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
 review unless the user explicitly authorizes it. If a blocker remains after that
 budget, enter `systematic-debugging` for unknown root cause or report `blocked`
 or `failed_verification` instead of looping.
@@ -615,7 +618,7 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer or verifier pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field below, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:
@@ -731,42 +734,52 @@ opposite host is Codex. This section carries only the Claude-to-Codex
 invocation; the activation, synthesis, and recursion-guard semantics live in the
 calling skill core and the shared doc.
 
-From Claude Code, consult Codex only through an available, explicitly loaded
-`openai/codex-plugin-cc` capability, surfaced as `/codex:rescue` when that plugin
-is installed. If the capability is unavailable, treat the opposite host as
-unavailable; in default mode the calling skill applies the shared cross-host
-contract's Same-Host Parallel Fallback (`docs/shared/cross-host-review.md`), and
-require-cross-host mode blocks. Name the failure class and the current-host
-fallback.
+From Claude Code, the current-host main agent consults Codex only by dispatching
+the dedicated read-only consult agent `oh-no-harness:<role>-codex` for the
+assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,
+or `debugger` for shared cross-host review, or `fusion` for a Fusion Rescue panel
+slot. That consult agent resolves the Codex companion path and runs one
+synchronous, read-only `codex-companion.mjs task` call: it omits the write flag
+so the companion stays read-only, and it never runs the call as a detached
+background job. If the companion is unavailable or unresolvable, treat the
+opposite host as unavailable; in default mode the calling skill applies the
+shared cross-host contract's Same-Host Parallel Fallback
+(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks. Name the
+failure class and the current-host fallback.
 
-The consult must run synchronously and return Codex's actual assigned analysis.
-Pass `--wait` to force foreground execution, for example `/codex:rescue --wait`,
-and request read-only Codex behavior; do not let it run as a detached background
-job and do not authorize write-capable edits for an analysis-only consult. A
-response that only acknowledges a queued or background job — text that a task
-started in the background with a status command for a job id — is not a valid
-opposite-host response; treat it as no Codex response and degrade (default) or
-block (require-cross-host). Do not poll status or fetch a deferred result to
-compensate; the consult call itself must return the analysis.
+The consult must return Codex's actual assigned analysis synchronously. The
+`codex-companion.mjs` call passes the scoped, redacted packet with `--prompt-file`
+and must not run in the background. A response that only acknowledges a queued or
+background job — text that a task started in the background with a status command
+for a job id — is not a valid opposite-host response; treat it as no Codex
+response and degrade (default) or block (require-cross-host). Do not poll status
+or fetch a deferred result to compensate; the consult call itself must return the
+analysis.
 
-For shared cross-host review, the `/codex:rescue --wait` request must require
-Codex to dispatch the matching `oh-no-<role>` role subagent for the assigned
-opposite-host pass, where `<role>` is `plan-reviewer`, `code-reviewer`,
-`debugger`, or `verifier`. Codex must wait for that spawned role subagent and
-return the subagent's assigned role result. A direct Codex parent answer is not a
-valid opposite-host shared review response. If Codex cannot dispatch the
-matching role subagent, treat the opposite host as unavailable in default mode or
-block in require-cross-host mode; do not accept inline Codex parent analysis as
-the cross-host pass.
+For shared cross-host review, the packet the `oh-no-harness:<role>-codex` agent
+sends must instruct Codex to dispatch the matching `oh-no-<role>` role agent for
+the assigned opposite-host pass, where `<role>` is `plan-reviewer`,
+`code-reviewer`, or `debugger`. Codex must wait for that dispatched role agent and
+return its assigned role result, and the consult agent must require role-ownership
+proof that the dispatched role agent — not a parent inline Codex answer — produced
+it. A direct Codex parent answer is not a
+valid opposite-host shared review response. If Codex cannot dispatch the matching
+role agent, or the role-ownership proof is missing, treat the opposite host as
+unavailable in default mode or block in require-cross-host mode; do not accept
+inline Codex parent analysis as the cross-host pass. Role ownership is best-effort
+— there is no host selector that forces it — so it is required and proven, not
+assumed.
 
 Fusion Rescue panel slots remain governed by the Fusion Rescue panel contract;
-the role-subagent requirement above applies only to shared cross-host review.
+the role-agent requirement above applies only to shared cross-host review. The
+`oh-no-harness:fusion-codex` panel slot dispatches `oh-no-fusion-rescue-analyst`
+for one assigned lens (see `docs/platforms/claude-code-fusion-rescue.md`).
 
-The outbound prompt must request only the assigned analysis and must forbid the
+The outbound packet must request only the assigned analysis and must forbid the
 opposite host from invoking further rescue, another workflow skill, or any
 host-to-host call back to Claude Code or a third host (one cross-host hop).
 Redact secrets before sending; on failure record only the failure class and
-capability/path/auth status, never secret values.
+companion/path/auth status, never secret values.
 
 ## Source: docs/platforms/claude-code-ralph.md
 
