@@ -221,8 +221,9 @@ Parallelize when:
 - read-only agents inspect different subsystems
 - executor write scopes are disjoint
 - reviewers inspect the same final diff without editing
-- same-role review or verification instances inspect the same stable artifact
-  under the cross-host or Same-Host Parallel Fallback contract
+- same-role review instances inspect the same stable artifact under the
+  cross-host or Same-Host Parallel Fallback contract (the verifier is never
+  such a pair — it stays a single self-host pass)
 
 Do not parallelize when:
 

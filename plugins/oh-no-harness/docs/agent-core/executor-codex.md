@@ -69,11 +69,26 @@ self-dispatch the native executor. This is the caller-mediated degrade.
     `git status` cannot see the ignored `.oh-no/` subtree.
 - Run the delegated write call synchronously — never in the background. ALWAYS write
   the scoped packet to a temp file and pass it with `--prompt-file`; never inline the
-  packet with `--wait '<packet>'`, and not "only when it is large." The packet copies
+  packet as a positional argument, and not "only when it is large." The packet copies
   acceptance-criteria text that may contain quotes or shell metacharacters, so a temp
   file is the shell-safe form for EVERY call:
-  `node <resolved-codex-companion> task --write --cwd <ABSOLUTE task-worktree path> --wait --prompt-file <packet-file>`
-  The `--cwd` argument scopes Codex's workspace root to the worktree deterministically.
+  `node <resolved-codex-companion> task --write --cwd <ABSOLUTE task-worktree path> --prompt-file <packet-file>`
+  (`task` runs in the foreground unless `--background` is passed; do not add a
+  `--wait` flag — `task` has none, and an unknown flag degrades into prompt
+  text.) The `--cwd` argument scopes Codex's workspace root to the worktree
+  deterministically. Write the packet file under the session scratch or OS temp
+  directory, outside the repository and the worktree, and delete it after the
+  call returns.
+- The delegated call must return in ONE foreground Bash invocation: set a
+  generous Bash tool timeout (delegated write tasks routinely take several
+  minutes) and wait for stdout inside that same tool call. Never redirect
+  companion output to files and poll for it with sleep/tail loops, and never
+  detach the call in any other way — a locally-polled or detached run is the
+  invalid background shape this contract forbids. A delegated call that ends
+  without a result — a Bash tool timeout or a nonzero exit — is a failed slice,
+  not a retry license: still capture the POST snapshot, then report the failure
+  to the caller for the caller-mediated degrade; never retry with a detached or
+  polled shape.
 - Return to the caller, and let the caller own every judgement:
   - Codex's raw result;
   - the git-derived changed-file set from `git -C <worktree> diff/status` — NEVER

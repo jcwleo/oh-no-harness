@@ -442,6 +442,10 @@ def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
         "the fusion-codex agent runs codex-companion read-only by design (no --write flag)",
         "codex_write_commands",
         "invoked codex-companion with --write",
+        "invoked codex-companion with --background",
+        # The --write/--background scan must cover every codex-companion
+        # command, not only the --prompt-file-shaped delegation call.
+        'if "codex-companion.mjs" in command:',
         "pending_background_events",
         "late_pending_background_events",
         "left background/still-running work after Codex",
@@ -453,6 +457,17 @@ def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
     for fragment in required_fragments:
         if fragment not in script_text:
             die(f"{script_path} Claude Fusion Rescue live read-only guard is missing {fragment!r}")
+    # All five companion lanes (fusion, cross-host-review, ralplan-xhost,
+    # vbc-xhost, sysdebug-xhost) must apply the unconditional scan; a single
+    # lane regressing to a --prompt-file-gated forbid would otherwise hide
+    # behind the other lanes' copies of the fragment.
+    unconditional_scan = 'if "codex-companion.mjs" in command:'
+    scan_count = script_text.count(unconditional_scan)
+    if scan_count < 5:
+        die(
+            f"{script_path} must apply the unconditional codex-companion --write/--background "
+            f"scan in all five live lanes (found {scan_count})"
+        )
 
 
 def assert_claude_deep_live_hard_failure_guard(marketplace_root: Path) -> None:

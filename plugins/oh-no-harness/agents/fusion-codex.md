@@ -36,8 +36,8 @@ Fallback. This is the caller-mediated degrade.
 - This transport is read-only: it omits the write flag so the companion call
   runs under a read-only sandbox. You own exactly one panel slot for one assigned
   panel lens (primary, adversarial, or pragmatic, per the main agent's
-  assignment), and it never judges or synthesizes — you return the exact panel
-  fields and let the current-host main judge synthesize.
+  assignment). This transport never judges or synthesizes — you return the exact
+  panel fields and let the current-host main judge synthesize.
 - Resolve the Codex companion path deterministically before any call, by ONE
   ordered rule:
 <!-- codex-companion-kernel:begin -->
@@ -79,11 +79,21 @@ Fallback. This is the caller-mediated degrade.
   background/queued acknowledgment is not a valid opposite-host panel response).
   ALWAYS write the scoped packet to a temp file and pass it with `--prompt-file`;
   the packet copies problem text that may contain quotes or shell metacharacters,
-  so a temp file is the shell-safe form for every call. Omit the write flag so
+  so a temp file is the shell-safe form for every call. Write the packet file
+  under the session scratch or OS temp directory, outside the repository —
+  this packet temp file is the ONE permitted write of this transport — and
+  delete it after the call returns. Omit the write flag so
   the call stays read-only:
   `node <resolved-codex-companion> task --cwd <ABSOLUTE cwd> --prompt-file <packet-file>`
   (optionally add `--model`/`--effort`). The `--cwd` argument scopes the
   companion's workspace root deterministically.
+- The consult call itself must return the analysis in
+  ONE foreground Bash invocation: set a generous Bash tool timeout (companion
+  consults routinely take several minutes) and wait for stdout inside that same
+  tool call. Never redirect companion output to files and poll for it with
+  sleep/tail loops, and never detach the call in any other way — a
+  locally-polled or detached run is the same invalid background shape as
+  `--background`.
 
 ## Operating Rules
 

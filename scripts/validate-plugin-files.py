@@ -816,6 +816,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "does NOT author RED, verify, review, or merge",
         "one-hop guard",
         "best-effort",
+        "ONE foreground Bash invocation",
     ),
     # The four read-only `*-codex` consult transports (Part B). Each is the
     # opposite-host leg of a synthesized cross-host PAIR (or, for fusion-codex,
@@ -835,6 +836,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "role-ownership",
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
+        "ONE foreground Bash invocation",
     ),
     "code-reviewer-codex": (
         "read-only",
@@ -846,6 +848,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "role-ownership",
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
+        "ONE foreground Bash invocation",
     ),
     "debugger-codex": (
         "read-only",
@@ -857,6 +860,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "role-ownership",
         "proof that the dispatched role agent",
         "does NOT judge, verify, or merge",
+        "ONE foreground Bash invocation",
     ),
     "fusion-codex": (
         "read-only",
@@ -869,6 +873,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "exact panel fields",
         "never judges or synthesizes",
         "oh-no-fusion-rescue-analyst",
+        "ONE foreground Bash invocation",
     ),
 }
 
@@ -2278,12 +2283,22 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "runs as a single independent pass",
         "also runs as the cross-host pair",
     )
+    # Scan every layer a dispatched verifier (or its caller) actually loads:
+    # the shared contracts, the four dispatching skill cores, and the whole
+    # agent layer — role cores plus BOTH generated wrapper sets. The verifier
+    # agent core carried a stale pair contract that a skill-core-only scan
+    # missed.
     verifier_pair_scan_files = (
         path,
         root / "docs" / "skill-core" / "ralph.md",
         root / "docs" / "skill-core" / "ultrawork.md",
         root / "docs" / "skill-core" / "systematic-debugging.md",
         root / "docs" / "skill-core" / "verification-before-completion.md",
+        *sorted((root / "docs" / "shared").glob("*.md")),
+        *sorted((root / "docs" / "agent-core").glob("*.md")),
+        *sorted((root / "agents").glob("*.md")),
+        *sorted((root / "docs" / "platforms").glob("*.md")),
+        *sorted((root / "docs" / "platforms" / "codex-agents").glob("*.toml")),
     )
     for scan_path in verifier_pair_scan_files:
         scan_text = read_text(scan_path)
@@ -2366,6 +2381,19 @@ def assert_cross_host_review_contract(root: Path) -> None:
     for marker in ("openai/codex-plugin-cc", "`/codex:rescue`"):
         if marker in codex_channel:
             die(f"codex-runtime.md {heading!r} contains opposite-host (Claude-side) consult marker: {marker!r}")
+    # Part A: the verifier has no cross-host leg on EITHER direction. The
+    # Codex-side spawn role list must be exactly the three reviewer/debugger
+    # roles and must carry the explicit verifier exclusion sentence (the
+    # verifier-pair phrase scan cannot catch a bare role listing).
+    if not has_required_marker(
+        codex_channel, "`plan-reviewer`, `code-reviewer`, or `debugger`"
+    ):
+        die(
+            f"codex-runtime.md {heading!r} must list exactly `plan-reviewer`, `code-reviewer`, "
+            "or `debugger` as the shared cross-host role set (the verifier has no cross-host leg)"
+        )
+    if not has_required_marker(codex_channel, "The `verifier` has no cross-host leg"):
+        die(f"codex-runtime.md {heading!r} is missing the verifier exclusion sentence")
 
     # D2 (Part B inversion): the Claude→Codex transport is now the read-only
     # `*-codex` consult agents running `codex-companion.mjs`, not `/codex:rescue`.

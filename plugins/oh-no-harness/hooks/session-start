@@ -71,7 +71,7 @@ Executor-only fence: ONLY the executor role is delegated. Verify, review, and me
 
 Serial-forced dispatch (highest priority, session-scoped override): this override SUPERSEDES the ralph disjoint-executor parallel-batching directive (ralph.md step 7, "## Mode-Gated Agent Dispatch", "## Parallel Subagent Policy"). Delegated executors run STRICTLY SEQUENTIALLY, one at a time. This is soft model-arbitration, NOT hook-enforced. explore/review/verify roles may still parallelize; only delegated executors are serial.
 
-Caller-mediated degrade: if the codex companion (codex:codex-rescue / the codex-companion) is unavailable, unresolvable, or its path is ambiguous, executor-codex SIGNALS companion-unavailable and returns without writing; the main ralph agent (the caller) then falls back to native `oh-no-harness:executor` for that slice and records a warning. executor-codex CANNOT self-dispatch.
+Caller-mediated degrade: if the codex companion is unavailable, unresolvable, or its path is ambiguous, executor-codex SIGNALS companion-unavailable and returns without writing; the main ralph agent (the caller) then falls back to native `oh-no-harness:executor` for that slice and records a warning. executor-codex CANNOT self-dispatch.
 
 Best-effort framing (honest): worktree/sandbox confinement of delegated writes is BEST-EFFORT, NOT a guarantee. The caller runs the escape-DETECTION net (git-status over the integration checkout plus a filesystem sentinel over the ignored .oh-no/ subtree and sibling worktrees) and the in-worktree scope check + revert, and HALTs the run on any unexpected out-of-scope modification. Writes outside the protected target set (arbitrary temp dirs, non-.oh-no/ ignored paths) remain undetected.
 </OH_NO_CODEX_EXECUTOR_DELEGATION>'

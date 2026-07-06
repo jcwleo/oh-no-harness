@@ -2517,7 +2517,10 @@ with open(path, "r", encoding="utf-8") as fh:
                 subagent_task_ids.add(started_task_id)
                 subagent_started_indices.append((index, started_task_id))
         if data.get("type") == "system" and data.get("subtype") == "task_notification":
-            if data.get("status") == "completed":
+            # Some task_updated events carry status under patch.status (see the
+            # natural-session lane precedent); accept both so a completion is
+            # never silently dropped.
+            if (data.get("status") or (data.get("patch") or {}).get("status")) == "completed":
                 completed_task_id = data.get("task_id")
                 # Concurrency-proof source: first completion per oh-no-harness
                 # subagent (task_notification status=="completed").
@@ -2971,6 +2974,7 @@ codex_bash_success_texts = []
 codex_bash_success_indexes = []
 codex_bash_failures = []
 codex_write_commands = []
+codex_background_commands = []
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
@@ -3003,14 +3007,21 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     payload = part.get("input", {})
                     command = str(payload.get("command", ""))
-                    # Count only the actual delegation `task` call (which passes the
-                    # packet via --prompt-file), not the read-only companion-path
-                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
-                    # first to resolve/verify the companion before delegating.
-                    if "codex-companion.mjs" in command and "--prompt-file" in command:
-                        codex_bash_tool_ids.add(part.get("id"))
+                    if "codex-companion.mjs" in command:
+                        # The --write/--background forbids cover EVERY
+                        # codex-companion command, including a rogue call that
+                        # inlines the packet instead of using --prompt-file.
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
+                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                            codex_background_commands.append((index, command[:2000]))
+                        # Count only the actual delegation `task` call (which
+                        # passes the packet via --prompt-file), not the read-only
+                        # companion-path resolution probes (ls / [ -f ] / versions
+                        # checks) the kernel runs first to resolve/verify the
+                        # companion before delegating.
+                        if "--prompt-file" in command:
+                            codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -3114,6 +3125,8 @@ if unexpected_write_uses:
     raise SystemExit(f"Claude Fusion Rescue live used write-capable tools: {unexpected_write_uses!r}")
 if codex_write_commands:
     raise SystemExit(f"Claude Fusion Rescue live invoked codex-companion with --write: {codex_write_commands!r}")
+if codex_background_commands:
+    raise SystemExit(f"Claude Fusion Rescue live invoked codex-companion with --background: {codex_background_commands!r}")
 if permission_denials:
     raise SystemExit(f"Claude Fusion Rescue live had permission denials: {permission_denials!r}")
 if "oh-no-harness:fusion-codex" not in init_agents:
@@ -3731,16 +3744,21 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    # Count only the actual delegation `task` call (which passes the
-                    # packet via --prompt-file), not the read-only companion-path
-                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
-                    # first to resolve/verify the companion before delegating.
-                    if "codex-companion.mjs" in command and "--prompt-file" in command:
-                        codex_bash_tool_ids.add(part.get("id"))
+                    if "codex-companion.mjs" in command:
+                        # The --write/--background forbids cover EVERY
+                        # codex-companion command, including a rogue call that
+                        # inlines the packet instead of using --prompt-file.
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
                         if re.search(r"(?<!\S)--background(?!\S)", command):
                             codex_background_commands.append((index, command[:2000]))
+                        # Count only the actual delegation `task` call (which
+                        # passes the packet via --prompt-file), not the read-only
+                        # companion-path resolution probes (ls / [ -f ] / versions
+                        # checks) the kernel runs first to resolve/verify the
+                        # companion before delegating.
+                        if "--prompt-file" in command:
+                            codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -3757,7 +3775,10 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 reviewer_task_ids.add(data.get("task_id"))
                 reviewer_started_indices.append((index, data.get("task_id")))
         if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
-            if data.get("status") == "completed":
+            # Some task_updated events carry status under patch.status (see the
+            # natural-session lane precedent); accept both so a completion is
+            # never silently dropped.
+            if (data.get("status") or (data.get("patch") or {}).get("status")) == "completed":
                 completed_task_id = data.get("task_id")
                 if (
                     completed_task_id in reviewer_task_ids
@@ -4930,7 +4951,7 @@ for index, data in main_rows:
             if ptype == "tool_use" and part.get("name") == "Bash":
                 command = str(part.get("input", {}).get("command", ""))
                 # C3: a REAL Codex companion write is the delegation contract command
-                # `node <companion> task --write --cwd <worktree> --wait --prompt-file`.
+                # `node <companion> task --write --cwd <worktree> --prompt-file`.
                 if "codex-companion" in command and "--write --cwd" in command:
                     real_companion_write = True
             if ptype == "text":
@@ -5522,6 +5543,17 @@ init_agents = set()
 init_tools = set()
 errors = []
 planner_dispatch_indexes = []
+# Lifecycle proof (mirrors the cross-host-review lane): task_started +
+# task_notification(status=="completed") per plan-reviewer instance feed the
+# peak-in-flight walk that proves the pair overlapped, and the planner must
+# COMPLETE before the first reviewer instance starts (dispatch order alone
+# cannot prove either).
+reviewer_task_ids = set()
+reviewer_started_indices = []
+reviewer_completed_ids = set()
+reviewer_completion_indices = []
+planner_task_ids = set()
+planner_completion_indices = []
 current_dispatches = []
 codex_dispatches = []
 unexpected_write_uses = []
@@ -5558,16 +5590,21 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    # Count only the actual delegation `task` call (which passes the
-                    # packet via --prompt-file), not the read-only companion-path
-                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
-                    # first to resolve/verify the companion before delegating.
-                    if "codex-companion.mjs" in command and "--prompt-file" in command:
-                        codex_bash_tool_ids.add(part.get("id"))
+                    if "codex-companion.mjs" in command:
+                        # The --write/--background forbids cover EVERY
+                        # codex-companion command, including a rogue call that
+                        # inlines the packet instead of using --prompt-file.
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
                         if re.search(r"(?<!\S)--background(?!\S)", command):
                             codex_background_commands.append((index, command[:2000]))
+                        # Count only the actual delegation `task` call (which
+                        # passes the packet via --prompt-file), not the read-only
+                        # companion-path resolution probes (ls / [ -f ] / versions
+                        # checks) the kernel runs first to resolve/verify the
+                        # companion before delegating.
+                        if "--prompt-file" in command:
+                            codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -5580,7 +5617,27 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         planner_dispatch_indexes.append(index)
                 if part.get("type") == "text":
                     non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            started_type = str(data.get("subagent_type", "") or "")
+            if started_type in {CURRENT_ROLE, CODEX_ROLE}:
+                reviewer_task_ids.add(data.get("task_id"))
+                reviewer_started_indices.append((index, data.get("task_id")))
+            elif started_type == PLANNER_ROLE:
+                planner_task_ids.add(data.get("task_id"))
         if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            # Some task_updated events carry status under patch.status (see the
+            # natural-session lane precedent); accept both so a completion is
+            # never silently dropped.
+            if (data.get("status") or (data.get("patch") or {}).get("status")) == "completed":
+                completed_task_id = data.get("task_id")
+                if (
+                    completed_task_id in reviewer_task_ids
+                    and completed_task_id not in reviewer_completed_ids
+                ):
+                    reviewer_completed_ids.add(completed_task_id)
+                    reviewer_completion_indices.append((index, completed_task_id))
+                if completed_task_id in planner_task_ids:
+                    planner_completion_indices.append((index, completed_task_id))
             non_user_text_parts.append(text)
         if data.get("type") == "user":
             for part in data.get("message", {}).get("content", []):
@@ -5649,6 +5706,48 @@ if not (first_planner_index < current_index and first_planner_index < codex_inde
     raise SystemExit(
         "Claude ralplan cross-host review live did not run the planner before the plan-review pair: "
         f"planner_index={first_planner_index} current_index={current_index} codex_index={codex_index}"
+    )
+
+# Lifecycle proof (fail closed): the planner COMPLETED before the first
+# reviewer instance STARTED — dispatch-index order alone cannot prove the
+# reviewers saw a finished draft.
+if not planner_completion_indices:
+    raise SystemExit(
+        "Claude ralplan cross-host review live captured no planner completion event "
+        "(cannot prove the planner finished before the plan-review pair started)"
+    )
+if len(reviewer_started_indices) < 2:
+    raise SystemExit(
+        "Claude ralplan cross-host review live captured task_started for "
+        f"{len(reviewer_started_indices)} plan-reviewer instances (need 2)"
+    )
+first_planner_completion = min(idx for idx, _ in planner_completion_indices)
+first_reviewer_start = min(idx for idx, _ in reviewer_started_indices)
+if not (first_planner_completion < first_reviewer_start):
+    raise SystemExit(
+        "Claude ralplan cross-host review live started the plan-review pair before the planner completed: "
+        f"planner_completion={first_planner_completion} first_reviewer_start={first_reviewer_start}"
+    )
+
+# The two plan-reviewer instances overlapped (peak in-flight >= 2). A purely
+# serial run (start, complete, start, complete) never exceeds 1 in flight.
+CONCURRENCY_MIN = 2
+lifecycle = sorted(
+    [(idx, 1) for idx, _ in reviewer_started_indices]
+    + [(idx, -1) for idx, _ in reviewer_completion_indices]
+)
+in_flight = 0
+peak_in_flight = 0
+for _, delta in lifecycle:
+    in_flight += delta
+    if in_flight > peak_in_flight:
+        peak_in_flight = in_flight
+if peak_in_flight < CONCURRENCY_MIN:
+    raise SystemExit(
+        "Claude ralplan cross-host review live did not prove the plan-review pair overlapped: "
+        f"peak in-flight was {peak_in_flight} (need >= {CONCURRENCY_MIN}); "
+        f"started={len(reviewer_started_indices)} completed={len(reviewer_completion_indices)}. "
+        "A purely serial run peaks at 1 in flight."
     )
 
 # The outbound opposite-host packet must preserve role ownership + read-only.
@@ -5867,6 +5966,16 @@ current_dispatches = []
 codex_dispatches = []
 verifier_dispatches = []
 verifier_codex_dispatches = []
+# Lifecycle proof (mirrors the cross-host-review lane): task_started +
+# task_notification(status=="completed") per reviewer instance feed the
+# peak-in-flight walk that proves the pair overlapped, and the confirming
+# verifier must START only after BOTH reviewer instances COMPLETED (dispatch
+# order alone cannot prove either).
+reviewer_task_ids = set()
+reviewer_started_indices = []
+reviewer_completed_ids = set()
+reviewer_completion_indices = []
+verifier_started_indices = []
 unexpected_write_uses = []
 codex_bash_tool_ids = set()
 codex_write_commands = []
@@ -5901,16 +6010,21 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    # Count only the actual delegation `task` call (which passes the
-                    # packet via --prompt-file), not the read-only companion-path
-                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
-                    # first to resolve/verify the companion before delegating.
-                    if "codex-companion.mjs" in command and "--prompt-file" in command:
-                        codex_bash_tool_ids.add(part.get("id"))
+                    if "codex-companion.mjs" in command:
+                        # The --write/--background forbids cover EVERY
+                        # codex-companion command, including a rogue call that
+                        # inlines the packet instead of using --prompt-file.
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
                         if re.search(r"(?<!\S)--background(?!\S)", command):
                             codex_background_commands.append((index, command[:2000]))
+                        # Count only the actual delegation `task` call (which
+                        # passes the packet via --prompt-file), not the read-only
+                        # companion-path resolution probes (ls / [ -f ] / versions
+                        # checks) the kernel runs first to resolve/verify the
+                        # companion before delegating.
+                        if "--prompt-file" in command:
+                            codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -5925,7 +6039,25 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         verifier_dispatches.append((index, payload_text))
                 if part.get("type") == "text":
                     non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            started_type = str(data.get("subagent_type", "") or "")
+            if started_type in {CURRENT_ROLE, CODEX_ROLE}:
+                reviewer_task_ids.add(data.get("task_id"))
+                reviewer_started_indices.append((index, data.get("task_id")))
+            elif started_type == VERIFIER_ROLE:
+                verifier_started_indices.append((index, data.get("task_id")))
         if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            # Some task_updated events carry status under patch.status (see the
+            # natural-session lane precedent); accept both so a completion is
+            # never silently dropped.
+            if (data.get("status") or (data.get("patch") or {}).get("status")) == "completed":
+                completed_task_id = data.get("task_id")
+                if (
+                    completed_task_id in reviewer_task_ids
+                    and completed_task_id not in reviewer_completed_ids
+                ):
+                    reviewer_completed_ids.add(completed_task_id)
+                    reviewer_completion_indices.append((index, completed_task_id))
             non_user_text_parts.append(text)
         if data.get("type") == "user":
             for part in data.get("message", {}).get("content", []):
@@ -6004,6 +6136,54 @@ if not (verifier_index > current_index and verifier_index > codex_index):
     raise SystemExit(
         "Claude VBC cross-host review live did not keep the review-then-verify order (verifier before the "
         f"reviewer pair): current_index={current_index} codex_index={codex_index} verifier_index={verifier_index}"
+    )
+
+# (c2) Completion-based review-then-verify proof (fail closed): the verifier
+# may START only after BOTH reviewer instances COMPLETED. A verifier dispatched
+# while the pair was still running would still sort later in the stream, so the
+# dispatch-index check above cannot prove this on its own.
+if len(reviewer_started_indices) < 2:
+    raise SystemExit(
+        "Claude VBC cross-host review live captured task_started for "
+        f"{len(reviewer_started_indices)} reviewer instances (need 2)"
+    )
+if len(reviewer_completed_ids) < 2:
+    raise SystemExit(
+        "Claude VBC cross-host review live captured completion for "
+        f"{len(reviewer_completed_ids)} reviewer instances (need 2; cannot prove the verifier waited)"
+    )
+if not verifier_started_indices:
+    raise SystemExit(
+        "Claude VBC cross-host review live captured no verifier task_started event "
+        "(cannot prove the review-then-verify order on completions)"
+    )
+last_reviewer_completion = max(idx for idx, _ in reviewer_completion_indices)
+first_verifier_start = min(idx for idx, _ in verifier_started_indices)
+if not (first_verifier_start > last_reviewer_completion):
+    raise SystemExit(
+        "Claude VBC cross-host review live started the verifier before both reviewer instances completed: "
+        f"last_reviewer_completion={last_reviewer_completion} first_verifier_start={first_verifier_start}"
+    )
+
+# (c3) The two reviewer instances overlapped (peak in-flight >= 2). A purely
+# serial run (start, complete, start, complete) never exceeds 1 in flight.
+CONCURRENCY_MIN = 2
+lifecycle = sorted(
+    [(idx, 1) for idx, _ in reviewer_started_indices]
+    + [(idx, -1) for idx, _ in reviewer_completion_indices]
+)
+in_flight = 0
+peak_in_flight = 0
+for _, delta in lifecycle:
+    in_flight += delta
+    if in_flight > peak_in_flight:
+        peak_in_flight = in_flight
+if peak_in_flight < CONCURRENCY_MIN:
+    raise SystemExit(
+        "Claude VBC cross-host review live did not prove the reviewer pair overlapped: "
+        f"peak in-flight was {peak_in_flight} (need >= {CONCURRENCY_MIN}); "
+        f"started={len(reviewer_started_indices)} completed={len(reviewer_completion_indices)}. "
+        "A purely serial run peaks at 1 in flight."
     )
 
 # The outbound opposite-host packet must preserve role ownership + read-only.
@@ -6222,6 +6402,14 @@ codex_bash_failures = []
 permission_denials = []
 non_user_text_parts = []
 pending_background_events = []
+# Lifecycle proof (mirrors the cross-host-review lane): task_started +
+# task_notification(status=="completed") per debugger instance feed the
+# peak-in-flight walk that proves the pair overlapped (dispatch order alone
+# cannot prove concurrency).
+reviewer_task_ids = set()
+reviewer_started_indices = []
+reviewer_completed_ids = set()
+reviewer_completion_indices = []
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -6246,16 +6434,21 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    # Count only the actual delegation `task` call (which passes the
-                    # packet via --prompt-file), not the read-only companion-path
-                    # resolution probes (ls / [ -f ] / versions checks) the kernel runs
-                    # first to resolve/verify the companion before delegating.
-                    if "codex-companion.mjs" in command and "--prompt-file" in command:
-                        codex_bash_tool_ids.add(part.get("id"))
+                    if "codex-companion.mjs" in command:
+                        # The --write/--background forbids cover EVERY
+                        # codex-companion command, including a rogue call that
+                        # inlines the packet instead of using --prompt-file.
                         if re.search(r"(?<!\S)--write(?!\S)", command):
                             codex_write_commands.append((index, command[:2000]))
                         if re.search(r"(?<!\S)--background(?!\S)", command):
                             codex_background_commands.append((index, command[:2000]))
+                        # Count only the actual delegation `task` call (which
+                        # passes the packet via --prompt-file), not the read-only
+                        # companion-path resolution probes (ls / [ -f ] / versions
+                        # checks) the kernel runs first to resolve/verify the
+                        # companion before delegating.
+                        if "--prompt-file" in command:
+                            codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -6266,7 +6459,23 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         current_dispatches.append((index, payload_text))
                 if part.get("type") == "text":
                     non_user_text_parts.append(part.get("text", ""))
+        if data.get("type") == "system" and data.get("subtype") == "task_started":
+            started_type = str(data.get("subagent_type", "") or "")
+            if started_type in {CURRENT_ROLE, CODEX_ROLE}:
+                reviewer_task_ids.add(data.get("task_id"))
+                reviewer_started_indices.append((index, data.get("task_id")))
         if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
+            # Some task_updated events carry status under patch.status (see the
+            # natural-session lane precedent); accept both so a completion is
+            # never silently dropped.
+            if (data.get("status") or (data.get("patch") or {}).get("status")) == "completed":
+                completed_task_id = data.get("task_id")
+                if (
+                    completed_task_id in reviewer_task_ids
+                    and completed_task_id not in reviewer_completed_ids
+                ):
+                    reviewer_completed_ids.add(completed_task_id)
+                    reviewer_completion_indices.append((index, completed_task_id))
             non_user_text_parts.append(text)
         if data.get("type") == "user":
             for part in data.get("message", {}).get("content", []):
@@ -6323,6 +6532,32 @@ if len(current_dispatches) != 1:
 if len(codex_dispatches) != 1:
     raise SystemExit(
         f"Claude systematic-debugging cross-host live expected exactly one {CODEX_ROLE} dispatch, got {codex_dispatches!r}"
+    )
+
+# The two debugger instances overlapped (peak in-flight >= 2). A purely serial
+# run (start, complete, start, complete) never exceeds 1 in flight.
+if len(reviewer_started_indices) < 2:
+    raise SystemExit(
+        "Claude systematic-debugging cross-host live captured task_started for "
+        f"{len(reviewer_started_indices)} debugger instances (need 2)"
+    )
+CONCURRENCY_MIN = 2
+lifecycle = sorted(
+    [(idx, 1) for idx, _ in reviewer_started_indices]
+    + [(idx, -1) for idx, _ in reviewer_completion_indices]
+)
+in_flight = 0
+peak_in_flight = 0
+for _, delta in lifecycle:
+    in_flight += delta
+    if in_flight > peak_in_flight:
+        peak_in_flight = in_flight
+if peak_in_flight < CONCURRENCY_MIN:
+    raise SystemExit(
+        "Claude systematic-debugging cross-host live did not prove the debugger pair overlapped: "
+        f"peak in-flight was {peak_in_flight} (need >= {CONCURRENCY_MIN}); "
+        f"started={len(reviewer_started_indices)} completed={len(reviewer_completion_indices)}. "
+        "A purely serial run peaks at 1 in flight."
     )
 
 # The outbound opposite-host packet must preserve role ownership + read-only.
