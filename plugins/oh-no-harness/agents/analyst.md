@@ -2,7 +2,7 @@
 name: analyst
 description: Use proactively inside active Oh No Harness workflows to analyze requirements and risks; the caller owns approval and handoff gates.
 tools: Read, Glob, Grep
-model: inherit
+model: opus
 color: blue
 ---
 

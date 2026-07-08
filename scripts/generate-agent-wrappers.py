@@ -52,7 +52,7 @@ AGENTS = [
             "requirements and risks; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep",
-        claude_model="inherit",
+        claude_model="opus",
         claude_color="blue",
         codex_description=(
             "Oh No Harness analyst role: analyze requirements, hidden constraints, "
@@ -94,7 +94,7 @@ AGENTS = [
             "implementation; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Edit, Write, Bash, Grep, Glob",
-        claude_model="inherit",
+        claude_model="opus",
         claude_color="green",
         codex_description=(
             "Oh No Harness executor role: implement scoped tasks with clear ownership, "

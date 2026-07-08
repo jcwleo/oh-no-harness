@@ -1772,7 +1772,11 @@ def assert_agent(root: Path, agent: str) -> None:
             f"{path} color={fm['color']!r}, expected one of {sorted(CLAUDE_AGENT_COLORS)}"
         )
 
-    expected_model = "sonnet" if agent == "explore" else "inherit"
+    expected_model = {
+        "explore": "sonnet",
+        "analyst": "opus",
+        "executor": "opus",
+    }.get(agent, "inherit")
     if fm.get("model") != expected_model:
         die(f"{path} model={fm.get('model')!r}, expected {expected_model!r}")
 
