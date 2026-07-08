@@ -25,7 +25,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex marketplace install, manifest validation, generated-wrapper checks, prompt exposure, hook/static output",
+      "evidence_artifact": "Codex marketplace install, manifest validation, generated-wrapper checks, prompt exposure, hook/static output, including sameHostReview SessionStart ON/OFF smoke for Codex-env",
       "non_proofs": [
         "marker-only output",
         "live model smoke",
@@ -265,7 +265,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude plugin install/update, manifest validation, generated-wrapper checks, command and hook/static output",
+      "evidence_artifact": "Claude plugin install/update, manifest validation, generated-wrapper checks, command and hook/static output, including config sibling-key preservation, host-aware config_dir resolution, and sameHostReview SessionStart ON/OFF smokes for Claude-env and Codex-env",
       "non_proofs": [
         "marker-only output",
         "live model smoke",
@@ -668,6 +668,27 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
   ]
 }
 ```
+
+## Same-Host Review Lanes
+
+These lanes are opt-in, non-gating, and skipped by default. They run only with
+`--same-host-review-live` or `OH_NO_SAME_HOST_REVIEW_LIVE=1`; a skip caused by
+missing opposite-host availability is recorded as unproven, not as acceptance
+evidence.
+
+| Host | Owner | Flag / env guard | Preflight | Positive assertion | Negative assertion |
+|---|---|---|---|---|---|
+| `claude` | `scripts/test-claude-plugin.sh` | `--same-host-review-live` / `OH_NO_SAME_HOST_REVIEW_LIVE=1` | Codex companion is resolvable using `OH_NO_CODEX_COMPANION_PATH`, then `installed_plugins.json` `openai-codex` `installPath`, then the highest cached semver under `~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs`; otherwise skip with `opposite host unavailable — suppression is untestable here`. | The recorded live session output includes `same-host-parallel-selected`. | The live transcript contains no real `codex-companion.mjs` Bash invocation and no `oh-no-harness:<role>-codex` consult-agent dispatch. |
+| `codex` | `scripts/test-codex-plugin.sh` | `--same-host-review-live` / `OH_NO_SAME_HOST_REVIEW_LIVE=1` | `${CLAUDE_BIN:-claude}` is on PATH/executable and the Codex session is launched with `--sandbox danger-full-access`; otherwise skip with `opposite host unavailable — suppression is untestable here`. | The recorded live session output includes `same-host-parallel-selected`. | The main and spawned-receiver transcripts contain no real `${CLAUDE_BIN:-claude}` command invocation. |
+
+Default static/offline coverage for the same toggle is split across the two
+host scripts:
+
+| Smoke | Owner | Evidence |
+|---|---|---|
+| Config sibling-key preservation | `scripts/test-claude-plugin.sh` | Enabling or disabling `same-host-review`, `auto-routing`, and `codex-executor` preserves sibling config keys, including `sameHostReview`. |
+| Host-aware `config_dir` resolution | `scripts/test-claude-plugin.sh` | Codex-sim resolves to XDG config while Claude-sim/no-signal resolves to plugin-data, proving the per-host config home split. |
+| SessionStart `<OH_NO_SAME_HOST_REVIEW>` hook block | `scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh` | ON/OFF smokes cover both Claude-env and Codex-env; when ON, the block carries `same-host-parallel-selected`, and when OFF no `OH_NO_SAME_HOST_REVIEW` text or selected-mode token appears. |
 
 ## Classification Semantics
 

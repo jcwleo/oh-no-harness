@@ -134,6 +134,10 @@ The success condition is that a panel result includes a real assigned-lens
 analysis from the opposite host, and the synthesis names which panel used that
 response in panel availability/fallback notes.
 
+In same-host mode, Fusion Rescue skips the opposite-host consult entirely, does
+not probe availability, runs local panels only, and records the user-selected
+mode with `same-host-parallel-selected` in panel availability/fallback notes.
+
 Use the active platform-specific Fusion Rescue rules for the consult mechanism,
 command or plugin capability, permission preflight, foreground or response
 proof, and any lens pinning. A launch notice, queued-job message, background
@@ -255,7 +259,9 @@ these scenarios:
 
 - Opposite host available: default mode must include at least one panel with an
   actual opposite-host response. Three current-host-only panels are insufficient
-  unless availability or proof failed and fallback is disclosed.
+  unless availability or proof failed and fallback is disclosed, or the user
+  selected same-host mode and panel availability/fallback notes record
+  `same-host-parallel-selected`.
 - Intentional contradiction: `primary` recommends a path, `adversarial` shows
   why that path may violate a constraint, and `pragmatic` suggests a smaller
   reversible action. The synthesis must name the contradiction, decide what
@@ -387,6 +393,11 @@ cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
 opposite host is Codex. This section carries only the Claude-to-Codex
 invocation; the activation, synthesis, and recursion-guard semantics live in the
 calling skill core and the shared doc.
+
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
 
 From Claude Code, the current-host main agent consults Codex only by dispatching
 the dedicated read-only consult agent `oh-no-harness:<role>-codex` for the

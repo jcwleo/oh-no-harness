@@ -265,6 +265,11 @@ opposite host is Codex. This section carries only the Claude-to-Codex
 invocation; the activation, synthesis, and recursion-guard semantics live in the
 calling skill core and the shared doc.
 
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
+
 From Claude Code, the current-host main agent consults Codex only by dispatching
 the dedicated read-only consult agent `oh-no-harness:<role>-codex` for the
 assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,

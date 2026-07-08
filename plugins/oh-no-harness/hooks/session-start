@@ -77,6 +77,24 @@ Best-effort framing (honest): worktree/sandbox confinement of delegated writes i
 </OH_NO_CODEX_EXECUTOR_DELEGATION>'
 fi
 
+same_host_review_policy=""
+if "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" same-host-review is-enabled >/dev/null 2>&1; then
+  same_host_review_policy='
+<OH_NO_SAME_HOST_REVIEW>
+<HARD-GATE>
+Same-host review is ON (session-scoped, per-host setting).
+
+For every shared cross-host review dispatch (`plan-reviewer`, `code-reviewer`, `debugger`) and the fusion-rescue opposite-host consult: do NOT attempt any opposite-host consult even when the opposite host is available. Run the Same-Host Parallel pair per docs/shared/cross-host-review.md and record independence mode `same-host-parallel-selected`.
+
+This decision is user-driven, not availability-driven: do NOT probe the opposite host. Record `same-host-parallel-selected` and never `same-host-parallel-fallback`, which is reserved for opposite-host-unavailable in default auto mode.
+
+Precedence: an explicit require-cross-host request in the current user message overrides this toggle.
+
+Independence: this toggle does not affect codexExecutor executor delegation, the verifier'\''s single self-host pass, or the one-hop recursion guard.
+</HARD-GATE>
+</OH_NO_SAME_HOST_REVIEW>'
+fi
+
 rg_search_policy=""
 if command -v rg >/dev/null 2>&1; then
   rg_search_policy='
@@ -86,7 +104,7 @@ Ripgrep is available. Prefer `rg` and `rg --files` for repository search; use a 
 fi
 
 base_session_context="<EXTREMELY_IMPORTANT>
-You have oh-no-harness.${auto_routing_policy}${codex_executor_policy}${rg_search_policy}
+You have oh-no-harness.${auto_routing_policy}${codex_executor_policy}${same_host_review_policy}${rg_search_policy}
 
 ${bootstrap_policy}
 </EXTREMELY_IMPORTANT>"

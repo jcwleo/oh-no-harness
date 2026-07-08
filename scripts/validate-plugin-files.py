@@ -896,6 +896,19 @@ AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
     "not a sandbox guarantee",
 )
 
+# Load-bearing phrases the auto-routing skill core (T7) must carry so the
+# sameHostReview toggle content is statically gated: the toggle key, the
+# `same-host-review` command token, the same-host default-OFF fact, the per-host
+# state fact, and the Codex plugin-hooks runtime prerequisite. Only load-bearing if
+# WIRED into assert_skill's if-chain below (beside the codex-executor markers).
+AUTO_ROUTING_SAME_HOST_REVIEW_MARKERS = (
+    "sameHostReview",
+    "same-host-review on|off|status",
+    "`sameHostReview` default to OFF",
+    "State is per host.",
+    "requires plugin hooks enabled",
+)
+
 SIMPLICITY_SCOPE_SKILL_MARKERS = {
     "ralplan": (
         "minimal viable approach",
@@ -1167,6 +1180,7 @@ FUSION_RESCUE_SKILL_MARKERS = (
     "pragmatic",
     "platform-specific Fusion Rescue rules",
     "## Cross-Host Consult",
+    "same-host-parallel-selected",
     "real assigned-lens analysis from the opposite host",
     "command or plugin capability",
     "permission preflight",
@@ -1712,6 +1726,9 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in AUTO_ROUTING_CODEX_EXECUTOR_MARKERS:
             if marker not in body:
                 die(f"{path} is missing required Auto-Routing codex-executor marker: {marker!r}")
+        for marker in AUTO_ROUTING_SAME_HOST_REVIEW_MARKERS:
+            if marker not in body:
+                die(f"{path} is missing required Auto-Routing same-host-review marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
         body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
@@ -2239,6 +2256,8 @@ def assert_cross_host_review_contract(root: Path) -> None:
         "Recursion Guard (Cross-Host Hop Scope)",
         "one cross-host hop",
         "requested-direction-change: yes",
+        "same-host-parallel-selected",
+        "request in the current user message overrides the session toggle",
     ):
         if not has_required_marker(text, marker):
             die(f"{path} is missing required Cross-Host-Review marker: {marker!r}")
@@ -2656,6 +2675,19 @@ def assert_hook_contract(root: Path) -> None:
         "SIGNALS companion-unavailable and returns without writing",
         "Best-effort framing (honest)",
         "escape-DETECTION net",
+        # Same-host-review delegation block (T7 hook-only rule). Statically gate
+        # the OH_NO_SAME_HOST_REVIEW block's load-bearing phrases: open/close tags,
+        # the ON banner, the no-opposite-host-consult fence, the recorded mode
+        # value, the fusion-rescue consult scope, the require-cross-host precedence
+        # override, and the codexExecutor-independence carve-out.
+        "<OH_NO_SAME_HOST_REVIEW>",
+        "</OH_NO_SAME_HOST_REVIEW>",
+        "Same-host review is ON (session-scoped, per-host setting).",
+        "do NOT attempt any opposite-host consult",
+        "same-host-parallel-selected",
+        "fusion-rescue opposite-host consult",
+        "an explicit require-cross-host request in the current user message overrides this toggle",
+        "this toggle does not affect codexExecutor executor delegation",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")

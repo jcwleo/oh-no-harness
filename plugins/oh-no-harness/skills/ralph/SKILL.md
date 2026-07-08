@@ -440,8 +440,8 @@ blocking findings, then a confirming independent `verifier` pass: an
 unconditionally single self-host pass (never a cross-host or same-host pair),
 never the maker, satisfying the carve-out in
 `docs/shared/ralph-subagent-policy.md`. Record each code-review pass's
-independence mode (`cross-host`, `same-host-parallel-fallback`, or
-`inline-fallback` with reason); the single self-host verifier pass is governed by
+independence mode (`cross-host`, `same-host-parallel-fallback`,
+`same-host-parallel-selected`, or `inline-fallback` with reason); the single self-host verifier pass is governed by
 the carve-out and the `verifier started after reviewer completion` sequencing
 field, not the independence-mode enum.
 
@@ -621,7 +621,7 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field below, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, `same-host-parallel-selected`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field below, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:
@@ -754,6 +754,11 @@ cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
 host is Claude Code. This section carries only the Codex-to-Claude invocation;
 the activation, synthesis, and recursion-guard semantics live in the calling
 skill core and the shared doc.
+
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
 
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is

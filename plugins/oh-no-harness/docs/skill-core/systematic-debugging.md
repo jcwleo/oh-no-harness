@@ -161,7 +161,7 @@ Stop and ask or escalate to `plan-reviewer` when:
 ## Output Gate
 
 <HARD-GATE>
-Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
+Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, `same-host-parallel-selected`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
 </HARD-GATE>
 
 ## Output

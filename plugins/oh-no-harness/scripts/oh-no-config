@@ -7,18 +7,23 @@ config_dir() {
     return
   fi
 
-  # Pin to the oh-no-harness plugin data dir directly. CLAUDE_PLUGIN_DATA
-  # resolves to whichever plugin's context invoked the script, so honoring
-  # it would let the writer (called from another plugin's Bash) and the
-  # SessionStart-hook reader (always in oh-no-harness's context) land on
-  # different files — which silently breaks the auto-routing toggle.
-  local plugins_data="${HOME}/.claude/plugins/data"
-  if [ -d "$plugins_data" ]; then
-    local match
-    match=$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | head -n 1)
-    if [ -n "$match" ]; then
-      printf '%s\n' "$match"
-      return
+  # Prefer the oh-no-harness plugin data dir ONLY on Claude/no-signal hosts. On a
+  # Codex-positive host (PLUGIN_ROOT/COPILOT_CLI set) skip it so a co-installed
+  # Claude config is never read, keeping the toggle per-host. Pin the dir
+  # directly rather than via CLAUDE_PLUGIN_DATA, which resolves to whichever
+  # plugin's context invoked the script, so honoring it would let the writer
+  # (called from another plugin's Bash) and the SessionStart-hook reader (always
+  # in oh-no-harness's context) land on different files — silently breaking the
+  # toggle.
+  if [ -z "${PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+    local plugins_data="${HOME}/.claude/plugins/data"
+    if [ -d "$plugins_data" ]; then
+      local match
+      match=$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | head -n 1)
+      if [ -n "$match" ]; then
+        printf '%s\n' "$match"
+        return
+      fi
     fi
   fi
 
@@ -51,17 +56,19 @@ is_enabled() {
 }
 
 write_config() {
-  # write_config <key> <true|false>: set one key while preserving the sibling.
+  # write_config <key> <true|false>: set one key while preserving siblings.
   local key="$1" enabled="$2"
-  local path dir auto codex
+  local path dir auto codex samehost
   path="$(config_path)"
   dir="$(dirname "$path")"
   mkdir -p "$dir"
   auto="$(read_key autoRouting)"
   codex="$(read_key codexExecutor)"
+  samehost="$(read_key sameHostReview)"
   case "$key" in
     autoRouting) auto="$enabled" ;;
     codexExecutor) codex="$enabled" ;;
+    sameHostReview) samehost="$enabled" ;;
   esac
   cat >"$path" <<JSON
 {
@@ -70,6 +77,9 @@ write_config() {
   },
   "codexExecutor": {
     "enabled": ${codex}
+  },
+  "sameHostReview": {
+    "enabled": ${samehost}
   }
 }
 JSON
@@ -91,19 +101,26 @@ show_restart_notice() {
   printf 'restart required: restart Claude Code or run /clear for this change to affect the active session.\n'
 }
 
+show_same_host_note() {
+  printf 'note: same-host-review is a per-host setting; on Codex, runtime effect requires plugin hooks enabled.\n'
+}
+
 usage() {
   cat <<'USAGE'
 Usage: scripts/oh-no-config <on|off|status|path|is-enabled>
        scripts/oh-no-config codex-executor <on|off|status|is-enabled>
+       scripts/oh-no-config same-host-review <on|off|status|is-enabled>
 
 Manages Oh No Harness user settings outside the plugin cache. The bare verbs
 operate on auto-routing; the codex-executor subcommand operates on the
-codexExecutor key. Both keys are stored side by side and preserved
+codexExecutor key; the same-host-review subcommand operates on the
+sameHostReview key. All keys are stored side by side and preserved
 independently.
 
 Stored at $HOME/.claude/plugins/data/<oh-no-harness-*>/config.json on
-Claude Code, or $XDG_CONFIG_HOME/oh-no-harness/config.json (default
-$HOME/.config/oh-no-harness/config.json) on hosts without that layout.
+Claude Code or no-signal shell calls when that directory exists. Codex-positive
+hosts and hosts without that layout use $XDG_CONFIG_HOME/oh-no-harness/config.json
+(default $HOME/.config/oh-no-harness/config.json).
 
 Environment:
   OH_NO_CONFIG_DIR    Test override for the config directory.
@@ -147,6 +164,36 @@ case "${1:-status}" in
         ;;
       is-enabled)
         is_enabled codexExecutor
+        ;;
+      -h|--help|help)
+        usage
+        ;;
+      *)
+        usage >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  same-host-review)
+    case "${2:-status}" in
+      on|enable|enabled|true)
+        write_config sameHostReview true
+        show_status sameHostReview same-host-review
+        show_same_host_note
+        show_restart_notice
+        ;;
+      off|disable|disabled|false)
+        write_config sameHostReview false
+        show_status sameHostReview same-host-review
+        show_same_host_note
+        show_restart_notice
+        ;;
+      status|show)
+        show_status sameHostReview same-host-review
+        show_same_host_note
+        ;;
+      is-enabled)
+        is_enabled sameHostReview
         ;;
       -h|--help|help)
         usage

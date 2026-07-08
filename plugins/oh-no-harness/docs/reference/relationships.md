@@ -44,6 +44,13 @@ Codex UserPromptSubmit for Ralph when plugin hooks are enabled
   -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/codex-ralph.md
   -> docs/agent-core/<role>.md for Codex spawn_agent prompt embedding
+
+same-host-review toggle
+  -> scripts/oh-no-config writes the `sameHostReview` config key
+  -> host-aware config_dir resolves Claude Code to plugin data and Codex to XDG unless OH_NO_CONFIG_DIR overrides
+  -> hooks/session-start injects the `<OH_NO_SAME_HOST_REVIEW>` block on BOTH hosts when enabled
+  -> docs/shared/cross-host-review.md consumers in review-gated skills use the block to select Same-Host Parallel instead of opposite-host consult
+  -> fusion-rescue uses the same block to suppress the opposite-host panel and record the same-host selection
 ```
 
 ## Skill Graph

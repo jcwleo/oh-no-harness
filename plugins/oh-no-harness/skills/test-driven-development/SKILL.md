@@ -283,6 +283,11 @@ host is Claude Code. This section carries only the Codex-to-Claude invocation;
 the activation, synthesis, and recursion-guard semantics live in the calling
 skill core and the shared doc.
 
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
+
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is
 missing, unknown, `read-only`, `workspace-write`, or anything else, do not call

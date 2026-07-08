@@ -391,7 +391,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field above, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, `same-host-parallel-selected`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field above, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 
@@ -552,6 +552,11 @@ cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
 host is Claude Code. This section carries only the Codex-to-Claude invocation;
 the activation, synthesis, and recursion-guard semantics live in the calling
 skill core and the shared doc.
+
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
 
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is

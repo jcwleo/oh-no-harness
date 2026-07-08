@@ -66,6 +66,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         # Codex overlay: no Codex SessionStart block; delegated role stays native.
         ("adds NO Codex SessionStart block", CODEX),
         ("executor role behaves as the native `oh-no-executor`", CODEX),
+        # T7 sameHostReview surface: the command verbs are in the skill core (both
+        # platforms); the plugin-hooks runtime prerequisite is Codex-overlay-only.
+        ("same-host-review on|off|status", BOTH),
+        ("on Codex when plugin hooks are enabled", CODEX),
     ],
     "interview": [
         ("consider advisory context", BOTH),
@@ -94,6 +98,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Re-reviews run only when the previous", BOTH),
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("Codex role dispatch is host-policy controlled", CODEX),
+        ("same-host-parallel-selected", BOTH),  # reachable via cross-host-review.md reference
     ],
     "ralph": [
         ("Execution Mode Decision Prompt", BOTH),
@@ -118,6 +123,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Persistence Rule)
+        ("same-host-parallel-selected", BOTH),  # reachable via cross-host-review.md reference
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -147,6 +153,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
         ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Phase 5 Report gate)
+        ("same-host-parallel-selected", BOTH),  # reachable via cross-host-review.md reference
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -175,6 +182,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
         ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Output Gate)
+        ("same-host-parallel-selected", BOTH),  # reachable via cross-host-review.md reference
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
@@ -187,6 +195,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("redact secrets", BOTH),  # the evidence-redaction rule
         ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
         ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Required Gate step 9)
+        ("same-host-parallel-selected", BOTH),  # reachable via cross-host-review.md reference
+    ],
+    "fusion-rescue": [
+        ("same-host-parallel-selected", BOTH),  # fusion-rescue records the user-selected mode in its OWN wrapper prose
     ],
 }
 

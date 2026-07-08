@@ -135,6 +135,7 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_SIMPLIFY_LIVE",
         "OH_NO_NATURAL_SESSION_START_LIVE",
         "OH_NO_WORKTREE_LIVE",
+        "OH_NO_SAME_HOST_REVIEW_LIVE",
     },
     "claude": {
         "OH_NO_LIVE",
@@ -151,6 +152,7 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_SIMPLIFY_LIVE",
         "OH_NO_NATURAL_SESSION_START_LIVE",
         "OH_NO_LIVE_HOOK_ONLY",
+        "OH_NO_SAME_HOST_REVIEW_LIVE",
     },
 }
 

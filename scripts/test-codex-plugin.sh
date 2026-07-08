@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
+CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 CODEX_HOME_DIR="${CODEX_HOME:-${HOME}/.codex}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
@@ -21,10 +22,12 @@ RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE:-0}"
+RUN_SAME_HOST_REVIEW_LIVE="${OH_NO_SAME_HOST_REVIEW_LIVE:-0}"
 RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
 RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
 RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
-LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
+LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-${OH_NO_TEST_MODEL:-}}"
+LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-3.00}"
 FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 NAMED_AGENT_TEMP_ROOTS=()
@@ -72,6 +75,11 @@ Options:
   --cross-host-fallback-live
                      Run live Codex cross-host Same-Host Parallel Fallback smoke test
                      (opposite host unavailable, two same-host agents synthesized).
+  --same-host-review-live
+                     Run live same-host-review suppression smoke test: with the
+                     sameHostReview toggle ON and Claude preflighted available,
+                     a single review-gated session must select same-host-parallel
+                     and make no Claude consult.
   --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
   --natural-session-start-live
                      Run live natural SessionStart role-worker smoke tests for Interview, Ultrawork,
@@ -88,11 +96,12 @@ Options:
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL, OH_NO_TEST_MODEL,
   OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
   OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE,
+  OH_NO_SAME_HOST_REVIEW_LIVE, OH_NO_MAX_BUDGET_USD,
   OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
-  OH_NO_MARKETPLACE_SOURCE
+  OH_NO_MARKETPLACE_SOURCE, CLAUDE_BIN
 USAGE
 }
 
@@ -124,6 +133,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cross-host-fallback-live)
       RUN_CROSS_HOST_FALLBACK_LIVE=1
+      shift
+      ;;
+    "--same-host-review-live")
+      RUN_SAME_HOST_REVIEW_LIVE=1
       shift
       ;;
     --simplify-live)
@@ -312,6 +325,54 @@ output = data.get("hookSpecificOutput", {})
 text = output.get("additionalContext", "")
 if "OH_NO_FORCED_ROUTING" in text:
     raise SystemExit("Codex SessionStart should not add forced routing when auto-routing is enabled")
+PY
+
+  if grep -q "OH_NO_SAME_HOST_REVIEW" "$temp_data/session-start-codex-routing-on.json"; then
+    fail "Codex SessionStart included same-host-review block while sameHostReview is OFF"
+  fi
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start-codex-same-host-on.json"
+  "$PYTHON_BIN" - "$temp_data/session-start-codex-same-host-on.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "SessionStart":
+    raise SystemExit("Codex same-host-review SessionStart emitted the wrong hook event")
+text = output.get("additionalContext", "")
+required = [
+    "OH_NO_SAME_HOST_REVIEW",
+    "Same-host review is ON",
+    "session-scoped, per-host setting",
+    "do NOT attempt any opposite-host consult",
+    "fusion-rescue opposite-host consult",
+    "same-host-parallel-selected",
+    "user-driven, not availability-driven",
+    "require-cross-host request in the current user message overrides this toggle",
+    "does not affect codexExecutor executor delegation",
+    "verifier's single self-host pass",
+    "one-hop recursion guard",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"Codex same-host-review SessionStart missing load-bearing phrases: {missing}")
+PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review off >/dev/null
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    >"$temp_data/session-start-codex-same-host-off.json"
+  "$PYTHON_BIN" - "$temp_data/session-start-codex-same-host-off.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_SAME_HOST_REVIEW" in text:
+    raise SystemExit("Codex SessionStart included same-host-review block while sameHostReview is OFF")
+if "same-host-parallel-selected" in text:
+    raise SystemExit("Codex SessionStart included same-host-review selected mode while OFF")
 PY
 
   local blocked_session_home
@@ -4187,6 +4248,273 @@ print("ok - live Codex cross-host Same-Host Parallel Fallback dispatched two sam
 PY
 }
 
+run_same_host_review_live_test() {
+  if [[ "$RUN_SAME_HOST_REVIEW_LIVE" != "1" ]]; then
+    log "Skipping live Codex same-host-review smoke test"
+    printf 'Run with --same-host-review-live or OH_NO_SAME_HOST_REVIEW_LIVE=1 to verify same-host-review suppresses an otherwise-available Claude consult.\n' >&2
+    return
+  fi
+
+  log "Running live Codex same-host-review suppression smoke test"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/same-host-review-codex.jsonl"
+  local err_file="$RUN_DIR/same-host-review-codex.err"
+  local summary_file="$RUN_DIR/same-host-review-codex.summary.json"
+  local unavailable_reason="opposite host unavailable — suppression is untestable here"
+
+  if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1 || ! "$CLAUDE_BIN" --help >/dev/null 2>&1; then
+    log "Skipping live Codex same-host-review smoke test: ${unavailable_reason}"
+    "$PYTHON_BIN" - "$summary_file" "$unavailable_reason" "$CLAUDE_BIN" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+Path(sys.argv[1]).write_text(
+    json.dumps(
+        {"status": "skipped", "proven": False, "reason": sys.argv[2], "claude_bin": sys.argv[3]},
+        indent=2,
+        sort_keys=True,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+PY
+    printf 'same-host-review live skipped: %s\n' "$unavailable_reason" >&2
+    return
+  fi
+
+  local config_dir live_home live_workspace
+  config_dir="$(mktemp -d)"
+  live_home="$(mktemp -d)"
+  live_workspace="$(mktemp -d)"
+  local _same_host_review_cleanup_done=0
+  _same_host_review_cleanup() {
+    if [[ "$_same_host_review_cleanup_done" == "0" ]]; then
+      rm -rf "$config_dir" "$live_home" "$live_workspace"
+      _same_host_review_cleanup_done=1
+    fi
+  }
+  trap '_same_host_review_cleanup' RETURN EXIT INT TERM
+
+  for entry in auth.json config.json config.toml plugins marketplaces plugin-cache agents; do
+    if [[ -e "$CODEX_HOME_DIR/$entry" ]]; then
+      cp -R "$CODEX_HOME_DIR/$entry" "$live_home/"
+    fi
+  done
+
+  CODEX_HOME="$live_home" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
+    >"$RUN_DIR/same-host-review-codex-agents-install.out" \
+    2>"$RUN_DIR/same-host-review-codex-agents-install.err" || {
+      cat "$RUN_DIR/same-host-review-codex-agents-install.err" >&2
+      _same_host_review_cleanup
+      trap - RETURN INT TERM; trap cleanup_named_agent_temp_roots EXIT
+      fail "Codex same-host-review live test could not install isolated user-scope custom agents"
+    }
+
+  OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  cat >"$live_workspace/review_target.py" <<'PY'
+def can_export(user):
+    return user.is_admin or user.email.endswith("@example.com")
+PY
+
+  local prompt
+  prompt=$(cat <<'PROMPT'
+Use the oh-no-harness:verification-before-completion skill for this read-only live smoke test. Do not edit files, create artifacts, install plugins, or run nested rescue.
+
+The session bootstrap has the same-host review toggle enabled. Exercise exactly one security-sensitive review gate over this tiny in-place diff in review_target.py:
+
+```diff
+ def can_export(user):
+-    return user.is_admin
++    return user.is_admin or user.email.endswith("@example.com")
+```
+
+Because the same-host review toggle is enabled, suppress the opposite-host consult even though it is available. Use the current-host same-host parallel review path for the code-review gate, synthesize one verdict, and record the exact selected-mode token from the bootstrap block in your final answer. Do not call the opposite host and do not run any opposite-host command. End with the exact marker OH_NO_CODEX_SAME_HOST_REVIEW_OK.
+PROMPT
+)
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$live_workspace"
+    --sandbox danger-full-access
+    --ephemeral
+    --skip-git-repo-check
+  )
+
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  local run_rc=0
+  if CODEX_HOME="$live_home" OH_NO_CONFIG_DIR="$config_dir" OH_NO_MAX_BUDGET_USD="$LIVE_MAX_BUDGET_USD" CLAUDE_BIN="$CLAUDE_BIN" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"; then
+    run_rc=0
+  else
+    run_rc=$?
+    log "Codex same-host-review live invocation exited non-zero (rc=$run_rc); proceeding to parser for diagnosis"
+  fi
+
+  local parser_rc=0
+  if "$PYTHON_BIN" - "$out_file" "$err_file" "$live_home" "$summary_file" "$CLAUDE_BIN" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, live_home, summary_path, claude_bin = sys.argv[1:6]
+SELECTED = "same-host-parallel-selected"
+FINAL = "OH_NO_CODEX_SAME_HOST_REVIEW_OK"
+
+# This lane copies real Codex auth/config into an isolated home and runs
+# `codex exec --sandbox danger-full-access`, persisting stdout/stderr/session
+# transcripts under .oh-no/test-runs. Mirror the sibling Codex live lanes and
+# fail closed if any transcript surface exposes a secret-like value, so copied
+# credentials cannot leak into persistent test artifacts.
+SECRET_PATTERNS = [
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+
+def load_jsonl(path):
+    rows = []
+    p = Path(path)
+    if not p.is_file():
+        return rows
+    with p.open("r", encoding="utf-8", errors="replace") as fh:
+        for index, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            rows.append((str(p), index, json.loads(line)))
+    return rows
+
+
+def command_texts_from_event(data):
+    item = data.get("item") or {}
+    payload = data.get("payload") or {}
+    texts = []
+    command = item.get("command")
+    if isinstance(command, str):
+        texts.append(command)
+    if payload.get("type") == "function_call":
+        name = payload.get("name")
+        args_text = str(payload.get("arguments") or "")
+        try:
+            args = json.loads(args_text) if args_text else {}
+        except json.JSONDecodeError:
+            args = {}
+        if isinstance(args, dict):
+            for key in ("cmd", "command"):
+                if isinstance(args.get(key), str):
+                    texts.append(args[key])
+        if name in {"exec_command", "functions.exec_command"} and args_text:
+            texts.append(args_text)
+    return texts
+
+
+def command_patterns(binary):
+    escaped = re.escape(binary)
+    basename = re.escape(Path(binary).name)
+    return [
+        re.compile(r"(^|[;&|'\"]\s*)\$\{CLAUDE_BIN:-claude\}"),
+        re.compile(rf"(^|[;&|'\"]\s*){escaped}(?=$|\s|[;&|'\"])"),
+        re.compile(rf"(^|[;&|'\"]\s*){basename}(?=$|\s|[;&|'\"])"),
+        re.compile(r"\bexecFile\([^)]*claude", re.IGNORECASE),
+        re.compile(r"\bspawnSync\([^)]*claude", re.IGNORECASE),
+        re.compile(r"\bsubprocess\.[A-Za-z_]+\([^)]*claude", re.IGNORECASE),
+    ]
+
+
+patterns = command_patterns(claude_bin)
+main_rows = load_jsonl(out_path)
+err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
+if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_text.lower():
+    raise SystemExit(f"Codex same-host-review live saw spawn failure in stderr: {err_text[:2000]!r}")
+if any(pattern.search(err_text) for pattern in SECRET_PATTERNS):
+    raise SystemExit("Codex same-host-review live exposed a secret-like value in stderr")
+
+session_rows = []
+sessions_root = Path(live_home) / "sessions"
+if sessions_root.is_dir():
+    for path in sessions_root.rglob("*.jsonl"):
+        session_rows.extend(load_jsonl(path))
+
+claude_command_hits = []
+assistant_text_parts = []
+failed_spawns = []
+
+for source, index, data in main_rows + session_rows:
+    if any(pattern.search(collect_text(data)) for pattern in SECRET_PATTERNS):
+        raise SystemExit(
+            f"Codex same-host-review live exposed a secret-like value in {source} near line {index}"
+        )
+    for command in command_texts_from_event(data):
+        if any(pattern.search(command) for pattern in patterns):
+            claude_command_hits.append((source, index, command[:1000]))
+    item = data.get("item") or {}
+    if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "failed":
+        failed_spawns.append((source, index, collect_text(item)[:1000]))
+    if source == str(Path(out_path)):
+        text = item.get("text") or data.get("result", "")
+        if text:
+            assistant_text_parts.append(str(text))
+
+if failed_spawns:
+    raise SystemExit(f"Codex same-host-review live saw failed spawn_agent calls: {failed_spawns!r}")
+assistant_text = "\n".join(assistant_text_parts)
+if FINAL not in assistant_text:
+    raise SystemExit(f"Codex same-host-review live did not return final marker {FINAL}")
+if SELECTED not in assistant_text:
+    raise SystemExit(f"Codex same-host-review live did not record selected mode {SELECTED}")
+if claude_command_hits:
+    raise SystemExit(
+        "Codex same-host-review live invoked Claude despite same-host-review ON: "
+        f"{claude_command_hits!r}"
+    )
+
+summary = {
+    "status": "passed",
+    "proven": True,
+    "opposite_host_preflight": "available",
+    "claude_bin": claude_bin,
+    "selected_mode": SELECTED,
+    "claude_command_invocations": 0,
+    "final_marker": FINAL,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print("ok - live Codex same-host-review selected same-host-parallel and suppressed otherwise-available Claude consult")
+PY
+  then
+    parser_rc=0
+  else
+    parser_rc=$?
+  fi
+
+  _same_host_review_cleanup
+  trap - RETURN INT TERM; trap cleanup_named_agent_temp_roots EXIT
+
+  if [[ "$parser_rc" != "0" ]]; then
+    return "$parser_rc"
+  fi
+  if [[ "$run_rc" != "0" ]]; then
+    log "Codex same-host-review live command invocation failed despite parser-accepted transcript (rc=$run_rc)"
+    return "$run_rc"
+  fi
+}
+
 run_parallel_live_test() {
   if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
     log "Skipping live Codex parallel-subagent smoke test"
@@ -4983,6 +5311,7 @@ main() {
   run_named_agents_live_test
   run_fusion_rescue_live_test
   run_codex_cross_host_fallback_live_test
+  run_same_host_review_live_test
   run_parallel_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests
@@ -4990,4 +5319,9 @@ main() {
   log "All requested Codex checks passed"
 }
 
-main "$@"
+# Run main only when executed directly. When sourced, main is skipped so focused
+# offline functions such as validate_codex_hooks can be exercised without the
+# full install/live suite.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

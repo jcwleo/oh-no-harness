@@ -179,7 +179,7 @@ Stop and ask or escalate to `plan-reviewer` when:
 ## Output Gate
 
 <HARD-GATE>
-Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
+Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, `same-host-parallel-selected`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
 </HARD-GATE>
 
 ## Output
@@ -286,6 +286,11 @@ cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
 host is Claude Code. This section carries only the Codex-to-Claude invocation;
 the activation, synthesis, and recursion-guard semantics live in the calling
 skill core and the shared doc.
+
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
 
 From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
 active Codex permission state is exactly `danger-full-access`. If the state is

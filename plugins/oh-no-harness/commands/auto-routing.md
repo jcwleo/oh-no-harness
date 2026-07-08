@@ -1,6 +1,6 @@
 ---
 description: "Turn Oh No Harness skill-selection guidance on, off, or status."
-argument-hint: "[on|off|status | codex-executor on|off|status]"
+argument-hint: "[on|off|status | codex-executor on|off|status | same-host-review on|off|status]"
 disable-model-invocation: false
 ---
 

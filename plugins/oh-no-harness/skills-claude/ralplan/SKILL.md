@@ -372,7 +372,7 @@ Consensus loop:
 - Planner revision v2: not needed | completed from blocking findings
 - Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
 - Re-review: not required (no blocking findings) | completed
-- Plan review independence mode: cross-host | same-host-parallel-fallback | inline-fallback (reason); when a re-review ran, record per pass, e.g. `v1: cross-host; v2: same-host-parallel-fallback`
+- Plan review independence mode: cross-host | same-host-parallel-fallback | same-host-parallel-selected | inline-fallback (reason); when a re-review ran, record per pass, e.g. `v1: cross-host; v2: same-host-parallel-fallback`
 
 Findings ledger:
 - <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | disposition: accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
@@ -395,9 +395,10 @@ to the approval brief until the gate passes or the plan is explicitly marked
 
 The plan is also invalid if any recorded review pass's independence mode is
 missing or non-compliant per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`: a recorded `cross-host` or
-`same-host-parallel-fallback` mode, or an explicit `inline-fallback` with reason,
-is required before the approval brief.
+`## Recording the Independence Mode`: a recorded `cross-host`,
+`same-host-parallel-fallback`, or user-selected `same-host-parallel-selected`
+mode, or an explicit `inline-fallback` with reason, is required before the
+approval brief.
 
 ## Direction Preservation Gate
 
@@ -674,7 +675,7 @@ Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposit
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 - Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
 - Re-review: {not required (no blocking findings) | completed}
-- Plan review independence mode: {cross-host | same-host-parallel-fallback | inline-fallback (reason); when a re-review ran, record per pass, e.g. v1: cross-host; v2: same-host-parallel-fallback}
+- Plan review independence mode: {cross-host | same-host-parallel-fallback | same-host-parallel-selected | inline-fallback (reason); when a re-review ran, record per pass, e.g. v1: cross-host; v2: same-host-parallel-fallback}
 
 Findings ledger:
 - {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
@@ -911,6 +912,11 @@ cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
 opposite host is Codex. This section carries only the Claude-to-Codex
 invocation; the activation, synthesis, and recursion-guard semantics live in the
 calling skill core and the shared doc.
+
+When the session context carries the same-host review toggle block, skip the
+opposite-host preflight and consult entirely; do not probe availability. The
+calling skill runs the Same-Host Parallel pair and records
+`same-host-parallel-selected`.
 
 From Claude Code, the current-host main agent consults Codex only by dispatching
 the dedicated read-only consult agent `oh-no-harness:<role>-codex` for the

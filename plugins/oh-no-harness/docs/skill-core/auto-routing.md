@@ -1,16 +1,17 @@
 ---
 name: auto-routing
-description: Use when the user wants to manage Oh No Harness session toggles, such as turning automatic skill-selection guidance on or off, checking routing status, making the bootstrap prompt more or less assertive across sessions, or turning the Codex executor delegation toggle on or off.
-argument-hint: "[on|off|status | codex-executor on|off|status]"
+description: Use when the user wants to manage Oh No Harness session toggles, such as turning automatic skill-selection guidance on or off, checking routing status, making the bootstrap prompt more or less assertive across sessions, turning the Codex executor delegation toggle on or off, or turning same-host review mode on or off.
+argument-hint: "[on|off|status | codex-executor on|off|status | same-host-review on|off|status]"
 ---
 
 # Auto Routing
 
 Auto Routing is the manager of the Oh No Harness **session toggles**. It manages
-two independent, session-scoped preferences stored in the same `config.json`:
-the `autoRouting` skill-selection toggle described here, and the `codexExecutor`
+three independent, session-scoped preferences stored in the same `config.json`:
+the `autoRouting` skill-selection toggle described here, the `codexExecutor`
 executor-delegation toggle described under Codex Executor Delegation Toggle
-below. Both are read at bootstrap/session-start.
+below, and the `sameHostReview` same-host review toggle described under
+Same-Host Review Toggle below. All three are read at bootstrap/session-start.
 
 Auto Routing (the `autoRouting` toggle) controls whether a supported platform
 bootstrap hook adds stronger skill-selection guidance to `using-oh-no-harness`.
@@ -34,6 +35,9 @@ Use when the user asks to:
 - enable or disable delegating the executor role's implementation work to Codex
   (the `codexExecutor` toggle)
 - check current codex-executor delegation status
+- enable or disable same-host review for the shared review/consult channel
+  (the `sameHostReview` toggle)
+- check current same-host-review status
 
 Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
 
@@ -74,6 +78,24 @@ Shared facts (all platforms):
   Whether the toggle produces a runtime effect depends on the active platform
   (see Platform Behavior and the platform runtime document).
 
+## Same-Host Review Toggle
+
+The `sameHostReview` toggle is the third session toggle this skill manages.
+Default OFF. When ON, it selects same-host review for the shared cross-host
+review roles (`plan-reviewer`, `code-reviewer`, `debugger`) and the Fusion
+Rescue opposite-host consult; the calling skill records
+`same-host-parallel-selected`.
+
+Scope: it only controls the review/consult channel. It never re-binds the
+executor role; `sameHostReview` and `codexExecutor` are independent toggles.
+
+State is per host. Claude Code uses its plugin-data config path; Codex uses the
+XDG config path resolved by the host-aware `config_dir` logic in
+`scripts/oh-no-config`, not a co-installed Claude config. On Codex, runtime
+effect requires plugin hooks enabled. Changes take effect at the next
+SessionStart event. An explicit `require-cross-host` request in the current user
+message wins over the stored toggle.
+
 ## Configuration
 
 The setting is stored outside the plugin cache so updates do not overwrite it.
@@ -93,7 +115,7 @@ Fallback location when no platform plugin-data directory exists:
 ${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json
 ```
 
-Stored shape (both toggles are independent sibling keys):
+Stored shape (three toggles are independent sibling keys):
 
 ```json
 {
@@ -102,13 +124,16 @@ Stored shape (both toggles are independent sibling keys):
   },
   "codexExecutor": {
     "enabled": false
+  },
+  "sameHostReview": {
+    "enabled": false
   }
 }
 ```
 
-`codexExecutor` defaults to OFF (`enabled: false`). Writing one toggle must
-preserve the sibling toggle's value; never clobber `autoRouting` when changing
-`codexExecutor`, or vice versa.
+`codexExecutor` and `sameHostReview` default to OFF (`enabled: false`). Writing
+one toggle must preserve the other two keys' values; never clobber
+`autoRouting`, `codexExecutor`, or `sameHostReview` when changing another.
 
 ## Commands
 
@@ -139,6 +164,15 @@ subcommand, mirroring the auto-routing verbs:
 "<plugin-root>/scripts/oh-no-config" codex-executor off
 ```
 
+It also manages the `sameHostReview` toggle through the `same-host-review`
+subcommand, mirroring the same verbs:
+
+```bash
+"<plugin-root>/scripts/oh-no-config" same-host-review status
+"<plugin-root>/scripts/oh-no-config" same-host-review on
+"<plugin-root>/scripts/oh-no-config" same-host-review off
+```
+
 ## Response Rules
 
 - For `on`, enable the setting, report the config path, and tell the user to
@@ -154,7 +188,15 @@ subcommand, mirroring the auto-routing verbs:
   effect.
 - For `codex-executor status`, report whether codex-executor delegation is on or
   off and where the setting is stored.
-- When changing either toggle, preserve the sibling toggle's value; do not clobber
-  `autoRouting` or `codexExecutor` when writing the other.
+- For `same-host-review on`, enable the `sameHostReview` toggle, report the
+  config path, and tell the user to restart or clear the active platform session
+  before same-host review takes effect.
+- For `same-host-review off`, disable the `sameHostReview` toggle, report the
+  config path, and tell the user to restart or clear the session before the
+  change takes effect.
+- For `same-host-review status`, report whether same-host review is on or off and
+  where the setting is stored.
+- When changing any toggle, preserve the other two keys' values; do not clobber
+  `autoRouting`, `codexExecutor`, or `sameHostReview` when writing another.
 - If Bash is unavailable, explain the config file shape without claiming the setting changed.
 - Do not invoke workflow skills from this configuration skill.

@@ -18,3 +18,13 @@ executor role behaves as the native `oh-no-executor` — delegation-to-Codex is 
 no-op there. The `oh-no-config codex-executor on|off|status` verbs still read and
 write the stored preference for portability, but they do not inject a delegation
 block on Codex.
+
+Unlike `autoRouting` and `codexExecutor`, the `sameHostReview` toggle DOES inject
+`<OH_NO_SAME_HOST_REVIEW>` on Codex when plugin hooks are enabled. Without plugin
+hooks, `oh-no-config same-host-review on|off|status` stores state but has no
+Codex runtime effect. Config state is per-host: Codex reads the XDG path
+`${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json`, not a co-installed
+Claude Code plugin-data config.
+
+Non-Claude/non-Codex hosts (for example Cursor) receive the block best-effort via
+the shared SessionStart envelope and may co-resolve config with a Claude install.

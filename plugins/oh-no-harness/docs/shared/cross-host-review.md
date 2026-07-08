@@ -75,6 +75,14 @@ require-cross-host, the review blocks if the opposite host cannot be reached.
 The blocking output names which host was required, what was attempted, the
 failure class, and the next local fallback the user can approve.
 
+Same-host mode (user-selected): when the session context carries the same-host
+review toggle block, or when the user explicitly selects same-host review, do not
+probe or attempt the opposite host even when it is available. The choice is
+user-driven, not availability-driven; run the Same-Host Parallel pair using the
+`## Same-Host Parallel Fallback` stance/lens table, synthesis rules, and judge
+rules, and record `same-host-parallel-selected`. An explicit `require-cross-host`
+request in the current user message overrides the session toggle.
+
 Cross-host review activates only when the opposite host is actually available,
 which bounds the added cost and latency to dual-host installs.
 
@@ -242,6 +250,9 @@ independence-mode value:
 - `cross-host`: the synthesized current-host + opposite-host pair.
 - `same-host-parallel-fallback`: the two-same-host-agent fallback above,
   synthesized when the opposite host was unavailable.
+- `same-host-parallel-selected`: the two-same-host-agent pair ran because the
+  user selected same-host mode, not because the opposite host was unavailable;
+  this is a distinct cause from `same-host-parallel-fallback`.
 - `inline-fallback`: a single inline pass — compliant only with an explicit
   subagent-unavailable or unsafe-to-isolate reason recorded with it. An
   unlabelled single inline pass is a gap, not a pass.
@@ -275,3 +286,6 @@ require-cross-host mode, block instead of degrading and name the failure class
 plus the next local fallback. Record only the failure class,
 command/plugin/capability name, and path or auth status — never secret values,
 config contents, or environment dumps.
+
+A recorded `same-host-parallel-selected` note is a mode note (user-selected), not
+an unavailability fallback; do not record it as a fallback.

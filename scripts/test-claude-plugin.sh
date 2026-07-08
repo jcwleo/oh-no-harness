@@ -25,6 +25,7 @@ RUN_RALPLAN_XHOST_LIVE="${OH_NO_RALPLAN_XHOST_LIVE:-0}"
 RUN_VBC_XHOST_LIVE="${OH_NO_VBC_XHOST_LIVE:-0}"
 RUN_SYSDEBUG_XHOST_LIVE="${OH_NO_SYSDEBUG_XHOST_LIVE:-0}"
 RUN_PARALLEL_EXECUTOR_LIVE="${OH_NO_PARALLEL_EXECUTOR_LIVE:-0}"
+RUN_SAME_HOST_REVIEW_LIVE="${OH_NO_SAME_HOST_REVIEW_LIVE:-0}"
 # Flag-only gate (no OH_NO_* env backing on purpose): this write-capable cross-host
 # delegation lane must stay release-safe. Env-backing it would require adding the var
 # to test-harness-lane-contract.py LIVE_ENV_BY_HOST and clearing it in scripts/release;
@@ -126,6 +127,11 @@ Options:
                          smoke test: an ordinary STANDARD/THOROUGH run over two
                          disjoint stories must proactively dispatch a concurrent
                          executor batch plus a post-batch per-executor scope check.
+  --same-host-review-live
+                         Run live same-host-review suppression smoke test: with the
+                         sameHostReview toggle ON and Codex companion preflighted
+                         available, a single review-gated session must select
+                         same-host-parallel and make no Codex consult.
   --codex-executor-delegation-live
                          Run live codex-executor delegation smoke test: with the
                          codexExecutor toggle ON, ralph must dispatch
@@ -161,6 +167,7 @@ Environment overrides:
   OH_NO_CROSS_HOST_REVIEW_LIVE,
   OH_NO_RALPLAN_XHOST_LIVE, OH_NO_VBC_XHOST_LIVE, OH_NO_SYSDEBUG_XHOST_LIVE,
   OH_NO_PARALLEL_EXECUTOR_LIVE,
+  OH_NO_SAME_HOST_REVIEW_LIVE,
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
@@ -211,6 +218,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --parallel-executor-live)
       RUN_PARALLEL_EXECUTOR_LIVE=1
+      shift
+      ;;
+    "--same-host-review-live")
+      RUN_SAME_HOST_REVIEW_LIVE=1
       shift
       ;;
     --codex-executor-delegation-live)
@@ -374,6 +385,82 @@ PY
 cached_plugin_root() {
   local claude_home="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
   printf '%s/plugins/cache/%s/%s/%s\n' "$claude_home" "$MARKETPLACE_NAME" "$PLUGIN_NAME" "$(plugin_version)"
+}
+
+resolve_codex_companion_path() {
+  "$PYTHON_BIN" - <<'PY'
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+
+def emit_if_companion(path: Path) -> bool:
+    if path.name == "codex-companion.mjs" and path.is_file():
+        print(path)
+        return True
+    companion = path / "scripts" / "codex-companion.mjs"
+    if companion.is_file():
+        print(companion)
+        return True
+    return False
+
+
+override = os.environ.get("OH_NO_CODEX_COMPANION_PATH")
+if override is not None:
+    sys.exit(0 if emit_if_companion(Path(override).expanduser()) else 1)
+
+claude_home = Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude"))
+manifest = claude_home / "installed_plugins.json"
+
+
+def walk(value, context=""):
+    if isinstance(value, dict):
+        yield value, context
+        for key, child in value.items():
+            yield from walk(child, f"{context} {key}")
+    elif isinstance(value, list):
+        for child in value:
+            yield from walk(child, context)
+
+
+if manifest.is_file():
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except Exception:
+        data = None
+    if data is not None:
+        for item, context in walk(data):
+            haystack = " ".join(
+                str(item.get(key, ""))
+                for key in ("id", "name", "source", "package", "marketplaceName", "pluginName")
+            ).lower() + " " + context.lower()
+            if "openai-codex" not in haystack:
+                continue
+            for key in ("installPath", "install_path", "path"):
+                raw = item.get(key)
+                if isinstance(raw, str) and raw:
+                    if emit_if_companion(Path(raw).expanduser()):
+                        sys.exit(0)
+
+
+def version_key(path: Path):
+    text = path.parent.parent.name
+    parts = re.split(r"([0-9]+)", text)
+    return tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts)
+
+
+cache_root = claude_home / "plugins" / "cache" / "openai-codex" / "codex"
+candidates = sorted(cache_root.glob("*/scripts/codex-companion.mjs"), key=version_key)
+if candidates:
+    print(candidates[-1])
+    sys.exit(0)
+
+sys.exit(1)
+PY
 }
 
 cache_manifest_matches_source() {
@@ -852,6 +939,89 @@ PY
   rm -rf "$temp_data"
   ok "session-start injects the codex-executor delegation block only when ON and only on Claude Code"
 
+  # same-host-review block: OFF => absent; ON => present on Claude Code and
+  # Codex-sim hosts. This intentionally inverts the codex-executor host gate.
+  temp_data="$(mktemp -d)"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/same-host-off-claude.json"
+  "$PYTHON_BIN" - "$temp_data/same-host-off-claude.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_SAME_HOST_REVIEW" in text:
+    raise SystemExit("same-host-review block present on Claude Code while OFF")
+if "same-host-parallel-selected" in text:
+    raise SystemExit("same-host-review selected mode present on Claude Code while OFF")
+PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/same-host-on-claude.json"
+  "$PYTHON_BIN" - "$temp_data/same-host-on-claude.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+required = [
+    "OH_NO_SAME_HOST_REVIEW",
+    "Same-host review is ON",
+    "session-scoped, per-host setting",
+    "do NOT attempt any opposite-host consult",
+    "plan-reviewer",
+    "code-reviewer",
+    "debugger",
+    "fusion-rescue opposite-host consult",
+    "Same-Host Parallel pair per docs/shared/cross-host-review.md",
+    "same-host-parallel-selected",
+    "user-driven, not availability-driven",
+    "do NOT probe the opposite host",
+    "same-host-parallel-fallback",
+    "require-cross-host request in the current user message overrides this toggle",
+    "does not affect codexExecutor executor delegation",
+    "verifier's single self-host pass",
+    "one-hop recursion guard",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"same-host-review block missing load-bearing phrases on Claude Code: {missing}")
+PY
+  CODEX_HOME="$temp_data/codex-home" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/same-host-on-codex-host.json"
+  "$PYTHON_BIN" - "$temp_data/same-host-on-codex-host.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+output = data.get("hookSpecificOutput", {})
+if output.get("hookEventName") != "SessionStart":
+    raise SystemExit("same-host-review Codex-sim emitted the wrong hook event")
+text = output.get("additionalContext", "")
+required = [
+    "OH_NO_SAME_HOST_REVIEW",
+    "Same-host review is ON",
+    "same-host-parallel-selected",
+    "do NOT attempt any opposite-host consult",
+]
+missing = [needle for needle in required if needle not in text]
+if missing:
+    raise SystemExit(f"same-host-review block missing on Codex-sim while ON: {missing}")
+PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review off >/dev/null
+  CODEX_HOME="$temp_data/codex-home-off" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/same-host-off-codex-host.json"
+  "$PYTHON_BIN" - "$temp_data/same-host-off-codex-host.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    text = json.dumps(json.load(fh))
+if "OH_NO_SAME_HOST_REVIEW" in text:
+    raise SystemExit("same-host-review block present on Codex-sim while OFF")
+if "same-host-parallel-selected" in text:
+    raise SystemExit("same-host-review selected mode present on Codex-sim while OFF")
+PY
+  rm -rf "$temp_data"
+  ok "session-start injects the same-host-review block when ON on Claude Code and Codex hosts"
+
   # Config sibling preservation (no clobber): toggling one key must preserve the other
   # in both directions. `is-enabled` reports via EXIT CODE (no stdout).
   temp_data="$(mktemp -d)"
@@ -863,20 +1033,82 @@ PY
     || { rm -rf "$temp_data"; fail "config sibling: codex-executor on clobbered autoRouting"; }
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
     || { rm -rf "$temp_data"; fail "config sibling: codex-executor on did not persist"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: same-host-review on clobbered autoRouting"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: same-host-review on clobbered codexExecutor"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: same-host-review on did not persist"; }
+  "$PYTHON_BIN" - "$temp_data/config.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+for key in ("autoRouting", "codexExecutor", "sameHostReview"):
+    if key not in data:
+        raise SystemExit(f"config sibling: missing key after same-host-review on: {key}")
+    if data[key].get("enabled") is not True:
+        raise SystemExit(f"config sibling: expected {key}.enabled true after same-host-review on")
+PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review off >/dev/null
+  if OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled; then
+    rm -rf "$temp_data"
+    fail "config sibling: same-host-review off did not disable sameHostReview"
+  fi
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: same-host-review off clobbered autoRouting"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: same-host-review off clobbered codexExecutor"; }
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor off >/dev/null
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" is-enabled \
     || { rm -rf "$temp_data"; fail "config sibling: codex-executor off clobbered autoRouting"; }
   rm -rf "$temp_data"
   temp_data="$(mktemp -d)"
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: codex-executor on clobbered sameHostReview"; }
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" off >/dev/null
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
     || { rm -rf "$temp_data"; fail "config sibling: autoRouting off clobbered codexExecutor"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: autoRouting off clobbered sameHostReview"; }
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor is-enabled \
     || { rm -rf "$temp_data"; fail "config sibling: autoRouting on clobbered codexExecutor"; }
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled \
+    || { rm -rf "$temp_data"; fail "config sibling: autoRouting on clobbered sameHostReview"; }
   rm -rf "$temp_data"
-  ok "oh-no-config preserves the sibling toggle value across writes in both directions"
+  ok "oh-no-config preserves sibling toggle values across writes in both directions"
+
+  # Host-aware config path: explicit test override still wins, Codex-positive
+  # hosts use XDG even when a Claude plugin-data directory exists, and Claude or
+  # no-signal callers keep today's plugin-data-preferred behavior.
+  temp_data="$(mktemp -d)"
+  local fake_home fake_plugin_data expected_plugin_config expected_xdg_config actual_path no_signal_path claude_path
+  fake_home="$temp_data/home"
+  fake_plugin_data="$fake_home/.claude/plugins/data/oh-no-harness-xxxx"
+  expected_plugin_config="$fake_plugin_data/config.json"
+  expected_xdg_config="$fake_home/.config/oh-no-harness/config.json"
+  mkdir -p "$fake_plugin_data" "$fake_home/.config"
+  actual_path="$(env -u OH_NO_CONFIG_DIR HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" PLUGIN_ROOT="/tmp/codex-plugin" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+  [[ "$actual_path" == "$expected_xdg_config" ]] \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: Codex-sim resolved ${actual_path}, expected ${expected_xdg_config}"; }
+  no_signal_path="$(env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI -u CLAUDE_PLUGIN_ROOT HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+  [[ "$no_signal_path" == "$expected_plugin_config" ]] \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: no-signal resolved ${no_signal_path}, expected ${expected_plugin_config}"; }
+  env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI -u CLAUDE_PLUGIN_ROOT HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  claude_path="$(env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" CLAUDE_PLUGIN_ROOT="/tmp/claude-plugin" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+  [[ "$claude_path" == "$no_signal_path" ]] \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: no-signal writer ${no_signal_path} split from Claude reader ${claude_path}"; }
+  [[ "$claude_path" == "$expected_plugin_config" ]] \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: Claude-sim resolved ${claude_path}, expected ${expected_plugin_config}"; }
+  env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" CLAUDE_PLUGIN_ROOT="/tmp/claude-plugin" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review is-enabled \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: Claude-sim did not read the no-signal same-host-review write"; }
+  rm -rf "$temp_data"
+  ok "oh-no-config resolves host-aware per-host config paths without splitting Claude/no-signal reads"
 
   temp_data="$(mktemp -d)"
   local temp_path
@@ -5154,6 +5386,223 @@ PY
   fi
 }
 
+run_same_host_review_live_test() {
+  if [[ "$RUN_SAME_HOST_REVIEW_LIVE" != "1" ]]; then
+    log "Skipping live Claude same-host-review smoke test"
+    printf 'Run with --same-host-review-live or OH_NO_SAME_HOST_REVIEW_LIVE=1 to verify same-host-review suppresses an otherwise-available Codex consult.\n' >&2
+    return
+  fi
+
+  log "Running live Claude same-host-review suppression smoke test (${LIVE_LOAD_MODE}, model ${LIVE_MODEL})"
+  mkdir -p "$RUN_DIR"
+  local out_file="$RUN_DIR/same-host-review-claude.jsonl"
+  local err_file="$RUN_DIR/same-host-review-claude.err"
+  local summary_file="$RUN_DIR/same-host-review-claude.summary.json"
+  local unavailable_reason="opposite host unavailable — suppression is untestable here"
+
+  local companion_path
+  if ! companion_path="$(resolve_codex_companion_path)"; then
+    log "Skipping live Claude same-host-review smoke test: ${unavailable_reason}"
+    "$PYTHON_BIN" - "$summary_file" "$unavailable_reason" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+Path(sys.argv[1]).write_text(
+    json.dumps({"status": "skipped", "proven": False, "reason": sys.argv[2]}, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+    printf 'same-host-review live skipped: %s\n' "$unavailable_reason" >&2
+    return
+  fi
+
+  local config_dir live_workspace
+  config_dir="$(mktemp -d)"
+  live_workspace="$(mktemp -d)"
+  local _same_host_review_cleanup_done=0
+  _same_host_review_cleanup() {
+    if [[ "$_same_host_review_cleanup_done" == "0" ]]; then
+      rm -rf "$config_dir" "$live_workspace"
+      _same_host_review_cleanup_done=1
+    fi
+  }
+  trap '_same_host_review_cleanup' RETURN EXIT INT TERM
+
+  OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" same-host-review on >/dev/null
+  cat >"$live_workspace/review_target.py" <<'PY'
+def can_export(user):
+    return user.is_admin or user.email.endswith("@example.com")
+PY
+
+  local prompt
+  prompt=$(cat <<'PROMPT'
+Use /oh-no-harness:verification-before-completion for this read-only live smoke test. Do not edit files, create artifacts, install plugins, or run nested rescue.
+
+The session bootstrap has the same-host review toggle enabled. Exercise exactly one security-sensitive review gate over this tiny in-place diff in review_target.py:
+
+```diff
+ def can_export(user):
+-    return user.is_admin
++    return user.is_admin or user.email.endswith("@example.com")
+```
+
+Because the same-host review toggle is enabled, suppress the opposite-host consult even though it is available. Use the current-host same-host parallel review path for the code-review gate, synthesize one verdict, and record the exact selected-mode token from the bootstrap block in your final answer. Do not call the opposite host, do not run a companion process, and do not dispatch an opposite-host consult role. End with the exact marker OH_NO_CLAUDE_SAME_HOST_REVIEW_OK.
+PROMPT
+)
+
+  local cmd=(
+    "$CLAUDE_BIN"
+    --print
+    --verbose
+    --output-format stream-json
+    --include-hook-events
+    --model "$LIVE_MODEL"
+    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+    --permission-mode bypassPermissions
+    --add-dir "$live_workspace"
+    --tools default
+    --no-session-persistence
+    --system-prompt "You are a live smoke test runner for Oh No Harness same-host-review. Keep the run read-only except for host scratch state, and do not install plugins."
+  )
+  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
+    cmd+=(--plugin-dir "$PLUGIN_ROOT")
+  fi
+
+  local run_rc=0
+  if (
+    cd "$live_workspace"
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" "$prompt"
+  ) >"$out_file" 2>"$err_file"; then
+    run_rc=0
+  else
+    run_rc=$?
+    log "Claude same-host-review live invocation exited non-zero (rc=$run_rc); proceeding to parser for diagnosis"
+  fi
+
+  local parser_rc=0
+  if "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$companion_path" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+out_path, err_path, summary_path, companion_path = sys.argv[1:5]
+SELECTED = "same-host-parallel-selected"
+FINAL = "OH_NO_CLAUDE_SAME_HOST_REVIEW_OK"
+
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+
+def load_rows(path):
+    rows = []
+    with open(path, "r", encoding="utf-8") as fh:
+        for index, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            rows.append((index, json.loads(line)))
+    return rows
+
+
+rows = load_rows(out_path)
+err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
+if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
+    raise SystemExit(f"Claude same-host-review live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
+
+assistant_text_parts = []
+codex_companion_invocations = []
+codex_consult_dispatches = []
+permission_denials = []
+errors = []
+
+consult_role_pattern = re.compile(r"^oh-no-harness:[a-z0-9-]+-codex$")
+
+for index, data in rows:
+    if data.get("type") == "assistant":
+        for part in data.get("message", {}).get("content", []):
+            ptype = part.get("type")
+            if ptype == "text":
+                assistant_text_parts.append(part.get("text", ""))
+            if ptype == "tool_use":
+                name = part.get("name")
+                payload = part.get("input", {})
+                if name == "Bash":
+                    command = str(payload.get("command", ""))
+                    if "codex-companion.mjs" in command or "codex-companion" in command:
+                        codex_companion_invocations.append((index, command[:1000]))
+                if name in {"Agent", "Task"}:
+                    subagent_type = str(payload.get("subagent_type", ""))
+                    if consult_role_pattern.match(subagent_type):
+                        codex_consult_dispatches.append((index, subagent_type))
+                    payload_text = collect_text(payload)
+                    for match in re.findall(r"oh-no-harness:[a-z0-9-]+-codex", payload_text):
+                        codex_consult_dispatches.append((index, match))
+    if data.get("type") == "result":
+        result_text = str(data.get("result", ""))
+        assistant_text_parts.append(result_text)
+        permission_denials.extend(data.get("permission_denials") or [])
+        if data.get("is_error") is True:
+            errors.append((index, result_text[:1000]))
+
+if errors:
+    raise SystemExit(f"Claude same-host-review live returned errors: {errors!r}")
+if permission_denials:
+    raise SystemExit(f"Claude same-host-review live had permission denials: {permission_denials!r}")
+assistant_text = "\n".join(assistant_text_parts)
+if FINAL not in assistant_text:
+    raise SystemExit(f"Claude same-host-review live did not return final marker {FINAL}")
+if SELECTED not in assistant_text:
+    raise SystemExit(f"Claude same-host-review live did not record selected mode {SELECTED}")
+if codex_companion_invocations:
+    raise SystemExit(
+        "Claude same-host-review live invoked the Codex companion despite same-host-review ON: "
+        f"{codex_companion_invocations!r}"
+    )
+if codex_consult_dispatches:
+    raise SystemExit(
+        "Claude same-host-review live dispatched an opposite-host consult role despite same-host-review ON: "
+        f"{codex_consult_dispatches!r}"
+    )
+
+summary = {
+    "status": "passed",
+    "proven": True,
+    "opposite_host_preflight": "available",
+    "codex_companion_path": companion_path,
+    "selected_mode": SELECTED,
+    "codex_companion_invocations": 0,
+    "codex_consult_dispatches": 0,
+    "final_marker": FINAL,
+}
+Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print("ok - live Claude same-host-review selected same-host-parallel and suppressed otherwise-available Codex consult")
+PY
+  then
+    parser_rc=0
+  else
+    parser_rc=$?
+  fi
+
+  _same_host_review_cleanup
+  trap - RETURN EXIT INT TERM
+
+  if [[ "$parser_rc" != "0" ]]; then
+    return "$parser_rc"
+  fi
+  if [[ "$run_rc" != "0" ]]; then
+    log "Claude same-host-review live command invocation failed despite parser-accepted transcript (rc=$run_rc)"
+    return "$run_rc"
+  fi
+}
+
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
     log "Skipping live Claude simplify cleanup-subagent smoke test"
@@ -6660,6 +7109,7 @@ main() {
   run_vbc_xhost_live_test
   run_sysdebug_xhost_live_test
   run_parallel_executor_live_test
+  run_same_host_review_live_test
   run_codex_executor_delegation_live_test
   run_simplify_live_test
   run_natural_session_start_live_tests

@@ -46,7 +46,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
 | `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
 | `docs/shared/worktree-isolation.md` | local worktree hard gate, allowed decisions, default task-worktree location, and artifact handoff policy |
-| `docs/shared/cross-host-review.md` | local platform-neutral cross-host review/verification contract: pairing, same-host parallel fallback, independence-mode recording, and the review-then-verify exception, reusing the Fusion Rescue consult mechanism |
+| `docs/shared/cross-host-review.md` | local platform-neutral cross-host review/verification contract: pairing, same-host parallel fallback, `sameHostReview` forced same-host selection, independence-mode recording, and the review-then-verify exception, reusing the Fusion Rescue consult mechanism |
 | `docs/shared/validation-check.md` | local validation template for evidence-informed improvements |
 | `docs/shared/failure-taxonomy.md` | local recurring engineering failure labels used by validation, risk checks, review, and verification |
 
@@ -81,7 +81,7 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
-| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap, Codex-only standing subagent authorization, Codex no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
+| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap, Auto Routing forced-routing when enabled, host-agnostic `<OH_NO_SAME_HOST_REVIEW>` when `sameHostReview` is enabled, Claude-Code-only codex-executor delegation when enabled, Codex-only standing subagent authorization, Codex no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
 | `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt and repeats Codex custom-agent ensure only as fallback |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |
@@ -107,12 +107,14 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/claude-code-install-statusline.md` | Claude Code-specific Install Statusline overlay included only in the generated Claude Code Install Statusline runtime document (no Codex variant) |
 | `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral cross-host consultation contracts and no OpenRouter API integration |
 | `docs/agent-core/fusion-rescue-analyst.md` | local panel-lens role body used by `fusion-rescue` for current-host analysis slots |
-| `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
+| `scripts/oh-no-config` | persistent user settings helper for hook-readable config, including the `sameHostReview` key and host-aware config_dir resolution used by Claude Code plugin-data and Codex XDG homes |
 | `scripts/statusline-command` | bundled developer statusline payload copied to `~/.claude/statusline-command.sh` by `install-statusline` |
 | `scripts/install-statusline` | installer for the `install-statusline` skill; `check`/`apply [--replace]` modes, jq non-clobbering settings.json merge, timestamped backups, refuses without jq or on invalid JSON |
 | repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |
+| repository-root `scripts/test-claude-plugin.sh` | Claude Code structural, offline, and live smoke harness; owns the `--same-host-review-live` lane that preflights Codex companion availability, enables `sameHostReview`, asserts `same-host-parallel-selected`, and rejects real `codex-companion.mjs` or `oh-no-harness:<role>-codex` consult surfaces |
+| repository-root `scripts/test-codex-plugin.sh` | Codex structural, offline, and live smoke harness; owns the `--same-host-review-live` lane that preflights `${CLAUDE_BIN:-claude}` availability under a danger-full-access Codex run, enables `sameHostReview`, asserts `same-host-parallel-selected`, and rejects real Claude consult command surfaces |
 
 ## Local Design Documents
 
