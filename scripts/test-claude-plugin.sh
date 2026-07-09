@@ -971,6 +971,7 @@ required = [
     "code-reviewer",
     "debugger",
     "fusion-rescue opposite-host consult",
+    "run the normal local Fusion Rescue panels only",
     "Same-Host Parallel pair per docs/shared/cross-host-review.md",
     "same-host-parallel-selected",
     "user-driven, not availability-driven",
@@ -1087,7 +1088,7 @@ PY
   # hosts use XDG even when a Claude plugin-data directory exists, and Claude or
   # no-signal callers keep today's plugin-data-preferred behavior.
   temp_data="$(mktemp -d)"
-  local fake_home fake_plugin_data expected_plugin_config expected_xdg_config actual_path no_signal_path claude_path
+  local fake_home fake_plugin_data expected_plugin_config expected_xdg_config actual_path no_signal_path claude_path codex_home_path
   fake_home="$temp_data/home"
   fake_plugin_data="$fake_home/.claude/plugins/data/oh-no-harness-xxxx"
   expected_plugin_config="$fake_plugin_data/config.json"
@@ -1096,6 +1097,11 @@ PY
   actual_path="$(env -u OH_NO_CONFIG_DIR HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" PLUGIN_ROOT="/tmp/codex-plugin" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
   [[ "$actual_path" == "$expected_xdg_config" ]] \
     || { rm -rf "$temp_data"; fail "host-aware config_dir: Codex-sim resolved ${actual_path}, expected ${expected_xdg_config}"; }
+  # Interactive Codex command execution often carries CODEX_HOME but not
+  # PLUGIN_ROOT; it must still resolve XDG so the writer matches the hook reader.
+  codex_home_path="$(env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI -u CLAUDE_PLUGIN_ROOT HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" CODEX_HOME="$fake_home/.codex" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+  [[ "$codex_home_path" == "$expected_xdg_config" ]] \
+    || { rm -rf "$temp_data"; fail "host-aware config_dir: Codex CODEX_HOME (no PLUGIN_ROOT) resolved ${codex_home_path}, expected ${expected_xdg_config}"; }
   no_signal_path="$(env -u OH_NO_CONFIG_DIR -u PLUGIN_ROOT -u COPILOT_CLI -u CLAUDE_PLUGIN_ROOT HOME="$fake_home" XDG_CONFIG_HOME="$fake_home/.config" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
   [[ "$no_signal_path" == "$expected_plugin_config" ]] \
     || { rm -rf "$temp_data"; fail "host-aware config_dir: no-signal resolved ${no_signal_path}, expected ${expected_plugin_config}"; }

@@ -2686,6 +2686,7 @@ def assert_hook_contract(root: Path) -> None:
         "do NOT attempt any opposite-host consult",
         "same-host-parallel-selected",
         "fusion-rescue opposite-host consult",
+        "run the normal local Fusion Rescue panels only",
         "an explicit require-cross-host request in the current user message overrides this toggle",
         "this toggle does not affect codexExecutor executor delegation",
     ):

@@ -349,6 +349,7 @@ required = [
     "session-scoped, per-host setting",
     "do NOT attempt any opposite-host consult",
     "fusion-rescue opposite-host consult",
+    "run the normal local Fusion Rescue panels only",
     "same-host-parallel-selected",
     "user-driven, not availability-driven",
     "require-cross-host request in the current user message overrides this toggle",

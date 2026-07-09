@@ -8,14 +8,19 @@ config_dir() {
   fi
 
   # Prefer the oh-no-harness plugin data dir ONLY on Claude/no-signal hosts. On a
-  # Codex-positive host (PLUGIN_ROOT/COPILOT_CLI set) skip it so a co-installed
-  # Claude config is never read, keeping the toggle per-host. Pin the dir
-  # directly rather than via CLAUDE_PLUGIN_DATA, which resolves to whichever
-  # plugin's context invoked the script, so honoring it would let the writer
-  # (called from another plugin's Bash) and the SessionStart-hook reader (always
-  # in oh-no-harness's context) land on different files — silently breaking the
-  # toggle.
-  if [ -z "${PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  # Codex-positive host skip it so a co-installed Claude config is never read,
+  # keeping the toggle per-host. Detect Codex via PLUGIN_ROOT, COPILOT_CLI, OR
+  # CODEX_HOME: the SessionStart hook carries PLUGIN_ROOT, but an interactive
+  # Codex command execution (e.g. `same-host-review on` from a skill) often
+  # carries only CODEX_HOME — without checking it, the writer would land in the
+  # plugin-data branch on a dual-install machine while the hook reader resolves
+  # XDG, silently splitting the toggle. CODEX_HOME is Codex-specific (Claude
+  # sessions do not set it; the codex-companion plugin sets CODEX_COMPANION_*,
+  # not CODEX_HOME), so it is safe here. Pin the dir directly rather than via
+  # CLAUDE_PLUGIN_DATA, which resolves to whichever plugin's context invoked the
+  # script, so honoring it would let the writer (called from another plugin's
+  # Bash) and the hook reader land on different files.
+  if [ -z "${PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ] && [ -z "${CODEX_HOME:-}" ]; then
     local plugins_data="${HOME}/.claude/plugins/data"
     if [ -d "$plugins_data" ]; then
       local match

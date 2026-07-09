@@ -84,7 +84,9 @@ if "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" same-host-review is-enabled >/dev
 <HARD-GATE>
 Same-host review is ON (session-scoped, per-host setting).
 
-For every shared cross-host review dispatch (`plan-reviewer`, `code-reviewer`, `debugger`) and the fusion-rescue opposite-host consult: do NOT attempt any opposite-host consult even when the opposite host is available. Run the Same-Host Parallel pair per docs/shared/cross-host-review.md and record independence mode `same-host-parallel-selected`.
+For every shared cross-host review dispatch (`plan-reviewer`, `code-reviewer`, `debugger`): do NOT attempt any opposite-host consult even when the opposite host is available. Run the Same-Host Parallel pair per docs/shared/cross-host-review.md and record independence mode `same-host-parallel-selected`.
+
+For the fusion-rescue opposite-host consult, follow the Fusion Rescue contract, not the review-pair path: do NOT attempt it even when the opposite host is available, run the normal local Fusion Rescue panels only (NOT a review-role pair, NOT the independence-mode enum gate), and record the user-selected mode `same-host-parallel-selected` in the panel availability/fallback notes, per docs/skill-core/fusion-rescue.md.
 
 This decision is user-driven, not availability-driven: do NOT probe the opposite host. Record `same-host-parallel-selected` and never `same-host-parallel-fallback`, which is reserved for opposite-host-unavailable in default auto mode.
 
