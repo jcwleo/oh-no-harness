@@ -643,6 +643,58 @@ run_escape_net_offline_test() {
   ok "escape-net pure function HALTs on induced out-of-scope writes (incl. .oh-no/specs/ and removed git-status lines) and stays clean otherwise (test 0)"
 }
 
+run_active_stale_scan_reader_offline_test() {
+  log "Running offline active stale-scan reader regression"
+  "$PYTHON_BIN" - "$MARKETPLACE_ROOT/scripts/validate-plugin-files.py" <<'PY' \
+    || fail "offline active stale-scan reader regression failed"
+import importlib.util
+import pathlib
+import sys
+import tempfile
+
+validator_path = pathlib.Path(sys.argv[1])
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("oh_no_validate_plugin_files", validator_path)
+if spec is None or spec.loader is None:
+    raise SystemExit(f"could not import validator: {validator_path}")
+validator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(validator)
+
+with tempfile.TemporaryDirectory() as raw_tmp:
+    tmp = pathlib.Path(raw_tmp)
+    binary = tmp / "binary-fixture"
+    extensionless = tmp / "run-hook"
+    command_wrapper = tmp / "run-hook.cmd"
+    invalid_utf8 = tmp / "invalid-utf8.txt"
+
+    binary.write_bytes(b"compiled\x00payload\xff")
+    extensionless.write_text("extensionless UTF-8: \uc548\uc804\n", encoding="utf-8")
+    command_wrapper.write_text("@echo UTF-8: \uc548\uc804\r\n", encoding="utf-8")
+    invalid_utf8.write_bytes(b"text candidate without NUL: \xff\xfe")
+
+    if validator.read_active_stale_scan_text(binary) is not None:
+        raise SystemExit("NUL-containing binary fixture was not skipped")
+    if validator.read_active_stale_scan_text(extensionless) != "extensionless UTF-8: \uc548\uc804\n":
+        raise SystemExit("extensionless UTF-8 text was not scanned")
+    if validator.read_active_stale_scan_text(command_wrapper) != "@echo UTF-8: \uc548\uc804\r\n":
+        raise SystemExit(".cmd UTF-8 text was not scanned")
+
+    try:
+        validator.read_active_stale_scan_text(invalid_utf8)
+    except SystemExit as exc:
+        message = str(exc)
+        if str(invalid_utf8) not in message:
+            raise SystemExit(f"controlled invalid-UTF8 error omitted path: {message}")
+        if "Traceback" in message:
+            raise SystemExit(f"invalid-UTF8 error leaked a traceback: {message}")
+    else:
+        raise SystemExit("non-NUL invalid-UTF8 text candidate did not fail")
+
+print("ok - active stale-scan reader skips NUL binary and scans extensionless/.cmd UTF-8 text")
+PY
+  ok "active stale-scan reader handles binary, extensionless, .cmd, and invalid-UTF8 candidates"
+}
+
 # Offline contract asserts: all five Claude-to-Codex transports carry the same
 # complete versioned prompt contract; the four consult roles remain read-only and
 # role-owned; executor-codex is a thin raw-output write transport; the rewritten
@@ -7076,6 +7128,7 @@ main() {
   validate_manifests
   validate_hooks
   run_escape_net_offline_test
+  run_active_stale_scan_reader_offline_test
   run_fusion_codex_offline_marker_test
   validate_frontmatter
   install_or_update_plugin

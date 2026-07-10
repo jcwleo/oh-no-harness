@@ -1338,6 +1338,19 @@ def read_text(path: Path) -> str:
         die(f"missing file: {path}")
 
 
+def read_active_stale_scan_text(path: Path):
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError:
+        die(f"missing file: {path}")
+    if b"\x00" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        die(f"{path} is not valid UTF-8 for active stale-contract scan: {exc}")
+
+
 def has_required_marker(text: str, marker: str) -> bool:
     if marker in text:
         return True
@@ -2066,7 +2079,9 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
             active_paths.add(candidate)
 
     for path in sorted(active_paths):
-        text = read_text(path)
+        text = read_active_stale_scan_text(path)
+        if text is None:
+            continue
         for marker in stale_executor_wrapper_markers:
             if marker in text:
                 die(f"{path} retains stale executor-wrapper evidence wording: {marker!r}")
