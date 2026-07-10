@@ -133,7 +133,7 @@ Options:
                          return raw companion output, let the caller attribute the
                          worktree writes, keep the RED file byte-unchanged, drive
                          RED->GREEN, run the caller-owned escape guard, prove executor-only
-                         (negative+positive), sequential dispatch, and caller-mediated
+                         (negative+positive), eligible outer overlap, and caller-mediated
                          degrade fallback to native oh-no-harness:executor.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
   --natural-session-start-live
@@ -798,18 +798,12 @@ for m in ("PROTECTED TARGET SET", "escape_net_verdict", "Raw PRE and POST",
     if m in executor:
         raise SystemExit(f"executor-codex.md still contains forbidden wrapper-owned marker {m!r}")
 
-ralph = read(root / "docs" / "skill-core" / "ralph.md")
-for m in ("caller-owned escape guard", "derives the changed-file set from the task worktree",
-          "halts before merge", "worktree diff alone is not containment proof",
-          "`path + mtime + size` manifest", "EXCLUDING the delegated task worktree",
-          "same path, mtime, and size"):
-    if m not in ralph:
-        raise SystemExit(f"ralph.md missing caller-owned delegation marker {m!r}")
 policy = read(root / "docs" / "shared" / "ralph-subagent-policy.md")
 for m in ("## Delegated Codex Executor Boundary", "transport returns raw Codex stdout",
           "caller-owned escape guard", "filesystem sentinel",
-          "`path + mtime + size` manifest", "EXCLUDING the delegated task worktree",
-          "same path, mtime, and size"):
+          "`path + mtime + size` manifest", "EXCLUDING the delegated task worktrees",
+          "same path, mtime, and size", "identity rebind does not change the existing Batch Rule",
+          "fallback and integration stay sequential"):
     if m not in policy:
         raise SystemExit(f"ralph-subagent-policy.md missing caller guard marker {m!r}")
 
@@ -953,7 +947,9 @@ if "OH_NO_CODEX_EXECUTOR_DELEGATION" not in text:
 required = [
     "oh-no-harness:executor-codex",
     "Executor-only fence",
-    "Serial-forced dispatch",
+    "Eligibility-preserving rebind",
+    "existing Ralph eligibility remains the sole gate",
+    "Each inner companion call remains foreground",
     "Caller-mediated degrade",
     "companion-unavailable",
     "BEST-EFFORT",
@@ -1652,7 +1648,7 @@ deep_prompt_for_skill() {
       printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
       ;;
     auto-routing)
-      printf '/%s:auto-routing Deep smoke test only. Do NOT change any settings and do NOT run oh-no-config; read the skill body, its Codex Executor Delegation Toggle section, and the Claude Code platform notes, then answer read-only. Return: the oh-no-config codex-executor on/off/status commands; that the codexExecutor toggle defaults to OFF; that delegated executors are serial-forced and run one at a time, not in parallel; that when the toggle is ON the delegation block is injected via SessionStart on Claude Code only and re-binds the executor role to oh-no-harness:executor-codex; and that on Codex it adds no SessionStart block. End with OH_NO_CLAUDE_DEEP_OK auto-routing.' "$PLUGIN_NAME"
+      printf '/%s:auto-routing Deep smoke test only. Do NOT change any settings and do NOT run oh-no-config; read the skill body, its Codex Executor Delegation Toggle section, and the Claude Code platform notes, then answer read-only. Return: the oh-no-config codex-executor on/off/status commands; that the codexExecutor toggle defaults to OFF; that existing Ralph eligibility remains the sole gate, already-admitted disjoint outer executor-codex agents may overlap, and each inner companion call stays foreground; that when the toggle is ON the delegation block is injected via SessionStart on Claude Code only and re-binds the executor role to oh-no-harness:executor-codex; and that on Codex it adds no SessionStart block. End with OH_NO_CLAUDE_DEEP_OK auto-routing.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -1752,7 +1748,8 @@ expected = {
     "auto-routing": [
         "codexExecutor",
         "codex-executor",
-        "serial-forced",
+        "eligibility",
+        "foreground",
         "SessionStart",
         "Claude Code",
         "executor-codex",
@@ -1870,7 +1867,7 @@ linked_doc_markers = {
     "auto-routing": [
         "codex-executor",
         "SessionStart",
-        "serial-forced",
+        "Existing Ralph eligibility",
     ],
 }
 
@@ -4771,7 +4768,7 @@ PY
 run_codex_executor_delegation_live_test() {
   if [[ "$RUN_CODEX_EXECUTOR_DELEGATION_LIVE" != "1" ]]; then
     log "Skipping live Claude codex-executor delegation smoke test"
-    printf 'Run with --codex-executor-delegation-live to verify ralph dispatches oh-no-harness:executor-codex, raw companion output + caller-derived attribution + caller-owned escape guard, RED->GREEN, executor-only negative+positive, sequential dispatch, and caller-mediated degrade.\n' >&2
+    printf 'Run with --codex-executor-delegation-live to verify ralph dispatches an eligible outer executor-codex overlap, preserves one foreground raw companion call per slice, keeps caller attribution and escape guards, drives RED->GREEN, enforces executor-only routing, and performs caller-mediated sequential degrade fallback.\n' >&2
     return
   fi
 
@@ -4865,20 +4862,15 @@ PY
   config_dir="$(mktemp -d)"
   OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" codex-executor on >/dev/null
 
-  local read_root="$PLUGIN_ROOT"
-  if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
-    read_root="$(cached_plugin_root)"
-  fi
-
-  # Two genuinely disjoint executor-eligible slices so SEQUENTIAL (not parallel)
-  # delegated dispatch can be observed, plus explicit executor-only fencing.
+  # Two genuinely disjoint executor-eligible slices so outer overlap can be
+  # observed without changing Ralph's existing eligibility rules.
   local prompt
   prompt=$(cat <<PROMPT
 Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation toggle ON. Work entirely inside the registered task worktree at ${worktree}; do not touch the integration checkout at ${integration}, its .oh-no/ subtree, or the sibling worktree at ${integration}/.oh-no/worktrees/${sibling_slug}.
 
 There are two disjoint executor-eligible slices. Slice 1: implement add(x, y) in src/calc.py so tests/test_calc.py passes; the marker for this slice is OH_NO_CODEX_DELEG_SLICE_1. Slice 2: add a module docstring to a sibling helper file src/util.py containing the marker OH_NO_CODEX_DELEG_SLICE_2. The two slices touch different files and neither depends on the other.
 
-Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Each executor-codex packet may carry the read-only RED path for context but MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Do NOT modify tests/test_calc.py (the RED file). Dispatch the delegated executors STRICTLY SEQUENTIALLY, one at a time, never as a parallel batch.
+Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Each executor-codex packet may carry the read-only RED path for context but MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Do NOT modify tests/test_calc.py (the RED file). Apply the existing Ralph eligibility, Batch Rule, and Isolation Contract without inventing a separate scheduler.
 
 When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker. Then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
 PROMPT
@@ -5089,17 +5081,18 @@ if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
     raise SystemExit(f"codex-executor delegation live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
 
 init_ok = False
-executor_codex_dispatches = []     # (index, payload_text, Task tool-use id)
+executor_codex_dispatches = []     # (index, payload_text, Agent tool-use id)
 executor_codex_tool_ids = set()
+outer_task_starts = {}             # Agent tool-use id -> [(index, task id)]
+outer_task_notifications = {}      # Agent tool-use id -> [(index, task id, status, summary)]
 invalid_executor_payloads = []
 native_verifier_dispatches = []
 native_code_reviewer_dispatches = []
 codex_rescue_on_write = []
 forbidden_write_channel = []       # (index, role)
-executor_bash_calls = []           # (index, parent Task id, Bash tool-use id, command)
+executor_bash_calls = []           # (index, parent Task id, Bash tool-use id, command, background)
 companion_bash_parents = {}        # Bash tool-use id -> executor Task id
 companion_bash_outputs = {}        # Bash tool-use id -> [(index, is_error, text)]
-executor_task_outputs = {}         # executor Task id -> [(index, is_error, text)]
 invalid_companion_shapes = []      # wrong command count/subcommand/flags/redirect shape
 primary_native_executor = []       # native oh-no-harness:executor dispatches (C3)
 post_check_seen = False
@@ -5111,6 +5104,21 @@ for index, data in main_rows:
     if data.get("type") == "system" and data.get("subtype") == "init":
         agents = set(data.get("agents", []))
         init_ok = "Task" in data.get("tools", []) and "oh-no-harness:executor-codex" in agents
+    if data.get("type") == "system" and data.get("subtype") == "task_started":
+        tool_use_id = str(data.get("tool_use_id") or "")
+        outer_task_starts.setdefault(tool_use_id, []).append(
+            (index, str(data.get("task_id") or ""))
+        )
+    if data.get("type") == "system" and data.get("subtype") == "task_notification":
+        tool_use_id = str(data.get("tool_use_id") or "")
+        outer_task_notifications.setdefault(tool_use_id, []).append(
+            (
+                index,
+                str(data.get("task_id") or ""),
+                str(data.get("status") or ""),
+                str(data.get("summary") or ""),
+            )
+        )
     if data.get("type") == "assistant":
         for part in data.get("message", {}).get("content", []):
             ptype = part.get("type")
@@ -5120,7 +5128,9 @@ for index, data in main_rows:
                 role = role_of(payload.get("subagent_type"))
                 if role == WRITE_ROLE:
                     tool_use_id = str(part.get("id", ""))
-                    executor_codex_dispatches.append((index, payload_text, tool_use_id))
+                    executor_codex_dispatches.append(
+                        (index, payload_text, tool_use_id)
+                    )
                     executor_codex_tool_ids.add(tool_use_id)
                     payload_markers = [marker for marker in SLICE_MARKERS if marker in payload_text]
                     if len(payload_markers) != 1:
@@ -5169,11 +5179,16 @@ for index, data in main_rows:
                 parent_id = str(data.get("parent_tool_use_id") or "")
                 if parent_id in executor_codex_tool_ids:
                     bash_tool_id = str(part.get("id", ""))
-                    executor_bash_calls.append((index, parent_id, bash_tool_id, command))
+                    run_in_background = part.get("input", {}).get("run_in_background") is True
+                    executor_bash_calls.append(
+                        (index, parent_id, bash_tool_id, command, run_in_background)
+                    )
                     companion_bash_parents[bash_tool_id] = parent_id
                     invocation_matches = list(COMPANION_INVOCATION_RE.finditer(command))
                     invocations = [match.group(1) for match in invocation_matches]
                     reasons = []
+                    if run_in_background:
+                        reasons.append("run_in_background is forbidden on the inner companion call")
                     if len(invocations) != 1:
                         reasons.append(f"expected exactly one companion invocation, saw {invocations!r}")
                     elif invocations[0] != "task":
@@ -5207,10 +5222,6 @@ for index, data in main_rows:
             if tool_use_id in companion_bash_parents:
                 companion_bash_outputs.setdefault(tool_use_id, []).append(
                     (index, part.get("is_error"), collect_text(part.get("content", "")))
-                )
-            if tool_use_id in executor_codex_tool_ids:
-                executor_task_outputs.setdefault(tool_use_id, []).append(
-                    (index, part.get("is_error"), delegated_result_text(part.get("content", "")))
                 )
     if data.get("type") == "result":
         permission_denials.extend(data.get("permission_denials") or [])
@@ -5247,6 +5258,53 @@ if len(executor_codex_dispatches) != len(SLICE_MARKERS):
         "exactly once for each disjoint slice (no missing dispatch and no caller retry); "
         f"dispatches={len(executor_codex_dispatches)} expected={len(SLICE_MARKERS)}"
     )
+outer_lifecycle_failures = []
+for dispatch_index, _payload, parent_id in executor_codex_dispatches:
+    starts = outer_task_starts.get(parent_id, [])
+    notifications = outer_task_notifications.get(parent_id, [])
+    if len(starts) != 1 or len(notifications) != 1:
+        outer_lifecycle_failures.append(
+            (parent_id, "start/terminal-count", len(starts), len(notifications))
+        )
+        continue
+    start_index, start_task_id = starts[0]
+    terminal_index, terminal_task_id, _status, _summary = notifications[0]
+    if (
+        not start_task_id
+        or start_task_id != terminal_task_id
+        or not (dispatch_index < start_index < terminal_index)
+    ):
+        outer_lifecycle_failures.append(
+            (
+                parent_id,
+                "outer-task-identity/order",
+                dispatch_index,
+                starts[0],
+                notifications[0][:3],
+            )
+        )
+if outer_lifecycle_failures:
+    raise SystemExit(
+        "codex-executor delegation live outer Agent lifecycle is invalid: "
+        f"{outer_lifecycle_failures!r}"
+    )
+
+first_terminal_notification = min(
+    outer_task_notifications[parent_id][0][0]
+    for parent_id in executor_codex_tool_ids
+)
+outer_start_indices = [
+    outer_task_starts[parent_id][0][0]
+    for parent_id in executor_codex_tool_ids
+]
+if len(outer_start_indices) != len(SLICE_MARKERS) or any(
+    start_index >= first_terminal_notification for start_index in outer_start_indices
+):
+    raise SystemExit(
+        "codex-executor delegation live outer parallelism is invalid: both "
+        "task_started events must precede the first terminal notification; "
+        f"starts={outer_start_indices!r} first_terminal={first_terminal_notification}"
+    )
 # HARD: the write channel must be executor-codex, never codex:codex-rescue.
 if codex_rescue_on_write:
     raise SystemExit(
@@ -5257,16 +5315,6 @@ if forbidden_write_channel:
     raise SystemExit(
         f"codex-executor delegation live routed a non-executor role onto the write-capable executor-codex channel: {forbidden_write_channel!r}"
     )
-# HARD (executor-only, positive): BOTH native verifier and native code-reviewer
-# must actually run. Either one alone cannot satisfy the maker-verifier/reviewer
-# independence claim.
-if not native_verifier_dispatches or not native_code_reviewer_dispatches:
-    raise SystemExit(
-        "codex-executor delegation live requires both native verifier and native "
-        "code-reviewer roles; "
-        f"verifier={native_verifier_dispatches!r} code_reviewer={native_code_reviewer_dispatches!r}"
-    )
-
 # HARD (C3): each executor-codex Task must expose exactly one nested Bash call.
 # Fail closed instead of scanning arbitrary transcript text: that fallback could
 # mistake a different consult role's command or a quoted command for real execution.
@@ -5285,27 +5333,46 @@ if bad_call_counts or len(executor_bash_calls) != len(executor_codex_dispatches)
         f"calls are forbidden; per_parent={bad_call_counts!r} total_calls={len(executor_bash_calls)}"
     )
 
-# HARD (C3/raw boundary): each Bash call must complete with non-empty stdout, and
-# the executor-codex Task result handed to its caller must be the same stdout,
-# byte-for-byte apart from the host's unavoidable final-newline normalization.
+# HARD (C3/raw boundary): launch acknowledgements are not completion evidence.
+# Each Bash call must finish before its outer terminal notification, whose summary
+# must preserve the Bash stdout apart from final-newline normalization.
 raw_boundary_failures = []
-for _call_index, parent_id, bash_tool_id, _command in executor_bash_calls:
+primary_unavailable = []
+unavailable_re = re.compile(r"(?i)(codex unavailable:|usage[- ]limit|you've hit your usage limit)")
+for call_index, parent_id, bash_tool_id, _command, _background in executor_bash_calls:
     bash_results = companion_bash_outputs.get(bash_tool_id, [])
-    task_results = executor_task_outputs.get(parent_id, [])
+    terminal_results = outer_task_notifications.get(parent_id, [])
     if len(bash_results) != 1:
         raw_boundary_failures.append((parent_id, "bash-result-count", len(bash_results)))
         continue
-    if len(task_results) != 1:
-        raw_boundary_failures.append((parent_id, "task-result-count", len(task_results)))
+    if len(terminal_results) != 1:
+        raw_boundary_failures.append((parent_id, "terminal-count", len(terminal_results)))
         continue
     _bash_index, bash_is_error, bash_stdout = bash_results[0]
-    _task_index, task_is_error, task_stdout = task_results[0]
-    if bash_is_error is True or task_is_error is True:
-        raw_boundary_failures.append((parent_id, "tool-error", bash_is_error, task_is_error))
+    terminal_index, _task_id, terminal_status, terminal_summary = terminal_results[0]
+    if not (call_index < _bash_index < terminal_index):
+        raw_boundary_failures.append(
+            (parent_id, "invalid-call-result-order", call_index, _bash_index, terminal_index)
+        )
+    elif (
+        bash_is_error is True
+        or terminal_status != "completed"
+        or unavailable_re.search(bash_stdout)
+        or unavailable_re.search(terminal_summary)
+    ):
+        primary_unavailable.append(
+            (
+                parent_id,
+                terminal_status,
+                bash_is_error,
+                bash_stdout[-240:],
+                terminal_summary[-240:],
+            )
+        )
     elif not bash_stdout.strip():
         raw_boundary_failures.append((parent_id, "empty-companion-stdout"))
-    elif bash_stdout.lstrip().startswith("codex unavailable:"):
-        raw_boundary_failures.append((parent_id, "primary-companion-unavailable"))
+    elif not terminal_summary.strip():
+        raw_boundary_failures.append((parent_id, "empty-terminal-summary"))
     elif bash_stdout.rstrip("\n").splitlines()[-1] != EXECUTOR_NO_VERIFY_LINE:
         raw_boundary_failures.append(
             (parent_id, "missing-exact-caller-owned-verification-line", bash_stdout[-240:])
@@ -5317,23 +5384,33 @@ for _call_index, parent_id, bash_tool_id, _command in executor_bash_calls:
         or "tests passed" in bash_stdout.lower()
     ):
         raw_boundary_failures.append((parent_id, "executor-reported-running-verification", bash_stdout[:240]))
-    elif not raw_equal(task_stdout, bash_stdout):
+    elif not raw_equal(terminal_summary, bash_stdout):
         raw_boundary_failures.append(
             (
                 parent_id,
                 "wrapper-synthesis-or-truncation",
                 bash_stdout[:240],
-                task_stdout[:240],
+                terminal_summary[:240],
             )
         )
+if primary_unavailable:
+    raise SystemExit(f"primary companion unavailable: {primary_unavailable!r}")
 if raw_boundary_failures:
     raise SystemExit(
         "codex-executor delegation live did not preserve the raw Codex stdout "
         f"boundary: {raw_boundary_failures!r}"
     )
 last_executor_result_index = max(
-    executor_task_outputs[parent_id][0][0] for parent_id in executor_codex_tool_ids
+    outer_task_notifications[parent_id][0][0] for parent_id in executor_codex_tool_ids
 )
+# HARD (executor-only, positive): BOTH native verifier and native code-reviewer
+# must actually run after every outer executor task reaches its terminal notification.
+if not native_verifier_dispatches or not native_code_reviewer_dispatches:
+    raise SystemExit(
+        "codex-executor delegation live requires both native verifier and native "
+        "code-reviewer roles; "
+        f"verifier={native_verifier_dispatches!r} code_reviewer={native_code_reviewer_dispatches!r}"
+    )
 if (
     min(native_verifier_dispatches) < last_executor_result_index
     or min(native_code_reviewer_dispatches) < last_executor_result_index
@@ -5352,20 +5429,6 @@ if primary_native_executor:
         "(non-degrade) run must prove real Codex delegation, not native fallback (C3)"
     )
 
-# HARD (F4/C4): delegated dispatch must be SEQUENTIAL. Use the parent-visible
-# Task tool result as the completion boundary; task_notification may be delivered
-# later and would false-label a truly sequential run as parallel.
-ordered_executor_dispatches = sorted(executor_codex_dispatches)
-first_executor_dispatch = ordered_executor_dispatches[0]
-second_executor_dispatch = ordered_executor_dispatches[1]
-first_executor_result_index = executor_task_outputs[first_executor_dispatch[2]][0][0]
-if second_executor_dispatch[0] < first_executor_result_index:
-    raise SystemExit(
-        "codex-executor delegation live dispatched delegated executors in PARALLEL "
-        f"(second executor-codex dispatch at {second_executor_dispatch[0]} started "
-        f"before the first executor-codex result at {first_executor_result_index}); "
-        "serial-forced dispatch is required"
-    )
 if not post_check_seen:
     raise SystemExit(f"codex-executor delegation live did not emit the post-batch scope-check marker {POST_CHECK_MARKER}")
 if not final_marker_seen:
@@ -5377,7 +5440,7 @@ degrade_executor_dispatches = []   # (index, payload, Task tool-use id)
 degrade_executor_ids = set()
 degrade_native_executor = []       # (index, payload, Task tool-use id)
 degrade_nested_dispatches = []
-degrade_executor_bash_calls = []   # (index, parent Task id, Bash tool-use id, command)
+degrade_executor_bash_calls = []   # (index, parent Task id, Bash tool-use id, command, background)
 degrade_bash_parents = {}
 degrade_bash_outputs = {}
 degrade_task_outputs = {}
@@ -5410,7 +5473,13 @@ for index, data in degrade_rows:
                 parent_id = str(data.get("parent_tool_use_id") or "")
                 if parent_id in degrade_executor_ids:
                     degrade_executor_bash_calls.append(
-                        (index, parent_id, bash_tool_id, command)
+                        (
+                            index,
+                            parent_id,
+                            bash_tool_id,
+                            command,
+                            part.get("input", {}).get("run_in_background") is True,
+                        )
                     )
                     degrade_bash_parents[bash_tool_id] = parent_id
                 elif not parent_id and DEGRADE_INSPECTION_MARKER in command:
@@ -5470,12 +5539,9 @@ if degrade_nested_dispatches:
     )
 
 attempt_index, attempt_payload, attempt_id = degrade_executor_dispatches[0]
-if (
-    "OH_NO_CODEX_DELEG_DEGRADE_SLICE" not in attempt_payload
-    or DEGRADE_EXPECTED_FAILURE not in attempt_payload
-):
+if DEGRADE_EXPECTED_FAILURE not in attempt_payload:
     raise SystemExit(
-        "degrade executor-codex packet did not pin its slice and exact failure "
+        "degrade executor-codex packet did not pin the exact failure "
         f"signal: {attempt_payload[:1200]!r}"
     )
 if len(degrade_executor_bash_calls) != 1:
@@ -5483,8 +5549,8 @@ if len(degrade_executor_bash_calls) != 1:
         "degrade executor-codex must make exactly one foreground Bash resolution "
         f"attempt, saw {degrade_executor_bash_calls!r}"
     )
-_bash_index, bash_parent_id, bash_tool_id, bash_command = degrade_executor_bash_calls[0]
-if bash_parent_id != attempt_id or "--background" in bash_command:
+_bash_index, bash_parent_id, bash_tool_id, bash_command, bash_background = degrade_executor_bash_calls[0]
+if bash_parent_id != attempt_id or bash_background or "--background" in bash_command:
     raise SystemExit(
         "degrade executor-codex Bash attempt had the wrong parent/background shape: "
         f"parent={bash_parent_id!r} expected={attempt_id!r}"
@@ -5594,7 +5660,7 @@ summary = {
     "raw_stdout_boundary": True,
     "native_verifier_dispatches": len(native_verifier_dispatches),
     "native_code_reviewer_dispatches": len(native_code_reviewer_dispatches),
-    "serial_dispatch": True,
+    "outer_overlap": True,
     "post_check_marker": POST_CHECK_MARKER,
     "final_marker": FINAL_MARKER,
     "worktree_delta_before": os.environ.get("OH_NO_CODEX_DELEG_WT_STATUS_BEFORE", ""),
@@ -5611,7 +5677,7 @@ summary = {
 with open(summary_path, "w", encoding="utf-8") as fh:
     fh.write(json.dumps(summary, indent=2, sort_keys=True) + "\n")
 
-print("ok - live Claude codex-executor delegation: rescue-thin executor-codex on the write channel, raw output boundary + caller attribution + caller escape guard clean, RED->GREEN, executor-only negative+positive, sequential dispatch, caller-mediated degrade")
+print("ok - live Claude codex-executor delegation: eligible outer executor-codex overlap, one foreground raw companion call per slice, caller attribution + escape guard clean, RED->GREEN, executor-only routing, caller-mediated sequential degrade")
 PY
   then
     parser_rc=0

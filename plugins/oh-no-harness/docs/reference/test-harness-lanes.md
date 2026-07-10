@@ -535,7 +535,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving thin executor-codex delegation, raw companion output, caller guard clean, RED->GREEN with an unchanged RED file, executor-only negative+positive, sequential dispatch, and caller-mediated degrade fallback",
+      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving two eligible disjoint outer executor-codex dispatches overlap, each inner transport has one completed foreground companion task call with raw stdout preserved, the caller guard is clean, RED goes GREEN with an unchanged RED file, verifier/reviewer stay off the write channel, primary native fallback is absent, and failed delegation degrades through caller inspection to exactly one sequential native fallback",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",

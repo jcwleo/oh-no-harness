@@ -54,7 +54,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         # Shared codexExecutor toggle facts from the skill core (both platforms).
         ("executor role's implementation work to Codex", BOTH),
         ("Default OFF.", BOTH),
-        ("they run one at a time, not in parallel", BOTH),  # serial-forced fact
+        ("Existing Ralph eligibility remains the sole gate.", BOTH),
         ("the caller owns the escape-DETECTION guard", BOTH),
         ("not a sandbox guarantee", BOTH),  # honest best-effort, not-a-guarantee framing
         ("oh-no-config codex-executor on|off|status", BOTH),  # command token

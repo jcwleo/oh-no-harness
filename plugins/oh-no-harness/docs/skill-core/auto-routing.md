@@ -63,8 +63,11 @@ Shared facts (all platforms):
 - **Executor role only.** When ON, only the executor role is re-bound to Codex.
   RED authoring, verification, review, and merge stay with the native
   independent roles.
-- **Serial-forced.** With delegation ON, disjoint executor batches are
-  serial-forced — they run one at a time, not in parallel, in this version.
+- **Eligibility unchanged.** Existing Ralph eligibility remains the sole gate.
+  An already-admitted disjoint executor batch may overlap only at the outer
+  `executor-codex` agent layer; each inner companion call remains foreground.
+  Ineligible, unknown, or unsafe work stays serial, and fallback and integration
+  remain caller-owned and sequential.
 - **Best-effort confinement, not a guarantee.** Delegated writes are scoped
   best-effort to the task worktree. The executor transport returns raw Codex
   output; the caller owns the escape-DETECTION guard, derives the worktree diff,

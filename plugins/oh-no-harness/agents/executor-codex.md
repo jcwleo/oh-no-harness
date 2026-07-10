@@ -132,7 +132,10 @@ handoff gates, or dispatch another agent.
 
 ## Operating Rules
 
-- Serial-forced: only one delegated executor call runs at a time.
+- Caller-authorized overlap: sibling `executor-codex` agents may overlap only
+  when the caller already admitted their disjoint batch under Ralph's existing
+  Batch Rule and Isolation Contract. This agent's own companion transport stays
+  one foreground call and never schedules siblings.
 - Caller-mediated degrade: never self-dispatch a native executor. Signal the
   caller and stop; the caller first inspects any partial worktree changes and then
   owns fallback.
