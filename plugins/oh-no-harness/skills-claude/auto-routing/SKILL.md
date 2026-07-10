@@ -85,8 +85,9 @@ Shared facts (all platforms):
 - **Serial-forced.** With delegation ON, disjoint executor batches are
   serial-forced — they run one at a time, not in parallel, in this version.
 - **Best-effort confinement, not a guarantee.** Delegated writes are scoped
-  best-effort to the task worktree, and a Claude-side escape-DETECTION net watches
-  for and halts on an unexpected write outside that scope. This is
+  best-effort to the task worktree. The executor transport returns raw Codex
+  output; the caller owns the escape-DETECTION guard, derives the worktree diff,
+  and halts before merge on an unexpected protected-target change. This is
   DETECTION, not prevention, and is not a sandbox guarantee.
 - Manage it with `oh-no-config codex-executor on|off|status` (see Commands), then
   restart or clear the session so the bootstrap re-fires (see Response Rules).

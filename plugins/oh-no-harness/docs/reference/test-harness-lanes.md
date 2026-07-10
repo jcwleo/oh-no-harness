@@ -535,12 +535,12 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus integration-checkout git-status + filesystem-sentinel snapshots and worktree diff proving executor-codex delegation, escape-net clean, RED->GREEN with an unchanged RED file, executor-only negative+positive, sequential dispatch, and caller-mediated degrade fallback",
+      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving thin executor-codex delegation, raw companion output, caller guard clean, RED->GREEN with an unchanged RED file, executor-only negative+positive, sequential dispatch, and caller-mediated degrade fallback",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
-        "positive-only writes-exist-in-worktree claim without an escape-detection net",
-        "escape net relying only on git-status blind to the ignored .oh-no/ subtree"
+        "positive-only writes-exist-in-worktree claim without a caller-owned escape guard",
+        "caller escape guard relying only on git-status blind to the ignored .oh-no/ subtree"
       ]
     },
     {

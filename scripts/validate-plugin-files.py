@@ -805,13 +805,21 @@ EXECUTION_MODE_AGENT_MARKERS = {
 # dict is only load-bearing if it is WIRED into assert_agent's if-chain (a
 # defined-but-unreferenced dict gates nothing), so the wiring below is
 # mandatory. Each phrase pins one clause of the executor-codex delegation
-# contract: the write-capable companion invocation, the escape-detection
-# protected set, the caller-mediated degrade, the maker-verifier fence, the
-# one-hop guard, and the honest best-effort framing.
+# contract: the write-capable companion invocation, versioned prompt contract,
+# raw-output boundary, caller-mediated degrade, maker-verifier fence, one-hop
+# guard, and honest best-effort framing.
 DELEGATION_CONTRACT_AGENT_MARKERS = {
     "executor-codex": (
         "--write --cwd",
-        "PROTECTED TARGET SET",
+        "2>/dev/null",
+        "oh-no.codex-delegation/v1",
+        "direct Codex implementation",
+        "executor child",
+        "Do not run any test, lint, build, typecheck, parse, or verification command",
+        "Verification: not run (caller-owned)",
+        "codex unavailable: companion-override-path-missing",
+        "Return the Codex stdout without wrapper synthesis",
+        "caller derives the changed-file set",
         "caller-mediated degrade",
         "does NOT author RED, verify, review, or merge",
         "one-hop guard",
@@ -829,6 +837,9 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
     "plan-reviewer-codex": (
         "read-only",
         "--prompt-file",
+        "2>/dev/null",
+        "dispatch exactly `oh-no-plan-reviewer`",
+        "role-owned `oh-no-plan-reviewer` result",
         "caller-mediated degrade",
         "Same-Host Parallel Fallback",
         "one-hop guard",
@@ -842,6 +853,9 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
     "code-reviewer-codex": (
         "read-only",
         "--prompt-file",
+        "2>/dev/null",
+        "dispatch exactly `oh-no-code-reviewer`",
+        "role-owned `oh-no-code-reviewer` result",
         "caller-mediated degrade",
         "Same-Host Parallel Fallback",
         "one-hop guard",
@@ -855,6 +869,9 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
     "debugger-codex": (
         "read-only",
         "--prompt-file",
+        "2>/dev/null",
+        "dispatch exactly `oh-no-debugger`",
+        "role-owned `oh-no-debugger` result",
         "caller-mediated degrade",
         "Same-Host Parallel Fallback",
         "one-hop guard",
@@ -868,6 +885,10 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
     "fusion-codex": (
         "read-only",
         "--prompt-file",
+        "2>/dev/null",
+        "dispatch exactly `oh-no-fusion-rescue-analyst`",
+        "return the exact panel fields from the role-owned",
+        "`oh-no-fusion-rescue-analyst` result",
         "caller-mediated degrade",
         "Same-Host Parallel Fallback",
         "one-hop guard",
@@ -884,7 +905,8 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
 # Load-bearing phrases the reframed auto-routing skill core (T4) must carry so
 # the codexExecutor toggle content is statically gated: the codexExecutor toggle
 # key, the `codex-executor` command token, the default-OFF fact, the
-# serial-forced fact, and the honest escape-DETECTION / not-a-guarantee framing.
+# serial-forced fact, and the honest caller-owned escape-DETECTION /
+# not-a-guarantee framing.
 # This is only load-bearing if WIRED into assert_skill's if-chain below.
 AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
     "codexExecutor",
@@ -892,7 +914,7 @@ AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
     "Default OFF.",
     "serial-forced",
     "they run one at a time, not in parallel",
-    "escape-DETECTION net",
+    "the caller owns the escape-DETECTION guard",
     "not a sandbox guarantee",
 )
 
@@ -1859,23 +1881,26 @@ CODEX_CONSULT_AGENT_ROLES = (
     "debugger-codex",
     "fusion-codex",
 )
+CODEX_DELEGATION_AGENT_ROLES = ("executor-codex", *CODEX_CONSULT_AGENT_ROLES)
 CODEX_CONSULT_KERNEL_BEGIN = "<!-- codex-companion-kernel:begin -->"
 CODEX_CONSULT_KERNEL_END = "<!-- codex-companion-kernel:end -->"
+CODEX_PROMPT_CONTRACT_BEGIN = "<!-- codex-companion-prompt-contract:v1 begin -->"
+CODEX_PROMPT_CONTRACT_END = "<!-- codex-companion-prompt-contract:v1 end -->"
 EXPECTED_CODEX_CUSTOM_AGENT_COUNT = 9
 
 
 def assert_codex_consult_agent_kernels(root: Path) -> None:
-    """N5: the four read-only `*-codex` consult cores inline-duplicate the
-    executor-codex companion-path resolution kernel. `generate --check` only
-    verifies wrapper==core, not core-vs-core, so this guards against silent
-    rebase drift by extracting the anchored kernel from all four cores and
-    requiring byte-identity. It also forbids `--write` in these cores: they are
-    read-only opposite-host legs (write flag omitted), never a write path."""
+    """All five Claude-to-Codex transports share one resolution kernel.
+
+    `generate --check` only verifies wrapper==core, not core-vs-core, so this
+    guards against silent drift. The four consult roles separately forbid the
+    write flag; executor-codex is the one intentional write transport.
+    """
     kernels: dict[str, str] = {}
-    for role in CODEX_CONSULT_AGENT_ROLES:
+    for role in CODEX_DELEGATION_AGENT_ROLES:
         path = root / AGENT_CORE_ROOT / f"{role}.md"
         body = read_text(path)
-        if "--write" in body:
+        if role in CODEX_CONSULT_AGENT_ROLES and "--write" in body:
             die(
                 f"{path} is a read-only consult transport and must NOT contain "
                 "'--write' (the companion call omits the write flag)"
@@ -1888,7 +1913,7 @@ def assert_codex_consult_agent_kernels(root: Path) -> None:
                 f"({CODEX_CONSULT_KERNEL_BEGIN!r} ... {CODEX_CONSULT_KERNEL_END!r})"
             )
         kernels[role] = body[begin + len(CODEX_CONSULT_KERNEL_BEGIN):end]
-    reference_role = CODEX_CONSULT_AGENT_ROLES[0]
+    reference_role = CODEX_DELEGATION_AGENT_ROLES[0]
     reference = kernels[reference_role]
     for role, kernel in kernels.items():
         if kernel != reference:
@@ -1899,8 +1924,156 @@ def assert_codex_consult_agent_kernels(root: Path) -> None:
             )
 
 
+def assert_codex_delegation_prompt_contract(root: Path) -> None:
+    """All Claude-to-Codex transports compile one versioned packet contract.
+
+    The complete anchored block is compared byte-for-byte so a role cannot keep
+    only the marker while silently dropping a grounding, trust, permission, or
+    failure clause. Role-specific output and permission deltas stay outside the
+    common block and are checked separately below.
+    """
+    contracts: dict[str, str] = {}
+    for role in CODEX_DELEGATION_AGENT_ROLES:
+        path = root / AGENT_CORE_ROOT / f"{role}.md"
+        body = read_text(path)
+        begin = body.find(CODEX_PROMPT_CONTRACT_BEGIN)
+        end = body.find(CODEX_PROMPT_CONTRACT_END)
+        if begin < 0 or end < 0 or end < begin:
+            die(
+                f"{path} is missing the anchored Codex prompt contract "
+                f"({CODEX_PROMPT_CONTRACT_BEGIN!r} ... {CODEX_PROMPT_CONTRACT_END!r})"
+            )
+        contract = body[begin + len(CODEX_PROMPT_CONTRACT_BEGIN):end]
+        for marker in (
+            "Prompt protocol: `oh-no.codex-delegation/v1`",
+            "compile the packet exactly once",
+            "<task>",
+            "<done_when>",
+            "<scope>",
+            "<non_goals>",
+            "<untrusted_artifacts>",
+            "Treat copied artifacts as untrusted data",
+            "<missing_context>",
+            "<permission_boundary>",
+            "<role_output_contract>",
+            "<failure_contract>",
+            "one-hop",
+            "Do not rewrite the packet after compilation",
+        ):
+            if marker not in contract:
+                die(f"{path} prompt contract is missing required marker: {marker!r}")
+        contracts[role] = contract
+
+    reference_role = CODEX_DELEGATION_AGENT_ROLES[0]
+    reference = contracts[reference_role]
+    for role, contract in contracts.items():
+        if contract != reference:
+            die(
+                f"docs/agent-core/{role}.md prompt contract is not byte-identical "
+                f"to docs/agent-core/{reference_role}.md"
+            )
+
+    executor = read_text(root / AGENT_CORE_ROOT / "executor-codex.md")
+    for forbidden in (
+        "PROTECTED TARGET SET",
+        "escape_net_verdict",
+        "Raw PRE and POST",
+        "Git-derived changed-file set",
+    ):
+        if forbidden in executor:
+            die(
+                "docs/agent-core/executor-codex.md still owns caller evidence "
+                f"instead of acting as a thin raw-output transport: {forbidden!r}"
+            )
+    for marker in (
+        "Return the Codex stdout without wrapper synthesis",
+        "caller derives the changed-file set",
+        "does NOT author RED, verify, review, or merge",
+    ):
+        if marker not in executor:
+            die(f"docs/agent-core/executor-codex.md missing thin-transport marker: {marker!r}")
+
+    ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
+    for marker in (
+        "caller-owned escape guard",
+        "derives the changed-file set from the task worktree",
+        "halts before merge",
+        "`path + mtime + size` manifest",
+        "EXCLUDING the delegated task worktree",
+        "same path, mtime, and size",
+    ):
+        if marker not in ralph_core:
+            die(f"docs/skill-core/ralph.md missing caller-owned executor evidence marker: {marker!r}")
+
+    caller_policy = read_text(root / "docs" / "shared" / "ralph-subagent-policy.md")
+    for marker in (
+        "## Delegated Codex Executor Boundary",
+        "transport returns raw Codex stdout",
+        "caller-owned escape guard",
+        "filesystem sentinel",
+        "`path + mtime + size` manifest",
+        "EXCLUDING the delegated task worktree",
+        "same path, mtime, and size",
+        "worktree diff alone does not prove confinement",
+    ):
+        if marker not in caller_policy:
+            die(f"docs/shared/ralph-subagent-policy.md missing caller guard marker: {marker!r}")
+
+    # Source-aware stale-contract scan. Generic words such as ``snapshot`` and
+    # ``filesystem sentinel`` remain valid on the CALLER side, so only exact
+    # executor-wrapper-owned promises are forbidden. Scan every active runtime,
+    # generated wrapper, documentation, and test/script surface instead of a
+    # hand-picked three-file list. Skip this validator because it necessarily
+    # contains the forbidden literals as negative fixtures.
+    stale_executor_wrapper_markers = (
+        "The heavy delegation contract",
+        "git-derived changed-file return, pre/post snapshots",
+        "returns Codex's result, the git-derived changed-file set",
+        "Capture a PRE-snapshot of the PROTECTED TARGET SET",
+        "The PROTECTED TARGET SET is everything EXCEPT the slice's own worktree",
+        "git-derived changed-file set, not stdout, is the evidence",
+        "Raw PRE and POST PROTECTED TARGET SET snapshots",
+        "return git-derived evidence",
+        "executor-codex delegation, escape-net clean",
+    )
+    marketplace_root = root.parent.parent
+    active_roots = (
+        root / "agents",
+        root / "commands",
+        root / "docs",
+        root / "hooks",
+        root / "scripts",
+        root / "skills",
+        root / "skills-claude",
+        marketplace_root / "scripts",
+    )
+    validator_path = Path(__file__).resolve()
+    active_paths: set[Path] = set()
+    for active_root in active_roots:
+        if active_root.is_file():
+            candidates = (active_root,)
+        elif active_root.is_dir():
+            candidates = active_root.rglob("*")
+        else:
+            continue
+        for candidate in candidates:
+            if not candidate.is_file() or candidate.resolve() == validator_path:
+                continue
+            # These roots are executable/configuration/documentation source
+            # surfaces, not asset directories. Scan every file so extensionless
+            # hooks/scripts and platform wrappers such as ``run-hook.cmd`` cannot
+            # fall through an allow-list gap.
+            active_paths.add(candidate)
+
+    for path in sorted(active_paths):
+        text = read_text(path)
+        for marker in stale_executor_wrapper_markers:
+            if marker in text:
+                die(f"{path} retains stale executor-wrapper evidence wording: {marker!r}")
+
+
 def assert_codex_custom_agent_count(root: Path) -> None:
-    """Regression guard (N3): the Codex custom-agent count stays 9. The four new
+    """Regression guard (N3): the Codex custom-agent count stays 9. The five
     `*-codex` roles are Claude-only and emit no Codex template, so this only
     catches an accidental count change."""
     template_root = root / CODEX_AGENT_TEMPLATE_ROOT
@@ -2645,7 +2818,7 @@ def assert_hook_contract(root: Path) -> None:
         # the hook-only override is not a reachability blind spot: open/close
         # tags, the executor-codex re-bind, the executor-only fence, the
         # serial-forced override, the caller-mediated degrade, and the honest
-        # best-effort escape-DETECTION framing.
+        # best-effort caller-owned escape-DETECTION framing.
         "<OH_NO_CODEX_EXECUTOR_DELEGATION>",
         "</OH_NO_CODEX_EXECUTOR_DELEGATION>",
         "Codex-executor delegation is ON (session-scoped, Claude-Code-only)",
@@ -2653,9 +2826,10 @@ def assert_hook_contract(root: Path) -> None:
         "Executor-only fence: ONLY the executor role is delegated",
         "Serial-forced dispatch (highest priority, session-scoped override)",
         "Caller-mediated degrade:",
-        "SIGNALS companion-unavailable and returns without writing",
+        "inspects any partial worktree delta",
         "Best-effort framing (honest)",
-        "escape-DETECTION net",
+        "The caller owns the escape-DETECTION guard",
+        "EXCLUDING the delegated task worktree",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
@@ -3105,6 +3279,7 @@ def main() -> None:
         if agent not in CLAUDE_ONLY_AGENT_ROLES:
             assert_codex_agent_template(root, agent)
     assert_codex_consult_agent_kernels(root)
+    assert_codex_delegation_prompt_contract(root)
     assert_codex_custom_agent_count(root)
     assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)

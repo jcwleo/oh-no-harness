@@ -214,6 +214,30 @@ Implementation subagents must be told that they are not alone in the codebase.
 They must not revert, overwrite, reformat, or broaden work outside their
 assigned scope.
 
+## Delegated Codex Executor Boundary
+
+When a Claude Code session policy rebinds an executor slice to
+`executor-codex`, the transport returns raw Codex stdout and owns no repository
+evidence. The caller must capture protected-target state immediately before and
+after the sequential delegated call, including integration-checkout git status
+and a filesystem sentinel for the ignored `.oh-no/` subtree and sibling
+worktrees, EXCLUDING the delegated task worktree from protected-target traversal.
+The caller runs the caller-owned escape guard, halts before merge on an unexpected
+protected-target change, and records the result.
+
+That filesystem sentinel is a `path + mtime + size` manifest, not a content
+hash, and prunes the active delegated task-worktree path before comparison. It
+cannot detect a content rewrite with the same path, mtime, and size.
+The git-status arm also cannot attribute a tracked file whose status
+was already dirty and remains unchanged, while arbitrary temp paths and
+non-`.oh-no/` ignored paths remain outside the guard.
+
+After the guard is clean, the caller derives the changed-file set from the task
+worktree and applies the normal per-executor scope check, RED preservation,
+verification, and review. A worktree diff alone does not prove confinement. On
+transport failure, inspect partial worktree changes before choosing the
+caller-mediated native fallback.
+
 ## Safe Parallel Work
 
 Parallelize when:
