@@ -108,13 +108,13 @@ AGENTS = [
             "write-capable Codex companion call for a scoped executor slice when "
             "executor delegation is on; the caller owns approval and handoff gates."
         ),
-        claude_tools="Read, Bash, Grep, Glob",
+        claude_tools="Bash",
         claude_model="inherit",
         claude_color="red",
         codex_description=(
-            "Oh No Harness executor-codex role: construct and run the write-capable "
-            "Codex companion call for one scoped executor slice and return git-derived "
-            "evidence, without authoring RED, verifying, reviewing, or merging."
+            "Oh No Harness executor-codex role: compile and forward one scoped executor "
+            "slice through a foreground write-capable Codex companion call and return "
+            "raw stdout without authoring RED, verifying, reviewing, or merging."
         ),
         # Claude-Code-only delegation agent: Claude delegates write work TO Codex.
         # On the Codex host there is nothing to delegate, so no Codex custom-agent
@@ -187,7 +187,7 @@ AGENTS = [
             "read-only Codex companion call for the opposite-host leg of a "
             "cross-host plan-reviewer pair; the caller owns approval and handoff gates."
         ),
-        claude_tools="Read, Bash, Grep, Glob",
+        claude_tools="Bash",
         claude_model="inherit",
         claude_color="orange",
         codex_description=(
@@ -207,7 +207,7 @@ AGENTS = [
             "read-only Codex companion call for the opposite-host leg of a "
             "cross-host code-reviewer pair; the caller owns approval and handoff gates."
         ),
-        claude_tools="Read, Bash, Grep, Glob",
+        claude_tools="Bash",
         claude_model="inherit",
         claude_color="pink",
         codex_description=(
@@ -224,7 +224,7 @@ AGENTS = [
             "read-only Codex companion call for the opposite-host leg of a "
             "cross-host debugger pair; the caller owns approval and handoff gates."
         ),
-        claude_tools="Read, Bash, Grep, Glob",
+        claude_tools="Bash",
         claude_model="inherit",
         claude_color="yellow",
         codex_description=(
@@ -241,7 +241,7 @@ AGENTS = [
             "read-only Codex companion call for one assigned opposite-host Fusion "
             "Rescue panel lens; the caller owns approval and handoff gates."
         ),
-        claude_tools="Read, Bash, Grep, Glob",
+        claude_tools="Bash",
         claude_model="inherit",
         claude_color="blue",
         codex_description=(

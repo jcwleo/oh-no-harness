@@ -130,9 +130,9 @@ Options:
                          Run live codex-executor delegation smoke test: with the
                          codexExecutor toggle ON, ralph must dispatch
                          oh-no-harness:executor-codex (not native/codex-rescue),
-                         attribute the delegated worktree writes, keep the RED file
-                         byte-unchanged, drive RED->GREEN, run the escape-detection
-                         net over the protected target set, prove executor-only
+                         return raw companion output, let the caller attribute the
+                         worktree writes, keep the RED file byte-unchanged, drive
+                         RED->GREEN, run the caller-owned escape guard, prove executor-only
                          (negative+positive), sequential dispatch, and caller-mediated
                          degrade fallback to native oh-no-harness:executor.
   --simplify-live        Run live simplify cleanup-subagent smoke test.
@@ -446,8 +446,8 @@ refresh_installed_plugin_cache() {
 
 # snapshot <integration-checkout> <owned-slug>
 #
-# Emits a JSON manifest of the PROTECTED TARGET SET used by the codex-executor
-# delegation escape-DETECTION net (plan v6 Central Design Problem). The set is
+# Emits a JSON manifest for the caller-owned escape guard around a delegated
+# codex-executor call. The caller's protected target set is
 # everything EXCEPT the delegated slice's own worktree:
 #   1. the integration checkout's tracked + untracked-NON-ignored state via
 #      `git -C <integration> status --porcelain`; PLUS
@@ -503,8 +503,8 @@ SENTINEL
 # PURE comparator over two `snapshot` manifests. Prints `clean` (exit 0) when the
 # protected target set is unchanged, or `HALT <offending paths>` (exit 1) when an
 # unexpected out-of-scope write appears. This is the SAME function the offline
-# firing test (test 0) and the --codex-executor-delegation-live lane both use — the
-# net's firing is gated deterministically offline, not merely implied by a clean
+# firing test (test 0) and the --codex-executor-delegation-live caller both use — the
+# guard's firing is gated deterministically offline, not merely implied by a clean
 # live run. No jq/node; Python only.
 escape_net_verdict() {
   local pre="$1" post="$2" owned_slug="$3"
@@ -643,10 +643,11 @@ run_escape_net_offline_test() {
   ok "escape-net pure function HALTs on induced out-of-scope writes (incl. .oh-no/specs/ and removed git-status lines) and stays clean otherwise (test 0)"
 }
 
-# Offline marker asserts (Part B): the four read-only *-codex agent-cores carry
-# their read-only/role-ownership contract and no write flag; the rewritten Claude
-# channel + fusion overlay use the codex-companion transport and no /codex:rescue;
-# and the Codex custom-agent count stays 9. Deterministic, no live model.
+# Offline contract asserts: all five Claude-to-Codex transports carry the same
+# complete versioned prompt contract; the four consult roles remain read-only and
+# role-owned; executor-codex is a thin raw-output write transport; the rewritten
+# Claude channel + fusion overlay use codex-companion and no /codex:rescue; and the
+# Codex custom-agent count stays 9. Deterministic, no live model.
 run_fusion_codex_offline_marker_test() {
   log "Running offline fusion-codex / *-codex marker + Codex-count invariant asserts"
   "$PYTHON_BIN" - "$PLUGIN_ROOT" <<'PY' || fail "offline fusion-codex marker asserts failed"
@@ -658,23 +659,68 @@ platforms = root / "docs" / "platforms"
 def read(p):
     return p.read_text(encoding="utf-8")
 
-shared = ("read-only", "--prompt-file", "caller-mediated degrade",
+shared = ("read-only", "--prompt-file", "2>/dev/null", "caller-mediated degrade",
           "Same-Host Parallel Fallback", "one-hop guard", "best-effort")
 review_extra = ("role-ownership", "proof that the dispatched role agent",
                 "does NOT judge, verify, or merge")
 fusion_extra = ("one assigned panel lens", "exact panel fields",
                 "never judges or synthesizes", "oh-no-fusion-rescue-analyst")
 review_roles = ("plan-reviewer-codex", "code-reviewer-codex", "debugger-codex")
+all_roles = ("executor-codex",) + review_roles + ("fusion-codex",)
+role_targets = {
+    "plan-reviewer-codex": (
+        "dispatch exactly `oh-no-plan-reviewer`",
+        "role-owned `oh-no-plan-reviewer` result",
+    ),
+    "code-reviewer-codex": (
+        "dispatch exactly `oh-no-code-reviewer`",
+        "role-owned `oh-no-code-reviewer` result",
+    ),
+    "debugger-codex": (
+        "dispatch exactly `oh-no-debugger`",
+        "role-owned `oh-no-debugger` result",
+    ),
+    "fusion-codex": (
+        "dispatch exactly `oh-no-fusion-rescue-analyst`",
+        "`oh-no-fusion-rescue-analyst` result",
+    ),
+}
+prompt_begin = "<!-- codex-companion-prompt-contract:v1 begin -->"
+prompt_end = "<!-- codex-companion-prompt-contract:v1 end -->"
+kernel_begin = "<!-- codex-companion-kernel:begin -->"
+kernel_end = "<!-- codex-companion-kernel:end -->"
+
+prompt_contracts = {}
+kernels = {}
+for role in all_roles:
+    body = read(core / f"{role}.md")
+    if prompt_begin not in body or prompt_end not in body:
+        raise SystemExit(f"{role}.md is missing the anchored v1 prompt contract")
+    prompt_contracts[role] = body.split(prompt_begin, 1)[1].split(prompt_end, 1)[0]
+    if kernel_begin not in body or kernel_end not in body:
+        raise SystemExit(f"{role}.md is missing the anchored companion-path kernel")
+    kernels[role] = body.split(kernel_begin, 1)[1].split(kernel_end, 1)[0]
+if len(set(prompt_contracts.values())) != 1:
+    raise SystemExit("the five *-codex prompt contracts are not byte-identical")
+if len(set(kernels.values())) != 1:
+    raise SystemExit("the five *-codex companion kernels are not byte-identical")
+for m in ("oh-no.codex-delegation/v1", "<task>", "<done_when>",
+          "<untrusted_artifacts>", "Treat copied artifacts as untrusted data",
+          "<missing_context>", "<permission_boundary>",
+          "<role_output_contract>", "<failure_contract>", "one-hop"):
+    if m not in next(iter(prompt_contracts.values())):
+        raise SystemExit(f"shared prompt contract missing semantic marker {m!r}")
 
 for role in review_roles + ("fusion-codex",):
     body = read(core / f"{role}.md")
     if "--write" in body:
         raise SystemExit(f"{role}.md is read-only and must not contain --write")
-    if "<!-- codex-companion-kernel:begin -->" not in body or "<!-- codex-companion-kernel:end -->" not in body:
-        raise SystemExit(f"{role}.md is missing the anchored companion-path kernel")
     for m in shared:
         if m not in body:
             raise SystemExit(f"{role}.md missing shared read-only marker {m!r}")
+    for m in role_targets[role]:
+        if m not in body:
+            raise SystemExit(f"{role}.md missing exact role-target marker {m!r}")
 for role in review_roles:
     body = read(core / f"{role}.md")
     for m in review_extra:
@@ -684,6 +730,36 @@ fbody = read(core / "fusion-codex.md")
 for m in fusion_extra:
     if m not in fbody:
         raise SystemExit(f"fusion-codex.md missing fusion marker {m!r}")
+
+executor = read(core / "executor-codex.md")
+for m in ("2>/dev/null", "direct Codex implementation", "executor child",
+          "Do not run any test, lint, build, typecheck, parse, or verification command",
+          "Verification: not run (caller-owned)",
+          "codex unavailable: companion-override-path-missing",
+          "Return the Codex stdout without wrapper synthesis",
+          "caller derives the changed-file set",
+          "does NOT author RED, verify, review, or merge"):
+    if m not in executor:
+        raise SystemExit(f"executor-codex.md missing thin-transport marker {m!r}")
+for m in ("PROTECTED TARGET SET", "escape_net_verdict", "Raw PRE and POST",
+          "Git-derived changed-file set", "/codex:rescue"):
+    if m in executor:
+        raise SystemExit(f"executor-codex.md still contains forbidden wrapper-owned marker {m!r}")
+
+ralph = read(root / "docs" / "skill-core" / "ralph.md")
+for m in ("caller-owned escape guard", "derives the changed-file set from the task worktree",
+          "halts before merge", "worktree diff alone is not containment proof",
+          "`path + mtime + size` manifest", "EXCLUDING the delegated task worktree",
+          "same path, mtime, and size"):
+    if m not in ralph:
+        raise SystemExit(f"ralph.md missing caller-owned delegation marker {m!r}")
+policy = read(root / "docs" / "shared" / "ralph-subagent-policy.md")
+for m in ("## Delegated Codex Executor Boundary", "transport returns raw Codex stdout",
+          "caller-owned escape guard", "filesystem sentinel",
+          "`path + mtime + size` manifest", "EXCLUDING the delegated task worktree",
+          "same path, mtime, and size"):
+    if m not in policy:
+        raise SystemExit(f"ralph-subagent-policy.md missing caller guard marker {m!r}")
 
 # Rewritten Claude channel: codex-companion transport, no /codex:rescue.
 channel = read(platforms / "claude-code-runtime.md")
@@ -706,7 +782,7 @@ if "/codex:rescue" in overlay or "codex:codex-rescue" in overlay:
 templates = sorted((platforms / "codex-agents").glob("oh-no-*.toml"))
 if len(templates) != 9:
     raise SystemExit(f"expected 9 Codex custom-agent templates, found {len(templates)}: {[p.name for p in templates]}")
-print("ok - offline: 4 *-codex cores read-only + role-owned, channel/overlay use codex-companion, Codex count == 9")
+print("ok - offline: 5 *-codex cores share prompt/kernel contracts; consults read-only + role-owned; executor raw; Codex count == 9")
 PY
   ok "offline fusion-codex / *-codex marker + Codex-count invariant asserts passed"
 }
@@ -4643,7 +4719,7 @@ PY
 run_codex_executor_delegation_live_test() {
   if [[ "$RUN_CODEX_EXECUTOR_DELEGATION_LIVE" != "1" ]]; then
     log "Skipping live Claude codex-executor delegation smoke test"
-    printf 'Run with --codex-executor-delegation-live to verify ralph dispatches oh-no-harness:executor-codex, attribution + escape-detection net, RED->GREEN, executor-only negative+positive, sequential dispatch, and caller-mediated degrade.\n' >&2
+    printf 'Run with --codex-executor-delegation-live to verify ralph dispatches oh-no-harness:executor-codex, raw companion output + caller-derived attribution + caller-owned escape guard, RED->GREEN, executor-only negative+positive, sequential dispatch, and caller-mediated degrade.\n' >&2
     return
   fi
 
@@ -4662,7 +4738,7 @@ run_codex_executor_delegation_live_test() {
   local sibling_slug="codex-executor-delegation-sibling"
 
   # Private, write-capable INTEGRATION CHECKOUT outside this repo/marketplace. It is
-  # a real git repo so the escape-detection net's git-status arm and the worktree
+  # a real git repo so the caller-owned escape guard's git-status arm and the worktree
   # attribution snapshot operate on real surfaces (never a hand-built dict).
   local integration
   integration="$(mktemp -d)"
@@ -4685,7 +4761,7 @@ run_codex_executor_delegation_live_test() {
     git config user.name "codex-executor-delegation smoke"
     mkdir -p src tests .oh-no/plans .oh-no/sessions .oh-no/test-runs
     # gitignore .oh-no/ so the synthetic repo mirrors PRODUCTION: `git status` is blind
-    # to the .oh-no/ subtree, so the escape net's filesystem SENTINEL arm (not the
+    # to the .oh-no/ subtree, so the caller guard's filesystem SENTINEL arm (not the
     # git-status arm) is what covers it here, exactly as at feature runtime (C1
     # corollary). Without this the .oh-no/ subtree would be tracked and the lane would
     # not exercise the sentinel arm the way production does.
@@ -4697,7 +4773,7 @@ run_codex_executor_delegation_live_test() {
     git commit -qm "seed: failing RED test for the delegated slice"
     # Register the delegated slice's worktree AND a sibling worktree from the
     # integration checkout (never nested inside another worktree), per
-    # worktree-isolation.md. The sibling proves the escape net covers siblings.
+    # worktree-isolation.md. The sibling proves the caller guard covers siblings.
     git worktree add -q ".oh-no/worktrees/$owned_slug" -b "$owned_slug" >/dev/null
     git worktree add -q ".oh-no/worktrees/$sibling_slug" -b "$sibling_slug" >/dev/null
   )
@@ -4724,7 +4800,7 @@ PY
     fail "codex-executor delegation live: RED test unexpectedly passed before the delegated patch (no RED to drive)"
   fi
 
-  # ESCAPE-DETECTION NET pre-snapshot of the PROTECTED TARGET SET (integration
+  # CALLER-OWNED ESCAPE GUARD pre-snapshot of the protected target set (integration
   # git-status + filesystem sentinel over the ignored .oh-no/ subtree and each
   # sibling worktree, EXCLUDING the delegated slice's own worktree). This is the
   # SAME pure function the offline firing test (test 0) exercises.
@@ -4750,7 +4826,7 @@ Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation togg
 
 There are two disjoint executor-eligible slices. Slice 1: implement add(x, y) in src/calc.py so tests/test_calc.py passes; the marker for this slice is OH_NO_CODEX_DELEG_SLICE_1. Slice 2: add a module docstring to a sibling helper file src/util.py containing the marker OH_NO_CODEX_DELEG_SLICE_2. The two slices touch different files and neither depends on the other.
 
-Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Do NOT modify tests/test_calc.py (the RED file). Dispatch the delegated executors STRICTLY SEQUENTIALLY, one at a time, never as a parallel batch.
+Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Each executor-codex packet may carry the read-only RED path for context but MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Do NOT modify tests/test_calc.py (the RED file). Dispatch the delegated executors STRICTLY SEQUENTIALLY, one at a time, never as a parallel batch.
 
 When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker. Then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
 PROMPT
@@ -4785,7 +4861,7 @@ PROMPT
     log "Claude codex-executor delegation live invocation exited non-zero (rc=$run_rc); proceeding to parser for diagnosis"
   fi
 
-  # ESCAPE-DETECTION NET post-snapshot + verdict. A HALT is a HARD/GATING failure
+  # CALLER-OWNED ESCAPE GUARD post-snapshot + verdict. A HALT is a HARD/GATING failure
   # (unexpected integration-checkout / ignored-.oh-no/ / sibling-worktree write),
   # modeled on the fusion lane's stream assertions — NOT the model-variance WARN.
   local post_snapshot escape_verdict escape_rc
@@ -4804,12 +4880,12 @@ PY
   red_rc_after=0
   ( cd "$worktree" && "$PYTHON_BIN" -m pytest -q tests/test_calc.py ) >/dev/null 2>&1 || red_rc_after=$?
 
-  # HARD gate: escape net.
+  # HARD gate: caller-owned escape guard.
   if [[ "$escape_rc" != "0" ]]; then
     _codex_deleg_cleanup
     rm -rf "$config_dir"
     trap - RETURN EXIT INT TERM
-    fail "codex-executor delegation live: escape-detection net HALTed on a protected-target-set write: ${escape_verdict}"
+    fail "codex-executor delegation live: caller-owned escape guard HALTed on a protected-target-set write: ${escape_verdict}"
   fi
   # HARD gate: RED file byte-UNCHANGED (Codex must not mutate the RED test file).
   if [[ "$red_hash_before" != "$red_hash_after" ]]; then
@@ -4837,9 +4913,18 @@ PY
   degrade_prompt=$(cat <<PROMPT
 Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation toggle ON. Work only inside ${worktree}. Implement a one-line helper is_even(n) in src/util2.py that returns n % 2 == 0; marker OH_NO_CODEX_DELEG_DEGRADE_SLICE.
 
-The codex companion is UNAVAILABLE in this run (its path is unresolvable). When executor-codex signals companion-unavailable, YOU (the main ralph agent, the caller) must fall back to dispatching the native oh-no-harness:executor for that slice and record a warning containing the exact token OH_NO_CODEX_DELEG_DEGRADE_FALLBACK. executor-codex must NOT self-dispatch. When the slice is done via the native executor fallback, emit the exact final marker OH_NO_CODEX_DELEG_DEGRADE_OK on its own line.
+The codex companion is UNAVAILABLE in this run because the configured override path does not exist. First dispatch executor-codex exactly once. It must make its one foreground Bash resolution attempt, make no repository write, and return exactly "codex unavailable: companion-override-path-missing" with no other text. executor-codex must NOT self-dispatch.
+
+After that exact failure result and BEFORE native fallback, YOU (the main ralph agent, the caller) must run one read-only Bash inspection command containing the literal shell comment "# OH_NO_CODEX_DELEG_DEGRADE_INSPECTION". That command must inspect partial task-worktree change with "git -C ${worktree} status --porcelain -- src/util2.py", inspect integration status with "git -C ${integration} status --porcelain", and inspect the protected .oh-no filesystem with "find ${integration}/.oh-no -not -path '${worktree}/*'". The src/util2.py porcelain section must be empty; the harness separately compares the caller-owned before/after protected-target snapshots.
+
+Only after that inspection may YOU fall back to dispatching the native oh-no-harness:executor for the slice. The native executor must create src/util2.py with exactly three lines: a marker comment "# OH_NO_CODEX_DELEG_DEGRADE_SLICE", then "def is_even(n):", then four spaces followed by "return n % 2 == 0"; it must not omit the marker. Record a warning containing the exact token OH_NO_CODEX_DELEG_DEGRADE_FALLBACK. When the slice is done via the native executor fallback, emit the exact final marker OH_NO_CODEX_DELEG_DEGRADE_OK on its own line.
 PROMPT
 )
+  # Caller-owned protected-target guard for the complete degrade attempt and
+  # fallback. The owned task worktree is excluded, matching runtime policy.
+  local degrade_pre_snapshot degrade_post_snapshot degrade_escape_verdict degrade_escape_rc
+  degrade_pre_snapshot="$(snapshot "$integration" "$owned_slug")"
+
   local degrade_rc=0
   if (
     cd "$worktree"
@@ -4854,13 +4939,25 @@ PROMPT
     log "Claude codex-executor delegation degrade sub-run exited non-zero (rc=$degrade_rc); proceeding to parser for diagnosis"
   fi
 
+  degrade_post_snapshot="$(snapshot "$integration" "$owned_slug")"
+  degrade_escape_rc=0
+  degrade_escape_verdict="$(escape_net_verdict "$degrade_pre_snapshot" "$degrade_post_snapshot" "$owned_slug")" || degrade_escape_rc=$?
+  if [[ "$degrade_escape_rc" != "0" ]]; then
+    _codex_deleg_cleanup
+    rm -rf "$config_dir"
+    trap - RETURN EXIT INT TERM
+    fail "codex-executor delegation degrade sub-run: caller-owned escape guard HALTed before fallback completion: ${degrade_escape_verdict}"
+  fi
+
   local parser_rc=0
   if OH_NO_CODEX_DELEG_WT_STATUS_BEFORE="$worktree_status_before" \
     OH_NO_CODEX_DELEG_WT_STATUS_AFTER="$worktree_status_after" \
     OH_NO_CODEX_DELEG_ESCAPE_VERDICT="$escape_verdict" \
+    OH_NO_CODEX_DELEG_DEGRADE_ESCAPE_VERDICT="$degrade_escape_verdict" \
     "$PYTHON_BIN" - "$out_file" "$err_file" "$degrade_out_file" "$degrade_err_file" "$summary_file" <<'PY'
 import json
 import os
+import re
 import sys
 
 out_path, err_path, degrade_out_path, degrade_err_path, summary_path = sys.argv[1:6]
@@ -4872,6 +4969,9 @@ POST_CHECK_MARKER = "OH_NO_CODEX_DELEG_POST_CHECK"
 FINAL_MARKER = "OH_NO_CODEX_DELEG_OK"
 DEGRADE_FALLBACK_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_FALLBACK"
 DEGRADE_FINAL_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_OK"
+DEGRADE_INSPECTION_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_INSPECTION"
+DEGRADE_EXPECTED_FAILURE = "codex unavailable: companion-override-path-missing"
+EXECUTOR_NO_VERIFY_LINE = "Verification: not run (caller-owned)"
 # Roles that MUST NOT be routed to the write-capable executor-codex channel.
 FORBIDDEN_ON_WRITE_CHANNEL = ("verifier", "code-reviewer", "reviewer", "merge")
 
@@ -4903,6 +5003,32 @@ def load_lines(path):
     return rows
 
 
+def delegated_result_text(content):
+    """Return the role result, excluding Claude's host-added agent metadata."""
+    if not isinstance(content, list):
+        return collect_text(content)
+    chunks = []
+    for item in content:
+        if not isinstance(item, dict) or item.get("type") != "text":
+            continue
+        value = str(item.get("text", ""))
+        if value.startswith("agentId:") or value.startswith("<usage>"):
+            continue
+        chunks.append(value)
+    return "\n".join(chunks)
+
+
+def raw_equal(left, right):
+    # Claude may normalize only the final newline when relaying a tool result.
+    return left.rstrip("\n") == right.rstrip("\n")
+
+
+COMPANION_INVOCATION_RE = re.compile(
+    r'\bnode\s+(?:"\$\{?COMPANION\}?"|\$\{?COMPANION\}?|"?[^\s";|&]*codex-companion(?:\.mjs)?"?)'
+    r'\s+([a-z][a-z0-9-]*)'
+)
+
+
 # ---- Primary delegated run ----
 main_rows = load_lines(out_path)
 with open(err_path, "r", encoding="utf-8") as fh:
@@ -4911,14 +5037,19 @@ if "unknown command" in err_text.lower() or "unknown agent" in err_text.lower():
     raise SystemExit(f"codex-executor delegation live saw unavailable command/agent in stderr: {err_text[:2000]!r}")
 
 init_ok = False
-executor_codex_dispatches = []     # (index, payload_text)
-native_verify_review_ran = False
+executor_codex_dispatches = []     # (index, payload_text, Task tool-use id)
+executor_codex_tool_ids = set()
+invalid_executor_payloads = []
+native_verifier_dispatches = []
+native_code_reviewer_dispatches = []
 codex_rescue_on_write = []
 forbidden_write_channel = []       # (index, role)
-real_companion_write = False       # >=1 real `codex-companion ... --write --cwd` (C3)
+executor_bash_calls = []           # (index, parent Task id, Bash tool-use id, command)
+companion_bash_parents = {}        # Bash tool-use id -> executor Task id
+companion_bash_outputs = {}        # Bash tool-use id -> [(index, is_error, text)]
+executor_task_outputs = {}         # executor Task id -> [(index, is_error, text)]
+invalid_companion_shapes = []      # wrong command count/subcommand/flags/redirect shape
 primary_native_executor = []       # native oh-no-harness:executor dispatches (C3)
-task_starts = []
-executor_codex_completions = []    # completion indexes for executor-codex tasks (F4/C4)
 post_check_seen = False
 final_marker_seen = False
 permission_denials = []
@@ -4936,43 +5067,99 @@ for index, data in main_rows:
                 payload_text = collect_text(payload)
                 role = role_of(payload.get("subagent_type"))
                 if role == WRITE_ROLE:
-                    executor_codex_dispatches.append((index, payload_text))
+                    tool_use_id = str(part.get("id", ""))
+                    executor_codex_dispatches.append((index, payload_text, tool_use_id))
+                    executor_codex_tool_ids.add(tool_use_id)
+                    payload_markers = [marker for marker in SLICE_MARKERS if marker in payload_text]
+                    if len(payload_markers) != 1:
+                        invalid_executor_payloads.append((index, tool_use_id, payload_markers))
+                    payload_lower = payload_text.lower()
+                    payload_lines = payload_lower.splitlines()
+                    for forbidden_prompt_marker in (
+                        "optionally running",
+                        "test outcome if you ran it",
+                    ):
+                        if forbidden_prompt_marker in payload_lower:
+                            invalid_executor_payloads.append(
+                                (index, tool_use_id, f"caller verification leaked into executor packet: {forbidden_prompt_marker}")
+                            )
+                    for verification_command in ("python3 -m pytest", "ast.parse("):
+                        for payload_line in payload_lines:
+                            if verification_command not in payload_line:
+                                continue
+                            if any(
+                                negation in payload_line
+                                for negation in ("do not", "must not", "never", "not run")
+                            ):
+                                continue
+                            invalid_executor_payloads.append(
+                                (
+                                    index,
+                                    tool_use_id,
+                                    f"caller verification command leaked into executor packet: {verification_command}",
+                                )
+                            )
                     for forbidden in FORBIDDEN_ON_WRITE_CHANNEL:
                         # Only flag when the payload actually assigns the forbidden
                         # role's work to the write channel, not an incidental mention.
                         if f"role: {forbidden}" in payload_text.lower() or f"{forbidden} role" in payload_text.lower():
                             forbidden_write_channel.append((index, forbidden))
-                if role in ("verifier", "code-reviewer"):
-                    native_verify_review_ran = True
+                if role == "verifier":
+                    native_verifier_dispatches.append(index)
+                if role == "code-reviewer":
+                    native_code_reviewer_dispatches.append(index)
                 if role == NATIVE_EXECUTOR:
                     primary_native_executor.append(index)
                 if str(payload.get("subagent_type", "")).startswith("codex:codex-rescue"):
                     codex_rescue_on_write.append(index)
             if ptype == "tool_use" and part.get("name") == "Bash":
                 command = str(part.get("input", {}).get("command", ""))
-                # C3: a REAL Codex companion write is the delegation contract command
-                # `node <companion> task --write --cwd <worktree> --prompt-file`.
-                if "codex-companion" in command and "--write --cwd" in command:
-                    real_companion_write = True
+                parent_id = str(data.get("parent_tool_use_id") or "")
+                if parent_id in executor_codex_tool_ids:
+                    bash_tool_id = str(part.get("id", ""))
+                    executor_bash_calls.append((index, parent_id, bash_tool_id, command))
+                    companion_bash_parents[bash_tool_id] = parent_id
+                    invocation_matches = list(COMPANION_INVOCATION_RE.finditer(command))
+                    invocations = [match.group(1) for match in invocation_matches]
+                    reasons = []
+                    if len(invocations) != 1:
+                        reasons.append(f"expected exactly one companion invocation, saw {invocations!r}")
+                    elif invocations[0] != "task":
+                        reasons.append(f"only the task subcommand is allowed, saw {invocations[0]!r}")
+                    else:
+                        match = invocation_matches[0]
+                        line_start = command.rfind("\n", 0, match.start()) + 1
+                        line_end = command.find("\n", match.end())
+                        if line_end < 0:
+                            line_end = len(command)
+                        invocation_line = command[line_start:line_end]
+                        for required in ("--write", "--cwd", "--prompt-file", "2>/dev/null"):
+                            if required not in invocation_line:
+                                reasons.append(f"task invocation missing {required}")
+                        if "--background" in invocation_line:
+                            reasons.append("background is forbidden on the task invocation")
+                    if reasons:
+                        invalid_companion_shapes.append(
+                            (index, parent_id, bash_tool_id, reasons, command)
+                        )
             if ptype == "text":
                 if POST_CHECK_MARKER in part.get("text", ""):
                     post_check_seen = True
                 if FINAL_MARKER in part.get("text", ""):
                     final_marker_seen = True
-    if data.get("type") == "system" and data.get("subtype") == "task_started":
-        task_starts.append((index, data.get("task_id")))
-    if data.get("type") == "system" and data.get("subtype") == "task_notification":
-        if data.get("status") == "completed":
-            summary = str(data.get("summary", ""))
-            # F4/C4: scope the completion boundary to executor-codex specifically so
-            # the serial proof is never conflated with an unrelated role's completion.
-            if (
-                WRITE_ROLE in summary
-                or "executor-codex" in summary
-                or "codex-companion" in summary
-                or any(m in summary for m in SLICE_MARKERS)
-            ):
-                executor_codex_completions.append(index)
+    if data.get("type") == "user":
+        for part in data.get("message", {}).get("content", []):
+            if part.get("type") != "tool_result":
+                continue
+            tool_use_id = str(part.get("tool_use_id", ""))
+            if tool_use_id in companion_bash_parents:
+                companion_bash_outputs.setdefault(tool_use_id, []).append(
+                    (index, part.get("is_error"), collect_text(part.get("content", "")))
+                )
+            if tool_use_id in executor_codex_tool_ids:
+                executor_task_outputs.setdefault(tool_use_id, []).append(
+                    (index, part.get("is_error"), delegated_result_text(part.get("content", "")))
+                )
     if data.get("type") == "result":
         permission_denials.extend(data.get("permission_denials") or [])
         result_text = str(data.get("result", ""))
@@ -4989,12 +5176,24 @@ if errors:
     raise SystemExit(f"codex-executor delegation live returned errors: {errors!r}")
 if permission_denials:
     raise SystemExit(f"codex-executor delegation live had permission denials: {permission_denials!r}")
+if invalid_executor_payloads:
+    raise SystemExit(
+        "codex-executor delegation live could not attribute exactly one slice marker "
+        f"to each executor-codex dispatch: {invalid_executor_payloads!r}"
+    )
+if invalid_companion_shapes:
+    raise SystemExit(
+        "codex-executor delegation live observed a non-rescue-thin companion shape "
+        "(exactly one task command with write/cwd/prompt-file, stderr-only discard, "
+        f"and no background/status/result/retry required): {invalid_companion_shapes!r}"
+    )
 
 # HARD: delegation must actually occur when ON (fail-to-delegate-when-ON).
-if len(executor_codex_dispatches) < 2:
+if len(executor_codex_dispatches) != len(SLICE_MARKERS):
     raise SystemExit(
-        "codex-executor delegation live did not dispatch oh-no-harness:executor-codex for both disjoint slices "
-        f"(fail-to-delegate-when-ON is a HARD failure); dispatches={len(executor_codex_dispatches)}"
+        "codex-executor delegation live must dispatch oh-no-harness:executor-codex "
+        "exactly once for each disjoint slice (no missing dispatch and no caller retry); "
+        f"dispatches={len(executor_codex_dispatches)} expected={len(SLICE_MARKERS)}"
     )
 # HARD: the write channel must be executor-codex, never codex:codex-rescue.
 if codex_rescue_on_write:
@@ -5006,32 +5205,92 @@ if forbidden_write_channel:
     raise SystemExit(
         f"codex-executor delegation live routed a non-executor role onto the write-capable executor-codex channel: {forbidden_write_channel!r}"
     )
-# HARD (executor-only, positive): a native verify/review role must have actually run
-# AND >=1 executor payload reached the delegated channel — so a short/aborted run
-# cannot false-pass the executor-only fence.
-if not native_verify_review_ran:
+# HARD (executor-only, positive): BOTH native verifier and native code-reviewer
+# must actually run. Either one alone cannot satisfy the maker-verifier/reviewer
+# independence claim.
+if not native_verifier_dispatches or not native_code_reviewer_dispatches:
     raise SystemExit(
-        "codex-executor delegation live never ran a native verifier/code-reviewer role (executor-only positive half unmet)"
+        "codex-executor delegation live requires both native verifier and native "
+        "code-reviewer roles; "
+        f"verifier={native_verifier_dispatches!r} code_reviewer={native_code_reviewer_dispatches!r}"
     )
 
-# Fallback: a subagent's Bash companion call may surface only via nested/collected
-# text rather than a top-level Bash tool_use, so scan the whole primary transcript too.
-if not real_companion_write:
-    for _idx, _data in main_rows:
-        blob = collect_text(_data)
-        if "codex-companion" in blob and "--write --cwd" in blob:
-            real_companion_write = True
-            break
-
-# HARD (C3): a green PRIMARY (non-degrade) run must prove REAL delegation, not a native
-# fallback. A native fallback can satisfy RED->GREEN with ZERO Codex writes, so require
-# >=1 real Codex companion write (executor-codex actually ran `codex-companion ...
-# --write --cwd`) — otherwise a green primary proves nothing about delegation.
-if not real_companion_write:
+# HARD (C3): each executor-codex Task must expose exactly one nested Bash call.
+# Fail closed instead of scanning arbitrary transcript text: that fallback could
+# mistake a different consult role's command or a quoted command for real execution.
+calls_by_parent = {}
+for call in executor_bash_calls:
+    calls_by_parent.setdefault(call[1], []).append(call)
+bad_call_counts = {
+    parent_id: len(calls_by_parent.get(parent_id, []))
+    for parent_id in executor_codex_tool_ids
+    if len(calls_by_parent.get(parent_id, [])) != 1
+}
+if bad_call_counts or len(executor_bash_calls) != len(executor_codex_dispatches):
     raise SystemExit(
-        "codex-executor delegation live PRIMARY run shows NO real Codex companion write "
-        "(`codex-companion ... --write --cwd` never observed); a native fallback cannot "
-        "satisfy the delegation proof (C3 hard gate)"
+        "codex-executor delegation live requires exactly one nested Bash companion "
+        "task per executor-codex dispatch; separate resolution, status/result, or retry "
+        f"calls are forbidden; per_parent={bad_call_counts!r} total_calls={len(executor_bash_calls)}"
+    )
+
+# HARD (C3/raw boundary): each Bash call must complete with non-empty stdout, and
+# the executor-codex Task result handed to its caller must be the same stdout,
+# byte-for-byte apart from the host's unavoidable final-newline normalization.
+raw_boundary_failures = []
+for _call_index, parent_id, bash_tool_id, _command in executor_bash_calls:
+    bash_results = companion_bash_outputs.get(bash_tool_id, [])
+    task_results = executor_task_outputs.get(parent_id, [])
+    if len(bash_results) != 1:
+        raw_boundary_failures.append((parent_id, "bash-result-count", len(bash_results)))
+        continue
+    if len(task_results) != 1:
+        raw_boundary_failures.append((parent_id, "task-result-count", len(task_results)))
+        continue
+    _bash_index, bash_is_error, bash_stdout = bash_results[0]
+    _task_index, task_is_error, task_stdout = task_results[0]
+    if bash_is_error is True or task_is_error is True:
+        raw_boundary_failures.append((parent_id, "tool-error", bash_is_error, task_is_error))
+    elif not bash_stdout.strip():
+        raw_boundary_failures.append((parent_id, "empty-companion-stdout"))
+    elif bash_stdout.lstrip().startswith("codex unavailable:"):
+        raw_boundary_failures.append((parent_id, "primary-companion-unavailable"))
+    elif bash_stdout.rstrip("\n").splitlines()[-1] != EXECUTOR_NO_VERIFY_LINE:
+        raw_boundary_failures.append(
+            (parent_id, "missing-exact-caller-owned-verification-line", bash_stdout[-240:])
+        )
+    elif (
+        "pytest" in bash_stdout.lower()
+        or re.search(r"\b\d+\s+passed\b", bash_stdout.lower())
+        or "test passed" in bash_stdout.lower()
+        or "tests passed" in bash_stdout.lower()
+    ):
+        raw_boundary_failures.append((parent_id, "executor-reported-running-verification", bash_stdout[:240]))
+    elif not raw_equal(task_stdout, bash_stdout):
+        raw_boundary_failures.append(
+            (
+                parent_id,
+                "wrapper-synthesis-or-truncation",
+                bash_stdout[:240],
+                task_stdout[:240],
+            )
+        )
+if raw_boundary_failures:
+    raise SystemExit(
+        "codex-executor delegation live did not preserve the raw Codex stdout "
+        f"boundary: {raw_boundary_failures!r}"
+    )
+last_executor_result_index = max(
+    executor_task_outputs[parent_id][0][0] for parent_id in executor_codex_tool_ids
+)
+if (
+    min(native_verifier_dispatches) < last_executor_result_index
+    or min(native_code_reviewer_dispatches) < last_executor_result_index
+):
+    raise SystemExit(
+        "codex-executor delegation live dispatched native verifier/reviewer before "
+        "both executor-codex results completed; "
+        f"last_executor_result={last_executor_result_index} verifier={native_verifier_dispatches!r} "
+        f"code_reviewer={native_code_reviewer_dispatches!r}"
     )
 # HARD (C3): the PRIMARY (non-degrade) run must NOT fall back to the native executor.
 if primary_native_executor:
@@ -5041,26 +5300,18 @@ if primary_native_executor:
         "(non-degrade) run must prove real Codex delegation, not native fallback (C3)"
     )
 
-# HARD (F4/C4): delegated dispatch must be SEQUENTIAL, and the claim must be PROVEN,
-# not vacuously skipped. Fail CLOSED: if the transcript exposes no observable
-# executor-codex COMPLETION lifecycle event, SEQUENTIAL dispatch is UNPROVEN — never a
-# silent pass. Scope strictly to executor-codex dispatches/completions (never conflate
-# with an unrelated role's notification). Parallel = the 2nd executor-codex dispatch
-# STARTED before the 1st executor-codex COMPLETED.
-if not executor_codex_completions:
-    raise SystemExit(
-        "codex-executor delegation live observed no executor-codex dispatch COMPLETION "
-        "lifecycle event, so SEQUENTIAL (serial-forced) dispatch is UNPROVEN "
-        "(fail-closed); a serial claim must be demonstrable, not silently skipped"
-    )
-first_executor_codex_completion = min(executor_codex_completions)
-executor_codex_dispatch_indexes = sorted(idx for idx, _ in executor_codex_dispatches)
-second_executor_codex_dispatch = executor_codex_dispatch_indexes[1]
-if second_executor_codex_dispatch < first_executor_codex_completion:
+# HARD (F4/C4): delegated dispatch must be SEQUENTIAL. Use the parent-visible
+# Task tool result as the completion boundary; task_notification may be delivered
+# later and would false-label a truly sequential run as parallel.
+ordered_executor_dispatches = sorted(executor_codex_dispatches)
+first_executor_dispatch = ordered_executor_dispatches[0]
+second_executor_dispatch = ordered_executor_dispatches[1]
+first_executor_result_index = executor_task_outputs[first_executor_dispatch[2]][0][0]
+if second_executor_dispatch[0] < first_executor_result_index:
     raise SystemExit(
         "codex-executor delegation live dispatched delegated executors in PARALLEL "
-        f"(second executor-codex dispatch at {second_executor_codex_dispatch} started "
-        f"before the first executor-codex completion at {first_executor_codex_completion}); "
+        f"(second executor-codex dispatch at {second_executor_dispatch[0]} started "
+        f"before the first executor-codex result at {first_executor_result_index}); "
         "serial-forced dispatch is required"
     )
 if not post_check_seen:
@@ -5070,8 +5321,18 @@ if not final_marker_seen:
 
 # ---- Degrade sub-run: CALLER-mediated fallback to native executor ----
 degrade_rows = load_lines(degrade_out_path)
-degrade_executor_codex_self_dispatch = []
-degrade_native_executor = []
+degrade_executor_dispatches = []   # (index, payload, Task tool-use id)
+degrade_executor_ids = set()
+degrade_native_executor = []       # (index, payload, Task tool-use id)
+degrade_nested_dispatches = []
+degrade_executor_bash_calls = []   # (index, parent Task id, Bash tool-use id, command)
+degrade_bash_parents = {}
+degrade_bash_outputs = {}
+degrade_task_outputs = {}
+degrade_native_outputs = {}
+degrade_inspections = []           # (index, Bash tool-use id, command)
+degrade_inspection_ids = set()
+degrade_inspection_outputs = {}
 degrade_fallback_warning = False
 degrade_final_marker = False
 for index, data in degrade_rows:
@@ -5079,16 +5340,59 @@ for index, data in degrade_rows:
         for part in data.get("message", {}).get("content", []):
             ptype = part.get("type")
             if ptype == "tool_use" and part.get("name") in {"Agent", "Task"}:
-                role = role_of(part.get("input", {}).get("subagent_type"))
+                payload = part.get("input", {})
+                payload_text = collect_text(payload)
+                tool_use_id = str(part.get("id", ""))
+                parent_id = str(data.get("parent_tool_use_id") or "")
+                if parent_id in degrade_executor_ids:
+                    degrade_nested_dispatches.append((index, parent_id, tool_use_id))
+                role = role_of(payload.get("subagent_type"))
                 if role == WRITE_ROLE:
-                    degrade_executor_codex_self_dispatch.append(index)
+                    degrade_executor_dispatches.append((index, payload_text, tool_use_id))
+                    degrade_executor_ids.add(tool_use_id)
                 if role == NATIVE_EXECUTOR:
-                    degrade_native_executor.append(index)
+                    degrade_native_executor.append((index, payload_text, tool_use_id))
+            if ptype == "tool_use" and part.get("name") == "Bash":
+                command = str(part.get("input", {}).get("command", ""))
+                bash_tool_id = str(part.get("id", ""))
+                parent_id = str(data.get("parent_tool_use_id") or "")
+                if parent_id in degrade_executor_ids:
+                    degrade_executor_bash_calls.append(
+                        (index, parent_id, bash_tool_id, command)
+                    )
+                    degrade_bash_parents[bash_tool_id] = parent_id
+                elif not parent_id and DEGRADE_INSPECTION_MARKER in command:
+                    degrade_inspections.append((index, bash_tool_id, command))
+                    degrade_inspection_ids.add(bash_tool_id)
             if ptype == "text":
                 if DEGRADE_FALLBACK_MARKER in part.get("text", ""):
                     degrade_fallback_warning = True
                 if DEGRADE_FINAL_MARKER in part.get("text", ""):
                     degrade_final_marker = True
+    if data.get("type") == "user":
+        for part in data.get("message", {}).get("content", []):
+            if part.get("type") != "tool_result":
+                continue
+            tool_use_id = str(part.get("tool_use_id", ""))
+            result = (
+                index,
+                part.get("is_error"),
+                collect_text(part.get("content", "")),
+            )
+            if tool_use_id in degrade_bash_parents:
+                degrade_bash_outputs.setdefault(tool_use_id, []).append(result)
+            if tool_use_id in degrade_executor_ids:
+                degrade_task_outputs.setdefault(tool_use_id, []).append(
+                    (
+                        index,
+                        part.get("is_error"),
+                        delegated_result_text(part.get("content", "")),
+                    )
+                )
+            if tool_use_id in degrade_inspection_ids:
+                degrade_inspection_outputs.setdefault(tool_use_id, []).append(result)
+            if any(tool_use_id == native_id for _, _, native_id in degrade_native_executor):
+                degrade_native_outputs.setdefault(tool_use_id, []).append(result)
     if data.get("type") == "result":
         result_text = str(data.get("result", ""))
         if DEGRADE_FALLBACK_MARKER in result_text:
@@ -5096,12 +5400,130 @@ for index, data in degrade_rows:
         if DEGRADE_FINAL_MARKER in result_text:
             degrade_final_marker = True
 
-# HARD: on degrade, the CALLER must fall back to the native executor and record a
-# warning; executor-codex (no dispatch tool) must NOT self-dispatch.
-if not degrade_native_executor:
+# HARD: exactly one delegated attempt must precede exactly one native fallback.
+if len(degrade_executor_dispatches) != 1:
     raise SystemExit(
-        "codex-executor delegation degrade sub-run did not fall back to the native oh-no-harness:executor "
-        "(caller-mediated degrade unmet)"
+        "codex-executor delegation degrade sub-run requires exactly one "
+        f"executor-codex attempt, saw {degrade_executor_dispatches!r}"
+    )
+if len(degrade_native_executor) != 1:
+    raise SystemExit(
+        "codex-executor delegation degrade sub-run requires exactly one native "
+        f"oh-no-harness:executor fallback, saw {degrade_native_executor!r}"
+    )
+if degrade_nested_dispatches:
+    raise SystemExit(
+        "executor-codex self-dispatched during degrade despite its Bash-only "
+        f"transport contract: {degrade_nested_dispatches!r}"
+    )
+
+attempt_index, attempt_payload, attempt_id = degrade_executor_dispatches[0]
+if (
+    "OH_NO_CODEX_DELEG_DEGRADE_SLICE" not in attempt_payload
+    or DEGRADE_EXPECTED_FAILURE not in attempt_payload
+):
+    raise SystemExit(
+        "degrade executor-codex packet did not pin its slice and exact failure "
+        f"signal: {attempt_payload[:1200]!r}"
+    )
+if len(degrade_executor_bash_calls) != 1:
+    raise SystemExit(
+        "degrade executor-codex must make exactly one foreground Bash resolution "
+        f"attempt, saw {degrade_executor_bash_calls!r}"
+    )
+_bash_index, bash_parent_id, bash_tool_id, bash_command = degrade_executor_bash_calls[0]
+if bash_parent_id != attempt_id or "--background" in bash_command:
+    raise SystemExit(
+        "degrade executor-codex Bash attempt had the wrong parent/background shape: "
+        f"parent={bash_parent_id!r} expected={attempt_id!r}"
+    )
+bash_results = degrade_bash_outputs.get(bash_tool_id, [])
+task_results = degrade_task_outputs.get(attempt_id, [])
+if len(bash_results) != 1 or len(task_results) != 1:
+    raise SystemExit(
+        "degrade executor-codex must expose exactly one Bash result and one raw "
+        f"Task result; bash={bash_results!r} task={task_results!r}"
+    )
+failure_result_index, task_is_error, task_failure = task_results[0]
+_bash_result_index, bash_is_error, bash_failure = bash_results[0]
+if bash_is_error is True or task_is_error is True:
+    raise SystemExit(
+        "degrade executor-codex resolution attempt returned a tool error instead "
+        f"of the canonical signal: bash={bash_is_error!r} task={task_is_error!r}"
+    )
+if not bash_failure.strip() or not re.search(
+    r"(?i)(missing|not[ -]?found|unresolvable)", bash_failure
+):
+    raise SystemExit(
+        "degrade executor-codex Bash did not prove the configured override path "
+        f"was missing: {bash_failure!r}"
+    )
+if task_failure.strip() != DEGRADE_EXPECTED_FAILURE:
+    raise SystemExit(
+        "degrade executor-codex did not classify the missing-path observation as "
+        f"the exact canonical failure signal: bash={bash_failure!r} task={task_failure!r}"
+    )
+
+# HARD: caller inspection and protected-target guard must finish AFTER the exact
+# failure and BEFORE native fallback. This proves partial-change inspection is not
+# merely mentioned after the fact.
+if len(degrade_inspections) != 1:
+    raise SystemExit(
+        "degrade caller must run exactly one marked pre-fallback inspection, saw "
+        f"{degrade_inspections!r}"
+    )
+inspection_index, inspection_tool_id, inspection_command = degrade_inspections[0]
+for required in (
+    DEGRADE_INSPECTION_MARKER,
+    "git -C",
+    "status --porcelain",
+    "src/util2.py",
+    ".oh-no",
+    "find ",
+    "-not -path",
+):
+    if required not in inspection_command:
+        raise SystemExit(
+            "degrade caller inspection missed a required partial-change/guard "
+            f"operation {required!r}: {inspection_command!r}"
+        )
+inspection_results = degrade_inspection_outputs.get(inspection_tool_id, [])
+if len(inspection_results) != 1:
+    raise SystemExit(
+        "degrade caller inspection did not return exactly one result: "
+        f"{inspection_results!r}"
+    )
+inspection_result_index, inspection_is_error, inspection_output = inspection_results[0]
+if inspection_is_error is True or re.search(
+    r"(?m)^.{2}\s+src/util2\.py$", inspection_output
+):
+    raise SystemExit(
+        "degrade caller inspection found a partial src/util2.py change before fallback: "
+        f"{inspection_output!r}"
+    )
+native_index, native_payload, native_id = degrade_native_executor[0]
+if not (
+    attempt_index < failure_result_index < inspection_index
+    and inspection_result_index < native_index
+):
+    raise SystemExit(
+        "degrade ordering must be executor attempt -> exact failure -> completed "
+        "caller inspection/guard -> native fallback; "
+        f"attempt={attempt_index} failure={failure_result_index} "
+        f"inspection={inspection_index}/{inspection_result_index} native={native_index}"
+    )
+if "OH_NO_CODEX_DELEG_DEGRADE_SLICE" not in native_payload:
+    raise SystemExit("native degrade fallback packet lost the assigned slice marker")
+native_results = degrade_native_outputs.get(native_id, [])
+if len(native_results) != 1 or "OH_NO_CODEX_DELEG_DEGRADE_SLICE" not in native_results[0][2]:
+    raise SystemExit(
+        "native degrade fallback did not complete its assigned slice with observable "
+        f"output: {native_results!r}"
+    )
+if os.environ.get("OH_NO_CODEX_DELEG_DEGRADE_ESCAPE_VERDICT", "") != "clean":
+    raise SystemExit(
+        "degrade caller-owned protected-target guard was not clean: "
+        f"{os.environ.get('OH_NO_CODEX_DELEG_DEGRADE_ESCAPE_VERDICT', '')!r}"
     )
 if not degrade_fallback_warning:
     raise SystemExit(
@@ -5114,22 +5536,30 @@ if not degrade_final_marker:
 
 summary = {
     "status": "passed",
-    "escape_net_verdict": os.environ.get("OH_NO_CODEX_DELEG_ESCAPE_VERDICT", ""),
+    "caller_escape_guard_verdict": os.environ.get("OH_NO_CODEX_DELEG_ESCAPE_VERDICT", ""),
     "executor_codex_dispatches": len(executor_codex_dispatches),
-    "real_companion_write": real_companion_write,
-    "native_verify_review_ran": native_verify_review_ran,
+    "real_companion_write_calls": len(executor_bash_calls),
+    "raw_stdout_boundary": True,
+    "native_verifier_dispatches": len(native_verifier_dispatches),
+    "native_code_reviewer_dispatches": len(native_code_reviewer_dispatches),
     "serial_dispatch": True,
     "post_check_marker": POST_CHECK_MARKER,
     "final_marker": FINAL_MARKER,
     "worktree_delta_before": os.environ.get("OH_NO_CODEX_DELEG_WT_STATUS_BEFORE", ""),
     "worktree_delta_after": os.environ.get("OH_NO_CODEX_DELEG_WT_STATUS_AFTER", ""),
     "degrade_native_executor_fallback": bool(degrade_native_executor),
+    "degrade_executor_attempts": len(degrade_executor_dispatches),
+    "degrade_exact_failure_signal": task_failure.strip(),
+    "degrade_inspection_before_fallback": True,
+    "degrade_caller_escape_guard_verdict": os.environ.get(
+        "OH_NO_CODEX_DELEG_DEGRADE_ESCAPE_VERDICT", ""
+    ),
     "degrade_fallback_warning": degrade_fallback_warning,
 }
 with open(summary_path, "w", encoding="utf-8") as fh:
     fh.write(json.dumps(summary, indent=2, sort_keys=True) + "\n")
 
-print("ok - live Claude codex-executor delegation: executor-codex on the write channel, attribution + escape-net clean, RED->GREEN, executor-only negative+positive, sequential dispatch, caller-mediated degrade")
+print("ok - live Claude codex-executor delegation: rescue-thin executor-codex on the write channel, raw output boundary + caller attribution + caller escape guard clean, RED->GREEN, executor-only negative+positive, sequential dispatch, caller-mediated degrade")
 PY
   then
     parser_rc=0

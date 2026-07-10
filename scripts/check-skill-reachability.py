@@ -55,7 +55,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor role's implementation work to Codex", BOTH),
         ("Default OFF.", BOTH),
         ("they run one at a time, not in parallel", BOTH),  # serial-forced fact
-        ("escape-DETECTION net", BOTH),
+        ("the caller owns the escape-DETECTION guard", BOTH),
         ("not a sandbox guarantee", BOTH),  # honest best-effort, not-a-guarantee framing
         ("oh-no-config codex-executor on|off|status", BOTH),  # command token
         # Claude-Code-only overlay: the delegation block is injected via

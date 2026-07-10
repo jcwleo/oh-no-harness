@@ -65,15 +65,15 @@ if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" c
 <OH_NO_CODEX_EXECUTOR_DELEGATION>
 Codex-executor delegation is ON (session-scoped, Claude-Code-only). This is a highest-priority scoped override of ONLY the executor role, session-global across ralph, ultrawork, and systematic-debugging.
 
-Executor role re-bind: when Ralph (or any Oh No Harness workflow) dispatches the `executor` role, dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`. The heavy delegation contract (companion call, scoped packet, git-derived changed-file return, pre/post snapshots) lives in the executor-codex agent core, NOT in this block.
+Executor role re-bind: when Ralph (or any Oh No Harness workflow) dispatches the `executor` role, dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`. That agent is a thin transport: it compiles one scoped packet, makes one foreground write-capable Codex companion call, and returns raw Codex stdout without wrapper synthesis.
 
 Executor-only fence: ONLY the executor role is delegated. Verify, review, and merge MUST NOT be routed to the write-capable executor-codex channel; they stay with Claude / native review and verifier roles, so maker-verifier independence cannot silently collapse.
 
 Serial-forced dispatch (highest priority, session-scoped override): this override SUPERSEDES the ralph disjoint-executor parallel-batching directive (ralph.md step 7, "## Mode-Gated Agent Dispatch", "## Parallel Subagent Policy"). Delegated executors run STRICTLY SEQUENTIALLY, one at a time. This is soft model-arbitration, NOT hook-enforced. explore/review/verify roles may still parallelize; only delegated executors are serial.
 
-Caller-mediated degrade: if the codex companion is unavailable, unresolvable, or its path is ambiguous, executor-codex SIGNALS companion-unavailable and returns without writing; the main ralph agent (the caller) then falls back to native `oh-no-harness:executor` for that slice and records a warning. executor-codex CANNOT self-dispatch.
+Caller-mediated degrade: if the codex companion is unavailable, unresolvable, or the delegated call fails, executor-codex SIGNALS companion-unavailable and returns; the main ralph agent (the caller) inspects any partial worktree delta before it may fall back to native `oh-no-harness:executor` for that slice and records a warning. executor-codex CANNOT self-dispatch.
 
-Best-effort framing (honest): worktree/sandbox confinement of delegated writes is BEST-EFFORT, NOT a guarantee. The caller runs the escape-DETECTION net (git-status over the integration checkout plus a filesystem sentinel over the ignored .oh-no/ subtree and sibling worktrees) and the in-worktree scope check + revert, and HALTs the run on any unexpected out-of-scope modification. Writes outside the protected target set (arbitrary temp dirs, non-.oh-no/ ignored paths) remain undetected.
+Best-effort framing (honest): worktree/sandbox confinement of delegated writes is BEST-EFFORT, NOT a guarantee. The caller owns the escape-DETECTION guard: capture protected-target state immediately before and after the sequential delegated call, EXCLUDING the delegated task worktree from protected-target traversal, derive the worktree diff itself, and HALT before merge on any unexpected protected-target change. Its filesystem sentinel is a path + mtime + size manifest, not a content hash. Same-path/mtime/size rewrites, tracked files already dirty with unchanged status, arbitrary temp dirs, and non-.oh-no/ ignored paths remain undetected.
 </OH_NO_CODEX_EXECUTOR_DELEGATION>'
 fi
 
