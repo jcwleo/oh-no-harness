@@ -358,27 +358,17 @@ Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever 
 
 When the Claude Code SessionStart policy rebinds the executor role to
 `executor-codex`, treat that agent as a thin raw-output transport, not as an
-evidence owner. Before each delegated call, the Ralph caller captures the
-caller-owned escape guard state for the integration checkout, its ignored
-`.oh-no/` subtree, and sibling worktrees, EXCLUDING the delegated task worktree
-from protected-target traversal. After the call, the caller captures the same
-state again, compares it, and halts before merge when an unexpected protected
-target changed.
+evidence owner. The identity rebind does not change Ralph eligibility: only a
+disjoint batch already admitted by the existing Batch Rule and Isolation
+Contract may overlap at the outer `executor-codex` layer. Ineligible, unknown,
+or unsafe work stays serial, and every inner companion transport remains one
+foreground call. Wait for every started member before existing scope checks,
+independent verification, and review; fallback and integration stay sequential.
 
-The filesystem sentinel is a `path + mtime + size` manifest, not a content hash,
-over the ignored `.oh-no/` subtree and sibling worktrees, with the active delegated
-task-worktree path pruned before comparison. State its blind spots:
-it cannot detect a content rewrite that preserves the same path, mtime, and size;
-the git-status arm cannot attribute a tracked file whose status was already dirty
-and remains unchanged; arbitrary temp paths and non-`.oh-no/` ignored paths stay
-outside the guard.
-
-The caller derives the changed-file set from the task worktree, checks the owned
-scope and RED-file preservation, and runs independent verification and review.
-The executor transport does not calculate the diff, snapshots, or verdict. A
-worktree diff alone is not containment proof. On an unavailable or failed
-transport, inspect and resolve any partial worktree change before native fallback;
-never layer a fallback patch blindly over partial delegated output.
+Apply the complete caller-owned guard, scope-check, partial-change inspection,
+and degrade rules in `docs/shared/ralph-subagent-policy.md` under
+`## Delegated Codex Executor Boundary`; do not duplicate or replace that shared
+contract here.
 
 ## Parallel Subagent Policy
 

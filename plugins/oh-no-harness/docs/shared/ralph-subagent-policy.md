@@ -218,15 +218,22 @@ assigned scope.
 
 When a Claude Code session policy rebinds an executor slice to
 `executor-codex`, the transport returns raw Codex stdout and owns no repository
-evidence. The caller must capture protected-target state immediately before and
-after the sequential delegated call, including integration-checkout git status
+evidence. The identity rebind does not change the existing Batch Rule or
+Isolation Contract: an already-admitted disjoint executor batch may overlap at
+the outer `executor-codex` layer, while ineligible, unknown, or unsafe work stays
+serial. Each inner companion transport remains one foreground call. The caller
+waits for every started member before the existing scope, verification, and
+review closure; fallback and integration stay sequential.
+
+The caller must capture protected-target state immediately before the outer
+batch and after every started member finishes, including integration-checkout git status
 and a filesystem sentinel for the ignored `.oh-no/` subtree and sibling
-worktrees, EXCLUDING the delegated task worktree from protected-target traversal.
+worktrees, EXCLUDING the delegated task worktrees from protected-target traversal.
 The caller runs the caller-owned escape guard, halts before merge on an unexpected
 protected-target change, and records the result.
 
 That filesystem sentinel is a `path + mtime + size` manifest, not a content
-hash, and prunes the active delegated task-worktree path before comparison. It
+hash, and prunes the delegated task-worktree paths before comparison. It
 cannot detect a content rewrite with the same path, mtime, and size.
 The git-status arm also cannot attribute a tracked file whose status
 was already dirty and remains unchanged, while arbitrary temp paths and
@@ -236,7 +243,7 @@ After the guard is clean, the caller derives the changed-file set from the task
 worktree and applies the normal per-executor scope check, RED preservation,
 verification, and review. A worktree diff alone does not prove confinement. On
 transport failure, inspect partial worktree changes before choosing the
-caller-mediated native fallback.
+caller-mediated sequential native fallback.
 
 ## Safe Parallel Work
 

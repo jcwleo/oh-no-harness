@@ -905,15 +905,17 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
 # Load-bearing phrases the reframed auto-routing skill core (T4) must carry so
 # the codexExecutor toggle content is statically gated: the codexExecutor toggle
 # key, the `codex-executor` command token, the default-OFF fact, the
-# serial-forced fact, and the honest caller-owned escape-DETECTION /
+# eligibility-preserving overlap fact, and the honest caller-owned escape-DETECTION /
 # not-a-guarantee framing.
 # This is only load-bearing if WIRED into assert_skill's if-chain below.
 AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
     "codexExecutor",
     "codex-executor on|off|status",
     "Default OFF.",
-    "serial-forced",
-    "they run one at a time, not in parallel",
+    "Existing Ralph eligibility remains the sole gate.",
+    "already-admitted disjoint executor batch may overlap",
+    "each inner companion call remains foreground",
+    "fallback and integration",
     "the caller owns the escape-DETECTION guard",
     "not a sandbox guarantee",
 )
@@ -2002,21 +2004,21 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "Return the Codex stdout without wrapper synthesis",
         "caller derives the changed-file set",
         "does NOT author RED, verify, review, or merge",
+        "Caller-authorized overlap",
     ):
         if marker not in executor:
             die(f"docs/agent-core/executor-codex.md missing thin-transport marker: {marker!r}")
 
     ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
     for marker in (
-        "caller-owned escape guard",
-        "derives the changed-file set from the task worktree",
-        "halts before merge",
-        "`path + mtime + size` manifest",
-        "EXCLUDING the delegated task worktree",
-        "same path, mtime, and size",
+        "identity rebind does not change Ralph eligibility",
+        "outer `executor-codex` layer",
+        "foreground call. Wait for every started member",
+        "fallback and integration stay sequential",
+        "`## Delegated Codex Executor Boundary`",
     ):
         if marker not in ralph_core:
-            die(f"docs/skill-core/ralph.md missing caller-owned executor evidence marker: {marker!r}")
+            die(f"docs/skill-core/ralph.md missing delegated executor marker: {marker!r}")
 
     caller_policy = read_text(root / "docs" / "shared" / "ralph-subagent-policy.md")
     for marker in (
@@ -2025,9 +2027,11 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "caller-owned escape guard",
         "filesystem sentinel",
         "`path + mtime + size` manifest",
-        "EXCLUDING the delegated task worktree",
+        "EXCLUDING the delegated task worktrees",
         "same path, mtime, and size",
         "worktree diff alone does not prove confinement",
+        "identity rebind does not change the existing Batch Rule",
+        "fallback and integration stay sequential",
     ):
         if marker not in caller_policy:
             die(f"docs/shared/ralph-subagent-policy.md missing caller guard marker: {marker!r}")
@@ -2832,19 +2836,22 @@ def assert_hook_contract(root: Path) -> None:
         # gate the OH_NO_CODEX_EXECUTOR_DELEGATION block's load-bearing phrases so
         # the hook-only override is not a reachability blind spot: open/close
         # tags, the executor-codex re-bind, the executor-only fence, the
-        # serial-forced override, the caller-mediated degrade, and the honest
+        # eligibility-preserving overlap, caller-mediated degrade, and the honest
         # best-effort caller-owned escape-DETECTION framing.
         "<OH_NO_CODEX_EXECUTOR_DELEGATION>",
         "</OH_NO_CODEX_EXECUTOR_DELEGATION>",
         "Codex-executor delegation is ON (session-scoped, Claude-Code-only)",
         "dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`",
         "Executor-only fence: ONLY the executor role is delegated",
-        "Serial-forced dispatch (highest priority, session-scoped override)",
+        "Eligibility-preserving rebind:",
+        "existing Ralph eligibility remains the sole gate",
+        "outer executor-codex agent layer",
+        "Each inner companion call remains foreground",
         "Caller-mediated degrade:",
         "inspects any partial worktree delta",
         "Best-effort framing (honest)",
         "The caller owns the escape-DETECTION guard",
-        "EXCLUDING the delegated task worktree",
+        "EXCLUDING the delegated task worktrees",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
