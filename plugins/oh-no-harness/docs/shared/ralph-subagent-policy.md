@@ -102,10 +102,13 @@ review, or verification checks when they would keep the main thread cleaner.
 
 `STANDARD` work should use targeted subagents for isolated exploration,
 implementation, review, verification, QA, or security checks whenever the active
-platform supports them and coordination cost is reasonable.
+platform supports them and coordination cost is reasonable. STANDARD uses one
+reviewer instance per required role; it does not create a review pair.
 
 `THOROUGH` work must use the role set warranted by the risk whenever the active
-platform supports dispatch and the roles can be isolated.
+platform supports dispatch and the roles can be isolated. Two instances of the
+same reviewer role require a named paired-review trigger from
+`docs/shared/execution-modes.md`.
 
 ## Subagent-Unavailable Environments
 
@@ -152,9 +155,9 @@ The batch rule applies only to independent work at the same dependency depth. It
 must not merge dependent review stages. In `ralph`'s Review Gate and
 `ultrawork`'s Final Validation, when `code-reviewer` and a confirming
 independent `verifier` are both required, the `verifier` is not eligible for the
-first batch: run the `code-reviewer` pair first, capture and synthesize reviewer
-outputs, resolve findings or record a blocker, and only then dispatch the
-confirming verifier pass per `docs/shared/cross-host-review.md`.
+first batch: run the selected code-review stage first (one STANDARD reviewer or
+a named THOROUGH pair), capture its output or synthesis, resolve findings or
+record a blocker, and only then dispatch the confirming verifier pass.
 
 While a batch is running, Ralph may continue only on local work that does not
 overlap with the delegated scopes.
@@ -253,7 +256,7 @@ Parallelize when:
 - executor write scopes are disjoint
 - reviewers inspect the same final diff without editing
 - same-role review instances inspect the same stable artifact under the
-  cross-host or Same-Host Parallel Fallback contract (the verifier is never
+  named THOROUGH cross-host or Same-Host Parallel Fallback contract (the verifier is never
   such a pair — it stays a single self-host pass)
 
 Do not parallelize when:

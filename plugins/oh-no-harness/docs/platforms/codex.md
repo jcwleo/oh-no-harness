@@ -251,3 +251,26 @@ Agent prompt source: docs/agent-core/<role>.md
 Agent prompt content:
 <matching docs/agent-core/<role>.md prompt content>
 ```
+
+## Cross-Host Consult Channel
+
+Load this section only after a named THOROUGH paired-review or Fusion Rescue
+trigger. On Codex, the opposite host is Claude Code.
+
+Consult Claude only when the active permission state is exactly
+`danger-full-access`; otherwise treat it as unavailable and apply the calling
+skill's fallback. For shared review, the Codex parent must not run
+`${CLAUDE_BIN:-claude}` inline. Dispatch the matching
+`spawn_agent(agent_type="oh-no-<role>", ...)` owner for `plan-reviewer`,
+`code-reviewer`, or `debugger`; the verifier has no cross-host leg. The parent
+waits for the role-owned result before synthesis.
+
+The role owner invokes Claude as an argument vector:
+`${CLAUDE_BIN:-claude}`, `--print`, `--model`, `opus`, `--permission-mode`,
+`dontAsk`, `--no-session-persistence`, then the redacted packet. The response
+must contain the synchronous assigned analysis; a launch notice, queued job,
+background acknowledgement, or status pointer is unavailable evidence. The
+packet forbids edits, installs, mutating commands, nested rescue, and any second
+cross-host hop. Redact secrets and PII; record only failure class and
+command/path/auth status on failure. A parent inline Claude consult is not a
+valid shared cross-host review pass.

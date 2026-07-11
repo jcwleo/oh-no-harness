@@ -48,14 +48,14 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Required Reading
 
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+Read a triggered owner immediately before the dependent gate. A path reference
+here is a pointer, not a substitute for reading. If a listed file cannot be
+read, record the blocker instead of proceeding past the gate that depends on it.
 
-- `docs/shared/cross-host-review.md` — the dual-host `debugger` default, cross-host post-fix review, and the independence-mode recording the Output Gate requires.
-- `docs/shared/ralph-subagent-policy.md` — when to dispatch the debugger/verifier/reviewer versus inline, plus role isolation, fallback reasons, and eligible batch dispatch.
+| Contract | Class | Trigger / timing |
+|---|---|---|
+| `docs/shared/ralph-subagent-policy.md` | triggered | before dispatching a diagnostic, executor, reviewer, or verifier role |
+| `docs/shared/cross-host-review.md` | triggered | before paired debugger or post-fix review when a named THOROUGH risk selects it |
 
 ## Agent Roles
 
@@ -90,14 +90,17 @@ task-specific failure, scope, expected output, and verification responsibility.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. By default, when the opposite host is available, run the investigation as cross-host analysis per `docs/shared/cross-host-review.md`: the current-host and opposite-host debuggers investigate in parallel and the main agent synthesizes one root-cause direction (competing hypotheses, deciding evidence, smallest next diagnostic). Otherwise use the Same-Host Parallel Fallback per the shared doc. |
+| `debugger` | Dispatch one `debugger` to reproduce the failure, identify root cause, and recommend the minimal fix. Use a paired cross-host/Same-Host investigation only for a named THOROUGH uncertainty or repeated-failure trigger. |
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
 | `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. Cross-host merge: one verdict. |
 | `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. Cross-host merge: merged findings. |
 
-When the opposite host is available, run the `plan-reviewer` and `code-reviewer` roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. The `debugger` investigation defaults to cross-host as stated in its row. The post-fix `verifier` is out of cross-host scope — an unconditionally single self-host independent pass (never a cross-host or same-host pair) — governed by the maker-verifier carve-out.
+STANDARD uses one dispatched reviewer or debugger instance. Apply
+`docs/shared/cross-host-review.md` only when a named THOROUGH trigger selects a
+pair. The post-fix `verifier` remains one independent self-host pass governed by
+the maker-verifier carve-out.
 
 ## Debugging Flow
 
@@ -162,6 +165,9 @@ Stop and ask or escalate to `plan-reviewer` when:
 - a `plan-reviewer` escalation trigger from `## Agent Roles` fires (repeated
   failed fix attempts; broad architecture or API scope; product behavior,
   data handling, security, or delivery-scope ambiguity)
+- the smallest confirmed fix would introduce a new architecture, scheduler,
+  state machine, protocol, or public contract not present in the approved
+  Direction Contract; return evidence instead of silently redesigning
 
 ## Anti-Patterns
 
@@ -179,7 +185,12 @@ Stop and ask or escalate to `plan-reviewer` when:
 ## Output Gate
 
 <HARD-GATE>
-Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
+Do not emit the Output below until every dispatched review records topology:
+`single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` /
+`same-host-parallel-fallback`; an inline fallback requires a reason.
+Missing review topology is a named ledger gap, not a pass. On the direct-invocation path
+this gate owns the completion chokepoint; when invoked mid-loop from
+`ralph`/`ultrawork`, the caller's completion gate is the backstop.
 </HARD-GATE>
 
 ## Output
@@ -231,102 +242,26 @@ work, compaction, or handoff.
 
 ## Role Dispatch
 
-Codex role dispatch is host-policy controlled. Use `spawn_agent` only when the
-host exposes it, the active skill permits dispatch, and the role has isolated
-read-only scope, disjoint write ownership, or an independent review or
-verification responsibility.
+Dispatch only after the active skill's trigger fires, then read
+`docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
+`spawn_agent(agent_type="oh-no-<role>", ...)` first, do not combine it with
+`fork_context=true`, and use generic prompt embedding only after the custom
+agent is actually rejected. The task packet carries scope, ownership, expected
+output, and lifecycle.
 
-For Oh No Harness roles, use the registered custom agent first:
-`spawn_agent(agent_type="oh-no-<role>", ...)`. Generic fallback is allowed only
-inside an active Oh No Harness workflow or explicit user-requested subagent
-task after an actual `agent_type="oh-no-<role>"` attempt is rejected as unknown
-or unavailable, and the fallback reason is recorded. Do not infer custom-agent
-unavailability from rendered schema text, display comments, or uncertainty.
-
-Do not combine `agent_type="oh-no-<role>"` with `fork_context=true` or any
-full-history fork request. Pass the current scope, constraints, expected output,
-and lifecycle in the spawned-agent message, using one payload shape only.
-
-The Codex SessionStart standing authorization, a user standing preference, an
-approved plan profile, or an active Oh No Harness skill policy is workflow-level
-authorization for eligible isolated subagents. Do not ask another per-run
-approval question only to dispatch those roles. Dispatch only when the result
-can change implementation, review, verification, latency, context management,
-or the ship/block decision.
-
-After `wait_agent` returns a final status, capture the output and any
-changed-file set before cleanup. A timeout, empty wait, or "No agents completed
-yet" result is not final and is not permission to close the subagent. Once a
-role is dispatched, its assigned scope, role, and expected output become a
-workflow dependency. Wait until every in-scope dispatched subagent reaches final
-status, capture its result, and use that result in synthesis, implementation,
-review, verification, or an explicit blocked/abandoned record before advancing
-past the dependent step or claiming completion. While waiting, continue only
-genuinely non-overlapping local work. Do not redo delegated work inline, spawn
-a duplicate replacement, or let parent inline analysis substitute for the
-subagent result merely because the subagent is slow. Never use missing output
-as completion evidence.
-
-Close or clean up a subagent without a captured final result only when the user
-explicitly cancels or stops that subagent, the task scope invalidates the work,
-the spawn was duplicate or mis-scoped, or continuing creates a safety, security,
-or filesystem risk. Record that close as cancelled or abandoned.
+Every dispatched result is a dependency: `wait_agent` must reach final status,
+the caller captures and uses the output, and only then performs lifecycle
+cleanup. Timeout, empty output, or "No agents completed yet" is not final; do
+not close, redo inline, or use missing output as evidence.
 
 ## Generic Role Prompt Fallback
 
-When generic Codex agent types are used after confirmed custom-agent
-unavailability, embed the matching `docs/agent-core/<role>.md` prompt body in
-the spawned-agent message. If only `agents/<role>.md` exists, strip Claude Code
-YAML frontmatter before embedding.
+After confirmed custom-agent unavailability, embed
+`docs/agent-core/<role>.md`; see the full platform doc for the fallback shape.
 
 ## Cross-Host Consult Channel
 
-This is the shared cross-host consult mechanism used by Fusion Rescue and by
-cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
-host is Claude Code. This section carries only the Codex-to-Claude invocation;
-the activation, synthesis, and recursion-guard semantics live in the calling
-skill core and the shared doc.
-
-From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
-active Codex permission state is exactly `danger-full-access`. If the state is
-missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
-Claude: treat the opposite host as unavailable; in default mode the calling skill
-applies the shared cross-host contract's Same-Host Parallel Fallback
-(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
-naming the failure class and the current-host fallback.
-
-For shared cross-host review, the Codex parent must not run
-`${CLAUDE_BIN:-claude}` inline. After the preflight confirms
-`danger-full-access`, dispatch the matching Codex role subagent with
-`spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
-owner, where `<role>` is `plan-reviewer`, `code-reviewer`, or `debugger`.
-The `verifier` has no cross-host leg: it stays an unconditionally single
-self-host pass on whichever host runs it (`docs/shared/cross-host-review.md`).
-The spawned role subagent receives the redacted role packet, performs
-the single Claude consult through this channel, and returns the assigned role
-analysis. The Codex parent waits for that subagent, captures its result, closes
-or records lifecycle cleanup, and only then synthesizes. A parent inline Claude
-consult is not a valid shared cross-host review pass. If the role subagent cannot
-be dispatched, treat the opposite host as unavailable in default mode or block in
-require-cross-host mode; do not fall back to a parent inline Claude call.
-
-Fusion Rescue is separate: its Codex-specific panel overlay may assign a
-`fusion-rescue-analyst` panel subagent to own the Claude consult. The paragraph
-above applies only to shared cross-host review roles.
-
-When the `danger-full-access` preflight confirms, build the Claude command as an
-argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,
-`--print`, `--model`, `opus`, `--permission-mode`, `dontAsk`,
-`--no-session-persistence`, then the redacted prompt packet, unless the user
-supplied a different Claude model. Do not strip Claude's tools by default; Claude
-may need its own read-only tools to produce the assigned analysis. The read-only
-boundary is enforced by the redacted packet and host permissions, not by
-removing tools.
-
-The consult must return Claude's actual assigned analysis synchronously. A launch
-notice, queued-job message, background acknowledgement, or status pointer is not
-a valid opposite-host response; treat it as unavailable. The Claude prompt must
-request only the assigned analysis and must forbid file edits, writes, installs,
-mutating commands, nested rescue, and any host-to-host ping-pong back to Codex or
-a third host (one cross-host hop). Redact secrets before sending; on failure
-record only the failure class and command/path/auth status, never secret values.
+This channel is trigger-loaded, not embedded in every workflow decision. When a
+named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
+`docs/platforms/codex.md` `## Cross-Host Consult Channel` before dispatch. Until
+then, do not preload opposite-host invocation details.

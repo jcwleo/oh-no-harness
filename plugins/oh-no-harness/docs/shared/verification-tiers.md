@@ -12,15 +12,25 @@ When verification is informed by measurable evidence, also apply
 `docs/shared/validation-check.md`. Measurable evidence is diagnostic evidence,
 not the acceptance criteria.
 
-Every tier uses acceptance-to-evidence mapping. A command list is not enough:
-state which requested behavior each command, inspection, or manual scenario
-proves, and whether that evidence is direct, indirect, manual, or missing.
+Every tier uses the caller's canonical AC-ID acceptance-to-evidence ledger when
+one exists. A command list is not enough: state which requested behavior each
+command, inspection, or manual scenario proves, whether that evidence is direct,
+indirect, manual, or missing, and whether it is fresh, audited, stale, or
+blocked. Do not create a second unchanged mapping in review or VBC.
 
 Every behavior-changing tier also uses a risk check before completion. Identify
 the actual contract surface, likely semantic model, and baseline or smoke check
 a skeptical maintainer or user would expect, then add direct semantic evidence
 when practical. This is category-level risk modeling, not case-specific
 optimization.
+
+## Evidence Redaction
+
+Before writing command output, logs, or real-surface artifacts into `.oh-no`
+state, a PR, handoff, or final report, redact secrets and PII to a labeled
+placeholder. Retain only the non-sensitive evidence shape needed for the claim,
+such as status, lengths, hashes, or short non-secret prefixes. Credential
+values, auth headers, cookies, tokens, and raw user data are never evidence.
 
 Verification budget policy:
 

@@ -198,10 +198,10 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex JSON event stream proving four cleanup-angle subagents or compliant fallback blocks",
+      "evidence_artifact": "Codex JSON event stream proving a named THOROUGH broad-diff trigger expands the combined cleanup default into four cleanup-angle subagents or compliant fallback blocks",
       "non_proofs": [
         "marker-only output",
-        "single generic cleanup review",
+        "single generic cleanup review without a recorded combined-default or expansion trigger",
         "model self-report alone"
       ]
     },
@@ -420,7 +420,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving the opposite-host-available cross-host code-review pair: current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex dispatched concurrently, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer, and one synthesized verdict",
+      "evidence_artifact": "Claude stream-json output proving a named THOROUGH security/public-contract trigger selects the opposite-host-available code-review pair: current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex dispatched concurrently, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer, and one synthesized verdict",
       "non_proofs": [
         "marker-only output",
         "sequential (non-concurrent) reviewer dispatch",
@@ -443,7 +443,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving the real ralplan flow dispatches the planner first, then the cross-host plan-review pair: current-host oh-no-harness:plan-reviewer plus opposite-host oh-no-harness:plan-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-plan-reviewer, and one synthesized verdict",
+      "evidence_artifact": "Claude stream-json output proving a named THOROUGH public-workflow trigger dispatches the planner first, then the cross-host plan-review pair: current-host oh-no-harness:plan-reviewer plus opposite-host oh-no-harness:plan-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-plan-reviewer, and one synthesized verdict",
       "non_proofs": [
         "marker-only output",
         "plan-review pair without the preceding planner",
@@ -489,10 +489,10 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving the real systematic-debugging flow dispatches the cross-host debugger pair: current-host oh-no-harness:debugger plus opposite-host oh-no-harness:debugger-codex, one read-only foreground codex-companion call, role-owned oh-no-debugger, and one synthesized root-cause direction",
+      "evidence_artifact": "Claude stream-json output proving a named THOROUGH repeated-failure/new-concurrency trigger dispatches the cross-host debugger pair: current-host oh-no-harness:debugger plus opposite-host oh-no-harness:debugger-codex, one read-only foreground codex-companion call, role-owned oh-no-debugger, and one synthesized root-cause direction",
       "non_proofs": [
         "marker-only output",
-        "single-host debugger without the opposite-host pair",
+        "single-host debugger despite the lane's named THOROUGH pairing trigger",
         "parent inline opposite-host answer",
         "launch notice without synchronous review"
       ]
@@ -512,7 +512,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus disposable repo diff proving disjoint executor batch and per-executor scope check",
+      "evidence_artifact": "Claude stream-json output plus disposable repo diff proving AC-OVERLAP-1 and its no-new-scheduler/state-machine/protocol/oracle non-goals survive executor packets and final summary while the existing disjoint executor eligibility owner drives overlap and per-executor scope checks",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
@@ -535,7 +535,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving two eligible disjoint outer executor-codex dispatches overlap, each inner transport has one completed foreground companion task call with raw stdout preserved, the caller guard is clean, RED goes GREEN with an unchanged RED file, verifier/reviewer stay off the write channel, primary native fallback is absent, and failed delegation degrades through caller inspection to exactly one sequential native fallback",
+      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving AC-OVERLAP-1 and its non-goals survive executor/reviewer/verifier packets and final summary while two eligible disjoint outer executor-codex dispatches overlap, each inner transport stays one foreground single-shot call, the caller guard is clean, RED goes GREEN with an unchanged RED file, verifier/reviewer stay off the write channel, and fallback/commit/integration remain serial",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
@@ -557,10 +557,10 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving four cleanup-angle subagents or compliant fallback blocks",
+      "evidence_artifact": "Claude stream-json output proving a named THOROUGH broad-diff trigger expands the combined cleanup default into four cleanup-angle subagents or compliant fallback blocks",
       "non_proofs": [
         "marker-only output",
-        "single generic cleanup review",
+        "single generic cleanup review without a recorded combined-default or expansion trigger",
         "model self-report alone"
       ]
     },

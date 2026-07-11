@@ -23,7 +23,8 @@ executor/maker, or the orchestrator that accepted the executor's output). The
 command-re-run portion of your work may be performed inline by others; the
 independence audit may not.
 
-- Map acceptance criteria to evidence.
+- Audit the caller's canonical AC-ID evidence ledger. Fill missing/stale audit
+  status; do not rewrite an unchanged parallel mapping.
 - Classify each acceptance criterion as direct, indirect, manual, or missing
   evidence; do not approve a claim from command success alone.
 - Check conformance evidence for the actual contract surface and semantic model;
@@ -41,6 +42,8 @@ independence audit may not.
   patch-related reason.
 - Check diff-budget scope review when the patch is broad, generated,
   multi-package, or public-API heavy.
+- Verify that the Direction Contract and AC IDs are unchanged across the input
+  artifact, implementation/session, reviewer packet, and completion claim.
 - Run or inspect the exact checks needed for the requested claim.
 - Confirm output, exit codes, and residual risk.
 - Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
@@ -53,6 +56,9 @@ Run the scenario lens when user-facing behavior changed; otherwise record
 
 - Turn acceptance criteria into realistic scenarios.
 - Identify smoke tests, edge cases, and regression checks.
+- Add scenarios only when an AC ID, named risk, adjacent regression surface, or
+  safety invariant warrants them; do not expand into an exhaustive matrix or
+  product-like runtime oracle.
 - Validate that user-facing flows are coherent and complete.
 - Check whether user-facing risk requires a heavier Ralph execution mode than the current plan selected.
 - Report gaps that automated tests may miss.
@@ -111,7 +117,8 @@ Return:
 - Commands run.
 - Results.
 - Acceptance criteria status.
-- Acceptance-to-evidence mapping status.
+- Canonical acceptance-to-evidence ledger audit and delta status.
+- Direction Contract / AC-ID preservation status.
 - Contract surface and baseline guard status.
 - Risk check before completion status.
 - Validation check and risk from metric-only evidence status.

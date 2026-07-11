@@ -8,7 +8,11 @@ argument-hint: "<task, spec path, or plan request>"
 
 Ralplan is the public consensus planning entry point.
 
-It owns the consensus planning workflow directly and keeps planning separate from execution. Ralplan has no basic planning mode. Every invocation runs the consensus workflow; if the task is too small for consensus planning, use `ralph` or a direct small edit path instead.
+It owns risk-gated planning and keeps planning separate from execution. Every
+plan uses Analyst-or-approved-spec -> Planner ordering; Plan-Reviewer depth and
+instance count are selected by the execution risk instead of being an
+unconditional consensus tax. If the task is too small for planning, use
+`ralph` or a direct small edit path instead.
 
 ## Software Development Stage
 
@@ -62,17 +66,18 @@ acceptance criteria.
 
 ## Required Reading
 
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+Read the always-active owners before Planner drafts. Read a triggered owner
+immediately before the first gate that needs it. A path reference here is a
+pointer, not a substitute for reading. If a listed file cannot be read, record
+the blocker instead of proceeding past the gate that depends on it.
 
-- `docs/shared/execution-modes.md` — to set the required Ralph execution profile.
-- `docs/shared/worktree-isolation.md` — to set the plan's worktree policy.
-- `docs/shared/ralph-subagent-policy.md` — to write the parallel subagent dispatch plan.
-- `docs/shared/validation-check.md` — required when measurable evidence influenced the plan.
-- `docs/shared/cross-host-review.md` — the Plan review independence mode (cross-host / Same-Host Parallel Fallback) the Findings Ledger Gate requires.
+| Contract | Class | Trigger / timing |
+|---|---|---|
+| `docs/shared/execution-modes.md` | always | before the Direction Contract, budgets, and Ralph profile are written |
+| `docs/shared/worktree-isolation.md` | always | before the plan records its execution-location policy |
+| `docs/shared/ralph-subagent-policy.md` | triggered | before planning or recommending a dispatched role |
+| `docs/shared/validation-check.md` | triggered | when measurable evidence influences the plan |
+| `docs/shared/cross-host-review.md` | triggered | only when a named THOROUGH risk selects paired review |
 
 ## Required Flow
 
@@ -83,12 +88,16 @@ blocker instead of proceeding past the gate that depends on it.
 2. Apply `## Requirements Source And Analyst Gate`. If an approved `interview`
    spec already covers the needed requirements, record `Analyst: satisfied by
    approved interview spec`; otherwise complete `analyst` before Planner drafts.
-3. Read every shared contract listed in `## Required Reading` before drafting — that section is the authoritative superset (it adds `docs/shared/cross-host-review.md`, `docs/shared/ralph-subagent-policy.md`, and `docs/shared/validation-check.md`) so the plan can set a required Ralph execution profile, worktree policy, parallel dispatch plan, and the Plan review independence mode.
+3. Read the always-active contracts in `## Required Reading` before drafting.
+   Load each triggered contract immediately before its dependent dispatch,
+   validation, or paired-review gate; do not preload it merely because the plan
+   might need it later.
 4. Complete `planner` to create `Planner draft v1` from the requirements source,
    Analyst or gap-check output, and repository evidence.
-5. Complete `plan-reviewer` only after `Planner draft v1` exists. Apply the
-   two-pass review, verdict mapping, no-replacement rule, and severity/disposition
-   requirements from `## Plan Review Contract`.
+5. Apply `## Plan Review Contract` only after `Planner draft v1` exists.
+   STANDARD uses one reviewer instance. Paired review is selected only for a
+   named THOROUGH risk. LIGHT may record review as not required with a concrete
+   reason.
 6. On ITERATE, complete `planner` revision per `## Planner Revision Contract`.
    On REJECT, escalate to the user immediately; REJECT does not consume a loop.
 7. Re-review only on blocking findings, per `## Re-Review Rules`; otherwise
@@ -110,7 +119,7 @@ blocker instead of proceeding past the gate that depends on it.
    platform's skill mechanism after the user answers. Skip the question when
    running under `ultrawork`.
 
-Use real role subagents for the consensus roles on subagent-capable hosts.
+Use real role subagents for selected planning roles on subagent-capable hosts.
 Planner and Plan-Reviewer are not decorative labels; the planning quality bar
 comes from the Planner/Reviewer context separation plus the ordered two-pass
 structure inside the single reviewer context (architecture lens first, then the
@@ -130,18 +139,16 @@ host-authorized proactive dispatch, not a weak preference to stay inline.
 When a role is inline, write a separate inline role block with the draft id and
 fallback reason instead of collapsing the role into the planner's narrative.
 
-Analyst -> Planner -> Plan-Reviewer is the strictly sequential role order
+When Plan-Reviewer is selected, Analyst -> Planner -> Plan-Reviewer is the strictly sequential role order
 unless Analyst is satisfied by an approved interview spec. Plan-Reviewer runs
 only after the Planner draft exists. Do not run these roles in parallel.
-This sequential rule governs the three distinct roles. It does not forbid
-cross-host review: once the Planner draft exists, the current-host and
-opposite-host INSTANCES of the same Plan-Reviewer role may run concurrently and
-be synthesized into one verdict per `docs/shared/cross-host-review.md`
-(falling back to the Same-Host Parallel Fallback when the opposite host is
-unavailable). That is two instances of one reviewer role, not
-Analyst/Planner/Plan-Reviewer in parallel.
+This sequential rule governs the distinct roles. When a named THOROUGH risk
+selects paired review, the two Plan-Reviewer instances may run concurrently and
+be synthesized per `docs/shared/cross-host-review.md`; STANDARD does not create
+the pair.
 
-Worst-case consensus role dispatch chain: 8 (explore, analyst, Planner draft v1, Plan review v1 as a two-instance pair, Planner revision v2, Plan review v2 as a two-instance pair).
+Worst-case THOROUGH role dispatch chain remains bounded to two review rounds;
+STANDARD uses one reviewer per round and LIGHT may record review not required.
 
 ## Requirements Source And Analyst Gate
 
@@ -164,6 +171,34 @@ If any of those fields are missing, inconsistent, or materially affect
 architecture, product behavior, data handling, security, or delivery scope, run
 Analyst or a limited Analyst gap check before Planner drafts. The Analyst output
 must feed the Planner draft; it must not replace the Planner draft.
+
+## Canonical Plan Schema
+
+The plan body is the only complete planning schema. Planner drafts, approval
+briefs, and role packets reference it and recap only changed or
+decision-critical fields instead of maintaining parallel copies.
+
+The first plan section is the Direction Contract from
+`docs/shared/execution-modes.md`, copied from the approved requirements source:
+
+```text
+Direction Contract:
+- Requirements source:
+- User-confirmed primary goal:
+- Required outcomes / AC IDs:
+- Non-goals:
+- Constraints:
+- Do-not-silently-change assumptions:
+- Direction-change approval rule:
+- Confirmation status: confirmed | inferred | open
+```
+
+The remaining canonical sections are scope, contract surface, minimal viable
+approach, tasks mapped to AC IDs, proportional test/evidence design, execution
+profile, process budget, rollout/rollback, acceptance-to-evidence plan, risks,
+and approval status. Tests, review, cleanup, and validation stay under the
+AC-bearing task they support unless the user explicitly requested their
+infrastructure as a product outcome.
 
 ## Acceptance Criteria Contract
 
@@ -212,6 +247,7 @@ Planner draft v1 must include:
 ```text
 Planner draft v1:
 - Draft id: v1
+- Direction Contract: copied from the approved requirements source
 - Requirements source:
 - Analyst status: satisfied by approved interview spec | completed | gap check completed
 - Acceptance criteria:
@@ -245,13 +281,12 @@ tradeoffs, strongest antithesis); pass 2 applies the quality-gate lens to the
 draft and to its own pass-1 findings. Plan-Reviewer
 must not produce a replacement plan.
 
-When the opposite host is available, run this review as cross-host review per
-`docs/shared/cross-host-review.md`: the current-host and opposite-host instances
-each run the full two-pass review on the same draft in parallel, and the main
-agent synthesizes their findings into one verdict (APPROVE only when zero
-blocking findings remain across the merged set; cross-host findings never
-silently override the approved direction). Otherwise use the Same-Host Parallel
-Fallback with a fallback note when the opposite host is unavailable.
+STANDARD runs one Plan-Reviewer instance. Use paired cross-host review (or its
+Same-Host Parallel Fallback) only when the plan records a named THOROUGH trigger:
+security/data/destructive risk, public or release-critical contract change, new
+concurrency semantics, broad migration, or comparable multi-system uncertainty.
+Both paired instances run the full review and the caller synthesizes one verdict.
+Cross-host findings never silently override the Direction Contract.
 
 Plan-Reviewer input must include:
 
@@ -329,11 +364,10 @@ Re-reviews run only when the previous `Plan review vN` returned ITERATE
 - The reviewer may escalate to a full-depth review with a stated reason; the
   escalation right exists because the full plan is in hand.
 - Record `Re-review scope: delta | full` with the re-review.
-- Every `Plan review vN`, including re-reviews, uses the same independence
-  contract as Plan review v1 per `docs/shared/cross-host-review.md` (cross-host
-  pair, Same-Host Parallel Fallback, or a recorded inline-fallback with
-  reason); record each pass's mode. The re-review pair is already counted in
-  the worst-case dispatch chain; this adds no dispatches.
+- Every `Plan review vN` uses the same selected topology as Plan review v1:
+  `single-reviewer` for STANDARD, or a named THOROUGH `cross-host` /
+  `same-host-parallel-fallback` pair. Record a concrete inline fallback reason
+  only when the selected role cannot be dispatched.
 - Max 2 loops; loop N = Planner draft/revision vN + Plan review vN. REJECT
   escalates to the user immediately and does not consume a loop. After loop 2
   without APPROVE, present the plan as `pending approval` with the unresolved
@@ -347,22 +381,23 @@ roles, draft ids, review ids, and revision ids in order, and that every review
 finding has a recorded disposition:
 
 ```text
-Consensus loop:
+Planning roles:
 - Analyst: satisfied by approved interview spec | completed | inline fallback with reason | dispatched completed
 - Planner draft v1: completed | inline fallback with reason | dispatched completed
 - Plan review v1: APPROVE | ITERATE | REJECT after Planner draft v1
 - Planner revision v2: not needed | completed from blocking findings
 - Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
 - Re-review: not required (no blocking findings) | completed
-- Plan review independence mode: cross-host | same-host-parallel-fallback | inline-fallback (reason); when a re-review ran, record per pass, e.g. `v1: cross-host; v2: same-host-parallel-fallback`
+- Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)
 
 Findings ledger:
 - <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | disposition: accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
 ```
 
-The plan is invalid if it contains only Planner output, if Planner drafts before
-Analyst finishes when Analyst is required, if Plan-Reviewer is skipped, or if a
-review does not name a specific Planner draft id. The plan is invalid if
+The plan is invalid if Planner drafts before Analyst finishes when Analyst is
+required, if a required Plan-Reviewer is skipped, or if a review does not name a
+specific Planner draft id. A LIGHT not-required record is valid only with a
+concrete reason. The plan is invalid if
 accepted feedback is logged but not reflected in the final plan body, if any
 review finding is missing from the findings ledger, or if an accepted finding
 lacks a plan-section pointer. Blocking findings require a matching
@@ -375,11 +410,10 @@ missing capability or authorization, draft id, and fallback reason. Do not move
 to the approval brief until the gate passes or the plan is explicitly marked
 `pending approval` with the blocking issue.
 
-The plan is also invalid if any recorded review pass's independence mode is
-missing or non-compliant per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`: a recorded `cross-host` or
-`same-host-parallel-fallback` mode, or an explicit `inline-fallback` with reason,
-is required before the approval brief.
+The plan is also invalid when its review topology is missing, STANDARD creates
+an untriggered pair, or THOROUGH claims paired review without a named trigger.
+When paired review is selected, its independence mode must comply with
+`docs/shared/cross-host-review.md`; an inline fallback requires a reason.
 
 ## Direction Preservation Gate
 
@@ -440,6 +474,12 @@ For every behavior-changing task, design the smallest meaningful test set that
 can prove the acceptance criteria and catch the likely regression. Do not create
 exhaustive test matrices.
 
+Start with one must-fail / must-pass pair per changed behavior. Add negative,
+semantic-model, adversarial, or baseline cases only when an AC ID, named risk,
+adjacent regression surface, or safety invariant makes them relevant. Do not
+build a product-like state machine, protocol simulator, Git oracle, duplicate
+parser, fixture factory, or full runtime model solely to strengthen tests.
+
 A credible test case design should include:
 
 - must-fail-before-implementation case: what should fail against the current or
@@ -473,6 +513,7 @@ same shallow checks and explains why RED/GREEN is not practical.
 Every plan must include:
 
 - a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
+- the Direction Contract as the first plan section
 - goal
 - scope and non-goals
 - acceptance criteria and any blocking or pending-approval gaps
@@ -488,15 +529,17 @@ Every plan must include:
 - test case design quality: must-fail, must-pass, negative/forbidden when
   relevant, semantic-model/adversarial coverage when relevant, baseline or
   regression coverage when relevant, and evidence mapping
-- consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order,
-  including draft/review/revision ids and `Re-review scope: delta | full` when
-  re-review ran
+- planning-role log showing Analyst -> Planner and, when review is selected,
+  Plan-Reviewer in order, including draft/review/revision ids and
+  `Re-review scope: delta | full` when re-review ran
 - planning dispatch mode showing whether consensus roles ran as subagents or
   inline fallback
 - findings ledger with each Plan-Reviewer finding's lens, severity, disposition,
   and plan-section pointer when accepted
 - evidence that accepted feedback is reflected in the final plan body
 - execution profile
+- process budget: expected handwritten diff, review topology and trigger,
+  cleanup depth, broad-suite cap, and rescope thresholds
 - worktree policy
 - parallel subagent dispatch plan, or the fallback reason if no role can be
   safely isolated
@@ -575,8 +618,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - validation check when measurable evidence influenced the plan
 - TDD expectations for behavior-changing tasks
 - selected Ralph execution mode and why that mode is enough
-- consensus loop summary, including Analyst findings, Plan-Reviewer verdicts,
-  draft/review/revision ids, and the full findings ledger
+- planning-role summary, including Analyst status, draft/revision ids, selected
+  review topology, and Plan-Reviewer findings when review ran
   (finding -> severity -> disposition -> section pointer) so every disposition
   is visible at approval time
 - worktree policy, including whether direct Ralph should use automatic task
@@ -647,7 +690,7 @@ Test case design:
 Parallel subagent dispatch:
 {Default Ralph dispatch plan: one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner; or a concrete fallback reason if no eligible role can be isolated}
 
-Consensus loop:
+Planning roles:
 Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposition for each}
 - Requirements source: {approved interview spec | user request | PRD/ticket}
 - Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
@@ -656,7 +699,7 @@ Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposit
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 - Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
 - Re-review: {not required (no blocking findings) | completed}
-- Plan review independence mode: {cross-host | same-host-parallel-fallback | inline-fallback (reason); when a re-review ran, record per pass, e.g. v1: cross-host; v2: same-host-parallel-fallback}
+- Plan review topology: {not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)}
 
 Findings ledger:
 - {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
@@ -800,7 +843,9 @@ active platform adapter.
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
 | `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. Cross-host review runs per the `## Plan Review Contract`. |
 
-Analyst/Planner/Plan-Reviewer stay strictly sequential per the rule above — Plan-Reviewer only after the Planner draft exists. Cross-host runs two instances of the one reviewer role, not the three roles (see `docs/shared/cross-host-review.md`).
+Analyst/Planner/Plan-Reviewer stay strictly sequential per the rule above —
+Plan-Reviewer only after the Planner draft exists. A named THOROUGH paired-review
+trigger may run two instances of that one reviewer role; STANDARD uses one.
 
 ## Concrete Request Signals
 
@@ -822,7 +867,7 @@ If these are absent and the user is asking for execution, prefer this planning s
 Return:
 
 - Plan path.
-- Consensus loop summary.
+- Planning-role and review-topology summary.
 - Plan-Reviewer findings and disposition, as the findings ledger.
 - Execution profile.
 - Plan approval brief.

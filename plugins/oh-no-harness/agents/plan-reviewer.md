@@ -125,6 +125,8 @@ never reclassify it.
 
 - Preserve the approved interview spec, user-approved plan direction, scope,
   non-goals, and acceptance criteria.
+- Compare the exact Direction Contract and AC IDs before reviewing process
+  strength. Tests, review, cleanup, and metrics are subordinate evidence.
 - Reject reviews, plans, or revisions that silently override the approved
   interview spec, user-approved plan direction, scope, non-goals, or acceptance
   criteria.
@@ -180,6 +182,13 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
 - Separate blocking findings from non-blocking improvements.
 - Do not rubber-stamp a plan with unresolved feasibility gaps.
 - Do not approve incomplete evidence.
+- Make a finding blocking only when it demonstrates an AC, behavior, safety,
+  data, destructive-operation, public-contract, or material verification-hole
+  failure. A merely stronger optional proof path is non-blocking.
+- Reject product-like test machinery that is not required by an AC or safety
+  invariant; do not demand a duplicate scheduler, state machine, protocol,
+  parser, oracle, or fixture system when an existing semantic owner and focused
+  evidence suffice.
 - In a re-review you always receive the full revised plan; when the calling
   skill assigns `Re-review scope: delta`, focus depth on the changed sections
   and the findings ledger first, and escalate to a full-depth review with a
@@ -209,12 +218,14 @@ Return:
 - Strongest antithesis.
 - Tradeoffs and possible synthesis paths.
 - Direction-preservation findings.
+- Direction Contract / AC-ID preservation status.
 - Acceptance criteria coverage and mismatch findings.
 - Contract-surface and semantic-model conformance findings.
 - Validation coverage and risk from metric-only evidence findings.
 - Test design findings.
 - Acceptance-to-evidence, story risk-check, and final risk-check findings.
 - Verification budget and diff-budget findings.
+- Process-budget and review-topology findings.
 - Execution profile findings.
 - Worktree policy findings.
 - Verification tier recommendation from `docs/shared/verification-tiers.md`.

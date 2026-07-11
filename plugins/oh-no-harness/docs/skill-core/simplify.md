@@ -25,26 +25,25 @@ or has been recorded as not needed. It should improve reuse, clarity,
 maintainability, and efficiency without changing behavior, adding scope, or
 replacing implementation review.
 
-## Cleanup Role Passes
+## Cleanup Depth Decision
 
-These are skill-local cleanup role passes, not public workflow skills and not
-`docs/agent-core` agents. Use the active platform's subagent mechanism only to
-isolate the pass work when it is available and useful.
+Reuse, Simplification, Efficiency, and Altitude are review viewpoints, not four
+mandatory jobs.
 
-Cleanup review always runs all four labeled viewpoints — Reuse, Simplification,
-Efficiency, and Altitude — as four separate role passes. There is no
-single-combined-pass shortcut and no diff-size gate: every cleanup review keeps
-the four viewpoints distinct so none is silently dropped.
-Run the four passes in parallel using the active platform's subagent mechanism.
-Apply the active platform's Simplify dispatch authorization and lifecycle rules
-before launching cleanup subagents. Do not ask another approval question merely
-to launch cleanup subagents when the active platform already supplies standing
-authorization for eligible skill-local delegation.
-If the active host cannot dispatch subagents, run the four passes inline as four
-separate labeled blocks with the same role boundaries, and record the
-dispatch-unavailable reason. If a cleanup change needs additional independent
-evidence after the fixes, return that need to the caller so `verifier` or
-`code-reviewer` can review the result after the cleanup pass.
+- LIGHT and STANDARD: run one quick or combined scan over all four viewpoints.
+  Record `no candidates` when the scan finds nothing; do not create cleanup work
+  to satisfy a pass count.
+- THOROUGH without a named expansion trigger: use the same combined scan.
+- THOROUGH with a named safety, broad-diff, multi-system, or high-maintainability
+  risk: run four independent viewpoint passes. They may run in one parallel
+  batch when isolation and platform policy permit it, otherwise run four labeled
+  inline blocks and record the fallback.
+
+Record `Cleanup depth: combined | four-viewpoint`, its trigger, and the changed
+files inspected. Use subagents only when separate contexts can change the
+cleanup decision enough to justify lifecycle cost. If cleanup creates a need
+for additional review or evidence, return it to the caller; Simplify does not
+expand its own mandate.
 
 ## When To Use
 
@@ -127,18 +126,12 @@ the review scope.
 
 ## Phase 1 - Review
 
-Launch four independent cleanup subagents in parallel — the review always runs
-all four cleanup role passes regardless of diff size. Start them in one batch
-before waiting for any result. Pass each subagent the review diff and assign
-exactly one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
-platform's approved mechanism and Simplify platform overlay when available. The
-caller owns lifecycle: after each cleanup subagent result is captured, close or
-clean up the completed subagent using the active platform mechanism.
-
-If subagent dispatch is unavailable, run the same four passes inline as four
-separate labeled blocks — Reuse, Simplification, Efficiency, and Altitude — each
-with its assigned scope and expected output, and record the dispatch-unavailable
-fallback reason. Do not drop or merge any of the four viewpoints.
+Apply the Cleanup Depth Decision. A combined scan checks Reuse, Simplification,
+Efficiency, and Altitude in one bounded pass. When a named THOROUGH trigger
+selects four-viewpoint depth, launch the four independent cleanup subagents in
+one batch before waiting, or use four labeled inline blocks with a recorded
+dispatch-unavailable reason. The caller captures and cleans up every dispatched
+result.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -173,10 +166,9 @@ the reviewed scope.
 
 ## Phase 2 - Apply The Fixes
 
-Capture all four cleanup pass results — the four parallel subagents, or the four
-inline blocks when dispatch was unavailable — and close or clean up each
-completed cleanup subagent. Then deduplicate findings that point at the same line
-or mechanism and fix each remaining behavior-preserving cleanup directly.
+Capture the combined result or all four expanded results, then deduplicate
+findings that point at the same line or mechanism and fix each remaining
+behavior-preserving cleanup directly.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather
@@ -193,7 +185,7 @@ Return:
 
 - Behavior lock used.
 - Files changed.
-- Review angles run.
+- Cleanup depth, trigger, and review viewpoints covered.
 - Cleanup findings fixed.
 - Reviewer follow-up findings and owner.
 - Findings skipped and why.

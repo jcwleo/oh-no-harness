@@ -23,8 +23,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Cross-Host Analysis
 
-When `systematic-debugging` runs dual-host investigation (the default when the
-opposite host is available; see `docs/shared/cross-host-review.md`), you may be
+When `systematic-debugging` selects paired investigation for a named THOROUGH
+uncertainty or repeated-failure trigger, you may be
 dispatched as the current-host debugger or as the opposite-host debugger. Run
 your full investigation — reproduce, form hypotheses, identify root cause,
 recommend the minimal fix — on your own host. The current-host main agent

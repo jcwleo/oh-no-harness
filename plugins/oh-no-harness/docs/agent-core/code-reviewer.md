@@ -27,6 +27,8 @@ Output below); apply full security depth only when a trigger matches.
   abstractions/configuration not required by current acceptance criteria.
 - Cite exact files and lines when possible.
 - Verify that the implementation matches the approved plan or PRD.
+- Verify the Direction Contract and cite affected AC IDs. Do not treat optional
+  cleanup or stronger proof as blocking without an AC or safety basis.
 - Verify conformance to the actual contract surface and semantic model, not
   only internal consistency or tests written from the author's assumptions.
 - Verify that changed files and meaningful changed lines trace to the approved
@@ -40,6 +42,9 @@ Output below); apply full security depth only when a trigger matches.
   metric movement that do not map to a recurring software engineering failure mode or the
   approved acceptance criteria.
 - Distinguish blocking issues from optional cleanup.
+- Treat a finding as blocking only when it demonstrates a correctness,
+  regression, safety, data, destructive-operation, public-contract, or material
+  verification-hole failure.
 
 ### Lens 2: security
 
@@ -109,6 +114,7 @@ Return:
   - Findings ordered by severity.
   - Practical maintainability gate result.
   - Contract and baseline regression check.
+  - Direction Contract and AC-ID mapping.
   - Risk from metric-only evidence when applicable.
   - Test gaps.
 - Security findings:

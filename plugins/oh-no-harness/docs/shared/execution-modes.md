@@ -10,6 +10,30 @@ agent selection tiers and verification tiers:
 
 Mode is required for every handoff to `ralph`.
 
+## Direction Contract
+
+The approved requirements source is the top execution contract. `interview`
+captures it, `ralplan` carries it into the plan, and `ralph` copies it into the
+session before implementation:
+
+```text
+Direction Contract:
+- Requirements source:
+- User-confirmed primary goal:
+- Required outcomes / AC IDs:
+- Non-goals:
+- Constraints:
+- Do-not-silently-change assumptions:
+- Direction-change approval rule:
+- Confirmation status: confirmed | inferred | open
+```
+
+Planning, tests, review, verification, cleanup, and prompt loading are
+supporting evidence for this contract, not replacement deliverables. A role
+proposal that changes one of these fields is a
+`requested-direction-change: yes` and requires explicit user approval before it
+is incorporated.
+
 ## Ownership
 
 `interview` may write only a provisional sizing hint. It should identify
@@ -27,6 +51,54 @@ Ralph must select a mode with the decision prompt below, record `Mode source:
 derived by Ralph`, and follow that mode. Ask before editing only when the mode
 choice depends on an assumption that changes user-visible behavior,
 architecture, data handling, security posture, or delivery scope.
+
+Concurrency is a risk signal only when work introduces or changes concurrency
+semantics, ownership, ordering, lifecycle, or safety. Reusing an existing
+verified scheduler, eligibility decision, or concurrency owner is normally
+STANDARD when the change is otherwise localized and bounded; the word
+`concurrency` alone does not force THOROUGH.
+
+## Process Budgets And Gate Governance
+
+Every STANDARD or THOROUGH plan records expected changed-file groups, an
+approximate handwritten diff size, focused verification, and the named triggers
+for review, cleanup, broad suites, and optional shared-contract reads.
+
+Default budgets:
+
+- STANDARD uses one reviewer instance per required role. Paired cross-host or
+  same-host review requires a named THOROUGH risk.
+- Run one broad suite after behavior stabilizes; rerun only after a meaningful
+  patch change or patch-related failure.
+- LIGHT and STANDARD use one quick or combined cleanup scan. Four independent
+  cleanup viewpoints require a named THOROUGH safety or broad-diff trigger.
+- One original review plus one focused re-review after a blocker fix is the
+  default cap. A second unresolved blocking round requires rescope or user
+  direction.
+- If the actual handwritten diff exceeds twice the estimate, generated outputs
+  mix with unexpectedly broad handwritten changes, or supporting test and
+  verification code grows to roughly three times the product/source-contract
+  change, stop for scope review instead of automatically expanding proof
+  machinery.
+- The third implementation of the same invariant requires reuse, deletion, or
+  explicit approval for duplication.
+
+A new mandatory gate is incomplete unless it records:
+
+```text
+Mandatory gate proposal:
+- Canonical owner:
+- Trigger:
+- Applicable modes:
+- Added cost:
+- Evidence of benefit:
+- Not-applicable path:
+- Retirement or merge condition:
+- Duplicate prose/marker check:
+```
+
+The reviewed per-gate metadata inventory is a maintenance reference at
+`docs/reference/mandatory-gate-inventory.md`; it is not runtime Required Reading.
 
 ## Execution Mode Decision Prompt
 
@@ -132,7 +204,8 @@ Ralph behavior:
   post-batch per-executor scope check before integrating, per
   `docs/shared/ralph-subagent-policy.md`
 - use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
-  where independent evidence is useful
+  where independent evidence is useful; when code review is required, use one
+  reviewer instance unless a named THOROUGH risk applies
 - run STANDARD verification from `docs/shared/verification-tiers.md`
 - apply the verification budget policy: focused semantic evidence first, broad
   suites once after behavior stabilizes unless a patch-related failure requires
@@ -140,10 +213,9 @@ Ralph behavior:
 - run the diff-budget gate when changed files, insertions, generated artifacts,
   public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
-- run `simplify` after the behavior lock exists and required review is satisfied,
-  unless the user explicitly disabled it; a STANDARD plan sets `Cleanup policy:
-  required` and does not skip cleanup as "not needed" (only LIGHT may). Rerun the
-  relevant verification after cleanup
+- run one combined `simplify` scan after the behavior lock exists and required
+  review is satisfied, unless the user explicitly disabled it; fix only actual
+  candidates and rerun relevant verification when cleanup changes files
 - run `verification-before-completion` before the final claim
 
 ## THOROUGH
@@ -175,7 +247,9 @@ Ralph behavior:
   batches when write scopes are non-overlapping and the dispatch/isolation
   gates hold, and run the post-batch per-executor scope check before
   integrating, per `docs/shared/ralph-subagent-policy.md`
-- run reviewer roles for correctness and maintainability; add plan-reviewer
+- run reviewer roles for correctness and maintainability; paired review is
+  reserved for a named security, data, destructive, public-contract,
+  release-critical, new-concurrency, or broad multi-system risk; add plan-reviewer
   review, the code-reviewer security lens, or the verifier scenario lens when
   the risk signal matches
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
@@ -184,10 +258,9 @@ Ralph behavior:
   verification budget decisions, and diff-budget scope review in the final
   evidence
 - record the `Worktree decision` before editing when the task is write-capable
-- run `simplify` after required review is satisfied; a THOROUGH plan sets
-  `Cleanup policy: required`, so cleanup is NOT skippable as "not needed" (only
-  LIGHT may skip) — only an explicit user opt-out disables it. Then rerun
-  verification and any needed focused review
+- run `simplify` after required review is satisfied. Use four independent
+  viewpoints only when the THOROUGH risk or broad diff justifies them; otherwise
+  use the combined scan. Then rerun verification and any needed focused review
 - run `verification-before-completion` before the final claim
 
 ## Escalation And De-Escalation
@@ -196,7 +269,7 @@ Escalate from LIGHT to STANDARD when the work changes runtime behavior, agent
 behavior, workflow routing, validation policy, or more files than expected.
 
 Escalate from STANDARD to THOROUGH when the work touches security, data,
-permissions, public contracts, releases, generated artifacts, concurrency, or
+permissions, public contracts, releases, generated artifacts, new or changed concurrency semantics, or
 multiple subsystems, or when verification reveals unexpected behavior.
 
 Do not de-escalate below the mode set by an approved plan unless the user

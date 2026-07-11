@@ -1201,16 +1201,16 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not edit files. Return the loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the single Plan-Reviewer review dispatch rule, the blocking-findings-only re-review rule, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not edit files. Return the Direction Contract fields and canonical plan schema owner, loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Codex spawn-agent host-policy rule, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     ultrawork)
       printf 'Use the oh-no-harness:ultrawork skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK ultrawork.'
       ;;
     simplify)
-      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs before answering. Do not edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the Codex SessionStart standing authorization rule that avoids per-run subagent approval; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
+      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs. Do not edit files. Return the Required Behavior Lock and Phase headings; the LIGHT/STANDARD combined-scan default; the named THOROUGH trigger for four independent Reuse, Simplification, Efficiency, and Altitude passes; batch/fallback behavior only after that trigger; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
       ;;
     *)
       fail "No deep live prompt for skill: $1"
@@ -1241,34 +1241,34 @@ expected = {
     "ralplan": [
         "OH_NO_CODEX_DEEP_OK ralplan",
         "pending approval",
+        "Direction Contract",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
         "Analyst",
         "Planner",
-        "must-fail",
-        "must-pass",
-        "negative",
-        "old broken behavior",
+        "single-reviewer",
+        "named THOROUGH",
+        "process budget",
         ".oh-no/worktrees/<task-slug>",
-        "host",
-        "policy",
     ],
     "ralph": [
         "OH_NO_CODEX_DEEP_OK ralph",
-        "Execution Mode Decision Prompt",
+        "Direction Contract",
+        "Always-read",
+        "Triggered",
+        "Required Execution Mode",
         "Mode-Gated Agent Dispatch",
-        "LIGHT",
         "STANDARD",
         "THOROUGH",
         "Parallel trigger",
-        "host",
-        "policy",
+        "Acceptance-to-evidence ledger",
+        "single-reviewer",
+        "paired-review",
+        "combined scan",
         ".oh-no/worktrees/<task-slug>",
-        "parent-directory",
         "test-driven-development",
         "internal mid-loop",
-        "Required Behavior Lock",
     ],
     "ultrawork": [
         "OH_NO_CODEX_DEEP_OK ultrawork",
@@ -1296,7 +1296,7 @@ expected = {
         "batch",
         "before waiting",
         "inline",
-        "fallback reason",
+        "dispatch-unavailable reason",
         "false positive",
         "intended behavior",
     ],
@@ -1378,13 +1378,9 @@ if skill == "ralplan" and not (
     raise SystemExit(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
 
 if skill == "ralplan" and not (
-    "edge" in text_lower
-    or "semantic-model" in text_lower
-    or "semantic model" in text_lower
-    or "baseline/regression" in text_lower
-    or "baseline or regression" in text_lower
+    "process budget" in text_lower and "named thorough" in text_lower
 ):
-    raise SystemExit(f"{skill} deep smoke missing semantic/edge/regression test-design marker; got {text!r}")
+    raise SystemExit(f"{skill} deep smoke missing proportional process-budget marker; got {text!r}")
 
 if skill in ("ralplan", "ultrawork") and not (
     "2 loops" in text_plain
@@ -1401,10 +1397,10 @@ if skill in ("ralplan", "ultrawork") and not (
 
 linked_doc_markers = {
     "ralph": [
-        "Execution Mode Decision Prompt",
+        "Direction Contract",
         "Mode-Gated Agent Dispatch",
         "Parallel trigger",
-        "Required Behavior Lock",
+        "Acceptance-to-evidence ledger",
     ],
     "ultrawork": [
         "Mode source",
@@ -3746,6 +3742,8 @@ run_codex_cross_host_fallback_live_test() {
   prompt=$(cat <<'PROMPT'
 Use the oh-no-harness:simplify skill with cross-host review. Read-only live cross-host fallback smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. This run is in DEFAULT mode (NOT require-cross-host).
 
+Named THOROUGH trigger: security-sensitive public authentication contract review. Pairing is trigger-driven, not availability-driven.
+
 This run is intentionally launched with Codex read-only sandbox permissions. Before any cross-host review or opposite-host consult, inspect the current Codex permission/sandbox context. Because the permission state is not danger-full-access, the Claude Code cross-host consult is UNAVAILABLE and UNAUTHORIZED: you must NOT invoke ${CLAUDE_BIN:-claude}, must NOT shell out to claude, must NOT make any cross-host or opposite-host hop, and must NOT invoke /codex:rescue, codex:codex-rescue, rescue, fusion-rescue, or another host. Treat the opposite host (Claude Code) as unavailable and take the default-mode Same-Host Parallel Fallback (two same-host Codex agents synthesized), NOT the cross-host path.
 
 The diff under review (treat as the stable diff):
@@ -4478,6 +4476,7 @@ run_simplify_live_test() {
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
   prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in one batch before any wait, wait_agent, or close_agent call. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only one short read-only finding summary for its assigned angle. For every receiver thread, call wait_agent until that receiver appears in a completed wait result before calling close_agent; do not use close_agent as the first result capture for any receiver. After each cleanup subagent result is captured through wait_agent, call close_agent for that completed agent. After all four cleanup subagents finish and all completed cleanup agents are closed, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed cleanup agents: 4.'
+  prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
 
   local cmd=(
     "$CODEX_BIN"
@@ -4678,6 +4677,7 @@ PY
   out_file="$RUN_DIR/simplify-natural-session-start.jsonl"
   err_file="$RUN_DIR/simplify-natural-session-start.err"
   prompt='Use the oh-no-harness:simplify skill. Read-only natural SessionStart smoke test. Target only docs/reference/source-index.md and do not inspect other changed files. Do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Follow the skill'\''s normal Phase 1 review path for the target diff. For each cleanup angle, the assigned worker message must include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: target diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: findings with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each worker should return only one short read-only finding summary for its assigned angle. After Phase 1 review finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; Wait results captured: 4; Closed workers: 4.'
+  prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
 
   assert_natural_prompt_has_no_explicit_subagent_terms "simplify" "$prompt"
 

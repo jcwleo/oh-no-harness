@@ -22,6 +22,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   request, or analyst gap check. Do not substitute a broad suite, local command,
   dashboard number, or internal shortcut for the user's or maintainer's success
   signal.
+- Copy the approved Direction Contract as the first plan section. Do not
+  reinterpret its primary goal, AC IDs, non-goals, constraints, or protected
+  assumptions; label a proposed change `requested-direction-change: yes`.
 - Apply `docs/shared/validation-check.md` when measurable evidence influenced
   the request. Plans must map the work to a recurring software engineering failure mode, not to
   a case-specific result.
@@ -50,6 +53,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 - Include a verification budget: focused semantic checks first, broad suites
   only when they add risk-relevant confidence, and a stop rule for noisy or slow
   broad checks.
+- Include process budgets for expected handwritten diff, reviewer topology and
+  trigger, cleanup depth, broad-suite count, and rescope thresholds.
 - Include a diff-budget expectation and the scope-review trigger for broad,
   generated, multi-package, or public-API-heavy patches.
 - Justify any new abstraction, configurability, dependency, or generalized path
@@ -73,6 +78,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   when planning through `ralplan`.
 - Do not pad plans with exhaustive test matrices. Pick the few tests that would
   actually catch the old failure or prove the new contract.
+- Keep tests, review, cleanup, and evidence under the AC-bearing task they
+  support. Do not turn them into product stories unless the user requested that
+  infrastructure as an outcome.
+- Do not propose product-like schedulers, state machines, protocol simulators,
+  Git oracles, duplicate parsers, or fixture systems solely for verification.
 - Do not propose shallow tests that only check exit status, marker strings,
   broad snapshots, implementation details, or mocks that bypass the behavior
   being tested.
@@ -88,6 +98,7 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 Return:
 
 - Plan path.
+- Direction Contract and AC IDs.
 - Planner draft id or Planner revision id.
 - Task list.
 - Minimal viable approach.
@@ -104,6 +115,7 @@ Return:
 - Acceptance-to-evidence mapping.
 - Story risk check.
 - Verification budget and diff-budget expectations.
+- Process budget and named gate triggers.
 - Approval status.
 - Recommended next role or skill for the caller: `plan-reviewer`, `ralph`, or `ultrawork`.
 

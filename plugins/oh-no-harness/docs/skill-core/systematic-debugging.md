@@ -30,14 +30,14 @@ Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task i
 
 ## Required Reading
 
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+Read a triggered owner immediately before the dependent gate. A path reference
+here is a pointer, not a substitute for reading. If a listed file cannot be
+read, record the blocker instead of proceeding past the gate that depends on it.
 
-- `docs/shared/cross-host-review.md` — the dual-host `debugger` default, cross-host post-fix review, and the independence-mode recording the Output Gate requires.
-- `docs/shared/ralph-subagent-policy.md` — when to dispatch the debugger/verifier/reviewer versus inline, plus role isolation, fallback reasons, and eligible batch dispatch.
+| Contract | Class | Trigger / timing |
+|---|---|---|
+| `docs/shared/ralph-subagent-policy.md` | triggered | before dispatching a diagnostic, executor, reviewer, or verifier role |
+| `docs/shared/cross-host-review.md` | triggered | before paired debugger or post-fix review when a named THOROUGH risk selects it |
 
 ## Agent Roles
 
@@ -72,14 +72,17 @@ task-specific failure, scope, expected output, and verification responsibility.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `debugger` | Dispatch `debugger` subagent to reproduce the failure, identify root cause, and recommend the minimal fix. By default, when the opposite host is available, run the investigation as cross-host analysis per `docs/shared/cross-host-review.md`: the current-host and opposite-host debuggers investigate in parallel and the main agent synthesizes one root-cause direction (competing hypotheses, deciding evidence, smallest next diagnostic). Otherwise use the Same-Host Parallel Fallback per the shared doc. |
+| `debugger` | Dispatch one `debugger` to reproduce the failure, identify root cause, and recommend the minimal fix. Use a paired cross-host/Same-Host investigation only for a named THOROUGH uncertainty or repeated-failure trigger. |
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
 | `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. Cross-host merge: one verdict. |
 | `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. Cross-host merge: merged findings. |
 
-When the opposite host is available, run the `plan-reviewer` and `code-reviewer` roles as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. The `debugger` investigation defaults to cross-host as stated in its row. The post-fix `verifier` is out of cross-host scope — an unconditionally single self-host independent pass (never a cross-host or same-host pair) — governed by the maker-verifier carve-out.
+STANDARD uses one dispatched reviewer or debugger instance. Apply
+`docs/shared/cross-host-review.md` only when a named THOROUGH trigger selects a
+pair. The post-fix `verifier` remains one independent self-host pass governed by
+the maker-verifier carve-out.
 
 ## Debugging Flow
 
@@ -144,6 +147,9 @@ Stop and ask or escalate to `plan-reviewer` when:
 - a `plan-reviewer` escalation trigger from `## Agent Roles` fires (repeated
   failed fix attempts; broad architecture or API scope; product behavior,
   data handling, security, or delivery-scope ambiguity)
+- the smallest confirmed fix would introduce a new architecture, scheduler,
+  state machine, protocol, or public contract not present in the approved
+  Direction Contract; return evidence instead of silently redesigning
 
 ## Anti-Patterns
 
@@ -161,7 +167,12 @@ Stop and ask or escalate to `plan-reviewer` when:
 ## Output Gate
 
 <HARD-GATE>
-Do not emit the Output below — no return, no result — until each dispatched pass has a recorded independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`: the cross-host-default `debugger` investigation and any post-fix `code-reviewer`. A dispatched pass with no recorded independence mode is a named ledger gap, not a pass. On the direct-invocation path this gate owns the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the caller's own completion gate is the backstop for final completion consequences.
+Do not emit the Output below until every dispatched review records topology:
+`single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` /
+`same-host-parallel-fallback`; an inline fallback requires a reason.
+Missing review topology is a named ledger gap, not a pass. On the direct-invocation path
+this gate owns the completion chokepoint; when invoked mid-loop from
+`ralph`/`ultrawork`, the caller's completion gate is the backstop.
 </HARD-GATE>
 
 ## Output

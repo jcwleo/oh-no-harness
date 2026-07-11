@@ -117,3 +117,24 @@ If plugin-scoped agents are unavailable, keep the same role boundary by
 embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
+
+## Cross-Host Consult Channel
+
+Load this section only after a named THOROUGH paired-review or Fusion Rescue
+trigger. On Claude Code, the opposite host is Codex.
+
+Dispatch the dedicated read-only `oh-no-harness:<role>-codex` consult owner for
+`plan-reviewer`, `code-reviewer`, or `debugger`, or `fusion` for its assigned
+panel slot. It resolves the companion and runs one synchronous, read-only
+`codex-companion.mjs task` call with a scoped redacted `--prompt-file`; it never
+uses a detached/background call. A queued-job acknowledgement or status pointer
+is not a result, and the caller must not poll a deferred result to compensate.
+
+For shared review, the packet requires Codex to dispatch the matching
+`oh-no-<role>` agent, wait for it, and return role-ownership proof. A direct
+Codex parent answer is not a valid opposite-host shared review response. Missing
+role ownership or an unavailable companion triggers the calling skill's
+Same-Host Parallel Fallback in default mode or blocks require-cross-host mode.
+The packet forbids nested rescue, edits, installs, mutating commands, and a
+second cross-host hop. Redact secrets and PII; record only failure class and
+companion/path/auth status on failure.

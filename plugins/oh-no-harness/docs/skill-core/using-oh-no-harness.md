@@ -24,6 +24,10 @@ If there is even a small chance that a local skill applies, read that skill befo
 
 Needing more context is not a reason to skip skill selection. It is often the signal that `interview`, `ralplan`, `systematic-debugging`, or another local skill should be read first.
 
+Route from the user's intended outcome and approved Direction Contract before
+routing from workflow mechanics. Tests, review, cleanup, prompt loading, and
+agent topology are supporting process; they must not become the goal.
+
 The available public skills are:
 
 - `interview`: clarify vague product, design, or engineering requests into an approved spec.
@@ -70,6 +74,18 @@ Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
 must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
+
+A concrete change that reuses an existing scheduler, eligibility decision,
+lifecycle owner, or contract surface normally routes to Ralph STANDARD when its
+scope is localized and acceptance criteria are clear. Do not route to
+Ralplan/THOROUGH merely because the request mentions concurrency; escalate only
+when concurrency semantics, ordering, ownership, safety, or lifecycle actually
+change.
+
+For a migration that changes Oh No Harness policy itself, an approved plan may
+define a temporary bootstrap execution budget. That budget governs the current
+run, but edited skill text is not assumed active mid-session; target-policy
+claims require a fresh session or equivalent clean load.
 
 Default ordinary implementation requests to `ralph`, not
 `test-driven-development`. If a request says add, fix, refactor, or implement

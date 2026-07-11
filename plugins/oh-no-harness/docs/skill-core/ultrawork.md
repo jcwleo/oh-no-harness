@@ -32,16 +32,17 @@ direct implementation or `ralph` if persistence is needed.
 
 ## Required Reading
 
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
+Read always-active owners before execution and triggered owners immediately
+before their dependent gates. A path reference here is a pointer, not a
+substitute for reading. If a listed file cannot be read, record the blocker
+instead of proceeding past the gate that depends on it.
 
-- `docs/shared/execution-modes.md` — the Ralph execution profile the plan must carry.
-- `docs/shared/worktree-isolation.md` — the automatic worktree plus merge-back gate.
-- `docs/shared/ralph-subagent-policy.md` — phase-agent dispatch and isolation.
-- `docs/shared/cross-host-review.md` — Final Validation cross-host review and the independence-mode recording rule.
+| Contract | Class | Trigger / timing |
+|---|---|---|
+| `docs/shared/execution-modes.md` | always | before carrying the Direction Contract and execution profile |
+| `docs/shared/worktree-isolation.md` | always | before automatic worktree execution |
+| `docs/shared/ralph-subagent-policy.md` | triggered | before phase-agent dispatch or maker-verifier independence |
+| `docs/shared/cross-host-review.md` | triggered | only when a named THOROUGH risk selects paired Final Validation review |
 
 ## Artifact Discovery
 
@@ -53,6 +54,12 @@ Before asking new questions, check:
 ```
 
 If a relevant approved interview spec exists, use it as the approved requirement source and move to planning.
+
+Carry its Direction Contract and AC IDs unchanged through the plan, Ralph
+session, review/verifier packets, and final report. Each phase records only its
+delta and evidence; it must not reinterpret the primary goal, non-goals,
+constraints, or protected assumptions. A phase that needs a direction change
+pauses for explicit user approval.
 
 If a relevant consensus plan exists, it may skip interview and planning only when it is approved (explicit user approval of its Plan Approval Brief, or a recorded ultrawork automatic-approval source from a prior run — a passing Findings Ledger Gate alone is quality evidence, not approval) and matches the current request's scope; record the skip reason and source artifact path per the Loop Contract, then move to execution. A merely relevant plan without approval evidence or with mismatched scope goes through the planning gate instead.
 
@@ -190,10 +197,10 @@ cannot dispatch).
 | Phase | Agents |
 |---|---|
 | Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
-| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` -> `plan-reviewer` in that order. The plan must set the Ralph execution profile and include the three role outputs or inline role blocks. |
+| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` and the risk-gated Plan-Reviewer stage in order. STANDARD uses one reviewer; a pair requires a named THOROUGH risk. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Follow `systematic-debugging` for failure investigation; it owns `debugger` dispatch per its own contract. Dispatch `verifier` (scenario lens for user-facing flows). |
-| Final Validation | Dispatch `plan-reviewer` and `code-reviewer` (security lens included) for additional orchestration-level risk not already covered by Ralph's satisfied gates. Dispatch `verifier` as an independent pass — required at STANDARD and THOROUGH on subagent-capable hosts whenever execution produced or changed proving tests, or the implementation/tests were authored or accepted by the same agent, per the carve-out in `docs/shared/ralph-subagent-policy.md` (record the fallback reason if the host cannot dispatch); otherwise (scenario lens) only for additional orchestration-level risk. When the opposite host is available, run `plan-reviewer` and `code-reviewer` as cross-host review per `docs/shared/cross-host-review.md` (current-host + opposite-host instances synthesized; otherwise use the Same-Host Parallel Fallback); the `verifier` is the confirming pass per the Review-then-verify order below — an unconditionally single self-host independent pass (never a cross-host or same-host pair). |
+| Final Validation | Add one targeted `plan-reviewer` or `code-reviewer` only for additional orchestration risk not already covered by Ralph. Paired review requires a named THOROUGH trigger. Dispatch one independent `verifier` when the maker-verifier carve-out applies. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -299,8 +306,8 @@ Dispatch:
 
 - `systematic-debugging` (skill, not agent) for root-cause investigation of
   failures before fixes; it owns `debugger` dispatch per its own contract
-  (dual-host default, hypothesis ledger) — do not dispatch a raw `debugger`
-  outside that flow
+  (one STANDARD debugger, or a named THOROUGH pair, plus its hypothesis ledger)
+  — do not dispatch a raw `debugger` outside that flow
 - `verifier` subagent for evidence packaging and, via its scenario lens,
   user-facing flows
 
@@ -325,29 +332,20 @@ host cannot dispatch):
   `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation
   were authored or accepted by the same agent; plus its scenario lens for
   user-facing behavior
-- When the opposite host is available, run `plan-reviewer` and `code-reviewer`
-  as cross-host review per `docs/shared/cross-host-review.md` (current-host +
-  opposite-host instances synthesized into one result; otherwise use the
-  Same-Host Parallel Fallback with a fallback note); the `verifier` is the
-  confirming pass per the Review-then-verify order below — an unconditionally
-  single self-host independent pass (never a cross-host or same-host pair)
-- Record each code-review pass's independence mode per
-  `docs/shared/cross-host-review.md` `## Recording the Independence Mode` (for
-  `plan-reviewer` and `code-reviewer`); the single self-host `verifier` confirming
-  pass is governed by the maker-verifier carve-out and the `verifier started after
-  reviewer completion` sequencing field, not the independence-mode enum
+- STANDARD records `single-reviewer`. Use cross-host review or the Same-Host
+  Parallel Fallback only for a named THOROUGH paired-review trigger. The
+  `verifier` remains one self-host pass.
 
-Review-then-verify order: run the `code-reviewer` pair first, then the confirming
-independent `verifier` pass (never the maker), per the canonical contract in
-`docs/shared/cross-host-review.md` `## When It Applies` Exception and the bullets
-above. This mirrors `ralph`'s Review Gate.
+Review-then-verify order: run the selected code-review stage first, then the
+confirming independent `verifier` pass (never the maker). This mirrors Ralph.
 
 Before dispatching Final Validation review roles, write the dependency graph into
 the session ledger:
 
 ```text
 Final Validation dependency graph:
-- code-reviewer pair: pending | complete | blocked | not-required
+- code-reviewer topology: not-required | single-reviewer | paired-thorough
+- code-reviewer pass: pending | complete | blocked | not-required
 - code-reviewer synthesis captured: yes | no | not-required
 - blocking reviewer findings: resolved | blocking | none | not-reviewed
 - verifier eligible to start: yes | no
@@ -355,9 +353,9 @@ Final Validation dependency graph:
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
-`verifier eligible to start` is `yes` only after the code-reviewer pair has
-completed (or a compliant fallback/not-required reason is recorded), the caller
-has captured and synthesized reviewer outputs, and blocking findings are either
+`verifier eligible to start` is `yes` only after the selected code-review stage
+has completed (or a compliant fallback/not-required reason is recorded), the
+caller has captured the review output or pair synthesis, and blocking findings are either
 resolved or recorded as blocking. A verifier spawned before that point is stale
 evidence for Final Validation, must be recorded as discarded, and must be rerun
 after the reviewer dependency is satisfied before it can count as the
@@ -373,7 +371,7 @@ evidence requirements here before reporting success.
 ### Phase 5: Report
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field above, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `single-reviewer` for STANDARD or a named THOROUGH pair topology; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 

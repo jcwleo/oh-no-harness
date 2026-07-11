@@ -79,6 +79,12 @@ host.
 
 Each panel receives:
 
+- the caller's Direction Contract, including required AC IDs, non-goals,
+  protected assumptions, and direction-change approval rule
+- the exact blocked decision that ordinary Ralph or Systematic Debugging could
+  not resolve
+- the remaining process budget for diagnostics, review, tests, and additional
+  panel work
 - problem statement and current workflow context
 - relevant evidence, commands, logs, diffs, or plan excerpt after redaction and
   minimization
@@ -92,6 +98,9 @@ Each panel receives:
   write state, or install plugins from a panel; same-host read-only analysis
   tools and subagents are allowed, but make no cross-host call beyond the single
   assigned cross-host consult
+- explicit instruction not to create a new proof architecture, scheduler,
+  state machine, protocol, oracle, fixture system, or review layer outside the
+  Direction Contract's goal and non-goals
 
 Each panel returns:
 
@@ -228,6 +237,11 @@ The synthesis must compare, decompose, and recombine the panels. It must not
 only concatenate the answers. When panel findings conflict, name the conflict,
 state which evidence decides it, and identify the smallest check that would
 change the recommendation.
+
+The synthesis may recommend a smaller diagnostic, an explicit approved
+direction-change request, or a block. It must not spend beyond the recorded
+remaining process budget or silently replace the Direction Contract with new
+proof architecture.
 
 ## Semantic Scenario Checks
 

@@ -1,19 +1,16 @@
 # Cross-Host Review
 
-Cross-host review lets two instances of the SAME assigned role run on both the
-current host and the opposite host in parallel when the opposite host is
-available, then have the current-host main agent synthesize the two analyses into
-one result (a single verdict for the review roles and a single root-cause
-direction for the debugger). It does not make dependent DIFFERENT roles eligible
-for the same batch. In `ralph`'s Review Gate and `ultrawork`'s Final Validation, the
-`code-reviewer` pair is the first review batch; the confirming `verifier` is not
-eligible for that batch and may be dispatched only after the code-reviewer pair
-has completed, its outputs have been captured and synthesized, and blocking
-findings have been resolved or recorded as blocking. When the opposite host is
-unavailable in default mode, the same synthesis runs over the Same-Host Parallel
-Fallback (two same-host agents) instead of a single pass. It reuses the Fusion
-Rescue cross-host mechanism; it is not a new channel, daemon, background job,
-weight fusion, or hidden runtime.
+Cross-host review is the paired-review implementation used only after a calling
+skill records a named THOROUGH risk. It lets two instances of the SAME assigned
+role run on the current host and the opposite host in parallel, then has the
+current-host main agent synthesize the two analyses into one result. It does not
+make dependent DIFFERENT roles eligible for the same batch. When a named pair
+runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
+`verifier` starts only after that pair is synthesized and blocking findings are
+resolved or recorded. When the opposite host is unavailable after the pair
+trigger fires, the Same-Host Parallel Fallback supplies two same-host instances.
+This reuses the Fusion Rescue cross-host mechanism; it is not a new channel,
+daemon, background job, weight fusion, or hidden runtime.
 
 This is a platform-neutral contract. For the actual invocation (how the current
 host reaches the opposite host), the synchronous-response requirement, the
@@ -23,45 +20,48 @@ hard-code host binaries, plugin or capability names, or permission states here.
 
 ## When It Applies
 
-Cross-host review applies wherever a skill dispatches `plan-reviewer`,
-`code-reviewer`, or `debugger`:
+Cross-host review does not apply merely because a skill dispatches one reviewer.
+STANDARD uses one reviewer instance. It applies only when a calling skill
+records a named THOROUGH paired-review trigger for `plan-reviewer`,
+`code-reviewer`, or `debugger`, such as security/data/destructive risk, a public
+or release-critical contract, new concurrency semantics, broad migration, or
+multi-system uncertainty:
 
 - `plan-reviewer`: `ralplan` (consensus plan review), `ralph` (completion-
   evidence review), `ultrawork` (final validation), `systematic-debugging`
   (direction escalation).
 - `code-reviewer`: `ralph` (review gate), `systematic-debugging` (post-fix),
   `verification-before-completion` (risk-gated), `ultrawork` (final validation).
-- `debugger`: `systematic-debugging` (root-cause investigation). Dual-host is
-  the default for the debugger, not only an escalation.
+- `debugger`: `systematic-debugging` only when a named THOROUGH uncertainty or
+  repeated-failure trigger selects paired root-cause investigation.
 
 Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
-Gate and `ultrawork`'s Final Validation the `code-reviewer` runs first as the
-parallel pair (cross-host, or the Same-Host Parallel Fallback). The confirming
-`verifier` is a dependent later stage, not part of the first review batch:
-dispatch it only after the code-reviewer pair has completed, the caller has
-captured and synthesized both reviewer outputs, and blocking findings have been
+Gate and `ultrawork`'s Final Validation, run the selected code-review stage
+first: one reviewer for STANDARD, or a triggered pair for THOROUGH. The
+confirming `verifier` is a dependent later stage. Dispatch it only after the
+reviewer output or pair synthesis is captured and blocking findings have been
 resolved or recorded as blocking. The confirming `verifier` is an unconditionally
-single self-host independent pass at STANDARD and THOROUGH — never a cross-host or
+single self-host independent pass — never a cross-host or
 same-host pair — because the verifier is out of cross-host scope (see the
 out-of-scope note below). That single pass still delivers the verifier's own
 acceptance-to-evidence and test-genuineness function, which the code-review pair
 does not redundantly cover; it is simply not doubled. The confirming verifier
 remains an independent dispatch (never the maker). A verifier spawned before the
-code-reviewer pair completes is stale evidence for these flows and must be
-discarded and rerun after review findings are resolved or recorded as blocking.
+selected code-review stage completes is stale evidence for these flows and must
+be discarded and rerun after review findings are resolved or recorded as blocking.
 
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
 dispatches it, nor to any other role. The `verifier`, `executor`, `explore`,
 `analyst`, `planner`, and `fusion-rescue-analyst` roles are out of scope for
 cross-host review. The `verifier` is an unconditionally single self-host
 independent pass, never cross-host and never a same-host pair; it remains a
-dependent later stage that runs after the code-reviewer pair (see the Exception
-above) and is governed by the maker-verifier carve-out, not the cross-host
+dependent later stage that runs after the selected code-review stage (see the
+Exception above) and is governed by the maker-verifier carve-out, not the cross-host
 independence-mode enum.
 
 ## Activation
 
-Default mode (auto): when the opposite host is available per the active
+Paired-review default: after the named THOROUGH trigger fires, when the opposite host is available per the active
 platform's `## Cross-Host Consult Channel` rules, run the review on BOTH the
 current host and the opposite host. When the opposite host is unavailable,
 unproven, or its response cannot be collected, run the Same-Host Parallel
@@ -75,8 +75,8 @@ require-cross-host, the review blocks if the opposite host cannot be reached.
 The blocking output names which host was required, what was attempted, the
 failure class, and the next local fallback the user can approve.
 
-Cross-host review activates only when the opposite host is actually available,
-which bounds the added cost and latency to dual-host installs.
+Without a named paired-review trigger, do not load or apply this contract. Host
+availability alone never activates a pair.
 
 ## Full Review Per Host
 
@@ -258,12 +258,12 @@ pass:
 
 - `ralph`: the Review Gate plus the Persistence Rule `<HARD-GATE>`.
 - `ultrawork`: Final Validation plus the Phase 5 Report `<HARD-GATE>`.
-- `ralplan`: the Findings Ledger Gate — its `Plan review independence mode`
-  field plus the "plan is invalid if the independence mode is missing or
-  non-compliant" clause (an invalidation rule, not a `<HARD-GATE>` block).
+- `ralplan`: the Findings Ledger Gate — its `Plan review topology` field plus
+  the invalidation rule for a missing topology or a non-compliant triggered
+  pair (an invalidation rule, not a `<HARD-GATE>` block).
 - `verification-before-completion`: the Required Gate `<HARD-GATE>`.
-- `systematic-debugging`: the Output Gate `<HARD-GATE>` (cross-host-default
-  `debugger` and any post-fix `code-reviewer`).
+- `systematic-debugging`: the Output Gate `<HARD-GATE>` (single STANDARD or
+  named THOROUGH paired `debugger` / post-fix `code-reviewer`).
 
 ## Fallback Notes
 

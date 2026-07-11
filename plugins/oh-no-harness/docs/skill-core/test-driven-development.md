@@ -75,6 +75,22 @@ For each behavior:
 
 Do not batch several behaviors into one RED step. If the test name needs "and", split the test.
 
+## Proportional Test Boundary
+
+One minimal RED/GREEN case per changed behavior is the default. Add negative,
+boundary, semantic-model, concurrency, resume, adversarial, or baseline cases
+only when an AC ID, named safety/risk trigger, or adjacent regression surface
+requires them. A reviewer may identify a verification hole; it may not demand an
+exhaustive matrix merely because stronger proof is imaginable.
+
+Tests remain evidence under the AC-bearing product story. Do not turn test
+infrastructure into a separate product story unless the user requested it as an
+outcome. Do not build a product-like state machine, scheduler, protocol
+simulator, Git oracle, duplicate parser, fixture factory, or full runtime model
+solely to verify the implementation. When the smallest credible test would need
+that machinery, prefer an existing real-surface lane or record a bounded manual
+or residual-risk check.
+
 ## RED Requirements
 
 A valid RED test:

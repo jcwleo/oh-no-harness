@@ -52,23 +52,21 @@ When entering directly from `interview`, accept the path only if the spec's prov
 
 ## Required Reading
 
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it. For a fresh
-run, Execution Loop step 1 governs the timing: read every listed contract up
-front before working; the gate-time sentence above is the floor for resumed or
-re-entered runs.
+Read always-active owners before the first story. Read a triggered owner
+immediately before the first dependent gate. A path reference here is a
+pointer, not a substitute for reading. If a listed file cannot be read, record
+the blocker instead of proceeding past the gate that depends on it.
 
-- `docs/shared/execution-modes.md` — LIGHT/STANDARD/THOROUGH selection and each mode's required Ralph behavior.
-- `docs/shared/worktree-isolation.md` — the write-capable Worktree decision gate.
-- `docs/shared/ralph-subagent-policy.md` — when and how to dispatch, isolate, and integrate subagents, including the independent-verifier carve-out.
-- `docs/shared/agent-tiers.md` — the role/scrutiny tier to pick whenever a role is used.
-- `docs/shared/verification-tiers.md` — what evidence is enough for the claim.
-- `docs/shared/validation-check.md` — required when measurable evidence influenced the work.
-- `docs/shared/cross-host-review.md` — cross-host (or Same-Host Parallel Fallback) review and the independence-mode recording rule the Review Gate and Persistence Rule depend on.
-- `docs/shared/failure-taxonomy.md` — the recurring-risk labels used in the story risk check.
+| Contract | Class | Trigger / timing |
+|---|---|---|
+| `docs/shared/execution-modes.md` | always | before mode, Direction Contract, active gates, and process budget are recorded |
+| `docs/shared/worktree-isolation.md` | always | before the worktree decision |
+| `docs/shared/verification-tiers.md` | always | before the acceptance-to-evidence ledger is planned |
+| `docs/shared/ralph-subagent-policy.md` | triggered | before dispatch or maker-verifier independence is needed |
+| `docs/shared/agent-tiers.md` | triggered | before selecting a role's scrutiny level |
+| `docs/shared/validation-check.md` | triggered | when measurable evidence influences a decision or claim |
+| `docs/shared/cross-host-review.md` | triggered | only when a named THOROUGH risk selects paired review |
+| `docs/shared/failure-taxonomy.md` | triggered | when a non-obvious story risk needs classification |
 
 ## Artifacts
 
@@ -89,6 +87,23 @@ was established earlier in this run, create a timestamped directory under
 `.oh-no/sessions/`. On resume, the session directory recorded in the run's
 artifacts wins. `LIGHT` mode may use a compact session note instead of full PRD
 scaffolding unless the input requires stories.
+
+`verification.md` is the canonical acceptance-to-evidence ledger. PRD,
+progress, review, and final-report sections point to its AC IDs and delta rather
+than recreating unchanged mappings.
+
+```text
+Acceptance-to-evidence ledger:
+- AC ID:
+- Planned evidence:
+- Actual evidence:
+- Coverage strength: direct | indirect | manual | missing
+- Status: planned | actual | audited | stale | blocked
+- Freshness source:
+- Reviewer findings by AC ID:
+- Verifier audit:
+- Residual risk:
+```
 
 ## Required Execution Mode
 
@@ -122,6 +137,17 @@ Represent work as stories:
 ```json
 {
   "title": "Task title",
+  "directionContract": {
+    "requirementsSource": "approved spec, plan, ticket, or request",
+    "primaryGoal": "user-confirmed outcome",
+    "requiredOutcomeIds": ["AC-1"],
+    "nonGoals": [],
+    "constraints": [],
+    "protectedAssumptions": [],
+    "directionChangeApprovalRule": "explicit user approval",
+    "confirmationStatus": "confirmed | inferred | open"
+  },
+  "activeGates": ["worktree", "verification", "other triggered gates only"],
   "executionMode": {
     "overallRalphMode": "LIGHT | STANDARD | THOROUGH",
     "modeSource": "plan | spec | user | derived by Ralph",
@@ -148,6 +174,10 @@ Represent work as stories:
 }
 ```
 
+Product or maintainer outcomes are stories. Tests, review, cleanup, and evidence
+remain activities under the AC-bearing story unless the user explicitly asked
+for their infrastructure as a deliverable.
+
 Both `user declined/current checkout` and `light direct checkout` runs record
 `Worktree location: current checkout`.
 
@@ -168,7 +198,11 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-When the opposite host is available, run the dispatched review roles (`plan-reviewer`, `code-reviewer`) as cross-host review per `docs/shared/cross-host-review.md` using each role's `Cross-host merge` value above; otherwise use the Same-Host Parallel Fallback. Exception: the confirming `verifier` is out of cross-host scope — an unconditionally single self-host independent pass at both STANDARD and THOROUGH (never a cross-host or same-host pair) — dispatched after the code-reviewer pair per the `## Review Gate` review-then-verify order and the review-then-verify exception in `docs/shared/cross-host-review.md`.
+STANDARD uses one dispatched reviewer instance when review is triggered.
+Cross-host review (or the Same-Host Parallel Fallback) applies only when a named
+THOROUGH risk selects paired `plan-reviewer` or `code-reviewer` review. The
+confirming `verifier` is always one independent self-host pass and starts after
+the selected code-review stage completes.
 
 `simplify` is a skill, not an agent. Use the active platform's Simplify route
 and cleanup invocation rules.
@@ -179,6 +213,11 @@ and cleanup invocation rules.
 
 Before editing, make the executable scope explicit and choose the lightest
 credible loop that can prove the work without skipping a stated requirement.
+
+Copy the approved Direction Contract first. Every story, changed file, test,
+review finding, and final claim must map to an AC ID, a safety invariant, or an
+approved behavior-preserving cleanup boundary. If execution would change the
+Direction Contract, stop for explicit approval instead of silently rescoping.
 
 If the input lacks acceptance criteria, derive them from the approved request and record them in the PRD. Ask before editing when an assumption changes user-visible behavior, architecture, data handling, security posture, or delivery scope.
 
@@ -303,7 +342,10 @@ This loop is the top-level shape. Detail for review, cleanup, agent dispatch, pa
 
 Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
 
-1. Read the input artifact (PRD, plan, or spec) and every shared contract listed in `## Required Reading` before working — that section is the authoritative superset (it adds `docs/shared/cross-host-review.md` and `docs/shared/failure-taxonomy.md`, which the Review Gate, Persistence Rule, and story risk check depend on).
+1. Read the input artifact and the always-active contracts in `## Required
+   Reading`. Copy the Direction Contract without reinterpretation, record active
+   gates and budgets, and load triggered contracts only immediately before the
+   dependent gate.
 2. Set or confirm the required execution mode before editing. Record mode
    source, verification tier, artifact policy, agent policy, parallel trigger,
    cleanup policy, task sizing, and escalation triggers. When the input is an
@@ -331,47 +373,24 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 
 This section governs *agent role* dispatch only. Workflow-skill chaining (`interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
 
-Ralph must follow the selected execution mode and agent policy. The per-mode
-dispatch behavior is defined under each mode's *Ralph behavior* in
-`docs/shared/execution-modes.md` — follow it: `LIGHT` stays inline for tiny work
-with no context-separation benefit; in `STANDARD`, use targeted subagents on
-subagent-capable hosts when the result can change the implementation, review,
-verification, or ship/block decision; `THOROUGH` dispatches every isolable
-required role, inline only for documented subagent-unavailable or
-unsafe-to-isolate cases.
+Follow the mode and agent policy from `docs/shared/execution-modes.md`: LIGHT
+stays inline when context separation has no benefit; in STANDARD, use targeted
+subagents on subagent-capable hosts only when their result can change the
+implementation, review, verification, or ship/block decision; THOROUGH uses the
+risk-warranted isolable roles.
 
-Ralph execution is parallel-capable. An approved ralplan handoff to ordinary
-`oh-no-harness:ralph` authorizes every eligible isolated role in the
-plan's dispatch profile. Authorization is not an instruction to spawn every
-possible role: dispatch when the result can change quality, risk, latency, or
-context management enough to justify lifecycle and integration cost. Ralph should actively look for safe parallel batches
-for exploration, disjoint executors, test/log analysis, verification (scenario
-QA lens included), code review (security lens included), and other independent
-review roles. In STANDARD and THOROUGH, treat disjoint implementation as first-class parallel work, not only review or exploration: scan remaining work for disjoint scopes and proactively partition disjoint executors into one batch when, and only when, the `docs/shared/ralph-subagent-policy.md` dispatch conditions, the `## Safe Parallel Work` isolation rules, and TDD/dependency safety all hold. Inline execution is the fallback, not the default, when
-`agentPolicy` is not `inline-only`, but final narrow re-checks may stay inline
-when a subagent result would not change the decision. The independent verifier
-audit is not such a re-check under the carve-out in
-`docs/shared/ralph-subagent-policy.md`: at STANDARD and THOROUGH on
-subagent-capable hosts, when the proving tests or implementation were authored
-or accepted by the same agent, dispatch an independent `verifier` (record the
-fallback reason if the host cannot dispatch).
+An approved plan authorizes its eligible isolated roles, not every possible
+role. Scan for safe exploration, disjoint implementation, test/log analysis,
+review, and verification batches. In STANDARD and THOROUGH, proactively
+partition disjoint executors only when ownership, dependency, TDD, and benefit
+gates in `docs/shared/ralph-subagent-policy.md` hold. The independent verifier
+audit remains required under the maker-verifier carve-out.
 
-Respect the platform rules from the active public skill runtime document and
-the Ralph platform adapter composed into that document. If no platform adapter
-context is visible, read the active platform source document named by the
-runtime composition metadata.
-Without a dispatch-worthy role or scope, without host authorization, or in a
-subagent-unavailable environment from `docs/shared/ralph-subagent-policy.md`,
-perform roles inline and record `Parallel trigger: none` plus the fallback
-reason. When dispatch comes from an approved ralplan handoff, record
-`Parallel trigger: approved-plan-handoff`; when dispatch comes from a direct
-user request or standing preference to maximize subagents, record
-`Parallel trigger: explicit-user-request`. Preserve `Parallel trigger:
-natural-dispatch` only when the host permits proactive dispatch and the active
-skill policy itself authorizes eligible isolated roles without a ralplan
-handoff. This includes proactive disjoint-executor batching mid-loop in STANDARD/THOROUGH: the active Ralph policy authorizes it, so record it as `natural-dispatch` even when the overall run arrived by another trigger.
-
-Pick the lightest credible role tier from `docs/shared/agent-tiers.md` whenever a role is used. Do not collapse required review, verification, security, QA, or architecture roles into one mental pass in `THOROUGH` mode. The Parallel Subagent Policy below still governs when dispatches may run concurrently and when they must be sequential.
+Record `Parallel trigger: approved-plan-handoff`, `explicit-user-request`,
+`natural-dispatch`, or `none` from the actual source. Read the active adapter
+before dispatch; use inline fallback only for a documented unavailable,
+unsafe-to-isolate, or no-benefit case. Pick the lightest credible role tier and
+preserve distinct required role boundaries.
 
 ## Codex Executor Delegation Boundary
 
@@ -443,30 +462,25 @@ Completion requires evidence, not confidence.
 
 The reviewer pass is mode-gated. `LIGHT` may satisfy review through direct diff
 inspection unless the selected mode or risk requires independence. `STANDARD`
-uses targeted review for behavior-affecting or workflow changes. `THOROUGH`
-uses independent review roles for the applicable risk.
+uses one targeted reviewer instance for behavior-affecting or workflow changes.
+`THOROUGH` uses paired review only for a named security, data, destructive,
+public-contract, release-critical, new-concurrency, migration, or broad
+multi-system risk; otherwise it may also use one targeted reviewer.
 
-Review-then-verify order — follow the canonical contract in
-`docs/shared/cross-host-review.md` `## When It Applies` Exception; do not restate
-it here. In short: when both code review and an independent verifier pass are
-required (STANDARD and THOROUGH behavior-changing or workflow changes), run them
-in that order, not concurrently — first the `code-reviewer` pair (cross-host, or
-the Same-Host Parallel Fallback with a recorded note), integrating and resolving
-blocking findings, then a confirming independent `verifier` pass: an
-unconditionally single self-host pass (never a cross-host or same-host pair),
-never the maker, satisfying the carve-out in
-`docs/shared/ralph-subagent-policy.md`. Record each code-review pass's
-independence mode (`cross-host`, `same-host-parallel-fallback`, or
-`inline-fallback` with reason); the single self-host verifier pass is governed by
-the carve-out and the `verifier started after reviewer completion` sequencing
-field, not the independence-mode enum.
+Review-then-verify order: when both code review and an independent verifier are
+required, run the selected code-review topology first, resolve or record its
+blocking findings, and then run one independent verifier (never the maker).
+Record `single-reviewer` for STANDARD. For a named THOROUGH pair, apply
+`docs/shared/cross-host-review.md` and record `cross-host` or
+`same-host-parallel-fallback`; an inline fallback always includes a reason.
 
 Before dispatching review roles, build the Review Gate dependency graph and write
 it into the PRD/progress ledger:
 
 ```text
 Review Gate dependency graph:
-- code-reviewer pair: pending | complete | blocked | not-required
+- code-reviewer topology: not-required | single-reviewer | paired-thorough
+- code-reviewer pass: pending | complete | blocked | not-required
 - code-reviewer synthesis captured: yes | no | not-required
 - blocking reviewer findings: resolved | blocking | none | not-reviewed
 - verifier eligible to start: yes | no
@@ -474,9 +488,9 @@ Review Gate dependency graph:
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
-`verifier eligible to start` is `yes` only after the code-reviewer pair has
-completed (or a compliant fallback/not-required reason is recorded), the caller
-has captured and synthesized reviewer outputs, and blocking findings are either
+`verifier eligible to start` is `yes` only after the selected code-review stage
+has completed (or a compliant not-required/fallback reason is recorded), the
+caller has captured its output or paired synthesis, and blocking findings are either
 resolved or recorded as blocking. A verifier spawned before that point is stale
 evidence for this Review Gate, must be recorded as discarded, and must be rerun
 after the reviewer dependency is satisfied before it can count as the independent
@@ -508,10 +522,9 @@ When review is required, the reviewer pass must answer:
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
 - When the opposite host was available, were `plan-reviewer`/`code-reviewer`
-  run as cross-host review (current-host + opposite-host instances synthesized) per
-  `docs/shared/cross-host-review.md`, or was the Same-Host Parallel Fallback
-  recorded? Was the `verifier` run as the confirming pass after the code-review
-  pair (per the Review-then-verify order) — an unconditionally single self-host
+  paired only for a named THOROUGH trigger per
+  `docs/shared/cross-host-review.md`? Was STANDARD kept to one reviewer? Was the
+  `verifier` run as the confirming pass after the selected code-review stage — an unconditionally single self-host
   independent pass (never a cross-host or same-host pair)? Does the ledger show
   `verifier started after reviewer completion: yes` or a compliant not-required
   reason?
@@ -525,15 +538,16 @@ When review is required, the reviewer pass must answer:
   semantic or baseline check replace another broad rerun?
 
 If review rejects the work, return to the relevant story and continue within the
-review loop budget: one required review cycle (the parallel `code-reviewer` pair
-per the Review-then-verify order) and one confirming `verifier` pass — at
+review loop budget: one required review cycle using the selected topology and
+one confirming `verifier` pass — at
 STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
 when execution produced or changed proving tests, or the implementation/tests
 were authored or accepted by the same agent (record the fallback reason if the
 host cannot dispatch), and otherwise when required by mode or risk; after a
-blocker fix, run one focused re-check of the blocked scope. Record each code-review pass's
+blocker fix, run one focused re-check of the blocked scope. Record
+`single-reviewer` for STANDARD; for a named THOROUGH pair, record its
 independence mode per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`; the single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
+`## Recording the Independence Mode`. The single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
 review unless the user explicitly authorizes it. If a blocker remains after that
 budget, enter `systematic-debugging` for unknown root cause or report `blocked`
 or `failed_verification` instead of looping.
@@ -564,17 +578,32 @@ proof. For behavior-changing work:
 - Before writing a real-surface artifact, command output, or log into a `.oh-no`
   session file or the final report, redact secrets and PII to a labeled
   placeholder, keeping only the non-sensitive shape needed as evidence (status
-  line, lengths, hashes, short non-secret prefixes), per the redaction convention
-  in `docs/shared/cross-host-review.md`.
+  line, lengths, hashes, short non-secret prefixes), per the evidence-redaction
+  rule in `docs/shared/verification-tiers.md`.
 
 Record skipped broad checks and residual risk honestly. Do not claim stronger
 coverage than the evidence supports.
+
+## Process Budget Gate
+
+Before implementation, copy the plan's expected handwritten changed-file groups,
+approximate diff size, review topology/trigger, cleanup depth, broad-suite cap,
+and review-round cap. If no plan supplied them, derive conservative values from
+`docs/shared/execution-modes.md`.
+
+Stop for rescope, simplify, or user approval when the actual handwritten diff
+exceeds twice the estimate, generated output hides unexpectedly broad source
+changes, supporting tests/validation grow to roughly three times the
+product/source-contract change, a second blocking review round remains
+unresolved, or the same invariant is being implemented a third time. A budget
+breach never authorizes automatic expansion.
 
 ## Diff-Budget Gate
 
 Ralph must check blast radius before marking work complete. If the final diff
 crosses any of these thresholds, run a scope review before completion:
 
+- more than twice the plan's expected handwritten file or diff estimate
 - more than 20 changed files
 - more than 500 insertions
 - generated files mixed with handwritten logic
@@ -600,12 +629,11 @@ presenting the work as complete.
 Cleanup happens only after the review required by the selected mode is satisfied
 and a behavior lock exists.
 
-Cleanup is mode-gated per each mode's *Ralph behavior* in
-`docs/shared/execution-modes.md`: `LIGHT` may record cleanup as not needed after
-the scan; `STANDARD` and `THOROUGH` set `Cleanup policy: required` (only LIGHT may
-skip it as "not needed", and only an explicit user opt-out disables it), then
-rerun the relevant verification — and at THOROUGH any focused post-cleanup review
-the risk requires — after cleanup.
+Cleanup is mode- and trigger-gated per `docs/shared/execution-modes.md`.
+LIGHT and STANDARD use one quick or combined scan. THOROUGH expands to four
+independent viewpoints only for a named safety or broad-diff trigger. Record the
+trigger, candidates found, and fixes made; do not create cleanup work merely to
+satisfy a pass count. Rerun relevant verification whenever cleanup changes files.
 
 The post-cleanup pass must answer:
 
@@ -637,19 +665,21 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass must also record its independence mode (`cross-host`, `same-host-parallel-fallback`, or `inline-fallback` with reason) per `docs/shared/cross-host-review.md`; a dispatched pass with no recorded independence mode is a named ledger gap, not a pass. The single self-host verifier pass is governed by the maker-verifier carve-out and the sequencing field below, not the independence-mode enum. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records topology: `single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` / `same-host-parallel-fallback`; an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 Ship when all completion criteria are satisfied:
 
 - the selected execution mode is recorded and followed
 - every story or task has `passes: true`
-- verification evidence exists, with direct evidence or explicitly classified
+- the canonical `verification.md` ledger has one row per AC ID, with planned and
+  actual evidence, freshness, audit status, and direct evidence or explicitly classified
   indirect/manual gaps for every acceptance criterion
 - required TDD evidence exists, or each exception is documented
 - the reviewer (code-review) pass required by the selected mode is approved, or a blocking reason is documented
 - the independent `verifier` pass required by the selected mode or the verifier carve-out ran (per the Review-then-verify order, never the maker), or its dispatch-unavailable or not-required reason is recorded
-- `simplify` ran, was explicitly disabled by the user, or — in LIGHT only — was recorded as not needed
+- the proportional `simplify` scan ran, was explicitly disabled, or recorded no
+  candidates with the applicable mode/trigger
 - post-cleanup verification passed when cleanup changed files
 - a direct-Ralph automatic worktree was merged back with post-merge verification, or its task branch and handoff path were reported, or no direct-Ralph automatic worktree existed per the recorded `Worktree decision`
 - `verification-before-completion` ran for the final completion claim
@@ -715,105 +745,29 @@ work, compaction, or handoff.
 
 ## Role Dispatch
 
-Codex role dispatch is host-policy controlled. Use `spawn_agent` only when the
-host exposes it, the active skill permits dispatch, and the role has isolated
-read-only scope, disjoint write ownership, or an independent review or
-verification responsibility.
+Dispatch only after the active skill's trigger fires, then read
+`docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
+`spawn_agent(agent_type="oh-no-<role>", ...)` first, do not combine it with
+`fork_context=true`, and use generic prompt embedding only after the custom
+agent is actually rejected. The task packet carries scope, ownership, expected
+output, and lifecycle.
 
-For Oh No Harness roles, use the registered custom agent first:
-`spawn_agent(agent_type="oh-no-<role>", ...)`. Generic fallback is allowed only
-inside an active Oh No Harness workflow or explicit user-requested subagent
-task after an actual `agent_type="oh-no-<role>"` attempt is rejected as unknown
-or unavailable, and the fallback reason is recorded. Do not infer custom-agent
-unavailability from rendered schema text, display comments, or uncertainty.
-
-Do not combine `agent_type="oh-no-<role>"` with `fork_context=true` or any
-full-history fork request. Pass the current scope, constraints, expected output,
-and lifecycle in the spawned-agent message, using one payload shape only.
-
-The Codex SessionStart standing authorization, a user standing preference, an
-approved plan profile, or an active Oh No Harness skill policy is workflow-level
-authorization for eligible isolated subagents. Do not ask another per-run
-approval question only to dispatch those roles. Dispatch only when the result
-can change implementation, review, verification, latency, context management,
-or the ship/block decision.
-
-After `wait_agent` returns a final status, capture the output and any
-changed-file set before cleanup. A timeout, empty wait, or "No agents completed
-yet" result is not final and is not permission to close the subagent. Once a
-role is dispatched, its assigned scope, role, and expected output become a
-workflow dependency. Wait until every in-scope dispatched subagent reaches final
-status, capture its result, and use that result in synthesis, implementation,
-review, verification, or an explicit blocked/abandoned record before advancing
-past the dependent step or claiming completion. While waiting, continue only
-genuinely non-overlapping local work. Do not redo delegated work inline, spawn
-a duplicate replacement, or let parent inline analysis substitute for the
-subagent result merely because the subagent is slow. Never use missing output
-as completion evidence.
-
-Close or clean up a subagent without a captured final result only when the user
-explicitly cancels or stops that subagent, the task scope invalidates the work,
-the spawn was duplicate or mis-scoped, or continuing creates a safety, security,
-or filesystem risk. Record that close as cancelled or abandoned.
+Every dispatched result is a dependency: `wait_agent` must reach final status,
+the caller captures and uses the output, and only then performs lifecycle
+cleanup. Timeout, empty output, or "No agents completed yet" is not final; do
+not close, redo inline, or use missing output as evidence.
 
 ## Generic Role Prompt Fallback
 
-When generic Codex agent types are used after confirmed custom-agent
-unavailability, embed the matching `docs/agent-core/<role>.md` prompt body in
-the spawned-agent message. If only `agents/<role>.md` exists, strip Claude Code
-YAML frontmatter before embedding.
+After confirmed custom-agent unavailability, embed
+`docs/agent-core/<role>.md`; see the full platform doc for the fallback shape.
 
 ## Cross-Host Consult Channel
 
-This is the shared cross-host consult mechanism used by Fusion Rescue and by
-cross-host review (`docs/shared/cross-host-review.md`). On Codex the opposite
-host is Claude Code. This section carries only the Codex-to-Claude invocation;
-the activation, synthesis, and recursion-guard semantics live in the calling
-skill core and the shared doc.
-
-From Codex, consult Claude Code through `${CLAUDE_BIN:-claude}` only when the
-active Codex permission state is exactly `danger-full-access`. If the state is
-missing, unknown, `read-only`, `workspace-write`, or anything else, do not call
-Claude: treat the opposite host as unavailable; in default mode the calling skill
-applies the shared cross-host contract's Same-Host Parallel Fallback
-(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks while
-naming the failure class and the current-host fallback.
-
-For shared cross-host review, the Codex parent must not run
-`${CLAUDE_BIN:-claude}` inline. After the preflight confirms
-`danger-full-access`, dispatch the matching Codex role subagent with
-`spawn_agent(agent_type="oh-no-<role>", ...)` for the opposite-host consult
-owner, where `<role>` is `plan-reviewer`, `code-reviewer`, or `debugger`.
-The `verifier` has no cross-host leg: it stays an unconditionally single
-self-host pass on whichever host runs it (`docs/shared/cross-host-review.md`).
-The spawned role subagent receives the redacted role packet, performs
-the single Claude consult through this channel, and returns the assigned role
-analysis. The Codex parent waits for that subagent, captures its result, closes
-or records lifecycle cleanup, and only then synthesizes. A parent inline Claude
-consult is not a valid shared cross-host review pass. If the role subagent cannot
-be dispatched, treat the opposite host as unavailable in default mode or block in
-require-cross-host mode; do not fall back to a parent inline Claude call.
-
-Fusion Rescue is separate: its Codex-specific panel overlay may assign a
-`fusion-rescue-analyst` panel subagent to own the Claude consult. The paragraph
-above applies only to shared cross-host review roles.
-
-When the `danger-full-access` preflight confirms, build the Claude command as an
-argument vector, not shell string interpolation: `${CLAUDE_BIN:-claude}`,
-`--print`, `--model`, `opus`, `--permission-mode`, `dontAsk`,
-`--no-session-persistence`, then the redacted prompt packet, unless the user
-supplied a different Claude model. Do not strip Claude's tools by default; Claude
-may need its own read-only tools to produce the assigned analysis. The read-only
-boundary is enforced by the redacted packet and host permissions, not by
-removing tools.
-
-The consult must return Claude's actual assigned analysis synchronously. A launch
-notice, queued-job message, background acknowledgement, or status pointer is not
-a valid opposite-host response; treat it as unavailable. The Claude prompt must
-request only the assigned analysis and must forbid file edits, writes, installs,
-mutating commands, nested rescue, and any host-to-host ping-pong back to Codex or
-a third host (one cross-host hop). Redact secrets before sending; on failure
-record only the failure class and command/path/auth status, never secret values.
+This channel is trigger-loaded, not embedded in every workflow decision. When a
+named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
+`docs/platforms/codex.md` `## Cross-Host Consult Channel` before dispatch. Until
+then, do not preload opposite-host invocation details.
 
 ## Source: docs/platforms/codex-ralph.md
 

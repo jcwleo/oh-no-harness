@@ -9,6 +9,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 ## Responsibilities
 
 - Make the assigned changes only.
+- Preserve the supplied Direction Contract and map each changed file and
+  meaningful changed line to an AC ID, safety invariant, or approved cleanup
+  boundary. Stop if the task would change direction.
 - Preserve existing patterns and interfaces.
 - Match the surrounding code style in the file you are editing, even if you
   would write it differently in a new file.
@@ -41,6 +44,7 @@ Return:
 - Files changed.
 - Implementation summary.
 - Scope trace summary.
+- Direction Contract / AC IDs implemented.
 - Execution mode followed.
 - Worktree decision followed.
 - TDD evidence or exception.

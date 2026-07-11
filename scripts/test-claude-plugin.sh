@@ -807,14 +807,19 @@ for m in ("## Delegated Codex Executor Boundary", "transport returns raw Codex s
     if m not in policy:
         raise SystemExit(f"ralph-subagent-policy.md missing caller guard marker {m!r}")
 
-# Rewritten Claude channel: codex-companion transport, no /codex:rescue.
-channel = read(platforms / "claude-code-runtime.md")
+# Trigger-loaded Claude channel: runtime pointer plus detailed maintenance owner,
+# with codex-companion transport and no /codex:rescue.
+runtime_channel = read(platforms / "claude-code-runtime.md")
+for m in ("trigger-loaded", "docs/platforms/claude-code.md"):
+    if m not in runtime_channel:
+        raise SystemExit(f"claude-code-runtime.md missing trigger-load pointer {m!r}")
+channel = read(platforms / "claude-code.md")
 for m in ("codex-companion.mjs", "`oh-no-harness:<role>-codex`",
-          "dispatch the matching `oh-no-<role>` role"):
+          "requires Codex to dispatch the matching"):
     if m not in channel:
-        raise SystemExit(f"claude-code-runtime.md missing codex-companion transport marker {m!r}")
+        raise SystemExit(f"claude-code.md missing codex-companion transport marker {m!r}")
 if "/codex:rescue" in channel:
-    raise SystemExit("claude-code-runtime.md still contains /codex:rescue")
+    raise SystemExit("claude-code.md still contains /codex:rescue")
 
 # Rewritten Claude fusion overlay: fusion-codex transport, no /codex:rescue.
 overlay = read(platforms / "claude-code-fusion-rescue.md")
@@ -1636,16 +1641,16 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the embedded consensus planning workflow, test case design quality bar, execution mode contract, and worktree policy before answering. Do not create artifacts or edit files. Return the 2-loop limit, approval status term, full Analyst -> Planner -> Plan-Reviewer ordering rule, the conditional re-review rule stating that only blocking findings trigger a re-review, the required Ralph execution profile fields, the test case design requirements, the shallow-test rejection rule, the project-local worktree path for write-capable execution, and the Codex host-policy-controlled dispatch rule for planning subagents. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not create artifacts or edit files. Return the Direction Contract fields and canonical plan schema owner, 2-loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, process budget, Ralph execution profile, and project-local worktree path. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Deep smoke test only. Read the execution mode contract, execution support docs, worktree policy, parallel coordination doc, and linked cleanup/TDD skills before answering. Do not create artifacts or edit files. Return the execution mode decision prompt heading, all execution mode names, the mode-gated dispatch heading, the base agent naming rule, the parallel trigger field, Claude plugin agent invocation form, the default project-local worktree path, the parent-directory sibling fallback rule, the TDD enforcement boundary including test-driven-development as an internal mid-loop discipline and not a top-level implementation route, and the cleanup behavior-lock heading. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
+      printf '/%s:ralph Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not create artifacts or edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     ultrawork)
       printf '/%s:ultrawork Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK ultrawork.' "$PLUGIN_NAME"
       ;;
     simplify)
-      printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs before answering. Do not create artifacts or edit files. Return the exact headings Required Behavior Lock, Phase 0 - Gather The Diff, Phase 1 - Review, and Phase 2 - Apply The Fixes; the four cleanup subagent angles; the host policy rule that they launch in one batch before waiting; the rule that cleanup angles must not collapse into a single generic inline review and must use separate inline fallback blocks with a fallback reason if subagent dispatch is unavailable; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
+      printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs. Do not create artifacts or edit files. Return the Required Behavior Lock and Phase headings; the LIGHT/STANDARD combined-scan default; the named THOROUGH trigger for four independent Reuse, Simplification, Efficiency, and Altitude passes; batch/fallback behavior only after that trigger; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
       ;;
     auto-routing)
       printf '/%s:auto-routing Deep smoke test only. Do NOT change any settings and do NOT run oh-no-config; read the skill body, its Codex Executor Delegation Toggle section, and the Claude Code platform notes, then answer read-only. Return: the oh-no-config codex-executor on/off/status commands; that the codexExecutor toggle defaults to OFF; that existing Ralph eligibility remains the sole gate, already-admitted disjoint outer executor-codex agents may overlap, and each inner companion call stays foreground; that when the toggle is ON the delegation block is injected via SessionStart on Claude Code only and re-binds the executor role to oh-no-harness:executor-codex; and that on Codex it adds no SessionStart block. End with OH_NO_CLAUDE_DEEP_OK auto-routing.' "$PLUGIN_NAME"
@@ -1689,32 +1694,33 @@ expected = {
     "ralplan": [
         "2 loops",
         "pending approval",
+        "Direction Contract",
         "Overall Ralph mode",
         "Task sizing",
         "Execution profile",
         "Analyst",
         "Planner",
-        "must-fail",
-        "must-pass",
-        "negative",
-        "old broken behavior",
+        "single-reviewer",
+        "named THOROUGH",
+        "process budget",
         ".oh-no/worktrees/<task-slug>",
-        "host",
-        "policy",
     ],
     "ralph": [
-        "Execution Mode Decision Prompt",
+        "Direction Contract",
+        "Always-read",
+        "Triggered",
+        "Required Execution Mode",
         "Mode-Gated Agent Dispatch",
-        "LIGHT",
         "STANDARD",
         "THOROUGH",
         "Parallel trigger",
-        "oh-no-harness:<agent>",
+        "Acceptance-to-evidence ledger",
+        "single-reviewer",
+        "paired-review",
+        "combined scan",
         ".oh-no/worktrees/<task-slug>",
-        "parent-directory",
         "test-driven-development",
         "internal mid-loop",
-        "Required Behavior Lock",
     ],
     "ultrawork": [
         ".oh-no/specs/interview-{slug}.md",
@@ -1741,7 +1747,7 @@ expected = {
         "batch",
         "before waiting",
         "inline",
-        "fallback reason",
+        "dispatch-unavailable reason",
         "false positive",
         "intended behavior",
     ],
@@ -1825,13 +1831,9 @@ if skill == "ralplan" and not (
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
-    "edge" in text_lower
-    or "semantic-model" in text_lower
-    or "semantic model" in text_lower
-    or "regression" in text_lower
-    or "adversarial" in text_lower
+    "process budget" in text_lower and "named thorough" in text_lower
 ):
-    print(f"{skill} deep smoke missing edge/semantic/regression test-design marker; got {text!r}", file=sys.stderr)
+    print(f"{skill} deep smoke missing proportional process-budget marker; got {text!r}", file=sys.stderr)
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
@@ -1855,10 +1857,10 @@ if skill == "ralplan" and not (
 
 linked_doc_markers = {
     "ralph": [
-        "Execution Mode Decision Prompt",
+        "Direction Contract",
         "Mode-Gated Agent Dispatch",
         "Parallel trigger",
-        "Required Behavior Lock",
+        "Acceptance-to-evidence ledger",
     ],
     "ultrawork": [
         "Mode source",
@@ -3435,6 +3437,8 @@ run_cross_host_fallback_live_test() {
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:simplify --review Read-only live cross-host fallback smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
 
+Named THOROUGH trigger: security-sensitive public authentication contract review. Pairing is trigger-driven, not availability-driven.
+
 First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the oh-no-harness:*-codex cross-host consult agents and their codex-companion transport are not available or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT dispatch oh-no-harness:plan-reviewer-codex, oh-no-harness:code-reviewer-codex, oh-no-harness:debugger-codex, oh-no-harness:fusion-codex, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
 
 Lightweight contract pre-check (read-only). From ${read_root}/docs/shared/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback. Include the exact phrases "exactly two same-host agents" and "require-cross-host" so this pre-check is machine-checkable.
@@ -3722,6 +3726,8 @@ run_cross_host_review_live_test() {
   local prompt
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:simplify --review require-cross-host read-only live cross-host code-review PAIR smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
+
+Named THOROUGH trigger: security-sensitive public authentication contract review. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
 First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the code-reviewer role as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host code-reviewer pair: dispatch no other role (no verifier, explore, analyst, planner, debugger, or plan-reviewer) and no other opposite-host consult agent.
 
@@ -4141,9 +4147,11 @@ STORY_B
   prompt=$(cat <<PROMPT
 Use ${PLUGIN_NAME}:ralph in STANDARD mode. Work entirely inside the current working directory; do not read, write, or touch anything outside it. Do not create helper files in /tmp, /var/tmp, your home directory, the plugin directory, or any absolute path outside the current working directory; if a helper file is needed, put it under .oh-no/ inside the current working directory. There are two stories to implement, described in story_a.md and story_b.md in this directory. Read both story files. This is a throwaway smoke-test fixture, so keep verification focused on the two story files and the files they require.
 
+Direction Contract: requirements source is this approved smoke packet; primary goal is AC-OVERLAP-1, reuse Ralph existing verified disjoint eligibility decision to allow eligible executor overlap; non-goals are no new scheduler, state machine, protocol, Git oracle, duplicate fixture system, or concurrent fallback/commit/integration; constraints are one owner per file and serial integration; direction changes require explicit caller approval. Carry AC-OVERLAP-1 and these non-goals into the Ralph session, every executor/reviewer/verifier packet, and the final summary.
+
 Story A and Story B are independent of each other: they touch different files and neither depends on the other. Implement both stories so each described file is created exactly as its story specifies, then run them and report the result.
 
-When you are completely finished and both files exist, emit a final summary that contains the exact token OH_NO_RALPH_POST_BATCH_CHECK followed by, for each implemented unit, the file it owns and the marker contained in that file, confirming each unit stayed within its own file. Then emit the exact final marker OH_NO_RALPH_PARALLEL_EXECUTOR_OK on its own line.
+When you are completely finished and both files exist, emit a final summary that restates AC-OVERLAP-1 and the non-goals unchanged, then contains the exact token OH_NO_RALPH_POST_BATCH_CHECK followed by, for each implemented unit, the file it owns and the marker contained in that file, confirming each unit stayed within its own file. Then emit the exact final marker OH_NO_RALPH_PARALLEL_EXECUTOR_OK on its own line.
 PROMPT
 )
 
@@ -4260,6 +4268,14 @@ EXECUTOR_MARKERS = {
 }
 POST_BATCH_MARKER = "OH_NO_RALPH_POST_BATCH_CHECK"
 FINAL_MARKER = "OH_NO_RALPH_PARALLEL_EXECUTOR_OK"
+DIRECTION_MARKERS = (
+    "AC-OVERLAP-1",
+    "no new scheduler",
+    "state machine",
+    "protocol",
+    "Git oracle",
+    "serial integration",
+)
 
 secret_patterns = [
     re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
@@ -4480,12 +4496,14 @@ errors = []
 permission_denials = []
 # (tool_use_index, marker_letter) for each distinct executor dispatch.
 executor_dispatch_uses = defaultdict(list)
+executor_direction_gaps = []
 task_starts = []
 task_notifications = []          # (index, status, summary)
 first_task_notification_index = None
 executor_completion_indexes = {}  # marker_letter -> completion index (best effort)
 post_batch_indexes = []          # indexes of non-user text containing POST_BATCH_MARKER
 final_marker_seen = False
+final_marker_text = []
 init_ok = False
 saw_any_task_event = False
 # Same-assistant-turn co-occurrence (CORROBORATION ONLY).
@@ -4551,9 +4569,13 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     if is_executor and len(matched) == 1:
                         executor_dispatch_uses[matched[0]].append(index)
                         turn_markers.add(matched[0])
+                        missing_direction = [m for m in DIRECTION_MARKERS if m.lower() not in payload_text.lower()]
+                        if missing_direction:
+                            executor_direction_gaps.append((index, matched[0], missing_direction))
                 if ptype == "text":
                     if FINAL_MARKER in part.get("text", ""):
                         final_marker_seen = True
+                        final_marker_text.append(part.get("text", ""))
                     if POST_BATCH_MARKER in part.get("text", ""):
                         post_batch_indexes.append(index)
             # CORROBORATION ONLY: both executors dispatched in one assistant turn.
@@ -4698,6 +4720,12 @@ elif executor_completion_indexes and len(executor_completion_indexes) == 2:
 else:
     both_completions_index = None
 
+if executor_direction_gaps:
+    raise SystemExit(
+        "Claude parallel-executor live failed Direction Contract carry-forward "
+        f"into executor packets: {executor_direction_gaps!r}"
+    )
+
 if both_completions_index is None:
     raise SystemExit(
         "INCONCLUSIVE: could not observe both disjoint-executor completions to anchor "
@@ -4718,6 +4746,14 @@ if len(post_batch_after_completions) < 1:
 if not final_marker_seen:
     raise SystemExit(
         "Claude parallel-executor live did not return the final marker OH_NO_RALPH_PARALLEL_EXECUTOR_OK"
+    )
+
+final_evidence = "\n".join(final_marker_text)
+missing_final_direction = [m for m in DIRECTION_MARKERS if m.lower() not in final_evidence.lower()]
+if missing_final_direction:
+    raise SystemExit(
+        "Claude parallel-executor live final evidence dropped Direction Contract markers: "
+        f"{missing_final_direction!r}"
     )
 
 summary = {
@@ -4868,11 +4904,13 @@ PY
   prompt=$(cat <<PROMPT
 Use ${PLUGIN_NAME}:ralph in STANDARD mode with the codexExecutor delegation toggle ON. Work entirely inside the registered task worktree at ${worktree}; do not touch the integration checkout at ${integration}, its .oh-no/ subtree, or the sibling worktree at ${integration}/.oh-no/worktrees/${sibling_slug}.
 
+Direction Contract: requirements source is this approved smoke packet; primary goal is AC-OVERLAP-1, reuse Ralph existing verified disjoint eligibility decision to allow eligible outer executor overlap; non-goals are no new scheduler, state machine, protocol, Git oracle, duplicate fixture system, or concurrent fallback/commit/integration; constraints are each inner companion remains foreground and single-shot while fallback, commit, and integration remain serial; direction changes require explicit caller approval. Carry AC-OVERLAP-1 and these non-goals into the Ralph session, every executor/reviewer/verifier packet, and the final summary.
+
 There are two disjoint executor-eligible slices. Slice 1: implement add(x, y) in src/calc.py so tests/test_calc.py passes; the marker for this slice is OH_NO_CODEX_DELEG_SLICE_1. Slice 2: add a module docstring to a sibling helper file src/util.py containing the marker OH_NO_CODEX_DELEG_SLICE_2. The two slices touch different files and neither depends on the other.
 
 Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Each executor-codex packet may carry the read-only RED path for context but MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Do NOT modify tests/test_calc.py (the RED file). Apply the existing Ralph eligibility, Batch Rule, and Isolation Contract without inventing a separate scheduler.
 
-When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker. Then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
+When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, restate AC-OVERLAP-1 and the non-goals unchanged, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker, then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
 PROMPT
 )
 
@@ -5016,6 +5054,16 @@ DEGRADE_FINAL_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_OK"
 DEGRADE_INSPECTION_MARKER = "OH_NO_CODEX_DELEG_DEGRADE_INSPECTION"
 DEGRADE_EXPECTED_FAILURE = "codex unavailable: companion-override-path-missing"
 EXECUTOR_NO_VERIFY_LINE = "Verification: not run (caller-owned)"
+DIRECTION_MARKERS = (
+    "AC-OVERLAP-1",
+    "no new scheduler",
+    "state machine",
+    "protocol",
+    "Git oracle",
+    "foreground",
+    "single-shot",
+    "serial",
+)
 # Roles that MUST NOT be routed to the write-capable executor-codex channel.
 FORBIDDEN_ON_WRITE_CHANNEL = ("verifier", "code-reviewer", "reviewer", "merge")
 
@@ -5086,6 +5134,7 @@ executor_codex_tool_ids = set()
 outer_task_starts = {}             # Agent tool-use id -> [(index, task id)]
 outer_task_notifications = {}      # Agent tool-use id -> [(index, task id, status, summary)]
 invalid_executor_payloads = []
+direction_packet_gaps = []
 native_verifier_dispatches = []
 native_code_reviewer_dispatches = []
 codex_rescue_on_write = []
@@ -5097,6 +5146,7 @@ invalid_companion_shapes = []      # wrong command count/subcommand/flags/redire
 primary_native_executor = []       # native oh-no-harness:executor dispatches (C3)
 post_check_seen = False
 final_marker_seen = False
+final_marker_text = []
 permission_denials = []
 errors = []
 
@@ -5126,6 +5176,10 @@ for index, data in main_rows:
                 payload = part.get("input", {})
                 payload_text = collect_text(payload)
                 role = role_of(payload.get("subagent_type"))
+                if role in {WRITE_ROLE, "verifier", "code-reviewer"}:
+                    missing_direction = [m for m in DIRECTION_MARKERS if m.lower() not in payload_text.lower()]
+                    if missing_direction:
+                        direction_packet_gaps.append((index, role, missing_direction))
                 if role == WRITE_ROLE:
                     tool_use_id = str(part.get("id", ""))
                     executor_codex_dispatches.append(
@@ -5214,6 +5268,7 @@ for index, data in main_rows:
                     post_check_seen = True
                 if FINAL_MARKER in part.get("text", ""):
                     final_marker_seen = True
+                    final_marker_text.append(part.get("text", ""))
     if data.get("type") == "user":
         for part in data.get("message", {}).get("content", []):
             if part.get("type") != "tool_result":
@@ -5230,6 +5285,7 @@ for index, data in main_rows:
             post_check_seen = True
         if FINAL_MARKER in result_text:
             final_marker_seen = True
+            final_marker_text.append(result_text)
         if data.get("is_error") is True:
             errors.append((index, result_text[:1000]))
 
@@ -5243,6 +5299,11 @@ if invalid_executor_payloads:
     raise SystemExit(
         "codex-executor delegation live could not attribute exactly one slice marker "
         f"to each executor-codex dispatch: {invalid_executor_payloads!r}"
+    )
+if direction_packet_gaps:
+    raise SystemExit(
+        "codex-executor delegation live dropped Direction Contract markers from role packets: "
+        f"{direction_packet_gaps!r}"
     )
 if invalid_companion_shapes:
     raise SystemExit(
@@ -5433,6 +5494,15 @@ if not post_check_seen:
     raise SystemExit(f"codex-executor delegation live did not emit the post-batch scope-check marker {POST_CHECK_MARKER}")
 if not final_marker_seen:
     raise SystemExit(f"codex-executor delegation live did not return the final marker {FINAL_MARKER}")
+missing_final_direction = [
+    marker for marker in DIRECTION_MARKERS
+    if marker.lower() not in "\n".join(final_marker_text).lower()
+]
+if missing_final_direction:
+    raise SystemExit(
+        "codex-executor delegation live final report dropped Direction Contract markers: "
+        f"{missing_final_direction!r}"
+    )
 
 # ---- Degrade sub-run: CALLER-mediated fallback to native executor ----
 degrade_rows = load_lines(degrade_out_path)
@@ -5715,6 +5785,7 @@ run_simplify_live_test() {
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
   prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Do not inspect repository files, do not run Bash or Read, and do not start helper workers beyond the four cleanup angle workers. Use this synthetic one-line diff for every worker: plugins/oh-no-harness/docs/skill-core/simplify.md: Phase 1 dispatch contract changed for smoke verification. Use Claude Workflow with Promise.all and exactly four agent() calls when Workflow is available; otherwise use Claude background Task or Agent workers exactly four times, but request all four before inspecting or summarizing any task result. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: synthetic dispatch diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: dispatch marker observed with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only Angle <angle>: no behavior change; dispatch marker observed, plus file, line, summary, and concrete cost fields. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
+  prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -5995,6 +6066,8 @@ run_ralplan_xhost_live_test() {
   local prompt
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:ralplan require-cross-host read-only live cross-host PLAN-REVIEW PAIR smoke test only. Do not edit files, do not create artifacts, do not create a full plan, do not install plugins, and do not run any write-capable command. The requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or debugger. Use only oh-no-harness:planner, oh-no-harness:plan-reviewer, and oh-no-harness:plan-reviewer-codex.
+
+Named THOROUGH trigger: public workflow contract planning. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
 First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:plan-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the Plan Review stage as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the planner then the cross-host plan-reviewer pair: dispatch no other role and no other opposite-host consult agent.
 
@@ -6399,6 +6472,8 @@ run_vbc_xhost_live_test() {
   local prompt
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:verification-before-completion require-cross-host read-only live cross-host CODE-REVIEW PAIR plus confirming SELF-HOST verifier smoke test only. Do not edit files, do not create artifacts, do not install plugins, and do not run any write-capable command.
+
+Named THOROUGH trigger: authentication and session safety review. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
 First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## When It Applies", "## Sequencing Preserved", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. The verifier role is out of cross-host scope: it is an unconditional SINGLE self-host pass with ZERO cross-host consults, dispatched only AFTER the code-reviewer pair completes and is synthesized. Exercise ONLY the cross-host code-reviewer pair and then the single self-host verifier: dispatch no other role and no other opposite-host consult agent.
 
@@ -6847,7 +6922,9 @@ run_sysdebug_xhost_live_test() {
   prompt=$(cat <<PROMPT
 /${PLUGIN_NAME}:systematic-debugging require-cross-host read-only live cross-host DEBUGGER PAIR smoke test only. Do not edit files, do not create artifacts, do not install plugins, do not run any write-capable command, and do not run the failing command itself; reason only from the inline failure facts.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## When It Applies", "## Full Review Per Host", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:debugger-codex cross-host consult agent and its node codex-companion.mjs transport are available. Dual-host is the default for the debugger; run the root-cause investigation as a CROSS-HOST debugger pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host debugger pair: dispatch no other role and no other opposite-host consult agent.
+Named THOROUGH trigger: repeated intermittent failure under new concurrency semantics. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not the debugger default.
+
+First, read ${read_root}/docs/shared/cross-host-review.md and ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:debugger-codex consult owner and codex-companion transport are available. The named THOROUGH repeated-failure and concurrency trigger selects a CROSS-HOST debugger pair, NOT the Same-Host Parallel Fallback. Exercise ONLY that pair: dispatch no other role and no other opposite-host consult agent.
 
 Synthetic bug (all failure facts inline; no code change requested): a request handler intermittently returns HTTP 200 with an empty body under concurrent load. The response builder writes the body inside a background task, but the handler returns its response object before that background task has finished writing, so the body is occasionally empty. Reproduction: 50 concurrent requests, roughly 1 in 20 returns an empty body. There is no stack trace; logs show the background writer completing AFTER the response is flushed to the client.
 

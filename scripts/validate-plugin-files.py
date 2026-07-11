@@ -199,12 +199,26 @@ REQUIRED_READING_CONTRACT_MARKER = (
 REQUIRED_READING_BLOCKER_MARKER = (
     "record the blocker instead of proceeding past the gate that depends on it"
 )
+TRIGGER_CLASS_REQUIRED_SKILLS = (
+    "ralplan",
+    "ralph",
+    "ultrawork",
+    "verification-before-completion",
+    "systematic-debugging",
+)
+EXPECTED_ALWAYS_READING = {
+    "ralplan": {"execution-modes", "worktree-isolation"},
+    "ralph": {"execution-modes", "worktree-isolation", "verification-tiers"},
+    "ultrawork": {"execution-modes", "worktree-isolation"},
+    "verification-before-completion": set(),
+    "systematic-debugging": set(),
+}
 # Skills that dispatch review/verify/debug roles and must HARD-GATE the recorded
 # independence mode (cross-host | same-host-parallel-fallback | inline-fallback).
 # ralplan already carries this via its Findings Ledger Gate and is intentionally
 # excluded here (it is the template, not a target).
 INDEPENDENCE_MODE_GATE_MARKER = (
-    "no recorded independence mode is a named ledger gap"
+    "Missing review topology is a named ledger gap"
 )
 INDEPENDENCE_MODE_GATE_SKILLS = (
     "ralph",
@@ -341,6 +355,10 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## Role Prompt Embedding",
         "Agent prompt source: docs/agent-core/<role>.md",
         "Claude-only",
+        "## Cross-Host Consult Channel",
+        'spawn_agent(agent_type="oh-no-<role>", ...)',
+        "`${CLAUDE_BIN:-claude}`",
+        "A parent inline Claude consult is not a\nvalid shared cross-host review pass",
     ),
     "codex-runtime.md": (
         "# Codex Runtime Rules",
@@ -350,19 +368,18 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## User Approval And Prompting",
         "outcome-first",
         "## Role Dispatch",
-        "spawn_agent",
+        "Dispatch only after the active skill's trigger fires",
+        "docs/platforms/codex.md",
         'spawn_agent(agent_type="oh-no-<role>", ...)',
-        "Do not infer custom-agent\nunavailability",
         "fork_context=true",
-        "workflow-level\nauthorization",
-        "eligible isolated subagents",
         "wait_agent",
-        "become a\nworkflow dependency",
-        "Wait until every in-scope dispatched subagent reaches final\nstatus",
-        "Do not redo delegated work inline",
-        "Never use missing output\nas completion evidence",
+        "Every dispatched result is a dependency",
+        "No agents completed yet",
+        "do not close, redo inline, or use missing output as evidence",
         "## Generic Role Prompt Fallback",
         "docs/agent-core/<role>.md",
+        "trigger-loaded",
+        "docs/platforms/codex.md` `## Cross-Host Consult Channel",
     ),
     "claude-code.md": (
         "# Claude Code Platform Rules",
@@ -380,6 +397,10 @@ PLATFORM_RULE_DOC_MARKERS = {
         "oh-no-harness:<role>",
         "close or clean\nup the completed subagent",
         "record that fallback",
+        "## Cross-Host Consult Channel",
+        "`oh-no-harness:<role>-codex`",
+        "`codex-companion.mjs task`",
+        "A direct\nCodex parent answer is not a valid opposite-host shared review response",
     ),
     "claude-code-runtime.md": (
         "# Claude Code Runtime Rules",
@@ -391,14 +412,15 @@ PLATFORM_RULE_DOC_MARKERS = {
         "task\ntracking",
         "explicit and sectioned",
         "## Role Dispatch",
-        "Workflow `agent()`",
+        "Dispatch only after the active skill's trigger fires",
+        "docs/platforms/claude-code.md",
         "oh-no-harness:<role>",
-        "Promise.all",
-        "final status",
-        "close or\nclean up the completed subagent",
-        "Parallel trigger: approved-plan-handoff",
-        "embedding the matching `agents/<role>.md`",
-        "record the fallback reason",
+        "whole independent batch before\nwaiting",
+        "capture every final result",
+        "approved-plan handoff is dispatch authorization",
+        "embedded-role fallback",
+        "trigger-loaded",
+        "docs/platforms/claude-code.md` `## Cross-Host Consult Channel",
     ),
 }
 PROVIDER_DOC_MARKERS = {
@@ -626,7 +648,7 @@ VERIFICATION_TIER_SHARED_MARKERS = (
     "# Verification Tiers",
     "docs/shared/validation-check.md",
     "Measurable evidence is diagnostic evidence",
-    "Every tier uses acceptance-to-evidence mapping",
+    "Every tier uses the caller's canonical AC-ID acceptance-to-evidence ledger",
     "A command list is not enough",
     "direct, indirect, manual, or missing",
     "Every behavior-changing tier also uses a risk check before completion",
@@ -789,7 +811,7 @@ EXECUTION_MODE_AGENT_MARKERS = {
     "verifier": (
         "selected execution mode",
         "Execution mode compliance",
-        "Acceptance-to-evidence mapping status",
+        "Canonical acceptance-to-evidence ledger audit and delta status",
         "Risk check before completion status",
         "Validation check",
         "Verification budget and diff-budget status",
@@ -937,21 +959,14 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
     ),
 }
 SIMPLIFY_PARALLEL_MARKERS = (
-    # Cleanup always runs the four role passes in parallel — no diff-size gate,
-    # no single-combined-pass shortcut. These markers guard that contract so it
-    # cannot be silently reverted to a gated/single-pass form.
-    "always runs all four labeled viewpoints",
-    "no single-combined-pass shortcut and no diff-size gate",
-    "Run the four passes in parallel",
-    "active platform's Simplify dispatch authorization",
-    "standing authorization for eligible skill-local delegation",
-    "dispatch-unavailable",
-    "Launch four independent cleanup subagents in parallel",
-    "the review always runs all four cleanup role passes regardless of diff size",
-    "in one batch before",
-    "run the same four passes inline as four separate labeled blocks",
-    "Capture all four cleanup pass results",
-    "close or clean up each completed cleanup subagent",
+    "## Cleanup Depth Decision",
+    "Reuse, Simplification, Efficiency, and Altitude are review viewpoints",
+    "LIGHT and STANDARD: run one quick or combined scan",
+    "THOROUGH with a named safety, broad-diff, multi-system, or high-maintainability",
+    "Cleanup depth: combined | four-viewpoint",
+    "do not create cleanup work",
+    "launch the four independent cleanup subagents in one batch",
+    "dispatch-unavailable reason",
 )
 SIMPLIFY_WRAPPER_MARKERS = (
     "oh-no-harness-generated-skill-wrapper",
@@ -959,14 +974,9 @@ SIMPLIFY_WRAPPER_MARKERS = (
     "../../docs/skill-core/simplify.md",
 )
 SIMPLIFY_FORBIDDEN_MARKERS = (
-    # The small-diff gate and the single-combined-pass shortcut were retired:
-    # cleanup always runs the four role passes in parallel. Forbid the old
-    # phrasing on every simplify surface (core + both wrappers) so a stale
-    # platform overlay or a revert fails CI instead of shipping a self-
-    # contradicting runtime doc.
-    "small-diff gate",
-    "For a small diff",
-    "single cleanup pass",
+    "always runs all four labeled viewpoints",
+    "no single-combined-pass shortcut and no diff-size gate",
+    "the review always runs all four cleanup role passes regardless of diff size",
 )
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
@@ -1063,10 +1073,11 @@ APPROVED_DIRECTION_AGENT_MARKERS = {
     ),
 }
 RALPLAN_CONSENSUS_MARKERS = (
+    "## Canonical Plan Schema",
     "## Direction Preservation Gate",
     "## Test Case Design Quality",
     "## Acceptance Criteria Contract",
-    "Ralplan has no basic planning mode",
+    "Plan-Reviewer depth and\ninstance count are selected by the execution risk",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
     "## Plan Review Contract",
@@ -1077,18 +1088,19 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Plan review v1",
     "Planner revision v2",
     "Plan review v2",
-    "Analyst -> Planner -> Plan-Reviewer",
+    "When Plan-Reviewer is selected, Analyst -> Planner -> Plan-Reviewer",
     "APPROVE | ITERATE | REJECT",
     "blocking | non-blocking",
     "Findings ledger:",
     "Re-review scope: delta | full",
     "Re-review: not required (no blocking findings)",
-    "Worst-case consensus role dispatch chain: 8 (explore, analyst, Planner draft v1, Plan review v1 as a two-instance pair, Planner revision v2, Plan review v2 as a two-instance pair).",
-    "The plan is invalid if it contains only Planner output",
-    "if Plan-Reviewer is skipped",
+    "Worst-case THOROUGH role dispatch chain remains bounded to two review rounds",
+    "STANDARD runs one Plan-Reviewer instance",
+    "Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD)",
+    "if a required Plan-Reviewer is skipped",
     "accepted feedback is logged but not reflected in the final plan body",
     "lacks a plan-section pointer",
-    "consensus loop log showing Analyst -> Planner -> Plan-Reviewer in order",
+    "planning-role log showing Analyst -> Planner",
     "requested direction change",
     "do not incorporate the new direction into the plan unless the user explicitly",
     "must-fail-before-implementation",
@@ -1096,6 +1108,7 @@ RALPLAN_CONSENSUS_MARKERS = (
     "negative or forbidden-behavior case",
     "edge, boundary, or regression case",
     "only check marker strings",
+    "product-like state machine",
 )
 RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
     "`oh-no-harness:ralph` with `parallel subagents`",
@@ -1452,6 +1465,15 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         )
     if not has_required_marker(panel_contract, "active platform-specific Fusion Rescue rules"):
         die(f"{path} Panel Contract must delegate lens pinning to platform Fusion Rescue rules")
+    for marker in (
+        "caller's Direction Contract",
+        "exact blocked decision",
+        "remaining process budget",
+        "not to create a new proof architecture",
+        "outside the\n  Direction Contract's goal and non-goals",
+    ):
+        if not has_required_marker(panel_contract, marker):
+            die(f"{path} Panel Contract is missing goal-preservation marker: {marker!r}")
 
     cross_host = markdown_section(body, "## Cross-Host Consult")
     if not cross_host:
@@ -1506,6 +1528,13 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         die(f"{path} Judge And Synthesis must keep the current host as judge")
     if not has_required_marker(synthesis, "must not only concatenate"):
         die(f"{path} Judge And Synthesis must reject concatenation-only output")
+    for marker in (
+        "remaining process budget",
+        "Direction Contract",
+        "new\nproof architecture",
+    ):
+        if not has_required_marker(synthesis, marker):
+            die(f"{path} Judge And Synthesis is missing goal-preservation marker: {marker!r}")
     for field in FUSION_RESCUE_SYNTHESIS_FIELDS:
         if not has_required_marker(synthesis, field):
             die(f"{path} Judge And Synthesis is missing required field: {field!r}")
@@ -2337,6 +2366,9 @@ def assert_required_reading_contract(root: Path) -> None:
     escape. Scoped to the skill-core SOURCE body only. Accumulates all problems
     and dies once so a RED run names every offending skill-core."""
     shared_ref = re.compile(r"docs/shared/([a-z0-9-]+)\.md")
+    classified_row = re.compile(
+        r"\|\s*`docs/shared/([a-z0-9-]+)\.md`\s*\|\s*(always|triggered)\s*\|\s*([^|]+)\|"
+    )
     problems: list[str] = []
     for skill in ALL_SKILLS:
         path = root / SKILL_CORE_ROOT / f"{skill}.md"
@@ -2377,6 +2409,42 @@ def assert_required_reading_contract(root: Path) -> None:
                     f"{path}: '## Required Reading' declares "
                     f"docs/shared/{name}.md which does not exist on disk"
                 )
+        if skill in TRIGGER_CLASS_REQUIRED_SKILLS:
+            rows = {
+                name: (classification, timing.strip())
+                for name, classification, timing in classified_row.findall(section)
+            }
+            if set(rows) != declared:
+                problems.append(
+                    f"{path}: every Required Reading contract must have exactly "
+                    f"one table row with class always|triggered; declared={sorted(declared)}, "
+                    f"classified={sorted(rows)}"
+                )
+            always = {name for name, (classification, _) in rows.items() if classification == "always"}
+            expected_always = EXPECTED_ALWAYS_READING[skill]
+            if always != expected_always:
+                problems.append(
+                    f"{path}: always-read owners drifted; expected "
+                    f"{sorted(expected_always)}, got {sorted(always)}"
+                )
+            for name, (classification, timing) in rows.items():
+                timing_lower = timing.lower()
+                if classification == "triggered" and not any(
+                    token in timing_lower for token in ("before", "when", "only when")
+                ):
+                    problems.append(
+                        f"{path}: triggered docs/shared/{name}.md lacks pre-gate trigger timing"
+                    )
+        if skill in ("ralplan", "ralph"):
+            for forbidden in (
+                "read every shared contract listed",
+                "read every listed contract up front",
+                "every shared contract listed in `## Required Reading` before working",
+            ):
+                if forbidden.lower() in body.lower():
+                    problems.append(
+                        f"{path}: still carries all-upfront Required Reading wording: {forbidden!r}"
+                    )
     if problems:
         die(
             "Required Reading read-contract failed for "
@@ -2458,8 +2526,8 @@ def assert_cross_host_review_contract(root: Path) -> None:
     for marker in (
         "Same-Host Parallel Fallback",
         "exactly two same-host",
-        "The confirming\n`verifier` is a dependent later stage, not part of the first review batch",
-        "A verifier spawned before the code-reviewer pair completes is stale\nevidence",
+        "The\nconfirming `verifier` is a dependent later stage",
+        "A verifier spawned before the\nselected code-review stage completes is stale evidence",
     ):
         if not has_required_marker(text, marker):
             die(f"{path} is missing required same-host-fallback contract marker: {marker!r}")
@@ -2566,34 +2634,36 @@ def assert_cross_host_review_contract(root: Path) -> None:
     platform_root = root / "docs" / "platforms"
     heading = "## Cross-Host Consult Channel"
 
-    codex_channel = markdown_section(read_text(platform_root / "codex-runtime.md"), heading)
-    if not codex_channel:
+    codex_runtime_channel = markdown_section(read_text(platform_root / "codex-runtime.md"), heading)
+    if not codex_runtime_channel:
         die(f"{platform_root / 'codex-runtime.md'} is missing required {heading!r} section")
+    for marker in ("trigger-loaded", "docs/platforms/codex.md"):
+        if not has_required_marker(codex_runtime_channel, marker):
+            die(f"codex-runtime.md {heading!r} is missing trigger-load pointer: {marker!r}")
+    codex_channel = markdown_section(read_text(platform_root / "codex.md"), heading)
     if not has_required_marker(codex_channel, "`${CLAUDE_BIN:-claude}`"):
-        die(f"codex-runtime.md {heading!r} must carry the Codex-to-Claude argument vector")
+        die(f"codex.md {heading!r} must carry the Codex-to-Claude argument vector")
     for marker in (
-        "the Codex parent must not run\n`${CLAUDE_BIN:-claude}` inline",
+        "Codex parent must not run\n`${CLAUDE_BIN:-claude}` inline",
         "spawn_agent(agent_type=\"oh-no-<role>\"",
-        "A parent inline Claude\nconsult is not a valid shared cross-host review pass",
+        "A parent inline Claude consult is not a\nvalid shared cross-host review pass",
     ):
         if not has_required_marker(codex_channel, marker):
-            die(f"codex-runtime.md {heading!r} is missing shared-review ownership marker: {marker!r}")
+            die(f"codex.md {heading!r} is missing shared-review ownership marker: {marker!r}")
     for marker in ("openai/codex-plugin-cc", "`/codex:rescue`"):
         if marker in codex_channel:
-            die(f"codex-runtime.md {heading!r} contains opposite-host (Claude-side) consult marker: {marker!r}")
+            die(f"codex.md {heading!r} contains opposite-host (Claude-side) consult marker: {marker!r}")
     # Part A: the verifier has no cross-host leg on EITHER direction. The
     # Codex-side spawn role list must be exactly the three reviewer/debugger
     # roles and must carry the explicit verifier exclusion sentence (the
     # verifier-pair phrase scan cannot catch a bare role listing).
-    if not has_required_marker(
-        codex_channel, "`plan-reviewer`, `code-reviewer`, or `debugger`"
-    ):
+    if not has_required_marker(codex_channel, "`plan-reviewer`,\n`code-reviewer`, or `debugger`"):
         die(
-            f"codex-runtime.md {heading!r} must list exactly `plan-reviewer`, `code-reviewer`, "
+            f"codex.md {heading!r} must list exactly `plan-reviewer`, `code-reviewer`, "
             "or `debugger` as the shared cross-host role set (the verifier has no cross-host leg)"
         )
-    if not has_required_marker(codex_channel, "The `verifier` has no cross-host leg"):
-        die(f"codex-runtime.md {heading!r} is missing the verifier exclusion sentence")
+    if not has_required_marker(codex_channel, "the verifier has no cross-host leg"):
+        die(f"codex.md {heading!r} is missing the verifier exclusion sentence")
 
     # D2 (Part B inversion): the Claude→Codex transport is now the read-only
     # `*-codex` consult agents running `codex-companion.mjs`, not `/codex:rescue`.
@@ -2602,20 +2672,24 @@ def assert_cross_host_review_contract(root: Path) -> None:
     # parent answer is not a valid opposite-host shared review response" sentence,
     # and must NOT contain `/codex:rescue` (fully removed on the Claude side) or
     # the opposite-host Codex-side argument-vector markers.
-    claude_channel = markdown_section(read_text(platform_root / "claude-code-runtime.md"), heading)
-    if not claude_channel:
+    claude_runtime_channel = markdown_section(read_text(platform_root / "claude-code-runtime.md"), heading)
+    if not claude_runtime_channel:
         die(f"{platform_root / 'claude-code-runtime.md'} is missing required {heading!r} section")
+    for marker in ("trigger-loaded", "docs/platforms/claude-code.md"):
+        if not has_required_marker(claude_runtime_channel, marker):
+            die(f"claude-code-runtime.md {heading!r} is missing trigger-load pointer: {marker!r}")
+    claude_channel = markdown_section(read_text(platform_root / "claude-code.md"), heading)
     for marker in (
         "codex-companion.mjs",
         "`oh-no-harness:<role>-codex`",
-        "dispatch the matching `oh-no-<role>` role",
-        "A direct Codex parent answer is not a\nvalid opposite-host shared review response",
+        "requires Codex to dispatch the matching\n`oh-no-<role>` agent",
+        "A direct\nCodex parent answer is not a valid opposite-host shared review response",
     ):
         if not has_required_marker(claude_channel, marker):
-            die(f"claude-code-runtime.md {heading!r} is missing codex-companion transport / shared-review ownership marker: {marker!r}")
+            die(f"claude-code.md {heading!r} is missing codex-companion transport / shared-review ownership marker: {marker!r}")
     for marker in ("`/codex:rescue`", "/codex:rescue", "`${CLAUDE_BIN:-claude}`", "`--permission-mode`", "`dontAsk`"):
         if marker in claude_channel:
-            die(f"claude-code-runtime.md {heading!r} contains a forbidden marker (removed Claude→Codex rescue transport or opposite-host Codex-side consult marker): {marker!r}")
+            die(f"claude-code.md {heading!r} contains a forbidden marker (removed Claude→Codex rescue transport or opposite-host Codex-side consult marker): {marker!r}")
 
 
 def assert_provider_guidance(root: Path) -> None:
@@ -3263,6 +3337,132 @@ def assert_parallel_executor_contract(root: Path) -> None:
             die(f"{adapter} must list disjoint implementation (executor) work as eligible for a background batch")
 
 
+def assert_proportional_workflow_contract(root: Path) -> None:
+    """Guard the lightweight steady-state topology and gate-accretion budget."""
+    shared = root / "docs" / "shared"
+    skill_core = root / "docs" / "skill-core"
+
+    modes = read_text(shared / "execution-modes.md")
+    for marker in (
+        "## Direction Contract",
+        "## Process Budgets And Gate Governance",
+        "STANDARD uses one reviewer instance per required role",
+        "Four independent\n  cleanup viewpoints require a named THOROUGH",
+        "Mandatory gate proposal:",
+        "- Canonical owner:",
+        "- Trigger:",
+        "- Applicable modes:",
+        "- Added cost:",
+        "- Evidence of benefit:",
+        "- Not-applicable path:",
+        "- Retirement or merge condition:",
+        "- Duplicate prose/marker check:",
+    ):
+        if not has_required_marker(modes, marker):
+            die(f"execution-modes.md is missing proportional-workflow marker: {marker!r}")
+
+    cross_host = read_text(shared / "cross-host-review.md")
+    for marker in (
+        "STANDARD uses one reviewer instance",
+        "named THOROUGH paired-review trigger",
+        "Host\navailability alone never activates a pair",
+    ):
+        if not has_required_marker(cross_host, marker):
+            die(f"cross-host-review.md is missing risk-gated pairing marker: {marker!r}")
+
+    for skill, markers in {
+        "ralplan": (
+            "## Canonical Plan Schema",
+            "STANDARD runs one Plan-Reviewer instance",
+            "Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD)",
+        ),
+        "ralph": (
+            "`verification.md` is the canonical acceptance-to-evidence ledger",
+            "uses one targeted reviewer instance",
+            "## Process Budget Gate",
+        ),
+        "simplify": (
+            "## Cleanup Depth Decision",
+            "LIGHT and STANDARD: run one quick or combined scan",
+        ),
+        "verification-before-completion": (
+            "Ledger reuse:",
+            "Do not\nrewrite an unchanged parallel acceptance mapping",
+        ),
+    }.items():
+        body = read_text(skill_core / f"{skill}.md")
+        for marker in markers:
+            if not has_required_marker(body, marker):
+                die(f"{skill}.md is missing proportional-workflow marker: {marker!r}")
+
+    ultrawork = read_text(skill_core / "ultrawork.md")
+    if "dual-host default" in ultrawork:
+        die("ultrawork.md still encodes the retired debugger pair-by-default policy")
+
+    # Each existing hard gate has one metadata row in the canonical owner. A
+    # count-only baseline is insufficient because a maintainer could add a gate
+    # and merely increment the counter without recording its trigger or cost.
+    expected_gate_ids = {
+        "interview": ("HG-interview-handoff",),
+        "ralplan": ("HG-ralplan-handoff",),
+        "ralph": ("HG-ralph-worktree", "HG-ralph-persistence"),
+        "ultrawork": ("HG-ultrawork-report",),
+        "verification-before-completion": ("HG-vbc-evidence",),
+        "systematic-debugging": ("HG-debug-output",),
+    }
+    gate_inventory_path = root / "docs" / "reference" / "mandatory-gate-inventory.md"
+    gate_inventory = read_text(gate_inventory_path)
+    for marker in (
+        "# Mandatory Gate Inventory",
+        "docs/shared/execution-modes.md",
+        "runtime skills do not preload this registry",
+    ):
+        if not has_required_marker(gate_inventory, marker):
+            die(f"{gate_inventory_path} is missing inventory contract marker: {marker!r}")
+
+    inventory_rows = {}
+    for line in gate_inventory.splitlines():
+        if not line.startswith("| HG-"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 9 or any(not cell for cell in cells):
+            die(
+                f"{gate_inventory_path} rows require Gate ID plus "
+                "all eight governance fields"
+            )
+        gate_id = cells[0]
+        if gate_id in inventory_rows:
+            die(f"{gate_inventory_path} has duplicate hard-gate inventory id: {gate_id}")
+        inventory_rows[gate_id] = cells[1:]
+
+    expected_inventory_ids = {
+        gate_id for gate_ids in expected_gate_ids.values() for gate_id in gate_ids
+    }
+    if set(inventory_rows) != expected_inventory_ids:
+        die(
+            f"{gate_inventory_path} hard-gate inventory mismatch: "
+            f"expected={sorted(expected_inventory_ids)!r} "
+            f"actual={sorted(inventory_rows)!r}"
+        )
+
+    for skill, gate_ids in expected_gate_ids.items():
+        expected = len(gate_ids)
+        actual = read_text(skill_core / f"{skill}.md").count("<HARD-GATE>")
+        if actual != expected:
+            die(
+                f"{skill}.md hard-gate count changed ({expected} -> {actual}); "
+                "add a complete canonical inventory row and update the reviewed gate-id baseline"
+            )
+
+    owners = [
+        path
+        for path in (*skill_core.glob("*.md"), *shared.glob("*.md"))
+        if "Mandatory gate proposal:" in read_text(path)
+    ]
+    if owners != [shared / "execution-modes.md"]:
+        die("Mandatory gate proposal schema must have one canonical owner: execution-modes.md")
+
+
 def find_marketplace_root(start: Path) -> Path:
     start = start.resolve()
     for candidate in (start, *start.parents):
@@ -3311,6 +3511,7 @@ def main() -> None:
     assert_required_reading_contract(root)
     assert_independence_mode_gates(root)
     assert_parallel_executor_contract(root)
+    assert_proportional_workflow_contract(root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

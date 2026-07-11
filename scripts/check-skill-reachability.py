@@ -90,10 +90,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("negative or forbidden-behavior case", BOTH),
         ("old broken behavior", BOTH),
         (".oh-no/worktrees/<task-slug>", BOTH),
-        ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
+        ("Cross-Host Consult Channel", BOTH),
+        ("trigger-loaded", BOTH),
         ("Re-reviews run only when the previous", BOTH),
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
-        ("Codex role dispatch is host-policy controlled", CODEX),
+        ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
     "ralph": [
         ("Execution Mode Decision Prompt", BOTH),
@@ -109,15 +110,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
-        ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
-        ("A parent inline Claude\nconsult is not a valid shared cross-host review pass", CODEX),
-        ("A direct Codex parent answer is not a\nvalid opposite-host shared review response", CLAUDE),
-        ("`oh-no-harness:<role>-codex`", CLAUDE),  # Part B: Claude→Codex transport is the read-only *-codex consult agents
-        ("read-only `codex-companion.mjs task` call", CLAUDE),  # Part B: read-only codex-companion transport, no /codex:rescue
+        ("trigger-loaded", BOTH),
         ("Read and follow `verification-before-completion` before any completion claim", BOTH),  # G1 thin VBC reference (ralph.md:274)
-        ("The run is invalid if the PRD or progress ledger does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
+        ("The run is invalid if the session does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
-        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Persistence Rule)
+        ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -136,17 +133,13 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
-        ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
-        ("A parent inline Claude\nconsult is not a valid shared cross-host review pass", CODEX),
-        ("A direct Codex parent answer is not a\nvalid opposite-host shared review response", CLAUDE),
-        ("`oh-no-harness:<role>-codex`", CLAUDE),  # Part B: Claude→Codex transport is the read-only *-codex consult agents
-        ("read-only `codex-companion.mjs task` call", CLAUDE),  # Part B: read-only codex-companion transport, no /codex:rescue
+        ("trigger-loaded", BOTH),
         ("Run `verification-before-completion` before any completion claim or final report", BOTH),  # G1 thin VBC reference (ultrawork Phase 5)
         ("The run is invalid if the session ledger does not show each required phase gate satisfied", BOTH),  # ultrawork Phase 5 ledger-invalidation chokepoint
         ("reviewer pass, independent verifier pass, simplify/cleanup, and VBC", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
-        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Phase 5 Report gate)
+        ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -158,10 +151,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Efficiency", BOTH),
         ("Altitude", BOTH),
         ("subagent", BOTH),
-        ("Start them in one batch", BOTH),
-        ("before waiting for any result", BOTH),
-        ("run the four passes inline", BOTH),
-        ("fallback reason", BOTH),
+        ("Cleanup Depth Decision", BOTH),
+        ("one quick or combined scan", BOTH),
+        ("four independent cleanup subagents in\none batch", BOTH),
+        ("dispatch-unavailable reason", BOTH),
         ("false positive", BOTH),
         ("intended behavior", BOTH),
         ("Maintainability Debt Boundary", BOTH),
@@ -173,8 +166,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("the failure mode is gone", BOTH),
         ("verification-before-completion", BOTH),
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
-        ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
-        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Output Gate)
+        ("trigger-loaded", BOTH),
+        ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
@@ -185,8 +178,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("A success status is not acceptance", BOTH),  # the silent-success gate
         ("A previous run is not fresh evidence", BOTH),
         ("redact secrets", BOTH),  # the evidence-redaction rule
-        ("Parent inline opposite-host consult is not a valid cross-host\nreview response", BOTH),
-        ("no recorded independence mode is a named ledger gap", BOTH),  # Layer-2 independence-mode HARD-GATE clause (Required Gate step 9)
+        ("trigger-loaded", BOTH),
+        ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
     ],
 }
 

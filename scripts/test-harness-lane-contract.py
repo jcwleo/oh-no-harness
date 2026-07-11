@@ -487,6 +487,38 @@ def assert_claude_deep_live_hard_failure_guard(marketplace_root: Path) -> None:
             die(f"{script_path} Claude deep-live hard-failure guard is missing {fragment!r}")
 
 
+def assert_goal_preservation_and_proportional_lane_contract(marketplace_root: Path) -> None:
+    codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
+    codex = read_text(codex_path)
+    claude = read_text(claude_path)
+
+    for fragment in (
+        "Direction Contract:",
+        "AC-OVERLAP-1",
+        "no new scheduler",
+        "direction_packet_gaps",
+        "missing_final_direction",
+    ):
+        if fragment not in claude:
+            die(f"{claude_path} goal-preservation lane is missing {fragment!r}")
+    if claude.count("Direction Contract:") < 2:
+        die(f"{claude_path} must carry Direction Contract in both disjoint-executor lanes")
+
+    for path, body in ((codex_path, codex), (claude_path, claude)):
+        if "Named THOROUGH broad-diff cleanup trigger" not in body:
+            die(f"{path} four-viewpoint Simplify lane lacks a named THOROUGH trigger")
+        if "combined-scan default" not in body:
+            die(f"{path} deep smoke does not assert the proportional Simplify default")
+
+    if "Pairing is trigger-driven" not in codex:
+        die(f"{codex_path} cross-host fallback lane lacks a named pairing trigger")
+    if claude.lower().count("pairing is trigger-driven") < 4:
+        die(f"{claude_path} paired-review lanes must state trigger-driven pairing")
+    if "Dual-host is the default for the debugger" in claude:
+        die(f"{claude_path} still encodes the retired debugger pair-by-default policy")
+
+
 def assert_claude_parallel_executor_hard_guards(marketplace_root: Path) -> None:
     script_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     script_text = read_text(script_path)
@@ -826,6 +858,7 @@ def validate_classification_fixtures(
     assert_claude_live_budget_floor(marketplace_root)
     assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)
+    assert_goal_preservation_and_proportional_lane_contract(marketplace_root)
     assert_claude_parallel_executor_hard_guards(marketplace_root)
     assert_claude_parallel_executor_containment_fixtures(marketplace_root)
 

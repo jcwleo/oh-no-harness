@@ -134,6 +134,28 @@ Interview the weakest dimension first.
 
 Do not recommend a next skill until the important dimensions are clear enough to produce testable acceptance criteria.
 
+## Direction Contract
+
+Before spec approval, capture the compact carry-forward block defined by
+`docs/shared/execution-modes.md`:
+
+```text
+Direction Contract:
+- Requirements source:
+- User-confirmed primary goal:
+- Required outcomes / AC IDs:
+- Non-goals:
+- Constraints:
+- Do-not-silently-change assumptions:
+- Direction-change approval rule: explicit user approval required
+- Confirmation status: confirmed | inferred | open
+```
+
+Preserve the user's reasoning elsewhere in the spec, but downstream planning
+and execution copy this block without reconstructing chat history. An inferred
+or open field that can change behavior, architecture, data handling, security,
+or delivery scope blocks approval or is explicitly surfaced to the user.
+
 ## Interview Milestones
 
 In Standard and Deep modes, track interview progress through four qualitative

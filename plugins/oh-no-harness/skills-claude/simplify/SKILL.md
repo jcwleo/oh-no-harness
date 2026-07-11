@@ -44,26 +44,25 @@ or has been recorded as not needed. It should improve reuse, clarity,
 maintainability, and efficiency without changing behavior, adding scope, or
 replacing implementation review.
 
-## Cleanup Role Passes
+## Cleanup Depth Decision
 
-These are skill-local cleanup role passes, not public workflow skills and not
-`docs/agent-core` agents. Use the active platform's subagent mechanism only to
-isolate the pass work when it is available and useful.
+Reuse, Simplification, Efficiency, and Altitude are review viewpoints, not four
+mandatory jobs.
 
-Cleanup review always runs all four labeled viewpoints — Reuse, Simplification,
-Efficiency, and Altitude — as four separate role passes. There is no
-single-combined-pass shortcut and no diff-size gate: every cleanup review keeps
-the four viewpoints distinct so none is silently dropped.
-Run the four passes in parallel using the active platform's subagent mechanism.
-Apply the active platform's Simplify dispatch authorization and lifecycle rules
-before launching cleanup subagents. Do not ask another approval question merely
-to launch cleanup subagents when the active platform already supplies standing
-authorization for eligible skill-local delegation.
-If the active host cannot dispatch subagents, run the four passes inline as four
-separate labeled blocks with the same role boundaries, and record the
-dispatch-unavailable reason. If a cleanup change needs additional independent
-evidence after the fixes, return that need to the caller so `verifier` or
-`code-reviewer` can review the result after the cleanup pass.
+- LIGHT and STANDARD: run one quick or combined scan over all four viewpoints.
+  Record `no candidates` when the scan finds nothing; do not create cleanup work
+  to satisfy a pass count.
+- THOROUGH without a named expansion trigger: use the same combined scan.
+- THOROUGH with a named safety, broad-diff, multi-system, or high-maintainability
+  risk: run four independent viewpoint passes. They may run in one parallel
+  batch when isolation and platform policy permit it, otherwise run four labeled
+  inline blocks and record the fallback.
+
+Record `Cleanup depth: combined | four-viewpoint`, its trigger, and the changed
+files inspected. Use subagents only when separate contexts can change the
+cleanup decision enough to justify lifecycle cost. If cleanup creates a need
+for additional review or evidence, return it to the caller; Simplify does not
+expand its own mandate.
 
 ## When To Use
 
@@ -146,18 +145,12 @@ the review scope.
 
 ## Phase 1 - Review
 
-Launch four independent cleanup subagents in parallel — the review always runs
-all four cleanup role passes regardless of diff size. Start them in one batch
-before waiting for any result. Pass each subagent the review diff and assign
-exactly one angle: Reuse, Simplification, Efficiency, or Altitude. Use the active
-platform's approved mechanism and Simplify platform overlay when available. The
-caller owns lifecycle: after each cleanup subagent result is captured, close or
-clean up the completed subagent using the active platform mechanism.
-
-If subagent dispatch is unavailable, run the same four passes inline as four
-separate labeled blocks — Reuse, Simplification, Efficiency, and Altitude — each
-with its assigned scope and expected output, and record the dispatch-unavailable
-fallback reason. Do not drop or merge any of the four viewpoints.
+Apply the Cleanup Depth Decision. A combined scan checks Reuse, Simplification,
+Efficiency, and Altitude in one bounded pass. When a named THOROUGH trigger
+selects four-viewpoint depth, launch the four independent cleanup subagents in
+one batch before waiting, or use four labeled inline blocks with a recorded
+dispatch-unavailable reason. The caller captures and cleans up every dispatched
+result.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -192,10 +185,9 @@ the reviewed scope.
 
 ## Phase 2 - Apply The Fixes
 
-Capture all four cleanup pass results — the four parallel subagents, or the four
-inline blocks when dispatch was unavailable — and close or clean up each
-completed cleanup subagent. Then deduplicate findings that point at the same line
-or mechanism and fix each remaining behavior-preserving cleanup directly.
+Capture the combined result or all four expanded results, then deduplicate
+findings that point at the same line or mechanism and fix each remaining
+behavior-preserving cleanup directly.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather
@@ -212,7 +204,7 @@ Return:
 
 - Behavior lock used.
 - Files changed.
-- Review angles run.
+- Cleanup depth, trigger, and review viewpoints covered.
 - Cleanup findings fixed.
 - Reviewer follow-up findings and owner.
 - Findings skipped and why.
@@ -254,86 +246,19 @@ dispatch.
 
 ## Role Dispatch
 
-Use the available Task, Agent, Workflow `agent()`, or subagent mechanism for
-role dispatch. Prefer plugin-scoped agents named `oh-no-harness:<role>` when
-the host lists them.
-
-For independent read-only, review, verification, QA, security, or exploration
-work, request background subagents and start the whole independent batch before
-waiting for any one result. When a skill requires an atomic same-phase batch,
-prefer Workflow `Promise.all` if available; otherwise do not inspect or
-summarize early task results until the full intended batch has been requested.
-
-After a Claude Code subagent reaches final status, capture the output and any
-changed-file set before cleanup. When no further input is needed, close or
-clean up the completed subagent with the mechanism exposed by the host; if none
-is available, record that fallback.
-
-For approved `ralplan` handoffs to ordinary `oh-no-harness:ralph`, treat
-`Parallel trigger: approved-plan-handoff` as dispatch authorization for
-eligible isolated roles. Do not require a separate `ralph with parallel
-subagents` option when the plan already lists roles whose output can change the
-implementation, review, verification, or ship/block decision.
-
-If plugin-scoped agents are unavailable, keep the same role boundary by
-embedding the matching `agents/<role>.md` prompt into the available subagent
-mechanism. If no dispatch mechanism is available, keep the role inline and
-record the fallback reason when the core skill requires it.
+Dispatch only after the active skill's trigger fires, then read
+`docs/platforms/claude-code.md` `## Role Dispatch` for the full host contract.
+Prefer `oh-no-harness:<role>`, request the whole independent batch before
+waiting, capture every final result, and clean up only after integration. An
+approved-plan handoff is dispatch authorization for eligible isolated roles;
+plugin-agent unavailability uses the documented embedded-role fallback.
 
 ## Cross-Host Consult Channel
 
-This is the shared cross-host consult mechanism used by Fusion Rescue and by
-cross-host review (`docs/shared/cross-host-review.md`). On Claude Code the
-opposite host is Codex. This section carries only the Claude-to-Codex
-invocation; the activation, synthesis, and recursion-guard semantics live in the
-calling skill core and the shared doc.
-
-From Claude Code, the current-host main agent consults Codex only by dispatching
-the dedicated read-only consult agent `oh-no-harness:<role>-codex` for the
-assigned opposite-host leg, where `<role>` is `plan-reviewer`, `code-reviewer`,
-or `debugger` for shared cross-host review, or `fusion` for a Fusion Rescue panel
-slot. That consult agent resolves the Codex companion path and runs one
-synchronous, read-only `codex-companion.mjs task` call: it omits the write flag
-so the companion sandbox is read-only (best-effort, not a guarantee — see the
-consult agent cores), and it never runs the call as a detached background job. If the companion is unavailable or unresolvable, treat the
-opposite host as unavailable; in default mode the calling skill applies the
-shared cross-host contract's Same-Host Parallel Fallback
-(`docs/shared/cross-host-review.md`), and require-cross-host mode blocks. Name the
-failure class and the current-host fallback.
-
-The consult must return Codex's actual assigned analysis synchronously. The
-`codex-companion.mjs` call passes the scoped, redacted packet with `--prompt-file`
-and must not run in the background. A response that only acknowledges a queued or
-background job — text that a task started in the background with a status command
-for a job id — is not a valid opposite-host response; treat it as no Codex
-response and degrade (default) or block (require-cross-host). Do not poll status
-or fetch a deferred result to compensate; the consult call itself must return the
-analysis.
-
-For shared cross-host review, the packet the `oh-no-harness:<role>-codex` agent
-sends must instruct Codex to dispatch the matching `oh-no-<role>` role agent for
-the assigned opposite-host pass, where `<role>` is `plan-reviewer`,
-`code-reviewer`, or `debugger`. Codex must wait for that dispatched role agent and
-return its assigned role result, and the consult agent must require role-ownership
-proof that the dispatched role agent — not a parent inline Codex answer — produced
-it. A direct Codex parent answer is not a
-valid opposite-host shared review response. If Codex cannot dispatch the matching
-role agent, or the role-ownership proof is missing, treat the opposite host as
-unavailable in default mode or block in require-cross-host mode; do not accept
-inline Codex parent analysis as the cross-host pass. Role ownership is best-effort
-— there is no host selector that forces it — so it is required and proven, not
-assumed.
-
-Fusion Rescue panel slots remain governed by the Fusion Rescue panel contract;
-the role-agent requirement above applies only to shared cross-host review. The
-`oh-no-harness:fusion-codex` panel slot dispatches `oh-no-fusion-rescue-analyst`
-for one assigned lens (see `docs/platforms/claude-code-fusion-rescue.md`).
-
-The outbound packet must request only the assigned analysis and must forbid the
-opposite host from invoking further rescue, another workflow skill, or any
-host-to-host call back to Claude Code or a third host (one cross-host hop).
-Redact secrets before sending; on failure record only the failure class and
-companion/path/auth status, never secret values.
+This channel is trigger-loaded, not embedded in every workflow decision. When a
+named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
+`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
+Until then, do not preload opposite-host invocation details.
 
 ## Source: docs/platforms/claude-code-simplify.md
 
