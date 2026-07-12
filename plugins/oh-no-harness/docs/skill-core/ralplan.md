@@ -237,6 +237,20 @@ decision that changes behavior, architecture, data handling, security posture,
 or delivery scope, the plan must mark that gap as blocking or pending approval
 instead of hiding it in assumptions.
 
+## Stack Recommendation Contract
+
+Apply this contract when an approved requirements source records greenfield
+work with an open technology stack and `Recommendation requested: yes`.
+
+When `Recommendation requested` is `yes`, present 2-3 viable technology stacks grounded in the approved product, deployment, team, delivery, scale, integration, data, security, and compliance constraints. Compare delivery speed, team fit, operability, cost, ecosystem maturity, and migration or exit risk as applicable; do not recommend from popularity alone.
+
+State the tradeoffs and one recommended default, including why it best fits the
+approved constraints and which fact or assumption would change the choice. If
+current ecosystem facts materially affect the recommendation, verify them from
+authoritative sources before presenting the options.
+
+Stack recommendation is plan content and requires approval through the existing Plan Approval Brief before Ralph. Do not treat the recommended default as approved until the user approves the plan; keep any missing decision input visible as pending approval rather than inventing it.
+
 ## Planner Draft Contract
 
 Planner owns the draft plan and every revision. The first Planner output is
@@ -256,6 +270,7 @@ Planner draft v1:
 - Non-goals:
 - Minimal viable approach:
 - Rejected speculative complexity:
+- Technology stack decision: not applicable | user-selected | repository-confirmed | recommendation with 2-3 options and one default
 - Files/modules likely affected:
 - Contract surface:
 - Task sequence:
@@ -517,6 +532,9 @@ Every plan must include:
 - goal
 - scope and non-goals
 - acceptance criteria and any blocking or pending-approval gaps
+- when stack recommendation was requested, 2-3 viable options, their tradeoffs,
+  one recommended default and rationale, decision-changing assumptions, and
+  approval status
 - minimal viable approach
 - rejected speculative complexity, or `none`
 - for `LIGHT` execution profile, the minimal viable approach may be a single
@@ -614,6 +632,8 @@ Show the user a concise implementation overview, not just the plan path. The bri
 - numbered task sequence
 - key files or modules affected
 - minimal viable approach and any rejected speculative complexity
+- technology stack options and recommended default when recommendation was
+  requested, including the decision-changing assumptions
 - acceptance criteria alignment and any insufficient measurable evidence
 - validation check when measurable evidence influenced the plan
 - TDD expectations for behavior-changing tasks
@@ -651,6 +671,11 @@ Minimal viable approach:
 {smallest approach that satisfies the acceptance criteria}
 Rejected speculative complexity:
 {unneeded abstraction, configurability, dependency, or generalization, or "None"}
+
+Technology stack decision:
+{Not applicable, user-selected/repository-confirmed stack, or 2-3 viable options
+with tradeoffs, one recommended default, rationale, decision-changing
+assumptions, and pending/approved status}
 
 Acceptance criteria:
 - Who validates success: {user | maintainer | caller | test suite | operator | customer | other}
