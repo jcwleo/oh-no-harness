@@ -5,7 +5,7 @@
 
 name = "oh-no-code-reviewer"
 description = "Oh No Harness code-reviewer role: review changed code for correctness, maintainability, regressions, missing tests, and security risks through ordered lenses."
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/code-reviewer.md

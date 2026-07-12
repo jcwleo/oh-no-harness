@@ -794,10 +794,18 @@ validate_codex_agent_installer() {
   [[ "$installed_count" == "9" ]] || fail "Codex agent user install wrote ${installed_count} templates, expected 9"
   grep -q "oh-no-harness-installed-plugin-version: ${manifest_version}" "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
     || fail "Codex agent user install did not write the current plugin version marker"
-  grep -q 'model = "gpt-5.5"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
-    || fail "Codex agent user install did not write the custom-agent model default"
+  grep -q 'model = "gpt-5.6-sol"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
+    || fail "Codex agent user install did not write the Sol reviewer model"
   grep -q 'model_reasoning_effort = "xhigh"' "$temp_data/codex-home/agents/oh-no-code-reviewer.toml" \
-    || fail "Codex agent user install did not write the custom-agent reasoning default"
+    || fail "Codex agent user install did not write the reviewer reasoning effort"
+  grep -q 'model = "gpt-5.6-terra"' "$temp_data/codex-home/agents/oh-no-explore.toml" \
+    || fail "Codex agent user install did not write the Terra explore model"
+  grep -q 'model_reasoning_effort = "medium"' "$temp_data/codex-home/agents/oh-no-explore.toml" \
+    || fail "Codex agent user install did not write the explore reasoning effort"
+  grep -q 'model_reasoning_effort = "high"' "$temp_data/codex-home/agents/oh-no-analyst.toml" \
+    || fail "Codex agent user install did not write the analyst reasoning effort"
+  grep -q 'model_reasoning_effort = "high"' "$temp_data/codex-home/agents/oh-no-executor.toml" \
+    || fail "Codex agent user install did not write the executor reasoning effort"
   grep -q 'sandbox_mode = "read-only"' "$temp_data/codex-home/agents/oh-no-explore.toml" \
     || fail "Codex agent user install did not write the read-only sandbox for explore"
   {

@@ -5,8 +5,8 @@
 
 name = "oh-no-analyst"
 description = "Oh No Harness analyst role: analyze requirements, hidden constraints, risk, and product implications before planning."
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
 developer_instructions = """
 Agent prompt source: docs/agent-core/analyst.md
 Agent prompt content:

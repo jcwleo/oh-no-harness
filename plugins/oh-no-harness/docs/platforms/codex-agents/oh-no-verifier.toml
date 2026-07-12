@@ -5,7 +5,7 @@
 
 name = "oh-no-verifier"
 description = "Oh No Harness verifier role: check acceptance criteria, commands, artifacts, verification evidence, and user-facing scenario coverage before completion claims."
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/verifier.md
