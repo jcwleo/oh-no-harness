@@ -157,6 +157,13 @@ When a skill defines a `Next Skill Handoff`, you MUST present the handoff to the
 
 Workflow skills (`interview`, `ralplan`) currently define this handoff; `ralph` is terminal and defines only a `Final Handoff` with no next-skill question. The recommended path is `interview → ralplan → ralph`, but each transition is a distinct user-confirmed step.
 
+`ralplan` combines plan-content approval and next-skill choice into one combined
+explicit transition: the user must choose approve-and-run Ralph, approve-and-run
+Ultrawork, request plan changes, or leave the plan pending. Do not auto-invoke
+`ralph`, `ultrawork`, or another workflow after `ralplan` unless the user
+selects an approve-and-run option. `interview` remains unchanged and follows its
+own handoff rules.
+
 Internal mid-loop skills used inside an already-invoked workflow skill - for example `test-driven-development`, `fusion-rescue`, `simplify`, `verification-before-completion`, and `systematic-debugging` invoked from inside `ralph`'s execution loop - are part of that skill's documented procedure and do not require a separate per-step transition question.
 
 The single exception is `ultrawork`. When the user invokes `ultrawork`,

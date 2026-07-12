@@ -44,8 +44,9 @@ Create a concrete implementation plan that is drafted by Planner, reviewed by Pl
 
 The host agent operates the planning roles through the active platform runtime
 document. The user does not need to pick Planner or Plan-Reviewer manually; the
-user approves the plan, requests changes, chooses the next workflow step, or
-approves direction changes when a role finds one. Ralph execution is
+user selects one combined plan approval and next workflow action, requests
+changes, leaves the plan pending, or approves direction changes when a role
+finds one. Ralph execution is
 parallel-capable for
 eligible isolated roles that can provide decision-changing evidence; do not
 split the handoff into a separate "parallel Ralph" option.
@@ -127,15 +128,16 @@ the blocker instead of proceeding past the gate that depends on it.
 9. Save the final reflected plan under `.oh-no/plans/` with a
    `Next skill: oh-no-harness:<name>` header field.
 10. For direct `ralplan`, present the plan to the user with the Plan Approval
-   Brief format below. When running under `ultrawork`, write the plan plus the
-   Ultrawork internal approval record instead, unless a pause condition requires
-   user review.
+   Brief format below. The same prompt must combine plan-content approval and
+   next-skill choice: approve-and-run Ralph, approve-and-run Ultrawork, request
+   plan changes, or leave the plan pending. When running under `ultrawork`,
+   write the plan plus the Ultrawork internal approval record instead, unless a
+   pause condition requires user review.
 11. For direct `ralplan`, mark the plan `pending approval` until the user
-   explicitly approves the plan content.
-12. After direct plan approval, run the Next Skill Handoff below to ask which
-   next skill to invoke. Only invoke the chosen skill through the current
-   platform's skill mechanism after the user answers. Skip the question when
-   running under `ultrawork`.
+   explicitly selects an approve-and-run option. Only invoke the selected
+   workflow skill through the current platform's skill mechanism after that
+   selection. Skip the user-facing approval prompt when running under
+   `ultrawork`.
 
 Use real role subagents for selected planning roles on subagent-capable hosts.
 Planner and Plan-Reviewer are not decorative labels; the planning quality bar
@@ -577,11 +579,20 @@ Every plan must include:
 - process budget: expected handwritten diff, review topology and trigger,
   cleanup depth, broad-suite cap, and rescope thresholds
 - worktree policy
-- parallel subagent dispatch plan, or the fallback reason if no role can be
-  safely isolated
+- parallel subagent dispatch plan, or the fallback reason when no role satisfies
+  safe isolation, decision-changing value, and reasonable coordination cost
 - verification commands
 - rollout or recovery notes when risk warrants them
 - approval status
+
+Compact LIGHT plans may use a shorter plan body when the execution profile is
+LIGHT and review, dispatch, TDD, risk, or rollout details are not applicable.
+They must still preserve the goal, scope and non-goals, acceptance criteria,
+tasks and key files as needed, verification, compact execution profile, and
+approval status. They may omit review ledger detail when review is not required,
+a detailed dispatch plan when no role satisfies the three eligibility
+conditions, exhaustive TDD/risk/rollout placeholders when not applicable, and
+other non-applicable ceremony. Avoid empty placeholder sections.
 
 ## TDD Task Shape
 
@@ -616,15 +627,16 @@ The overall Ralph mode is the highest mode needed by any task or cross-task
 risk, but task sizing should still mark lighter subtasks when they can be
 executed with less process. Ralph must follow this profile during execution.
 
-For plans that recommend direct `ralph`, default to
+For plans that recommend direct `ralph`, use
 `Parallel trigger: approved-plan-handoff` and an agent policy of
-`targeted-subagents` or `full-review-set` whenever at least one Ralph role can be
-isolated by file ownership, read-only scope, review role (security lens
-included), verification role (scenario QA lens included), or test/log analysis.
-Use `inline-only` and
-`Parallel trigger: none` only when the plan documents that no dispatch-worthy
-role exists, the active platform cannot dispatch, or the work is unsafe to
-isolate under `docs/shared/ralph-subagent-policy.md`.
+`targeted-subagents` or `full-review-set` only when the plan documents all three
+eligibility conditions for at least one Ralph role: safe isolation under
+`docs/shared/ralph-subagent-policy.md`, decision-changing value for the
+implementation, review, verification, or ship/block decision, and reasonable
+coordination cost. Safe isolation alone is insufficient. Use `inline-only` and
+`Parallel trigger: none` when no role satisfies all three conditions, the active
+platform cannot dispatch, the work is unsafe to isolate, or dispatch would add
+no decision-changing benefit for its coordination cost.
 
 End every Plan Approval Brief with `Execution profile recap:` immediately before `Approval needed`. This block is the required complete profile for approval, so do not duplicate the same field list earlier in the brief unless a platform or user-requested artifact requires it.
 
@@ -646,7 +658,6 @@ Show the user a concise implementation overview, not just the plan path. The bri
 
 - plan path
 - goal and scope summary
-- text diagram of the implementation structure or flow
 - numbered task sequence
 - key files or modules affected
 - minimal viable approach and any rejected speculative complexity
@@ -664,11 +675,21 @@ Show the user a concise implementation overview, not just the plan path. The bri
   worktree execution or Ultrawork should also merge back to the integration
   checkout
 - parallel subagent dispatch plan for the default Ralph handoff, including
-  isolated roles/scopes and any fallback reason
+  roles/scopes that satisfy safe isolation, decision-changing value, and
+  reasonable coordination cost, or a fallback reason when none do
 - verification commands or evidence plan
 - major risks, assumptions, and open questions
 - a final `Execution profile recap` immediately before the approval question
 - explicit approval status
+
+For a compact LIGHT plan and approval brief, keep the same approval boundary but
+reduce the brief to the material fields. It must preserve goal, scope and
+non-goals, acceptance criteria, tasks and key files as needed, verification,
+compact execution profile, and approval. It may omit review ledger detail when
+review is not required, a detailed dispatch plan when no role satisfies the
+three eligibility conditions, exhaustive TDD/risk/rollout placeholders when
+not applicable, and other non-applicable ceremony. Avoid empty placeholder
+sections.
 
 Use this shape:
 
@@ -710,11 +731,6 @@ plan. Summarize evidence used, supported outcome, proof and gap, recurring risk,
 similar-work expectation, excluded case-specific details, added process cost,
 and completion claim.}
 
-Structure:
-```text
-{text diagram}
-```
-
 Tasks:
 1. {task with expected files/modules}
 2. {task with expected files/modules}
@@ -731,7 +747,10 @@ Test case design:
 - Evidence mapping: {test case -> acceptance criterion}
 
 Parallel subagent dispatch:
-{Default Ralph dispatch plan: one line per independent role/scope with platform invocation, start timing, owned scope, dependencies, and integration owner; or a concrete fallback reason if no eligible role can be isolated}
+{Default Ralph dispatch plan: one line per independent role/scope with platform
+invocation, start timing, owned scope, dependencies, and integration owner when
+safe isolation, decision-changing value, and reasonable coordination cost all
+hold; otherwise give a concrete fallback reason}
 
 Planning roles:
 Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposition for each}
@@ -773,39 +792,21 @@ Execution profile recap:
 - Escalation triggers: {short list or "None expected"}
 
 Approval needed:
-Approve this plan, request changes, or leave it pending. After plan approval, I
-will ask which workflow the host agent should invoke next.
+Choose one:
+- approve-and-run Ralph (recommended) — approve the plan and invoke `ralph` with
+  the plan path; preserve `Parallel trigger: approved-plan-handoff` when the
+  approved plan has an eligible dispatch plan
+- approve-and-run Ultrawork — approve the plan and invoke `ultrawork` with the
+  plan path for end-to-end execution, QA, and final validation
+- request plan changes — revise the plan and present the updated approval brief
+- leave the plan pending — keep the plan unapproved and invoke no workflow
+
+Which approach?
 ````
 
-Use a simple text diagram when it helps the user understand the structure. Examples:
-
-```text
-Input/request
-  -> Spec or requirements
-  -> Task 1: data/model changes
-  -> Task 2: service or behavior changes
-  -> Task 3: UI/API integration
-  -> Verification: tests, lint, scenario checks
-  -> Review and cleanup
-```
-
-or:
-
-```text
-Component A
-  -> shared helper
-  -> Component B
-  -> tests
-```
-
-End the brief with a direct plan-content approval question. Do not ask the user
-to choose the next workflow until the plan content is approved.
-
-Approval choices should be:
-
-- approve the plan content
-- request plan changes
-- stop with the plan pending approval
+End the brief with the combined approval and next-skill question above. A plan is
+not approved, and no next workflow is authorized, until the user selects an
+approve-and-run option.
 
 ## Next Skill Handoff
 
@@ -813,43 +814,38 @@ Approval choices should be:
 Do NOT invoke `ralph`, `ultrawork`, or any other workflow skill after presenting the plan until the user has explicitly approved the plan AND chosen the next step. Skill chaining in Oh No Harness is approval-gated, not automatic.
 </HARD-GATE>
 
-This handoff has two phases. On platforms with task tracking, create one task
-per phase below and complete them sequentially. Do not collapse them into a
-single response or skip the user-confirmation phases.
+The Plan Approval Brief above is the user-facing review request and next-skill
+handoff. It must ask for one explicit choice:
 
-### Phase 1: Plan content approval
-
-The Plan Approval Brief above is the user-facing review request. Wait for the user's explicit approval of the plan content before proceeding to Phase 2. If the user requests changes, revise the plan and re-present the brief. Keep the plan marked `pending approval` until the user approves.
-
-### Phase 2: Next skill choice
-
-Ask the user which workflow the host agent should invoke next through the active
-platform's approval mechanism. Use this option shape:
-
-- `oh-no-harness:ralph` (recommended) — execute the approved plan task-by-task with eligible isolated subagents when they add decision-changing evidence, plus verification, review, cleanup, and final report
-- `oh-no-harness:ultrawork` — orchestrate execution, QA, and final validation end-to-end
-- request plan changes — go back and revise the plan
-- stop with the plan pending approval
+- approve-and-run Ralph (recommended) — approve the plan and execute it
+  task-by-task with eligible isolated subagents when they add
+  decision-changing evidence, plus verification, review, cleanup, and final
+  report
+- approve-and-run Ultrawork — approve the plan and orchestrate execution, QA,
+  and final validation end-to-end
+- request plan changes — revise the plan and present the updated approval brief
+- leave the plan pending — keep the plan unapproved and invoke no workflow
 
 The ordinary `oh-no-harness:ralph` choice is the parallel-capable execution
-handoff when the approved plan lists eligible isolated roles. Preserve the plan path plus
-`Parallel trigger: approved-plan-handoff` in the Ralph invocation so Ralph
-treats the approved plan's dispatch plan as authorization to use every eligible
-isolated subagent role. Do not ask for a second "parallel subagents" approval
+handoff, exposed here as approve-and-run Ralph, when the approved plan lists
+eligible isolated roles. Preserve the plan path plus
+`Parallel trigger: approved-plan-handoff` in the Ralph invocation so Ralph treats
+the approved plan's dispatch plan as authorization to use every eligible
+isolated subagent role. Do not ask for separate "parallel subagents" approval
 unless the user explicitly requested inline-only execution and later changes
 their mind.
 
 End the question with "Which approach?".
 
-Do not invoke any next skill until the user has answered. The user is approving
-the host agent's next action, not being asked to run the command manually. When
-the user picks one, invoke that skill through the current platform's skill
-mechanism with the plan path as the task definition. For the Ralph option,
-preserve `Parallel trigger: approved-plan-handoff` when the approved plan has an
-eligible dispatch plan. Preserve `Parallel trigger: natural-dispatch` only for
-direct Ralph execution without a ralplan handoff when the host permits
-proactive dispatch and the active skill policy itself authorizes eligible
-isolated roles.
+Do not invoke any next skill until the user selects an approve-and-run option.
+The user is approving the host agent's next action, not being asked to run the
+command manually. If the user requests changes, revise the plan and re-present
+the brief. If the user leaves the plan pending, stop with no workflow invoked.
+For the approve-and-run Ralph option, preserve
+`Parallel trigger: approved-plan-handoff` when the approved plan has an eligible
+dispatch plan. Preserve `Parallel trigger: natural-dispatch` only for direct
+Ralph execution without a ralplan handoff when the host permits proactive
+dispatch and the active skill policy itself authorizes eligible isolated roles.
 
 ### Ultrawork exception
 

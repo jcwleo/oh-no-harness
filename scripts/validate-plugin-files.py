@@ -1128,6 +1128,89 @@ RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS = (
     "choose `ralph`, `ralph with parallel subagents`, or `ultrawork`",
     "including how to explicitly approve it on",
 )
+RALPLAN_APPROVAL_BRIEF_FORBIDDEN_MARKERS = (
+    "text diagram",
+    "{text diagram}",
+)
+RALPLAN_APPROVED_PLAN_DEFAULT_MARKERS = (
+    "safe isolation",
+    "decision-changing",
+    "reasonable coordination cost",
+)
+RALPLAN_ELIGIBILITY_SURFACE_MARKERS = (
+    "safe isolation",
+    "decision-changing",
+    "reasonable coordination cost",
+)
+RALPLAN_ELIGIBILITY_SURFACE_FORBIDDEN_MARKERS = (
+    "no role can be safely isolated",
+    "no eligible role can be isolated",
+)
+RALPLAN_LIGHT_PLAN_FILE_MARKERS = (
+    "Compact LIGHT",
+    "must still preserve",
+    "goal",
+    "scope",
+    "non-goals",
+    "acceptance criteria",
+    "tasks",
+    "key files",
+    "verification",
+    "compact execution profile",
+    "approval status",
+    "may omit",
+    "review ledger",
+    "detailed dispatch plan",
+    "non-applicable ceremony",
+)
+RALPLAN_LIGHT_APPROVAL_BRIEF_MARKERS = (
+    "compact LIGHT",
+    "goal",
+    "scope",
+    "acceptance criteria",
+    "verification",
+    "execution profile",
+    "approval",
+    "may omit",
+    "review ledger",
+    "detailed dispatch plan",
+    "non-applicable ceremony",
+)
+RALPLAN_DIRECT_HANDOFF_REQUIRED_PATTERNS = (
+    (r"approve[- ]and[- ]run.{0,120}\bralph\b", "approve-and-run Ralph"),
+    (r"approve[- ]and[- ]run.{0,120}\bultrawork\b", "approve-and-run Ultrawork"),
+    (r"\brequest(?:\s+plan)?\s+changes\b", "request changes"),
+    (r"\bleave\s+(?:it\s+|the\s+plan\s+)?pending\b", "leave pending"),
+)
+RALPLAN_DIRECT_HANDOFF_REQUIRED_MARKERS = (
+    "Do NOT invoke",
+)
+RALPLAN_DIRECT_HANDOFF_FORBIDDEN_MARKERS = (
+    "two phases",
+    "### Phase 1",
+    "### Phase 2",
+    "Phase 1:",
+    "Phase 2:",
+)
+USING_OH_NO_RALPLAN_HANDOFF_MARKERS = (
+    "combined",
+    "approval",
+    "choice",
+    "ralplan",
+    "Do not auto-invoke",
+)
+USING_OH_NO_RALPLAN_HANDOFF_PATTERNS = (
+    (r"approve[- ]and[- ]run", "approve-and-run"),
+)
+MANDATORY_GATE_RALPLAN_HANDOFF_ROW_MARKERS = (
+    "combined",
+    "approval",
+    "choice",
+)
+MANDATORY_GATE_RALPLAN_HANDOFF_ROW_PATTERNS = (
+    (r"approve[- ]and[- ]run", "approve-and-run"),
+    (r"automatic[- ]invocation|auto[- ]invoke", "automatic invocation"),
+)
 RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
         "Planner Draft Contract",
@@ -3437,6 +3520,149 @@ def assert_parallel_executor_contract(root: Path) -> None:
             die(f"{adapter} must list disjoint implementation (executor) work as eligible for a background batch")
 
 
+def assert_ralplan_proportionality_contract(root: Path) -> None:
+    """Guard ralplan's compact approval path and combined execution handoff."""
+    skill_core = root / "docs" / "skill-core"
+    ralplan_path = skill_core / "ralplan.md"
+    ralplan = read_text(ralplan_path)
+
+    plan_requirements = markdown_section(ralplan, "## Plan File Requirements")
+    if not plan_requirements:
+        die(f"{ralplan_path} is missing required '## Plan File Requirements' section")
+    compact_light_plan_match = re.search(
+        r"Compact LIGHT plans.*?(?=\n\n|$)",
+        plan_requirements,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not compact_light_plan_match:
+        die(
+            f"{ralplan_path} `## Plan File Requirements` is missing the "
+            "compact LIGHT plan contract"
+        )
+    compact_light_plan = compact_light_plan_match.group(0)
+    for marker in RALPLAN_LIGHT_PLAN_FILE_MARKERS:
+        if not has_required_marker(compact_light_plan, marker):
+            die(
+                f"{ralplan_path} `## Plan File Requirements` is missing "
+                f"compact LIGHT plan marker: {marker!r}"
+            )
+    for marker in RALPLAN_ELIGIBILITY_SURFACE_MARKERS:
+        if not has_required_marker(plan_requirements, marker):
+            die(
+                f"{ralplan_path} `## Plan File Requirements` dispatch fallback "
+                f"is missing eligibility marker: {marker!r}"
+            )
+    for forbidden in RALPLAN_ELIGIBILITY_SURFACE_FORBIDDEN_MARKERS:
+        if has_required_marker(plan_requirements, forbidden):
+            die(
+                f"{ralplan_path} `## Plan File Requirements` still contains "
+                f"isolation-only fallback wording: {forbidden!r}"
+            )
+
+    brief = markdown_section(ralplan, "## Plan Approval Brief")
+    if not brief:
+        die(f"{ralplan_path} is missing required '## Plan Approval Brief' section")
+    for forbidden in RALPLAN_APPROVAL_BRIEF_FORBIDDEN_MARKERS:
+        if has_required_marker(brief, forbidden):
+            die(
+                f"{ralplan_path} `## Plan Approval Brief` still contains "
+                f"retired text-diagram marker: {forbidden!r}"
+            )
+    for marker in RALPLAN_LIGHT_APPROVAL_BRIEF_MARKERS:
+        if not has_required_marker(brief, marker):
+            die(
+                f"{ralplan_path} `## Plan Approval Brief` is missing "
+                f"compact LIGHT approval marker: {marker!r}"
+            )
+    for marker in RALPLAN_ELIGIBILITY_SURFACE_MARKERS:
+        if not has_required_marker(brief, marker):
+            die(
+                f"{ralplan_path} `## Plan Approval Brief` dispatch fallback "
+                f"is missing eligibility marker: {marker!r}"
+            )
+    for forbidden in RALPLAN_ELIGIBILITY_SURFACE_FORBIDDEN_MARKERS:
+        if has_required_marker(brief, forbidden):
+            die(
+                f"{ralplan_path} `## Plan Approval Brief` still contains "
+                f"isolation-only fallback wording: {forbidden!r}"
+            )
+
+    execution_profile = markdown_section(ralplan, "## Execution Profile")
+    if not execution_profile:
+        die(f"{ralplan_path} is missing required '## Execution Profile' section")
+    for marker in RALPLAN_APPROVED_PLAN_DEFAULT_MARKERS:
+        if not has_required_marker(execution_profile, marker):
+            die(
+                f"{ralplan_path} `## Execution Profile` approved-plan "
+                f"default is missing marker: {marker!r}"
+            )
+
+    handoff = markdown_section(ralplan, "## Next Skill Handoff")
+    if not handoff:
+        die(f"{ralplan_path} is missing required '## Next Skill Handoff' section")
+    for marker in RALPLAN_DIRECT_HANDOFF_REQUIRED_MARKERS:
+        if not has_required_marker(handoff, marker):
+            die(
+                f"{ralplan_path} `## Next Skill Handoff` is missing "
+                f"no-auto-invocation marker: {marker!r}"
+            )
+    for pattern, label in RALPLAN_DIRECT_HANDOFF_REQUIRED_PATTERNS:
+        if not re.search(pattern, handoff, flags=re.IGNORECASE | re.DOTALL):
+            die(
+                f"{ralplan_path} `## Next Skill Handoff` is missing "
+                f"combined approval option: {label}"
+            )
+    for forbidden in RALPLAN_DIRECT_HANDOFF_FORBIDDEN_MARKERS:
+        if has_required_marker(handoff, forbidden):
+            die(
+                f"{ralplan_path} `## Next Skill Handoff` still contains "
+                f"retired two-phase wording: {forbidden!r}"
+            )
+
+    using_path = skill_core / "using-oh-no-harness.md"
+    using_core = read_text(using_path)
+    skill_chaining = markdown_section(using_core, "## Skill Chaining")
+    if not skill_chaining:
+        die(f"{using_path} is missing required '## Skill Chaining' section")
+    for marker in USING_OH_NO_RALPLAN_HANDOFF_MARKERS:
+        if not has_required_marker(skill_chaining, marker):
+            die(
+                f"{using_path} `## Skill Chaining` is missing ralplan "
+                f"combined-handoff marker: {marker!r}"
+            )
+    for pattern, label in USING_OH_NO_RALPLAN_HANDOFF_PATTERNS:
+        if not re.search(pattern, skill_chaining, flags=re.IGNORECASE | re.DOTALL):
+            die(
+                f"{using_path} `## Skill Chaining` is missing ralplan "
+                f"combined-handoff marker: {label}"
+            )
+
+    gate_inventory_path = root / "docs" / "reference" / "mandatory-gate-inventory.md"
+    gate_inventory = read_text(gate_inventory_path)
+    ralplan_row = ""
+    for line in gate_inventory.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells and cells[0] == "HG-ralplan-handoff":
+            ralplan_row = " | ".join(cells)
+            break
+    if not ralplan_row:
+        die(f"{gate_inventory_path} is missing HG-ralplan-handoff inventory row")
+    for marker in MANDATORY_GATE_RALPLAN_HANDOFF_ROW_MARKERS:
+        if not has_required_marker(ralplan_row, marker):
+            die(
+                f"{gate_inventory_path} HG-ralplan-handoff row is missing "
+                f"combined-gate marker: {marker!r}"
+            )
+    for pattern, label in MANDATORY_GATE_RALPLAN_HANDOFF_ROW_PATTERNS:
+        if not re.search(pattern, ralplan_row, flags=re.IGNORECASE | re.DOTALL):
+            die(
+                f"{gate_inventory_path} HG-ralplan-handoff row is missing "
+                f"combined-gate marker: {label}"
+            )
+
+
 def assert_proportional_workflow_contract(root: Path) -> None:
     """Guard the lightweight steady-state topology and gate-accretion budget."""
     shared = root / "docs" / "shared"
@@ -3587,6 +3813,7 @@ def main() -> None:
         nested = requested_root / "plugins" / PLUGIN_NAME
         root = nested if nested.exists() else requested_root
 
+    assert_ralplan_proportionality_contract(root)
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
     assert_test_harness_lane_contract(marketplace_root, root)
