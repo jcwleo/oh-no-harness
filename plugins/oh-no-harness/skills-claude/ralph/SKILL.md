@@ -532,7 +532,9 @@ When review is required, the reviewer pass must answer:
 - For STANDARD or THOROUGH behavior-changing work, were the applicable
   negative-path scenarios — malformed or boundary input, stale or cached state,
   cancel/resume or concurrency — probed when their trigger conditions hold, with
-  the observable result recorded, or each ruled out with a one-line reason?
+  the observable result recorded, or each ruled out with a one-line reason that
+  names why no approved AC ID, named risk, adjacent regression surface, safety
+  invariant, or directly changed semantic model triggers it?
 - Are tests or verification sufficient for the risk?
 - Did broad-suite verification add meaningful confidence, or should a focused
   semantic or baseline check replace another broad rerun?
@@ -711,6 +713,8 @@ Return:
 - Diff-budget scope review status.
 - Review verdict.
 - Residual risk.
+- Process budget outcome: planned versus actual tests/TDD cycles, role dispatch
+  count and reasons, broad-suite count, and rescope events.
 
 ## Final Handoff
 

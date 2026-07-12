@@ -82,6 +82,10 @@ clause never licenses skipping this skill itself. Dispatch a fresh `verifier`
 when evidence changed after the caller's pass or when no compliant pass
 exists.
 
+Treat a merge or integration step as evidence-changing unless the caller proves
+that the final files and dependencies are identical to the verifier-audited
+state.
+
 Ledger reuse: when `ralph` or `ultrawork` provides a canonical
 `verification.md` acceptance-to-evidence ledger, audit that ledger in place.
 Record only the delta since the last reviewer/verifier audit: changed files,
@@ -176,6 +180,11 @@ Risk check before completion:
 - One more useful failing test I would write if time allowed:
 - Completion claim:
 ```
+
+The "one more useful failing test" field is non-blocking residual-risk
+documentation. Do not implement it or use it to block completion unless it maps
+to an unmet AC ID or an approved named risk; otherwise record it as `not
+relevant` with the reason.
 
 The completion claim should distinguish:
 

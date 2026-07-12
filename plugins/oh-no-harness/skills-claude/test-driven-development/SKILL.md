@@ -72,6 +72,10 @@ Exceptions require explicit user approval or a documented reason:
 - no practical test harness exists yet
 
 If a test harness is missing, write a verification plan before changing behavior.
+A missing practical harness permits a documented TDD exception plus existing
+real-surface, bounded manual, or residual-risk evidence; it does not authorize
+new durable test infrastructure or production seams unless the user separately
+approves that scope.
 
 ## Iron Law
 
@@ -83,6 +87,11 @@ If production behavior was changed before a failing test existed, do not treat l
 
 For each behavior:
 
+For this cycle, one behavior means one observable contract change from the
+approved Direction Contract, not each internal branch, helper, or condition.
+Coupled internal conditions that serve one observable outcome may share one
+minimal RED; independent user-visible outcomes remain separate cycles.
+
 1. RED: write one minimal test that states the desired behavior.
 2. Verify RED: run the test and confirm it fails for the expected reason.
 3. GREEN: write the smallest production change that can pass that test.
@@ -91,15 +100,20 @@ For each behavior:
 6. Verify GREEN again: rerun the relevant check after refactor.
 7. Repeat for the next behavior.
 
-Do not batch several behaviors into one RED step. If the test name needs "and", split the test.
+Do not batch independent observable behaviors into one RED step. If the test
+name joins independent user-visible outcomes with "and", split the test; do not
+split solely because one outcome depends on coupled internal conditions.
 
 ## Proportional Test Boundary
 
 One minimal RED/GREEN case per changed behavior is the default. Add negative,
 boundary, semantic-model, concurrency, resume, adversarial, or baseline cases
-only when an AC ID, named safety/risk trigger, or adjacent regression surface
-requires them. A reviewer may identify a verification hole; it may not demand an
-exhaustive matrix merely because stronger proof is imaginable.
+only when an AC ID, named safety/risk trigger, adjacent regression surface, or
+safety invariant requires them. A reviewer may identify a verification hole; it
+may not demand an exhaustive matrix merely because stronger proof is imaginable.
+
+If no approved admission source exists, record the proposed extra case as `not
+relevant` with the reason and do not implement it.
 
 Tests remain evidence under the AC-bearing product story. Do not turn test
 infrastructure into a separate product story unless the user requested it as an

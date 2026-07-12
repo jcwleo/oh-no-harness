@@ -1206,6 +1206,65 @@ TDD_FORBIDDEN_DOC_MARKERS = (
     "direct implementation path",
     "<feature, bugfix, refactor, or behavior change>",
 )
+TDD_SCOPE_SECTION_MARKERS = (
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## Required Cycle",
+        "For this cycle, one behavior means one observable contract change from the approved Direction Contract, not each internal branch, helper, or condition. Coupled internal conditions that serve one observable outcome may share one minimal RED; independent user-visible outcomes remain separate cycles.",
+    ),
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## Required Cycle",
+        "Do not batch independent observable behaviors into one RED step. If the test name joins independent user-visible outcomes with \"and\", split the test; do not split solely because one outcome depends on coupled internal conditions.",
+    ),
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## Proportional Test Boundary",
+        "Add negative, boundary, semantic-model, concurrency, resume, adversarial, or baseline cases only when an AC ID, named safety/risk trigger, adjacent regression surface, or safety invariant requires them.",
+    ),
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## Proportional Test Boundary",
+        "If no approved admission source exists, record the proposed extra case as `not relevant` with the reason and do not implement it.",
+    ),
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## When To Use",
+        "A missing practical harness permits a documented TDD exception plus existing real-surface, bounded manual, or residual-risk evidence; it does not authorize new durable test infrastructure or production seams unless the user separately approves that scope.",
+    ),
+    (
+        "docs/skill-core/verification-before-completion.md",
+        "## Risk Check Before Completion",
+        "The \"one more useful failing test\" field is non-blocking residual-risk documentation. Do not implement it or use it to block completion unless it maps to an unmet AC ID or an approved named risk; otherwise record it as `not relevant` with the reason.",
+    ),
+    (
+        "docs/skill-core/verification-before-completion.md",
+        "## Agent Roles",
+        "Treat a merge or integration step as evidence-changing unless the caller proves that the final files and dependencies are identical to the verifier-audited state.",
+    ),
+    (
+        "docs/skill-core/ralph.md",
+        "## Review Gate",
+        "each ruled out with a one-line reason that names why no approved AC ID, named risk, adjacent regression surface, safety invariant, or directly changed semantic model triggers it",
+    ),
+    (
+        "docs/skill-core/ralph.md",
+        "## Output",
+        "Process budget outcome: planned versus actual tests/TDD cycles, role dispatch count and reasons, broad-suite count, and rescope events.",
+    ),
+)
+TDD_SCOPE_SECTION_FORBIDDEN_MARKERS = (
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## Required Cycle",
+        "Every internal branch, helper, or condition requires its own RED cycle.",
+    ),
+    (
+        "docs/skill-core/test-driven-development.md",
+        "## When To Use",
+        "A missing practical harness authorizes creating durable test infrastructure or production seams.",
+    ),
+)
 
 FUSION_RESCUE_SKILL_MARKERS = (
     "## Panel Contract",
@@ -2835,6 +2894,24 @@ def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
         for marker in TDD_FORBIDDEN_DOC_MARKERS:
             if marker in text:
                 die(f"{path} contains forbidden legacy TDD routing marker: {marker!r}")
+
+    for relative_path, heading, marker in TDD_SCOPE_SECTION_MARKERS:
+        path = root / relative_path
+        section = markdown_section(read_text(path), heading)
+        if not has_required_marker(section, marker):
+            die(
+                f"{path} section {heading!r} is missing proportional "
+                f"TDD/Ralph marker: {marker!r}"
+            )
+
+    for relative_path, heading, marker in TDD_SCOPE_SECTION_FORBIDDEN_MARKERS:
+        path = root / relative_path
+        section = markdown_section(read_text(path), heading)
+        if has_required_marker(section, marker):
+            die(
+                f"{path} section {heading!r} contains forbidden "
+                f"scope-expanding marker: {marker!r}"
+            )
 
 
 def assert_hook_contract(root: Path) -> None:
