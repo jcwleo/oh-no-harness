@@ -92,7 +92,7 @@ claude plugin marketplace add openai/codex-plugin-cc
 claude plugin install codex@openai-codex
 ```
 
-없어도 막히지 않습니다: 해당 워크플로우는 자동으로 Same-Host Parallel Fallback(같은 호스트 에이전트 2개를 합성)으로 degrade합니다.
+없으면 기본 모드의 워크플로우는 자동으로 Same-Host Parallel Fallback(같은 호스트 에이전트 2개를 합성)으로 degrade합니다. 명시적으로 `require-cross-host`를 요청한 경우에는 Codex를 사용할 수 없으면 중단됩니다.
 
 <details>
 <summary>Claude Code 내부 대화형 설치</summary>

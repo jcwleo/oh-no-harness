@@ -92,7 +92,7 @@ claude plugin marketplace add openai/codex-plugin-cc
 claude plugin install codex@openai-codex
 ```
 
-Without it nothing blocks: those workflows automatically degrade to the Same-Host Parallel Fallback (two same-host agents, synthesized).
+Without it, default-mode workflows automatically degrade to the Same-Host Parallel Fallback (two same-host agents, synthesized). An explicit `require-cross-host` request still blocks when Codex is unavailable.
 
 <details>
 <summary>Interactive install (inside Claude Code)</summary>

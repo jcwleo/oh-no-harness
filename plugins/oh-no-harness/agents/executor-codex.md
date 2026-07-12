@@ -50,9 +50,13 @@ handoff gates, or dispatch another agent.
      root). Multiple cached versions is NOT ambiguous — always take the highest.
   4. Degrade ONLY when no source above resolves an existing companion, or Codex
      auth is absent: do NOT guess. Signal the caller `codex unavailable` and
-     return. This is the caller-mediated degrade to the Same-Host Parallel
-     Fallback.
+     return. The role-specific overlay below owns what the caller does next;
+     this transport stops after the signal.
 <!-- codex-companion-kernel:end -->
+- On executor transport unavailability, return the signal only. The caller
+  inspects partial worktree changes, then handles this caller-mediated degrade
+  through a sequential native fallback; this transport never performs that
+  fallback.
 - Before the Bash invocation, compile the assigned slice into this common prompt
   contract. Do not use an external model-named prompting skill.
 <!-- codex-companion-prompt-contract:v1 begin -->

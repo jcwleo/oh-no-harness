@@ -119,8 +119,8 @@ Options:
                          Run live cross-host DEBUGGER PAIR smoke test via the real
                          systematic-debugging flow: current-host
                          oh-no-harness:debugger and opposite-host
-                         oh-no-harness:debugger-codex run as a pair (dual-host
-                         default) synthesized into one root-cause direction.
+                         oh-no-harness:debugger-codex run as a trigger-selected
+                         pair synthesized into one root-cause direction.
   --parallel-executor-live
                          Run live Ralph proactive disjoint-executor parallel-batch
                          smoke test: an ordinary STANDARD/THOROUGH run over two

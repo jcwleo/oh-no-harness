@@ -853,6 +853,7 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "Return the Codex stdout without wrapper synthesis",
         "caller derives the changed-file set",
         "caller-mediated degrade",
+        "sequential native fallback",
         "does NOT author RED, verify, review, or merge",
         "one-hop guard",
         "best-effort",
@@ -1927,8 +1928,9 @@ def assert_agent_core(root: Path, agent: str, claude_agent_body: str) -> None:
             die(f"{path} contains wrong-surface platform detail: {reason}")
 
 
-# The four read-only `*-codex` consult transports (Part B) inline-duplicate the
-# executor-codex companion-path resolution kernel between these stable anchors.
+# All five Claude-to-Codex transports inline-duplicate only the companion-path
+# resolution kernel between these stable anchors. Role-specific fallback policy
+# stays outside the common block and is validated separately.
 CODEX_CONSULT_AGENT_ROLES = (
     "plan-reviewer-codex",
     "code-reviewer-codex",
@@ -1948,7 +1950,8 @@ def assert_codex_consult_agent_kernels(root: Path) -> None:
 
     `generate --check` only verifies wrapper==core, not core-vs-core, so this
     guards against silent drift. The four consult roles separately forbid the
-    write flag; executor-codex is the one intentional write transport.
+    write flag and own Same-Host Parallel Fallback; executor-codex is the one
+    intentional write transport and owns sequential native fallback.
     """
     kernels: dict[str, str] = {}
     for role in CODEX_DELEGATION_AGENT_ROLES:
@@ -1966,7 +1969,13 @@ def assert_codex_consult_agent_kernels(root: Path) -> None:
                 f"{path} is missing the anchored companion-path resolution kernel "
                 f"({CODEX_CONSULT_KERNEL_BEGIN!r} ... {CODEX_CONSULT_KERNEL_END!r})"
             )
-        kernels[role] = body[begin + len(CODEX_CONSULT_KERNEL_BEGIN):end]
+        kernel = body[begin + len(CODEX_CONSULT_KERNEL_BEGIN):end]
+        if "fallback" in kernel.casefold():
+            die(
+                f"{path} companion-path kernel contains role-specific fallback "
+                "policy; keep fallback ownership in the role overlay"
+            )
+        kernels[role] = kernel
     reference_role = CODEX_DELEGATION_AGENT_ROLES[0]
     reference = kernels[reference_role]
     for role, kernel in kernels.items():
@@ -2033,6 +2042,7 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "escape_net_verdict",
         "Raw PRE and POST",
         "Git-derived changed-file set",
+        "Same-Host Parallel Fallback",
     ):
         if forbidden in executor:
             die(
