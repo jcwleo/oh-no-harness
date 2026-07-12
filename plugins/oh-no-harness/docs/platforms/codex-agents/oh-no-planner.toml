@@ -5,7 +5,7 @@
 
 name = "oh-no-planner"
 description = "Oh No Harness planner role: turn approved scope into sequenced, verifiable implementation work."
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/planner.md

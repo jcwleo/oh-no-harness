@@ -12,12 +12,12 @@ maintenance notes in `docs/platforms/codex.md`.
 
 ## Source Snapshot
 
-Reviewed on 2026-06-08:
+Reviewed on 2026-07-12:
 
 - OpenAI latest model guide:
   `https://developers.openai.com/api/docs/guides/latest-model`
-- GPT-5.5 model page:
-  `https://developers.openai.com/api/docs/models/gpt-5.5/`
+- Codex runtime custom-agent selector observed in the current host: the 5.6
+  family exposes Sol, Terra, and Luna variants with per-agent reasoning effort.
 - OpenAI Codex prompting guide:
   `https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide`
 - Codex subagent concepts:
@@ -45,10 +45,13 @@ Reviewed on 2026-06-08:
   Oh No Harness uses a quiet user-scope SessionStart ensure by default for
   named `agent_type` dispatch readiness, and Ralph repeats that ensure only as
   fallback. Generated files record the plugin version so updates can refresh
-  stale agent definitions. The generated templates pin `gpt-5.5` with `xhigh`
-  reasoning to avoid relying on user-specific model inheritance, and the
-  generated `oh-no-explore` template sets `sandbox_mode = "read-only"`. Claude
-  Code YAML frontmatter is not Codex prompt content.
+  stale agent definitions. The generated templates pin role-specific models
+  from the current 5.6 family and explicit reasoning effort to avoid relying on
+  user-specific model inheritance: explore uses Terra at `medium`, analyst and
+  executor use Sol at `high`, and the remaining Codex custom agents use Sol at
+  `xhigh`. The generated `oh-no-explore` template also sets
+  `sandbox_mode = "read-only"`. Claude Code YAML frontmatter is not Codex prompt
+  content.
 - Prefer compact final responses. Use longer output only for plan approval,
   review findings, verification evidence, or user-requested detail.
 

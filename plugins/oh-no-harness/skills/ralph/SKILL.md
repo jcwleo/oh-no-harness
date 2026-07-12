@@ -834,9 +834,11 @@ Codex SessionStart is the primary custom-agent preparation path. It runs
 generated `oh-no-*` agents install and stale ones refresh quietly; the Codex
 Ralph adapter repeats the same best-effort user-scope ensure as a fallback.
 Installed files carry the plugin version marker (so they refresh after a plugin
-update without the user re-requesting installation) and pin `gpt-5.5` plus a
-per-agent `model_reasoning_effort` so they do not depend on a user-specific
-model config. If ensure fails, named custom-agent dispatch stays the default
+update without the user re-requesting installation) and pin the role-specific
+5.6 model plus `model_reasoning_effort` so they do not depend on a user-specific
+model config. Explore uses Terra at `medium`; analyst and executor use Sol at
+`high`; the remaining Codex custom agents use Sol at `xhigh`. If ensure fails,
+named custom-agent dispatch stays the default
 whenever the host still recognizes `agent_type = "oh-no-<role>"`; record the
 ensure failure and use the generic prompt-embedded fallback only after confirmed
 custom-agent unavailability.

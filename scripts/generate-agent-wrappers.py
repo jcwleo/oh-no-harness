@@ -12,7 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "plugins" / "oh-no-harness"
 
-CODEX_MODEL = "gpt-5.5"
+DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,7 @@ class AgentMetadata:
     claude_model: str
     claude_color: str
     codex_description: str
+    codex_model: str = DEFAULT_CODEX_MODEL
     codex_sandbox_mode: str | None = None
     codex_reasoning_effort: str = "xhigh"
     claude_only: bool = False
@@ -42,6 +43,7 @@ AGENTS = [
             "Oh No Harness explore role: perform read-only repository exploration, "
             "symbol discovery, dependency tracing, and factual implementation research."
         ),
+        codex_model="gpt-5.6-terra",
         codex_sandbox_mode="read-only",
         codex_reasoning_effort="medium",
     ),
@@ -58,6 +60,7 @@ AGENTS = [
             "Oh No Harness analyst role: analyze requirements, hidden constraints, "
             "risk, and product implications before planning."
         ),
+        codex_reasoning_effort="high",
     ),
     AgentMetadata(
         role="planner",
@@ -100,6 +103,7 @@ AGENTS = [
             "Oh No Harness executor role: implement scoped tasks with clear ownership, "
             "acceptance criteria, and verification responsibility."
         ),
+        codex_reasoning_effort="high",
     ),
     AgentMetadata(
         role="executor-codex",
@@ -297,7 +301,7 @@ def render_codex_agent(plugin_root: Path, meta: AgentMetadata) -> str:
         "\n"
         f'name = "oh-no-{meta.role}"\n'
         f'description = "{meta.codex_description}"\n'
-        f'model = "{CODEX_MODEL}"\n'
+        f'model = "{meta.codex_model}"\n'
         f'model_reasoning_effort = "{meta.codex_reasoning_effort}"\n'
         f"{sandbox_mode}"
         'developer_instructions = """\n'

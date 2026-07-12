@@ -5,8 +5,8 @@
 
 name = "oh-no-executor"
 description = "Oh No Harness executor role: implement scoped tasks with clear ownership, acceptance criteria, and verification responsibility."
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
 developer_instructions = """
 Agent prompt source: docs/agent-core/executor.md
 Agent prompt content:

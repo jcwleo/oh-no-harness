@@ -785,6 +785,17 @@ READ_ONLY_CODEX_AGENT_ROLES = {
     "explore",
     "fusion-rescue-analyst",
 }
+CODEX_AGENT_MODEL_CONFIG = {
+    "explore": ("gpt-5.6-terra", "medium"),
+    "analyst": ("gpt-5.6-sol", "high"),
+    "planner": ("gpt-5.6-sol", "xhigh"),
+    "plan-reviewer": ("gpt-5.6-sol", "xhigh"),
+    "executor": ("gpt-5.6-sol", "high"),
+    "debugger": ("gpt-5.6-sol", "xhigh"),
+    "verifier": ("gpt-5.6-sol", "xhigh"),
+    "code-reviewer": ("gpt-5.6-sol", "xhigh"),
+    "fusion-rescue-analyst": ("gpt-5.6-sol", "xhigh"),
+}
 # Claude-Code-only delegation roles: Claude delegates write work TO Codex, so on
 # the Codex host there is nothing to delegate and no Codex custom-agent wrapper is
 # generated. These agents ship a Claude wrapper (agents/<role>.md) only and MUST NOT
@@ -2218,6 +2229,12 @@ def assert_codex_custom_agent_count(root: Path) -> None:
             f"(AGENTS minus CLAUDE_ONLY_AGENT_ROLES), found {len(non_claude)}: "
             f"{non_claude}"
         )
+    if set(non_claude) != set(CODEX_AGENT_MODEL_CONFIG):
+        die(
+            "Codex custom-agent model config must cover exactly the generated "
+            f"roles: expected {sorted(non_claude)}, found "
+            f"{sorted(CODEX_AGENT_MODEL_CONFIG)}"
+        )
 
 
 def parse_codex_agent_template(path: Path, text: str) -> dict[str, str]:
@@ -2283,9 +2300,9 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
     for forbidden in ("Use proactively", "approval gate", "handoff gate"):
         if forbidden in data["description"]:
             die(f"{path} description contains non-role metadata: {forbidden!r}")
-    if data["model"] != "gpt-5.5":
-        die(f"{path} model={data['model']!r}, expected 'gpt-5.5'")
-    expected_reasoning_effort = "medium" if agent == "explore" else "xhigh"
+    expected_model, expected_reasoning_effort = CODEX_AGENT_MODEL_CONFIG[agent]
+    if data["model"] != expected_model:
+        die(f"{path} model={data['model']!r}, expected {expected_model!r}")
     if data["model_reasoning_effort"] != expected_reasoning_effort:
         die(
             f"{path} model_reasoning_effort={data['model_reasoning_effort']!r}, "
@@ -2312,7 +2329,7 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
         "oh-no-harness-generated-codex-agent",
         f'name = "oh-no-{agent}"',
         'description = "Oh No Harness',
-        'model = "gpt-5.5"',
+        f'model = "{expected_model}"',
         f'model_reasoning_effort = "{expected_reasoning_effort}"',
         'developer_instructions = """',
         "Generated from docs/agent-core; do not edit by hand.",

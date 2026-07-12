@@ -5,7 +5,7 @@
 
 name = "oh-no-plan-reviewer"
 description = "Oh No Harness plan-reviewer role: review plans, technical direction, and completion evidence with ordered architecture and quality-gate passes."
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 Agent prompt source: docs/agent-core/plan-reviewer.md

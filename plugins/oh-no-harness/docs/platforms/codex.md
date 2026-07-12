@@ -213,9 +213,11 @@ read-only exploration role does not rely on prompt text alone for write
 isolation when it is dispatched by an active workflow, an explicit subagent
 request, or the no-skill read-only lookup lane.
 
-The generated templates pin `gpt-5.5` and a per-agent
-`model_reasoning_effort` so custom-agent role files do not depend on
-inheriting a user-specific model layer.
+The generated templates pin the current 5.6 family and a per-agent
+`model_reasoning_effort` so custom-agent role files do not depend on inheriting
+a user-specific model layer. `oh-no-explore` uses `gpt-5.6-terra` at `medium`;
+`oh-no-analyst` and `oh-no-executor` use `gpt-5.6-sol` at `high`; the remaining
+Codex custom agents use `gpt-5.6-sol` at `xhigh`.
 
 When the active Codex host recognizes a registered custom agent, `agent_type =
 "oh-no-<role>"` is the required path for Oh No Harness role dispatch. If the
