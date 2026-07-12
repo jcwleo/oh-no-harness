@@ -230,6 +230,44 @@ full-history forking disabled. If a role truly needs the entire parent history,
 keep that role inline or use a host-supported non-custom fork path and record the
 fallback reason. Do not send both message and items in one spawn request.
 
+## Custom-Agent Spawn Troubleshooting
+
+Load this section only after an actual Codex subagent spawn or wait failure.
+Classify the failure before declaring custom agents unavailable or selecting a
+fallback. Do not edit the user's Codex config automatically, and do not recommend
+the selector workaround for every subagent failure.
+
+| Failure evidence | Meaning and response |
+|---|---|
+| The model-visible tool has a hidden or unavailable `agent_type` selector | Explain that Multi-Agent v2 routing metadata is hidden. Recommend the selector recovery below, then require a Codex restart and a new task. |
+| A reserved `collaboration.spawn_agent` schema mismatch rejects routing fields | Recommend the selector recovery below. The non-reserved `agents` namespace allows the expanded routing schema. |
+| The host reports an unknown agent type such as `unknown agent_type 'oh-no-explore'` | This is an agent registration or installation failure, not a selector failure. Run `scripts/install-codex-agents --scope user --ensure`, then retry in a fresh task. |
+| The host reports `Provide either message or items, but not both` | Retry with one spawn payload shape only. Do not change the user's Codex config. |
+| A custom agent conflicts with a full-history fork | Omit `fork_context` and use `fork_turns = "none"`; put required scope and evidence in the spawn message. |
+| A wait times out, returns empty, or reports no completed agents | The child is not proven complete. Keep waiting or continue only non-overlapping work; never close a running or pending child merely because it is slow. |
+| The host reports a thread or concurrency limit | Wait for an in-scope child to finish and capture its result before starting more work, or reduce the next eligible batch. Do not apply the selector workaround. |
+
+For the hidden-selector and reserved-schema cases only, tell the user to add
+this table to `$CODEX_HOME/config.toml`, or to `~/.codex/config.toml` when
+`CODEX_HOME` is unset:
+
+```toml
+[features.multi_agent_v2]
+hide_spawn_agent_metadata = false
+tool_namespace = "agents"
+```
+
+Do not add a separate `multi_agent_v2 = true` feature flag or use
+`--enable multi_agent_v2` solely for this recovery. After saving the options,
+restart Codex and open a new task because an existing task keeps the tool schema
+created for that session.
+
+After retrying, prove typed custom-agent selection from runtime evidence rather
+than a task label. The child rollout should record the expected `agent_role`,
+and its developer messages should contain the registered role's
+`developer_instructions`. A matching task name alone is not role-ownership
+proof.
+
 ## Role Prompt Embedding
 
 When using generic Codex agent types, read the matching

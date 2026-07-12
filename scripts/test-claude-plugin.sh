@@ -876,7 +876,12 @@ if missing:
 for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
     if forbidden in text:
         raise SystemExit(f"base bootstrap embedded full using-oh-no-harness core content: {forbidden}")
-for forbidden in ("CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION", "explicit user request for eligible Oh No Harness workflow"):
+for forbidden in (
+    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
+    "explicit user request for eligible Oh No Harness workflow",
+    "Custom-Agent Spawn Troubleshooting",
+    "before fallback",
+):
     if forbidden in text:
         raise SystemExit(f"Claude SessionStart leaked Codex subagent policy: {forbidden}")
 for forbidden in (

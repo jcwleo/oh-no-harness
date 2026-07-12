@@ -243,9 +243,11 @@ validate_codex_hooks() {
 
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     >"$temp_data/session-start.json"
-  "$PYTHON_BIN" - "$temp_data/session-start.json" <<'PY'
+  "$PYTHON_BIN" - "$temp_data/session-start.json" "$PLUGIN_ROOT" <<'PY'
 import json
+import re
 import sys
+from pathlib import Path
 
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     data = json.load(fh)
@@ -270,10 +272,22 @@ required = [
     "This lane is not for planning, debugging",
     "redact credential values",
     "first select the relevant Oh No Harness skill",
+    "Custom-Agent Spawn Troubleshooting",
+    "before fallback",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
     raise SystemExit(f"Codex SessionStart missing Ralph/TDD routing markers: {missing}")
+match = re.search(r"read `([^`]+/docs/platforms/codex[.]md)` section", text)
+if match is None:
+    raise SystemExit("Codex SessionStart is missing the absolute troubleshooting-doc pointer")
+actual_doc = Path(match.group(1)).resolve()
+expected_doc = (Path(sys.argv[2]) / "docs/platforms/codex.md").resolve()
+if actual_doc != expected_doc or not actual_doc.is_file():
+    raise SystemExit(
+        f"Codex SessionStart troubleshooting pointer does not resolve to the installed doc: "
+        f"actual={actual_doc}, expected={expected_doc}"
+    )
 for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
     if forbidden in text:
         raise SystemExit(f"Codex SessionStart embedded full using-oh-no-harness core content: {forbidden}")
