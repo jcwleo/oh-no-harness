@@ -60,8 +60,9 @@ STANDARD when the change is otherwise localized and bounded; the word
 
 Routine regeneration of already-validated generated wrappers is likewise not a
 THOROUGH signal by itself. Generated artifacts force THOROUGH only when the
-generated surface is itself the product change or when handwritten source and
-generated outputs disagree.
+change originates in the generated output itself rather than in mechanical
+regeneration of source edits, or when handwritten source and generated outputs
+disagree.
 
 ## Process Budgets And Gate Governance
 

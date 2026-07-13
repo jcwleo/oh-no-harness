@@ -418,7 +418,8 @@ identify:
 
 - the likely Ralph mode: `LIGHT`, `STANDARD`, `THOROUGH`, or `UNKNOWN`
 - whether direct `ralph` execution is credible without a plan
-- whether `ralplan` is required before execution
+- whether `ralplan` is required before execution — the canonical
+  `Planning required` value
 - risk signals that would force escalation during planning or execution
 
 Prefer `UNKNOWN` over a false confident mode when repository facts or user
