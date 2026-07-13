@@ -36,15 +36,12 @@ Use it before software work starts to decide whether the request needs `intervie
 
 ## Core Rule
 
-Before any response or action, including clarification questions, check whether a local Oh No Harness skill could apply.
-
-If there is even a small chance that a local skill applies, read that skill before responding and follow it directly. If the selected skill turns out not to apply, say so briefly and continue with the next best path.
-
-Needing more context is not a reason to skip skill selection. It is often the signal that `interview`, `ralplan`, `systematic-debugging`, or another local skill should be read first.
-
-Route from the user's intended outcome and approved Direction Contract before
-routing from workflow mechanics. Tests, review, cleanup, prompt loading, and
-agent topology are supporting process; they must not become the goal.
+Before any response or action, route from the requested deliverable and read an
+applicable local skill. Supporting process must not become the goal.
+A workflow name used only as the subject of analysis, explanation, comparison,
+or critique is not an invocation trigger. Route from the requested deliverable:
+an analysis report versus a plan or execution artifact. Explicit requests to
+create a plan, implement, execute, or invoke a workflow still route normally.
 
 The available public skills are:
 

@@ -36,7 +36,7 @@ auto_routing_policy=""
 if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
   auto_routing_policy='
 <OH_NO_FORCED_ROUTING>
-Forced routing is enabled for Oh No Harness. If there is even a 1% chance that a local Oh No Harness skill applies, invoke that skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion.
+Forced routing is enabled for Oh No Harness. Route from the requested deliverable and invoke an applicable local skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion. A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger. Route from the requested deliverable: an analysis report versus a plan or execution artifact. Explicit planning, implementation, execution, or workflow-invocation requests still route normally.
 
 Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
 
