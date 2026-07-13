@@ -70,6 +70,11 @@ Every STANDARD or THOROUGH plan records expected changed-file groups, an
 approximate handwritten diff size, focused verification, and the named triggers
 for review, cleanup, broad suites, and optional shared-contract reads.
 
+All Ralph modes always evaluate the final Diff-Budget Gate exactly once after
+all stories and before the Review Gate. Thresholds decide whether that one
+evaluation expands into the detailed diff-budget scope review; they do not
+decide whether the gate runs.
+
 Default budgets:
 
 - STANDARD uses one reviewer instance per required role. Paired cross-host or
@@ -226,8 +231,10 @@ Ralph behavior:
 - apply the verification budget policy: focused semantic evidence first, broad
   suites once after behavior stabilizes unless a patch-related failure requires
   rerun
-- run the diff-budget gate when changed files, insertions, generated artifacts,
-  public API surface, or package count exceeds the Ralph thresholds
+- always evaluate the final Diff-Budget Gate exactly once after all stories and
+  before the Review Gate; run the detailed scope review only when changed files,
+  insertions, generated artifacts, public API surface, or package count crosses
+  a Ralph threshold
 - record the `Worktree decision` before editing when the task is write-capable
 - after the behavior lock exists and required review is satisfied, run a quick
   diff scan for reuse, simplification, efficiency, or altitude candidates;
@@ -320,14 +327,16 @@ Ralph behavior:
   integrating, per `docs/shared/ralph-subagent-policy.md`
 - run reviewer roles for correctness and maintainability; paired review is
   reserved for a named security, data, destructive, public-contract,
-  release-critical, new-concurrency, or broad multi-system risk; add plan-reviewer
-  review, the code-reviewer security lens, or the verifier scenario lens when
-  the risk signal matches
+  release-critical, new-concurrency, or broad multi-system risk; add the
+  code-reviewer security lens or the verifier scenario lens when the risk signal
+  matches. A plan-direction problem routes back through `ralplan`, whose own
+  planning phase may dispatch `plan-reviewer`
 - apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
-- require acceptance-to-evidence mapping, risk checks before completion,
-  verification budget decisions, and diff-budget scope review in the final
-  evidence
+- require acceptance-to-evidence mapping, risk checks before completion, and
+  verification budget decisions; always evaluate the final Diff-Budget Gate
+  exactly once after all stories and before the Review Gate, and include its
+  detailed scope review in final evidence only when a threshold is crossed
 - record the `Worktree decision` before editing when the task is write-capable
 - run `simplify` after required review is satisfied. Use four independent
   viewpoints only when the THOROUGH risk or broad diff justifies them; otherwise

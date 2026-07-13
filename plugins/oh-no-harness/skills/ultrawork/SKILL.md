@@ -166,8 +166,8 @@ Escalation rules:
 - Ambiguous requirements -> user or `interview`.
 - Direction or scope conflict -> user or `ralplan`.
 - Failing checks or unknown root cause -> `systematic-debugging`.
-- Public contract, security, or packaging risk -> `plan-reviewer`,
-  `code-reviewer`, or `verifier`.
+- Public contract, security, or packaging execution risk -> `code-reviewer` or
+  `verifier`; a plan-direction conflict routes back through `ralplan`.
 - Missing worktree or verification evidence -> `blocked` until resolved.
 
 Terminal states:
@@ -218,7 +218,7 @@ cannot dispatch).
 | Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` and the risk-gated Plan-Reviewer stage in order. STANDARD uses one reviewer; a pair requires a named THOROUGH risk. |
 | Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
 | QA Loop | Follow `systematic-debugging` for failure investigation; it owns `debugger` dispatch per its own contract. Dispatch `verifier` (scenario lens for user-facing flows). |
-| Final Validation | Add one targeted `plan-reviewer` or `code-reviewer` only for additional orchestration risk not already covered by Ralph. Paired review requires a named THOROUGH trigger. Dispatch one independent `verifier` when the maker-verifier carve-out applies. |
+| Final Validation | Add one targeted `code-reviewer` only for additional orchestration risk not already covered by Ralph. Paired review requires a named THOROUGH trigger. Dispatch one independent `verifier` when the maker-verifier carve-out applies. |
 
 When independent delegated phase work can run in parallel, or when inline
 fallback role blocks need the same isolation plan, read
@@ -342,8 +342,8 @@ proving tests or the implementation/tests were authored or accepted by the same
 agent, regardless of extra orchestration risk (record the fallback reason if the
 host cannot dispatch):
 
-- `plan-reviewer` for architecture-sensitive changes
-- `code-reviewer` for correctness and maintainability, with its security lens
+- `code-reviewer` for execution correctness, maintainability, regression risk,
+  and architecture-sensitive implementation concerns, with its security lens
   for security-sensitive behavior
 - `verifier`: required as an independent pass (acceptance-to-evidence mapping +
   adversarial test-genuineness audit) under the carve-out in

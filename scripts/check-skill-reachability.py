@@ -102,6 +102,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Cross-Host Consult Channel", BOTH),
         ("trigger-loaded", BOTH),
         ("Re-reviews run only when the previous", BOTH),
+        ("APPROVE freezes the exact reviewed Planner draft", BOTH),
+        ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),
+        ("Non-blocking findings remain optional follow-ups", BOTH),
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
@@ -124,6 +127,12 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("The run is invalid if the session does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
+        ("After all stories, run the `##\n   Diff-Budget Gate` exactly once", BOTH),
+        ("cumulative per-story mid-run early-stop check", BOTH),
+        ("final gate exactly once after all stories and before `##\nReview Gate`", BOTH),
+        ("All Ralph modes always evaluate the final Diff-Budget Gate exactly once after", BOTH),
+        ("all stories and before the Review Gate. Thresholds decide whether that one", BOTH),
+        ("evaluation expands into the detailed diff-budget scope review", BOTH),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -149,6 +158,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
+        ("Add one targeted `code-reviewer` only for additional orchestration risk", BOTH),
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -177,6 +187,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
+        ("do not directly dispatch\n`plan-reviewer`", BOTH),
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)

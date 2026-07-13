@@ -4,8 +4,8 @@ Cross-host review is the paired-review implementation used only after a calling
 skill records a named THOROUGH risk. It lets two instances of the SAME assigned
 role run on the current host and the opposite host in parallel, then has the
 current-host main agent synthesize the two analyses into one result. It does not
-make dependent DIFFERENT roles eligible for the same batch. When a named pair
-runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
+make dependent DIFFERENT roles eligible for the same batch. When a named
+code-reviewer pair runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
 `verifier` starts only after that pair is synthesized and blocking findings are
 resolved or recorded. When the opposite host is unavailable after the pair
 trigger fires, the Same-Host Parallel Fallback supplies two same-host instances.
@@ -28,9 +28,9 @@ records a named THOROUGH paired-review trigger for `plan-reviewer`,
 or release-critical contract, new concurrency semantics, broad migration, or
 multi-system uncertainty:
 
-- `plan-reviewer`: `ralplan` (consensus plan review), `ralph` (completion-
-  evidence review), `ultrawork` (final validation), `systematic-debugging`
-  (direction escalation).
+- `plan-reviewer`: `ralplan` consensus plan review only. Other workflows may
+  reach this pair only by invoking or using Ralplan's planning phase; they must
+  not dispatch it for their own completion, final, post-fix, or debugging review.
 - `code-reviewer`: `ralph` (review gate), `systematic-debugging` (post-fix),
   `verification-before-completion` (risk-gated), `ultrawork` (final validation).
 - `debugger`: `systematic-debugging` only when a named THOROUGH uncertainty or
@@ -113,8 +113,8 @@ receiver cannot be dispatched, default mode treats that side as unavailable and
 uses the Same-Host Parallel Fallback; require-cross-host mode blocks.
 
 Fusion Rescue panel slots keep their own panel contract. This ownership rule is
-only for shared cross-host review of `plan-reviewer`, `code-reviewer`,
-and `debugger`.
+only for shared cross-host review of Ralplan's `plan-reviewer`, plus
+`code-reviewer` and `debugger` in their documented workflow contexts.
 
 ## Same-Host Parallel Fallback
 
@@ -155,7 +155,9 @@ review does not add a new verdict type:
   host provenance recorded on each finding.
 - `plan-reviewer`: APPROVE iff zero blocking findings across the merged set;
   ITERATE iff at least one blocking finding on a salvageable draft; REJECT only
-  for direction-level or unsalvageable failure.
+  for direction-level or unsalvageable failure. Every merged blocking finding
+  retains its reviewer-owned severity and `Blocking basis: <AC ID | safety
+  invariant | Direction Contract field | applicable mandatory gate>`.
 - `code-reviewer`: return the merged, provenance-tagged findings to the caller.
 - `debugger`: the judge synthesizes a single root-cause direction — competing
   hypotheses, the evidence that decides between them, and the smallest next

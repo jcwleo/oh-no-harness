@@ -247,7 +247,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "whole eligible batch",
         "active adapter invocation syntax",
         "Lifecycle: caller captures",
-        "Role: {explore|executor|plan-reviewer|verifier|code-reviewer}",
+        "Role: {explore|executor|verifier|code-reviewer}",
         "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
         "MUST NOT be used to close a running or pending subagent",
@@ -648,7 +648,7 @@ EXECUTION_MODE_SHARED_MARKERS = (
     "Does the change alter agent behavior",
     "Can a lighter mode produce credible evidence",
     "verification budget policy",
-    "diff-budget gate",
+    "Diff-Budget Gate",
     "What would force escalation while working",
     "Worktree policy",
     "Worktree location",
@@ -745,7 +745,6 @@ SKILL_REQUIRED_AGENT_ROLES = {
     "ralph": (
         "explore",
         "executor",
-        "plan-reviewer",
         "verifier",
         "code-reviewer",
     ),
@@ -753,7 +752,6 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "explore",
         "analyst",
         "planner",
-        "plan-reviewer",
         "executor",
         "debugger",
         "verifier",
@@ -764,7 +762,6 @@ SKILL_REQUIRED_AGENT_ROLES = {
         "explore",
         "executor",
         "verifier",
-        "plan-reviewer",
         "code-reviewer",
     ),
     "verification-before-completion": (
@@ -1120,8 +1117,8 @@ RALPLAN_CONSENSUS_MARKERS = (
     "STANDARD runs one Plan-Reviewer instance",
     "Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD)",
     "if a required Plan-Reviewer is skipped",
-    "accepted feedback is logged but not reflected in the final plan body",
-    "lacks a plan-section pointer",
+    "blocking feedback is logged but not\nreflected in the final plan body",
+    "accepted blocking finding lacks a plan-section pointer",
     "planning-role log showing Analyst -> Planner",
     "requested direction change",
     "do not incorporate the new direction into the plan unless the user explicitly",
@@ -1226,8 +1223,8 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
         "Planner Draft Contract",
         "Planner Revision Contract",
-        "Feedback disposition for every Plan-Reviewer finding",
-        "Accepted feedback must be reflected in the plan body",
+        "feedback disposition for every Plan-Reviewer finding",
+        "Accepted blocking feedback must be reflected in the plan body",
         "smallest meaningful test set",
         "must-fail before implementation",
         "acceptance criteria alignment",
@@ -1237,7 +1234,7 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "Reviewed draft:",
         "must not produce a replacement plan",
         "APPROVE | ITERATE | REJECT",
-        "reject when accepted feedback is only logged",
+        "reject when blocking feedback is only logged",
         "AI-slop",
         "would pass against the old broken behavior",
         "Architecture findings",
@@ -2762,7 +2759,7 @@ def assert_cross_host_review_contract(root: Path) -> None:
     for marker in (
         "Cross-host review is a role-dispatch contract",
         "Parent inline opposite-host consult is not a valid cross-host\nreview response",
-        "only for shared cross-host review of `plan-reviewer`, `code-reviewer`,\nand `debugger`",
+        "only for shared cross-host review of Ralplan's `plan-reviewer`, plus\n`code-reviewer` and `debugger`",
     ):
         if not has_required_marker(role_owned, marker):
             die(f"{path} '## Role-Owned Review Instances' is missing marker: {marker!r}")
@@ -3490,6 +3487,26 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
         )
         die(f"test harness lane contract failed:\n{details}")
 
+    for name in ("test-codex-plugin.sh", "test-claude-plugin.sh"):
+        test_path = marketplace_root / "scripts" / name
+        test_body = read_text(test_path)
+        for marker in (
+            "only the Ralplan planning phase owns that role",
+            "APPROVE freezes the exact reviewed Planner draft",
+            "Optional follow-up: NB1",
+            "Planner revision: not run",
+        ):
+            if not has_required_marker(test_body, marker):
+                die(f"{test_path} is missing plan-review boundary expectation: {marker!r}")
+    codex_test = read_text(marketplace_root / "scripts" / "test-codex-plugin.sh")
+    claude_test = read_text(marketplace_root / "scripts" / "test-claude-plugin.sh")
+    for body, label, forbidden in (
+        (codex_test, "Codex", "Wave 2: plan-reviewer, executor, debugger"),
+        (claude_test, "Claude", "Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger"),
+    ):
+        if forbidden in body:
+            die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
+
 
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
@@ -3810,6 +3827,142 @@ def assert_proportional_workflow_contract(root: Path) -> None:
         die("Mandatory gate proposal schema must have one canonical owner: execution-modes.md")
 
 
+def assert_ralplan_review_boundary_contract(root: Path) -> None:
+    """Pin plan-reviewer ownership and the Ralplan/Ralph timing boundaries."""
+    skill_core = root / "docs" / "skill-core"
+    agent_core = root / "docs" / "agent-core"
+
+    ralplan = read_text(skill_core / "ralplan.md")
+    for heading, markers in {
+        "## Plan Review Contract": (
+            "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
+            "APPROVE freezes the exact reviewed Planner draft",
+            "Non-blocking findings are optional follow-ups",
+            "Any plan-body change that must be incorporated before approval is blocking",
+        ),
+        "## Findings Ledger Gate": (
+            "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
+        ),
+    }.items():
+        section = markdown_section(ralplan, heading)
+        if not section:
+            die(f"ralplan.md is missing required section: {heading!r}")
+        for marker in markers:
+            if not has_required_marker(section, marker):
+                die(f"ralplan.md {heading} is missing review-boundary marker: {marker!r}")
+    plan_review = markdown_section(ralplan, "## Plan Review Contract")
+    revision = markdown_section(ralplan, "## Planner Revision Contract")
+    forbidden_approval_mutations = (
+        r"after\s+APPROVE[^\n]{0,120}\b(?:revise|mutate|change|incorporate|apply)\b",
+        r"\b(?:incorporate|apply)\b[^\n]{0,80}\bnon-blocking\b[^\n]{0,80}\b(?:Planner draft|plan body)\b",
+        r"\bnon-blocking\b[^\n]{0,80}\b(?:must|required)\b[^\n]{0,40}\b(?:incorporat|apply|mutat|revis)",
+    )
+    for pattern in forbidden_approval_mutations:
+        if re.search(pattern, f"{plan_review}\n{revision}", flags=re.IGNORECASE):
+            die(f"ralplan.md contradicts APPROVE/non-blocking draft freeze: {pattern!r}")
+
+    reviewer = read_text(agent_core / "plan-reviewer.md")
+    for marker in (
+        "Ralplan planning-review role only",
+        "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
+        "APPROVE freezes the exact reviewed Planner draft",
+    ):
+        if not has_required_marker(reviewer, marker):
+            die(f"plan-reviewer.md is missing Ralplan-only marker: {marker!r}")
+
+    reviewer_transport = read_text(agent_core / "plan-reviewer-codex.md")
+    if not has_required_marker(reviewer_transport, "Only Ralplan may call you"):
+        die("plan-reviewer-codex.md must restrict the transport to Ralplan")
+
+    cross_host = read_text(root / "docs" / "shared" / "cross-host-review.md")
+    when_applies = markdown_section(cross_host, "## When It Applies")
+    for marker in (
+        "`plan-reviewer`: `ralplan` consensus plan review only",
+        "must not dispatch it for their own completion, final, post-fix, or debugging review",
+    ):
+        if not has_required_marker(when_applies, marker):
+            die(f"cross-host-review.md must keep plan-reviewer Ralplan-only: {marker!r}")
+    synthesis = markdown_section(cross_host, "## Parallel Execution And Synthesis")
+    if not has_required_marker(
+        synthesis,
+        "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
+    ):
+        die("cross-host-review.md must preserve each merged blocking finding's basis")
+
+    direct_dispatch = re.compile(
+        r"^(?![^\n]*\b(?:do not|must not|never)\b)[^\n]*"
+        r"\b(?:dispatch|invoke|run|use|add)\b[^\n]{0,100}\bplan-reviewer\b",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+    for skill in ("ralph", "systematic-debugging", "simplify", "verification-before-completion"):
+        body = read_text(skill_core / f"{skill}.md")
+        roles = markdown_section(body, "## Agent Roles")
+        if re.search(r"^\|\s*`plan-reviewer`\s*\|", roles, flags=re.MULTILINE):
+            die(f"{skill}.md Agent Roles must not directly dispatch plan-reviewer")
+        if direct_dispatch.search(body):
+            die(f"{skill}.md must not directly dispatch plan-reviewer outside Ralplan")
+
+    ultrawork = read_text(skill_core / "ultrawork.md")
+    final_validation = markdown_section(ultrawork, "### Phase 4: Final Validation")
+    if has_token(final_validation, "plan-reviewer"):
+        die("ultrawork.md Final Validation must not directly dispatch plan-reviewer")
+    if direct_dispatch.search(final_validation):
+        die("ultrawork.md Final Validation must not directly dispatch plan-reviewer")
+
+    ralph = read_text(skill_core / "ralph.md")
+    execution_loop = markdown_section(ralph, "## Execution Loop")
+    for marker in (
+        "Scope Trace Gate",
+        "cumulative Process Budget Gate",
+        "After each story",
+        "After all stories",
+        "run the `## Diff-Budget Gate` exactly once",
+        "before `## Review Gate`",
+    ):
+        if not has_required_marker(execution_loop, marker):
+            die(f"ralph.md Execution Loop is missing budget-timing marker: {marker!r}")
+    if len(re.findall(r"Diff-Budget Gate", execution_loop, flags=re.IGNORECASE)) != 1:
+        die("ralph.md Execution Loop must schedule Diff-Budget Gate exactly once")
+    process_budget = markdown_section(ralph, "## Process Budget Gate")
+    for marker in ("cumulative", "per-story"):
+        if not has_required_marker(process_budget, marker):
+            die(f"ralph.md Process Budget Gate is missing timing marker: {marker!r}")
+    diff_budget = markdown_section(ralph, "## Diff-Budget Gate")
+    for marker in ("final", "exactly once", "before `## Review Gate`"):
+        if not has_required_marker(diff_budget, marker):
+            die(f"ralph.md Diff-Budget Gate is missing timing marker: {marker!r}")
+
+    modes = read_text(root / "docs" / "shared" / "execution-modes.md")
+    governance = markdown_section(modes, "## Process Budgets And Gate Governance")
+    for marker in (
+        "All Ralph modes always evaluate the final Diff-Budget Gate exactly once after all stories and before the Review Gate",
+        "Thresholds decide whether that one evaluation expands into the detailed diff-budget scope review",
+    ):
+        if not has_required_marker(governance, marker):
+            die(f"execution-modes.md is missing canonical Diff-Budget timing: {marker!r}")
+    for pattern in (
+        r"run\s+the\s+diff-budget\s+gate\s+when",
+        r"Diff-Budget Gate[^\n]{0,80}\bonly\s+if\b",
+        r"Diff-Budget Gate[^\n]{0,80}\bper[- ]story\b",
+    ):
+        if re.search(pattern, modes, flags=re.IGNORECASE):
+            die(f"execution-modes.md makes final Diff-Budget execution conditional or repeated: {pattern!r}")
+
+
+def assert_review_boundary_mutation_tests(marketplace_root: Path, root: Path) -> None:
+    script = marketplace_root / "scripts" / "test-review-boundary-contract.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--plugin-root", str(root)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout.strip(), result.stderr.strip()) if part
+        )
+        die(f"review-boundary mutation tests failed:\n{details}")
+
+
 def find_marketplace_root(start: Path) -> Path:
     start = start.resolve()
     for candidate in (start, *start.parents):
@@ -3860,6 +4013,8 @@ def main() -> None:
     assert_independence_mode_gates(root)
     assert_parallel_executor_contract(root)
     assert_proportional_workflow_contract(root)
+    assert_ralplan_review_boundary_contract(root)
+    assert_review_boundary_mutation_tests(marketplace_root, root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

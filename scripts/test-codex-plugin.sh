@@ -1223,10 +1223,10 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not edit files. Return the Direction Contract fields and canonical plan schema owner, loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not edit files. Return the Direction Contract fields and canonical plan schema owner, loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     ultrawork)
       printf 'Use the oh-no-harness:ultrawork skill. Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK ultrawork.'
@@ -1403,6 +1403,26 @@ if skill == "ralplan" and not (
     "process budget" in text_lower and "named thorough" in text_lower
 ):
     raise SystemExit(f"{skill} deep smoke missing proportional process-budget marker; got {text!r}")
+
+if skill == "ralplan" and not (
+    "blocking basis" in text_lower
+    and "non-blocking" in text_lower
+    and "optional" in text_lower
+    and "approve" in text_lower
+    and ("exact reviewed" in text_lower or "exact draft" in text_lower)
+):
+    raise SystemExit(f"{skill} deep smoke missing exact-draft freeze/blocking-basis marker; got {text!r}")
+
+if skill == "ralph" and not (
+    "process budget" in text_lower
+    and "cumulative" in text_lower
+    and ("per-story" in text_lower or "per story" in text_lower)
+    and "diff-budget" in text_lower
+    and ("exactly once" in text_lower or "one time" in text_lower)
+    and "before" in text_lower
+    and "review" in text_lower
+):
+    raise SystemExit(f"{skill} deep smoke missing process/diff budget timing marker; got {text!r}")
 
 if skill in ("ralplan", "ultrawork") and not (
     "2 loops" in text_plain
@@ -2092,7 +2112,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain and skips the re-review because there are no blocking findings. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Closed planning agents: 2.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run, Closed planning agents: 2.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -2137,7 +2157,7 @@ dependency_prompt_markers = {
 }
 output_markers = {
     "planner": ["Planner draft v1"],
-    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "Quality-gate findings"],
+    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "NB1", "non-blocking", "Quality-gate findings"],
 }
 
 def collect_text(value):
@@ -4219,7 +4239,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all nine subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the nine role checks plus Used custom agent types: 9; Wait results captured: 9; Closed agents: 9.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Ralph-eligible Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave, and do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role, and the separate Ralplan live smoke covers it. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Each custom agent should report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all eight subagents finish and all completed agents are closed, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus Used custom agent types: 8; Wait results captured: 8; Closed agents: 8.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
 
   local cmd=(
@@ -4282,7 +4302,6 @@ expected_roles = [
     "explore",
     "analyst",
     "planner",
-    "plan-reviewer",
     "executor",
     "debugger",
     "verifier",
@@ -4293,7 +4312,6 @@ role_headings = {
     "explore": "# Explore Agent",
     "analyst": "# Analyst Agent",
     "planner": "# Planner Agent",
-    "plan-reviewer": "# Plan Reviewer Agent",
     "executor": "# Executor Agent",
     "debugger": "# Debugger Agent",
     "verifier": "# Verifier Agent",
@@ -4302,7 +4320,7 @@ role_headings = {
 }
 role_waves = [
     ("explore", "analyst", "planner"),
-    ("plan-reviewer", "executor", "debugger"),
+    ("executor", "debugger"),
     ("verifier", "code-reviewer", "fusion-rescue-analyst"),
 ]
 required_prompt_markers = [
@@ -4478,7 +4496,7 @@ PY
   log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralph-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: plan-reviewer, executor, debugger. Wave 3: verifier, code-reviewer. Use registered Codex custom agents with agent_type oh-no-<role> for each Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role. Use registered Codex custom agents with agent_type oh-no-<role> for each requested Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
   assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"

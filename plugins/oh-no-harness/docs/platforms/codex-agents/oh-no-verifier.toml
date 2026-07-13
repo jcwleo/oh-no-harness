@@ -68,7 +68,9 @@ Run the scenario lens when user-facing behavior changed; otherwise record
 - Check whether user-facing risk requires a heavier Ralph execution mode than the current plan selected.
 - Report gaps that automated tests may miss.
 
-Not in scope: line-level defects and security-specific risks in changed code (see `code-reviewer`), plan- or evidence-level adversarial critique (see `plan-reviewer`).
+Not in scope: line-level defects and security-specific risks in changed code
+(see `code-reviewer`) or planning-draft critique (route through Ralplan, whose
+planning phase owns `plan-reviewer`).
 
 ## Single Self-Host Verification
 

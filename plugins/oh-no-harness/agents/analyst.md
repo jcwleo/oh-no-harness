@@ -39,7 +39,7 @@ Return:
 - Acceptance criteria.
 - Ambiguities, open alignment questions, and questions for the user.
 - Risks and constraints.
-- Suggested next role for the caller (agent): `planner` or `plan-reviewer`.
+- Suggested next role for the caller (agent): `planner`.
 - Suggested next skill (when requirements or planning escalation is needed): `interview` or `ralplan`.
 
 A field that is not applicable collapses to a single line

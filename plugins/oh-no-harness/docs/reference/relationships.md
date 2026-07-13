@@ -89,7 +89,7 @@ ralph
   -> test-driven-development before behavior-changing production edits
   -> systematic-debugging for failing checks, regressions, or unexpected behavior
   -> executor
-  -> plan-reviewer for architecture-sensitive completion review and optional adversarial or overcomplication review
+  -> code-reviewer for execution correctness, architecture-sensitive implementation concerns, and optional adversarial or overcomplication review
   -> verifier including its scenario lens when workflow testing is required
   -> code-reviewer including its security lens when risk requires
   -> fusion-rescue when ordinary analysis or debugging stalls after credible evidence exists
@@ -105,7 +105,7 @@ ultrawork
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report
   -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
-  -> explore / analyst / planner / plan-reviewer / executor when phases are handled inline
+  -> explore / analyst / planner / executor when phases are handled inline; Ralplan alone owns its plan-reviewer phase
   -> QA loop via systematic-debugging, which owns debugger dispatch; verifier (scenario lens included), code-reviewer (security lens included)
 
 test-driven-development
@@ -172,17 +172,17 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
-| `explore` | `interview`, `ralplan`, `ralph`, `ultrawork` | `analyst`, `planner`, `plan-reviewer`, `debugger`, `verifier` |
-| `analyst` | `ralplan`, `ultrawork` | `interview`, `ralplan`, `planner`, `plan-reviewer` |
+| `explore` | `interview`, `ralplan`, `ralph`, `ultrawork` | `analyst`, `planner`, `debugger`, `verifier`; Ralplan owns any plan-reviewer dispatch |
+| `analyst` | `ralplan`, `ultrawork` | `interview`, `ralplan`, `planner` |
 | `planner` | `ralplan` | `explore`, `analyst`, `plan-reviewer` |
-| `plan-reviewer` | `ralplan`, `ralph` completion review, `ultrawork` final validation, `systematic-debugging` escalation | `planner` (findings and dispositions), `verifier`, `code-reviewer` |
-| `executor` | `ralph`, implementation phases | `explore`, `plan-reviewer`, `debugger`, `verifier` |
+| `plan-reviewer` | `ralplan` planning review only, including when another workflow invokes or uses Ralplan | `planner` (blocking findings and optional follow-ups) |
+| `executor` | `ralph`, implementation phases | `explore`, `ralplan` when the approved plan is invalid, `debugger`, `verifier` |
 | `executor-codex` | `ralph`, `ultrawork`, `systematic-debugging` executor dispatch when the `codexExecutor` toggle is on (Claude Code only; ships a Claude wrapper `agents/executor-codex.md` and is NOT registered as a Codex custom agent, so on Codex the native `executor` runs directly) | returns raw Codex stdout without wrapper synthesis; the caller derives the task-worktree diff, owns the escape guard, and performs independent verification and review |
-| `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `plan-reviewer`, `executor`, `verifier` |
+| `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `ralplan` when planning must be revisited, `executor`, `verifier` |
 | `verifier` | `ralph`, `ultrawork`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
 | `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, `systematic-debugging` (post-fix), security-sensitive validation | `verifier`, `simplify` recommendation |
 | `fusion-rescue-analyst` | `fusion-rescue` panel analysis | returns one assigned panel lens to the caller for current-host synthesis |
-| `plan-reviewer-codex` | `ralplan`, `ralph`, `ultrawork`, `systematic-debugging` cross-host plan review, opposite-host leg (Claude Code only; ships a Claude wrapper `agents/plan-reviewer-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-plan-reviewer` on Codex | returns the role-owned plan-reviewer result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
+| `plan-reviewer-codex` | `ralplan` cross-host plan review opposite-host leg only (Claude Code only; ships a Claude wrapper `agents/plan-reviewer-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-plan-reviewer` on Codex | returns the role-owned plan-reviewer result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
 | `code-reviewer-codex` | `ralph`, `ultrawork`, `systematic-debugging` cross-host code review, opposite-host leg (Claude Code only; ships a Claude wrapper `agents/code-reviewer-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-code-reviewer` on Codex | returns the role-owned code-reviewer result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
 | `debugger-codex` | `ralph`, `ultrawork`, `systematic-debugging` cross-host debugger review, opposite-host leg (Claude Code only; ships a Claude wrapper `agents/debugger-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-debugger` on Codex | returns the role-owned debugger result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
 | `fusion-codex` | `fusion-rescue` opposite-host panel slot (Claude Code only; ships a Claude wrapper `agents/fusion-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-fusion-rescue-analyst` on Codex for one assigned panel lens | returns the exact panel fields plus role-ownership proof for current-host synthesis, or the caller-mediated degrade |

@@ -108,7 +108,8 @@ Required evidence:
 
 Recommended agents:
 
-- `plan-reviewer` for design, sequencing, and migration risk.
+- Route design, sequencing, or migration-plan defects back through `ralplan`;
+  its planning phase owns any `plan-reviewer` dispatch.
 - `code-reviewer` for broad regression review, with its security lens when auth, data, network, file system, policy, or secret handling can be affected.
 - `verifier` with its scenario lens for user-facing workflows; required as an
   independent pass under the carve-out in Required evidence above.

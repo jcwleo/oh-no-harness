@@ -192,15 +192,14 @@ Ralph uses these roles while preserving the current platform's rules for agent u
 |---|---|
 | `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
 | `executor` | Implement scoped story work. |
-| `plan-reviewer` | Review architecture-sensitive, broad, or multi-system completion evidence; adversarially review when the approach may be overcomplicated or the acceptance argument is weak. Applies the senior-engineer overcomplication check against the current acceptance criteria. Security-specific risks go to `code-reviewer`'s security lens. Cross-host merge: one verdict. |
 | `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
-| `code-reviewer` | Review correctness, maintainability, regressions, and missing tests; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
+| `code-reviewer` | Review execution correctness, maintainability, regressions, missing tests, scope trace, and overcomplication; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
 
 Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
 STANDARD uses one dispatched reviewer instance when review is triggered.
 Cross-host review (or the Same-Host Parallel Fallback) applies only when a named
-THOROUGH risk selects paired `plan-reviewer` or `code-reviewer` review. The
+THOROUGH risk selects paired `code-reviewer` review. The
 confirming `verifier` is always one independent self-host pass and starts after
 the selected code-review stage completes.
 
@@ -359,8 +358,9 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier. In STANDARD and THOROUGH on subagent-capable hosts, scan remaining work for disjoint scopes before implementing serially: when two or more pending stories or tasks have non-overlapping write scopes and no inter-dependency, proactively partition disjoint implementation into one concurrent `executor` batch (recorded as `Parallel trigger: natural-dispatch`) per `## Parallel Subagent Policy` and `docs/shared/ralph-subagent-policy.md`, then apply the post-batch per-executor scope check before integrating. This is conditional on isolation, dependency safety, and benefit gates — never unconditional parallelism.
-8. Recheck the `Scope Trace Gate`, `## Diff-Budget Gate`, and
-   `## Process Budget Gate` thresholds against the actual diff. Reclassify any
+8. After each story, recheck the `Scope Trace Gate` and the cumulative Process
+   Budget Gate (`## Process Budget Gate`) against all work completed so far.
+   Reclassify any
    `provisional` STANDARD small-carveout eligibility here per
    `docs/shared/execution-modes.md`; on invalidation record
    `Review topology: single-reviewer` and run ordinary STANDARD review before
@@ -371,7 +371,9 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
    If this story changed files or shared behavior that an already-completed
    story's acceptance depended on, re-verify that earlier story before
    continuing; never leave a stale `passes: true`.
-9. Repeat steps 4–8 for each remaining story, then run review per `## Review Gate`. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` (present the options; do not auto-invoke) with the evidence instead of silently improvising.
+9. Repeat steps 4–8 for each remaining story. After all stories, run the `##
+   Diff-Budget Gate` exactly once against the final diff, before `## Review Gate`,
+   then run review. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` (present the options; do not auto-invoke) with the evidence instead of silently improvising.
 10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
 11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
 
@@ -440,7 +442,7 @@ adapter deciding whether the invocation is a registered custom agent, a
 plugin-scoped agent, or a documented fallback:
 
 ````markdown
-Role: {explore|executor|plan-reviewer|verifier|code-reviewer}
+Role: {explore|executor|verifier|code-reviewer}
 Story/task: {id and short title}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files/directories owned by other agents}
@@ -531,8 +533,8 @@ When review is required, the reviewer pass must answer:
   config, logs, sandbox, or destructive operations were touched, did
   `code-reviewer`'s security lens apply the Safety Trigger Checklist
   or was the risk explicitly ruled out?
-- When the opposite host was available, were `plan-reviewer`/`code-reviewer`
-  paired only for a named THOROUGH trigger per
+- When the opposite host was available, was `code-reviewer` paired only for a
+  named THOROUGH trigger per
   `docs/shared/cross-host-review.md`? Was STANDARD kept to one reviewer or a
   compliant small-carveout `not-required` record? Was the
   `verifier` run as the confirming pass after the selected code-review stage — an unconditionally single self-host
@@ -612,8 +614,8 @@ coverage than the evidence supports.
 
 ## Process Budget Gate
 
-This gate is the mid-run early-stop check; the `## Diff-Budget Gate` owns the
-pre-completion blast-radius review.
+This gate is the cumulative per-story mid-run early-stop check; the `##
+Diff-Budget Gate` owns the final pre-review blast-radius review.
 
 Before implementation, copy the plan's expected handwritten changed-file groups,
 approximate diff size, review topology/trigger, cleanup depth, broad-suite cap,
@@ -629,13 +631,13 @@ breach never authorizes automatic expansion.
 
 Measure the supporting-test ratio as changed test/validation lines versus
 changed product or source-contract lines (for example from `git diff --stat`),
-checked at each story's step-8 recheck. The ratio is a stop-and-rescope signal,
+checked cumulatively at each story's step-8 recheck. The ratio is a stop-and-rescope signal,
 not a license to delete required negative, regression, or safety cases.
 
 ## Diff-Budget Gate
 
-Ralph must check blast radius before marking work complete; mid-run early
-stops belong to `## Process Budget Gate`. If the final diff
+Ralph must run this final gate exactly once after all stories and before `##
+Review Gate`; mid-run early stops belong to `## Process Budget Gate`. If the final diff
 crosses any of these thresholds, run a scope review before completion:
 
 - more than twice the plan's expected handwritten file or diff estimate

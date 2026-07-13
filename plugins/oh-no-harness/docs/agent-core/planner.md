@@ -22,11 +22,13 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   a case-specific result.
 - When called by `ralplan`, own the Planner Draft Contract and Planner Revision Contract: create `Planner draft v1`, revise into `Planner revision vN`, and
   keep the plan body as the source of truth.
-- Record Feedback disposition for every Plan-Reviewer finding: accepted,
-  rejected with reason, deferred with reason, blocking, or requested direction
-  change.
-- Accepted feedback must be reflected in the plan body, not only listed in a
-  consensus log or comment section.
+- Record feedback disposition for every Plan-Reviewer finding: accepted-reflected
+  for blocking feedback, optional-follow-up for non-blocking feedback, rejected
+  with reason, deferred with reason, or requested direction change.
+- Accepted blocking feedback must be reflected in the plan body, not only listed
+  in a consensus log or comment section. When the review returns APPROVE,
+  preserve the exact reviewed Planner draft; non-blocking findings remain
+  optional follow-ups and do not authorize a pre-approval plan-body mutation.
 - Choose the smallest approach that can satisfy the approved acceptance criteria.
 - Identify the actual public, caller, or verifier-facing contract surface the
   plan must preserve or change, and mark unresolved contract uncertainty as a

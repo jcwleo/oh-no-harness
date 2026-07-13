@@ -58,7 +58,9 @@ Output below); apply full security depth only when a trigger matches.
 - Recommend Ralph execution mode escalation when sensitive behavior makes the selected mode too light.
 - Escalate verification tier when sensitive behavior is touched.
 
-Not in scope: plan- or evidence-level adversarial critique (see `plan-reviewer`), command-level acceptance-to-evidence mapping and user-facing scenario validation (see `verifier`).
+Not in scope: planning-draft critique (route through Ralplan, whose planning
+phase owns `plan-reviewer`), command-level acceptance-to-evidence mapping and
+user-facing scenario validation (see `verifier`).
 
 ## Cross-Host Review
 

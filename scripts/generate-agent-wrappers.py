@@ -79,15 +79,15 @@ AGENTS = [
     AgentMetadata(
         role="plan-reviewer",
         claude_description=(
-            "Use proactively inside active Oh No Harness workflows to review plans "
-            "and evidence; the caller owns approval and handoff gates."
+            "Use proactively inside active Oh No Harness workflows only when Ralplan's "
+            "planning phase reviews the exact Planner draft; the caller owns approval and handoff gates."
         ),
         claude_tools="Read, Glob, Grep, Bash",
         claude_model="inherit",
         claude_color="orange",
         codex_description=(
-            "Oh No Harness plan-reviewer role: review plans, technical direction, "
-            "and completion evidence with ordered architecture and quality-gate passes."
+            "Oh No Harness plan-reviewer role: review exact Ralplan Planner drafts "
+            "with ordered architecture and quality-gate passes."
         ),
     ),
     AgentMetadata(
@@ -187,7 +187,7 @@ AGENTS = [
     AgentMetadata(
         role="plan-reviewer-codex",
         claude_description=(
-            "Use proactively inside active Oh No Harness workflows to run the "
+            "Use proactively inside active Oh No Harness workflows only when Ralplan's planning phase runs the "
             "read-only Codex companion call for the opposite-host leg of a "
             "cross-host plan-reviewer pair; the caller owns approval and handoff gates."
         ),

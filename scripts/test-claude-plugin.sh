@@ -1646,10 +1646,10 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the linked Optional Company Context reference and the Socratic interview guidance before answering. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not create artifacts or edit files. Return the Direction Contract fields and canonical plan schema owner, 2-loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, process budget, Ralph execution profile, and project-local worktree path. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the Direction Contract, canonical plan schema, trigger-class Required Reading table, proportional test design, execution mode contract, and worktree policy. Do not create artifacts or edit files. Return the Direction Contract fields and canonical plan schema owner, 2-loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, and project-local worktree path. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not create artifacts or edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
+      printf '/%s:ralph Deep smoke test only. Read the wrapper and its Required Reading classification; do not preload triggered owners. Do not create artifacts or edit files. Return the Direction Contract, always-read owners, triggered owners, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     ultrawork)
       printf '/%s:ultrawork Deep smoke test only. Read the linked phase skills, execution mode contract, shared worktree policy, and shared parallel coordination doc enough to answer from their referenced docs. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK ultrawork.' "$PLUGIN_NAME"
@@ -1839,6 +1839,28 @@ if skill == "ralplan" and not (
     "process budget" in text_lower and "named thorough" in text_lower
 ):
     print(f"{skill} deep smoke missing proportional process-budget marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
+
+if skill == "ralplan" and not (
+    "blocking basis" in text_lower
+    and "non-blocking" in text_lower
+    and "optional" in text_lower
+    and "approve" in text_lower
+    and ("exact reviewed" in text_lower or "exact draft" in text_lower)
+):
+    print(f"{skill} deep smoke missing exact-draft freeze/blocking-basis marker; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
+
+if skill == "ralph" and not (
+    "process budget" in text_lower
+    and "cumulative" in text_lower
+    and ("per-story" in text_lower or "per story" in text_lower)
+    and "diff-budget" in text_lower
+    and ("exactly once" in text_lower or "one time" in text_lower)
+    and "before" in text_lower
+    and "review" in text_lower
+):
+    print(f"{skill} deep smoke missing process/diff budget timing marker; got {text!r}", file=sys.stderr)
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
@@ -2277,7 +2299,7 @@ run_ralplan_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none, Quality-gate findings: none, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. Even if a subagent suggests improvements, do not revise; this smoke test only verifies the v1 chain. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1."
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2314,7 +2336,7 @@ dependency_prompt_markers = {
 }
 output_markers = {
     "planner": ["Planner draft v1"],
-    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "Quality-gate findings"],
+    "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "NB1", "non-blocking", "Quality-gate findings"],
 }
 
 def collect_text(value):
@@ -2536,7 +2558,7 @@ run_parallel_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:fusion-rescue-analyst. Wave 4: oh-no-harness:executor-codex. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all ten subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the ten role checks plus lifecycle close or cleanup status."
+  local prompt="Use oh-no-harness:ralph. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Ralph-eligible Oh No Harness role with Claude background subagents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, close or clean up each completed subagent when the host exposes that mechanism, and do not continue if any task fails. If no explicit close or cleanup mechanism exists, record that fallback. Wave 1: oh-no-harness:explore, oh-no-harness:analyst, oh-no-harness:planner. Wave 2: oh-no-harness:executor, oh-no-harness:debugger. Wave 3: oh-no-harness:verifier, oh-no-harness:code-reviewer, oh-no-harness:fusion-rescue-analyst. Wave 4: oh-no-harness:executor-codex. Do not dispatch oh-no-harness:plan-reviewer: only the Ralplan planning phase owns that role, and the separate Ralplan live smoke covers it. Each subagent should inspect its own agents/<role>.md file and report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. After all nine subagents finish, reply exactly OH_NO_CLAUDE_PARALLEL_SUBAGENTS_OK and summarize the nine role checks plus lifecycle close or cleanup status."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2569,7 +2591,6 @@ expected_roles = [
     "explore",
     "analyst",
     "planner",
-    "plan-reviewer",
     "executor",
     "debugger",
     "verifier",

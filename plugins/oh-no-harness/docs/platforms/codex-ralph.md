@@ -145,7 +145,7 @@ Prompt Shape below.
 Every role dispatch should include this task shape:
 
 ```text
-Role: <explore|analyst|planner|plan-reviewer|executor|debugger|verifier|code-reviewer>
+Role: <explore|analyst|planner|executor|debugger|verifier|code-reviewer>
 Codex agent type: oh-no-<role>   # or <explorer|worker|default> for the generic fallback
 Story/task: <id and title>
 Scope: <owned files/directories, or read-only areas>

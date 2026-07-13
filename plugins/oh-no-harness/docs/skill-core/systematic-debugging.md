@@ -47,11 +47,11 @@ evidence, context separation, or latency benefit so logs, traces, and
 exploratory output do not pollute the main thread. The normal flow is diagnostic first
 (`debugger` and, when context is missing, `explore`), then the minimal fix
 (`executor` subagent when the write scope is isolated, otherwise inline with a
-recorded reason), then evidence (`verifier`). `plan-reviewer` is a
-conditional escalation role, not a required final step: use it immediately when
-three fix attempts fail, architecture-level coupling appears, or the apparent
-fix would change broad APIs, product behavior, data handling, security, or
-delivery scope. Dispatch is governed by the active skill's platform policy and
+recorded reason), then evidence (`verifier`). If three fix attempts fail,
+architecture-level coupling appears, or the apparent fix would change broad
+APIs, product behavior, data handling, security, or delivery scope, stop and
+route back to the user or `ralplan` with the evidence; do not directly dispatch
+`plan-reviewer`. Dispatch is governed by the active skill's platform policy and
 Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
 For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
 for role isolation, fallback reasons, and eligible batch dispatch.
@@ -59,8 +59,8 @@ for role isolation, fallback reasons, and eligible batch dispatch.
 Apply the active platform's dispatch authorization for this skill's diagnostic,
 fix, evidence, and post-fix review roles. Do not ask for per-run subagent
 approval when the active platform already supplies standing authorization for
-eligible `debugger`, `explore`, isolated `executor`, `verifier`, conditional
-`plan-reviewer`, or warranted post-fix review roles. Use inline fallback only
+eligible `debugger`, `explore`, isolated `executor`, `verifier`, or warranted
+post-fix `code-reviewer` roles. Use inline fallback only
 when dispatch is unavailable, unsafe to isolate, or too small to benefit, and
 record the fallback reason.
 
@@ -76,7 +76,6 @@ task-specific failure, scope, expected output, and verification responsibility.
 | `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
 | `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
 | `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent as a conditional escalation to reassess direction after three failed fix attempts, when architecture-level coupling is exposed, or before broad API/product/data/security/scope changes. Cross-host merge: one verdict. |
 | `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. Cross-host merge: merged findings. |
 
 STANDARD uses one dispatched reviewer or debugger instance. Apply
@@ -141,12 +140,12 @@ unchanged.
 
 ## Stop Conditions
 
-Stop and ask or escalate to `plan-reviewer` when:
+Stop and ask or route back to the user or `ralplan` when:
 
 - the failure cannot be reproduced and more data is needed from the user
-- a `plan-reviewer` escalation trigger from `## Agent Roles` fires (repeated
-  failed fix attempts; broad architecture or API scope; product behavior,
-  data handling, security, or delivery-scope ambiguity)
+- repeated failed fix attempts, broad architecture or API scope, product
+  behavior, data handling, security, or delivery-scope ambiguity shows that the
+  approved plan or Direction Contract needs planning review
 - the smallest confirmed fix would introduce a new architecture, scheduler,
   state machine, protocol, or public contract not present in the approved
   Direction Contract; return evidence instead of silently redesigning

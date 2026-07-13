@@ -36,7 +36,7 @@ Return:
 - Key findings.
 - Relevant files.
 - Open questions or risks.
-- Suggested next role for the caller when useful: `analyst`, `planner`, `plan-reviewer`, `debugger`, or `verifier`.
+- Suggested next role for the caller when useful: `analyst`, `planner`, `debugger`, or `verifier`; Ralplan owns any later plan-reviewer dispatch.
 
 A field that is not applicable collapses to a single line
 (`<Field>: not applicable`, plus a short reason when useful), and a section

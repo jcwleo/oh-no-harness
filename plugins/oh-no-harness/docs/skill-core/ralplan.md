@@ -23,7 +23,11 @@ Use it after `interview` has produced an approved spec, or when the user already
 
 ## Goal
 
-Create a concrete implementation plan that is drafted by Planner, reviewed by Plan-Reviewer through both the architecture and quality-gate lenses, and revised by Planner until the accepted feedback is reflected in the plan body before execution begins.
+Create a concrete implementation plan that is drafted by Planner, reviewed by
+Plan-Reviewer through both the architecture and quality-gate lenses, and revised
+by Planner until every blocking finding is resolved before execution begins.
+Non-blocking findings remain optional follow-ups and do not mutate the exact
+reviewed draft that Plan-Reviewer approves.
 
 The host agent operates the planning roles through the active platform runtime
 document. The user does not need to pick Planner or Plan-Reviewer manually; the
@@ -321,9 +325,9 @@ Plan-Reviewer output must include:
 Plan review vN:
 - Reviewed draft: vN
 - Architecture findings:
-  - <finding id> | lens: architecture | severity: blocking | non-blocking | requested-direction-change: yes (when applicable)
+  - <finding id> | lens: architecture | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | requested-direction-change: yes (when applicable)
 - Quality-gate findings:
-  - <finding id> | lens: quality-gate | severity: blocking | non-blocking | requested-direction-change: yes (when applicable)
+  - <finding id> | lens: quality-gate | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | requested-direction-change: yes (when applicable)
 - Verdict: APPROVE | ITERATE | REJECT
 - Evidence required for approval:
 ```
@@ -333,8 +337,15 @@ blocking findings; ITERATE iff >= 1 blocking finding on a salvageable draft;
 REJECT only for direction-level or unsalvageable failure, escalated to the user
 immediately without consuming a loop.
 
+APPROVE freezes the exact reviewed Planner draft. Non-blocking findings are
+optional follow-ups: record them in the findings ledger, but do not mutate the
+plan body before approval. Any plan-body change that must be incorporated before
+approval is blocking, must include the required `Blocking basis: <AC ID | safety
+invariant | Direction Contract field | applicable mandatory gate>`, and yields
+ITERATE rather than APPROVE.
+
 Finding severity is reviewer-owned; Planner may never reclassify it.
-Plan-Reviewer must reject when accepted feedback is only logged and not
+Plan-Reviewer must reject when blocking feedback is only logged and not
 reflected in the plan body, when test case designs are AI-slop or would pass
 against the old broken behavior, when verification cannot prove the acceptance
 criteria, or when speculative complexity is not tied to current requirements.
@@ -354,24 +365,22 @@ Planner revision output must include:
 Planner revision vN:
 - From draft: vN-1
 - New draft: vN
-- Accepted feedback:
+- Accepted blocking feedback:
 - Rejected feedback with reason:
 - Deferred feedback with reason:
 - Direction-change feedback waiting for user approval:
 - Sections changed:
 ```
 
-Accepted feedback must be reflected in the plan body. If feedback is rejected or
-deferred, Planner must give a concrete reason tied to approved scope,
+Accepted blocking feedback must be reflected in the plan body. If blocking
+feedback is rejected or deferred, Planner must give a concrete reason tied to approved scope,
 constraints, or direction-preservation rules. A revision is invalid if it only
 adds comments while leaving the plan body unchanged.
 
-When a review returns only non-blocking findings, Planner incorporates the
-accepted feedback, records each disposition in the findings ledger with a
-plan-section pointer, and writes
-`Re-review: not required (no blocking findings)`. Do not dispatch a re-review
-on this path; the calling skill enforces the findings-ledger pointer
-requirement instead.
+When a review returns only non-blocking findings, do not revise the Planner
+draft. Record each as an optional follow-up in the findings ledger and write
+`Re-review: not required (no blocking findings)`. Do not dispatch a re-review or
+apply a pre-approval plan-body mutation on this path.
 
 ## Re-Review Rules
 
@@ -410,20 +419,19 @@ Planning roles:
 - Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)
 
 Findings ledger:
-- <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | disposition: accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
+- <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | disposition: accepted-reflected (section: <pointer>) | optional-follow-up | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
 ```
 
 The plan is invalid if Planner drafts before Analyst finishes when Analyst is
 required, if a required Plan-Reviewer is skipped, or if a review does not name a
 specific Planner draft id. A LIGHT not-required record is valid only with a
-concrete reason. The plan is invalid if
-accepted feedback is logged but not reflected in the final plan body, if any
-review finding is missing from the findings ledger, or if an accepted finding
-lacks a plan-section pointer. Blocking findings require a matching
+concrete reason. The plan is invalid if blocking feedback is logged but not
+reflected in the final plan body, if any review finding is missing from the
+findings ledger, if a blocking finding lacks its required `Blocking basis:`, or
+if an accepted blocking finding lacks a plan-section pointer. Blocking findings require a matching
 `Plan review vN+1` APPROVE or an explicit user waiver. On the
-non-blocking-only path no re-review runs, so the calling skill checks the
-pointer requirement directly: every accepted finding must carry a plan-section
-pointer before the approval brief. If a platform cannot dispatch one of these
+non-blocking-only path no re-review or plan-body revision runs; optional
+follow-ups remain ledger-only. If a platform cannot dispatch one of these
 roles, keep the same role boundary inline and record the platform, role,
 missing capability or authorization, draft id, and fallback reason. Do not move
 to the approval brief until the gate passes or the plan is explicitly marked
@@ -475,7 +483,7 @@ Before presenting the plan, check that it includes:
 - a `Worktree policy` from `docs/shared/worktree-isolation.md`
 - sequencing constraints and dependency order
 - risks, assumptions, and unresolved questions
-- the final reflected plan body after accepted Plan-Reviewer feedback
+- the final reflected plan body after accepted blocking Plan-Reviewer feedback
 - Analyst findings or `satisfied by approved interview spec`, Planner draft and
   revision ids, and Plan review ids with a findings ledger recording each
   finding's lens, severity, and disposition
@@ -556,9 +564,10 @@ Every plan must include:
   `Re-review scope: delta | full` when re-review ran
 - planning dispatch mode showing whether consensus roles ran as subagents or
   inline fallback
-- findings ledger with each Plan-Reviewer finding's lens, severity, disposition,
-  and plan-section pointer when accepted
-- evidence that accepted feedback is reflected in the final plan body
+- findings ledger with each Plan-Reviewer finding's lens, reviewer-owned
+  severity, blocking basis when blocking, disposition, and plan-section pointer
+  when accepted-reflected
+- evidence that accepted blocking feedback is reflected in the final plan body
 - execution profile
 - process budget: expected handwritten diff, review topology and trigger,
   cleanup depth, broad-suite cap, and rescope thresholds
@@ -748,13 +757,13 @@ Analyst -> Planner -> Plan-Reviewer when selected: {completed in order, with one
 - Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
 - Planner draft v1: {completed, with source/path}
 - Plan review v1: {not-required (LIGHT: reason) | APPROVE|ITERATE|REJECT}
-- Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
+- Planner revision v2: {not needed, or blocking feedback disposition reflected in plan body}
 - Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
 - Re-review: {not required (no blocking findings) | completed}
 - Plan review topology: {not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)}
 
 Findings ledger:
-- {finding id} -> {blocking|non-blocking} -> {accepted-reflected (section: <pointer>) | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
+- {finding id} -> {blocking|non-blocking} -> {Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> when blocking} -> {accepted-reflected (section: <pointer>) | optional-follow-up | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
 
 Worktree policy:
 {Use `docs/shared/worktree-isolation.md` as the source of truth. Summarize the
@@ -870,7 +879,7 @@ active platform adapter.
 | `explore` | Dispatch `explore` subagent to gather repository facts when codebase context is needed. When the request spans independent subsystems, dispatch one `explore` subagent per independent subsystem in one batch. |
 | `analyst` | Dispatch `analyst` subagent to identify hidden requirements, risks, constraints, and open questions unless an approved `interview` spec satisfies the Analyst gate. |
 | `planner` | Dispatch `planner` subagent to create `Planner draft v1` and any `Planner revision vN`. Planner owns the plan body and feedback disposition. |
-| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or accepted feedback not reflected in the plan body, and must not produce a replacement plan. Cross-host review runs per the `## Plan Review Contract`. |
+| `plan-reviewer` | Dispatch `plan-reviewer` subagent to review the exact Planner draft using the two-pass `## Plan Review Contract`. It may block on overcomplication, speculative scope, or blocking feedback not reflected in the plan body, and must not produce a replacement plan. Cross-host review runs per the `## Plan Review Contract`. |
 
 Analyst/Planner/Plan-Reviewer stay strictly sequential per the rule above —
 Plan-Reviewer only after the Planner draft exists. A named THOROUGH paired-review

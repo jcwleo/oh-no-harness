@@ -133,7 +133,8 @@ eligible isolated roles. Do not require a separate `ralph with parallel
 subagents` option when the plan already lists roles whose output can change the
 implementation, review, verification, or ship/block decision.
 
-For `ralplan`, Planner and Plan-Reviewer keep sequential role boundaries:
+For `ralplan`, which is the only workflow context that owns Plan-Reviewer,
+Planner and Plan-Reviewer keep sequential role boundaries:
 Planner produces the draft, then Plan-Reviewer reviews that draft. Dispatch them
 as sequential subagents when the active host supports dispatch and independent
 context can improve planning or review; otherwise keep separate inline role
