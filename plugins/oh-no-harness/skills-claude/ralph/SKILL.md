@@ -357,8 +357,8 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier. In STANDARD and THOROUGH on subagent-capable hosts, scan remaining work for disjoint scopes before implementing serially: when two or more pending stories or tasks have non-overlapping write scopes and no inter-dependency, proactively partition disjoint implementation into one concurrent `executor` batch (recorded as `Parallel trigger: natural-dispatch`) per `## Parallel Subagent Policy` and `docs/shared/ralph-subagent-policy.md`, then apply the post-batch per-executor scope check before integrating. This is conditional on isolation, dependency safety, and benefit gates — never unconditional parallelism.
-8. Recheck the `Scope Trace Gate` and `## Diff-Budget Gate` against the actual
-   diff. Mark the story complete only when acceptance criteria, TDD evidence
+8. Recheck the `Scope Trace Gate`, `## Diff-Budget Gate`, and
+   `## Process Budget Gate` thresholds against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence
    (or documented exception), scope-trace evidence, acceptance-to-evidence
    mapping, contract-surface evidence, baseline guard, story risk-check evidence,
    and any required validation check all pass or have explicit residual risk.
@@ -539,6 +539,14 @@ When review is required, the reviewer pass must answer:
 - Did broad-suite verification add meaningful confidence, or should a focused
   semantic or baseline check replace another broad rerun?
 
+Reviewer findings that do not map to the approved work under the `Scope Trace
+Gate` — an AC ID, a safety invariant, a verification requirement, removal of
+code made unused by the current change, or the approved behavior-preserving
+cleanup boundary — are recorded as residual risk or follow-ups, not fixed in
+this run; do not expand the diff for them without explicit user approval. A
+regression or contract break caused by the current change always maps to the
+approved scope and may block.
+
 If review rejects the work, return to the relevant story and continue within the
 review loop budget: one required review cycle using the selected topology and
 one confirming `verifier` pass — at
@@ -546,7 +554,11 @@ STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
 when execution produced or changed proving tests, or the implementation/tests
 were authored or accepted by the same agent (record the fallback reason if the
 host cannot dispatch), and otherwise when required by mode or risk; after a
-blocker fix, run one focused re-check of the blocked scope. Record
+blocker fix, run one focused re-check of the blocked scope. That focused
+re-check is the single permitted re-review, not an addition to it; re-run only
+the evidence the fix invalidated — the blocked scope's story verification and
+any verifier or ledger rows whose covered files or behavior changed — while
+evidence for untouched scopes stays fresh. Record
 `single-reviewer` for STANDARD; for a named THOROUGH pair, record its
 independence mode per `docs/shared/cross-host-review.md`
 `## Recording the Independence Mode`. The single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
@@ -588,6 +600,9 @@ coverage than the evidence supports.
 
 ## Process Budget Gate
 
+This gate is the mid-run early-stop check; the `## Diff-Budget Gate` owns the
+pre-completion blast-radius review.
+
 Before implementation, copy the plan's expected handwritten changed-file groups,
 approximate diff size, review topology/trigger, cleanup depth, broad-suite cap,
 and review-round cap. If no plan supplied them, derive conservative values from
@@ -600,9 +615,15 @@ product/source-contract change, a second blocking review round remains
 unresolved, or the same invariant is being implemented a third time. A budget
 breach never authorizes automatic expansion.
 
+Measure the supporting-test ratio as changed test/validation lines versus
+changed product or source-contract lines (for example from `git diff --stat`),
+checked at each story's step-8 recheck. The ratio is a stop-and-rescope signal,
+not a license to delete required negative, regression, or safety cases.
+
 ## Diff-Budget Gate
 
-Ralph must check blast radius before marking work complete. If the final diff
+Ralph must check blast radius before marking work complete; mid-run early
+stops belong to `## Process Budget Gate`. If the final diff
 crosses any of these thresholds, run a scope review before completion:
 
 - more than twice the plan's expected handwritten file or diff estimate
@@ -667,8 +688,14 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records topology: `single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` / `same-host-parallel-fallback`; an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the Review Gate dependency-graph values: `not-required` (with the compliant reason, including LIGHT direct-diff inspection), `single-reviewer` (STANDARD, or THOROUGH without a named pair trigger), or a named THOROUGH pair with `cross-host` / `same-host-parallel-fallback`; an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
+
+For a LIGHT run with no behavior change, the four named criteria may be
+recorded as one combined ledger line when each part is actually true, for
+example: `review: direct diff inspection; verifier: not-required (no
+maker-authored proving tests); simplify: no candidates;
+verification-before-completion: ran`.
 
 Ship when all completion criteria are satisfied:
 

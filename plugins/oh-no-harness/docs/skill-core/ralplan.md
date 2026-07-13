@@ -301,7 +301,8 @@ must not produce a replacement plan.
 STANDARD runs one Plan-Reviewer instance. Use paired cross-host review (or its
 Same-Host Parallel Fallback) only when the plan records a named THOROUGH trigger:
 security/data/destructive risk, public or release-critical contract change, new
-concurrency semantics, broad migration, or comparable multi-system uncertainty.
+concurrency semantics, broad migration, or comparable multi-system uncertainty
+that names the concrete systems or artifacts involved.
 Both paired instances run the full review and the caller synthesizes one verdict.
 Cross-host findings never silently override the Direction Contract.
 
@@ -401,7 +402,7 @@ finding has a recorded disposition:
 Planning roles:
 - Analyst: satisfied by approved interview spec | completed | inline fallback with reason | dispatched completed
 - Planner draft v1: completed | inline fallback with reason | dispatched completed
-- Plan review v1: APPROVE | ITERATE | REJECT after Planner draft v1
+- Plan review v1: not-required (LIGHT: reason) | APPROVE | ITERATE | REJECT after Planner draft v1
 - Planner revision v2: not needed | completed from blocking findings
 - Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
 - Re-review: not required (no blocking findings) | completed
@@ -572,9 +573,9 @@ LIGHT and review, dispatch, TDD, risk, or rollout details are not applicable.
 They must still preserve the goal, scope and non-goals, acceptance criteria,
 tasks and key files as needed, verification, compact execution profile, and
 approval status. They may omit review ledger detail when review is not required,
-a detailed dispatch plan when no role satisfies the three eligibility
-conditions, exhaustive TDD/risk/rollout placeholders when not applicable, and
-other non-applicable ceremony. Avoid empty placeholder sections.
+the process budget, a detailed dispatch plan when no role satisfies the three
+eligibility conditions, exhaustive TDD/risk/rollout placeholders when not
+applicable, and other non-applicable ceremony. Avoid empty placeholder sections.
 
 ## TDD Task Shape
 
@@ -670,8 +671,14 @@ non-goals, acceptance criteria, tasks and key files as needed, verification,
 compact execution profile, and approval. It may omit review ledger detail when
 review is not required, a detailed dispatch plan when no role satisfies the
 three eligibility conditions, exhaustive TDD/risk/rollout placeholders when
-not applicable, and other non-applicable ceremony. Avoid empty placeholder
-sections.
+not applicable, and other non-applicable ceremony.
+
+For a STANDARD brief, keep the same approval boundary and every core field —
+goal, scope and non-goals, acceptance criteria, tasks and key files, test case
+design, verification, execution profile recap, and approval — but collapse each
+not-applicable section (technology stack decision, validation check, rollout,
+dispatch fallback, or direction-change items) to one line naming why it does
+not apply. Avoid empty placeholder sections in every mode.
 
 Use this shape:
 
@@ -735,11 +742,11 @@ safe isolation, decision-changing value, and reasonable coordination cost all
 hold; otherwise give a concrete fallback reason}
 
 Planning roles:
-Analyst -> Planner -> Plan-Reviewer: {completed in order, with one-line disposition for each}
+Analyst -> Planner -> Plan-Reviewer when selected: {completed in order, with one-line disposition for each}
 - Requirements source: {approved interview spec | user request | PRD/ticket}
 - Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
 - Planner draft v1: {completed, with source/path}
-- Plan review v1: {APPROVE|ITERATE|REJECT}
+- Plan review v1: {not-required (LIGHT: reason) | APPROVE|ITERATE|REJECT}
 - Planner revision v2: {not needed, or accepted/rejected/deferred feedback reflected in plan body}
 - Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
 - Re-review: {not required (no blocking findings) | completed}

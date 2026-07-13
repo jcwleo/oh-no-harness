@@ -58,6 +58,11 @@ verified scheduler, eligibility decision, or concurrency owner is normally
 STANDARD when the change is otherwise localized and bounded; the word
 `concurrency` alone does not force THOROUGH.
 
+Routine regeneration of already-validated generated wrappers is likewise not a
+THOROUGH signal by itself. Generated artifacts force THOROUGH only when the
+generated surface is itself the product change or when handwritten source and
+generated outputs disagree.
+
 ## Process Budgets And Gate Governance
 
 Every STANDARD or THOROUGH plan records expected changed-file groups, an
@@ -269,8 +274,10 @@ Escalate from LIGHT to STANDARD when the work changes runtime behavior, agent
 behavior, workflow routing, validation policy, or more files than expected.
 
 Escalate from STANDARD to THOROUGH when the work touches security, data,
-permissions, public contracts, releases, generated artifacts, new or changed concurrency semantics, or
-multiple subsystems, or when verification reveals unexpected behavior.
+permissions, public contracts, releases, generated artifacts (beyond routine
+regeneration of already-validated wrappers), new or changed concurrency
+semantics, or multiple subsystems, or when verification reveals unexpected
+behavior.
 
 Do not de-escalate below the mode set by an approved plan unless the user
 approves the change or the plan explicitly allows per-task lighter modes. Ralph

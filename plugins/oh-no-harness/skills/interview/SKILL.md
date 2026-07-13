@@ -115,6 +115,10 @@ Project context:
 - Planning required: yes | no
 ```
 
+The Execution Sizing Hint owns the canonical `Planning required` value; this
+Project Context field mirrors it, and the two must agree before the spec is
+finalized.
+
 When greenfield work has an open stack and a recommendation is requested,
 record `Planning required: yes` and do not recommend direct Ralph. Interview
 captures the decision inputs; `ralplan` owns the candidate comparison,
@@ -203,7 +207,8 @@ Direction Contract:
 Preserve the user's reasoning elsewhere in the spec, but downstream planning
 and execution copy this block without reconstructing chat history. An inferred
 or open field that can change behavior, architecture, data handling, security,
-or delivery scope blocks approval or is explicitly surfaced to the user.
+or delivery scope blocks approval until it is surfaced to the user and
+explicitly confirmed.
 
 ## Interview Milestones
 
@@ -483,6 +488,8 @@ The spec must include:
 
 - title
 - a header field `Next skill: oh-no-harness:<name>` naming the recommended next skill (default `oh-no-harness:ralplan`) so cross-session readers see the chain
+- the Direction Contract block, copied into the spec so downstream planning and
+  execution consume it without reconstructing chat history
 - background
 - problem
 - goals
