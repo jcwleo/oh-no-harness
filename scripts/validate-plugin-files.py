@@ -261,7 +261,7 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Parallel trigger: approved-plan-handoff",
         "ordinary `oh-no-harness:ralph` choice is the parallel-capable execution",
         "keep sequential role boundaries",
-        "parallel subagent dispatch plan",
+        "Parallel dispatch",
         "active platform runtime document's dispatch policy",
         "Planner Draft Contract",
         "Plan Review Contract",
@@ -581,10 +581,9 @@ WORKTREE_SKILL_MARKERS = {
         "Worktree decision: ultrawork automatic worktree",
     ),
     "ralplan": (
-        "Worktree policy",
-        "Worktree location",
+        "worktree policy",
+        "Execution handoff",
         "docs/shared/worktree-isolation.md",
-        ".oh-no/worktrees/<task-slug>",
     ),
     "ralph": (
         "## Worktree Isolation Gate",
@@ -612,20 +611,14 @@ WORKTREE_SKILL_MARKERS = {
 }
 WORKTREE_AGENT_MARKERS = {
     "planner": (
-        "Worktree policy",
-        "direct-automatic-worktree",
-        "automatic-worktree-merge",
-        "registered Git worktree",
-        ".oh-no/worktrees/<task-slug>",
-        "plain directories",
+        "supplied execution handoff",
+        "worktree",
+        "Active plan contract",
     ),
     "plan-reviewer": (
-        "Worktree policy",
-        "registered project-local Git worktree execution plus merge",
-        "automatic registered Git worktree execution",
-        "registered project-local worktree execution and merge responsibility",
-        ".oh-no/worktrees/<task-slug>",
-        "invalid substitutes",
+        "supplied execution profile and worktree policy",
+        "consistency",
+        "Active plan contract",
     ),
     "executor": (
         "Worktree decision",
@@ -712,14 +705,15 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "at most 3 candidate hidden-assumption questions",
     ),
     "ralplan": (
+        "## Active Plan Contract",
         "## Execution Profile",
         "## Test Case Design Quality",
-        "Overall Ralph mode",
-        "Task sizing",
-        "Execution profile recap",
+        "Mode: LIGHT | STANDARD | THOROUGH",
+        "Process and diff budget",
+        "one complete profile",
         "Validation check",
-        "immediately before `Approval needed`",
-        "Ralph must follow this profile",
+        "It owns verification tier",
+        "approve-and-run Ralph",
     ),
     "ralph": (
         "## Required Execution Mode",
@@ -806,21 +800,18 @@ CLAUDE_ONLY_AGENT_ROLES = {
 }
 EXECUTION_MODE_AGENT_MARKERS = {
     "planner": (
-        "execution profile",
-        "task sizing",
-        "story risk check",
-        "acceptance criteria alignment",
-        "Validation check",
-        "verification budget",
-        "diff-budget",
+        "Active plan contract",
+        "execution handoff",
+        "active mode or trigger",
+        "AC-mapped tasks",
+        "verifier-facing contract",
     ),
     "plan-reviewer": (
-        "Ralph execution profile",
-        "too light, too heavy",
-        "execution profile recap",
-        "Risk Check Before Completion",
-        "acceptance criteria",
-        "diff-budget scope review",
+        "Active plan contract",
+        "supplied execution profile",
+        "Active plan contract row fired",
+        "material failure of an active AC",
+        "user's success signal",
     ),
     "executor": (
         "assigned Ralph execution mode",
@@ -963,8 +954,8 @@ AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
 
 SIMPLICITY_SCOPE_SKILL_MARKERS = {
     "ralplan": (
-        "minimal viable approach",
-        "rejected speculative complexity",
+        "smallest approach",
+        "Simplicity justification",
     ),
     "ralph": (
         "## Scope Trace Gate",
@@ -999,14 +990,13 @@ SIMPLIFY_FORBIDDEN_MARKERS = (
 )
 SIMPLICITY_SCOPE_AGENT_MARKERS = {
     "planner": (
-        "smallest approach",
-        "Rejected speculative complexity",
+        "smallest executable",
+        "justify new abstraction",
     ),
     "plan-reviewer": (
-        "Simplest sufficient approach assessment",
+        "simplest sufficient approach",
         "speculative abstraction",
-        "untraceable changes",
-        "senior-engineer overcomplication check",
+        "smallest AC-sufficient correction",
     ),
     "executor": (
         "Scope trace summary",
@@ -1026,30 +1016,28 @@ ACCEPTANCE_CRITERIA_AGENT_MARKERS = {
         "useful but insufficient proof",
     ),
     "planner": (
-        "acceptance criteria",
-        "success signal",
-        "insufficient proofs",
-        "validation-check",
+        "Direction Contract and AC IDs",
+        "verifier-facing contract",
+        "wrong-surface behavior",
+        "validation",
     ),
     "plan-reviewer": (
-        "acceptance criteria coverage",
-        "internal shortcut",
-        "validation-check",
-        "convenient signal",
-        "claims without user approval",
-        "Validation check",
+        "active AC",
+        "user's success signal",
+        "wrong-surface tests",
+        "Direction Contract and AC IDs",
+        "requested-direction-change: yes",
+        "validation",
     ),
 }
 VALIDATION_CHECK_AGENT_MARKERS = {
     "planner": (
-        "docs/shared/validation-check.md",
-        "case-specific result",
+        "Apply validation",
+        "active mode or trigger",
     ),
     "plan-reviewer": (
-        "validation coverage",
-        "justified only by metric movement",
-        "Validation check",
-        "metric movement as the acceptance criteria",
+        "Active plan contract row fired",
+        "material failure of an active AC",
     ),
     "verifier": (
         "Validation check",
@@ -1085,14 +1073,15 @@ REVIEW_SCOPE_DISCIPLINE_MARKERS = {
 }
 APPROVED_DIRECTION_AGENT_MARKERS = {
     "plan-reviewer": (
-        "approved interview spec",
-        "user-approved plan direction",
-        "Direction-preservation findings",
-        "do not replace it with your own direction",
+        "approved direction",
+        "Direction Contract and AC IDs",
+        "requested-direction-change: yes",
+        "do not substitute your preferred direction",
     ),
 }
 RALPLAN_CONSENSUS_MARKERS = (
     "## Canonical Plan Schema",
+    "## Active Plan Contract",
     "## Direction Preservation Gate",
     "## Test Case Design Quality",
     "## Acceptance Criteria Contract",
@@ -1104,24 +1093,19 @@ RALPLAN_CONSENSUS_MARKERS = (
     "## Re-Review Rules",
     "## Findings Ledger Gate",
     "Planner draft v1",
-    "Plan review v1",
     "Planner revision v2",
-    "Plan review v2",
+    "Review v2",
     "When Plan-Reviewer is selected, Analyst -> Planner -> Plan-Reviewer",
-    "APPROVE | ITERATE | REJECT",
+    "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
-    "Findings ledger:",
     "Re-review scope: delta | full",
     "Re-review: not required (no blocking findings)",
     "Worst-case THOROUGH role dispatch chain remains bounded to two review rounds",
     "STANDARD runs one Plan-Reviewer instance",
-    "Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD)",
-    "if a required Plan-Reviewer is skipped",
-    "blocking feedback is logged but not\nreflected in the final plan body",
-    "accepted blocking finding lacks a plan-section pointer",
-    "planning-role log showing Analyst -> Planner",
-    "requested direction change",
-    "do not incorporate the new direction into the plan unless the user explicitly",
+    "required Plan-Reviewer cannot be\nskipped",
+    "accepted blocking feedback is not in the\nbody",
+    "accepted section pointer",
+    "requested direction change without explicit approval",
     "must-fail-before-implementation",
     "must-pass-after-implementation",
     "negative or forbidden-behavior case",
@@ -1167,22 +1151,19 @@ RALPLAN_LIGHT_PLAN_FILE_MARKERS = (
     "compact execution profile",
     "approval status",
     "may omit",
-    "review ledger",
-    "detailed dispatch plan",
-    "non-applicable ceremony",
+    "inactive review",
+    "inactive ceremony",
 )
 RALPLAN_LIGHT_APPROVAL_BRIEF_MARKERS = (
-    "compact LIGHT",
+    "Compact LIGHT",
     "goal",
     "scope",
     "acceptance criteria",
+    "tasks/key files",
     "verification",
-    "execution profile",
+    "compact profile",
     "approval",
-    "may omit",
-    "review ledger",
-    "detailed dispatch plan",
-    "non-applicable ceremony",
+    "Omit inactive sections",
 )
 RALPLAN_DIRECT_HANDOFF_REQUIRED_PATTERNS = (
     (r"approve[- ]and[- ]run.{0,120}\bralph\b", "approve-and-run Ralph"),
@@ -1221,22 +1202,22 @@ MANDATORY_GATE_RALPLAN_HANDOFF_ROW_PATTERNS = (
 )
 RALPLAN_AGENT_CONTRACT_MARKERS = {
     "planner": (
-        "Planner Draft Contract",
-        "Planner Revision Contract",
-        "feedback disposition for every Plan-Reviewer finding",
-        "Accepted blocking feedback must be reflected in the plan body",
-        "smallest meaningful test set",
-        "must-fail before implementation",
-        "acceptance criteria alignment",
+        "Active plan contract",
+        "plan body as the source of truth",
+        "classify every blocking finding",
+        "before assigning a new draft id or mutating the plan body",
+        "disposition-only user-decision packet",
+        "smallest tests",
+        "APPROVE freezes the exact reviewed draft",
     ),
     "plan-reviewer": (
-        "Plan Review Contract",
-        "Reviewed draft:",
-        "must not produce a replacement plan",
+        "Active plan contract",
+        "exact draft id",
+        "never produce a replacement plan",
         "APPROVE | ITERATE | REJECT",
-        "reject when blocking feedback is only logged",
-        "AI-slop",
-        "would pass against the old broken behavior",
+        "Material-blocker predicate",
+        "unsupported false rejection",
+        "pass against old behavior",
         "Architecture findings",
         "Quality-gate findings",
     ),
@@ -2051,15 +2032,15 @@ def assert_agent(root: Path, agent: str) -> None:
                 die(f"{path} is missing required Review-Scope-Discipline marker: {marker!r}")
     if agent in APPROVED_DIRECTION_AGENT_MARKERS:
         for marker in APPROVED_DIRECTION_AGENT_MARKERS[agent]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Approved-Direction agent marker: {marker!r}")
     if agent in WORKTREE_AGENT_MARKERS:
         for marker in WORKTREE_AGENT_MARKERS[agent]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Worktree agent marker: {marker!r}")
     if agent in RALPLAN_AGENT_CONTRACT_MARKERS:
         for marker in RALPLAN_AGENT_CONTRACT_MARKERS[agent]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Ralplan-Agent-Contract marker: {marker!r}")
 
 
@@ -3738,7 +3719,7 @@ def assert_proportional_workflow_contract(root: Path) -> None:
         "ralplan": (
             "## Canonical Plan Schema",
             "STANDARD runs one Plan-Reviewer instance",
-            "Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD)",
+            "STANDARD keeps one reviewer; named THOROUGH keeps the paired topology",
         ),
         "ralph": (
             "`verification.md` is the canonical acceptance-to-evidence ledger",
@@ -3833,6 +3814,73 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     agent_core = root / "docs" / "agent-core"
 
     ralplan = read_text(skill_core / "ralplan.md")
+    active_contract = markdown_section(ralplan, "## Active Plan Contract")
+    for marker in (
+        "Always required",
+        "Mode-required",
+        "Trigger-required",
+        "Explicitly not applicable",
+        "Reviewer entitlement",
+        "missing-field blocking is limited to the active fields above",
+    ):
+        if not has_required_marker(active_contract, marker):
+            die(f"ralplan.md Active Plan Contract is missing marker: {marker!r}")
+    approved_caps = {"LIGHT": 11, "STANDARD": 24, "THOROUGH": 26}
+    cap_match = re.search(
+        r"Audited deduplicated baseline caps:\s*LIGHT=(\d+);\s*"
+        r"STANDARD=(\d+);\s*THOROUGH=(\d+)",
+        active_contract,
+    )
+    if not cap_match:
+        die("ralplan.md Active Plan Contract is missing audited obligation baseline caps")
+    recorded_caps = dict(zip(approved_caps, (int(value) for value in cap_match.groups())))
+    if recorded_caps != approved_caps:
+        die(
+            "ralplan.md audited obligation baseline caps changed: "
+            f"expected={approved_caps!r} actual={recorded_caps!r}"
+        )
+
+    table_match = re.search(
+        r"Canonical activation table:\n\n(?P<table>(?:\|[^\n]*\|\n)+)",
+        active_contract,
+    )
+    if not table_match:
+        die("ralplan.md Active Plan Contract is missing canonical activation table")
+    activation_fixtures = {
+        "always": {"LIGHT", "STANDARD", "THOROUGH"},
+        "implementation plan": {"LIGHT", "STANDARD", "THOROUGH"},
+        "STANDARD or THOROUGH": {"STANDARD", "THOROUGH"},
+        "behavior change or named regression/safety risk": {"STANDARD", "THOROUGH"},
+        "selected roles/review, or LIGHT no-review": {"LIGHT", "STANDARD", "THOROUGH"},
+        "THOROUGH or operational/migration/public-contract risk": {"THOROUGH"},
+        "greenfield + open stack + recommendation requested": set(),
+        "measurable evidence influenced request": set(),
+        "agent policy not `inline-only`": {"STANDARD", "THOROUGH"},
+        "migration, data/security/destructive, concurrency/lifecycle, or public/release trigger": {"THOROUGH"},
+        "named THOROUGH paired-review trigger": {"THOROUGH"},
+    }
+    derived_obligations = {mode: set() for mode in approved_caps}
+    for line in table_match.group("table").splitlines()[2:]:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 4:
+            die(f"ralplan.md canonical activation row must have four cells: {line!r}")
+        _, activation, projection, _ = cells
+        active_modes = activation_fixtures.get(activation)
+        if active_modes is None:
+            die(f"ralplan.md canonical activation is not fixture-audited: {activation!r}")
+        obligations = [item.strip() for item in projection.split(";") if item.strip()]
+        if not obligations:
+            die(f"ralplan.md canonical active projection is empty: {line!r}")
+        for mode in active_modes:
+            derived_obligations[mode].update(obligations)
+    for mode, obligations in derived_obligations.items():
+        active = len(obligations)
+        baseline = approved_caps[mode]
+        if active > baseline:
+            die(
+                "ralplan.md derived active obligation count exceeds audited baseline: "
+                f"{mode} {active}>{baseline}"
+            )
     for heading, markers in {
         "## Plan Review Contract": (
             "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
@@ -3869,6 +3917,67 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     ):
         if not has_required_marker(reviewer, marker):
             die(f"plan-reviewer.md is missing Ralplan-only marker: {marker!r}")
+    for marker in (
+        "unsupported false rejection is also a contract failure",
+        "exact draft pointer",
+        "material consequence",
+        "smallest sufficient correction",
+        "reviewer entitlement to active fields",
+        "smallest AC-sufficient correction",
+    ):
+        if not has_required_marker(reviewer, marker):
+            die(f"plan-reviewer.md is missing calibrated-blocker marker: {marker!r}")
+    for forbidden in (
+        "Require every draft to include rollout telemetry even when the Active plan contract omits it.",
+        "Block on preferred future-proofing even without an active AC or safety basis.",
+    ):
+        if forbidden in reviewer:
+            die(
+                "plan-reviewer.md violates reviewer entitlement to active fields"
+                if "rollout" in forbidden
+                else "plan-reviewer.md violates smallest AC-sufficient correction"
+            )
+    if "A false approval is worse than a false rejection" in reviewer:
+        die("plan-reviewer.md permits unsupported false rejection")
+
+    for marker in (
+        "disposition-only user-decision packet",
+        "Full-depth review is allowed only for a named material change",
+        "Why first raised now",
+        "A revision-created material defect",
+    ):
+        if not has_required_marker(ralplan, marker):
+            die(f"ralplan.md is missing bounded-review marker: {marker!r}")
+    if "If a blocker is rejected, create Planner revision v2 before asking the user." in ralplan:
+        die("ralplan.md must use a disposition-only user-decision packet before revision")
+    branch_rules = {
+        "All accepted: create exactly one Planner revision v2, then exactly one delta closure review.":
+            "all-accepted must create exactly one v2 and one closure review",
+        "Any rejected: return the disposition-only user-decision packet; create no v2 and run no review v2 until the user resolves it.":
+            "rejected must create no v2 or review before user resolution",
+        "Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2 and run no review v2.":
+            "deferred must leave the plan pending with no v2 or review",
+        "Mixed: resolve every non-accepted blocker before exactly one v2; no closure review starts earlier.":
+            "mixed blockers must resolve before one v2 and closure review",
+        "Permitted waivers with no body change: keep the waivers visible; create no v2 and run no review v2.":
+            "permitted waiver with no body change must create no v2 or review",
+        "Non-waivable gate: keep the plan pending and prohibit execution until its owner-defined obligation passes or direction changes.":
+            "non-waivable gate must remain pending with no execution",
+        "Direction change: update the requirements source, start a new planning run, and do not run or consume the old run's closure review.":
+            "direction change must start a new run without old closure review",
+    }
+    for marker, failure in branch_rules.items():
+        if not has_required_marker(revision, marker):
+            die(f"ralplan.md branch matrix {failure}")
+
+    planner = read_text(agent_core / "planner.md")
+    for marker in (
+        "classify every blocking finding",
+        "before assigning a new draft id or mutating the plan body",
+        "disposition-only user-decision packet",
+    ):
+        if not has_required_marker(planner, marker):
+            die(f"planner.md is missing blocker-disposition marker: {marker!r}")
 
     reviewer_transport = read_text(agent_core / "plan-reviewer-codex.md")
     if not has_required_marker(reviewer_transport, "Only Ralplan may call you"):
@@ -3931,6 +4040,36 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     for marker in ("final", "exactly once", "before `## Review Gate`"):
         if not has_required_marker(diff_budget, marker):
             die(f"ralph.md Diff-Budget Gate is missing timing marker: {marker!r}")
+    ralph_output = markdown_section(ralph, "## Output")
+    phase_attribution = (
+        "Review phases: plan=<n>; implementation-code=<n>; "
+        "focused-recheck=<n>; independent-verifier=<n>"
+    )
+    if not has_required_marker(ralph_output, phase_attribution):
+        die("ralph.md Output is missing exact compact phase-attribution format")
+    for marker in (
+        "when 2+ stages ran",
+        "when fewer than two ran, use ordinary labeled prose and omit that count line",
+    ):
+        if not has_required_marker(ralph_output, marker):
+            die(f"ralph.md Output is missing conditional phase-attribution rule: {marker!r}")
+
+    repo_root = root.parent.parent
+    for host in ("codex", "claude"):
+        host_test = read_text(repo_root / "scripts" / f"test-{host}-plugin.sh")
+        for marker in (
+            'r"(?m)^Reviewed draft:[ \\t]*(.*?)[ \\t]*$"',
+            "if len(reviewed_draft_matches) != 1:",
+            "captured_draft_id = normalize_transport_whitespace(draft_id.group(1))",
+            "reviewed_draft_id = normalize_transport_whitespace(reviewed_draft_matches[0])",
+        ):
+            if marker not in host_test:
+                die(f"{host} explicit Ralplan live parser is missing anchored Reviewed draft validation: {marker!r}")
+        if (
+            "if reviewed_draft_id != captured_draft_id:" not in host_test
+            or "reviewed_draft_id.startswith(captured_draft_id)" in host_test
+        ):
+            die(f"{host} explicit Ralplan live parser must compare exact normalized Reviewed draft id")
 
     modes = read_text(root / "docs" / "shared" / "execution-modes.md")
     governance = markdown_section(modes, "## Process Budgets And Gate Governance")
@@ -3947,6 +4086,27 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     ):
         if re.search(pattern, modes, flags=re.IGNORECASE):
             die(f"execution-modes.md makes final Diff-Budget execution conditional or repeated: {pattern!r}")
+
+
+def assert_workflow_object_routing_contract(root: Path) -> None:
+    """Keep workflow names used as analysis subjects from forcing invocation."""
+    using = read_text(root / "docs" / "skill-core" / "using-oh-no-harness.md")
+    session_start = read_text(root / "hooks" / "session-start")
+    required = (
+        "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
+        "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+    )
+    for path, body in (
+        ("using-oh-no-harness.md", using),
+        ("hooks/session-start", session_start),
+    ):
+        for marker in required:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing object-of-analysis routing boundary: {marker!r}")
+    if "If there is even a small chance that a local skill applies" in using:
+        die("using-oh-no-harness.md retains absolute small-chance routing wording")
+    if "If there is even a 1% chance that a local Oh No Harness skill applies" in session_start:
+        die("hooks/session-start retains absolute 1% routing wording")
 
 
 def assert_review_boundary_mutation_tests(marketplace_root: Path, root: Path) -> None:
@@ -3987,6 +4147,7 @@ def main() -> None:
         nested = requested_root / "plugins" / PLUGIN_NAME
         root = nested if nested.exists() else requested_root
 
+    assert_workflow_object_routing_contract(root)
     assert_ralplan_proportionality_contract(root)
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)

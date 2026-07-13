@@ -305,6 +305,21 @@ fail() {
   exit 1
 }
 
+snapshot_file_manifest() {
+  local root="$1"
+  "$PYTHON_BIN" - "$root" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+if root.is_dir():
+    for path in sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.as_posix()):
+        stat = path.stat()
+        print(json.dumps([path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size], separators=(",", ":")))
+PY
+}
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
@@ -904,8 +919,10 @@ with open(sys.argv[1], "r", encoding="utf-8") as fh:
 text = json.dumps(data)
 if "OH_NO_FORCED_ROUTING" not in text:
     raise SystemExit("forced-routing policy missing while config is enabled")
-if "1%" not in text:
-    raise SystemExit("forced-routing policy is missing the 1% directive")
+if "A workflow name used only as the subject of analysis" not in text:
+    raise SystemExit("forced-routing policy is missing the object-of-analysis boundary")
+if "Route from the requested deliverable: an analysis report versus a plan or execution artifact." not in text:
+    raise SystemExit("forced-routing policy is missing deliverable-aware routing")
 if "Routing map" not in text:
     raise SystemExit("forced-routing policy is missing the routing map")
 if "Red flags" not in text:
@@ -2256,15 +2273,80 @@ run_natural_session_start_live_skill_test() {
   assert_claude_natural_role_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
 }
 
+run_ralplan_object_analysis_session_start_live_test() {
+  local out_file="$RUN_DIR/ralplan-object-analysis-session-start.jsonl"
+  local err_file="$RUN_DIR/ralplan-object-analysis-session-start.err"
+  local prompt
+  local temp_project
+  prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes. End with OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan-object-analysis" "$prompt"
+  temp_project="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-ralplan-object-analysis.XXXXXX")"
+
+  (
+    trap 'rm -rf "$temp_project"' EXIT
+    mkdir -p "$temp_project/.oh-no/plans"
+    plans_before="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
+
+    local cmd=(
+      "$CLAUDE_BIN"
+      --print
+      --verbose
+      --output-format stream-json
+      --include-hook-events
+      --model "$LIVE_MODEL"
+      --max-budget-usd "$LIVE_MAX_BUDGET_USD"
+      --permission-mode bypassPermissions
+      --tools "Read,Glob,Grep,Task,Workflow"
+      --no-session-persistence
+      --plugin-dir "$PLUGIN_ROOT"
+      --system-prompt "You are a read-only analysis smoke test runner in a disposable project. Do not edit files."
+    )
+    (cd "$temp_project" && "${cmd[@]}" "$prompt") >"$out_file" 2>"$err_file"
+
+    plans_after="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
+    [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
+
+    "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import sys
+
+marker = False
+for line in open(sys.argv[1], encoding="utf-8"):
+    if not line.strip():
+        continue
+    data = json.loads(line)
+    text = json.dumps(data).lower()
+    marker = marker or "oh_no_claude_ralplan_object_analysis_ok" in text
+    if data.get("type") != "assistant":
+        continue
+    for part in data.get("message", {}).get("content", []):
+        if part.get("type") != "tool_use":
+            continue
+        name = part.get("name", "")
+        payload = json.dumps(part.get("input", {})).lower()
+        if name in {"Agent", "Task"} and (
+            "oh-no-harness:planner" in payload or "oh-no-harness:plan-reviewer" in payload
+        ):
+            raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
+        if name == "Workflow" and "ralplan" in payload:
+            raise SystemExit("Ralplan object-analysis smoke invoked the Ralplan workflow")
+if not marker:
+    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
+print("ok - Ralplan object-analysis request stayed analysis-only")
+PY
+  )
+}
+
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
     log "Skipping live natural Claude role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify natural role-worker dispatch for Interview, Ultrawork, Systematic Debugging, and Verification Before Completion.\n' >&2
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify analysis-only routing and natural role-worker dispatch.\n' >&2
     return
   fi
 
   log "Running live natural Claude role-worker smoke tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
+  run_ralplan_object_analysis_session_start_live_test
   run_natural_session_start_live_skill_test \
     interview \
     OH_NO_CLAUDE_INTERVIEW_NATURAL_OK \
@@ -2299,7 +2381,7 @@ run_ralplan_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Claude subagents exactly two times in this strict order: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run."
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Natural request under observation: 'Analyze the Ralplan review loop for unnecessary steps.' Treat that sentence as analysis-only; this separate explicit request to use Ralplan is the invocation trigger. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Derive one compact Active plan contract. In both direct Task/Agent messages include exactly one identical serialized contract block between unindented delimiter lines ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END. Use direct Claude Task/Agent subagents exactly two times in this strict order and do not use Workflow in this instrumentation lane: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only one block between unindented delimiter lines PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END; inside include Planner draft id: Planner draft v1, Active plan contract, Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan. After Planner completes, copy that exact captured Planner draft block, including its id, into the Plan-Reviewer Task/Agent message between the same PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines; normalize transport whitespace only and do not summarize or reconstruct it. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Object-of-analysis boundary: analysis-only, Exact Active contract equality: yes, Exact Planner draft handoff: yes, Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2332,12 +2414,16 @@ path = sys.argv[1]
 expected_roles = ["planner", "plan-reviewer"]
 expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
 dependency_prompt_markers = {
-    "plan-reviewer": ["Planner draft v1"],
+    "plan-reviewer": ["Planner draft v1", "Active plan contract"],
 }
 output_markers = {
-    "planner": ["Planner draft v1"],
+    "planner": ["Planner draft v1", "Active plan contract"],
     "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "NB1", "non-blocking", "Quality-gate findings"],
 }
+CONTRACT_START = "ACTIVE_PLAN_CONTRACT_BEGIN"
+CONTRACT_END = "ACTIVE_PLAN_CONTRACT_END"
+DRAFT_START = "PLANNER_DRAFT_BEGIN"
+DRAFT_END = "PLANNER_DRAFT_END"
 
 def collect_text(value):
     if isinstance(value, str):
@@ -2348,6 +2434,27 @@ def collect_text(value):
         return "\n".join(collect_text(item) for item in value)
     return ""
 
+def normalize_transport_whitespace(value):
+    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(line.rstrip() for line in lines)
+
+def extract_delimited_block(value, start, end, label, allow_repeats=False):
+    matches = re.findall(
+        rf"(?ms)^\s*{re.escape(start)}\s*$\n(.*?)^\s*{re.escape(end)}\s*$",
+        value,
+    )
+    normalized = {normalize_transport_whitespace(match) for match in matches}
+    if len(normalized) != 1 or (not allow_repeats and len(matches) != 1):
+        raise SystemExit(
+            f"Claude ralplan sequential smoke expected one unique {label} block; "
+            f"matches={len(matches)} unique={len(normalized)}"
+        )
+    return next(iter(normalized))
+
 init_ok = False
 tool_uses = []
 task_started = {}
@@ -2357,10 +2464,7 @@ role_outputs = defaultdict(list)
 marker = False
 errors = []
 all_task_roles = []
-workflow_tool_ids = set()
 workflow_scripts = []
-workflow_completed = False
-workflow_evidence_parts = []
 
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -2385,12 +2489,9 @@ with open(path, "r", encoding="utf-8") as fh:
                         if role in expected_roles:
                             tool_uses.append((index, role, payload))
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
-                    workflow_tool_ids.add(part.get("id"))
                     script = collect_text(part.get("input", {}).get("script", ""))
-                    if script:
-                        workflow_scripts.append((index, script))
+                    workflow_scripts.append((index, script))
                 if part.get("type") == "text":
-                    workflow_evidence_parts.append(part.get("text", ""))
                     subagent_type = data.get("subagent_type", "")
                     if subagent_type.startswith("oh-no-harness:"):
                         role = subagent_type.split(":", 1)[1]
@@ -2408,15 +2509,6 @@ with open(path, "r", encoding="utf-8") as fh:
             task_id = data.get("task_id")
             role = task_role_by_id.get(task_id)
             status = data.get("status") or (data.get("patch") or {}).get("status")
-            if (
-                data.get("subtype") == "task_notification"
-                and data.get("status") == "completed"
-                and (
-                    data.get("tool_use_id") in workflow_tool_ids
-                    or "workflow" in str(data.get("summary", "")).lower()
-                )
-            ):
-                workflow_completed = True
             if role in expected_roles:
                 text = collect_text(data)
                 if text:
@@ -2437,8 +2529,6 @@ with open(path, "r", encoding="utf-8") as fh:
                     task_completion.setdefault(role, index)
         if data.get("type") == "result" and data.get("is_error") is True:
             errors.append((index, str(data.get("result", ""))[:1000]))
-        if data.get("type") == "result":
-            workflow_evidence_parts.append(str(data.get("result", "")))
 
 if not init_ok:
     raise SystemExit("Claude ralplan sequential smoke did not expose Task tool and required planning agents")
@@ -2452,48 +2542,11 @@ unexpected_roles = [
 if unexpected_roles:
     raise SystemExit(f"unexpected Claude planning smoke subagents were started: {unexpected_roles!r}")
 
-if not tool_uses and workflow_scripts:
-    workflow_script = "\n".join(script for _, script in workflow_scripts)
-    workflow_roles = re.findall(r"agentType:\s*['\"]oh-no-harness:([^'\"]+)['\"]", workflow_script)
-    if workflow_roles != expected_roles:
-        raise SystemExit(
-            "Claude ralplan Workflow agent() order did not match expected planning roles: "
-            f"expected={expected_roles!r} got={workflow_roles!r}"
-        )
-    workflow_required_script_markers = [
-        "Planner draft v1",
-        "Plan review v1",
-    ]
-    workflow_missing_script_markers = [
-        marker for marker in workflow_required_script_markers
-        if marker not in workflow_script
-    ]
-    if workflow_missing_script_markers:
-        raise SystemExit(
-            "Claude ralplan Workflow agent() script did not prove sequential review chaining: "
-            f"{workflow_missing_script_markers}"
-        )
-    if workflow_script.count("await agent") < len(expected_roles):
-        raise SystemExit("Claude ralplan Workflow did not await two planning agent calls")
-    if not re.search(r"\$\{[^}]*planner[^}]*\}", workflow_script, re.IGNORECASE):
-        raise SystemExit("Claude ralplan Workflow plan-reviewer prompt did not include planner output")
-    if not workflow_completed:
-        raise SystemExit("Claude ralplan Workflow agent() task did not report completion")
-    workflow_evidence = "\n".join(workflow_evidence_parts)
-    for role, markers in output_markers.items():
-        missing_output_markers = [
-            marker for marker in markers
-            if marker.lower() not in workflow_evidence.lower()
-        ]
-        if missing_output_markers:
-            raise SystemExit(
-                f"Claude ralplan Workflow output did not prove {role} review chain: "
-                f"{missing_output_markers}; output={workflow_evidence[:2000]!r}"
-            )
-    if not marker:
-        raise SystemExit("Claude ralplan sequential smoke did not return success marker")
-    print("ok - live Claude ralplan planning subagents reviewed sequentially")
-    sys.exit(0)
+if workflow_scripts:
+    raise SystemExit(
+        "Claude ralplan sequential smoke requires observable Task/Agent payloads; "
+        "Workflow transport cannot prove exact handoff equality"
+    )
 
 if len(tool_uses) != len(expected_roles):
     raise SystemExit(f"expected exactly two planning task uses, got {len(tool_uses)}: {tool_uses!r}")
@@ -2502,8 +2555,10 @@ actual_order = [role for _, role, _ in tool_uses]
 if actual_order != expected_roles:
     raise SystemExit(f"expected sequential task order {expected_roles!r}, got {actual_order!r}")
 
+role_payload_text = {}
 for index, role, payload in tool_uses:
     prompt = collect_text(payload)
+    role_payload_text[role] = prompt
     missing_prompt_markers = [
         marker for marker in dependency_prompt_markers.get(role, [])
         if marker.lower() not in prompt.lower()
@@ -2526,8 +2581,10 @@ for previous, following in zip(tool_uses, tool_uses[1:]):
             f"completion={completion_index} following_start={following_index}"
         )
 
+role_output_text = {}
 for role, markers in output_markers.items():
     output_text = "\n".join(role_outputs.get(role, []))
+    role_output_text[role] = output_text
     if not output_text:
         raise SystemExit(f"no output captured for {role}")
     missing_output_markers = [
@@ -2539,6 +2596,37 @@ for role, markers in output_markers.items():
             f"Claude ralplan {role} output did not prove the review chain: "
             f"{missing_output_markers}; output={output_text[:2000]!r}"
         )
+
+planner_contract = extract_delimited_block(
+    role_payload_text["planner"], CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
+)
+reviewer_contract = extract_delimited_block(
+    role_payload_text["plan-reviewer"], CONTRACT_START, CONTRACT_END, "Plan-Reviewer Active plan contract"
+)
+if planner_contract != reviewer_contract:
+    raise SystemExit("Claude ralplan role payloads did not carry the exact same Active plan contract")
+
+captured_draft = extract_delimited_block(
+    role_output_text["planner"], DRAFT_START, DRAFT_END, "captured Planner draft", allow_repeats=True
+)
+reviewer_draft = extract_delimited_block(
+    role_payload_text["plan-reviewer"], DRAFT_START, DRAFT_END, "Plan-Reviewer input draft"
+)
+if captured_draft != reviewer_draft:
+    raise SystemExit("Claude ralplan Plan-Reviewer payload did not carry the exact captured Planner draft")
+draft_id = re.search(r"(?m)^Planner draft id:\s*(\S.*)$", captured_draft)
+if not draft_id:
+    raise SystemExit("Claude ralplan captured Planner draft omitted its draft id")
+captured_draft_id = normalize_transport_whitespace(draft_id.group(1))
+reviewed_draft_matches = re.findall(
+    r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$",
+    role_output_text["plan-reviewer"],
+)
+if len(reviewed_draft_matches) != 1:
+    raise SystemExit("Claude ralplan Plan-Reviewer output must contain exactly one anchored Reviewed draft field")
+reviewed_draft_id = normalize_transport_whitespace(reviewed_draft_matches[0])
+if reviewed_draft_id != captured_draft_id:
+    raise SystemExit("Claude ralplan Plan-Reviewer output did not identify the exact captured Planner draft id")
 
 if not marker:
     raise SystemExit("Claude ralplan sequential smoke did not return success marker")

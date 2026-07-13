@@ -746,23 +746,13 @@ continuing the loop.
 
 Return:
 
-- Session directory.
-- PRD path.
-- Execution mode, mode source, parallel trigger, and policy decisions.
-- Worktree decision, worktree location, and integration checkout status.
-- Stories completed.
-- Files changed.
-- Cleanup status.
-- Verification commands and results.
-- Acceptance-to-evidence mapping.
-- Contract surface and baseline guard status.
-- Risk check before completion and completion claim.
-- Validation check and risk from metric-only evidence when applicable.
-- Diff-budget scope review status.
-- Review verdict.
+- Session directory and PRD path.
+- Execution profile: mode/source, parallel trigger, policies, worktree decision/location, and integration status.
+- Delivery: stories, files, cleanup.
+- Verification: commands/results, AC mapping, contract/baseline, risk/completion, validation, and diff budget.
+- Review phases: when 2+ stages ran, include exactly `Review phases: plan=<n>; implementation-code=<n>; focused-recheck=<n>; independent-verifier=<n>`; when fewer than two ran, use ordinary labeled prose and omit that count line.
 - Residual risk.
-- Process budget outcome: planned versus actual tests/TDD cycles, role dispatch
-  count and reasons, broad-suite count, and rescope events.
+- Process budget outcome: planned versus actual tests/TDD cycles, role dispatch count and reasons, broad-suite count, and rescope events.
 
 ## Final Handoff
 

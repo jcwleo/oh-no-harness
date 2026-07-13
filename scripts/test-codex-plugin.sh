@@ -186,6 +186,21 @@ fail() {
   exit 1
 }
 
+snapshot_file_manifest() {
+  local root="$1"
+  "$PYTHON_BIN" - "$root" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+if root.is_dir():
+    for path in sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.as_posix()):
+        stat = path.stat()
+        print(json.dumps([path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size], separators=(",", ":")))
+PY
+}
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
@@ -2066,16 +2081,66 @@ else:
 PY
 }
 
+run_ralplan_object_analysis_session_start_live_test() {
+  local out_file="$RUN_DIR/ralplan-object-analysis-session-start.jsonl"
+  local err_file="$RUN_DIR/ralplan-object-analysis-session-start.err"
+  local prompt
+  local plans_before
+  local plans_after
+  prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes. End with OH_NO_CODEX_RALPLAN_OBJECT_ANALYSIS_OK.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan-object-analysis" "$prompt"
+  plans_before="$(snapshot_file_manifest "$MARKETPLACE_ROOT/.oh-no/plans")"
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --skip-git-repo-check
+  )
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+
+  plans_after="$(snapshot_file_manifest "$MARKETPLACE_ROOT/.oh-no/plans")"
+  [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
+
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import sys
+
+marker = False
+for line in open(sys.argv[1], encoding="utf-8"):
+    if not line.strip():
+        continue
+    data = json.loads(line)
+    text = json.dumps(data).lower()
+    marker = marker or "oh_no_codex_ralplan_object_analysis_ok" in text
+    item = data.get("item") or {}
+    if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent":
+        if "oh-no-planner" in text or "oh-no-plan-reviewer" in text:
+            raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
+if not marker:
+    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
+print("ok - Ralplan object-analysis request stayed analysis-only")
+PY
+}
+
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
     log "Skipping live natural SessionStart role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify no-skill read-only and natural SessionStart role-worker dispatch.\n' >&2
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify analysis-only routing, no-skill read-only, and natural role dispatch.\n' >&2
     return
   fi
 
   log "Running live natural SessionStart role-worker smoke tests"
   mkdir -p "$RUN_DIR"
   run_no_skill_readonly_session_start_live_test
+  run_ralplan_object_analysis_session_start_live_test
   run_natural_session_start_live_skill_test \
     interview \
     OH_NO_CODEX_INTERVIEW_NATURAL_OK \
@@ -2112,7 +2177,7 @@ run_ralplan_live_test() {
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. The plan-reviewer subagent must receive the actual Planner draft v1 text. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run, Closed planning agents: 2.'
+  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Natural request under observation: "Analyze the Ralplan review loop for unnecessary steps." Treat that sentence as analysis-only; this separate explicit request to use Ralplan is the invocation trigger. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Derive one compact Active plan contract. In both spawn_agent messages include exactly one identical serialized contract block between unindented delimiter lines ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only one block between unindented delimiter lines PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END; inside include Planner draft id: Planner draft v1, Active plan contract, Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan. After Planner completes, copy that exact captured Planner draft block, including its id, into the Plan-Reviewer spawn message between the same PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines; normalize transport whitespace only and do not summarize or reconstruct it. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Object-of-analysis boundary: analysis-only, Exact Active contract equality: yes, Exact Planner draft handoff: yes, Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run, Closed planning agents: 2.'
 
   local cmd=(
     "$CODEX_BIN"
@@ -2134,6 +2199,7 @@ run_ralplan_live_test() {
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -2141,6 +2207,7 @@ from pathlib import Path
 path = sys.argv[1]
 err_path = sys.argv[2]
 live_home = sys.argv[3]
+
 expected_roles = ["planner", "plan-reviewer"]
 role_headings = {
     "planner": "# Planner Agent",
@@ -2153,12 +2220,16 @@ required_prompt_markers = [
     "## Output",
 ]
 dependency_prompt_markers = {
-    "plan-reviewer": ["Planner draft v1"],
+    "plan-reviewer": ["Planner draft v1", "Active plan contract"],
 }
 output_markers = {
-    "planner": ["Planner draft v1"],
+    "planner": ["Planner draft v1", "Active plan contract"],
     "plan-reviewer": ["Plan review v1", "Reviewed draft", "Architecture findings", "NB1", "non-blocking", "Quality-gate findings"],
 }
+CONTRACT_START = "ACTIVE_PLAN_CONTRACT_BEGIN"
+CONTRACT_END = "ACTIVE_PLAN_CONTRACT_END"
+DRAFT_START = "PLANNER_DRAFT_BEGIN"
+DRAFT_END = "PLANNER_DRAFT_END"
 
 def collect_text(value):
     if isinstance(value, str):
@@ -2168,6 +2239,27 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
+
+def normalize_transport_whitespace(value):
+    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(line.rstrip() for line in lines)
+
+def extract_delimited_block(value, start, end, label, allow_repeats=False):
+    matches = re.findall(
+        rf"(?ms)^\s*{re.escape(start)}\s*$\n(.*?)^\s*{re.escape(end)}\s*$",
+        value,
+    )
+    normalized = {normalize_transport_whitespace(match) for match in matches}
+    if len(normalized) != 1 or (not allow_repeats and len(matches) != 1):
+        raise SystemExit(
+            f"Codex ralplan sequential smoke expected one unique {label} block; "
+            f"matches={len(matches)} unique={len(normalized)}"
+        )
+    return next(iter(normalized))
 
 def roles_in_text(text):
     lower = text.lower()
@@ -2314,6 +2406,7 @@ for receiver, role in receiver_to_role.items():
             f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
         )
 
+role_payload_text = {}
 for role, payloads in {
     role: [spawn for spawn in successful_spawns if spawn[1] == role]
     for role in expected_roles
@@ -2321,6 +2414,7 @@ for role, payloads in {
     if len(payloads) != 1:
         raise SystemExit(f"expected exactly one successful spawn_agent payload for {role}, got {len(payloads)}")
     _, _, _, role_text = payloads[0]
+    role_payload_text[role] = role_text
     missing_prompt_markers = [
         marker for marker in [
             f"Codex agent type: oh-no-{role}",
@@ -2363,8 +2457,10 @@ for previous, following in zip(successful_spawns, successful_spawns[1:]):
             f"{following_role} spawn; events={events!r}"
         )
 
+role_output_text = {}
 for role, markers in output_markers.items():
     output_text = "\n".join(role_outputs.get(role, []))
+    role_output_text[role] = output_text
     if not output_text:
         raise SystemExit(f"no completed wait/close output captured for {role}")
     missing_output_markers = [
@@ -2376,6 +2472,37 @@ for role, markers in output_markers.items():
             f"Codex ralplan {role} output did not prove the review chain: "
             f"{missing_output_markers}; output={output_text[:2000]!r}"
         )
+
+planner_contract = extract_delimited_block(
+    role_payload_text["planner"], CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
+)
+reviewer_contract = extract_delimited_block(
+    role_payload_text["plan-reviewer"], CONTRACT_START, CONTRACT_END, "Plan-Reviewer Active plan contract"
+)
+if planner_contract != reviewer_contract:
+    raise SystemExit("Codex ralplan role payloads did not carry the exact same Active plan contract")
+
+captured_draft = extract_delimited_block(
+    role_output_text["planner"], DRAFT_START, DRAFT_END, "captured Planner draft", allow_repeats=True
+)
+reviewer_draft = extract_delimited_block(
+    role_payload_text["plan-reviewer"], DRAFT_START, DRAFT_END, "Plan-Reviewer input draft"
+)
+if captured_draft != reviewer_draft:
+    raise SystemExit("Codex ralplan Plan-Reviewer payload did not carry the exact captured Planner draft")
+draft_id = re.search(r"(?m)^Planner draft id:\s*(\S.*)$", captured_draft)
+if not draft_id:
+    raise SystemExit("Codex ralplan captured Planner draft omitted its draft id")
+captured_draft_id = normalize_transport_whitespace(draft_id.group(1))
+reviewed_draft_matches = re.findall(
+    r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$",
+    role_output_text["plan-reviewer"],
+)
+if len(reviewed_draft_matches) != 1:
+    raise SystemExit("Codex ralplan Plan-Reviewer output must contain exactly one anchored Reviewed draft field")
+reviewed_draft_id = normalize_transport_whitespace(reviewed_draft_matches[0])
+if reviewed_draft_id != captured_draft_id:
+    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the exact captured Planner draft id")
 
 if not marker:
     raise SystemExit("Codex ralplan sequential smoke did not return success marker")
