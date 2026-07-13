@@ -251,7 +251,9 @@ is necessary but never sufficient:
 - the task touches no security, data, permission, public-contract,
   release-critical, migration, new-dependency, shared-schema,
   generated-surface, or concurrency-semantics surface, and the root cause is
-  not unknown
+  not unknown; generated-surface means changing the generation contract or
+  hand-editing generated outputs — mechanical regeneration of already-validated
+  wrappers does not count
 - the run is direct `ralph` execution; `ultrawork` keeps the ordinary STANDARD
   reviewer
 
@@ -274,12 +276,18 @@ follows the conditional quick-scan rule above. TDD, worktree isolation, session
 evidence, the independent `verifier` pass, and `verification-before-completion`
 are unchanged.
 
+The line band counts handwritten implementation lines; the failing test that
+TDD itself requires does not invalidate the carve-out. Test-infrastructure
+addition means new harness, fixture, or scaffolding machinery beyond that TDD
+case.
+
 The eligibility status stays `provisional` until Ralph's step-8 recheck
 reclassifies it against the actual diff. Any unexpected file or surface, bound
 breach, proof-path failure, test-infrastructure addition, or new semantic
 uncertainty invalidates the carve-out: record
 `Review topology: single-reviewer` and run ordinary STANDARD review before the
-verifier.
+verifier. An eligibility record still `provisional` at completion-claim time is
+non-compliant — a named ledger gap, not a pass.
 
 ## THOROUGH
 

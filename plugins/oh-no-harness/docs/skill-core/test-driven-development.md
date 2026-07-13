@@ -176,8 +176,9 @@ When this skill is used from a session-scoped workflow (`ralph`, `ultrawork`, or
 .oh-no/sessions/{sessionId}/verification.md
 ```
 
-On a direct edit path with no session, record the same RED/GREEN/REFACTOR
-evidence inline in the final report or completion claim instead.
+When invoked top-level with no session (an explicit user TDD request), record
+the same RED/GREEN/REFACTOR evidence inline in the final report or completion
+claim instead.
 
 Record:
 
