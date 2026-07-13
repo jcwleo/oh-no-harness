@@ -6,6 +6,33 @@ what each lane owns, which failures are hard, which model-output differences are
 non-gating warnings, and which signals are evidence limitations rather than
 proof.
 
+Codex live lanes that create a disposable `CODEX_HOME` must begin by cloning
+the active runtime configuration: `config.toml`, available authentication/config
+JSON, and the complete `agents/*.toml` directory. Plugin installation, agent
+freshness updates, proof instrumentation, and session creation then occur only
+inside the clone. Do not synthesize a reduced positive-test config because that
+changes selector and custom-role behavior. An explicit negative control may
+remove one copied capability inside its clone after this baseline is created;
+it must not mutate the active home.
+
+This is the default for every present and future isolated Codex live lane, not a
+Ralplan-only exception. `clone_codex_live_home` verifies the copied config files
+and complete agents tree against the active source before the lane may mutate
+the clone. The clone must be physically independent and symlink-free; its
+provenance records the active source manifest without copying secret values into
+test evidence. Every isolated live-test function is registered in
+`ISOLATED_CODEX_LIVE_FUNCTIONS`, may launch commands only through
+`run_in_verified_codex_live_home`, and rechecks the active config/agent manifest
+before and after each command. The static lane contract rejects direct
+`CODEX_HOME=...` assignments regardless of quoting or variable-expansion form
+across every model-launch helper whose name contains `live` and `test`, not just
+registered isolated lanes or functions ending exactly in `_live_test`.
+Non-isolated live launches use `run_codex_live_command`, which permits only the
+initially selected active home or a clone carrying verified provenance; an
+unregistered future-lane mutation and an unverified-home runtime fixture guard this boundary.
+Fixture-only installer/unit tests that do not launch a live Codex model remain
+synthetic by design.
+
 The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
 `scripts/validate-plugin-files.py`.
 
@@ -109,11 +136,34 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating Planner to Plan-Reviewer sequencing and exact handoff from a disposable V2-configured CODEX_HOME; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
+      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating Planner to Plan-Reviewer sequencing and exact handoff from a disposable CODEX_HOME cloned from the active config and agent TOMLs; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
         "broad command success alone"
+      ]
+    },
+    {
+      "host": "codex",
+      "owner": "scripts/test-codex-plugin.sh",
+      "flag": "--ralplan-v2-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "containment",
+        "forensic invariant",
+        "generated-wrapper freshness"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Generated two-source Codex wrapper assertion plus stored parent-child rollout graph from a verified disposable clone of the active config and agents tree, proving the requested model against each rollout's turn_context model provenance, the parent collaboration-call sequence, registered Planner then Plan-Reviewer role metadata and developer prompts, completion ordering, a per-run handoff nonce, canonical execution profile, exact Planner-draft echo in the Reviewer result, minimal verdict token, and no shell/write/next-workflow event",
+      "non_proofs": [
+        "marker-only output",
+        "final natural-language summary",
+        "comparison with a canned Planner draft",
+        "direct equality of encrypted Codex spawn packets"
       ]
     },
     {
@@ -358,6 +408,28 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "marker-only output",
         "model self-report alone",
         "broad command success alone"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--ralplan-v2-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "containment",
+        "forensic invariant",
+        "generated-wrapper freshness"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Generated two-source Claude wrapper assertion plus a Read-and-Agent-only capability surface and Task/Agent events proving Planner completion before Plan-Reviewer, exactly two total role calls, identical actual contract payloads, canonical execution profile, per-run handoff nonce, exact captured-draft handoff, minimal verdict token, generated-wrapper-only read, and no write/Workflow/next-skill event",
+      "non_proofs": [
+        "marker-only output",
+        "final natural-language summary",
+        "comparison with a canned Planner draft"
       ]
     },
     {

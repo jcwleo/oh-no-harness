@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -18,6 +19,7 @@ PUBLIC_SKILLS = [
     "using-oh-no-harness",
     "interview",
     "ralplan",
+    "ralplan-v2",
     "ralph",
     "ultrawork",
     "auto-routing",
@@ -36,12 +38,13 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan-v2"}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
 # separate from CLAUDE_ONLY_SKILLS (the platform dimension) on purpose. Every other
 # command wrapper must still set disable-model-invocation: false.
-MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
+MODEL_UNINVOCABLE_SKILLS = {"ralplan-v2", "install-statusline"}
 
 AGENTS = [
     "explore",
@@ -1774,7 +1777,43 @@ def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
         die(f"{path} name={fm['name']!r}, expected {expected_name!r}")
     if skill in WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT and "argument-hint" not in fm:
         die(f"{path} should define argument-hint")
+    dmi = fm.get("disable-model-invocation")
+    if skill in MODEL_UNINVOCABLE_SKILLS:
+        if dmi != "true":
+            die(
+                f"{path} should set disable-model-invocation: true "
+                f"({skill} must never be model-invocable)"
+            )
+    elif dmi == "true":
+        die(
+            f"{path} unexpectedly disables model invocation for model-invocable skill {skill}"
+        )
     return fm
+
+
+def assert_model_uninvocable_skill_mutation_guards(root: Path) -> None:
+    skill = "ralplan-v2"
+    paths = (
+        root / SKILL_CORE_ROOT / f"{skill}.md",
+        root / CODEX_SKILL_ROOT / skill / "SKILL.md",
+        root / CLAUDE_SKILL_ROOT / skill / "SKILL.md",
+    )
+    for source in paths:
+        text = read_text(source)
+        marker = "disable-model-invocation: true\n"
+        if text.count(marker) != 1:
+            die(f"{source} must contain exactly one {marker.strip()!r} marker")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mutated = Path(temp_dir) / source.name
+            mutated.write_text(text.replace(marker, "", 1), encoding="utf-8")
+            try:
+                assert_skill_frontmatter(mutated, skill)
+            except SystemExit:
+                continue
+            die(
+                "Ralplan v2 invocation guard accepted a core/wrapper mutation without "
+                f"disable-model-invocation: true ({source})"
+            )
 
 
 def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str) -> None:
@@ -1793,6 +1832,9 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
             "docs/platforms/claude-code-ralph.md",
             "CLAUDE_PLUGIN_ROOT",
         )
+        if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+            required = f"docs/platforms/codex-{skill}.md"
+            forbidden += ("docs/platforms/codex-runtime.md",)
         if skill == "ralph" and "docs/platforms/codex-ralph.md" not in body:
             die(f"{path} should reference Codex Ralph adapter")
         if skill == "auto-routing" and "docs/platforms/codex-auto-routing.md" not in body:
@@ -1810,6 +1852,9 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
             "docs/platforms/codex-ralph.md",
             "spawn_agent",
         )
+        if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+            required = f"docs/platforms/claude-code-{skill}.md"
+            forbidden += ("docs/platforms/claude-code-runtime.md",)
         if skill == "ralph" and "docs/platforms/claude-code-ralph.md" not in body:
             die(f"{path} should reference Claude Code Ralph adapter")
         if skill == "auto-routing" and "docs/platforms/claude-code-auto-routing.md" not in body:
@@ -3488,6 +3533,48 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
         if forbidden in body:
             die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
 
+    v2_checker_path = marketplace_root / "scripts" / "check-ralplan-v2-live.py"
+    v2_checker = read_text(v2_checker_path)
+    for marker in (
+        "Verify Ralplan v2 live behavior from runtime events, not final prose.",
+        "assert_relational_handoff",
+        "Reviewer did not receive the exact captured Planner draft",
+        "unexpectedly embeds a common platform runtime",
+        "VERDICT_APPROVE",
+        '"task_packet_observability": "encrypted-unavailable"',
+        "turn_context model provenance",
+        '"model": parent["model"]',
+        "unexpected_capabilities",
+        "generic extra Agent call",
+        "malformed execution profile",
+    ):
+        if marker not in v2_checker:
+            die(f"{v2_checker_path} is missing Ralplan v2 event-check marker: {marker!r}")
+    self_test = subprocess.run(
+        [sys.executable, str(v2_checker_path), "--self-test"],
+        capture_output=True,
+        text=True,
+    )
+    if self_test.returncode != 0:
+        details = "\n".join(
+            part for part in (self_test.stdout.strip(), self_test.stderr.strip()) if part
+        )
+        die(f"Ralplan v2 live checker mutation self-test failed:\n{details}")
+    for test_name, host in (
+        ("test-codex-plugin.sh", "Codex"),
+        ("test-claude-plugin.sh", "Claude"),
+    ):
+        test_path = marketplace_root / "scripts" / test_name
+        test_body = read_text(test_path)
+        for marker in (
+            "--ralplan-v2-live",
+            "run_ralplan_v2_live_test",
+            "check-ralplan-v2-live.py",
+            "it ignores your final prose",
+        ):
+            if marker not in test_body:
+                die(f"{test_path} is missing {host} Ralplan v2 live marker: {marker!r}")
+
 
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
@@ -4155,6 +4242,7 @@ def main() -> None:
     assert_skill_reachability(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)
+    assert_model_uninvocable_skill_mutation_guards(root)
     for skill in COMMAND_WRAPPERS:
         assert_command(root, skill)
     for agent in AGENTS:

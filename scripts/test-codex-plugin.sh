@@ -18,6 +18,7 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
+RUN_RALPLAN_V2_LIVE="${OH_NO_RALPLAN_V2_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE:-0}"
@@ -28,7 +29,14 @@ LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
 CODEX_HOME_SOURCE_DIR=""
+CODEX_ACTIVE_HOME_DIR=""
 CODEX_LIVE_TEMP_ROOTS=()
+CODEX_LIVE_CLONE_MARKER=".oh-no-live-clone-provenance.json"
+ISOLATED_CODEX_LIVE_FUNCTIONS=(
+  run_ralplan_v2_live_test
+  run_ralplan_live_test
+  run_named_agents_live_test
+)
 
 cleanup_codex_live_temp_roots() {
   local dir
@@ -44,6 +52,7 @@ PUBLIC_SKILLS=(
   using-oh-no-harness
   interview
   ralplan
+  ralplan-v2
   ralph
   ultrawork
   auto-routing
@@ -67,6 +76,8 @@ Options:
   --parallel-live    Run live Ralph explicit and SessionStart-natural subagent smoke tests.
   --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
                      Requires install mode and must run separately from other subagent live flags.
+  --ralplan-v2-live  Run the generated Ralplan v2 composition and sequential planning-role live test.
+                     Requires install mode and runs separately from legacy --ralplan-live.
   --named-agents-live
                      Run live Codex custom-agent name spawn smoke test.
   --fusion-rescue-live
@@ -90,7 +101,7 @@ Options:
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_RALPLAN_V2_LIVE, OH_NO_CODEX_TEST_MODEL,
   OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
   OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE,
   OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
@@ -114,6 +125,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
+      shift
+      ;;
+    --ralplan-v2-live)
+      RUN_RALPLAN_V2_LIVE=1
       shift
       ;;
     --named-agents-live)
@@ -175,15 +190,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-ralplan_live_requested() {
-  [[ "${RUN_RALPLAN_LIVE}" == "1" ]]
+CODEX_ACTIVE_HOME_DIR="$CODEX_HOME_DIR"
+
+isolated_codex_live_home_requested() {
+  if [[ "${RUN_RALPLAN_LIVE}" == "1" ]]; then
+    return 0
+  fi
+  [[ "${RUN_RALPLAN_V2_LIVE}" == "1" ]]
 }
 
 validate_ralplan_live_option_compatibility() {
-  ralplan_live_requested || return 0
+  isolated_codex_live_home_requested || return 0
 
   [[ "$INSTALL_MODE" == "1" ]] \
-    || fail "--ralplan-live cannot be combined with --no-install because its isolated home requires current plugin and agent fixtures"
+    || fail "Ralplan live lanes cannot be combined with --no-install because their isolated home requires current plugin and agent fixtures"
+
+  if [[ "$RUN_RALPLAN_LIVE" == "1" && "$RUN_RALPLAN_V2_LIVE" == "1" ]]; then
+    fail "Run --ralplan-live and --ralplan-v2-live separately"
+  fi
 
   local conflicting_flags=()
   [[ "$RUN_PARALLEL_LIVE" == "1" ]] && conflicting_flags+=(--parallel-live)
@@ -193,36 +217,306 @@ validate_ralplan_live_option_compatibility() {
   [[ "$RUN_SIMPLIFY_LIVE" == "1" ]] && conflicting_flags+=(--simplify-live)
   [[ "$RUN_NATURAL_SESSION_START_LIVE" == "1" ]] && conflicting_flags+=(--natural-session-start-live)
   if [[ "${#conflicting_flags[@]}" -gt 0 ]]; then
-    fail "--ralplan-live uses the Multi-Agent v2 event surface; run it separately from: ${conflicting_flags[*]}"
+    fail "Ralplan live lanes use the Multi-Agent v2 event surface; run separately from: ${conflicting_flags[*]}"
   fi
 }
 
-prepare_isolated_codex_ralplan_live_home() {
-  ralplan_live_requested || return 0
+clone_codex_live_home() {
+  local source_home="$1"
+  local target_home="$2"
+
+  [[ -f "$source_home/config.toml" ]] \
+    || fail "Codex live isolation requires the active config at $source_home/config.toml"
+
+  "$PYTHON_BIN" - "$source_home" "$target_home" <<'PY' || return $?
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+
+if source.resolve() == target.resolve():
+    raise SystemExit("isolated Codex live clone target must differ from the active home")
+
+for name in ("config.toml", "auth.json", "config.json"):
+    path = source / name
+    if path.is_symlink():
+        raise SystemExit(f"active Codex {name} must not be a symlink for live isolation")
+    if path.exists() and not path.is_file():
+        raise SystemExit(f"active Codex {name} is not a regular file")
+
+agents = source / "agents"
+if agents.is_symlink():
+    raise SystemExit("active Codex agents root must not be a symlink for live isolation")
+if agents.exists() and not agents.is_dir():
+    raise SystemExit("active Codex agents path is not a directory")
+if agents.exists():
+    for path in agents.rglob("*"):
+        if path.is_symlink():
+            relative = path.relative_to(agents).as_posix()
+            raise SystemExit(
+                f"active Codex agents tree contains a symlink: {relative}"
+            )
+        if not path.is_file() and not path.is_dir():
+            relative = path.relative_to(agents).as_posix()
+            raise SystemExit(
+                f"active Codex agents tree contains an unsupported entry: {relative}"
+            )
+PY
+
+  rm -rf "$target_home" || return $?
+  mkdir -p "$target_home" || return $?
+
+  local config_file
+  for config_file in auth.json config.json config.toml; do
+    if [[ -f "$source_home/$config_file" ]]; then
+      cp -p "$source_home/$config_file" "$target_home/$config_file" || return $?
+    fi
+  done
+  chmod 600 "$target_home/config.toml" || return $?
+  [[ ! -f "$target_home/auth.json" ]] || chmod 600 "$target_home/auth.json" || return $?
+
+  if [[ -d "$source_home/agents" ]]; then
+    cp -Rp "$source_home/agents" "$target_home/agents" || return $?
+  fi
+
+  "$PYTHON_BIN" - "$source_home" "$target_home" "$CODEX_LIVE_CLONE_MARKER" <<'PY' || return $?
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+marker_name = sys.argv[3]
+
+
+def digest(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+
+def entry_map(root: Path) -> dict[str, list[str]]:
+    if not root.exists():
+        return {}
+    if root.is_symlink():
+        raise SystemExit(f"Codex live agents root must be independent: {root}")
+    entries: dict[str, list[str]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise SystemExit(f"Codex live agents tree must be symlink-free: {relative}")
+        elif path.is_file():
+            entries[relative] = ["file", digest(path)]
+        elif path.is_dir():
+            entries[relative] = ["dir", ""]
+        else:
+            raise SystemExit(f"unsupported active-agent entry type: {relative}")
+    return entries
+
+
+for name in ("config.toml", "auth.json", "config.json"):
+    source_path = source / name
+    target_path = target / name
+    if source_path.exists() != target_path.exists():
+        raise SystemExit(f"isolated Codex live clone presence mismatch: {name}")
+    if source_path.exists() and digest(source_path) != digest(target_path):
+        raise SystemExit(f"isolated Codex live clone content mismatch: {name}")
+
+source_agents = entry_map(source / "agents")
+target_agents = entry_map(target / "agents")
+if source_agents != target_agents:
+    raise SystemExit("isolated Codex live clone does not match the active agents tree")
+
+source_manifest = {
+    "config": {
+        name: digest(source / name)
+        for name in ("config.toml", "auth.json", "config.json")
+        if (source / name).exists()
+    },
+    "agents": source_agents,
+}
+marker = target / marker_name
+marker.write_text(
+    json.dumps(
+        {
+            "schema_version": 1,
+            "source_home": str(source.resolve()),
+            "source_manifest": source_manifest,
+        },
+        sort_keys=True,
+    ) + "\n",
+    encoding="utf-8",
+)
+marker.chmod(0o600)
+PY
+}
+
+assert_codex_live_home_provenance() {
+  local live_home="$1"
+
+  "$PYTHON_BIN" - "$live_home" "$CODEX_LIVE_CLONE_MARKER" <<'PY' || return $?
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+target = Path(sys.argv[1])
+marker = target / sys.argv[2]
+
+if marker.is_symlink() or not marker.is_file():
+    raise SystemExit(f"isolated Codex live home lacks verified provenance: {target}")
+
+payload = json.loads(marker.read_text(encoding="utf-8"))
+if payload.get("schema_version") != 1:
+    raise SystemExit("isolated Codex live provenance has an unsupported schema")
+source = Path(str(payload.get("source_home") or ""))
+if not source.is_absolute() or source.resolve() == target.resolve():
+    raise SystemExit("isolated Codex live provenance does not name an independent source")
+
+
+def digest(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+
+def entry_map(root: Path) -> dict[str, list[str]]:
+    if not root.exists():
+        return {}
+    if root.is_symlink():
+        raise SystemExit("active Codex agents root became a symlink during live test")
+    entries: dict[str, list[str]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise SystemExit(
+                f"active Codex agents tree gained a symlink during live test: {relative}"
+            )
+        if path.is_file():
+            entries[relative] = ["file", digest(path)]
+        elif path.is_dir():
+            entries[relative] = ["dir", ""]
+        else:
+            raise SystemExit(
+                f"active Codex agents tree gained an unsupported entry: {relative}"
+            )
+    return entries
+
+
+for name in ("config.toml", "auth.json", "config.json"):
+    path = source / name
+    if path.is_symlink():
+        raise SystemExit(f"active Codex {name} became a symlink during live test")
+
+current_manifest = {
+    "config": {
+        name: digest(source / name)
+        for name in ("config.toml", "auth.json", "config.json")
+        if (source / name).exists()
+    },
+    "agents": entry_map(source / "agents"),
+}
+if current_manifest != payload.get("source_manifest"):
+    raise SystemExit("active Codex config or agents changed during isolated live test")
+PY
+}
+
+run_in_verified_codex_live_home() {
+  local live_home="$1"
+  shift
+
+  assert_codex_live_home_provenance "$live_home" || return $?
+  local status=0
+  CODEX_HOME="$live_home" "$@" || status=$?
+  assert_codex_live_home_provenance "$live_home" || return $?
+  return "$status"
+}
+
+run_codex_live_command() {
+  local live_home="$1"
+  shift
+
+  if [[ -f "$live_home/$CODEX_LIVE_CLONE_MARKER" && ! -L "$live_home/$CODEX_LIVE_CLONE_MARKER" ]]; then
+    run_in_verified_codex_live_home "$live_home" "$@"
+    return
+  fi
+
+  "$PYTHON_BIN" - "$CODEX_ACTIVE_HOME_DIR" "$live_home" <<'PY' || return $?
+import sys
+from pathlib import Path
+
+active = Path(sys.argv[1]).resolve()
+requested = Path(sys.argv[2]).resolve()
+if requested != active:
+    raise SystemExit(
+        "live Codex commands may use only the active home or a verified active-home clone"
+    )
+PY
+  CODEX_HOME="$live_home" "$@"
+}
+
+validate_codex_live_clone_safety() {
+  local temp_root
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-clone-self-test.XXXXXX")"
+  local source="$temp_root/source"
+  local target="$temp_root/target"
+  local external_agents="$temp_root/external-agents"
+  mkdir -p "$source/agents" "$external_agents"
+  printf 'model = "fixture"\n' >"$source/config.toml"
+  printf 'developer_instructions = "fixture"\n' >"$source/agents/oh-no-planner.toml"
+  printf 'sentinel\n' >"$external_agents/sentinel"
+
+  clone_codex_live_home "$source" "$target"
+  assert_codex_live_home_provenance "$target"
+
+  local unverified_home="$temp_root/unverified-home"
+  mkdir -p "$unverified_home"
+  printf 'model = "fixture"\n' >"$unverified_home/config.toml"
+  if (run_codex_live_command "$unverified_home" true >/dev/null 2>&1); then
+    rm -rf "$temp_root"
+    fail "Codex live command runner accepted an unverified disposable home"
+  fi
+
+  local root_link_source="$temp_root/root-link-source"
+  mkdir -p "$root_link_source"
+  printf 'model = "fixture"\n' >"$root_link_source/config.toml"
+  ln -s "$external_agents" "$root_link_source/agents"
+  if (clone_codex_live_home "$root_link_source" "$target" >/dev/null 2>&1); then
+    rm -rf "$temp_root"
+    fail "Codex live clone accepted a symlinked active agents root"
+  fi
+
+  local nested_link_source="$temp_root/nested-link-source"
+  mkdir -p "$nested_link_source/agents"
+  printf 'model = "fixture"\n' >"$nested_link_source/config.toml"
+  ln -s "$external_agents/sentinel" "$nested_link_source/agents/oh-no-planner.toml"
+  if (clone_codex_live_home "$nested_link_source" "$target" >/dev/null 2>&1); then
+    rm -rf "$temp_root"
+    fail "Codex live clone accepted a symlink inside the active agents tree"
+  fi
+
+  [[ "$(cat "$external_agents/sentinel")" == "sentinel" ]] \
+    || { rm -rf "$temp_root"; fail "Codex live clone safety test mutated the symlink target"; }
+  rm -rf "$temp_root"
+}
+
+prepare_isolated_codex_live_home() {
+  isolated_codex_live_home_requested || return 0
 
   CODEX_HOME_SOURCE_DIR="$CODEX_HOME_DIR"
   local temp_root
   temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-live.XXXXXX")"
   CODEX_LIVE_TEMP_ROOTS+=("$temp_root")
   CODEX_HOME_DIR="$temp_root/codex-home"
-  mkdir -p "$CODEX_HOME_DIR"
+  clone_codex_live_home "$CODEX_HOME_SOURCE_DIR" "$CODEX_HOME_DIR"
 
-  if [[ -f "$CODEX_HOME_SOURCE_DIR/auth.json" ]]; then
-    cp -p "$CODEX_HOME_SOURCE_DIR/auth.json" "$CODEX_HOME_DIR/auth.json"
-    chmod 600 "$CODEX_HOME_DIR/auth.json"
-  fi
-  if [[ -f "$CODEX_HOME_SOURCE_DIR/config.json" ]]; then
-    cp -p "$CODEX_HOME_SOURCE_DIR/config.json" "$CODEX_HOME_DIR/config.json"
-  fi
-
-  {
-    printf '%s\n' '[features.multi_agent_v2]'
-    printf '%s\n' 'hide_spawn_agent_metadata = false'
-    printf '%s\n' 'tool_namespace = "agents"'
-  } >"$CODEX_HOME_DIR/config.toml"
-  chmod 600 "$CODEX_HOME_DIR/config.toml"
-
-  log "Using isolated Codex Ralplan live home: $CODEX_HOME_DIR"
+  log "Using isolated Codex live home cloned from the active runtime: $CODEX_HOME_SOURCE_DIR"
 }
 
 log() {
@@ -1289,6 +1583,9 @@ live_prompt_for_skill() {
     ralplan)
       printf 'Use the oh-no-harness:ralplan skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan.'
       ;;
+    ralplan-v2)
+      printf 'Use the oh-no-harness:ralplan-v2 skill. Read only its generated wrapper. Smoke test only. Do not edit files or invoke another workflow. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan-v2.'
+      ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralph.'
       ;;
@@ -1345,7 +1642,7 @@ run_live_skill_test() {
 
   cmd+=("$prompt")
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
 
   "$PYTHON_BIN" - "$out_file" "$skill" <<'PY'
 import sys
@@ -1652,7 +1949,7 @@ run_deep_live_skill_test() {
   fi
 
   cmd+=("$prompt")
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
   # Live deep-smoke is a non-gating signal only: deterministic reachability is
   # gated by scripts/check-skill-reachability.py. A live marker miss here is
   # model paraphrase/dereference variance, not a harness defect.
@@ -2083,7 +2380,7 @@ run_natural_session_start_live_skill_test() {
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers" "$role_order_mode"
 }
 
@@ -2109,7 +2406,7 @@ run_no_skill_readonly_session_start_live_test() {
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
@@ -2246,7 +2543,7 @@ run_ralplan_object_analysis_session_start_live_test() {
   if [[ -n "$LIVE_MODEL" ]]; then
     cmd+=(--model "$LIVE_MODEL")
   fi
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   plans_after="$(snapshot_file_manifest "$MARKETPLACE_ROOT/.oh-no/plans")"
   [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
@@ -2305,6 +2602,134 @@ run_natural_session_start_live_tests() {
     verifier:OH_NO_COMPLETION_VERIFIER_READONLY \
     "OH_NO_ULTRAWORK_PLANNER_READONLY,OH_NO_DEBUGGER_READONLY"
   ok "natural SessionStart live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+}
+
+run_ralplan_v2_live_test() {
+  if [[ "$RUN_RALPLAN_V2_LIVE" != "1" ]]; then
+    log "Skipping live Codex ralplan-v2 runtime-event test"
+    printf 'Run with --ralplan-v2-live or OH_NO_RALPLAN_V2_LIVE=1 to verify the self-contained wrapper and Planner -> Plan-Reviewer event contract.\n' >&2
+    return
+  fi
+
+  log "Running live Codex ralplan-v2 runtime-event test"
+  mkdir -p "$RUN_DIR"
+  local selector_out_file="$RUN_DIR/ralplan-v2-selector-events.jsonl"
+  local selector_err_file="$RUN_DIR/ralplan-v2-selector-events.err"
+  local out_file="$RUN_DIR/ralplan-v2-runtime-events.jsonl"
+  local err_file="$RUN_DIR/ralplan-v2-runtime-events.err"
+  local handoff_nonce
+  handoff_nonce="$($PYTHON_BIN - <<'PY'
+import secrets
+print(secrets.token_hex(12))
+PY
+)"
+  local selector_prompt
+  selector_prompt='Ralplan v2 registered-role selector capability probe. Do not invoke a skill, inspect files, run shell commands, or edit anything. This isolated home is a clone of the active Codex configuration and installed agent TOMLs. Your first collaboration call MUST be spawn_agent with agent_type "oh-no-planner", message "Selector probe only. Do not inspect files or create a plan artifact. Return a compact non-empty final response.", and fork_turns "none". Do not call wait before spawn. After the spawn returns one receiver, wait for that exact receiver to reach final completion. Do not spawn another role, and do not narrate success without an actual completed child rollout.'
+  local selector_cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --skip-git-repo-check
+  )
+  if [[ -n "$LIVE_MODEL" ]]; then
+    selector_cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${selector_cmd[@]}" "$selector_prompt" \
+    >"$selector_out_file" 2>"$selector_err_file"
+  if ! assert_no_codex_live_secret_leak \
+    "$CODEX_HOME_DIR/auth.json" \
+    "$selector_out_file" \
+    "$selector_err_file" \
+    "$CODEX_HOME_DIR/sessions"; then
+    rm -f "$selector_out_file" "$selector_err_file"
+    fail "Codex Ralplan v2 selector artifacts failed the credential-leak guard and were removed"
+  fi
+  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-ralplan-v2-live.py" \
+    --platform codex \
+    --phase selector \
+    --transcript "$selector_out_file" \
+    --sessions-root "$CODEX_HOME_DIR/sessions" \
+    --expected-model "$LIVE_MODEL" \
+    --evidence-output "$RUN_DIR/ralplan-v2-selector-rollout-evidence.json"
+
+  local prompt
+  prompt="$(cat <<'PROMPT'
+Use the oh-no-harness:ralplan-v2 skill for a read-only runtime instrumentation lane.
+The requirements source and Analyst gate are already satisfied. Do not inspect repository files, run shell commands, create artifacts, edit files, or invoke Ralph, Ultrawork, or any other workflow. The generated Ralplan v2 wrapper is self-contained; do not read shared, platform-maintenance, or agent-core documents.
+
+Create one compact Active Plan Contract for this synthetic STANDARD task. Supplied repository facts: `src/api/preferences.py` owns `update_preference(request, store)`; `src/storage/preferences.py` owns `PreferenceStore.set(key, value)`; focused tests live in `tests/api/test_preferences.py`; rollout is guarded by `preferences_write_v2`; rollback disables that flag and reverts the handler-to-store call. Acceptance criteria: AC1 a valid request persists through `PreferenceStore` and returns 200; AC2 storage failure returns 503 without reporting success; AC3 focused tests prove both cases and the rollback note names the flag. The host must not start execution before explicit approve-and-run. No repository exploration is required. Put the identical serialized contract in both role messages between unindented ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END lines. Codex stores spawn packets encrypted, so the harness does not claim direct input-payload visibility; it validates the registered-role rollout graph, a per-run nonce, the exact captured-draft echo, and the contract retained in that draft.
+
+The selector preflight must prove that the cloned active Codex configuration loads the installed custom role. Use only the registered `oh-no-planner` and `oh-no-plan-reviewer` agent types. Do not use generic fallback aliases or prompt-only role simulation.
+
+Do not simulate, narrate, or assume a role result. A parent message saying a role completed is not evidence. After the generated wrapper read, your next collaboration tool call MUST be the Planner spawn_agent call below; never call wait before a receiver exists.
+
+Run exactly two roles in strict sequence:
+1. Call spawn_agent with agent_type "oh-no-planner", message only, and fork_turns "none".
+2. Wait until its final result is captured.
+3. Call spawn_agent with agent_type "oh-no-plan-reviewer", message only, and fork_turns "none".
+4. Wait until its final result is captured, then stop. Do not retry, mix protocols, run the roles in parallel, or dispatch Planner again.
+
+The Planner role message must contain the exact line `RALPLAN_V2_ROLE: planner`, the identical Active Plan Contract, the complete synthetic task packet, and `Handoff nonce: __HANDOFF_NONCE__`. Tell the registered Planner this is a read-only inline instrumentation run: it must not inspect files, use tools, create a plan artifact, or invoke another workflow. Ask it to return one compact draft between unindented PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines. The content may vary, but it must include `Planner draft id: live-v2-draft`, the exact line `Handoff nonce: __HANDOFF_NONCE__`, enough goal/AC/approach/verification content, and the identical Active Plan Contract block inside the draft.
+
+The Planner message must also embed this applicable core contract and require the draft to reproduce it exactly once with non-empty Task sizing and Escalation triggers values:
+
+Execution profile:
+- Overall Ralph mode: STANDARD
+- Mode source: ralplan
+- Verification tier: STANDARD
+- Artifact policy: session-verification
+- Agent policy: inline-only
+- Parallel trigger: none
+- Worktree policy: direct-automatic-worktree
+- Worktree location: .oh-no/worktrees/preferences-write-v2
+- Cleanup policy: not-needed
+- Task sizing: T1 STANDARD - bounded behavior and focused-test change
+- Escalation triggers: ownership contradiction; public-contract drift; additional-file requirement
+
+After capture, copy that actual complete Planner draft block into the Reviewer message without reconstructing it. The Reviewer role message must contain the exact line `RALPLAN_V2_ROLE: plan-reviewer`, the identical Active Plan Contract block, and the captured draft block. Tell the registered Plan-Reviewer this is a read-only inline instrumentation run: it must perform architecture then quality-gate review without files, tools, artifacts, replacement drafting, or another workflow. Ask it to echo that exact contract and draft block unchanged in its own final result, then include the minimal machine token `VERDICT_APPROVE` for this synthetic no-blocker fixture.
+
+Do not emit a required final-answer marker. The harness evaluates runtime events, role ownership, completion ordering, relational payload equality, exact draft handoff, absence of external reads/writes, and absence of a next-workflow invocation; it ignores your final prose.
+PROMPT
+)"
+  prompt="${prompt//__HANDOFF_NONCE__/$handoff_nonce}"
+
+  local cmd=(
+    "$CODEX_BIN"
+    --enable plugin_hooks
+    --ask-for-approval never
+    exec
+    --json
+    --cd "$PLUGIN_ROOT"
+    --sandbox read-only
+    --skip-git-repo-check
+  )
+  if [[ -n "$LIVE_MODEL" ]]; then
+    cmd+=(--model "$LIVE_MODEL")
+  fi
+
+  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  if ! assert_no_codex_live_secret_leak \
+    "$CODEX_HOME_DIR/auth.json" \
+    "$out_file" \
+    "$err_file" \
+    "$CODEX_HOME_DIR/sessions"; then
+    rm -f "$out_file" "$err_file"
+    fail "Codex Ralplan v2 live artifacts failed the credential-leak guard and were removed"
+  fi
+
+  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-ralplan-v2-live.py" \
+    --platform codex \
+    --wrapper "$PLUGIN_ROOT/skills/ralplan-v2/SKILL.md" \
+    --transcript "$out_file" \
+    --sessions-root "$CODEX_HOME_DIR/sessions" \
+    --evidence-output "$RUN_DIR/ralplan-v2-rollout-evidence.json" \
+    --expected-model "$LIVE_MODEL" \
+    --handoff-nonce "$handoff_nonce"
 }
 
 run_ralplan_live_test() {
@@ -2462,7 +2887,7 @@ PROMPT
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   if ! assert_no_codex_live_secret_leak \
     "$CODEX_HOME_DIR/auth.json" \
     "$out_file" \
@@ -2856,7 +3281,7 @@ End with OH_NO_CODEX_RALPLAN_NATURAL_OK and report Planner then Plan-Reviewer or
 PROMPT
 )"
   assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   if ! assert_no_codex_live_secret_leak \
     "$CODEX_HOME_DIR/auth.json" \
     "$out_file" \
@@ -2974,12 +3399,9 @@ run_named_agents_live_test() {
   local negative_err_file="$RUN_DIR/named-agents-negative.err"
   local negative_prompt
   rm -rf "$negative_home" "$negative_project_root"
-  mkdir -p "$negative_home" "$negative_project_root"
-  for file in auth.json config.toml config.json; do
-    if [[ -f "$CODEX_HOME_DIR/$file" ]]; then
-      cp -p "$CODEX_HOME_DIR/$file" "$negative_home/$file"
-    fi
-  done
+  clone_codex_live_home "$CODEX_HOME_DIR" "$negative_home"
+  rm -rf "$negative_home/agents"
+  mkdir -p "$negative_project_root"
 
   negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with agent_type "oh-no-code-reviewer". Do not omit agent_type. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
 
@@ -2999,7 +3421,7 @@ run_named_agents_live_test() {
     negative_cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$negative_home" "${negative_cmd[@]}" "$negative_prompt" >"$negative_out_file" 2>"$negative_err_file" || true
+  run_in_verified_codex_live_home "$negative_home" "${negative_cmd[@]}" "$negative_prompt" >"$negative_out_file" 2>"$negative_err_file" || true
 
   "$PYTHON_BIN" - "$negative_out_file" "$negative_err_file" <<'PY'
 import json
@@ -3050,15 +3472,11 @@ PY
   local live_home="$named_agent_temp_root/named-agents-live-home"
   local live_project_root="$named_agent_temp_root/named-agents-live-project"
   rm -rf "$live_home" "$live_project_root"
-  mkdir -p "$live_home" "$live_project_root"
-  for file in auth.json config.toml config.json; do
-    if [[ -f "$CODEX_HOME_DIR/$file" ]]; then
-      cp -p "$CODEX_HOME_DIR/$file" "$live_home/$file"
-    fi
-  done
+  clone_codex_live_home "$CODEX_HOME_DIR" "$live_home"
+  mkdir -p "$live_project_root"
 
   log "Installing isolated user-scope Codex custom agents for named-agent live test"
-  CODEX_HOME="$live_home" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
+  run_in_verified_codex_live_home "$live_home" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
     >"$RUN_DIR/named-agents-live-user-install.out" \
     2>"$RUN_DIR/named-agents-live-user-install.err" || {
       cat "$RUN_DIR/named-agents-live-user-install.err" >&2
@@ -3118,7 +3536,7 @@ PY
     [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
     prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Call spawn_agent exactly once with agent_type \"${agent_type}\", without fork_context, and with message \"${proof_request}\". Do not omit agent_type. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after wait_agent and close_agent completed. Do not mention any expected child output."
 
-    CODEX_HOME="$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+    run_in_verified_codex_live_home "$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
     "$PYTHON_BIN" - "$agent_type" "$proof_request" "$proof_ok" "$live_home" "$out_file" "$err_file" <<'PY'
 import json
@@ -3325,7 +3743,7 @@ PROMPT
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$FUSION_RESCUE_MAX_BUDGET_USD" "$summary_file" <<'PY'
 import json
@@ -3932,7 +4350,7 @@ PROMPT
     fallback_cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${fallback_cmd[@]}" "$fallback_prompt" >"$fallback_out_file" 2>"$fallback_err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${fallback_cmd[@]}" "$fallback_prompt" >"$fallback_out_file" 2>"$fallback_err_file"
 
   "$PYTHON_BIN" - "$fallback_out_file" "$fallback_err_file" "$CODEX_HOME_DIR" "$fallback_summary_file" <<'PY'
 import json
@@ -4366,7 +4784,7 @@ PROMPT
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$summary_file" <<'PY'
 import json
@@ -4802,7 +5220,7 @@ run_parallel_live_test() {
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
 import json
@@ -5043,7 +5461,7 @@ PY
   prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Do not edit files. Verify the normal Ralph role path for this plugin checkout using independent waves of at most three role workers before waiting for the wave. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role. Use registered Codex custom agents with agent_type oh-no-<role> for each requested Oh No Harness role. Each worker message must include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines, and ask the worker to report its role heading plus whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running agent merely because it is slow. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPH_NATURAL_OK and summarize Role checks completed, Used custom agent types, Wait results captured, and Closed workers.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
   assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   assert_natural_spawn_smoke "$out_file" "$err_file" 3 "OH_NO_CODEX_RALPH_NATURAL_OK" "ralph"
 }
 
@@ -5078,7 +5496,7 @@ run_simplify_live_test() {
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
 import json
@@ -5280,7 +5698,7 @@ PY
     natural_cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${natural_cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${natural_cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" <<'PY'
 import json
@@ -5492,7 +5910,7 @@ run_worktree_live_test() {
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$log_file" 2>&1
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$log_file" 2>&1
 
   "$PYTHON_BIN" - "$repo" "$out_file" <<'PY'
 import subprocess
@@ -5554,8 +5972,9 @@ main() {
   require_command "$CODEX_BIN"
   require_command "$PYTHON_BIN"
   validate_codex_live_secret_scanner
+  validate_codex_live_clone_safety
   validate_ralplan_live_option_compatibility
-  prepare_isolated_codex_ralplan_live_home
+  prepare_isolated_codex_live_home
 
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest
@@ -5566,6 +5985,7 @@ main() {
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
+  run_ralplan_v2_live_test
   run_ralplan_live_test
   run_named_agents_live_test
   run_fusion_rescue_live_test

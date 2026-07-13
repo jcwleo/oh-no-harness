@@ -7,6 +7,7 @@ Keep the external skill surface limited to:
 - `using-oh-no-harness`
 - `interview`
 - `ralplan`
+- `ralplan-v2` (parallel preview; explicit invocation only)
 - `ralph`
 - `ultrawork`
 - `auto-routing`
@@ -44,7 +45,7 @@ the same public skill names above. Each command must delegate to its matching
 add a new workflow, hidden automation, or separate source of truth.
 
 Shared workflow behavior lives in `docs/skill-core/<name>.md`. Generated
-skill documents embed compact platform runtime guidance from
+skill documents normally embed compact platform runtime guidance from
 `docs/platforms/codex-runtime.md` and
 `docs/platforms/claude-code-runtime.md`. Longer platform maintenance references
 live in `docs/platforms/codex.md` and `docs/platforms/claude-code.md`.
@@ -56,6 +57,12 @@ generated into `skills-claude/<name>/SKILL.md`. Do not hand-edit those generated
 runtime skill documents. Regenerate them with
 `python3 scripts/generate-skill-wrappers.py --write` from the repository root
 after changing skill core, platform guidance, or generator metadata.
+
+`ralplan-v2` is the narrow exception: its self-sufficient core is composed
+directly with the required `codex-ralplan-v2.md` or
+`claude-code-ralplan-v2.md` adapter, without either common runtime document.
+Keep it out of automatic routing until an explicit migration replaces legacy
+`ralplan`.
 
 For ongoing skill maintenance, fixes, and improvements, edit the source
 documents, not the generated runtime documents. Put shared skill behavior,

@@ -7,6 +7,9 @@ This file records the source material used to build Oh No Harness.
 | Oh No Harness file | Source file |
 |---|---|
 | `docs/skill-core/ralplan.md` | `omc/raw/skills/ralplan/SKILL.md` plus `omc/raw/skills/plan/SKILL.md` consensus workflow content |
+| `docs/skill-core/ralplan-v2.md` | self-sufficient Ralplan v2 state-machine core; generated without a common platform runtime |
+| `docs/platforms/codex-ralplan-v2.md` | required minimal Codex host adapter for the generated Ralplan v2 runtime document |
+| `docs/platforms/claude-code-ralplan-v2.md` | required minimal Claude Code host adapter for the generated Ralplan v2 runtime document |
 | `docs/skill-core/interview.md` | OMC requirements-discovery skill content, renamed locally |
 | `docs/skill-core/ralph.md` | `omc/raw/skills/ralph/SKILL.md` |
 | `docs/skill-core/ultrawork.md` | `omc/raw/skills/autopilot/SKILL.md`, renamed locally from `autopilot` to `ultrawork` |

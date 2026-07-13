@@ -19,9 +19,11 @@ Claude Code UserPromptSubmit for Ralph
 Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
-  -> generated runtime document composed from docs/skill-core/<skill>.md,
+  -> generated runtime document normally composed from docs/skill-core/<skill>.md,
      docs/platforms/claude-code-runtime.md, and optional
      docs/platforms/claude-code-<skill>.md
+  -> ralplan-v2 exception: docs/skill-core/ralplan-v2.md plus the required
+     docs/platforms/claude-code-ralplan-v2.md adapter only
 
 Codex
   -> root .agents/plugins/marketplace.json
@@ -31,9 +33,11 @@ Codex
   -> hooks/session-start
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
-  -> skills/<skill>/SKILL.md generated runtime document composed from
+  -> skills/<skill>/SKILL.md generated runtime document normally composed from
      docs/skill-core/<skill>.md, docs/platforms/codex-runtime.md, and optional
      docs/platforms/codex-<skill>.md
+  -> ralplan-v2 exception: docs/skill-core/ralplan-v2.md plus the required
+     docs/platforms/codex-ralplan-v2.md adapter only
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
 
@@ -79,6 +83,13 @@ ralplan
   -> planner
   -> plan-reviewer
   -> ralph or ultrawork after approval
+
+ralplan-v2
+  -> parallel explicit-invocation preview; not selected by automatic routing
+  -> self-sufficient state-machine planning core
+  -> required minimal Codex or Claude Code adapter without common runtime
+  -> explore, analyst, planner, then plan-reviewer under the core state order
+  -> ralph or ultrawork only after the core approval handoff
 
 ralph
   -> docs/shared/execution-modes.md before editing

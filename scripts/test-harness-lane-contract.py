@@ -95,6 +95,12 @@ LIVE_HARD_REQUIREMENTS = {
     "--deep-live": {"malformed output"},
     "--parallel-live": {"lifecycle", "forensic invariant"},
     "--ralplan-live": {"lifecycle", "forensic invariant"},
+    "--ralplan-v2-live": {
+        "lifecycle",
+        "containment",
+        "forensic invariant",
+        "generated-wrapper freshness",
+    },
     "--named-agents-live": {"lifecycle", "forensic invariant"},
     "--fusion-rescue-live": {"lifecycle", "host-boundary", "forensic invariant"},
     "--cross-host-fallback-live": {"lifecycle", "host-boundary", "containment", "forensic invariant"},
@@ -129,6 +135,7 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_DEEP_LIVE",
         "OH_NO_PARALLEL_LIVE",
         "OH_NO_RALPLAN_LIVE",
+        "OH_NO_RALPLAN_V2_LIVE",
         "OH_NO_NAMED_AGENTS_LIVE",
         "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE",
@@ -141,6 +148,7 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_DEEP_LIVE",
         "OH_NO_PARALLEL_LIVE",
         "OH_NO_RALPLAN_LIVE",
+        "OH_NO_RALPLAN_V2_LIVE",
         "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CROSS_HOST_FALLBACK_LIVE",
         "OH_NO_CROSS_HOST_REVIEW_LIVE",
@@ -420,16 +428,100 @@ def assert_codex_natural_session_role_order_wiring(marketplace_root: Path) -> No
         die(f"{script_path} systematic-debugging natural SessionStart lane must opt into grouped-fanout")
 
 
-def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None:
+CODEX_HOME_ASSIGNMENT_RE = re.compile(
+    r"(?m)(?:^|[;&|()\s])(?:export\s+)?CODEX_HOME\s*="
+)
+
+
+def shell_function_bodies(script_text: str) -> dict[str, str]:
+    starts = list(
+        re.finditer(
+            r"(?m)^(?P<name>[A-Za-z_][A-Za-z0-9_]*)\(\) \{",
+            script_text,
+        )
+    )
+    bodies: dict[str, str] = {}
+    for index, match in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(script_text)
+        bodies[match.group("name")] = script_text[match.end():end]
+    return bodies
+
+
+def codex_live_launch_policy_errors(script_text: str) -> list[str]:
+    functions = shell_function_bodies(script_text)
+    live_functions = {
+        name: body
+        for name, body in functions.items()
+        if re.fullmatch(r"run_[a-z0-9_]*live[a-z0-9_]*tests?", name)
+    }
+    registry_match = re.search(
+        r"(?ms)^ISOLATED_CODEX_LIVE_FUNCTIONS=\(\s*(?P<body>.*?)^\)",
+        script_text,
+    )
+    if registry_match is None:
+        return ["missing isolated Codex live-function registry"]
+    isolated_functions = re.findall(
+        r"(?m)^\s*(run_[a-z0-9_]+_live_test)\s*$", registry_match.group("body")
+    )
+    errors: list[str] = []
+    if len(isolated_functions) != len(set(isolated_functions)):
+        errors.append("isolated Codex live-function registry contains duplicates")
+
+    for function_name, function_body in live_functions.items():
+        if CODEX_HOME_ASSIGNMENT_RE.search(function_body):
+            errors.append(
+                f"{function_name} directly assigns CODEX_HOME instead of using a live-home runner"
+            )
+        if '"$CODEX_BIN"' in function_body and not any(
+            runner in function_body
+            for runner in (
+                "run_codex_live_command",
+                "run_in_verified_codex_live_home",
+            )
+        ):
+            errors.append(
+                f"{function_name} constructs a Codex launch without a live-home runner"
+            )
+        if (
+            "clone_codex_live_home" in function_body
+            and function_name not in isolated_functions
+        ):
+            errors.append(
+                f"{function_name} clones a live home but is absent from the isolation registry"
+            )
+
+    for function_name in isolated_functions:
+        function_body = live_functions.get(function_name)
+        if function_body is None:
+            errors.append(f"isolation registry names missing function {function_name}")
+        elif "run_in_verified_codex_live_home" not in function_body:
+            errors.append(
+                f"{function_name} does not use run_in_verified_codex_live_home"
+            )
+    return errors
+
+
+def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
     script_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
     script_text = read_text(script_path)
 
     required_fragments = (
         "CODEX_HOME_SOURCE_DIR",
+        "CODEX_ACTIVE_HOME_DIR",
         "CODEX_LIVE_TEMP_ROOTS",
-        "ralplan_live_requested()",
+        "CODEX_LIVE_CLONE_MARKER",
+        "ISOLATED_CODEX_LIVE_FUNCTIONS",
+        "isolated_codex_live_home_requested()",
         "validate_ralplan_live_option_compatibility()",
-        "prepare_isolated_codex_ralplan_live_home()",
+        "clone_codex_live_home()",
+        "assert_codex_live_home_provenance()",
+        "run_in_verified_codex_live_home()",
+        "run_codex_live_command()",
+        "validate_codex_live_clone_safety()",
+        "Codex live command runner accepted an unverified disposable home",
+        "active Codex agents root must not be a symlink",
+        "active Codex config or agents changed during isolated live test",
+        "prepare_isolated_codex_live_home()",
         "assert_no_codex_live_secret_leak()",
         "validate_codex_live_secret_scanner()",
         "Codex live secret scanner missed its credential fixture",
@@ -438,9 +530,14 @@ def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None
         "private_key",
         "trap cleanup_codex_live_temp_roots EXIT",
         'rm -rf "$dir"',
-        "hide_spawn_agent_metadata = false",
-        'tool_namespace = "agents"',
-        'chmod 600 "$CODEX_HOME_DIR/auth.json"',
+        'cp -p "$source_home/$config_file" "$target_home/$config_file"',
+        'cp -Rp "$source_home/agents" "$target_home/agents"',
+        "source_agents != target_agents",
+        "isolated Codex live clone content mismatch",
+        'chmod 600 "$target_home/auth.json"',
+        'clone_codex_live_home "$CODEX_HOME_SOURCE_DIR" "$CODEX_HOME_DIR"',
+        'clone_codex_live_home "$CODEX_HOME_DIR" "$live_home"',
+        'run_in_verified_codex_live_home "$live_home"',
         'CODEX_HOME="$CODEX_HOME_DIR" "$PLUGIN_ROOT/scripts/install-codex-agents"',
     )
     for fragment in required_fragments:
@@ -448,12 +545,15 @@ def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None
             die(f"{script_path} Codex Ralplan live isolation is missing {fragment!r}")
 
     request_predicate = re.search(
-        r"ralplan_live_requested\(\) \{(?P<body>.*?)\n\}",
+        r"isolated_codex_live_home_requested\(\) \{(?P<body>.*?)\n\}",
         script_text,
         flags=re.S,
     )
-    if not request_predicate or '[[ "${RUN_RALPLAN_LIVE}" == "1" ]]' not in request_predicate.group("body"):
-        die(f"{script_path} must scope V2 isolation directly to RUN_RALPLAN_LIVE")
+    if not request_predicate:
+        die(f"{script_path} is missing the Ralplan live isolation predicate")
+    for required_flag in ("RUN_RALPLAN_LIVE", "RUN_RALPLAN_V2_LIVE"):
+        if required_flag not in request_predicate.group("body"):
+            die(f"{script_path} must scope cloned-home isolation to {required_flag}")
     for unrelated_flag in (
         "RUN_PARALLEL_LIVE",
         "RUN_NAMED_AGENTS_LIVE",
@@ -481,17 +581,71 @@ def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None
         die(f"{script_path} is missing main")
     main_body = main.group("body")
     scanner_index = main_body.find("validate_codex_live_secret_scanner")
+    clone_safety_index = main_body.find("validate_codex_live_clone_safety")
     compatibility_index = main_body.find("validate_ralplan_live_option_compatibility")
-    prepare_index = main_body.find("prepare_isolated_codex_ralplan_live_home")
+    prepare_index = main_body.find("prepare_isolated_codex_live_home")
     install_index = main_body.find("install_via_codex_plugins")
     if (
         scanner_index == -1
+        or clone_safety_index == -1
         or compatibility_index == -1
         or prepare_index == -1
         or install_index == -1
-        or not scanner_index < compatibility_index < prepare_index < install_index
+        or not scanner_index < clone_safety_index < compatibility_index < prepare_index < install_index
     ):
-        die(f"{script_path} must validate and prepare the isolated Codex Ralplan home before plugin installation")
+        die(
+            f"{script_path} must validate clone safety and prepare the isolated "
+            "Codex Ralplan home before plugin installation"
+        )
+
+    policy_errors = codex_live_launch_policy_errors(script_text)
+    if policy_errors:
+        die(f"{script_path} Codex live-home policy violations: {policy_errors!r}")
+
+    registry_match = re.search(
+        r"(?ms)^ISOLATED_CODEX_LIVE_FUNCTIONS=\(\s*(?P<body>.*?)^\)",
+        script_text,
+    )
+    assert registry_match is not None
+    isolated_functions = re.findall(
+        r"(?m)^\s*(run_[a-z0-9_]+_live_test)\s*$", registry_match.group("body")
+    )
+    for required in (
+        "run_ralplan_v2_live_test",
+        "run_ralplan_live_test",
+        "run_named_agents_live_test",
+    ):
+        if required not in isolated_functions:
+            die(f"{script_path} isolated Codex live registry is missing {required}")
+
+    assignment_mutations = (
+        'CODEX_HOME="$live_home" codex exec',
+        'CODEX_HOME="${live_home}" codex exec',
+        "CODEX_HOME=$live_home codex exec",
+        "CODEX_HOME=${live_home} codex exec",
+        "export CODEX_HOME=$live_home; codex exec",
+    )
+    for mutation in assignment_mutations:
+        if CODEX_HOME_ASSIGNMENT_RE.search(mutation) is None:
+            die(
+                "Codex isolated-home assignment guard missed mutation fixture: "
+                f"{mutation!r}"
+            )
+
+    unregistered_lane_mutation = script_text + r'''
+
+run_future_isolated_live_skill_test() {
+  local future_home
+  future_home="$(mktemp -d)"
+  CODEX_HOME="${future_home}" "$CODEX_BIN" exec --json "future fixture"
+}
+'''
+    mutation_errors = codex_live_launch_policy_errors(unregistered_lane_mutation)
+    if not any("run_future_isolated_live_skill_test" in error for error in mutation_errors):
+        die(
+            "Codex live-home policy accepted an unregistered future lane using "
+            "a disposable CODEX_HOME"
+        )
 
     ralplan = re.search(
         r"run_ralplan_live_test\(\) \{(?P<body>.*?)\n\}\n\nrun_named_agents_live_test\(\)",
@@ -539,6 +693,49 @@ def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None
                 f"{script_path} Ralplan prompt {index} exceeds its audited size budget: "
                 f"{len(prompt)}>{limit}"
             )
+
+
+def assert_ralplan_v2_live_contract(marketplace_root: Path) -> None:
+    def body_for(path: Path, name: str) -> str:
+        text = read_text(path)
+        start = re.search(rf"(?m)^{re.escape(name)}\(\) \{{", text)
+        if start is None:
+            die(f"{path} is missing {name}")
+        next_function = re.search(r"(?m)^run_[a-z0-9_]+_live_test\(\) \{", text[start.end():])
+        end = start.end() + next_function.start() if next_function else len(text)
+        return text[start.end():end]
+
+    codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    codex_body = body_for(codex_path, "run_ralplan_v2_live_test")
+    for fragment in (
+        "Handoff nonce: __HANDOFF_NONCE__",
+        "- Overall Ralph mode: STANDARD",
+        "- Agent policy: inline-only",
+        "Codex stores spawn packets encrypted",
+        '--handoff-nonce "$handoff_nonce"',
+        '--expected-model "$LIVE_MODEL"',
+    ):
+        if fragment not in codex_body:
+            die(f"{codex_path} Ralplan v2 live contract is missing {fragment!r}")
+    if "identical actual contract payloads" in codex_body:
+        die(f"{codex_path} must not claim direct equality for encrypted Codex spawn packets")
+
+    claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
+    claude_body = body_for(claude_path, "run_ralplan_v2_live_test")
+    for fragment in (
+        "Handoff nonce: __HANDOFF_NONCE__",
+        "- Overall Ralph mode: STANDARD",
+        "- Agent policy: inline-only",
+        '--permission-mode dontAsk',
+        '--tools "Read,Agent"',
+        '--allowedTools "Read,Agent"',
+        '--handoff-nonce "$handoff_nonce"',
+    ):
+        if fragment not in claude_body:
+            die(f"{claude_path} Ralplan v2 live contract is missing {fragment!r}")
+    for forbidden in ("--permission-mode bypassPermissions", "--tools default"):
+        if forbidden in claude_body:
+            die(f"{claude_path} Ralplan v2 live lane exposes unsafe capability via {forbidden!r}")
 
 
 def assert_claude_live_budget_floor(marketplace_root: Path) -> None:
@@ -976,7 +1173,8 @@ def validate_classification_fixtures(
 
     assert_release_default_live_safe(marketplace_root, lanes)
     assert_codex_natural_session_role_order_wiring(marketplace_root)
-    assert_codex_ralplan_live_isolation_contract(marketplace_root)
+    assert_codex_live_isolation_contract(marketplace_root)
+    assert_ralplan_v2_live_contract(marketplace_root)
     assert_claude_live_budget_floor(marketplace_root)
     assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)

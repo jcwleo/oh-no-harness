@@ -16,6 +16,7 @@ PUBLIC_SKILLS = [
     "using-oh-no-harness",
     "interview",
     "ralplan",
+    "ralplan-v2",
     "ralph",
     "ultrawork",
     "auto-routing",
@@ -33,6 +34,12 @@ PUBLIC_SKILLS = [
 # one in scripts/validate-plugin-files.py (the validator runs `--check` here as
 # a subprocess, so any divergence fails loudly).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
+
+# These skills carry every required host binding in a required skill-specific
+# adapter. Embedding the common platform runtime would duplicate those bindings
+# and reintroduce external-document reads that the self-contained core removed.
+SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan-v2"}
+MODEL_UNINVOCABLE_SKILLS = {"ralplan-v2", "install-statusline"}
 
 
 @dataclass(frozen=True)
@@ -108,6 +115,13 @@ def require_frontmatter(path: Path, frontmatter: dict[str, str], skill: str) -> 
         raise SystemExit(f"{path} missing frontmatter fields: {sorted(missing)}")
     if frontmatter["name"] != skill:
         raise SystemExit(f"{path} name={frontmatter['name']!r}, expected {skill!r}")
+    if (
+        skill in MODEL_UNINVOCABLE_SKILLS
+        and frontmatter.get("disable-model-invocation") != "true"
+    ):
+        raise SystemExit(
+            f"{path} must set disable-model-invocation: true before wrapper generation"
+        )
 
 
 def skill_title(skill: str) -> str:
@@ -124,33 +138,28 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
     frontmatter, core_body = parse_frontmatter(core_path)
     require_frontmatter(core_path, frontmatter, skill)
 
-    source_paths = [
-        core_path,
-        plugin_root / platform.platform_doc,
-        *optional_overlay_paths(plugin_root, platform, skill),
-    ]
-    source_labels = [
-        f"../../docs/skill-core/{skill}.md",
-        f"../../{platform.platform_doc}",
-        *[
-            f"../../docs/platforms/{path.name}"
-            for path in source_paths[2:]
-        ],
-    ]
+    overlay_paths = optional_overlay_paths(plugin_root, platform, skill)
+    if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+        if not overlay_paths:
+            expected = (
+                plugin_root
+                / "docs"
+                / "platforms"
+                / f"{platform.source_prefix}-{skill}.md"
+            )
+            raise SystemExit(f"missing required self-contained adapter: {expected}")
+        source_paths = [core_path, *overlay_paths]
+    else:
+        source_paths = [core_path, plugin_root / platform.platform_doc, *overlay_paths]
 
-    sections = [
-        (
-            f"## Source: docs/skill-core/{skill}.md\n\n"
-            f"{core_body.rstrip()}\n"
-        ),
-        (
-            f"## Source: {platform.platform_doc}\n\n"
-            f"{read_text(source_paths[1]).strip()}\n"
-        ),
+    source_labels = [
+        f"../../{path.relative_to(plugin_root).as_posix()}" for path in source_paths
     ]
-    for path in source_paths[2:]:
-        relative = f"docs/platforms/{path.name}"
-        sections.append(f"## Source: {relative}\n\n{read_text(path).strip()}\n")
+    sections = []
+    for path in source_paths:
+        relative = path.relative_to(plugin_root).as_posix()
+        body = core_body.rstrip() if path == core_path else read_text(path).strip()
+        sections.append(f"## Source: {relative}\n\n{body}\n")
 
     source_list = "\n".join(f"- `{label}`" for label in source_labels)
     generated_header = (
