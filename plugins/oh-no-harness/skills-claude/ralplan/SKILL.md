@@ -122,8 +122,10 @@ the blocker instead of proceeding past the gate that depends on it.
    STANDARD uses one reviewer instance. Paired review is selected only for a
    named THOROUGH risk. LIGHT may record review as not required with a concrete
    reason.
-6. On ITERATE, complete `planner` revision per `## Planner Revision Contract`.
-   On REJECT, escalate to the user immediately; REJECT does not consume a loop.
+6. On ITERATE, complete the Planner disposition pass first. Create revision v2
+   only when all blockers are accepted or the user has resolved every
+   rejected/deferred/direction-change disposition per `## Planner Revision
+   Contract`. On REJECT, escalate immediately; REJECT does not consume a loop.
 7. Re-review only on blocking findings, per `## Re-Review Rules`; otherwise
    record `Re-review: not required (no blocking findings)`.
 8. Stop after at most 2 loops. If feedback would change approved requirements,
@@ -199,631 +201,214 @@ must feed the Planner draft; it must not replace the Planner draft.
 
 ## Canonical Plan Schema
 
-The plan body is the only complete planning schema. Planner drafts, approval
-briefs, and role packets reference it and recap only changed or
-decision-critical fields instead of maintaining parallel copies.
+The plan body is the complete source of truth. Role outputs, the findings ledger,
+and approval brief reference or summarize it; they do not recreate another
+schema. Tests, review, cleanup, and validation stay under the AC-bearing task
+unless the user requested that infrastructure as an outcome.
 
-The first plan section is the Direction Contract from
-`docs/shared/execution-modes.md`, copied from the approved requirements source:
+## Active Plan Contract
+
+Before Planner draft v1, derive one mode- and trigger-aware block and send the
+exact same block to Planner and Plan-Reviewer:
 
 ```text
-Direction Contract:
-- Requirements source:
-- User-confirmed primary goal:
-- Required outcomes / AC IDs:
-- Non-goals:
-- Constraints:
-- Do-not-silently-change assumptions:
-- Direction-change approval rule:
-- Confirmation status: confirmed | inferred | open
+Active plan contract:
+- Mode: LIGHT | STANDARD | THOROUGH
+- Always required: <active rows below>
+- Mode-required: <only rows active for this mode>
+- Trigger-required: <only rows whose named trigger fired>
+- Explicitly not applicable: <only an ambiguous high-risk trigger worth disambiguating>
+- Reviewer entitlement: missing-field blocking is limited to the active fields above
 ```
 
-The remaining canonical sections are scope, contract surface, minimal viable
-approach, tasks mapped to AC IDs, proportional test/evidence design, execution
-profile, process budget, rollout/rollback, acceptance-to-evidence plan, risks,
-and approval status. Tests, review, cleanup, and validation stay under the
-AC-bearing task they support unless the user explicitly requested their
-infrastructure as a product outcome.
+Canonical activation table:
+
+| Row | Activation | Plan projection | Reviewer entitlement |
+|---|---|---|---|
+| Direction and acceptance core | always | requirements and Direction Contract (source, confirmed goal, AC IDs, scope/non-goals, constraints/protected assumptions, approval); success ownership/signals; confidence | contradictions, missing observable success, or unresolved direction-changing inference |
+| Minimal scope trace | always | smallest approach; affected files/modules and public/caller/verifier contract uncertainty; ordered AC-mapped tasks | infeasible order, wrong surface, unmapped work, or scope beyond the smallest AC-sufficient change |
+| Core evidence | always | smallest verification and TDD applicability; AC-to-evidence mapping | material proof hole only; stronger optional proof is non-blocking |
+| Execution handoff | implementation plan | next skill with compact profile and worktree policy; risks/open decisions | unsafe or inconsistent handoff; LIGHT stays compact |
+| Simplicity justification | STANDARD or THOROUGH | rejected speculative complexity; justification for new abstraction, dependency, configuration, or generalized path | current-scope speculative complexity only |
+| Detailed test design | behavior change or named regression/safety risk | must-fail/must-pass; relevant negative, semantic/adversarial, or baseline cases only | missing relevant case; inactive categories omitted |
+| Process and diff budget | STANDARD or THOROUGH | handwritten/generated scope and topology trigger; broad-suite cap and rescope threshold | concrete budget violation, not an unfired larger process |
+| Planning-role evidence | selected roles/review, or LIGHT no-review | role/review order, ids, topology, and dispositions, or one compact LIGHT no-review reason | evidence for roles that ran only |
+| Rollout/recovery | THOROUGH or operational/migration/public-contract risk | smallest safe rollout; rollback boundary | only when named risk makes recovery material |
+| Stack options | greenfield + open stack + recommendation requested | 2-3 options, tradeoffs, default, decision-changing assumption | never required without the trigger |
+| Validation check | measurable evidence influenced request | projection from `docs/shared/validation-check.md` | never required without the trigger |
+| Parallel dispatch | agent policy not `inline-only` | eligible roles/scopes and dependencies; integration owner | inline-only needs only its profile value |
+| Risk semantics | migration, data/security/destructive, concurrency/lifecycle, or public/release trigger | semantics/evidence for the fired trigger | depth/gates limited to named trigger and owner |
+| Cross-host review | named THOROUGH paired-review trigger | trigger and topology; synthesis evidence | never required in STANDARD or without trigger |
+
+Audited deduplicated baseline caps: LIGHT=11; STANDARD=24; THOROUGH=26.
+Inactive categories do not count as required `not applicable` fields. The
+validator derives fixture counts from active table projections and rejects growth.
+
+When `Recommendation requested` is `yes`, present 2-3 viable technology stacks,
+their tradeoffs and one recommended default. The recommendation requires approval through the existing Plan Approval Brief before Ralph.
 
 ## Acceptance Criteria Contract
 
-Ralplan must keep the plan aligned to the acceptance criteria that will validate
-the work in practice. The plan may refine verification, sequencing, and
-implementation strategy, but it must not silently replace the user's success
-criteria with a test, broad suite, dashboard number, local command, or internal
-shortcut.
-
-When measurable evidence influenced the request, apply
-`docs/shared/validation-check.md`. The plan must treat that evidence as a
-diagnostic signal and map the proposed improvement to a recurring software
-engineering failure mode, not to a case-specific result.
-
-Before Planner draft v1, record:
-
-```text
-Acceptance criteria:
-- Who validates success:
-- Success signal:
-- Failure signal:
-- Insufficient evidence:
-- Scope boundary most likely to be misunderstood:
-- Contract surface most likely to be missed:
-- Source: approved interview spec | approved PRD/ticket | user request | analyst gap check
-- Confidence: confirmed | inferred | open
-```
-
-When the source is an approved `interview` spec, derive `Source` and
-`Confidence` from the spec's `Confirmation status`: confirmed by user →
-confirmed; inferred from repo → inferred; inferred from request → inferred;
-open → open. The same mapping governs the brief's `Source/confidence` line.
-
-If the acceptance criteria are missing, contradictory, or only inferred for a
-decision that changes behavior, architecture, data handling, security posture,
-or delivery scope, the plan must mark that gap as blocking or pending approval
-instead of hiding it in assumptions.
-
-## Stack Recommendation Contract
-
-Apply this contract when an approved requirements source records greenfield
-work with an open technology stack and `Recommendation requested: yes`.
-
-When `Recommendation requested` is `yes`, present 2-3 viable technology stacks grounded in the approved product, deployment, team, delivery, scale, integration, data, security, and compliance constraints. Compare delivery speed, team fit, operability, cost, ecosystem maturity, and migration or exit risk as applicable; do not recommend from popularity alone.
-
-State the tradeoffs and one recommended default, including why it best fits the
-approved constraints and which fact or assumption would change the choice. If
-current ecosystem facts materially affect the recommendation, verify them from
-authoritative sources before presenting the options.
-
-Stack recommendation is plan content and requires approval through the existing Plan Approval Brief before Ralph. Do not treat the recommended default as approved until the user approves the plan; keep any missing decision input visible as pending approval rather than inventing it.
+Preserve the user's actual success criteria. A test, suite, metric, or local
+command is supporting evidence, not a replacement. Apply
+`docs/shared/validation-check.md` only when measurable evidence influenced the
+request. If criteria conflict or direction-changing facts remain inferred, mark
+the plan pending instead of hiding the gap.
 
 ## Planner Draft Contract
 
-Planner owns the draft plan and every revision. The first Planner output is
-`Planner draft v1`.
-
-Planner draft v1 must include:
-
-```text
-Planner draft v1:
-- Draft id: v1
-- Direction Contract: copied from the approved requirements source
-- Requirements source:
-- Analyst status: satisfied by approved interview spec | completed | gap check completed
-- Acceptance criteria:
-- Goal:
-- Scope:
-- Non-goals:
-- Minimal viable approach:
-- Rejected speculative complexity:
-- Technology stack decision: not applicable | user-selected | repository-confirmed | recommendation with 2-3 options and one default
-- Files/modules likely affected:
-- Contract surface:
-- Task sequence:
-- TDD expectations:
-- Test case design:
-- Validation check:
-- Execution profile:
-- Worktree policy:
-- Planning dispatch:
-- Verification plan:
-- Risks/open questions:
-```
-
-Plan-Reviewer reviews the Planner draft. It does not replace it. Planner must
-keep the plan body as the source of truth and use the consensus log only as
-evidence of review and revision.
+Planner owns `Planner draft v1` and the plan body. Send it the requirements
+source, Analyst status, repository evidence, and exact Active plan contract.
+Planner returns only role metadata plus the plan body with active fields; it
+omits inactive ceremony. Plan-Reviewer reviews that exact draft, not a recap.
 
 ## Plan Review Contract
 
-Plan-Reviewer reviews a specific Planner draft in one dispatch with two ordered
-passes: pass 1 applies the architecture lens (feasibility, fit, sequencing,
-tradeoffs, strongest antithesis); pass 2 applies the quality-gate lens to the
-draft and to its own pass-1 findings. Plan-Reviewer
-must not produce a replacement plan.
+Plan-Reviewer receives the exact Active plan contract, draft id, and full draft
+or path. It runs architecture then quality-gate passes in one dispatch. STANDARD runs one Plan-Reviewer instance. A named THOROUGH security/data/destructive,
+public/release-contract, concurrency, migration, or comparable multi-system
+trigger runs the paired topology from `docs/shared/cross-host-review.md`.
 
-STANDARD runs one Plan-Reviewer instance. Use paired cross-host review (or its
-Same-Host Parallel Fallback) only when the plan records a named THOROUGH trigger:
-security/data/destructive risk, public or release-critical contract change, new
-concurrency semantics, broad migration, or comparable multi-system uncertainty
-that names the concrete systems or artifacts involved.
-Both paired instances run the full review and the caller synthesizes one verdict.
-Cross-host findings never silently override the Direction Contract.
+A blocker is necessary to prevent material failure of an active AC, approved
+constraint, safety invariant, Direction Contract field, public contract, or
+applicable mandatory gate. Detection examples are subordinate to this
+predicate. Unsupported false rejection is a contract failure; preferences,
+future-proofing, and optional stronger proof are non-blocking.
 
-Plan-Reviewer input must include:
+Every blocker names one `Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>`, exact draft pointer, material
+consequence, and smallest sufficient correction. A mandatory-gate blocker also
+names its real owner, fired trigger, and failed obligation. Review v1 returns
+one consolidated set of currently known blockers and does not knowingly reserve
+one for v2; it need not promise every possible defect was found.
 
-```text
-- Planner draft id: vN
-- Full Planner draft or plan path:
-- Requirements source:
-```
-
-Plan-Reviewer output must include:
-
-```text
-Plan review vN:
-- Reviewed draft: vN
-- Architecture findings:
-  - <finding id> | lens: architecture | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | requested-direction-change: yes (when applicable)
-- Quality-gate findings:
-  - <finding id> | lens: quality-gate | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | requested-direction-change: yes (when applicable)
-- Verdict: APPROVE | ITERATE | REJECT
-- Evidence required for approval:
-```
-
-The verdict is derived from the findings, not chosen freely: APPROVE iff zero
-blocking findings; ITERATE iff >= 1 blocking finding on a salvageable draft;
-REJECT only for direction-level or unsalvageable failure, escalated to the user
-immediately without consuming a loop.
+Plan-Reviewer returns only reviewed draft id, verdict, architecture and
+quality-gate finding lists (each may be `none`), Direction Preservation status,
+and required Planner changes when blocked. An additional assessment appears only
+when its active row fired and produced a finding.
 
 APPROVE freezes the exact reviewed Planner draft. Non-blocking findings are
-optional follow-ups: record them in the findings ledger, but do not mutate the
-plan body before approval. Any plan-body change that must be incorporated before
-approval is blocking, must include the required `Blocking basis: <AC ID | safety
-invariant | Direction Contract field | applicable mandatory gate>`, and yields
-ITERATE rather than APPROVE.
-
-Finding severity is reviewer-owned; Planner may never reclassify it.
-Plan-Reviewer must reject when blocking feedback is only logged and not
-reflected in the plan body, when test case designs are AI-slop or would pass
-against the old broken behavior, when verification cannot prove the acceptance
-criteria, or when speculative complexity is not tied to current requirements.
-Plan-Reviewer may improve the plan only inside the approved direction.
-Direction changes must stay unincorporated until the user approves them.
+optional follow-ups and cause no mutation, Planner dispatch, or re-review. Any
+plan-body change that must be incorporated before approval is blocking and
+yields ITERATE.
 
 ## Planner Revision Contract
 
-When Plan-Reviewer returns `ITERATE` (at least one blocking finding), Planner
-revises the draft before any further review pass. Planner may never reclassify
-reviewer-owned finding severity; a blocking finding stays blocking until a
-later `Plan review vN` clears it with APPROVE or the user explicitly waives it.
+On ITERATE, Planner first classifies every blocker as `accepted`, `rejected`,
+`deferred`, or `direction-change`, before assigning a new id or mutating the
+plan. A disposition-only user-decision packet includes the original finding,
+basis, pointer, consequence, smallest correction, and Planner reason.
 
-Planner revision output must include:
+Apply this branch matrix:
 
-```text
-Planner revision vN:
-- From draft: vN-1
-- New draft: vN
-- Accepted blocking feedback:
-- Rejected feedback with reason:
-- Deferred feedback with reason:
-- Direction-change feedback waiting for user approval:
-- Sections changed:
-```
+- All accepted: create exactly one Planner revision v2, then exactly one delta closure review.
+- Any rejected: return the disposition-only user-decision packet; create no v2 and run no review v2 until the user resolves it.
+- Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2 and run no review v2.
+- Mixed: resolve every non-accepted blocker before exactly one v2; no closure review starts earlier.
+- Permitted waivers with no body change: keep the waivers visible; create no v2 and run no review v2.
+- Non-waivable gate: keep the plan pending and prohibit execution until its owner-defined obligation passes or direction changes.
+- Direction change: update the requirements source, start a new planning run, and do not run or consume the old run's closure review.
 
-Accepted blocking feedback must be reflected in the plan body. If blocking
-feedback is rejected or deferred, Planner must give a concrete reason tied to approved scope,
-constraints, or direction-preservation rules. A revision is invalid if it only
-adds comments while leaving the plan body unchanged.
-
-When a review returns only non-blocking findings, do not revise the Planner
-draft. Record each as an optional follow-up in the findings ledger and write
-`Re-review: not required (no blocking findings)`. Do not dispatch a re-review or
-apply a pre-approval plan-body mutation on this path.
+The user may accept, validly waive, defer, or change direction. Accepted changes
+must appear in the plan body; ledger-only comments are not a valid revision.
 
 ## Re-Review Rules
 
-Re-reviews run only when the previous `Plan review vN` returned ITERATE
-(blocking findings). Re-reviews are delta reviews by default:
+Re-reviews run only when the previous review returned ITERATE and an accepted
+body change produced v2.
 
-- The re-reviewer always receives the full revised plan; `delta` scopes review
-  depth/focus (changed sections + findings ledger first), not the input.
-- The reviewer may escalate to a full-depth review with a stated reason; the
-  escalation right exists because the full plan is in hand.
-- Record `Re-review scope: delta | full` with the re-review.
-- Every `Plan review vN` uses the same selected topology as Plan review v1:
-  `single-reviewer` for STANDARD, or a named THOROUGH `cross-host` /
-  `same-host-parallel-fallback` pair. Record a concrete inline fallback reason
-  only when the selected role cannot be dispatched.
-- Max 2 loops; loop N = Planner draft/revision vN + Plan review vN. REJECT
-  escalates to the user immediately and does not consume a loop. After loop 2
-  without APPROVE, present the plan as `pending approval` with the unresolved
-  findings.
+Review v2 is a delta closure review of prior dispositions, changed sections,
+and affected dependencies; it still receives the full plan. Full-depth review
+is allowed only for a named material change to direction/scope,
+architecture/ownership, public contract, safety/data semantics, or the
+verification model.
+
+A v2 blocker first visible now includes `Why first raised now: <short
+explanation>`. A revision-created material defect or material v1 miss may still
+block; the explanation requirement does not suppress real defects and its
+absence is not an automatic approval rule.
+
+Keep the v1 topology. Maximum two loops: Planner draft/revision vN + Plan review
+vN. REJECT does not consume a loop. After loop 2 without APPROVE, pause for user
+direction.
 
 ## Findings Ledger Gate
 
-Before saving a plan, presenting a Plan Approval Brief, or asking for execution
-approval, verify that the consensus loop has visible evidence for all required
-roles, draft ids, review ids, and revision ids in order, and that every review
-finding has a recorded disposition:
+Record selected roles and ids in order, topology and named trigger, each finding
+with reviewer-owned `blocking | non-blocking` severity and `Blocking basis: <AC
+ID | safety invariant | Direction Contract field | applicable mandatory gate>`
+when blocking, its disposition, accepted section pointer, permitted waiver, and
+`Re-review scope: delta | full` when v2 ran. `Re-review: not required (no
+blocking findings)` is the non-blocking path. A required Plan-Reviewer cannot be
+skipped; missing review topology is a named ledger gap.
 
-```text
-Planning roles:
-- Analyst: satisfied by approved interview spec | completed | inline fallback with reason | dispatched completed
-- Planner draft v1: completed | inline fallback with reason | dispatched completed
-- Plan review v1: not-required (LIGHT: reason) | APPROVE | ITERATE | REJECT after Planner draft v1
-- Planner revision v2: not needed | completed from blocking findings
-- Plan review v2: not needed | APPROVE | ITERATE | REJECT, with Re-review scope: delta | full
-- Re-review: not required (no blocking findings) | completed
-- Plan review topology: not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)
-
-Findings ledger:
-- <finding id> | lens: architecture | quality-gate | severity: blocking | non-blocking | Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> (required when blocking) | disposition: accepted-reflected (section: <pointer>) | optional-follow-up | rejected (reason) | deferred (reason) | direction-change-pending-user-approval
-```
-
-The plan is invalid if Planner drafts before Analyst finishes when Analyst is
-required, if a required Plan-Reviewer is skipped, or if a review does not name a
-specific Planner draft id. A LIGHT not-required record is valid only with a
-concrete reason. The plan is invalid if blocking feedback is logged but not
-reflected in the final plan body, if any review finding is missing from the
-findings ledger, if a blocking finding lacks its required `Blocking basis:`, or
-if an accepted blocking finding lacks a plan-section pointer. Blocking findings require a matching
-`Plan review vN+1` APPROVE or an explicit user waiver. On the
-non-blocking-only path no re-review or plan-body revision runs; optional
-follow-ups remain ledger-only. If a platform cannot dispatch one of these
-roles, keep the same role boundary inline and record the platform, role,
-missing capability or authorization, draft id, and fallback reason. Do not move
-to the approval brief until the gate passes or the plan is explicitly marked
-`pending approval` with the blocking issue.
-
-The plan is also invalid when its review topology is missing, STANDARD creates
-an untriggered pair, or THOROUGH claims paired review without a named trigger.
-When paired review is selected, its independence mode must comply with
-`docs/shared/cross-host-review.md`; an inline fallback requires a reason.
+Do not advance while a rejected/deferred/direction-change finding awaits the
+user, a non-waivable gate is pending, or accepted blocking feedback is not in the
+body. STANDARD keeps one reviewer; named THOROUGH keeps the paired topology.
 
 ## Direction Preservation Gate
 
-Plan-Reviewer improves the plan inside the approved direction. It must not
-silently override the approved interview spec, user-approved plan direction,
-scope, non-goals, or acceptance criteria.
-
-If Plan-Reviewer believes the approved direction is unsafe, infeasible,
-internally inconsistent, or materially suboptimal:
-
-- record the finding as `blocking` with `requested-direction-change: yes`
-- keep the current approved direction visible
-- do not incorporate the new direction into the plan unless the user explicitly
-  approves the direction change
-- if approval is missing, mark the plan `pending approval` and present the
-  direction-change request in the Plan Approval Brief
-
-Planner may accept Plan-Reviewer feedback only when the feedback preserves the
-approved direction or when the user has explicitly approved the direction
-change.
-
-## Planning Quality Bar
-
-The plan must be concrete enough for `ralph` to execute without inventing scope.
-
-Before presenting the plan, check that it includes:
-
-- explicit in-scope and out-of-scope boundaries
-- acceptance criteria alignment: who validates success, success signal, failure
-  signal, insufficient proofs, likely misunderstood boundary, source, and
-  confidence
-- the smallest approach that can satisfy the acceptance criteria
-- any added abstraction, configurability, dependency, or generalization justified by a current requirement
-- files, modules, commands, or investigation targets where known
-- acceptance criteria that can be verified
-- TDD expectations for each behavior-changing task
-- a smallest meaningful test set for each changed behavior, not an exhaustive
-  matrix
-- an `Execution profile` that sets the required overall Ralph mode and task-level modes
-- a `Worktree policy` from `docs/shared/worktree-isolation.md`
-- sequencing constraints and dependency order
-- risks, assumptions, and unresolved questions
-- the final reflected plan body after accepted blocking Plan-Reviewer feedback
-- Analyst findings or `satisfied by approved interview spec`, Planner draft and
-  revision ids, and Plan review ids with a findings ledger recording each
-  finding's lens, severity, and disposition
-- any Plan-Reviewer finding that would change approved direction, scope,
-  non-goals, or acceptance criteria, with explicit user-approval status
-
-Do not hide blocking uncertainty inside assumptions. If an unresolved question changes architecture, product behavior, data handling, security, or delivery scope, mark the plan `pending approval` and ask before execution.
+Plan-Reviewer improves the plan inside the approved Direction Contract. A
+correction is the smallest change needed for an AC, approved constraint, safety
+invariant, public contract, or applicable mandatory gate. New product scope or
+process machinery requires user direction. Keep the current direction visible
+and do not incorporate a requested direction change without explicit approval.
 
 ## Test Case Design Quality
 
-Test case design belongs in `ralplan`; implementation and RED/GREEN execution
-belong in `ralph`.
-
-For every behavior-changing task, design the smallest meaningful test set that
-can prove the acceptance criteria and catch the likely regression. Do not create
-exhaustive test matrices.
-
-Start with one must-fail / must-pass pair per changed behavior. Add negative,
-semantic-model, adversarial, or baseline cases only when an AC ID, named risk,
-adjacent regression surface, or safety invariant makes them relevant. Do not
-build a product-like state machine, protocol simulator, Git oracle, duplicate
-parser, fixture factory, or full runtime model solely to strengthen tests.
-
-A credible test case design should include:
-
-- must-fail-before-implementation case: what should fail against the current or
-  broken behavior, and the expected RED failure reason
-- must-pass-after-implementation case: the behavior that must pass after the
-  minimal implementation
-- negative or forbidden-behavior case when relevant: what must not happen
-- semantic-model case when relevant: the state machine or lifecycle,
-  parser or grammar, protocol or handshake, ordering, idempotency, caching,
-  persistence, migration, or concurrency rule that could be misunderstood
-  (this is the contract-aware form of an edge, boundary, or regression case)
-- adversarial case: why the chosen test would fail for a plausible wrong
-  implementation, including wrong-surface fixes, self-confirming tests, or
-  broad-command-only evidence
-- baseline or regression case when relevant: the nearby existing behavior that
-  should stay fixed
-- evidence mapping: which acceptance criterion each test proves
-
-Reject shallow test designs that would pass against the old broken behavior,
-only check command exit status, only check marker strings, snapshot broad output
-without behavioral assertions, mock away the behavior under test, or assert
-implementation details instead of user-visible behavior or public contracts.
-Also reject designs whose tests would pass after implementing the change on the
-wrong public, caller, or verifier-facing surface.
-
-When TDD does not apply, still provide a verification design that avoids the
-same shallow checks and explains why RED/GREEN is not practical.
+For a behavior change, start with one must-fail-before-implementation case and
+one must-pass-after-implementation case. The RED case must fail against the old broken behavior. Add a negative or forbidden-behavior case,
+semantic/adversarial case, or edge, boundary, or regression case only when an AC
+or named risk activates it. Reject tests that would pass old or wrong-surface
+behavior, only check marker strings/status, snapshot broad output, or mock away
+the contract. Do not build a product-like state machine, parser, protocol, or
+fixture system solely for proof. A TDD exception explains why RED/GREEN is not
+practical.
 
 ## Plan File Requirements
 
-Every plan must include:
+The artifact adds a `Next skill: oh-no-harness:<name>` header, Direction
+Contract as its first section, approval status, and the complete plan body from
+the Active plan contract. It references compact role/findings evidence; it does
+not duplicate the canonical matrix or approval brief.
 
-- a `Next skill: oh-no-harness:<name>` header field naming the recommended next skill (default `oh-no-harness:ralph`)
-- the Direction Contract as the first plan section
-- goal
-- scope and non-goals
-- acceptance criteria and any blocking or pending-approval gaps
-- when stack recommendation was requested, 2-3 viable options, their tradeoffs,
-  one recommended default and rationale, decision-changing assumptions, and
-  approval status
-- minimal viable approach
-- rejected speculative complexity, or `none`
-- for `LIGHT` execution profile, the minimal viable approach may be a single
-  sentence and rejected speculative complexity may be `none` when the task is
-  trivially scoped; `STANDARD` and `THOROUGH` plans must justify both fields
-  explicitly
-- files to create or modify
-- contract surface to preserve or change, with source and uncertainty
-- task sequence
-- test case design quality: must-fail, must-pass, negative/forbidden when
-  relevant, semantic-model/adversarial coverage when relevant, baseline or
-  regression coverage when relevant, and evidence mapping
-- planning-role log showing Analyst -> Planner and, when review is selected,
-  Plan-Reviewer in order, including draft/review/revision ids and
-  `Re-review scope: delta | full` when re-review ran
-- planning dispatch mode showing whether consensus roles ran as subagents or
-  inline fallback
-- findings ledger with each Plan-Reviewer finding's lens, reviewer-owned
-  severity, blocking basis when blocking, disposition, and plan-section pointer
-  when accepted-reflected
-- evidence that accepted blocking feedback is reflected in the final plan body
-- execution profile
-- process budget: expected handwritten diff, review topology and trigger,
-  cleanup depth, broad-suite cap, and rescope thresholds
-- worktree policy
-- parallel subagent dispatch plan, or the fallback reason when no role satisfies
-  safe isolation, decision-changing value, and reasonable coordination cost
-- verification commands
-- rollout or recovery notes when risk warrants them
-- approval status
-
-Compact LIGHT plans may use a shorter plan body when the execution profile is
-LIGHT and review, dispatch, TDD, risk, or rollout details are not applicable.
-They must still preserve the goal, scope and non-goals, acceptance criteria,
-tasks and key files as needed, verification, compact execution profile, and
-approval status. They may omit review ledger detail when review is not required,
-the process budget, a detailed dispatch plan when no role satisfies the three
-eligibility conditions, exhaustive TDD/risk/rollout placeholders when not
-applicable, and other non-applicable ceremony. Avoid empty placeholder sections.
+Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance
+criteria, tasks, key files, verification, compact execution profile, and
+approval status. They may omit inactive review, process, dispatch, risk, and rollout
+inactive ceremony. STANDARD/THOROUGH include process or parallel detail only when active;
+dispatch detail requires safe isolation, decision-changing value, and reasonable
+coordination cost.
 
 ## TDD Task Shape
 
-For each task that changes production behavior, include explicit test-driven steps:
-
-1. Write the failing test selected from the approved test case design.
-2. Run it and confirm the expected failure.
-3. Write the minimal implementation.
-4. Run the test and confirm it passes.
-5. Refactor only after green.
-6. Rerun the relevant verification after refactor.
-
-For bug fixes, require a reproduction test before the fix. For
-behavior-preserving refactors, require characterization or regression coverage
-before refactoring. If the test would pass on the old behavior, it is not a
-valid TDD case unless the task is pure characterization.
-
-If TDD does not apply, the plan must say why: docs-only, config-only, generated code, throwaway prototype, no practical test harness, or explicit user instruction.
+For each active behavior-changing task: write and run RED; implement minimally;
+run GREEN; refactor only after green; rerun focused verification. Bug fixes need
+a reproduction; behavior-preserving refactors need characterization. Record a
+compact exception for docs/config/generated-only or impractical RED/GREEN work.
 
 ## Execution Profile
 
-Before presenting a plan, set the execution profile by applying the Execution
-Mode Decision Prompt from `docs/shared/execution-modes.md`.
-
-Every plan that recommends `ralph` must include the canonical execution profile
-fields from `docs/shared/execution-modes.md`. Keep the complete field set at the
-approval boundary in the `Execution profile recap:` block below; if an earlier
-plan section needs to discuss the profile, summarize it instead of duplicating
-the field list.
-
-The overall Ralph mode is the highest mode needed by any task or cross-task
-risk, but task sizing should still mark lighter subtasks when they can be
-executed with less process. Ralph must follow this profile during execution.
-
-For plans that recommend direct `ralph`, use
-`Parallel trigger: approved-plan-handoff` and an agent policy of
-`targeted-subagents` or `full-review-set` only when the plan documents all three
-eligibility conditions for at least one Ralph role: safe isolation under
-`docs/shared/ralph-subagent-policy.md`, decision-changing value for the
-implementation, review, verification, or ship/block decision, and reasonable
-coordination cost. Safe isolation alone is insufficient. Use `inline-only` and
-`Parallel trigger: none` when no role satisfies all three conditions, the active
-platform cannot dispatch, the work is unsafe to isolate, or dispatch would add
-no decision-changing benefit for its coordination cost.
-
-End every Plan Approval Brief with `Execution profile recap:` immediately before `Approval needed`. This block is the required complete profile for approval, so do not duplicate the same field list earlier in the brief unless a platform or user-requested artifact requires it.
-
-Choose the mode using the LIGHT/STANDARD/THOROUGH definitions and *Typical
-signals* in `docs/shared/execution-modes.md`: LIGHT for small isolated work
-provable without a durable PRD loop, STANDARD for localized bounded-risk changes,
-THOROUGH for security/data/permission/public-contract/release-critical or
-multi-subsystem work.
-
-If the execution mode is unclear after repository exploration, choose the higher
-credible mode and list the uncertainty under risks or open questions. Do not
-hide a mode-changing uncertainty inside a casual assumption.
+Use `docs/shared/execution-modes.md` and keep one complete profile in the plan.
+It owns verification tier. Direct Ralph records `Parallel trigger:
+approved-plan-handoff` with `targeted-subagents`/`full-review-set` only when
+an eligible role has safe isolation, decision-changing value, and reasonable
+coordination cost; otherwise use `inline-only` and `none`.
 
 ## Plan Approval Brief
 
-After the consensus plan is written, stop and get user confirmation before execution.
+After consensus, show a decision-critical projection: path/status; goal/scope;
+tasks/key files; AC alignment; smallest approach and rejected complexity; active
+stack/validation/test/rollout decisions; planning-review summary and unresolved
+blockers/waivers; worktree/dispatch handoff; verification; risks/open decisions;
+and one compact execution-profile recap. Omit inactive sections. Compact LIGHT
+preserves goal, scope/non-goals, acceptance criteria, tasks/key files, verification, compact
+profile, and approval.
 
-Show the user a concise implementation overview, not just the plan path. The brief must include:
+When dispatch is active, recap only roles/scopes that satisfy safe isolation,
+decision-changing value, and reasonable coordination cost.
 
-- plan path
-- goal and scope summary
-- numbered task sequence
-- key files or modules affected
-- minimal viable approach and any rejected speculative complexity
-- technology stack options and recommended default when recommendation was
-  requested, including the decision-changing assumptions
-- acceptance criteria alignment and any insufficient measurable evidence
-- validation check when measurable evidence influenced the plan
-- TDD expectations for behavior-changing tasks
-- selected Ralph execution mode and why that mode is enough
-- planning-role summary, including Analyst status, draft/revision ids, selected
-  review topology, and Plan-Reviewer findings when review ran
-  (finding -> severity -> disposition -> section pointer) so every disposition
-  is visible at approval time
-- worktree policy, including whether direct Ralph should use automatic task
-  worktree execution or Ultrawork should also merge back to the integration
-  checkout
-- parallel subagent dispatch plan for the default Ralph handoff, including
-  roles/scopes that satisfy safe isolation, decision-changing value, and
-  reasonable coordination cost, or a fallback reason when none do
-- verification commands or evidence plan
-- major risks, assumptions, and open questions
-- a final `Execution profile recap` immediately before the approval question
-- explicit approval status
-
-For a compact LIGHT plan and approval brief, keep the same approval boundary but
-reduce the brief to the material fields. It must preserve goal, scope and
-non-goals, acceptance criteria, tasks and key files as needed, verification,
-compact execution profile, and approval. It may omit review ledger detail when
-review is not required, a detailed dispatch plan when no role satisfies the
-three eligibility conditions, exhaustive TDD/risk/rollout placeholders when
-not applicable, and other non-applicable ceremony.
-
-For a STANDARD brief, keep the same approval boundary and every core field —
-goal, scope and non-goals, acceptance criteria, tasks and key files, test case
-design, verification, execution profile recap, and approval — but collapse each
-not-applicable section (technology stack decision, validation check, rollout,
-dispatch fallback, or direction-change items) to one line naming why it does
-not apply. Avoid empty placeholder sections in every mode.
-
-Use this shape:
-
-````markdown
-Plan: .oh-no/plans/{slug}.md
-Status: pending approval
-Next skill: oh-no-harness:{recommended-next-skill}
-
-Goal:
-{one or two sentences}
-
-Scope:
-{in scope}
-Not in scope:
-{out of scope}
-
-Minimal viable approach:
-{smallest approach that satisfies the acceptance criteria}
-Rejected speculative complexity:
-{unneeded abstraction, configurability, dependency, or generalization, or "None"}
-
-Technology stack decision:
-{Not applicable, user-selected/repository-confirmed stack, or 2-3 viable options
-with tradeoffs, one recommended default, rationale, decision-changing
-assumptions, and pending/approved status}
-
-Acceptance criteria:
-- Who validates success: {user | maintainer | caller | test suite | operator | customer | other}
-- Success signal: {observable proof}
-- Failure signal: {observable miss or regression}
-- Insufficient evidence: {checks or outputs that are useful but insufficient}
-- Contract surface: {public, caller, verifier, prompt, hook, schema, CLI, UI, or other surface to preserve/change}
-- Scope boundary most likely to be misunderstood: {boundary}
-- Source/confidence: {source and confirmed|inferred|open}
-
-Validation check:
-{Use `docs/shared/validation-check.md` when measurable evidence influenced the
-plan. Summarize evidence used, supported outcome, proof and gap, recurring risk,
-similar-work expectation, excluded case-specific details, added process cost,
-and completion claim.}
-
-Tasks:
-1. {task with expected files/modules}
-2. {task with expected files/modules}
-
-TDD:
-{which tasks require RED/GREEN/REFACTOR and which are exceptions}
-
-Test case design:
-- Must-fail before implementation: {case and expected RED reason, or documented exception}
-- Must-pass after implementation: {case}
-- Negative/forbidden behavior: {case, or "not relevant" with reason}
-- Semantic/adversarial: {semantic model, wrong-surface or wrong-implementation check, or "not relevant" with reason}
-- Baseline/regression: {existing behavior guard, or "not relevant" with reason}
-- Evidence mapping: {test case -> acceptance criterion}
-
-Parallel subagent dispatch:
-{Default Ralph dispatch plan: one line per independent role/scope with platform
-invocation, start timing, owned scope, dependencies, and integration owner when
-safe isolation, decision-changing value, and reasonable coordination cost all
-hold; otherwise give a concrete fallback reason}
-
-Planning roles:
-Analyst -> Planner -> Plan-Reviewer when selected: {completed in order, with one-line disposition for each}
-- Requirements source: {approved interview spec | user request | PRD/ticket}
-- Analyst: {satisfied by approved interview spec | completed | inline fallback with reason}
-- Planner draft v1: {completed, with source/path}
-- Plan review v1: {not-required (LIGHT: reason) | APPROVE|ITERATE|REJECT}
-- Planner revision v2: {not needed, or blocking feedback disposition reflected in plan body}
-- Plan review v2: {not needed | APPROVE|ITERATE|REJECT, with Re-review scope: delta | full}
-- Re-review: {not required (no blocking findings) | completed}
-- Plan review topology: {not-required (LIGHT reason) | single-reviewer (STANDARD) | cross-host (THOROUGH trigger) | same-host-parallel-fallback (THOROUGH trigger) | inline-fallback (reason)}
-
-Findings ledger:
-- {finding id} -> {blocking|non-blocking} -> {Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate> when blocking} -> {accepted-reflected (section: <pointer>) | optional-follow-up | rejected (reason) | deferred (reason) | direction-change-pending-user-approval}
-
-Worktree policy:
-{Use `docs/shared/worktree-isolation.md` as the source of truth. Summarize the
-selected policy, location, artifact handoff requirement, and any explicit
-fallback.}
-
-Verification:
-{commands or evidence plan}
-
-Risks and open questions:
-{short list, or "None blocking"}
-
-Execution profile recap:
-- Overall Ralph mode: {LIGHT|STANDARD|THOROUGH}
-- Why this mode is enough: {one sentence}
-- Mode source: ralplan
-- Verification tier: {LIGHT|STANDARD|THOROUGH}
-- Artifact policy: {compact|session-verification|full-prd-session}
-- Agent policy: {inline-only|targeted-subagents|full-review-set}
-- Parallel trigger: {approved-plan-handoff|explicit-user-request|natural-dispatch|none}
-- Worktree policy: {direct-automatic-worktree|automatic-worktree-merge|not-applicable}
-- Worktree location: {.oh-no/worktrees/<task-slug>|not-applicable}
-- Cleanup policy: {not-needed|conditional|required}
-- Task sizing: {short task-mode summary}
-- Escalation triggers: {short list or "None expected"}
-
-Approval needed:
-Choose one:
-- approve-and-run Ralph (recommended) — approve the plan and invoke `ralph` with
-  the plan path; preserve `Parallel trigger: approved-plan-handoff` when the
-  approved plan has an eligible dispatch plan
-- approve-and-run Ultrawork — approve the plan and invoke `ultrawork` with the
-  plan path for end-to-end execution, QA, and final validation
-- request plan changes — revise the plan and present the updated approval brief
-- leave the plan pending — keep the plan unapproved and invoke no workflow
-
-Which approach?
-````
-
-End the brief with the combined approval and next-skill question above. A plan is
-not approved, and no next workflow is authorized, until the user selects an
-approve-and-run option.
+End with one choice: approve-and-run Ralph, approve-and-run Ultrawork, request
+plan changes, or leave pending; then ask `Which approach?`. The plan remains
+pending until an approve-and-run choice is explicit.
 
 ## Next Skill Handoff
 
@@ -873,7 +458,9 @@ write the plan and an internal approval record such as
 return control to ultrawork. Pause for the user only when the plan reveals a
 documented Ultrawork pause condition: changed approved scope, a blocking product
 decision or ambiguity, conflict with the approved requirements source, missing
-execution profile, or an explicit user request to review the plan manually.
+execution profile, any unresolved rejected/deferred/direction-change Ralplan
+blocker, a pending non-waivable gate, or an explicit user request to review the
+plan manually.
 
 ## Agent Roles
 

@@ -157,7 +157,10 @@ review does not add a new verdict type:
   ITERATE iff at least one blocking finding on a salvageable draft; REJECT only
   for direction-level or unsalvageable failure. Every merged blocking finding
   retains its reviewer-owned severity and `Blocking basis: <AC ID | safety
-  invariant | Direction Contract field | applicable mandatory gate>`.
+  invariant | Direction Contract field | applicable mandatory gate>`. For a
+  blocker first raised in review v2, synthesis also preserves its short `Why
+  first raised now` explanation; a real revision-created defect or material v1
+  miss may still block.
 - `code-reviewer`: return the merged, provenance-tagged findings to the caller.
 - `debugger`: the judge synthesizes a single root-cause direction — competing
   hypotheses, the evidence that decides between them, and the smallest next

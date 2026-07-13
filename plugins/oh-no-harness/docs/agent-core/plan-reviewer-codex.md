@@ -90,7 +90,8 @@ you for their own review.
   - `<task>`: dispatch exactly `oh-no-plan-reviewer` to run its complete two-pass
     review on the exact named Planner draft.
   - `<done_when>`: require Reviewed draft, architecture and quality-gate findings
-    with severity, verdict, evidence required, and role-ownership proof.
+    with severity, verdict, role-ownership proof, and `Why first raised now` for
+    any blocker first raised in review v2.
   - `<scope>`: copy the exact draft id, full redacted draft or path, requirements
     source, and caller-provided review stance.
   - `<non_goals>`: no replacement plan, edits, writes, installs, synthesis,

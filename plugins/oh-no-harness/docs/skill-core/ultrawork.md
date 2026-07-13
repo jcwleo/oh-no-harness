@@ -270,7 +270,9 @@ Do not pause for a separate Plan Approval Brief after the requirements source is
 approved or already concrete. Pause only on a pause condition: changed approved
 scope, a blocking product decision or blocking ambiguity, conflict with the
 approved requirements source (for example the interview spec), a missing
-execution profile, or an explicit user request to review the plan manually.
+execution profile, any unresolved rejected/deferred/direction-change Ralplan
+blocker, a pending non-waivable gate, or an explicit user request to review the
+plan manually.
 
 ### Phase 2: Execute
 
