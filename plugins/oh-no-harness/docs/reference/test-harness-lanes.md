@@ -109,7 +109,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex JSON event stream proving Analyst to Planner to Plan-Reviewer sequencing",
+      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating Planner to Plan-Reviewer sequencing and exact handoff from a disposable V2-configured CODEX_HOME; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",

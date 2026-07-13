@@ -27,17 +27,18 @@ RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
 FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)-codex}"
-NAMED_AGENT_TEMP_ROOTS=()
+CODEX_HOME_SOURCE_DIR=""
+CODEX_LIVE_TEMP_ROOTS=()
 
-cleanup_named_agent_temp_roots() {
+cleanup_codex_live_temp_roots() {
   local dir
-  for dir in "${NAMED_AGENT_TEMP_ROOTS[@]:-}"; do
+  for dir in "${CODEX_LIVE_TEMP_ROOTS[@]:-}"; do
     [[ -n "$dir" ]] && rm -rf "$dir"
   done
   return 0
 }
 
-trap cleanup_named_agent_temp_roots EXIT
+trap cleanup_codex_live_temp_roots EXIT
 
 PUBLIC_SKILLS=(
   using-oh-no-harness
@@ -65,6 +66,7 @@ Options:
   --deep-live        Run live deep smoke tests that require linked support docs.
   --parallel-live    Run live Ralph explicit and SessionStart-natural subagent smoke tests.
   --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
+                     Requires install mode and must run separately from other subagent live flags.
   --named-agents-live
                      Run live Codex custom-agent name spawn smoke test.
   --fusion-rescue-live
@@ -78,7 +80,7 @@ Options:
                      Systematic Debugging, and Verification Before Completion.
   --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
   --skip-live        Skip live codex exec smoke tests. Default.
-  --no-install       Skip the marketplace/app-server install step.
+  --no-install       Skip the marketplace/app-server install step. Incompatible with --ralplan-live.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
   --model <model>    Model for live codex exec tests. Default: Codex config default.
   --marketplace-source <source>
@@ -173,6 +175,56 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+ralplan_live_requested() {
+  [[ "${RUN_RALPLAN_LIVE}" == "1" ]]
+}
+
+validate_ralplan_live_option_compatibility() {
+  ralplan_live_requested || return 0
+
+  [[ "$INSTALL_MODE" == "1" ]] \
+    || fail "--ralplan-live cannot be combined with --no-install because its isolated home requires current plugin and agent fixtures"
+
+  local conflicting_flags=()
+  [[ "$RUN_PARALLEL_LIVE" == "1" ]] && conflicting_flags+=(--parallel-live)
+  [[ "$RUN_NAMED_AGENTS_LIVE" == "1" ]] && conflicting_flags+=(--named-agents-live)
+  [[ "$RUN_FUSION_RESCUE_LIVE" == "1" ]] && conflicting_flags+=(--fusion-rescue-live)
+  [[ "$RUN_CROSS_HOST_FALLBACK_LIVE" == "1" ]] && conflicting_flags+=(--cross-host-fallback-live)
+  [[ "$RUN_SIMPLIFY_LIVE" == "1" ]] && conflicting_flags+=(--simplify-live)
+  [[ "$RUN_NATURAL_SESSION_START_LIVE" == "1" ]] && conflicting_flags+=(--natural-session-start-live)
+  if [[ "${#conflicting_flags[@]}" -gt 0 ]]; then
+    fail "--ralplan-live uses the Multi-Agent v2 event surface; run it separately from: ${conflicting_flags[*]}"
+  fi
+}
+
+prepare_isolated_codex_ralplan_live_home() {
+  ralplan_live_requested || return 0
+
+  CODEX_HOME_SOURCE_DIR="$CODEX_HOME_DIR"
+  local temp_root
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-live.XXXXXX")"
+  CODEX_LIVE_TEMP_ROOTS+=("$temp_root")
+  CODEX_HOME_DIR="$temp_root/codex-home"
+  mkdir -p "$CODEX_HOME_DIR"
+
+  if [[ -f "$CODEX_HOME_SOURCE_DIR/auth.json" ]]; then
+    cp -p "$CODEX_HOME_SOURCE_DIR/auth.json" "$CODEX_HOME_DIR/auth.json"
+    chmod 600 "$CODEX_HOME_DIR/auth.json"
+  fi
+  if [[ -f "$CODEX_HOME_SOURCE_DIR/config.json" ]]; then
+    cp -p "$CODEX_HOME_SOURCE_DIR/config.json" "$CODEX_HOME_DIR/config.json"
+  fi
+
+  {
+    printf '%s\n' '[features.multi_agent_v2]'
+    printf '%s\n' 'hide_spawn_agent_metadata = false'
+    printf '%s\n' 'tool_namespace = "agents"'
+  } >"$CODEX_HOME_DIR/config.toml"
+  chmod 600 "$CODEX_HOME_DIR/config.toml"
+
+  log "Using isolated Codex Ralplan live home: $CODEX_HOME_DIR"
+}
+
 log() {
   printf '\n==> %s\n' "$*" >&2
 }
@@ -184,6 +236,96 @@ ok() {
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+assert_no_codex_live_secret_leak() {
+  local auth_file="$1"
+  shift
+  "$PYTHON_BIN" - "$auth_file" "$@" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+auth_path = Path(sys.argv[1])
+roots = [Path(value) for value in sys.argv[2:]]
+secret_key = re.compile(
+    r"(?i)(?:^|[_-])(?:tokens?|keys?|secret|password|cookie|credential|bearer)(?:$|[_-])"
+)
+secret_patterns = (
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|private[_-]?key|secret|password|cookie|credential|bearer)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+)
+
+secret_values = set()
+if auth_path.is_file():
+    try:
+        auth = json.loads(auth_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"unable to inspect isolated auth safely: {type(exc).__name__}")
+
+    def collect(value, key=""):
+        if isinstance(value, dict):
+            for child_key, child in value.items():
+                collect(child, str(child_key))
+        elif isinstance(value, list):
+            for child in value:
+                collect(child, key)
+        elif isinstance(value, str) and len(value) >= 12 and secret_key.search(key):
+            secret_values.add(value)
+
+    collect(auth)
+
+targets = []
+for root in roots:
+    if root.is_file():
+        targets.append(root)
+    elif root.is_dir():
+        targets.extend(path for path in root.rglob("*") if path.is_file())
+
+for path in targets:
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        raise SystemExit(f"unable to inspect live artifact safely: {path.name}: {type(exc).__name__}")
+    for line_number, line in enumerate(lines, 1):
+        if any(value in line for value in secret_values):
+            raise SystemExit(f"isolated auth value detected in {path.name} near line {line_number}")
+        for pattern_index, pattern in enumerate(secret_patterns, 1):
+            if pattern.search(line):
+                raise SystemExit(
+                    f"secret-like pattern {pattern_index} detected in {path.name} near line {line_number}"
+                )
+PY
+}
+
+validate_codex_live_secret_scanner() {
+  local temp_root auth_file safe_file leak_file
+  local access_token id_token session_token private_key credential
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-secret-scan.XXXXXX")"
+  CODEX_LIVE_TEMP_ROOTS+=("$temp_root")
+  auth_file="$temp_root/auth.json"
+  safe_file="$temp_root/safe.jsonl"
+  leak_file="$temp_root/leak.jsonl"
+  access_token="fixture-access-$(printf '%024d' 0)"
+  id_token="fixture-id-$(printf '%024d' 1)"
+  session_token="fixture-session-$(printf '%024d' 2)"
+  private_key="fixture-private-$(printf '%024d' 3)"
+
+  printf '{"access_token":"%s","id_token":"%s","session_token":"%s","private_key":"%s"}\n' \
+    "$access_token" "$id_token" "$session_token" "$private_key" >"$auth_file"
+  printf '%s\n' 'safe live artifact' >"$safe_file"
+  assert_no_codex_live_secret_leak "$auth_file" "$safe_file" \
+    || fail "Codex live secret scanner rejected its safe fixture"
+
+  for credential in "$access_token" "$id_token" "$session_token" "$private_key"; do
+    printf 'unlabeled=%s\n' "$credential" >"$leak_file"
+    if assert_no_codex_live_secret_leak "$auth_file" "$leak_file" >/dev/null 2>&1; then
+      fail "Codex live secret scanner missed its credential fixture"
+    fi
+  done
+  rm -rf "$temp_root"
+  ok "Codex live secret scanner rejects credential-bearing artifacts"
 }
 
 snapshot_file_manifest() {
@@ -2176,8 +2318,134 @@ run_ralplan_live_test() {
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
+  local proof_file="$RUN_DIR/ralplan-private-proof.json"
+  local request_nonce private_nonce
+  prepare_ralplan_private_proof() {
+    local output_proof_file="$1"
+    read -r request_nonce private_nonce < <("$PYTHON_BIN" - <<'PY'
+import secrets
+print(secrets.token_hex(12), secrets.token_hex(12))
+PY
+)
+    "$PYTHON_BIN" - \
+      "$CODEX_HOME_DIR/agents/oh-no-planner.toml" \
+      "$CODEX_HOME_DIR/agents/oh-no-plan-reviewer.toml" \
+      "$output_proof_file" \
+      "$request_nonce" \
+      "$private_nonce" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+planner_path = Path(sys.argv[1])
+reviewer_path = Path(sys.argv[2])
+proof_path = Path(sys.argv[3])
+request_nonce = sys.argv[4]
+private_nonce = sys.argv[5]
+
+active_contract = """ACTIVE_PLAN_CONTRACT_BEGIN
+Mode: LIGHT
+Always required: Direction and acceptance core; Minimal scope trace; Core evidence
+Mode-required: none
+Trigger-required: Execution handoff; Planning-role evidence
+Explicitly not applicable: none
+Reviewer entitlement: missing-field blocking is limited to the active fields above
+ACTIVE_PLAN_CONTRACT_END"""
+planner_block = f"""PLANNER_DRAFT_BEGIN
+Planner draft id: Planner draft v1
+Active plan contract:
+{active_contract}
+Goal: document the post-approval execution-workflow choice
+Acceptance criteria: the host asks which approved execution workflow to run
+Execution profile: LIGHT; inline synthetic execution handoff
+Worktree policy: read-only/not applicable
+Verification plan: exact Planner-to-Reviewer payload handoff
+OH_NO_RALPLAN_PRIVATE_PLANNER_PROOF {private_nonce}
+PLANNER_DRAFT_END"""
+review_block = f"""Plan review v1
+Reviewed draft: Planner draft v1
+Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence
+Quality-gate findings: none blocking
+Verdict: APPROVE
+OH_NO_RALPLAN_PRIVATE_REVIEW_PROOF {private_nonce}"""
+
+planner_proof = f"""Live Ralplan typed-role proof.
+If the task message contains the exact line \"OH_NO_RALPLAN_PLANNER_PROOF_REQUEST {request_nonce}\", return exactly this block and do not inspect files or add explanation:
+{planner_block}
+
+"""
+reviewer_proof = f"""Live Ralplan typed-role handoff proof.
+If the task message contains the exact line \"OH_NO_RALPLAN_REVIEW_PROOF_REQUEST {request_nonce}\" and contains this exact Planner block:
+{planner_block}
+return exactly this review and do not inspect files or add explanation:
+{review_block}
+
+"""
+
+for path, proof in ((planner_path, planner_proof), (reviewer_path, reviewer_proof)):
+    text = path.read_text(encoding="utf-8")
+    needle = 'developer_instructions = """\n'
+    if needle not in text:
+        raise SystemExit(f"{path} is missing developer_instructions header")
+    path.write_text(text.replace(needle, needle + proof, 1), encoding="utf-8")
+
+proof_path.write_text(
+    json.dumps(
+        {
+            "request_nonce": request_nonce,
+            "private_nonce": private_nonce,
+            "active_contract": active_contract,
+            "planner_block": planner_block,
+            "review_block": review_block,
+        },
+        indent=2,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+PY
+    chmod 600 "$output_proof_file"
+  }
+  prepare_ralplan_private_proof "$proof_file"
   local prompt
-  prompt='Use the oh-no-harness:ralplan skill. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Natural request under observation: "Analyze the Ralplan review loop for unnecessary steps." Treat that sentence as analysis-only; this separate explicit request to use Ralplan is the invocation trigger. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except planner and plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Derive one compact Active plan contract. In both spawn_agent messages include exactly one identical serialized contract block between unindented delimiter lines ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END. Use Codex spawn_agent exactly two times in this strict order with registered custom agents: agent_type "oh-no-planner", then wait for and close planner before plan-reviewer; agent_type "oh-no-plan-reviewer", then wait for and close plan-reviewer before final. Never run these planning review agents in parallel. For every Codex spawn_agent call, set the matching agent_type, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies when the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, and Lifecycle lines. Planner expected output: only one block between unindented delimiter lines PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END; inside include Planner draft id: Planner draft v1, Active plan contract, Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan. After Planner completes, copy that exact captured Planner draft block, including its id, into the Plan-Reviewer spawn message between the same PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines; normalize transport whitespace only and do not summarize or reconstruct it. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. If wait_agent returns no agents completed yet, wait longer; MUST NOT call close_agent for a running or pending agent merely because it is slow. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish and both completed planning agents are closed, reply with exactly OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Object-of-analysis boundary: analysis-only, Exact Active contract equality: yes, Exact Planner draft handoff: yes, Role order: planner -> plan-reviewer, Used custom agent types: oh-no-planner -> oh-no-plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run, Closed planning agents: 2.'
+  prompt="$(cat <<PROMPT
+Use the oh-no-harness:ralplan skill for a read-only typed-role instrumentation test.
+Do not edit files, create artifacts, build a full plan, or invoke any role except the two named below.
+The analyzed request is: Analyze the Ralplan review loop for unnecessary steps.
+The synthetic task is: document that the host asks which approved execution workflow to run.
+
+Run exactly these registered custom roles sequentially:
+1. Call agents.spawn_agent with agent_type "oh-no-planner" and fork_turns "none".
+2. Wait until the Planner returns its final result.
+3. Call agents.spawn_agent with agent_type "oh-no-plan-reviewer" and fork_turns "none".
+4. Wait until the Plan-Reviewer returns its final result.
+Do not use a generic role, retry either role, or run the roles in parallel.
+
+Every role message must contain Role, Codex agent type, Scope, Expected output, Verification responsibility, and Lifecycle fields.
+The Planner message must contain exactly:
+OH_NO_RALPLAN_PLANNER_PROOF_REQUEST ${request_nonce}
+and this identical active contract:
+ACTIVE_PLAN_CONTRACT_BEGIN
+Mode: LIGHT
+Always required: Direction and acceptance core; Minimal scope trace; Core evidence
+Mode-required: none
+Trigger-required: Execution handoff; Planning-role evidence
+Explicitly not applicable: none
+Reviewer entitlement: missing-field blocking is limited to the active fields above
+ACTIVE_PLAN_CONTRACT_END
+
+After the Planner returns, copy its complete PLANNER_DRAFT_BEGIN through PLANNER_DRAFT_END block unchanged into the Plan-Reviewer message.
+That reviewer message must also contain exactly:
+OH_NO_RALPLAN_REVIEW_PROOF_REQUEST ${request_nonce}
+The review must identify Planner draft v1, keep NB1 non-blocking, and APPROVE without a Planner revision.
+APPROVE freezes the exact reviewed Planner draft. Optional follow-up: NB1. Planner revision: not run.
+
+Copy both complete role payloads verbatim into the parent final response, in Planner then Plan-Reviewer order.
+After capturing each final result, use lifecycle cleanup only if the host exposes it.
+When no cleanup action exists, include exactly: Close/cleanup was not available.
+End with OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and report the role order, exact handoff, no revision, and cleanup outcome.
+PROMPT
+)"
 
   local cmd=(
     "$CODEX_BIN"
@@ -2187,7 +2455,6 @@ run_ralplan_live_test() {
     --json
     --cd "$PLUGIN_ROOT"
     --sandbox read-only
-    --ephemeral
     --skip-git-repo-check
   )
 
@@ -2196,8 +2463,16 @@ run_ralplan_live_test() {
   fi
 
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  if ! assert_no_codex_live_secret_leak \
+    "$CODEX_HOME_DIR/auth.json" \
+    "$out_file" \
+    "$err_file" \
+    "$CODEX_HOME_DIR/sessions"; then
+    rm -f "$out_file" "$err_file" "$proof_file"
+    fail "Codex Ralplan explicit live artifacts failed the credential-leak guard and were removed"
+  fi
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$proof_file" <<'PY'
 import json
 import re
 import sys
@@ -2207,6 +2482,8 @@ from pathlib import Path
 path = sys.argv[1]
 err_path = sys.argv[2]
 live_home = sys.argv[3]
+proof_path = sys.argv[4]
+proof = json.loads(Path(proof_path).read_text(encoding="utf-8"))
 
 expected_roles = ["planner", "plan-reviewer"]
 role_headings = {
@@ -2306,23 +2583,34 @@ if (
     or "full-history forked agents inherit" in err_text.lower()
     or "provide either message or items" in err_text.lower()
 ):
-    raise SystemExit(f"Codex ralplan sequential smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+    raise SystemExit("Codex ralplan sequential smoke saw a spawn failure; inspect the secret-scanned stderr artifact")
 
 successful_spawns = []
 failed_spawns = []
 events = []
+command_events = []
 receiver_to_role = {}
 role_outputs = defaultdict(list)
 wait_index_by_receiver = {}
 close_index_by_receiver = {}
 marker = False
+all_text_parts = []
 
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
         if not line.strip():
             continue
         data = json.loads(line)
+        all_text_parts.append(collect_text(data))
         item = data.get("item") or {}
+        payload = data.get("payload") or {}
+        if item.get("type") == "command_execution":
+            command_events.append((index, collect_text(item)))
+        if payload.get("type") == "function_call" and payload.get("name") in {
+            "exec_command",
+            "functions.exec_command",
+        }:
+            command_events.append((index, collect_text(payload)))
         if "OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK" in collect_text(data):
             marker = True
         if item.get("type") != "collab_tool_call":
@@ -2370,6 +2658,36 @@ with open(path, "r", encoding="utf-8") as fh:
 
 if failed_spawns:
     raise SystemExit(f"Codex ralplan sequential smoke saw failed spawn_agent calls: {failed_spawns!r}")
+tainted_command_events = [
+    event for event in command_events
+    if proof["private_nonce"] in event[1]
+    or "ralplan-private-proof.json" in event[1]
+    or "/agents/oh-no-planner.toml" in event[1]
+    or "/agents/oh-no-plan-reviewer.toml" in event[1]
+]
+if tainted_command_events:
+    tainted_lines = sorted({event[0] for event in tainted_command_events})
+    raise SystemExit(
+        "Codex ralplan sequential smoke inspected private proof material instead of relying on typed-role output: "
+        f"event lines {tainted_lines!r}"
+    )
+all_text = "\n".join(all_text_parts)
+planner_private_block = proof["planner_block"]
+review_private_block = proof["review_block"]
+private_proof_ok = (
+    planner_private_block in all_text
+    and review_private_block in all_text
+    and all_text.index(planner_private_block) < all_text.index(review_private_block)
+    and f"OH_NO_RALPLAN_PRIVATE_PLANNER_PROOF {proof['private_nonce']}" in all_text
+    and f"OH_NO_RALPLAN_PRIVATE_REVIEW_PROOF {proof['private_nonce']}" in all_text
+)
+if not successful_spawns and private_proof_ok:
+    if "Close/cleanup was not available." not in all_text:
+        raise SystemExit("Codex ralplan V2 proof did not record unavailable lifecycle cleanup")
+    if not marker:
+        raise SystemExit("Codex ralplan V2 proof did not return success marker")
+    print("ok - live Codex ralplan V2 private role proof reviewed sequentially")
+    raise SystemExit(0)
 if len(successful_spawns) != len(expected_roles):
     raise SystemExit(
         f"expected exactly {len(expected_roles)} completed planning spawn_agent calls, "
@@ -2380,12 +2698,13 @@ missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
 missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
 if missing_wait_results:
     raise SystemExit(f"Codex ralplan sequential smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes:
+if missing_closes and "Close/cleanup was not available." not in all_text:
     raise SystemExit(f"Codex ralplan sequential smoke did not close spawned receivers: {missing_closes!r}")
 early_closes = {
     receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
     for receiver in receiver_ids
-    if close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+    if receiver in close_index_by_receiver
+    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
 }
 if early_closes:
     raise SystemExit(
@@ -2513,15 +2832,113 @@ PY
   log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralplan-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralplan skill. Read-only natural SessionStart smoke test only: do not create a full plan, do not edit files, and do not create artifacts. Requirements source is already analyzed inline. Synthetic approved task: document that the host asks the user which execution workflow to run after plan approval. Follow the normal skill-separated Planner and Plan-Reviewer role path. Required worker messages: Role: planner with Marker: OH_NO_CODEX_RALPLAN_PLANNER_READONLY; Role: plan-reviewer with Marker: OH_NO_CODEX_RALPLAN_REVIEWER_READONLY. Each message must include Scope: inline synthetic planning task, Do not edit files, and Expected output: one short planning or review section. Planner expected output: only a short section titled Planner draft v1 with Goal, Acceptance criteria, Execution profile, Worktree policy, Verification plan. Plan-Reviewer expected output: only a short section titled Plan review v1 with Reviewed draft: Planner draft v1, Architecture findings: none blocking, Quality-gate findings: none blocking, Verdict: APPROVE. After any worker starts, the parent must not inspect or analyze the worker scope inline while waiting; wait for worker results and use them. After all role work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CODEX_RALPLAN_NATURAL_OK and summarize Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Wait results captured, and Closed workers: yes.'
+  proof_file="$RUN_DIR/ralplan-natural-private-proof.json"
+  prepare_ralplan_private_proof "$proof_file"
+  prompt="$(cat <<PROMPT
+Use the oh-no-harness:ralplan skill for a read-only natural SessionStart test.
+Do not edit files, create artifacts, or build a full plan.
+Requirements are already analyzed. The synthetic task is to document that the host asks which approved execution workflow to run.
+
+Use the registered typed Planner worker first and the registered typed Plan-Reviewer worker second.
+For both typed worker calls set fork_turns "none".
+Wait for the Planner final result before starting the Plan-Reviewer.
+Do not run either worker again and do not run them concurrently.
+
+The Planner worker message must include the normal role fields and exactly:
+OH_NO_RALPLAN_PLANNER_PROOF_REQUEST ${request_nonce}
+The Plan-Reviewer worker message must include the normal role fields, the complete Planner result unchanged, and exactly:
+OH_NO_RALPLAN_REVIEW_PROOF_REQUEST ${request_nonce}
+
+Copy both complete worker payloads verbatim into the parent final response in that order.
+Use lifecycle cleanup only if the host exposes it.
+When no cleanup action exists, include exactly: Close/cleanup was not available.
+End with OH_NO_CODEX_RALPLAN_NATURAL_OK and report Planner then Plan-Reviewer order, exact handoff, and cleanup outcome.
+PROMPT
+)"
   assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
   CODEX_HOME="$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_natural_role_spawn_smoke \
+  if ! assert_no_codex_live_secret_leak \
+    "$CODEX_HOME_DIR/auth.json" \
     "$out_file" \
     "$err_file" \
-    OH_NO_CODEX_RALPLAN_NATURAL_OK \
-    ralplan \
-    "planner:OH_NO_CODEX_RALPLAN_PLANNER_READONLY,plan-reviewer:OH_NO_CODEX_RALPLAN_REVIEWER_READONLY"
+    "$CODEX_HOME_DIR/sessions"; then
+    rm -f "$out_file" "$err_file" "$proof_file"
+    fail "Codex Ralplan natural live artifacts failed the credential-leak guard and were removed"
+  fi
+  if grep -q "OH_NO_RALPLAN_PRIVATE_REVIEW_PROOF ${private_nonce}" "$out_file"; then
+    "$PYTHON_BIN" - "$out_file" "$err_file" "$proof_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+out_path, err_path, proof_path = sys.argv[1:4]
+proof = json.loads(Path(proof_path).read_text(encoding="utf-8"))
+err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
+for marker in (
+    "spawn failed",
+    "agent thread limit reached",
+    "full-history forked agents inherit",
+    "provide either message or items",
+):
+    if marker in err_text.lower():
+        raise SystemExit("Codex ralplan natural V2 proof saw a spawn failure; inspect the secret-scanned stderr artifact")
+
+def collect_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(collect_text(item) for item in value.values())
+    if isinstance(value, list):
+        return "\n".join(collect_text(item) for item in value)
+    return ""
+
+rows = [json.loads(line) for line in Path(out_path).read_text(encoding="utf-8").splitlines() if line.strip()]
+command_events = []
+for index, row in enumerate(rows, 1):
+    item = row.get("item") or {}
+    payload = row.get("payload") or {}
+    if item.get("type") == "command_execution":
+        command_events.append((index, collect_text(item)))
+    if payload.get("type") == "function_call" and payload.get("name") in {
+        "exec_command",
+        "functions.exec_command",
+    }:
+        command_events.append((index, collect_text(payload)))
+tainted_command_events = [
+    event for event in command_events
+    if proof["private_nonce"] in event[1]
+    or "ralplan-private-proof.json" in event[1]
+    or "ralplan-natural-private-proof.json" in event[1]
+    or "/agents/oh-no-planner.toml" in event[1]
+    or "/agents/oh-no-plan-reviewer.toml" in event[1]
+]
+if tainted_command_events:
+    tainted_lines = sorted({event[0] for event in tainted_command_events})
+    raise SystemExit(
+        "Codex ralplan natural V2 proof inspected private proof material instead of relying on typed-role output: "
+        f"event lines {tainted_lines!r}"
+    )
+text = "\n".join(collect_text(row) for row in rows)
+planner_block = proof["planner_block"]
+review_block = proof["review_block"]
+if planner_block not in text or review_block not in text:
+    raise SystemExit("Codex ralplan natural V2 proof omitted a private role payload")
+if text.index(planner_block) >= text.index(review_block):
+    raise SystemExit("Codex ralplan natural V2 proof did not preserve Planner -> Plan-Reviewer order")
+if "OH_NO_CODEX_RALPLAN_NATURAL_OK" not in text:
+    raise SystemExit("Codex ralplan natural V2 proof omitted its success marker")
+if "Close/cleanup was not available." not in text:
+    raise SystemExit("Codex ralplan natural V2 proof did not record unavailable lifecycle cleanup")
+print("ok - live Codex ralplan natural V2 private role proof reviewed sequentially")
+PY
+  else
+    assert_natural_role_spawn_smoke \
+      "$out_file" \
+      "$err_file" \
+      OH_NO_CODEX_RALPLAN_NATURAL_OK \
+      ralplan \
+      "planner:OH_NO_CODEX_RALPLAN_PLANNER_READONLY,plan-reviewer:OH_NO_CODEX_RALPLAN_REVIEWER_READONLY"
+  fi
 }
 
 run_named_agents_live_test() {
@@ -2549,7 +2966,7 @@ run_named_agents_live_test() {
 
   local named_agent_temp_root
   named_agent_temp_root="$(mktemp -d)"
-  NAMED_AGENT_TEMP_ROOTS+=("$named_agent_temp_root")
+  CODEX_LIVE_TEMP_ROOTS+=("$named_agent_temp_root")
 
   local negative_home="$named_agent_temp_root/named-agents-negative-home"
   local negative_project_root="$named_agent_temp_root/named-agents-negative-project"
@@ -5136,6 +5553,9 @@ main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
   require_command "$PYTHON_BIN"
+  validate_codex_live_secret_scanner
+  validate_ralplan_live_option_compatibility
+  prepare_isolated_codex_ralplan_live_home
 
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
   validate_codex_manifest

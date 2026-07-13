@@ -420,6 +420,127 @@ def assert_codex_natural_session_role_order_wiring(marketplace_root: Path) -> No
         die(f"{script_path} systematic-debugging natural SessionStart lane must opt into grouped-fanout")
 
 
+def assert_codex_ralplan_live_isolation_contract(marketplace_root: Path) -> None:
+    script_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    script_text = read_text(script_path)
+
+    required_fragments = (
+        "CODEX_HOME_SOURCE_DIR",
+        "CODEX_LIVE_TEMP_ROOTS",
+        "ralplan_live_requested()",
+        "validate_ralplan_live_option_compatibility()",
+        "prepare_isolated_codex_ralplan_live_home()",
+        "assert_no_codex_live_secret_leak()",
+        "validate_codex_live_secret_scanner()",
+        "Codex live secret scanner missed its credential fixture",
+        "id_token",
+        "session_token",
+        "private_key",
+        "trap cleanup_codex_live_temp_roots EXIT",
+        'rm -rf "$dir"',
+        "hide_spawn_agent_metadata = false",
+        'tool_namespace = "agents"',
+        'chmod 600 "$CODEX_HOME_DIR/auth.json"',
+        'CODEX_HOME="$CODEX_HOME_DIR" "$PLUGIN_ROOT/scripts/install-codex-agents"',
+    )
+    for fragment in required_fragments:
+        if fragment not in script_text:
+            die(f"{script_path} Codex Ralplan live isolation is missing {fragment!r}")
+
+    request_predicate = re.search(
+        r"ralplan_live_requested\(\) \{(?P<body>.*?)\n\}",
+        script_text,
+        flags=re.S,
+    )
+    if not request_predicate or '[[ "${RUN_RALPLAN_LIVE}" == "1" ]]' not in request_predicate.group("body"):
+        die(f"{script_path} must scope V2 isolation directly to RUN_RALPLAN_LIVE")
+    for unrelated_flag in (
+        "RUN_PARALLEL_LIVE",
+        "RUN_NAMED_AGENTS_LIVE",
+        "RUN_FUSION_RESCUE_LIVE",
+        "RUN_CROSS_HOST_FALLBACK_LIVE",
+        "RUN_SIMPLIFY_LIVE",
+        "RUN_NATURAL_SESSION_START_LIVE",
+    ):
+        if unrelated_flag in request_predicate.group("body"):
+            die(f"{script_path} must not force the Ralplan V2 home onto {unrelated_flag}")
+
+    compatibility = re.search(
+        r"validate_ralplan_live_option_compatibility\(\) \{(?P<body>.*?)\n\}",
+        script_text,
+        flags=re.S,
+    )
+    if not compatibility:
+        die(f"{script_path} is missing Ralplan live option compatibility validation")
+    for fragment in ("--no-install", "--parallel-live", "--named-agents-live", "--fusion-rescue-live", "--cross-host-fallback-live", "--simplify-live", "--natural-session-start-live"):
+        if fragment not in compatibility.group("body"):
+            die(f"{script_path} Ralplan V2 compatibility guard is missing {fragment}")
+
+    main = re.search(r"main\(\) \{(?P<body>.*?)\n\}", script_text, flags=re.S)
+    if not main:
+        die(f"{script_path} is missing main")
+    main_body = main.group("body")
+    scanner_index = main_body.find("validate_codex_live_secret_scanner")
+    compatibility_index = main_body.find("validate_ralplan_live_option_compatibility")
+    prepare_index = main_body.find("prepare_isolated_codex_ralplan_live_home")
+    install_index = main_body.find("install_via_codex_plugins")
+    if (
+        scanner_index == -1
+        or compatibility_index == -1
+        or prepare_index == -1
+        or install_index == -1
+        or not scanner_index < compatibility_index < prepare_index < install_index
+    ):
+        die(f"{script_path} must validate and prepare the isolated Codex Ralplan home before plugin installation")
+
+    ralplan = re.search(
+        r"run_ralplan_live_test\(\) \{(?P<body>.*?)\n\}\n\nrun_named_agents_live_test\(\)",
+        script_text,
+        flags=re.S,
+    )
+    if not ralplan:
+        die(f"{script_path} is missing run_ralplan_live_test")
+    body = ralplan.group("body")
+    if "--ephemeral" in body:
+        die(f"{script_path} Ralplan subagent live lane must preserve parent transcripts in its isolated home")
+    for fragment in (
+        'fork_turns "none"',
+        "OH_NO_RALPLAN_PRIVATE_PLANNER_PROOF",
+        "OH_NO_RALPLAN_PRIVATE_REVIEW_PROOF",
+        "inspected private proof material",
+        "ralplan-natural-private-proof.json",
+        "assert_no_codex_live_secret_leak",
+        "Close/cleanup was not available.",
+    ):
+        if fragment not in body:
+            die(f"{script_path} Ralplan V2 proof contract is missing {fragment!r}")
+
+    for forbidden in (
+        "then wait for and close planner before plan-reviewer",
+        "After both subagents finish and both completed planning agents are closed",
+    ):
+        if forbidden in body:
+            die(f"{script_path} Ralplan prompt still contains a conflicting legacy lifecycle rule: {forbidden!r}")
+
+    if body.count("assert_no_codex_live_secret_leak") != 2:
+        die(f"{script_path} must secret-scan both explicit and natural Ralplan live artifacts")
+    if "err_text[:2000]" in body:
+        die(f"{script_path} Ralplan live parser must not interpolate raw stderr into failures")
+    if re.search(r"command_events[.]append\([^\n]*\[:2000\]", body):
+        die(f"{script_path} Ralplan private-proof taint scan must inspect complete command events")
+
+    prompts = re.findall(r'prompt="\$\(cat <<PROMPT\n(.*?)\nPROMPT\n\)"', body, flags=re.S)
+    if len(prompts) != 2:
+        die(f"{script_path} Ralplan live lane must contain exactly two compact prompt blocks")
+    prompt_limits = (2600, 1500)
+    for index, (prompt, limit) in enumerate(zip(prompts, prompt_limits), 1):
+        if len(prompt) > limit:
+            die(
+                f"{script_path} Ralplan prompt {index} exceeds its audited size budget: "
+                f"{len(prompt)}>{limit}"
+            )
+
+
 def assert_claude_live_budget_floor(marketplace_root: Path) -> None:
     script_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     script_text = read_text(script_path)
@@ -855,6 +976,7 @@ def validate_classification_fixtures(
 
     assert_release_default_live_safe(marketplace_root, lanes)
     assert_codex_natural_session_role_order_wiring(marketplace_root)
+    assert_codex_ralplan_live_isolation_contract(marketplace_root)
     assert_claude_live_budget_floor(marketplace_root)
     assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)
