@@ -103,7 +103,10 @@ review, or verification checks when they would keep the main thread cleaner.
 `STANDARD` work should use targeted subagents for isolated exploration,
 implementation, review, verification, QA, or security checks whenever the active
 platform supports them and coordination cost is reasonable. STANDARD uses one
-reviewer instance per required role; it does not create a review pair.
+reviewer instance per required role; it does not create a review pair. Under
+the STANDARD small-task carve-out in `docs/shared/execution-modes.md`, the
+code-review role may be satisfied by direct diff inspection recorded as
+not-required; the independent verifier audit above is unchanged.
 
 `THOROUGH` work must use the role set warranted by the risk whenever the active
 platform supports dispatch and the roles can be isolated. Two instances of the

@@ -25,9 +25,9 @@ fi
 bootstrap_policy='<OH_NO_BOOTSTRAP>
 You have Oh No Harness installed. Use native skill loading to read the relevant Oh No Harness skill when it applies.
 
-Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; hard stalled problem needing panel rescue -> fusion-rescue; autonomous end-to-end work -> ultrawork; bugs/failing commands/regressions/unknown root cause -> systematic-debugging; completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
+Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; hard stalled problem needing panel rescue -> fusion-rescue; autonomous end-to-end work -> ultrawork; failing commands/regressions/flaky behavior/unknown root cause -> systematic-debugging (a known-cause localized bug fix -> ralph); completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
 
-Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork/tiny direct edits before behavior-changing edits.
+Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork before behavior-changing edits.
 
 Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
@@ -45,7 +45,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 - Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.
 - Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.
 - Autonomous or end-to-end delivery request: oh-no-harness:ultrawork.
-- Bug, failing test, failing command, regression, or unknown root cause: oh-no-harness:systematic-debugging.
+- Failing test, failing command, regression, flaky behavior, or unknown root cause: oh-no-harness:systematic-debugging. A bug with a known cause and a localized fix: oh-no-harness:ralph.
 - Hard stalled problem after ordinary analysis/debugging, or explicit fusion rescue request: oh-no-harness:fusion-rescue.
 - Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.
 - About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.
@@ -53,7 +53,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 
 After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
 
-Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work or the host intentionally selected a tiny direct edit path.
+Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work; small concrete edits stay in ralph and may qualify for its STANDARD small-task carve-out.
 
 If an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
 </OH_NO_FORCED_ROUTING>'

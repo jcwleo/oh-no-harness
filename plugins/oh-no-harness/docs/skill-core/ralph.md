@@ -222,6 +222,8 @@ For each story, record (the named gate owns the detail — do not restate it her
   (for example `contract-surface mismatch`, `semantic-lifecycle/state miss`, `hidden regression`)
 - validation check when measurable evidence influenced the task — see Validation Gate
 - diff-budget expectation — see Diff-Budget Gate
+- STANDARD small-carveout eligibility block when the carve-out is claimed — see
+  `docs/shared/execution-modes.md`
 
 ## Worktree Isolation Gate
 
@@ -339,7 +341,11 @@ Ralph owns execution mode selection or enforcement for ordinary implementation. 
 6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
 7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier. In STANDARD and THOROUGH on subagent-capable hosts, scan remaining work for disjoint scopes before implementing serially: when two or more pending stories or tasks have non-overlapping write scopes and no inter-dependency, proactively partition disjoint implementation into one concurrent `executor` batch (recorded as `Parallel trigger: natural-dispatch`) per `## Parallel Subagent Policy` and `docs/shared/ralph-subagent-policy.md`, then apply the post-batch per-executor scope check before integrating. This is conditional on isolation, dependency safety, and benefit gates — never unconditional parallelism.
 8. Recheck the `Scope Trace Gate`, `## Diff-Budget Gate`, and
-   `## Process Budget Gate` thresholds against the actual diff. Mark the story complete only when acceptance criteria, TDD evidence
+   `## Process Budget Gate` thresholds against the actual diff. Reclassify any
+   `provisional` STANDARD small-carveout eligibility here per
+   `docs/shared/execution-modes.md`; on invalidation record
+   `Review topology: single-reviewer` and run ordinary STANDARD review before
+   the verifier. Mark the story complete only when acceptance criteria, TDD evidence
    (or documented exception), scope-trace evidence, acceptance-to-evidence
    mapping, contract-surface evidence, baseline guard, story risk-check evidence,
    and any required validation check all pass or have explicit residual risk.
@@ -443,7 +449,10 @@ Completion requires evidence, not confidence.
 
 The reviewer pass is mode-gated. `LIGHT` may satisfy review through direct diff
 inspection unless the selected mode or risk requires independence. `STANDARD`
-uses one targeted reviewer instance for behavior-affecting or workflow changes.
+uses one targeted reviewer instance for behavior-affecting or workflow changes,
+except under the STANDARD small-task carve-out in
+`docs/shared/execution-modes.md`, where review may be satisfied by direct diff
+inspection recorded as `not-required (STANDARD small carve-out: <reason>)`.
 `THOROUGH` uses paired review only for a named security, data, destructive,
 public-contract, release-critical, new-concurrency, migration, or broad
 multi-system risk; otherwise it may also use one targeted reviewer.
@@ -451,7 +460,8 @@ multi-system risk; otherwise it may also use one targeted reviewer.
 Review-then-verify order: when both code review and an independent verifier are
 required, run the selected code-review topology first, resolve or record its
 blocking findings, and then run one independent verifier (never the maker).
-Record `single-reviewer` for STANDARD. For a named THOROUGH pair, apply
+Record `single-reviewer` for STANDARD, or `not-required` with the carve-out
+reason when the STANDARD small-task carve-out holds. For a named THOROUGH pair, apply
 `docs/shared/cross-host-review.md` and record `cross-host` or
 `same-host-parallel-fallback`; an inline fallback always includes a reason.
 
@@ -504,7 +514,8 @@ When review is required, the reviewer pass must answer:
   or was the risk explicitly ruled out?
 - When the opposite host was available, were `plan-reviewer`/`code-reviewer`
   paired only for a named THOROUGH trigger per
-  `docs/shared/cross-host-review.md`? Was STANDARD kept to one reviewer? Was the
+  `docs/shared/cross-host-review.md`? Was STANDARD kept to one reviewer or a
+  compliant small-carveout `not-required` record? Was the
   `verifier` run as the confirming pass after the selected code-review stage — an unconditionally single self-host
   independent pass (never a cross-host or same-host pair)? Does the ledger show
   `verifier started after reviewer completion: yes` or a compliant not-required
@@ -540,7 +551,8 @@ re-check is the single permitted re-review, not an addition to it; re-run only
 the evidence the fix invalidated — the blocked scope's story verification and
 any verifier or ledger rows whose covered files or behavior changed — while
 evidence for untouched scopes stays fresh. Record
-`single-reviewer` for STANDARD; for a named THOROUGH pair, record its
+`single-reviewer` for STANDARD (or the compliant small-carveout `not-required`
+record); for a named THOROUGH pair, record its
 independence mode per `docs/shared/cross-host-review.md`
 `## Recording the Independence Mode`. The single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
 review unless the user explicitly authorizes it. If a blocker remains after that
@@ -634,7 +646,10 @@ Cleanup happens only after the review required by the selected mode is satisfied
 and a behavior lock exists.
 
 Cleanup is mode- and trigger-gated per `docs/shared/execution-modes.md`.
-LIGHT and STANDARD use one quick or combined scan. THOROUGH expands to four
+LIGHT and STANDARD first run a caller-owned quick diff scan and invoke the
+`simplify` skill (one combined scan) only when the quick scan finds actual
+candidates or candidate uncertainty remains; a clean quick scan records cleanup
+as not needed without invoking Simplify. THOROUGH expands to four
 independent viewpoints only for a named safety or broad-diff trigger. Record the
 trigger, candidates found, and fixes made; do not create cleanup work merely to
 satisfy a pass count. Rerun relevant verification whenever cleanup changes files.
@@ -669,14 +684,18 @@ On re-entry, do not trust working memory — reconstruct state from artifacts fi
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the Review Gate dependency-graph values: `not-required` (with the compliant reason, including LIGHT direct-diff inspection), `single-reviewer` (STANDARD, or THOROUGH without a named pair trigger), or `paired-thorough` (a named THOROUGH pair, recording its independence mode as `cross-host` / `same-host-parallel-fallback`); an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the Review Gate dependency-graph values: `not-required` (with the compliant reason, including LIGHT direct-diff inspection and the STANDARD small-task carve-out), `single-reviewer` (STANDARD, or THOROUGH without a named pair trigger), or `paired-thorough` (a named THOROUGH pair, recording its independence mode as `cross-host` / `same-host-parallel-fallback`); an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
 For a LIGHT run with no behavior change, the four named criteria may be
 recorded as one combined ledger line when each part is actually true, for
 example: `review: direct diff inspection; verifier: not-required (no
 maker-authored proving tests); simplify: no candidates;
-verification-before-completion: ran`.
+verification-before-completion: ran`. A STANDARD small-carveout run may
+similarly compact the review and simplify entries into one line (`review:
+not-required (STANDARD small carve-out: <reason>); simplify: no candidates`)
+while the verifier and verification-before-completion entries stay individually
+recorded.
 
 Ship when all completion criteria are satisfied:
 
@@ -686,7 +705,7 @@ Ship when all completion criteria are satisfied:
   actual evidence, freshness, audit status, and direct evidence or explicitly classified
   indirect/manual gaps for every acceptance criterion
 - required TDD evidence exists, or each exception is documented
-- the reviewer (code-review) pass required by the selected mode is approved, or a blocking reason is documented
+- the reviewer (code-review) pass required by the selected mode is approved, recorded as compliant `not-required` (LIGHT direct diff or STANDARD small carve-out), or a blocking reason is documented
 - the independent `verifier` pass required by the selected mode or the verifier carve-out ran (per the Review-then-verify order, never the maker), or its dispatch-unavailable or not-required reason is recorded
 - the proportional `simplify` scan ran, was explicitly disabled, or recorded no
   candidates with the applicable mode/trigger

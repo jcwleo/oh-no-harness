@@ -86,7 +86,10 @@ Recommended agents:
 
 - `verifier` for acceptance and command evidence; required as an independent
   pass under the carve-out in Required evidence above.
-- `code-reviewer` for behavior-affecting code or workflow changes.
+- `code-reviewer` for behavior-affecting code or workflow changes, when the
+  caller's review gate selects review; the STANDARD small-task carve-out in
+  `docs/shared/execution-modes.md` may record a compliant not-required review
+  instead.
 
 ## THOROUGH
 

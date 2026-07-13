@@ -12,7 +12,7 @@ Write the test first. Watch it fail. Write the smallest production change that m
 
 Test Driven Development is the internal mid-loop discipline for behavior-change work inside implementation and bug-fix execution.
 
-Use it inside `ralph`, `systematic-debugging`, or an explicitly chosen tiny direct edit path before changing production behavior. It is not a requirements, planning, cleanup, or final-verification substitute.
+Use it inside `ralph`, `systematic-debugging`, or `ultrawork` before changing production behavior. It is not a requirements, planning, cleanup, or final-verification substitute.
 
 ## Top-Level Routing Boundary
 
@@ -29,12 +29,14 @@ Use this skill as a top-level entry only when:
   "write the failing test first"
 - an already-selected workflow (`ralph`, `systematic-debugging`, or
   `ultrawork`) reaches its internal TDD gate
-- the active host is intentionally taking a tiny direct edit path and only
-  needs the TDD discipline before a behavior-changing edit
+
+Small concrete edits route through `ralph`, which may apply its STANDARD
+small-task carve-out; there is no
+separate direct edit path that reaches this skill outside a workflow or an
+explicit user TDD request.
 
 After the cycle completes, return control to `ralph`, `systematic-debugging`,
-`ultrawork`, or the explicitly chosen tiny direct edit path. Do not continue as
-a substitute for `ralph`.
+or `ultrawork`. Do not continue as a substitute for `ralph`.
 
 ## When To Use
 
@@ -210,4 +212,4 @@ Before claiming the behavior is complete:
 
 ## Next Skill Handoff
 
-None — this is an internal mid-loop discipline. Return control to the caller skill (`ralph`, `systematic-debugging`, or the tiny direct edit path) once the cycle is complete or an exception is recorded. Do not continue as a substitute for `ralph`.
+None — this is an internal mid-loop discipline. Return control to the caller skill (`ralph`, `systematic-debugging`, or `ultrawork`) once the cycle is complete or an exception is recorded. Do not continue as a substitute for `ralph`.

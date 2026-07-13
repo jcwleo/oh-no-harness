@@ -31,6 +31,9 @@ altitude issues, then applies behavior-preserving fixes.
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
 selected mode's required review is satisfied and before final verification;
 the active platform runtime document supplies the matching simplify skill.
+`ralph` owns a preflight quick diff scan and invokes this skill only when that
+scan finds actual candidates or candidate uncertainty remains; a clean quick
+scan records cleanup as not needed without invoking Simplify.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.

@@ -32,7 +32,7 @@ skill documents compose this shared core with the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, verification, or a direct small edit. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. Small concrete edits route to `ralph`, which may apply the STANDARD small-task carve-out from `docs/shared/execution-modes.md`; there is no separate direct-edit lane that bypasses `ralph`. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -68,6 +68,7 @@ skill hands a decision to it. If a listed file cannot be read, record the
 blocker instead of proceeding past the gate that depends on it.
 
 - `docs/shared/worktree-isolation.md` — the write-capable worktree default the recommended flow relies on.
+- `docs/shared/execution-modes.md` — the execution modes and the STANDARD small-task carve-out that small concrete edits route through.
 
 ## Recommended Development Flow
 
@@ -77,10 +78,10 @@ For LLM software development, prefer this order when the request is not already 
 2. `interview`: for vague or requirement-light work.
 3. `ralplan`: turn the approved spec or clear task into the implementation plan and required Ralph execution mode.
 4. `ralph`: set or read the required execution mode, then execute the approved plan or concrete PRD according to that mode.
-5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, `ultrawork`, or an explicitly chosen tiny direct edit path before behavior-changing production edits and bug fixes.
+5. `test-driven-development`: run inside `ralph`, `systematic-debugging`, or `ultrawork` before behavior-changing production edits and bug fixes.
 6. `systematic-debugging`: enter whenever a failing command, regression, flaky result, or unknown root cause blocks progress.
 7. `fusion-rescue`: escalate only when the selected workflow's ordinary analysis or debugging path stalls and independent panel synthesis could change the next action.
-8. `simplify`: clean reuse, simplification, efficiency, and altitude issues only after behavior is locked and required review is satisfied or recorded as not needed.
+8. `simplify`: invoke only when the caller's quick diff scan finds reuse, simplification, efficiency, or altitude candidates (or candidate uncertainty) after behavior is locked and required review is satisfied or recorded as not needed.
 9. `verification-before-completion`: check fresh evidence before any final "done", "fixed", "passing", or "ready" claim.
 
 `ultrawork` is the opt-in end-to-end orchestration lane over the same
@@ -92,6 +93,11 @@ Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
 must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
+
+A small behavior-changing task that meets the STANDARD small-task carve-out in
+`docs/shared/execution-modes.md` is the lightweight path: review by direct diff
+inspection and conditional cleanup, with TDD, the independent `verifier` pass,
+and worktree isolation unchanged.
 
 A concrete change that reuses an existing scheduler, eligibility decision,
 lifecycle owner, or contract surface normally routes to Ralph STANDARD when its

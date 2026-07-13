@@ -350,9 +350,10 @@ host cannot dispatch):
   `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation
   were authored or accepted by the same agent; plus its scenario lens for
   user-facing behavior
-- STANDARD records `single-reviewer`. Use cross-host review or the Same-Host
-  Parallel Fallback only for a named THOROUGH paired-review trigger. The
-  `verifier` remains one self-host pass.
+- STANDARD records `single-reviewer`; the STANDARD small-task carve-out is a
+  direct-Ralph path and does not apply to Ultrawork validation. Use cross-host
+  review or the Same-Host Parallel Fallback only for a named THOROUGH
+  paired-review trigger. The `verifier` remains one self-host pass.
 
 Review-then-verify order: run the selected code-review stage first, then the
 confirming independent `verifier` pass (never the maker). This mirrors Ralph.

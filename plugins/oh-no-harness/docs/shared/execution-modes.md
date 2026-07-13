@@ -111,33 +111,41 @@ The reviewed per-gate metadata inventory is a maintenance reference at
 Before selecting a mode, answer these questions from the current request, spec,
 plan, repository facts, and known verification commands:
 
-1. What observable behavior, artifact, prompt, config, or documentation will
+1. How large is the expected change — how many files and roughly how many
+   lines — and is the changed behavior already covered by an existing test or a
+   known verification command?
+2. What observable behavior, artifact, prompt, config, or documentation will
    change, and what actual public, caller, or verifier-facing surface validates
    it?
-2. Is the change isolated, or does it cross modules, generated artifacts,
+3. Is the change isolated, or does it cross modules, generated artifacts,
    manifests, scripts, docs, workflow routing, public plugin surface,
    acceptance gates, validation policy, support claims, or release surfaces?
    Does the change alter agent behavior, workflow routing, public plugin
    surface, command names, acceptance gates, validation policy, or support
    claims?
-3. Could the change affect runtime behavior, user-facing behavior, persisted
+4. Could the change affect runtime behavior, user-facing behavior, persisted
    data, permissions, authentication, secrets, network or file-system access,
    external services, concurrency, migrations, or destructive operations?
-4. Are acceptance criteria, baseline or smoke evidence, direct semantic
+5. Are acceptance criteria, baseline or smoke evidence, direct semantic
    evidence, and what would a skeptical maintainer or user test before accepting
    the work already clear enough for a lighter loop?
-5. What would force escalation while working: unknown root cause, wrong contract
+6. What would force escalation while working: unknown root cause, wrong contract
    surface, semantic uncertainty, broader files, failing checks,
    security/data risk, unclear ownership, or reviewer rejection?
-6. Can a lighter mode produce credible evidence without skipping a stated
+7. Can a lighter mode produce credible evidence without skipping a stated
    requirement?
 
 Apply the `Validation check` from `docs/shared/validation-check.md` when
 measurable evidence influenced the work.
 
 Choose the lightest credible loop that can produce direct evidence without
-skipping a stated requirement. If risk remains unclear after reading the
-relevant files, choose the higher mode and record why.
+skipping a stated requirement. When the expected change is small — a single
+file or tightly bounded edit set with a small diff — and a direct verification
+path already exists, evaluate whether the next-lighter mode or the STANDARD
+small-task carve-out below produces credible evidence before defaulting to the
+category mode, and record why the lighter path was rejected when it was. If
+risk remains unclear after reading the relevant files, choose the higher mode
+and record why.
 
 ## LIGHT
 
@@ -211,7 +219,9 @@ Ralph behavior:
   `docs/shared/ralph-subagent-policy.md`
 - use `verifier` or `code-reviewer` for behavior-affecting or workflow changes
   where independent evidence is useful; when code review is required, use one
-  reviewer instance unless a named THOROUGH risk applies
+  reviewer instance unless a named THOROUGH risk applies, or record review as
+  `not-required (STANDARD small carve-out: <reason>)` when the small-task
+  carve-out below holds
 - run STANDARD verification from `docs/shared/verification-tiers.md`
 - apply the verification budget policy: focused semantic evidence first, broad
   suites once after behavior stabilizes unless a patch-related failure requires
@@ -219,10 +229,57 @@ Ralph behavior:
 - run the diff-budget gate when changed files, insertions, generated artifacts,
   public API surface, or package count exceeds the Ralph thresholds
 - record the `Worktree decision` before editing when the task is write-capable
-- run one combined `simplify` scan after the behavior lock exists and required
-  review is satisfied, unless the user explicitly disabled it; fix only actual
-  candidates and rerun relevant verification when cleanup changes files
+- after the behavior lock exists and required review is satisfied, run a quick
+  diff scan for reuse, simplification, efficiency, or altitude candidates;
+  invoke `simplify` (one combined scan) only when actual candidates or
+  candidate uncertainty remain, unless the user explicitly disabled cleanup;
+  otherwise record cleanup as not needed, and rerun relevant verification when
+  cleanup changes files
 - run `verification-before-completion` before the final claim
+
+### STANDARD Small-Task Carve-Out
+
+A STANDARD task qualifies for this carve-out only when ALL of these hold; size
+is necessary but never sufficient:
+
+- the edit set is at most two tightly coupled handwritten implementation files
+  with roughly 50 or fewer handwritten changed lines, excluding mechanical
+  regeneration of generated outputs
+- an existing test, focused command, or direct observable check already
+  distinguishes the requested behavior from the old behavior; file proximity or
+  function-level coverage alone does not qualify
+- the task touches no security, data, permission, public-contract,
+  release-critical, migration, new-dependency, shared-schema,
+  generated-surface, or concurrency-semantics surface, and the root cause is
+  not unknown
+- the run is direct `ralph` execution; `ultrawork` keeps the ordinary STANDARD
+  reviewer
+
+Record this eligibility block before editing:
+
+```text
+STANDARD small-carveout eligibility:
+- AC/behavior changed:
+- Expected handwritten files:
+- Expected handwritten line band:
+- Behavior-distinguishing existing test/command/check:
+- Excluded risk surfaces checked:
+- Review topology: not-required (STANDARD small carve-out: <reason>)
+- Status: provisional
+```
+
+Under the carve-out, code review may be satisfied by direct diff inspection
+recorded as `not-required (STANDARD small carve-out: <reason>)`, and cleanup
+follows the conditional quick-scan rule above. TDD, worktree isolation, session
+evidence, the independent `verifier` pass, and `verification-before-completion`
+are unchanged.
+
+The eligibility status stays `provisional` until Ralph's step-8 recheck
+reclassifies it against the actual diff. Any unexpected file or surface, bound
+breach, proof-path failure, test-infrastructure addition, or new semantic
+uncertainty invalidates the carve-out: record
+`Review topology: single-reviewer` and run ordinary STANDARD review before the
+verifier.
 
 ## THOROUGH
 
@@ -327,10 +384,10 @@ authorizes eligible isolated roles for a direct Ralph request. Use `none` only
 for inline-only plans, missing host support, or documented unsafe-to-isolate
 work.
 
-`Cleanup policy: conditional` is LIGHT-only: cleanup depends on LIGHT's quick
-diff scan, and the executing Ralph resolves it in the session ledger to
-`required` (candidates or uncertainty remain) or `not-needed`. STANDARD and
-THOROUGH plans record `required`.
+`Cleanup policy: conditional` applies to LIGHT and STANDARD: cleanup depends on
+the quick diff scan, and the executing Ralph resolves it in the session ledger
+to `required` (candidates or uncertainty remain) or `not-needed`. THOROUGH
+plans record `required`.
 
 Ralph session notes or PRDs must include:
 

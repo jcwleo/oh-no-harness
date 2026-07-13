@@ -1261,7 +1261,7 @@ TDD_CORE_ROUTING_MARKERS = (
     "Use `ralph` for those concrete implementation requests",
     "explicitly asked for TDD",
     "already-selected workflow",
-    "tiny direct edit path",
+    "no\nseparate direct edit path",
     "return control to `ralph`, `systematic-debugging`",
     "Do not continue as a substitute for `ralph`",
 )
@@ -3706,7 +3706,7 @@ def assert_proportional_workflow_contract(root: Path) -> None:
 
     cross_host = read_text(shared / "cross-host-review.md")
     for marker in (
-        "STANDARD uses one reviewer instance",
+        "STANDARD uses at most one reviewer instance",
         "named THOROUGH paired-review trigger",
         "Host\navailability alone never activates a pair",
     ):

@@ -12,7 +12,8 @@ It owns risk-gated planning and keeps planning separate from execution. Every
 plan uses Analyst-or-approved-spec -> Planner ordering; Plan-Reviewer depth and
 instance count are selected by the execution risk instead of being an
 unconditional consensus tax. If the task is too small for planning, use
-`ralph` or a direct small edit path instead.
+`ralph` instead; small concrete edits may qualify for Ralph's STANDARD
+small-task carve-out.
 
 ## Software Development Stage
 

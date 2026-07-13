@@ -21,7 +21,8 @@ hard-code host binaries, plugin or capability names, or permission states here.
 ## When It Applies
 
 Cross-host review does not apply merely because a skill dispatches one reviewer.
-STANDARD uses one reviewer instance. It applies only when a calling skill
+STANDARD uses at most one reviewer instance (a compliant not-required record
+under the STANDARD small-task carve-out dispatches none). It applies only when a calling skill
 records a named THOROUGH paired-review trigger for `plan-reviewer`,
 `code-reviewer`, or `debugger`, such as security/data/destructive risk, a public
 or release-critical contract, new concurrency semantics, broad migration, or
@@ -37,7 +38,8 @@ multi-system uncertainty:
 
 Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
 Gate and `ultrawork`'s Final Validation, run the selected code-review stage
-first: one reviewer for STANDARD, or a triggered pair for THOROUGH. The
+first: one reviewer for STANDARD when review is selected, or a triggered pair
+for THOROUGH. The
 confirming `verifier` is a dependent later stage. Dispatch it only after the
 reviewer output or pair synthesis is captured and blocking findings have been
 resolved or recorded as blocking. The confirming `verifier` is an unconditionally
