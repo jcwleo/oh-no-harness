@@ -84,7 +84,7 @@ Interview run:
 |---|---|---|
 | ROUTE | request is concrete: files, failing commands, and testable acceptance criteria present [I1] | outcome ROUTED_DIRECT (recommend the direct skill; never auto-invoke) |
 | ROUTE | vague, broad, or underspecified request | CONTEXT |
-| CONTEXT | depth mode recorded [I2]; project type classified [I3]; brownfield facts gathered [I15] | INTERVIEW |
+| CONTEXT | depth mode recorded [I2]; project type classified [I3]; brownfield facts gathered when a repository exists [I15] (greenfield proceeds without exploration) | INTERVIEW |
 | INTERVIEW | Standard/Deep: `ready` held 2 consecutive rounds [I7]; Quick: blocking ambiguity resolved [I8] | CLOSURE |
 | CLOSURE | Spec Closure Gate passes [I9]; Direction Contract confirmed [I16]; spec written [I11] | APPROVAL |
 | CLOSURE | a gate check fails | INTERVIEW (single highest-value question) |
@@ -92,6 +92,7 @@ Interview run:
 | APPROVAL | user requests spec-only changes (no new material decision) | CLOSURE (revise, rerun gate, re-post Phase 1) |
 | APPROVAL | user's change is a new material decision [I5] | INTERVIEW |
 | APPROVAL | user stops with the spec pending | outcome PAUSED |
+| INTERVIEW | user goes unresponsive, or fatigue fast-close is declined | outcome PAUSED (spec-in-progress state persisted) |
 | APPROVAL | invoked from ultrawork: Phase 1 confirmed | outcome RETURN_ULTRAWORK |
 
 ## Depth Modes

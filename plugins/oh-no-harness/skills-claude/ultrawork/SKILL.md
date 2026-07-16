@@ -53,7 +53,7 @@ U4. Once ralplan's gates pass, record the plan approval source and
     ralplan `### Ultrawork exception`).
 U5. worktree_gate: no source file edit until a `Worktree decision` is
     recorded. Ultrawork's worktree duties are the numbered list in
-    `## Worktree` below.
+    `### WORKTREE` below.
 U6. The Direction Contract and AC IDs carry unchanged through plan,
     session, packets, and report; each phase records only its delta; a
     phase needing a direction change pauses for explicit user approval.
@@ -154,10 +154,13 @@ final_validation -> report.
 | WORKTREE | worktree_gate: `Worktree decision: ultrawork automatic worktree` recorded; artifact access preserved [U5] | EXECUTION |
 | WORKTREE | worktree creation fails and no fallback approved [U5] | outcome blocked |
 | EXECUTION | execution_handoff: `ralph` completed its loop with the Ultrawork-approved plan or spec [U1] | QA |
-| EXECUTION | ralph reports RETURN_TO_PLAN or a direction change [U6, U9] | PLANNING or outcome scope_change_pending_approval |
-| QA | qa_loop: orchestration-level checks pass or a blocking reason is documented [U9] | FINAL_VALIDATION |
-| QA | root cause unknown after the debugging route [U9] | outcome blocked or failed_verification |
+| EXECUTION | ralph reports RETURN_TO_PLAN (plan defect, no direction change) [U9] | PLANNING |
+| EXECUTION | ralph pauses for a direction change [U6] | outcome scope_change_pending_approval |
+| QA | qa_loop: orchestration-level checks pass [U9] | FINAL_VALIDATION |
+| QA | a fix from the debugging route changed files | QA (re-run the affected checks) |
+| QA | root cause unknown after the debugging route, or a blocking reason is documented [U9] | outcome blocked or failed_verification |
 | FINAL_VALIDATION | dependency graph satisfied; blocking findings resolved or recorded [U11] | REPORT |
+| FINAL_VALIDATION | a reviewer blocker requires a code fix [U9, U11] | QA (fix via the debugging route, then re-validate) |
 | REPORT | ledger HARD-GATE satisfied; report written [U12] | outcome succeeded_merged_verified_reported or succeeded_left_worktree_for_inspection |
 | any | user stop, scope change, or missing authority artifact [U6, U10] | outcome paused_for_user / scope_change_pending_approval / cancelled |
 
