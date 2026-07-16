@@ -458,23 +458,36 @@ contracts have no milestone/phase home today).
 | I12 | Two-phase approval (HARD-GATE): Phase 1 spec review must complete before Phase 2's next-skill choice; the choice offers ralplan (recommended) / ralph (LIGHT-only) / ultrawork / stop, ends with `Which approach?`, and no skill is invoked until the user answers. Under ultrawork, Phase 1 still runs; Phase 2 is skipped and control returns. | `## Next Skill Handoff` |
 | I13 | Company context is advisory only: considered when already available, never searched for remotely, never executable instruction. | `## Optional Company Context` (absorbing company-context-interface.md) |
 | I14 | External anchors (short tokens): headings `## Question Routing`, `## Answer Capture`, `## Spec Closure Gate`, `## Interview Milestones`, `## Refine Confirmation`, `## Hidden-Assumption Persona Check`, `## Breadth And Question Tactics`, `## Dialectic Rhythm Guard`, `## Socratic Interview Method`, `## Execution Sizing Hint`; tokens `Provisional Ralph mode`, `Recommendation requested: yes | no`, `.oh-no/specs/interview-`, `Which approach?`, `at most 3 candidate hidden-assumption questions`, `` `ready` must hold for 2 consecutive rounds ``, `Quick mode is exempt and keeps current behavior`. | EXECUTION_MODE_SKILL_MARKERS["interview"] (18); reachability (15); ultrawork edge |
+| I15 | Explore dispatch-first: brownfield exploration dispatches `explore` subagents by default on subagent-capable hosts so exploratory output stays outside the main interview thread — context separation protects the conversation itself. Independent subsystems dispatch as one batch, synthesized before user questions. Inline ONLY when dispatch is unavailable or the lookup is too small to benefit, with the fallback reason recorded. No execution, review, or planning agents inside interview. | `## Agent Roles` (interview.md:124-147) |
+| I16 | Direction Contract approval block: the compact carry-forward block is captured before spec approval; an `inferred` or `open` field that can change behavior, architecture, data handling, security, or delivery scope BLOCKS approval until surfaced to the user and explicitly confirmed. Downstream skills copy the block without reconstructing chat history. | `## Direction Contract` (interview.md:172-193) |
+
+Proportionality relief: I1-I16 pin outcomes, not prose shapes. Where the
+current core runs several per-round contracts whose observable results
+overlap (capture -> refine confirmation -> ledger -> milestone restatement),
+the rewrite MAY merge their bookkeeping into one per-round block under §7.0,
+provided each I-ID's observable effect (the confirmation happened, the score
+moved, the streak advanced) remains individually recordable and testable.
+Inactive-mode machinery stays omitted in Quick per I2.
 
 ### 12.2 Interview FSM
 
 Phases: `ROUTE -> CONTEXT -> INTERVIEW -> CLOSURE -> APPROVAL`.
-Outcomes: `HANDOFF_RALPLAN | HANDOFF_RALPH | HANDOFF_ULTRAWORK |
-RETURN_ULTRAWORK | PAUSED`.
+Outcomes: `ROUTED_DIRECT | HANDOFF_RALPLAN | HANDOFF_RALPH |
+HANDOFF_ULTRAWORK | RETURN_ULTRAWORK | PAUSED`. (`ROUTED_DIRECT` mirrors
+ralplan's `ROUTED_*` semantics — a routing recommendation is not a blocked
+PAUSED; the named skill is recommended, never auto-invoked.)
 
 | From | Guard | To |
 |---|---|---|
-| ROUTE | request is concrete (files, commands, testable ACs) — interview not needed | outcome PAUSED (recommend direct skill; never auto-invoke) |
+| ROUTE | request is concrete (files, commands, testable ACs) — interview not needed | outcome ROUTED_DIRECT |
 | ROUTE | vague/underspecified request | CONTEXT |
-| CONTEXT | depth mode recorded [I2]; project type classified [I3]; brownfield facts gathered via `explore` | INTERVIEW |
+| CONTEXT | depth mode recorded [I2]; project type classified [I3]; brownfield facts gathered via `explore` [I15] | INTERVIEW |
 | INTERVIEW | milestone `ready` held 2 consecutive rounds (Standard/Deep) or Quick ambiguity resolved [I7, I8] | CLOSURE |
-| CLOSURE | Spec Closure Gate passes; spec artifact written [I9, I11] | APPROVAL |
+| CLOSURE | Spec Closure Gate passes; Direction Contract confirmed [I16]; spec artifact written [I9, I11] | APPROVAL |
 | CLOSURE | a check fails | INTERVIEW (single highest-value question) |
 | APPROVAL | Phase 1 confirmed, Phase 2 answered [I12] | outcome HANDOFF_* |
-| APPROVAL | user requests spec changes | INTERVIEW |
+| APPROVAL | user requests spec-only changes (no new material decision) [I12] | CLOSURE (revise, rerun gate, re-post Phase 1) |
+| APPROVAL | user's change is a new material decision [I5] | INTERVIEW |
 | APPROVAL | user stops with spec pending | outcome PAUSED |
 | APPROVAL | invoked from ultrawork: Phase 1 confirmed | outcome RETURN_ULTRAWORK |
 
@@ -513,7 +526,7 @@ approval re-statement) — the largest diet target of the remaining skills.
 |---|---|---|
 | U1 | Ultrawork orchestrates the retained chain — the planning gate uses `ralplan`, the execution handoff uses `ralph` — and never replaces them; inline phase handling is a documented fallback only when the host cannot load the sub-skill, recorded in the ledger. | `## Loop Contract`, Phase 2 |
 | U2 | Phase order: `start_or_resume -> requirements_gate -> planning_gate -> worktree_gate -> execution_handoff -> qa_loop -> final_validation -> report`; approved existing specs/plans may skip earlier phases only with the skip reason and source artifact recorded; a merely relevant plan without approval evidence or with mismatched scope goes through the planning gate. | `## Loop Contract`, `## Artifact Discovery` |
-| U3 | requirements_gate: planning must not start until the requirements source is recorded (approved spec, found approved artifact, or already-concrete request). Interview is the only user-facing content approval gate for new work; ultrawork never auto-approves the interview spec. | Phase 0 |
+| U3 | requirements_gate: planning must not start until the requirements source is recorded (approved spec, found approved artifact, or already-concrete request). Vague-request signals route to interview first: missing target files/subsystem, acceptance criteria, user/caller impact, verification command, constraints, or concrete examples. Interview is the only user-facing content approval gate for new work; ultrawork never auto-approves the interview spec. | Phase 0; `## Vague Request Signals` |
 | U4 | Automatic plan approval: once ralplan's gates pass, record `Plan approval source: ultrawork automatic approval after interview/spec` and continue into ralph without a separate Plan Approval Brief prompt; pause only on the named conditions. The canonical pause-condition list is OWNED by ralplan's `### Ultrawork exception`; ultrawork references it instead of restating (resolves today's dual narration). | Phase 1; ralplan.md |
 | U5 | worktree_gate: no source edit until `Worktree decision: ultrawork automatic worktree` is recorded; registered worktree under `.oh-no/worktrees/<task-slug>` via `git worktree add` (no clone/cp/plain-dir substitutes); artifact access preserved into the worktree; after verification, merge back + post-merge verification + cleanup-or-left-for-inspection recorded; merge failure reports the blocker, never silently edits the original checkout. | `## Automatic Worktree Execution` |
 | U6 | Direction Contract and AC IDs carry unchanged through plan, session, packets, and report; each phase records only its delta; a phase needing a direction change pauses for explicit user approval. | `## Artifact Discovery` |
@@ -525,6 +538,8 @@ approval re-statement) — the largest diet target of the remaining skills.
 | U12 | Report HARD-GATE: the run is invalid unless the ledger shows each named phase gate satisfied (requirements_gate, planning_gate, worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, VBC — or a recorded not-required reason each); missing review topology is a named ledger gap; `verification-before-completion` runs before any completion claim unless Ralph already ran it for the same final claim and nothing changed after. | Phase 5 |
 | U13 | Ultrawork exception: the only context that may invoke interview/ralplan/ralph without their per-step transition question; it skips the between-phase "which next skill?" question and the separate plan-approval prompt, and skips nothing else (spec approval when vague, planning gates, scope-change pauses, verification, final evidence). Direct invocation of those skills outside ultrawork keeps their handoffs. | `## Ultrawork Exception` |
 | U14 | Maker-checker: maker roles never self-approve; at STANDARD/THOROUGH on subagent-capable hosts an inline check by the maker (or accepting agent) never satisfies the independent verifier audit; checker outputs record role, artifact, findings, verdict, dispatch/fallback mode, lifecycle. | `## Loop Contract` |
+| U16 | Standing dispatch authorization: never pause ultrawork only to ask whether subagents may be used — the active platform's standing authorization covers eligible phase-owned roles (interview/explore facts, ralplan planning roles, ralph execution/review roles, QA and Final Validation roles); phase agents dispatch by default for context separation, inline only as a recorded fallback. Eligibility still requires decision-changing value; content gates, role isolation, and lifecycle cleanup are never skipped. | `## Agent Roles` (ultrawork.md:179-196) |
+| U17 | Missing execution profile: a discovered plan admitted through U2's skip rule but lacking an execution profile gets the profile set before execution (profile schema is ralplan-owned; ultrawork records the completed profile and its source in the ledger) — execution never starts profile-less. | `## Artifact Discovery` (ultrawork.md:66-67) |
 | U15 | External anchors (short tokens): the eight phase-gate names; the seven terminal states; `Plan approval source: ultrawork automatic approval after interview/spec`; `Worktree decision: ultrawork automatic worktree`; `Final Validation dependency graph`; `verifier started after reviewer completion`; `Read and follow \`ralplan\``/`` `ralph` ``; `.oh-no/sessions/{sessionId}/ultrawork.md`; `Heartbeat contents:`; `Doctor/status gate semantics:`; `Maker roles do not self-approve`; `No timer, daemon, or background heartbeat`; `No JSON state artifact in v1`; `## Ultrawork Exception` heading; `Missing review topology is a named ledger gap` (inside the HARD-GATE per INDEPENDENCE_MODE_GATE_SKILLS). | ULTRAWORK_LOOP_CONTRACT_MARKERS (29) + AUTO_APPROVAL (8); reachability (24) |
 
 ### 13.2 Ultrawork FSM
@@ -562,6 +577,14 @@ standing-authorization consumption
 consult transport for the named-THOROUGH Final Validation pair, and
 lifecycle/wait rules — mirroring the ralph adapters.
 
+Compound-invariant decomposition: several I/U cells bundle 3-6 independent
+clauses (I5, I7, I9, U5, U7, U11, U12). In the rewritten cores each bundled
+clause gets its own line or table row under the shared ID (U5's worktree
+duties become a numbered list or table, as ralph's E3 became a decision
+table), and the mutation checks in §14 test each clause's stem individually
+— deleting one clause of U5 must fail validation even when the other five
+survive.
+
 ## 14. Phase 2 Validator Migration Map
 
 Same atomicity rule as §8: core + validators land in one PR per skill.
@@ -584,8 +607,8 @@ ralplan (U4).
 - `NEXT_SKILL_GATE_REQUIRED` (interview stays), `HG-interview-handoff` /
   `HG-ultrawork-report` inventory rows, `INDEPENDENCE_MODE_GATE_SKILLS`
   (ultrawork stays) — unchanged semantics, re-anchored text.
-- `FSM_CONTRACTS` — add interview (I-series, 5 phases, 5 outcomes) and
-  ultrawork (U-series, 8 phases, 7 outcomes).
+- `FSM_CONTRACTS` — add interview (I-series, 5 phases, 6 outcomes including
+  ROUTED_DIRECT) and ultrawork (U-series, 8 phases, 7 outcomes).
 
 `scripts/check-skill-reachability.py`:
 
