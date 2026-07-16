@@ -19,11 +19,13 @@ Claude Code UserPromptSubmit for Ralph
 Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
-  -> generated runtime document normally composed from docs/skill-core/<skill>.md,
+  -> generated runtime document. Self-contained skills (interview, ralplan,
+     ralplan-v2, ralph, systematic-debugging, ultrawork,
+     verification-before-completion) compose docs/skill-core/<skill>.md plus
+     the required docs/platforms/claude-code-<skill>.md adapter only; the
+     remaining skills compose docs/skill-core/<skill>.md,
      docs/platforms/claude-code-runtime.md, and optional
      docs/platforms/claude-code-<skill>.md
-  -> ralplan-v2 exception: docs/skill-core/ralplan-v2.md plus the required
-     docs/platforms/claude-code-ralplan-v2.md adapter only
 
 Codex
   -> root .agents/plugins/marketplace.json
@@ -33,11 +35,12 @@ Codex
   -> hooks/session-start
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
-  -> skills/<skill>/SKILL.md generated runtime document normally composed from
-     docs/skill-core/<skill>.md, docs/platforms/codex-runtime.md, and optional
-     docs/platforms/codex-<skill>.md
-  -> ralplan-v2 exception: docs/skill-core/ralplan-v2.md plus the required
-     docs/platforms/codex-ralplan-v2.md adapter only
+  -> skills/<skill>/SKILL.md generated runtime document. Self-contained
+     skills (interview, ralplan, ralplan-v2, ralph, systematic-debugging,
+     ultrawork, verification-before-completion) compose
+     docs/skill-core/<skill>.md plus the required docs/platforms/codex-<skill>.md
+     adapter only; the remaining skills compose docs/skill-core/<skill>.md,
+     docs/platforms/codex-runtime.md, and optional docs/platforms/codex-<skill>.md
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
 
@@ -156,7 +159,8 @@ Provider guidance is a maintenance reference, not an extra runtime layer:
 ```text
 Codex runtime
   -> skills/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
-  -> docs/platforms/codex-runtime.md and optional docs/platforms/codex-<skill>.md
+  -> self-contained skills: required docs/platforms/codex-<skill>.md adapter only
+  -> remaining skills: docs/platforms/codex-runtime.md and optional docs/platforms/codex-<skill>.md
   -> docs/platforms/codex-auto-routing.md for auto-routing only
   -> docs/platforms/codex-fusion-rescue.md for fusion-rescue only
   -> docs/platforms/codex-simplify.md for simplify only
@@ -164,7 +168,8 @@ Codex runtime
 
 Claude Code runtime
   -> skills-claude/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
-  -> docs/platforms/claude-code-runtime.md and optional docs/platforms/claude-code-<skill>.md
+  -> self-contained skills: required docs/platforms/claude-code-<skill>.md adapter only
+  -> remaining skills: docs/platforms/claude-code-runtime.md and optional docs/platforms/claude-code-<skill>.md
   -> docs/platforms/claude-code-auto-routing.md for auto-routing only
   -> docs/platforms/claude-code-fusion-rescue.md for fusion-rescue only
   -> docs/platforms/claude-code-simplify.md for simplify only

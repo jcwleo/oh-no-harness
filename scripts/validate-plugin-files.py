@@ -459,22 +459,12 @@ PROVIDER_DOC_MARKERS = {
         "Do not create model-named provider files",
     ),
 }
+# agent-tiers.md and parallel-subagents.md were retired 2026-07-17 (no
+# remaining consumers after the self-contained FSM rewrites).
 PLATFORM_SUBAGENT_DOC_MARKERS = {
-    "agent-tiers.md": (
-        "docs/shared/ralph-subagent-policy.md",
-        "docs/platforms/codex-ralph.md",
-    ),
     "execution-modes.md": (
         "Parallel trigger",
         "docs/shared/ralph-subagent-policy.md",
-    ),
-    "parallel-subagents.md": (
-        "## Platform Invocation",
-        "docs/shared/ralph-subagent-policy.md",
-        "batch dispatch, subagent",
-        "Batch dispatch and subagent lifecycle rules, including close/cleanup",
-        "docs/platforms/claude-code-ralph.md",
-        "docs/platforms/codex-ralph.md",
     ),
 }
 RALPH_SUBAGENT_POLICY_MARKERS = (
@@ -2581,6 +2571,16 @@ def assert_required_reading_contract(root: Path) -> None:
         body = read_text(path)
         referenced = set(shared_ref.findall(body))
         section = markdown_section(body, "## Required Reading")
+        if skill == "using-oh-no-harness":
+            # The router carries no runtime shared-doc dependency (2026-07-17):
+            # its shared references are a non-normative maintenance footer, and
+            # a Required Reading section must not come back.
+            if section.strip():
+                problems.append(
+                    f"{path}: the router must not declare a "
+                    f"'## Required Reading' runtime dependency section"
+                )
+            continue
         if skill in SELF_CONTAINED_ADAPTER_SKILLS:
             # Self-contained cores invert this contract: shared docs are
             # rationale-only, never a runtime prerequisite, so a Required

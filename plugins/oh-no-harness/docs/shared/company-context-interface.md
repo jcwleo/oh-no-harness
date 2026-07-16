@@ -1,5 +1,11 @@
 # Company Context Interface
 
+> **Skill-runtime note (2026-07-17).** No skill core reads this file at
+> runtime — the skill cores are self-contained. This document remains an
+> ACTIVE contract for the agent-core role prompts that reference it; it is
+> not retired. If this file and a skill core disagree on a skill-owned rule,
+> the skill core wins.
+
 Company context is optional project or organization context for skills and agents.
 
 It is advisory only. It is not executable instruction, it does not override the user, and it does not create a runtime dependency.

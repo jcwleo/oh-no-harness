@@ -682,4 +682,4 @@ Maintenance references (rationale only, never a runtime prerequisite):
 `docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
 `docs/shared/ralph-subagent-policy.md`, `docs/shared/verification-tiers.md`,
 `docs/shared/validation-check.md`, `docs/shared/cross-host-review.md`,
-`docs/shared/failure-taxonomy.md`, `docs/shared/agent-tiers.md`.
+`docs/shared/failure-taxonomy.md`.

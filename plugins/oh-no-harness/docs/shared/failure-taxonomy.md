@@ -1,5 +1,13 @@
 # Failure Taxonomy
 
+> **Maintenance reference only (2026-07-17).** The skill cores are
+> self-contained: every load-bearing rule from this document that a skill
+> needs now lives in that skill's own generated document, which is the
+> runtime source of truth. No skill reads this file at runtime. It remains
+> as design rationale and as shared context for the agent-core role prompts
+> that still reference it. If this file and a skill core disagree, the
+> skill core wins.
+
 Use these labels to keep planning, review, verification, and validation focused
 on recurring engineering risks instead of task-specific clues.
 

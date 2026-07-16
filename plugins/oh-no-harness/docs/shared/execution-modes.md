@@ -1,5 +1,13 @@
 # Execution Modes
 
+> **Maintenance reference only (2026-07-17).** The skill cores are
+> self-contained: every load-bearing rule from this document that a skill
+> needs now lives in that skill's own generated document, which is the
+> runtime source of truth. No skill reads this file at runtime. It remains
+> as design rationale and as shared context for the agent-core role prompts
+> that still reference it. If this file and a skill core disagree, the
+> skill core wins.
+
 Execution mode controls how much process Ralph applies. It is separate from
 agent selection tiers and verification tiers:
 
@@ -318,7 +326,7 @@ Ralph behavior:
 - execute story by story and keep task-level modes visible inside the PRD
 - use TDD or explicit approved exceptions for behavior changes
 - dispatch every required role that can be isolated according to platform
-  policy, available host subagent support, `docs/shared/agent-tiers.md`,
+  policy, available host subagent support,
   `docs/shared/ralph-subagent-policy.md`, and the active platform adapter;
   inline only for documented subagent-unavailable or unsafe-to-isolate cases
 - proactively partition disjoint implementation into parallel `executor`
@@ -331,7 +339,6 @@ Ralph behavior:
   code-reviewer security lens or the verifier scenario lens when the risk signal
   matches. A plan-direction problem routes back through `ralplan`, whose own
   planning phase may dispatch `plan-reviewer`
-- apply `docs/shared/parallel-subagents.md` before any parallel dispatch
 - run THOROUGH verification from `docs/shared/verification-tiers.md`
 - require acceptance-to-evidence mapping, risk checks before completion, and
   verification budget decisions; always evaluate the final Diff-Budget Gate

@@ -42,10 +42,8 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Source file |
 |---|---|
-| `docs/shared/agent-tiers.md` | `omc/raw/docs/shared/agent-tiers.md` |
 | `docs/shared/verification-tiers.md` | `omc/raw/docs/shared/verification-tiers.md` |
 | `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
-| `docs/shared/parallel-subagents.md` | local pointer back to `docs/shared/ralph-subagent-policy.md` for parallel dispatch |
 | `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
 | `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
 | `docs/shared/worktree-isolation.md` | local worktree hard gate, allowed decisions, default task-worktree location, and artifact handoff policy |

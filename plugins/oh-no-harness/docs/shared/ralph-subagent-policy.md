@@ -1,5 +1,13 @@
 # Ralph Subagent Policy
 
+> **Maintenance reference only (2026-07-17).** The skill cores are
+> self-contained: every load-bearing rule from this document that a skill
+> needs now lives in that skill's own generated document, which is the
+> runtime source of truth. No skill reads this file at runtime. It remains
+> as design rationale and as shared context for the agent-core role prompts
+> that still reference it. If this file and a skill core disagree, the
+> skill core wins.
+
 This policy is shared by Claude Code and Codex. It began as Ralph's dispatch
 policy and now defines when Ralph, Ultrawork, Simplify, Systematic Debugging,
 Interview brownfield exploration, and Verification Before Completion may split

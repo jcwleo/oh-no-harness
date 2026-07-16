@@ -32,7 +32,7 @@ skill documents compose this shared core with the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. Small concrete edits route to `ralph`, which may apply the STANDARD small-task carve-out from `docs/shared/execution-modes.md`; there is no separate direct-edit lane that bypasses `ralph`. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. Small concrete edits route to `ralph`, which may apply its own STANDARD small-task carve-out; there is no separate direct-edit lane that bypasses `ralph`. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -56,16 +56,11 @@ The available public skills are:
 - `systematic-debugging`: investigate bugs, failing commands, regressions, and unexpected behavior before fixing.
 - `fusion-rescue`: run bounded three-panel rescue analysis with mandatory adversarial critique and fallback-aware synthesis when a hard problem stalls.
 
-## Required Reading
-
-Before acting on any gate below that routes a decision through a shared
-contract, read that contract. A path reference here is a pointer, not a
-substitute for reading: do not apply one of these rules from memory when this
-skill hands a decision to it. If a listed file cannot be read, record the
-blocker instead of proceeding past the gate that depends on it.
-
-- `docs/shared/worktree-isolation.md` — the write-capable worktree default the recommended flow relies on.
-- `docs/shared/execution-modes.md` — the execution modes and the STANDARD small-task carve-out that small concrete edits route through.
+This router decides WHERE a request goes; the destination skill owns and
+executes its own rules. The worktree gate, execution modes, and the
+small-task carve-out are `ralph`-owned (its generated document carries the
+decision table and mode definitions); this skill only needs to know those
+routes exist.
 
 ## Recommended Development Flow
 
@@ -91,10 +86,10 @@ must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
 must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
 
-A small behavior-changing task that meets the STANDARD small-task carve-out in
-`docs/shared/execution-modes.md` is the lightweight path: review by direct diff
-inspection and conditional cleanup, with TDD, the independent `verifier` pass,
-and worktree isolation unchanged.
+A small behavior-changing task that meets `ralph`'s STANDARD small-task
+carve-out is the lightweight path: review by direct diff inspection and
+conditional cleanup, with TDD, the independent `verifier` pass, and worktree
+isolation unchanged.
 
 A concrete change that reuses an existing scheduler, eligibility decision,
 lifecycle owner, or contract surface normally routes to Ralph STANDARD when its
@@ -125,8 +120,8 @@ When describing the staged workflow, call the requirements-discovery stage `inte
 
 ## Worktree Isolation Default
 
-For write-capable coding work, apply `docs/shared/worktree-isolation.md` before
-editing source files.
+For write-capable coding work, the worktree gate applies before source files
+are edited; `ralph` owns the decision table and `ultrawork` owns merge-back.
 
 `interview` and `ralplan` do not need a worktree by default because they produce
 pre-execution artifacts; the worktree gate starts at execution. Direct `ralph`
@@ -137,8 +132,8 @@ worktrees project-local rather than parent-directory siblings, and never
 automatic worktree and additionally owns merge-back into the integration
 checkout (`Worktree decision: ultrawork automatic worktree`). A narrow LIGHT
 carve-out (`light direct checkout`) exists for direct `ralph` only — never for
-`ultrawork` or non-LIGHT work. See `docs/shared/worktree-isolation.md` for the
-carve-out conditions, the allowed decisions, and merge responsibilities.
+`ultrawork` or non-LIGHT work. The carve-out conditions, allowed decisions, and
+merge responsibilities live in `ralph`'s generated document.
 
 ## Interview Gate
 
@@ -211,8 +206,8 @@ re-entry, the session directory recorded in the run's artifacts wins; never
 mint a new directory when artifacts name one. Across host sessions, durable
 specs and plans (their `Next skill` headers) are the continuity bridge, not
 session directories. The chain session directory lives in the integration
-checkout, not in task worktrees (worktree access follows
-`docs/shared/worktree-isolation.md` `## Artifact Handoff`).
+checkout, not in task worktrees; `ralph` owns the artifact-handoff rule for
+making `.oh-no` artifacts visible inside a worktree.
 
 Use `.oh-no/worktrees/` for project-local Ralph and Ultrawork task worktrees.
 
@@ -223,6 +218,9 @@ Do not use legacy harness artifact paths.
 Oh No Harness does not include an automatic mode controller or external state ledger.
 
 If a workflow requires persistence, the persistence requirement lives in the skill text and in written artifacts.
+
+Maintenance references (rationale only, never a runtime prerequisite):
+`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`.
 
 ## Source: docs/platforms/codex-runtime.md
 
