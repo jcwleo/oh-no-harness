@@ -191,7 +191,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
-        ("do not directly dispatch\n`plan-reviewer`", BOTH),
+        ("do not directly dispatch\n    `plan-reviewer`", BOTH),
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)

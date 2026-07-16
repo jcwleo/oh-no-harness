@@ -38,7 +38,15 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
-SELF_CONTAINED_ADAPTER_SKILLS = {"interview", "ralplan", "ralplan-v2", "ralph", "ultrawork"}
+SELF_CONTAINED_ADAPTER_SKILLS = {
+    "interview",
+    "ralplan",
+    "ralplan-v2",
+    "ralph",
+    "systematic-debugging",
+    "ultrawork",
+    "verification-before-completion",
+}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
@@ -289,31 +297,30 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Dispatch `explore` by default",
         "fallback reason",
     ),
+    # Re-anchored to the FSM cores (2026-07-17 rewrite): dispatch bias +
+    # standing authorization live once under each core's ## Agent Roles.
     "systematic-debugging": (
-        "isolated diagnostic and evidence roles when they provide decision-changing",
+        "Dispatch diagnostic and evidence roles by default",
         "collapse diagnostic or evidence roles inline",
-        "docs/shared/ralph-subagent-policy.md",
-        "eligible batch dispatch",
         "active platform's dispatch authorization",
         "standing authorization",
         "per-run subagent approval",
         "post-fix review roles",
         "`code-reviewer`",
         "its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched",
-        "its scenario lens covers post-fix validation",
+        "scenario lens for user-facing flows",
     ),
     "verification-before-completion": (
-        "dispatch `verifier` for nontrivial completion claims",
+        "Dispatch `verifier` by default for nontrivial completion claims",
         "ship/block decision",
         "context-separation benefit",
-        "fallback\nor no-benefit reason",
+        "fallback or no-benefit reason",
         "## Acceptance-To-Evidence Mapping",
         "## Risk Check Before Completion",
         "Completion claim",
         "active platform's dispatch authorization",
         "standing authorization",
         "per-run subagent approval",
-        "the eligible `verifier` and risk-gated `code-reviewer` roles",
     ),
 }
 PLATFORM_RULE_DOC_MARKERS = {
@@ -1313,9 +1320,10 @@ TDD_SCOPE_SECTION_MARKERS = (
         "The \"one more useful failing test\" field is non-blocking residual-risk documentation. Do not implement it or use it to block completion unless it maps to an unmet AC ID or an approved named risk; otherwise record it as `not relevant` with the reason.",
     ),
     (
+        # 2026-07-17 FSM rewrite: the merge-step rule is invariant V5.
         "docs/skill-core/verification-before-completion.md",
-        "## Agent Roles",
-        "Treat a merge or integration step as evidence-changing unless the caller proves that the final files and dependencies are identical to the verifier-audited state.",
+        "## Invariants",
+        "A merge or integration step is evidence-changing unless the caller proves the final files and dependencies are identical to the verifier-audited state.",
     ),
     (
         "docs/skill-core/ralph.md",
@@ -3831,8 +3839,8 @@ def assert_proportional_workflow_contract(root: Path) -> None:
             "LIGHT and STANDARD: run one quick or combined scan",
         ),
         "verification-before-completion": (
-            "Ledger reuse:",
-            "Do not\nrewrite an unchanged parallel acceptance mapping",
+            "Reuse the caller's canonical ledger",
+            "never rewrite an unchanged parallel acceptance mapping",
         ),
     }.items():
         body = read_text(skill_core / f"{skill}.md")

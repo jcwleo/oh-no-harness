@@ -16,7 +16,7 @@ This generated file is the Claude Code-facing runtime skill document. Claude Cod
 Source order:
 
 - `../../docs/skill-core/systematic-debugging.md`
-- `../../docs/platforms/claude-code-runtime.md`
+- `../../docs/platforms/claude-code-systematic-debugging.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
 
@@ -24,149 +24,97 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 # Systematic Debugging
 
-Find the root cause before changing behavior.
+Find the root cause before changing behavior. This is the direct debugging
+entry point for failures that do not need the full `ralph` execution loop;
+do not use it for greenfield feature work — use `ralplan` or `ralph` when
+the task is broader than a bounded failure.
 
-This skill is the direct debugging entry point for failures that do not need the full `ralph` execution loop.
+Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 
-## Software Development Stage
+## Invariants
 
-Systematic Debugging is the failure-investigation and repair stage.
-
-Use it when tests, builds, runtime behavior, installs, hooks, or user reports show a concrete failure. It should establish reproduction and root cause before returning to implementation or verification.
-
-## When To Use
-
-Use for:
-
-- failing tests, builds, installs, hooks, or smoke checks
-- regressions and unexpected behavior
-- flaky or environment-sensitive behavior
-- performance or integration failures
-- repeated unsuccessful fixes
-
-Do not use for greenfield feature work. Use `ralplan` or `ralph` when the task is broader than a bounded failure.
-
-## Required Reading
-
-Read a triggered owner immediately before the dependent gate. A path reference
-here is a pointer, not a substitute for reading. If a listed file cannot be
-read, record the blocker instead of proceeding past the gate that depends on it.
-
-| Contract | Class | Trigger / timing |
-|---|---|---|
-| `docs/shared/ralph-subagent-policy.md` | triggered | before dispatching a diagnostic, executor, reviewer, or verifier role |
-| `docs/shared/cross-host-review.md` | triggered | before paired debugger or post-fix review when a named THOROUGH risk selects it |
-
-## Agent Roles
-
-Use the listed roles as the failure requires. On subagent-capable hosts, use
-isolated diagnostic and evidence roles when they provide decision-changing
-evidence, context separation, or latency benefit so logs, traces, and
-exploratory output do not pollute the main thread. The normal flow is diagnostic first
-(`debugger` and, when context is missing, `explore`), then the minimal fix
-(`executor` subagent when the write scope is isolated, otherwise inline with a
-recorded reason), then evidence (`verifier`). If three fix attempts fail,
-architecture-level coupling appears, or the apparent fix would change broad
-APIs, product behavior, data handling, security, or delivery scope, stop and
-route back to the user or `ralplan` with the evidence; do not directly dispatch
-`plan-reviewer`. Dispatch is governed by the active skill's platform policy and
-Ralph's `## Mode-Gated Agent Dispatch` when this debugging pass is inside Ralph.
-For direct debugging outside Ralph, apply `docs/shared/ralph-subagent-policy.md`
-for role isolation, fallback reasons, and eligible batch dispatch.
-
-Apply the active platform's dispatch authorization for this skill's diagnostic,
-fix, evidence, and post-fix review roles. Do not ask for per-run subagent
-approval when the active platform already supplies standing authorization for
-eligible `debugger`, `explore`, isolated `executor`, `verifier`, or warranted
-post-fix `code-reviewer` roles. Use inline fallback only
-when dispatch is unavailable, unsafe to isolate, or too small to benefit, and
-record the fallback reason.
-
-Respect the active platform runtime document for dispatch versus inline
-execution. Do not collapse diagnostic or evidence roles inline when the host can
-dispatch them with an isolated scope. When any listed role is dispatched, apply
-the active platform's role prompt and dispatch requirements before the
-task-specific failure, scope, expected output, and verification responsibility.
-
-| Agent | Dispatch (when) |
-|---|---|
-| `debugger` | Dispatch one `debugger` to reproduce the failure, identify root cause, and recommend the minimal fix. Use a paired cross-host/Same-Host investigation only for a named THOROUGH uncertainty or repeated-failure trigger. |
-| `explore` | Dispatch `explore` subagent to gather codebase facts, related call sites, working examples, and commands. |
-| `executor` | Dispatch `executor` subagent to apply the minimal fix only after root cause and reproduction evidence exist. |
-| `verifier` | Dispatch `verifier` subagent to confirm the fix and package evidence; its scenario lens covers post-fix validation when the failure affects user-facing flows, scenarios, or acceptance criteria. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
-| `code-reviewer` | Dispatch `code-reviewer` post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or when its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched. Cross-host merge: merged findings. |
-
-STANDARD uses one dispatched reviewer or debugger instance. Apply
-`docs/shared/cross-host-review.md` only when a named THOROUGH trigger selects a
-pair. The post-fix `verifier` remains one independent self-host pass governed by
-the maker-verifier carve-out.
+```text
+D1. Reproduce (or explain why reproduction is blocked) before changing any
+    code; never fix from a stack-trace line when the bad value originated
+    elsewhere.
+D2. A hypothesis ledger precedes deep investigation: one recorded
+    hypothesis for an obvious localized failure; 2-3 competing hypotheses
+    for unknown, nontrivial, flaky, repeated, or cross-boundary failures.
+D3. A root cause is confirmed falsifiably by a causal toggle — toggling the
+    suspected cause makes the failure appear and reverting makes it
+    disappear; when a clean toggle is not feasible, state why and name the
+    next-strongest confirming evidence.
+D4. The minimal fix is applied only after root cause and reproduction
+    evidence exist; behavior fixes create a failing reproduction test
+    first (read and follow `test-driven-development`).
+D5. Stop and route back to the user or `ralplan` after three failed fix
+    attempts, on architecture-level coupling, or when the apparent fix
+    would change broad APIs, product behavior, data handling, security, or
+    delivery scope; do not directly dispatch
+    `plan-reviewer` — planning review is Ralplan-owned.
+D6. `fusion-rescue` is a bounded internal escalation when diagnostics
+    stall; it returns control here before any fix is applied.
+D7. Diagnostic and evidence roles dispatch by default on subagent-capable
+    hosts so logs, traces, and exploratory output do not pollute the main
+    thread; inline only as a recorded fallback.
+D8. The verification evidence must show the failure mode is gone, not only
+    that the current trigger no longer appears in this environment.
+D9. Mid-loop skill: after verification, return the result to the caller
+    (`ralph`, `ultrawork`, or direct invocation); never chain to another
+    workflow skill.
+```
 
 ## Debugging Flow
 
-1. Capture the exact failure command, input, environment, or user-visible symptom.
-2. Reproduce the failure, or explain why it cannot be reproduced yet.
-3. Read the relevant error output, logs, stack trace, and changed files.
-4. Find the closest working example in the same codebase.
-5. Build a hypothesis ledger before deep investigation:
-   - For obvious, localized failures, record the single active hypothesis and
-     why additional hypotheses would not change the next diagnostic step.
-   - For unknown, nontrivial, flaky, repeated, or cross-boundary failures,
-     record 2-3 plausible competing hypotheses before investigating any one
-     deeply.
-   - For each ledger entry, name the expected confirming evidence, expected
-     refuting evidence, current confidence, and the smallest diagnostic step.
-6. Select one active root-cause hypothesis from the ledger with evidence.
-7. Test the active hypothesis with the smallest diagnostic step, update the
-   ledger, and reject or replace the hypothesis when evidence contradicts it.
-8. Trace the causal chain from the observed symptom back to the source that made
-   the symptom possible. Do not accept a fix plan that only removes the visible
-   trigger while leaving the failure mode latent. Before accepting a root cause,
-   confirm it falsifiably with a causal toggle: toggling the suspected cause
-   makes the failure appear and reverting it makes it disappear. When a clean
-   toggle is not feasible (for example a race or environment-dependent failure),
-   state why and name the next-strongest confirming evidence (such as a
-   deterministic reproduction under the cause) instead of treating a plausible
-   trace as proof.
-9. For behavior fixes, read and follow `test-driven-development` to create a
-   failing reproduction test before changing production code.
-10. If reproduction and hypothesis evidence exist but the diagnosis remains
-    contradictory, repeatedly inconclusive, or blocked after ordinary diagnostic
-    passes, read and follow `fusion-rescue`. Return control to
-    Systematic Debugging with the synthesis before applying a fix.
-11. Apply the minimal fix with `executor` when the write scope is isolated; use
-    inline work only with a recorded reason.
-12. Dispatch warranted post-fix review roles when the changed scope or risk
-    requires them.
-13. Run the reproduction check, relevant regression checks, and
-    `verification-before-completion` before claiming the failure is fixed. The
-    verification evidence must show that the failure mode is gone, not only that
-    the current trigger no longer appears in this environment.
+1. Capture the exact failure command, input, environment, or user-visible
+   symptom.
+2. Reproduce the failure, or explain why it cannot be reproduced yet [D1].
+3. Read the relevant error output, logs, stack trace, and changed files;
+   find the closest working example in the same codebase.
+4. Build the hypothesis ledger [D2]: for each entry name the expected
+   confirming evidence, expected refuting evidence, current confidence, and
+   the smallest diagnostic step.
+5. Select one active hypothesis; test it with the smallest diagnostic
+   step; update the ledger and reject or replace the hypothesis when
+   evidence contradicts it.
+6. Trace the causal chain from the observed symptom back to the source that
+   made the symptom possible — do not accept a fix plan that only removes
+   the visible trigger while leaving the failure mode latent. Confirm the
+   root cause with a causal toggle [D3].
+7. For behavior fixes, create the failing reproduction test before changing
+   production code [D4].
+8. If reproduction and hypothesis evidence exist but the diagnosis remains
+   contradictory, repeatedly inconclusive, or blocked, read and follow
+   `fusion-rescue`, then return here with the synthesis [D6].
+9. Apply the minimal fix — `executor` subagent when the write scope is
+   isolated, otherwise inline with a recorded reason [D4].
+10. Dispatch warranted post-fix review roles per `## Agent Roles`.
+11. Run the reproduction check, relevant regression checks, and
+    `verification-before-completion` before claiming the failure is fixed
+    [D8].
 
-Parallel hypothesis testing for steps 5-7: when reproduction is established and
-two or more plausible root-cause hypotheses are independently testable, dispatch
-one `debugger` subagent per hypothesis (cap 3) in a single batch. Step 6's
-one-active-hypothesis rule applies per debugger agent: each parallel debugger
-receives exactly one hypothesis, the confirming/refuting evidence it should look
-for, and its read-only diagnostic scope. Each parallel debugger runs only
-non-mutating diagnostics in disjoint scopes and returns evidence, confidence
-movement, and rejected-hypothesis rationale; if diagnostics would mutate state
-or scopes overlap, keep the sequential one-active-hypothesis flow above. The
-main thread synthesizes the returned evidence, selects the confirmed root cause,
-and a single `executor` applies the fix. Below two hypotheses, or when
-hypotheses are not independently testable, the sequential flow above applies
-unchanged.
+Parallel hypothesis testing (steps 4-5): when reproduction is established
+and two or more plausible hypotheses are independently testable, dispatch
+one `debugger` per hypothesis (cap 3) in a single batch. Each parallel
+debugger receives exactly one hypothesis, its confirming/refuting evidence
+targets, and a read-only diagnostic scope; each runs only non-mutating
+diagnostics in disjoint scopes and returns evidence, confidence movement,
+and rejected-hypothesis rationale. If diagnostics would mutate state or
+scopes overlap, keep the sequential flow. The main thread synthesizes the
+evidence, selects the confirmed root cause, and a single `executor` applies
+the fix.
 
 ## Stop Conditions
 
-Stop and ask or route back to the user or `ralplan` when:
+Stop and ask or route back to the user or `ralplan` when [D5]:
 
 - the failure cannot be reproduced and more data is needed from the user
-- repeated failed fix attempts, broad architecture or API scope, product
-  behavior, data handling, security, or delivery-scope ambiguity shows that the
-  approved plan or Direction Contract needs planning review
+- repeated failed fixes, broad architecture or API scope, or product/data/
+  security/delivery-scope ambiguity shows the approved plan or Direction
+  Contract needs planning review
 - the smallest confirmed fix would introduce a new architecture, scheduler,
   state machine, protocol, or public contract not present in the approved
-  Direction Contract; return evidence instead of silently redesigning
+  Direction Contract — return evidence instead of silently redesigning
 
 ## Anti-Patterns
 
@@ -174,12 +122,41 @@ Stop and ask or route back to the user or `ralplan` when:
 - Fixing the stack-trace line when the bad value originated elsewhere.
 - Bundling cleanup or refactors with a bug fix.
 - Adding broad retries, catch-all handlers, or sleeps without evidence.
-- Treating a later passing test as TDD evidence when no failing reproduction was
-  observed first.
-- Treating a passing trigger check as proof when the underlying failure mode or
-  causal chain was not closed.
-- Skipping competing hypotheses for an unknown or repeated failure because one
-  log line looks familiar.
+- Treating a later passing test as TDD evidence when no failing
+  reproduction was observed first.
+- Treating a passing trigger check as proof when the causal chain was not
+  closed.
+- Skipping competing hypotheses for an unknown or repeated failure because
+  one log line looks familiar.
+
+## Agent Roles
+
+Dispatch diagnostic and evidence roles by default on subagent-capable hosts
+[D7] — context separation keeps logs, traces, and exploratory output out of
+the main thread. Dispatch is trigger-loaded and governed by the active
+platform adapter; when this debugging pass runs inside Ralph, Ralph's
+`## Mode-Gated Agent Dispatch` governs. Apply the active platform's
+dispatch authorization; do not ask for per-run subagent approval when
+standing authorization covers these roles. Use inline fallback only when
+dispatch is unavailable, unsafe to isolate, or too small to benefit — record
+the fallback reason. Do not collapse diagnostic or evidence roles inline
+when the host can dispatch them with an isolated scope.
+
+The normal flow is diagnostic first (`debugger`, plus `explore` when
+context is missing), then the minimal fix (`executor`), then evidence
+(`verifier`).
+
+| Agent | Dispatch (when) |
+|---|---|
+| `debugger` | one instance to reproduce, identify root cause, and recommend the minimal fix; a paired cross-host or same-host investigation ONLY for a named THOROUGH uncertainty or repeated-failure trigger |
+| `explore` | gather codebase facts, related call sites, working examples, and commands |
+| `executor` | apply the minimal fix only after root cause and reproduction evidence exist [D4] |
+| `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair — required when the proving tests or fix were authored or accepted by the same agent |
+| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; cross-host merge: merged findings |
+
+STANDARD uses one dispatched reviewer or debugger instance; a pair requires
+a named THOROUGH trigger, with same-host parallel fallback recorded when the
+opposite host is unavailable.
 
 ## Output Gate
 
@@ -194,67 +171,55 @@ this gate owns the completion chokepoint; when invoked mid-loop from
 
 ## Output
 
-Return:
-
-- Failure reproduced or reproduction blocker.
-- Hypothesis ledger, including rejected hypotheses and evidence.
-- Root cause and evidence.
-- Causal chain and why the fix removes the failure mode.
-- Causal toggle: the on/off observation, or "not feasible" with the reason and next-strongest confirming evidence.
-- Reproduction test or documented exception.
-- Fix summary.
-- Verification commands and results.
-- Residual risk.
+Return: failure reproduced or reproduction blocker; hypothesis ledger with
+rejected hypotheses and evidence; root cause and evidence; causal chain and
+why the fix removes the failure mode; causal toggle (the on/off
+observation, or "not feasible" with the reason and next-strongest
+confirming evidence); reproduction test or documented exception; fix
+summary; verification commands and results; residual risk.
 
 ## Next Skill Handoff
 
-None — this is a failure-investigation mid-loop skill. It may use
-`fusion-rescue` as a bounded internal escalation when ordinary diagnostics
-stall, then return to this debugging flow. After verification, return the result
-to the caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to
+None — this is a failure-investigation mid-loop skill [D9]. It may use
+`fusion-rescue` as a bounded internal escalation, then return to this flow.
+After verification, return the result to the caller. Do not chain to
 another workflow skill.
 
-## Source: docs/platforms/claude-code-runtime.md
+Maintenance references (rationale only, never a runtime prerequisite):
+`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`.
 
-# Claude Code Runtime Rules
+## Source: docs/platforms/claude-code-systematic-debugging.md
 
-This compact platform section is embedded in generated Claude Code-facing skill
-documents.
+# Systematic Debugging Claude Code Adapter
 
-## Skill Loading
-
-Claude Code-facing public skills live under `skills-claude/`. Generated
-`skills-claude/<skill>/SKILL.md` files compose the matching skill core, this
-compact runtime section, and any Claude Code skill-specific overlay such as
-`docs/platforms/claude-code-<skill>.md`. Slash commands must delegate to the
-matching generated skill document.
-
-## User Approval, Tasks, And Prompting
-
-Use the host's structured question tool when available for approval,
-preference, scope, or next-step selection; otherwise ask one focused plain-text
-question and wait. Present options as actions the host agent will take.
-
-When a core skill has a multi-phase approval handoff and the host exposes task
-tracking, create one task per phase and complete them sequentially.
-
-Keep Claude prompts explicit and sectioned: state scope, non-goals,
-constraints, approval gates, expected evidence, and output format. Preserve
-long-running context in artifacts before compaction, task handoff, or subagent
-dispatch.
+<ADAPTER_CONTRACT>
+This adapter binds the Systematic Debugging core to Claude Code. The core
+owns every semantic decision; this file owns only host invocation and
+lifecycle mechanics. If they conflict, the core wins. The generated core
+plus this adapter is sufficient: longer platform, shared, and agent
+documents are optional maintenance context, never a runtime prerequisite.
+</ADAPTER_CONTRACT>
 
 ## Role Dispatch
 
-Dispatch only after the active skill's trigger fires, then read
-`docs/platforms/claude-code.md` `## Role Dispatch` for the full host contract.
-Prefer `oh-no-harness:<role>`, request the whole independent batch before
-waiting, capture every final result, and clean up only after integration. An
-approved-plan handoff is dispatch authorization for eligible isolated roles;
-plugin-agent unavailability uses the documented embedded-role fallback.
+Dispatch roles through the exposed Task, Agent, Workflow `agent()`, or
+subagent primitive with the plugin agents from `agents/`
+(`oh-no-harness:<agent>`; manual mention `@agent-oh-no-harness:<agent>`).
+Dispatch is trigger-loaded — dispatch only after the core's trigger fires.
+Each packet carries: role; the exact failure and reproduction command;
+owned or read-only scope; expected output (evidence, patch, or verdict);
+and the no-edit instruction for read-only roles. Parallel hypothesis
+debuggers are one batch — request all before waiting. A notification,
+timeout, or empty wait result is not a final status; capture each result,
+then close or clean up the completed subagent when the host exposes that
+mechanism. If a plugin-scoped agent is unavailable, embed the matching
+`agents/<agent>.md` prompt into the available subagent mechanism; with no
+subagent primitive, keep the role boundary inline and record the fallback.
 
 ## Cross-Host Consult Channel
 
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
-Until then, do not preload opposite-host invocation details.
+A named-THOROUGH paired `debugger` or post-fix `code-reviewer` dispatches
+the current-host role and its `-codex` transport with identical packets;
+the consult is read-only, foreground, one hop, returning the actual
+opposite-host result. On opposite-host unavailability run the same-host
+parallel fallback and record it.
