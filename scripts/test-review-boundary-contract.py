@@ -122,8 +122,8 @@ def main() -> int:
         "derived active obligation count exceeds audited baseline",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "requirements and Direction Contract (source, confirmed goal, AC IDs, scope/non-goals, constraints/protected assumptions, approval); success ownership/signals; confidence",
-            "requirements and Direction Contract (source, confirmed goal, AC IDs, scope/non-goals, constraints/protected assumptions, approval); success ownership/signals; confidence; rollout telemetry",
+            "Direction Contract; success ownership/signals; confidence",
+            "Direction Contract; success ownership/signals; confidence; rollout telemetry",
         ),
     )
     expect_rejected(
@@ -244,7 +244,7 @@ def main() -> int:
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
             "Full-depth review\nis allowed only for a named material change",
-            "Full-depth review is allowed with a stated reason",
+            "Full-depth review is allowed with a stated reason for a change",
         ),
     )
     expect_rejected(

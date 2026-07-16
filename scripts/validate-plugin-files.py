@@ -38,7 +38,7 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
-SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan-v2"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan", "ralplan-v2"}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
@@ -202,15 +202,16 @@ REQUIRED_READING_CONTRACT_MARKER = (
 REQUIRED_READING_BLOCKER_MARKER = (
     "record the blocker instead of proceeding past the gate that depends on it"
 )
+# ralplan left this set with the 2026-07-16 self-contained FSM rewrite; its
+# core forbids a Required Reading section entirely (see
+# assert_required_reading_contract's SELF_CONTAINED_ADAPTER_SKILLS branch).
 TRIGGER_CLASS_REQUIRED_SKILLS = (
-    "ralplan",
     "ralph",
     "ultrawork",
     "verification-before-completion",
     "systematic-debugging",
 )
 EXPECTED_ALWAYS_READING = {
-    "ralplan": {"execution-modes", "worktree-isolation"},
     "ralph": {"execution-modes", "worktree-isolation", "verification-tiers"},
     "ultrawork": {"execution-modes", "worktree-isolation"},
     "verification-before-completion": set(),
@@ -263,9 +264,9 @@ PLATFORM_SUBAGENT_MARKERS = {
         "eligible isolated subagents when they add decision-changing evidence",
         "Parallel trigger: approved-plan-handoff",
         "ordinary `oh-no-harness:ralph` choice is the parallel-capable execution",
-        "keep sequential role boundaries",
+        "sequential role boundaries",
         "Parallel dispatch",
-        "active platform runtime document's dispatch policy",
+        "active platform adapter",
         "Planner Draft Contract",
         "Plan Review Contract",
         "Planner Revision Contract",
@@ -1082,13 +1083,15 @@ APPROVED_DIRECTION_AGENT_MARKERS = {
         "do not substitute your preferred direction",
     ),
 }
+# Re-anchored to the FSM core (2026-07-16 rewrite): rule-ID / compact stems,
+# never full prose sentences, so wording edits do not break validation.
 RALPLAN_CONSENSUS_MARKERS = (
-    "## Canonical Plan Schema",
+    "single canonical schema",
     "## Active Plan Contract",
-    "## Direction Preservation Gate",
+    "requested-direction-change: yes",
     "## Test Case Design Quality",
-    "## Acceptance Criteria Contract",
-    "Plan-Reviewer depth and\ninstance count are selected by the execution risk",
+    "supporting evidence, not a replacement outcome",
+    "selected by the execution risk",
     "## Requirements Source And Analyst Gate",
     "## Planner Draft Contract",
     "## Plan Review Contract",
@@ -1098,15 +1101,15 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Planner draft v1",
     "Planner revision v2",
     "Review v2",
-    "When Plan-Reviewer is selected, Analyst -> Planner -> Plan-Reviewer",
+    "Analyst -> Planner -> Plan-Reviewer",
     "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
     "Re-review scope: delta | full",
     "Re-review: not required (no blocking findings)",
     "Worst-case THOROUGH role dispatch chain remains bounded to two review rounds",
     "STANDARD runs one Plan-Reviewer instance",
-    "required Plan-Reviewer cannot be\nskipped",
-    "accepted blocking feedback is not in the\nbody",
+    "required Plan-Reviewer cannot be skipped",
+    "accepted blocking feedback is not in the body",
     "accepted section pointer",
     "requested direction change without explicit approval",
     "must-fail-before-implementation",
@@ -1955,7 +1958,7 @@ def assert_skill(root: Path, skill: str) -> None:
     if skill == "ralplan":
         body = read_text(path)
         for marker in RALPLAN_CONSENSUS_MARKERS:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Ralplan-Consensus marker: {marker!r}")
         for marker in RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS:
             if marker in body:
@@ -2577,6 +2580,16 @@ def assert_required_reading_contract(root: Path) -> None:
         body = read_text(path)
         referenced = set(shared_ref.findall(body))
         section = markdown_section(body, "## Required Reading")
+        if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+            # Self-contained cores invert this contract: shared docs are
+            # rationale-only, never a runtime prerequisite, so a Required
+            # Reading section is forbidden and references stay non-normative.
+            if section.strip():
+                problems.append(
+                    f"{path}: self-contained core must not declare a "
+                    f"'## Required Reading' runtime dependency section"
+                )
+            continue
         if not referenced and not section.strip():
             continue  # no shared-doc dependency and no section -> nothing to enforce
         if not section.strip():
@@ -3804,9 +3817,9 @@ def assert_proportional_workflow_contract(root: Path) -> None:
 
     for skill, markers in {
         "ralplan": (
-            "## Canonical Plan Schema",
+            "single canonical schema",
             "STANDARD runs one Plan-Reviewer instance",
-            "STANDARD keeps one reviewer; named THOROUGH keeps the paired topology",
+            "Only a named",
         ),
         "ralph": (
             "`verification.md` is the canonical acceptance-to-evidence ledger",
@@ -3976,7 +3989,9 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             "Any plan-body change that must be incorporated before approval is blocking",
         ),
         "## Findings Ledger Gate": (
-            "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
+            # Stem: the ledger row must reference the blocker's basis; the full
+            # canonical enum lives once in ## Plan Review Contract above.
+            "blocking basis",
         ),
     }.items():
         section = markdown_section(ralplan, heading)
@@ -4210,6 +4225,62 @@ def assert_review_boundary_mutation_tests(marketplace_root: Path, root: Path) ->
         die(f"review-boundary mutation tests failed:\n{details}")
 
 
+# FSM-core structural contract (2026-07-16 rewrite). For each self-contained
+# FSM skill core: the phase set, outcome set, and rule-ID definitions must be
+# present exactly as baselined, every rule ID is defined exactly once inside
+# the ## Invariants block, and the state-machine table cites rule IDs so a
+# guard cannot silently drop its invariant reference.
+FSM_CONTRACTS = {
+    "ralplan": {
+        "phases": ("ROUTE", "REQUIREMENTS", "DRAFT", "REVIEW", "APPROVAL"),
+        "outcomes": (
+            "ROUTED_INTERVIEW",
+            "ROUTED_RALPH",
+            "HANDOFF_RALPH",
+            "HANDOFF_ULTRAWORK",
+            "RETURN_ULTRAWORK",
+            "PAUSED",
+        ),
+        "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R16"),
+        "min_guard_citations": 6,
+    },
+}
+
+
+def assert_fsm_contract(root: Path, skill: str) -> None:
+    contract = FSM_CONTRACTS[skill]
+    path = root / SKILL_CORE_ROOT / f"{skill}.md"
+    body = read_text(path)
+
+    invariants = markdown_section(body, "## Invariants")
+    if not invariants.strip():
+        die(f"{path} is missing required '## Invariants' section")
+    for rule_id in contract["rule_ids"]:
+        definitions = len(re.findall(rf"^{rule_id}\.", invariants, flags=re.MULTILINE))
+        if definitions != 1:
+            die(
+                f"{path} must define rule {rule_id} exactly once in "
+                f"'## Invariants' (found {definitions})"
+            )
+
+    machine = markdown_section(body, "## State Machine")
+    if not machine.strip():
+        die(f"{path} is missing required '## State Machine' section")
+    snapshot = markdown_section(body, f"## {'Planning Run Snapshot' if skill == 'ralplan' else 'Execution Run Snapshot'}")
+    for phase in contract["phases"]:
+        if not re.search(rf"\b{phase}\b", machine) or not re.search(rf"\b{phase}\b", snapshot):
+            die(f"{path} state machine/snapshot is missing phase: {phase}")
+    for outcome in contract["outcomes"]:
+        if not re.search(rf"\b{outcome}\b", body):
+            die(f"{path} is missing outcome: {outcome}")
+    guard_citations = len(re.findall(r"\[(?:R|E)\d+(?:,\s*(?:R|E)\d+)*\]", machine))
+    if guard_citations < contract["min_guard_citations"]:
+        die(
+            f"{path} state-machine guards cite too few rule IDs "
+            f"({guard_citations} < {contract['min_guard_citations']})"
+        )
+
+
 def find_marketplace_root(start: Path) -> Path:
     start = start.resolve()
     for candidate in (start, *start.parents):
@@ -4236,6 +4307,8 @@ def main() -> None:
 
     assert_workflow_object_routing_contract(root)
     assert_ralplan_proportionality_contract(root)
+    for fsm_skill in FSM_CONTRACTS:
+        assert_fsm_contract(root, fsm_skill)
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
     assert_test_harness_lane_contract(marketplace_root, root)

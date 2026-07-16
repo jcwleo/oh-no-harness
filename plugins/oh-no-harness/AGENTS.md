@@ -58,11 +58,12 @@ runtime skill documents. Regenerate them with
 `python3 scripts/generate-skill-wrappers.py --write` from the repository root
 after changing skill core, platform guidance, or generator metadata.
 
-`ralplan-v2` is the narrow exception: its self-sufficient core is composed
-directly with the required `codex-ralplan-v2.md` or
-`claude-code-ralplan-v2.md` adapter, without either common runtime document.
-Keep it out of automatic routing until an explicit migration replaces legacy
-`ralplan`.
+`ralplan` and `ralplan-v2` are the self-contained exceptions: each
+self-sufficient core is composed directly with its required
+`codex-<name>.md` or `claude-code-<name>.md` adapter, without either common
+runtime document. `ralplan` remains the automatically routed planner (its
+2026-07-16 FSM rewrite changed structure, not routing); keep `ralplan-v2`
+out of automatic routing until an explicit migration retires it.
 
 For ongoing skill maintenance, fixes, and improvements, edit the source
 documents, not the generated runtime documents. Put shared skill behavior,
