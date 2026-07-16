@@ -105,8 +105,13 @@ Planning run:
 | REVIEW | LIGHT no-review reason recorded, or verdict APPROVE [R4] | APPROVAL |
 | REVIEW | ITERATE with all blockers accepted, loop budget left [R5, R6] | DRAFT |
 | REVIEW | ITERATE with rejected/deferred/direction-change disposition [R5] | PAUSED for user decision |
+| REVIEW | user resolved every non-accepted disposition as a permitted waiver with no body change: reviewed draft stays frozen [R4, R5] | APPROVAL |
 | REVIEW | REJECT, or loop 2 without APPROVE [R6] | PAUSED |
 | APPROVAL | per `## Next Skill Handoff` (direct) or `### Ultrawork exception` | outcome per that section |
+
+On resume after a disposition PAUSED, apply the `## Planner Revision
+Contract` branch matrix: accepted corrections re-enter DRAFT; waiver-only
+resolution enters APPROVAL with the waivers visible.
 
 Routing outcomes recommend the named skill and stop; they never auto-invoke
 it. A direction change in any phase follows R1.
