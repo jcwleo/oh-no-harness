@@ -1130,15 +1130,18 @@ RALPLAN_APPROVAL_BRIEF_FORBIDDEN_MARKERS = (
     "text diagram",
     "{text diagram}",
 )
+# The full three-part eligibility test (safe isolation, decision-changing
+# value, reasonable coordination cost) is defined once in ## Execution
+# Profile; Plan File Requirements and the Approval Brief reference it instead
+# of restating it (single-definition rule from the 2026-07-16 FSM rewrite).
 RALPLAN_APPROVED_PLAN_DEFAULT_MARKERS = (
+    "Dispatch-eligibility test",
     "safe isolation",
     "decision-changing",
     "reasonable coordination cost",
 )
 RALPLAN_ELIGIBILITY_SURFACE_MARKERS = (
-    "safe isolation",
-    "decision-changing",
-    "reasonable coordination cost",
+    "dispatch-eligibility test",
 )
 RALPLAN_ELIGIBILITY_SURFACE_FORBIDDEN_MARKERS = (
     "no role can be safely isolated",

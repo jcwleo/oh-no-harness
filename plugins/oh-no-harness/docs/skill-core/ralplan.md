@@ -40,6 +40,9 @@ R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer. Only a named
     THOROUGH paired-review trigger runs two reviewer instances.
 R10. Active semantic risk selects mode and cost; category words and host
      capability alone never escalate.
+R15. The Active plan contract is compiled once before Planner draft v1, and
+     the identical block goes to Planner and every reviewer instance.
+     Reviewer missing-field blocking is limited to its active rows.
 R16. Recorded snapshot state authorizes transitions; unrecorded in-memory
      conclusions do not.
 ```
@@ -78,7 +81,7 @@ Planning run:
 | ROUTE | intent, scope, or acceptance criteria materially unclear | outcome ROUTED_INTERVIEW |
 | ROUTE | single obvious edit with clear acceptance criteria and no planning decision | outcome ROUTED_RALPH |
 | ROUTE | plannable request | REQUIREMENTS |
-| REQUIREMENTS | source + Analyst status recorded | DRAFT |
+| REQUIREMENTS | source, Analyst status, Direction Contract, mode, and Active plan contract recorded [R10, R15] | DRAFT |
 | REQUIREMENTS | gap changes product intent, architecture, data, security, or delivery scope [R1] | PAUSED for user decision |
 | DRAFT | Planner draft vN complete against the Active Plan Contract [R2] | REVIEW |
 | REVIEW | LIGHT no-review reason recorded, or verdict APPROVE [R4] | APPROVAL |
@@ -125,6 +128,8 @@ instead of hiding the gap.
 
 ## Mode Selection
 
+Phase: REQUIREMENTS — record the mode before leaving the phase.
+
 Select the lightest credible mode [R10]:
 
 ```text
@@ -147,8 +152,11 @@ Ralph can evaluate it.
 
 ## Active Plan Contract
 
-Before Planner draft v1, compile one mode- and trigger-aware block and send
-the identical block to Planner and every Plan-Reviewer instance:
+Phase: REQUIREMENTS — compile before leaving the phase; consumed in DRAFT
+and REVIEW.
+
+Compile one mode- and trigger-aware block and send the identical block to
+Planner and every Plan-Reviewer instance [R15]:
 
 ```text
 Active plan contract:
@@ -200,24 +208,36 @@ reviewer starts before the complete draft exists.
 
 Plan-Reviewer receives the exact Active plan contract, draft id, and full
 draft or path, then runs the architecture pass and the quality-gate pass in
-one dispatch [R3]. STANDARD runs one Plan-Reviewer instance. Only a named
-THOROUGH security/data/destructive, public/release-contract, concurrency,
-migration, or comparable multi-system trigger selects paired review: two
-instances of the same reviewer role, identical packet, synthesized into one
-verdict by the caller (same-host parallel fallback allowed unless
-`require-cross-host` was selected, which pauses instead). Worst-case
-THOROUGH role dispatch chain remains bounded to two review rounds. LIGHT may
-record review as not required with one concrete risk-based reason.
+one dispatch [R3].
 
-A finding is BLOCKING only when its smallest sufficient correction prevents
-material failure of an active AC, approved constraint, safety invariant,
-Direction Contract field, public contract, or fired mandatory gate [R8].
-Unsupported false rejection is a contract failure. Every blocker names one
-`Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>`,
-the exact draft pointer, material consequence, and smallest sufficient
-correction; a gate blocker also names its owner, trigger, and failed
-obligation. Review v1 returns one consolidated blocker set and MUST NOT
-knowingly reserve one for v2.
+Topology by mode:
+
+```text
+LIGHT    -> review may be omitted with one concrete risk-based reason.
+STANDARD -> STANDARD runs one Plan-Reviewer instance.
+THOROUGH -> one instance, unless a named security/data/destructive,
+            public/release-contract, concurrency, migration, or comparable
+            multi-system trigger selects paired review: two instances of the
+            same reviewer role, identical packet, synthesized into one
+            verdict by the caller. Same-host parallel fallback is allowed
+            unless `require-cross-host` was selected, which pauses instead.
+```
+
+Worst-case THOROUGH role dispatch chain remains bounded to two review rounds.
+
+Blocker predicate [R8]:
+
+- A finding is BLOCKING only when its smallest sufficient correction
+  prevents material failure of an active AC, approved constraint, safety
+  invariant, Direction Contract field, public contract, or fired mandatory
+  gate. Unsupported false rejection is a contract failure.
+- Every blocker names one
+  `Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>`,
+  the exact draft pointer, material consequence, and smallest sufficient
+  correction; a gate blocker also names its owner, trigger, and failed
+  obligation.
+- Review v1 returns one consolidated blocker set and MUST NOT knowingly
+  reserve one for v2.
 
 Return shape:
 
@@ -305,10 +325,12 @@ Execution profile:
 - Escalation triggers:
 ```
 
-Record `Parallel trigger: approved-plan-handoff` only when at least one
-isolated role has safe isolation, decision-changing value, and reasonable
-coordination cost; otherwise use `inline-only` and `none`. Ralplan records
-worktree policy; Ralph owns the actual worktree decision.
+Dispatch-eligibility test (canonical; other sections reference it): a role
+qualifies only with safe isolation, decision-changing value, and reasonable
+coordination cost. Record `Parallel trigger: approved-plan-handoff` only
+when at least one isolated role passes it; otherwise use `inline-only` and
+`none`. Ralplan records worktree policy; Ralph owns the actual worktree
+decision.
 
 ## Plan File Requirements
 
@@ -325,7 +347,7 @@ Plan identity:
 - Approval source: user approve-and-run | ultrawork automatic approval | none
 ```
 
-Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance criteria, tasks, key files, verification, compact execution profile, and approval status; they may omit inactive review, process, dispatch, risk, and rollout inactive ceremony. Dispatch detail requires safe isolation, decision-changing value, and reasonable coordination cost.
+Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance criteria, tasks, key files, verification, compact execution profile, and approval status; they may omit inactive review, process, dispatch, risk, and rollout inactive ceremony. Dispatch detail appears only for roles passing the dispatch-eligibility test in `## Execution Profile`.
 
 ## Plan Approval Brief
 
@@ -336,8 +358,8 @@ with unresolved blockers/waivers; worktree/dispatch handoff; verification;
 risks/open decisions; one compact execution-profile recap. Omit inactive
 sections. Compact LIGHT preserves goal, scope, acceptance criteria,
 tasks/key files, verification, compact profile, and approval. When dispatch
-is active, recap only roles/scopes with safe isolation, decision-changing
-value, and reasonable coordination cost.
+is active, recap only roles/scopes passing the dispatch-eligibility test in
+`## Execution Profile`.
 
 ## Next Skill Handoff
 
@@ -383,11 +405,19 @@ Automatic approval replaces only the prompt; it skips no gate.
 
 ## Agent Roles
 
-Keep sequential role boundaries [R9]; dispatch as subagents on
-subagent-capable hosts per the active platform adapter, otherwise run inline
-role blocks recording the fallback reason and the subagent-unavailable
-condition. Record the trigger as `Planning dispatch: natural-dispatch`,
-`explicit-user-request`, or `inline-fallback`.
+Dispatch planning roles as real subagents by default on subagent-capable
+hosts, per the active platform adapter. Dispatch is the quality mechanism,
+not an optimization: it keeps exploration noise and draft production out of
+the main context, and Plan-Reviewer independence requires a separate context
+— a same-context review self-confirms its own plan. Keep sequential role
+boundaries [R9].
+
+Run a role inline ONLY when the host cannot dispatch subagents, host policy
+does not authorize dispatch, or the role lacks a concrete input artifact,
+isolated responsibility, or expected output — then keep a visibly separate
+inline role block and record the fallback reason. Record the trigger as
+`Planning dispatch: natural-dispatch`, `explicit-user-request`, or
+`inline-fallback`.
 
 | Agent | Dispatch (when) |
 |---|---|
