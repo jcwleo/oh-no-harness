@@ -212,18 +212,11 @@ REQUIRED_READING_BLOCKER_MARKER = (
 # ralplan left this set with the 2026-07-16 self-contained FSM rewrite; its
 # core forbids a Required Reading section entirely (see
 # assert_required_reading_contract's SELF_CONTAINED_ADAPTER_SKILLS branch).
-TRIGGER_CLASS_REQUIRED_SKILLS = (
-    "ralph",
-    "ultrawork",
-    "verification-before-completion",
-    "systematic-debugging",
-)
-EXPECTED_ALWAYS_READING = {
-    "ralph": {"execution-modes", "worktree-isolation", "verification-tiers"},
-    "ultrawork": {"execution-modes", "worktree-isolation"},
-    "verification-before-completion": set(),
-    "systematic-debugging": set(),
-}
+# All former members left this set with the 2026-07 self-contained FSM
+# rewrites; their cores forbid a Required Reading section entirely (see
+# assert_required_reading_contract's SELF_CONTAINED_ADAPTER_SKILLS branch).
+TRIGGER_CLASS_REQUIRED_SKILLS = ()
+EXPECTED_ALWAYS_READING: dict[str, set[str]] = {}
 # Skills that dispatch review/verify/debug roles and must HARD-GATE the recorded
 # independence mode (cross-host | same-host-parallel-fallback | inline-fallback).
 # ralplan already carries this via its Findings Ledger Gate and is intentionally
