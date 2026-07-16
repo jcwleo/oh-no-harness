@@ -78,11 +78,12 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("When Quick mode recommends direct Ralph", BOTH),
         ("Assign a stable ID to every acceptance criterion", BOTH),
         ("redact credentials, tokens, secrets, PII, and raw customer data", BOTH),
-        ("Classify the request as brownfield or greenfield before asking technology-stack questions", BOTH),
-        ("Do not ask technology-stack questions when brownfield repository facts already make the stack clear", BOTH),
+        ("Classify the request as brownfield or greenfield before asking", BOTH),
+        ("technology-stack questions when brownfield repository facts already make", BOTH),
         ("Recommendation requested: yes | no", BOTH),
         ("Skill chaining in Oh No Harness is approval-gated, not automatic", BOTH),
-        ("Read `docs/shared/execution-modes.md` before writing the final spec", BOTH),
+        # Self-contained rewrite: the sizing hint resolves in the core, not a shared doc.
+        ("Provisional Ralph mode: LIGHT | STANDARD | THOROUGH | UNKNOWN", BOTH),
     ],
     "ralplan": [
         ("Stop after at most 2 loops", BOTH),

@@ -38,7 +38,7 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
-SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan", "ralplan-v2", "ralph"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"interview", "ralplan", "ralplan-v2", "ralph"}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
@@ -290,8 +290,8 @@ PLATFORM_SUBAGENT_MARKERS = {
         "active platform's dispatch authorization",
         "standing authorization",
         "per-run subagent approval",
-        "`explore` role",
-        "inline fallback reason",
+        "Dispatch `explore` by default",
+        "fallback reason",
     ),
     "systematic-debugging": (
         "isolated diagnostic and evidence roles when they provide decision-changing",
@@ -698,7 +698,6 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "Acceptance criteria:",
         "Goal restatement:",
         "Provisional Ralph mode",
-        "docs/shared/execution-modes.md",
         "## Interview Milestones",
         "## Refine Confirmation",
         "## Hidden-Assumption Persona Check",
@@ -1916,7 +1915,7 @@ def assert_skill(root: Path, skill: str) -> None:
     if skill in EXECUTION_MODE_SKILL_MARKERS:
         body = read_text(path)
         for marker in EXECUTION_MODE_SKILL_MARKERS[skill]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Execution-Mode marker: {marker!r}")
     if skill in SKILL_REQUIRED_AGENT_ROLES:
         body = read_text(path)
@@ -4256,6 +4255,22 @@ FSM_CONTRACTS = {
         ),
         "min_guard_citations": 10,
     },
+    "interview": {
+        "phases": ("ROUTE", "CONTEXT", "INTERVIEW", "CLOSURE", "APPROVAL"),
+        "outcomes": (
+            "ROUTED_DIRECT",
+            "HANDOFF_RALPLAN",
+            "HANDOFF_RALPH",
+            "HANDOFF_ULTRAWORK",
+            "RETURN_ULTRAWORK",
+            "PAUSED",
+        ),
+        "rule_ids": (
+            "I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8",
+            "I9", "I10", "I11", "I12", "I13", "I15", "I16",
+        ),
+        "min_guard_citations": 8,
+    },
 }
 
 
@@ -4278,14 +4293,19 @@ def assert_fsm_contract(root: Path, skill: str) -> None:
     machine = markdown_section(body, "## State Machine")
     if not machine.strip():
         die(f"{path} is missing required '## State Machine' section")
-    snapshot = markdown_section(body, f"## {'Planning Run Snapshot' if skill == 'ralplan' else 'Execution Run Snapshot'}")
+    snapshot_headings = {
+        "ralplan": "## Planning Run Snapshot",
+        "ralph": "## Execution Run Snapshot",
+        "interview": "## Interview Run Snapshot",
+    }
+    snapshot = markdown_section(body, snapshot_headings[skill])
     for phase in contract["phases"]:
         if not re.search(rf"\b{phase}\b", machine) or not re.search(rf"\b{phase}\b", snapshot):
             die(f"{path} state machine/snapshot is missing phase: {phase}")
     for outcome in contract["outcomes"]:
         if not re.search(rf"\b{outcome}\b", body):
             die(f"{path} is missing outcome: {outcome}")
-    guard_citations = len(re.findall(r"\[(?:R|E)\d+(?:,\s*(?:R|E)\d+)*\]", machine))
+    guard_citations = len(re.findall(r"\[(?:R|E|I|U)\d+(?:,\s*(?:R|E|I|U)\d+)*\]", machine))
     if guard_citations < contract["min_guard_citations"]:
         die(
             f"{path} state-machine guards cite too few rule IDs "

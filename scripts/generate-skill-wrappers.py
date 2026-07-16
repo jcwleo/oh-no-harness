@@ -38,7 +38,7 @@ CLAUDE_ONLY_SKILLS = {"install-statusline"}
 # These skills carry every required host binding in a required skill-specific
 # adapter. Embedding the common platform runtime would duplicate those bindings
 # and reintroduce external-document reads that the self-contained core removed.
-SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan", "ralplan-v2", "ralph"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"interview", "ralplan", "ralplan-v2", "ralph"}
 MODEL_UNINVOCABLE_SKILLS = {"ralplan-v2", "install-statusline"}
 
 
