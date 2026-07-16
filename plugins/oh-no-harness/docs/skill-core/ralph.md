@@ -184,17 +184,17 @@ and known verification commands, then choose the lightest credible loop:
    requirement?
 ```
 
-Mode definitions (semantic risk selects; category words alone never
-escalate):
+Mode definitions — `LIGHT | STANDARD | THOROUGH` (semantic risk selects;
+category words alone never escalate):
 
 ```text
 LIGHT    = small, isolated, non-behavioral work with no public,
            security/data, migration, concurrency/lifecycle, destructive, or
            release risk (every exclusion must hold); compact artifacts;
            direct-diff review allowed.
-STANDARD = LIGHT | STANDARD | THOROUGH middle tier: localized behavior/config
-           /prompt work with bounded blast radius; session + verification
-           artifacts; one targeted reviewer for behavior-affecting changes.
+STANDARD = localized behavior/config/prompt work with bounded blast radius
+           and known ownership; session + verification artifacts; one
+           targeted reviewer for behavior-affecting changes.
 THOROUGH = active security/data/auth, destructive, public/release-critical,
            migration, changed concurrency/lifecycle, multi-system, or
            unknown-root-cause risk; full PRD session; risk-warranted roles.
@@ -326,8 +326,8 @@ Phase: EXECUTE. Per story:
 
 ## Mode-Gated Agent Dispatch
 
-This section governs agent-role dispatch only; workflow-skill chaining
-follows `## Final Handoff`.
+Phase: EXECUTE and REVIEW. This section governs agent-role dispatch only;
+workflow-skill chaining follows `## Final Handoff`.
 
 Dispatch roles as real subagents by default on subagent-capable hosts —
 dispatch keeps exploration noise, implementation churn, and log output out
@@ -405,6 +405,8 @@ subagent policy; do not duplicate them here.
 
 ## Scope Trace Gate
 
+Phase: EXECUTE — checked before editing and at every story recheck.
+
 Every changed file and every meaningful changed line maps to at least one of:
 the user's concrete request; an approved spec, plan, PRD story, or ticket; a
 test, AC, or verification requirement; removal of code made unused by the
@@ -415,6 +417,8 @@ out of scope — report such findings as residual risk or follow-ups.
 
 ## Validation Gate
 
+Phase: EXECUTE and FINALIZE — before marking work complete.
+
 When measurable evidence influenced the task, record a validation check
 before completion: evidence used, supported AC or user outcome, proof and
 gap, recurring engineering risk addressed, similar-work expectation, and
@@ -424,6 +428,8 @@ that would not help a skeptical maintainer on similar work. Metric movement
 never replaces the user, maintainer, operator, or public-contract outcome.
 
 ## Verification Budget Policy
+
+Phase: EXECUTE — applied per story and cumulatively.
 
 Tier minimums [E9]:
 
@@ -460,8 +466,8 @@ Budget rules:
 
 ## Process Budget Gate
 
-This is the cumulative per-story mid-run early-stop check (the Diff-Budget
-Gate owns the final pre-review evaluation). At PREPARE, copy the plan's
+Phase: EXECUTE — this is the cumulative per-story mid-run early-stop check
+(the Diff-Budget Gate owns the final pre-review evaluation). At PREPARE, copy the plan's
 expected changed-file groups, diff size, review topology, cleanup depth,
 broad-suite cap, and review-round cap — or derive conservative values.
 
@@ -475,7 +481,7 @@ delete required negative, regression, or safety cases.
 
 ## Diff-Budget Gate
 
-Run this final gate exactly once, after all stories and before
+Phase: EXECUTE exit. Run this final gate exactly once, after all stories and before
 `## Review Gate` [E10]. Thresholds decide whether the single evaluation
 expands into the detailed scope review — not whether the gate runs:
 
@@ -535,18 +541,21 @@ satisfied. When both roles are required, the ledger must show
 `verifier started after reviewer completion: yes` or the verifier pass does
 not count.
 
-Review focus — the reviewer pass must check: every story satisfies its ACs
-with mapped (not merely listed) evidence; the contract surface, semantic
-model, and baseline guard were identified before accepting local green
-results; a simpler or safer approach; scope trace and speculative-complexity
-rejection; RED/GREEN or documented exceptions for behavior changes; the
-security lens when auth, data, secrets, filesystem, network, config, or
-destructive operations were touched; and the applicable negative-path
-scenarios — malformed or boundary input, stale state, cancel/resume or
-concurrency — probed when their triggers hold, or each ruled out with a
-one-line reason that names why no approved AC ID, named risk, adjacent
-regression surface, safety invariant, or directly changed semantic model
-triggers it.
+Review focus — the reviewer pass must check:
+
+- every story satisfies its ACs with mapped (not merely listed) evidence
+- the contract surface, semantic model, and baseline guard were identified
+  before accepting local green results
+- a simpler or safer approach; scope trace and speculative-complexity
+  rejection
+- RED/GREEN or documented exceptions for behavior changes
+- the security lens when auth, data, secrets, filesystem, network, config,
+  or destructive operations were touched
+- the applicable negative-path scenarios — malformed or boundary input,
+  stale state, cancel/resume or concurrency — probed when their triggers
+  hold, or each ruled out with a one-line reason that names why no approved
+  AC ID, named risk, adjacent regression surface, safety invariant, or
+  directly changed semantic model triggers it
 
 Reviewer findings outside the Scope Trace Gate are residual risk or
 follow-ups, not fixes in this run; a regression caused by the current change
@@ -577,6 +586,8 @@ Phase: FINALIZE — checkpoints in order [E12]:
 
 ## Resume Protocol
 
+Phase: any, on re-entry.
+
 On re-entry after interruption or compaction, reconstruct from artifacts
 [E14]: re-read the input artifact, snapshot, and session files; recompute
 incomplete stories from recorded `status`/`passes`; re-confirm the mode and
@@ -587,8 +598,22 @@ changed files; resume the loop at the first incomplete story.
 
 ## Persistence Rule
 
+Phase: FINALIZE — COMPLETION_AUDIT checkpoint.
+
 <HARD-GATE>
-The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each) [E11]. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the dependency-graph values (`not-required` with the compliant reason, `single-reviewer`, or `paired-thorough` with its independence mode); an inline fallback requires a reason. Missing review topology is a named ledger gap. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session does not show each required completion criterion below satisfied [E11] — including, named individually,
+the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion
+(or an explicit missing-evidence blocker / not-required reason recorded for
+each). A silently omitted step is a named ledger gap, not a pass.
+
+- Evidence status lives in `verification.md`; PRD/progress point to its AC IDs.
+- Every review records its topology using the dependency-graph values
+  (`not-required` with the compliant reason, `single-reviewer`, or
+  `paired-thorough` with its independence mode); an inline fallback requires
+  a reason. Missing review topology is a named ledger gap.
+- When both code-reviewer and verifier are required, the ledger must show
+  `verifier started after reviewer completion: yes` or the verifier pass is
+  stale and does not count.
 </HARD-GATE>
 
 Completion criteria:
