@@ -16,7 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/ultrawork.md`
-- `../../docs/platforms/codex-runtime.md`
+- `../../docs/platforms/codex-ultrawork.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
 
@@ -24,344 +24,257 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 # Ultrawork
 
-Ultrawork is a Markdown-first loop-engineering workflow for moving from idea to
-verified result with retained Oh No Harness skills.
+Ultrawork is a Markdown-first orchestration loop for moving from idea to
+verified result with the retained skill chain. Each phase is chosen
+explicitly from this Markdown workflow — there is no hidden next-step
+selector. Do not use it for a small concrete fix whose contract surface,
+baseline evidence, and verification command are already clear; use direct
+implementation or `ralph`.
 
-Each phase is chosen explicitly from this Markdown workflow. There is no hidden next-step selector.
+Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 
-## Software Development Stage
-
-Ultrawork is the end-to-end orchestration stage for LLM software development.
-
-Use it when one request should drive the full sequence: `interview` for requirements, `ralplan` for planning, `ralph` for execution, QA/debugging, cleanup, final verification, and report.
-
-## When To Use
-
-Use when:
-
-- the task spans interview, planning, implementation, and validation
-- the user asks for autonomous delivery
-- existing specs or plans can drive execution
-- the work is too broad for a single direct edit
-
-Do not use when the task is a small concrete fix whose contract surface,
-baseline or smoke evidence, and verification command are already clear. Use
-direct implementation or `ralph` if persistence is needed.
-
-## Required Reading
-
-Read always-active owners before execution and triggered owners immediately
-before their dependent gates. A path reference here is a pointer, not a
-substitute for reading. If a listed file cannot be read, record the blocker
-instead of proceeding past the gate that depends on it.
-
-| Contract | Class | Trigger / timing |
-|---|---|---|
-| `docs/shared/execution-modes.md` | always | before carrying the Direction Contract and execution profile |
-| `docs/shared/worktree-isolation.md` | always | before automatic worktree execution |
-| `docs/shared/ralph-subagent-policy.md` | triggered | before phase-agent dispatch or maker-verifier independence |
-| `docs/shared/cross-host-review.md` | triggered | only when a named THOROUGH risk selects paired Final Validation review |
-
-## Artifact Discovery
-
-Before asking new questions, check:
+## Invariants
 
 ```text
-.oh-no/specs/
-.oh-no/plans/
+U1. Ultrawork orchestrates the retained chain and never replaces it: the
+    planning gate uses `ralplan`, the execution handoff uses `ralph`.
+    Inline phase handling is a documented fallback only when the host
+    cannot load the sub-skill, recorded in the ledger.
+U2. Approved existing specs or plans may skip earlier phases only when the
+    skip reason and source artifact are recorded; a merely relevant plan
+    without approval evidence or with mismatched scope goes through the
+    planning gate.
+U3. requirements_gate: planning must not start until the requirements
+    source is recorded. Interview is the only user-facing content approval
+    gate for new work; ultrawork never auto-approves the interview spec.
+U4. Once ralplan's gates pass, record the plan approval source and
+    continue into ralph without a separate Plan Approval Brief prompt;
+    pause only on ralplan's named pause conditions (canonical list:
+    ralplan `### Ultrawork exception`).
+U5. worktree_gate: no source file edit until a `Worktree decision` is
+    recorded. Ultrawork's worktree duties are the numbered list in
+    `## Worktree` below.
+U6. The Direction Contract and AC IDs carry unchanged through plan,
+    session, packets, and report; each phase records only its delta; a
+    phase needing a direction change pauses for explicit user approval.
+U7. Markdown at .oh-no/sessions/{sessionId}/ultrawork.md is authoritative.
+    No JSON state artifact in v1; any future JSON must be derived and
+    non-authoritative. No timer, daemon, or background heartbeat.
+U8. Doctor/status runs at entry, resume, pre-execution, pre-merge, and
+    pre-final; BLOCKED stops before edits, merge, or final claim.
+U9. Escalation routes are fixed: ambiguous requirements -> user or
+    `interview`; direction/scope conflict -> user or `ralplan`; failing
+    checks or unknown root cause -> `systematic-debugging` (which owns
+    `debugger` dispatch); public-contract/security/packaging risk ->
+    `code-reviewer` or `verifier`; missing worktree or verification
+    evidence -> blocked.
+U10. Any scope change, missing authority artifact, failed worktree gate,
+     or failed verification transitions to a named non-success outcome,
+     never silent continuation.
+U11. Final Validation does not repeat Ralph's completed internal gates;
+     review-then-verify order holds and an early verifier is stale,
+     discarded, and rerun.
+U12. The run is invalid unless the ledger shows each named phase gate
+     satisfied or a recorded not-required reason; a silently omitted step
+     is a named ledger gap, not a pass.
+U13. Ultrawork is the only context that may invoke interview/ralplan/ralph
+     without their per-step transition question. It skips the between-phase
+     "which next skill?" question and the separate plan-approval prompt —
+     and skips nothing else: spec approval when requirements are unclear,
+     planning gates, scope-change pauses, verification, and final evidence
+     all still run.
+U14. Maker roles do not self-approve; inline checker fallback is still
+     checker output. At STANDARD/THOROUGH on subagent-capable hosts, an
+     inline check by the maker or accepting agent never satisfies the
+     independent verifier audit.
+U16. Never pause ultrawork only to ask whether subagents may be used: the
+     active platform's standing authorization covers eligible phase-owned
+     roles; phase agents dispatch by default, inline only as a recorded
+     fallback.
+U17. A discovered plan admitted through U2 but lacking an execution
+     profile gets the profile set before execution (schema is
+     ralplan-owned); execution never starts profile-less.
 ```
 
-If a relevant approved interview spec exists, use it as the approved requirement source and move to planning.
+`STOP`/blocked means: persist the heartbeat with the blocked gate,
+evidence, and unblock condition, then report — never a silent exit.
 
-Carry its Direction Contract and AC IDs unchanged through the plan, Ralph
-session, review/verifier packets, and final report. Each phase records only its
-delta and evidence; it must not reinterpret the primary goal, non-goals,
-constraints, or protected assumptions. A phase that needs a direction change
-pauses for explicit user approval.
+## Heartbeat
 
-If a relevant consensus plan exists, it may skip interview and planning only when it is approved (explicit user approval of its Plan Approval Brief, or a recorded ultrawork automatic-approval source from a prior run — a passing Findings Ledger Gate alone is quality evidence, not approval) and matches the current request's scope; record the skip reason and source artifact path per the Loop Contract, then move to execution. A merely relevant plan without approval evidence or with mismatched scope goes through the planning gate instead.
-
-If the existing plan lacks an execution profile, read
-`docs/shared/execution-modes.md` and set the missing profile before execution.
-
-Write transient orchestration notes under:
-
-```text
-.oh-no/sessions/{sessionId}/ultrawork.md
-```
-
-Ultrawork establishes the chain session directory at `start_or_resume`;
-downstream skills in the same run reuse it.
-
-## Loop Contract
-
-Ultrawork is the foreground orchestration loop around the existing skill chain.
-It does not replace `ralplan` or `ralph`: the planning gate uses `ralplan`, and
-the execution handoff uses `ralph`.
-
-Loop phases:
-
-```text
-start_or_resume
-  -> requirements_gate
-  -> planning_gate
-  -> worktree_gate
-  -> execution_handoff
-  -> qa_loop
-  -> final_validation
-  -> report
-```
-
-- Existing approved specs or plans may skip earlier phases only when the skip
-  reason and source artifact are recorded.
-- Any scope change, missing authority artifact, failed worktree gate, or failed
-  verification transitions to `paused_for_user`, `scope_change_pending_approval`,
-  or `blocked`, not silent continuation.
-- QA failures transition to `systematic-debugging`, then back to
-  `execution_handoff` or `final_validation` only after root-cause evidence.
+Markdown state at `.oh-no/sessions/{sessionId}/ultrawork.md` is
+authoritative [U7]. Ultrawork establishes the chain session directory at
+START_OR_RESUME; downstream skills in the same run reuse it. Write a
+heartbeat at phase boundaries, long waits, compaction/handoff, scope
+changes, and before the final report.
 
 Heartbeat contents:
 
-- Record phase, goal/story, authoritative state path, last checkpoint, next
-  action, blocker/status, worktree, verification, checker, and stop condition.
-- Write a heartbeat at phase boundaries, long waits, compaction/handoff, scope
-  changes, and before the final report. No timer, daemon, or background
-  heartbeat.
+```text
+Ultrawork run:
+- Phase: START_OR_RESUME | REQUIREMENTS | PLANNING | WORKTREE | EXECUTION |
+  QA | FINAL_VALIDATION | REPORT
+- Outcome: none | succeeded_merged_verified_reported |
+  succeeded_left_worktree_for_inspection | paused_for_user | blocked |
+  cancelled | failed_verification | scope_change_pending_approval
+- Goal/story; authoritative state path; last checkpoint; next action
+- Blocker/status; worktree; verification; checker; stop condition
+```
 
-Resume precedence:
+Resume precedence: newest user instructions outrank saved state; then the
+authoritative Markdown, its referenced specs/plans and Ralph artifacts,
+then Git worktree/merge evidence. Logs, apps, metrics, and connector data
+are evidence only. On conflict, doctor/status records the mismatch and
+pauses before editing or merging.
 
-Newest user instructions outrank saved state. After that, trust the
-authoritative Markdown state at `.oh-no/sessions/{sessionId}/ultrawork.md`, its
-referenced specs/plans and Ralph artifacts, then Git worktree/merge evidence.
-Logs, apps, metrics, and connector data are evidence only. On conflict,
-doctor/status records the mismatch and pauses before editing or merging.
+Doctor/status gate semantics [U8]: run at entry, resume, pre-execution,
+pre-merge, and pre-final; output `PASS`, `WARN`, or `BLOCKED` after
+checking artifact freshness, worktree/merge state, verification, stale
+docs, custom-agent readiness, and validator drift. `BLOCKED` stops before
+edits, merge, or final claim; `WARN` may continue only when acceptance
+evidence is unaffected.
 
-State authority:
+Checker outputs [U14]: record role, reviewed artifact or diff, findings,
+evidence status, follow-up, verdict when applicable, dispatch/fallback
+mode, and lifecycle status. Maker roles do not self-approve.
 
-- Markdown at `.oh-no/sessions/{sessionId}/ultrawork.md` is authoritative for v1.
-- No JSON state artifact in v1; any future JSON must be derived and
-  non-authoritative.
+## State Machine
 
-Doctor/status gate semantics:
+The lowercase gate tokens are each phase's guard label; the phases keep
+their historical order: start_or_resume -> requirements_gate ->
+planning_gate -> worktree_gate -> execution_handoff -> qa_loop ->
+final_validation -> report.
 
-- Run at entry, resume, pre-execution, pre-merge, and pre-final.
-- Output `PASS`, `WARN`, or `BLOCKED` after checking artifact freshness,
-  worktree/merge state, verification, stale docs, custom-agent readiness, and
-  validator drift.
-- `BLOCKED` stops before edits, merge, or final claim. `WARN` may continue only
-  when acceptance evidence is unaffected.
+| Phase | Exit guard | Next |
+|---|---|---|
+| START_OR_RESUME | heartbeat established; artifact discovery done; doctor PASS/WARN [U7, U8] | REQUIREMENTS |
+| REQUIREMENTS | requirements_gate: planning must not start until the requirements source is recorded — approved interview spec, found approved artifact [U2], or already-concrete request [U3] | PLANNING |
+| REQUIREMENTS | request is vague (missing target files/subsystem, acceptance criteria, user/caller impact, verification command, constraints, or concrete examples) [U3] | REQUIREMENTS (read and follow `interview`, then resume from the spec) |
+| PLANNING | planning_gate: approved plan exists [U2] or ralplan gates passed with the approval source recorded; execution profile present [U4, U17] | WORKTREE |
+| PLANNING | a ralplan pause condition fires [U4] | outcome paused_for_user |
+| WORKTREE | worktree_gate: `Worktree decision: ultrawork automatic worktree` recorded; artifact access preserved [U5] | EXECUTION |
+| WORKTREE | worktree creation fails and no fallback approved [U5] | outcome blocked |
+| EXECUTION | execution_handoff: `ralph` completed its loop with the Ultrawork-approved plan or spec [U1] | QA |
+| EXECUTION | ralph reports RETURN_TO_PLAN or a direction change [U6, U9] | PLANNING or outcome scope_change_pending_approval |
+| QA | qa_loop: orchestration-level checks pass or a blocking reason is documented [U9] | FINAL_VALIDATION |
+| QA | root cause unknown after the debugging route [U9] | outcome blocked or failed_verification |
+| FINAL_VALIDATION | dependency graph satisfied; blocking findings resolved or recorded [U11] | REPORT |
+| REPORT | ledger HARD-GATE satisfied; report written [U12] | outcome succeeded_merged_verified_reported or succeeded_left_worktree_for_inspection |
+| any | user stop, scope change, or missing authority artifact [U6, U10] | outcome paused_for_user / scope_change_pending_approval / cancelled |
 
-Checker outputs:
+## Artifact Discovery
 
-- Record role, reviewed artifact or diff, findings, evidence status, follow-up,
-  verdict when applicable, dispatch/fallback mode, and lifecycle status.
-- Maker roles do not self-approve; inline checker fallback is still checker
-  output. At STANDARD and THOROUGH on subagent-capable hosts, an inline check by
-  the maker, or by the agent that accepted the maker's output, does not satisfy
-  the independent verifier audit under the carve-out in
-  `docs/shared/ralph-subagent-policy.md`; dispatch an independent `verifier`.
+Phase: START_OR_RESUME. Before asking new questions, check `.oh-no/specs/`
+and `.oh-no/plans/`.
 
-Escalation rules:
+- A relevant approved interview spec is the approved requirements source —
+  move to planning. Carry its Direction Contract and AC IDs unchanged [U6].
+- A relevant consensus plan may skip interview and planning only when it is
+  approved (explicit user approval of its Plan Approval Brief, or a
+  recorded ultrawork automatic-approval source from a prior run — a passing
+  Findings Ledger Gate alone is quality evidence, not approval) and matches
+  the current request's scope; record the skip reason and source artifact
+  path [U2].
+- If the admitted plan lacks an execution profile, set the missing profile
+  before execution (the profile schema is ralplan-owned) and record the
+  completed profile and its source in the ledger [U17].
 
-- Ambiguous requirements -> user or `interview`.
-- Direction or scope conflict -> user or `ralplan`.
-- Failing checks or unknown root cause -> `systematic-debugging`.
-- Public contract, security, or packaging execution risk -> `code-reviewer` or
-  `verifier`; a plan-direction conflict routes back through `ralplan`.
-- Missing worktree or verification evidence -> `blocked` until resolved.
+## Phase Procedures
 
-Terminal states:
+### START_OR_RESUME
 
-- `succeeded_merged_verified_reported`
-- `succeeded_left_worktree_for_inspection`
-- `paused_for_user`
-- `blocked`
-- `cancelled`
-- `failed_verification`
-- `scope_change_pending_approval`
+Establish or reuse the chain session directory; write the first heartbeat;
+run doctor/status [U8]; perform Artifact Discovery.
 
-## Agent Roles
+### REQUIREMENTS
 
-Ultrawork normally reaches most roles by reading and following `interview`,
-`ralplan`, and `ralph`. Inline phase handling is the fallback, not the default.
-Dispatch each phase's listed agents as separate subagents on subagent-capable
-platforms according to Ralph's selected execution mode, `## Mode-Gated Agent
-Dispatch`, `docs/shared/ralph-subagent-policy.md`, and the host policy from the
-active platform runtime document. For the `ralplan` phase, Planner and
-Plan-Reviewer are sequential and should keep separate role contexts; dispatch
-them as subagents when the active host supports dispatch and the separation can
-improve planning or review quality. Plan-Reviewer runs as a single review dispatch;
-re-review only when blocking findings require it. The phase boundaries below
-still hold either way.
+If the request is vague, read and follow `interview` as the next skill,
+then resume from the resulting spec. Interview's spec review still
+surfaces to the user [U3, U13]. If the request already has a clear spec or
+is concrete enough to plan without inventing product intent, record the
+requirements source and move on.
 
-Apply the active platform's dispatch authorization for eligible Ultrawork phase
-agents without per-run subagent approval when that standing authorization is
-present. Do not pause Ultrawork only to ask whether subagents may be used. Apply
-the authorization to the phase-owned roles below: `interview`/`explore` for
-brownfield facts, `ralplan` planning roles, `ralph` execution and review roles,
-QA Loop roles, and Final Validation roles. Preserve all content gates, spec
-review, Ultrawork's internal plan approval record, final evidence, role
-isolation, fallback reasons, and lifecycle cleanup requirements.
-Eligibility still depends on whether the role can change quality, risk,
-latency, or context management enough to justify dispatch; final narrow
-re-checks may stay inline when they have equal evidence. This inline allowance
-does not extend to the independent verifier audit under the carve-out in
-`docs/shared/ralph-subagent-policy.md`: at STANDARD and THOROUGH on
-subagent-capable hosts, when the proving tests or implementation were authored
-or accepted by the same agent, that audit is not inline-eligible and must be
-dispatched to an independent `verifier` (record the fallback reason if the host
-cannot dispatch).
+### PLANNING
 
-| Phase | Agents |
-|---|---|
-| Interview | Follow `interview`; dispatch `explore` for brownfield facts when needed. Do not add planning or review agents to this stage. |
-| Plan | Follow `ralplan`; dispatch `explore` when context is needed, then complete `analyst` -> `planner` and the risk-gated Plan-Reviewer stage in order. STANDARD uses one reviewer; a pair requires a named THOROUGH risk. |
-| Execute | Follow `ralph`; dispatch isolated `explore`, `executor`, `verifier`, and review agents according to the approved execution mode, plan, platform policy, and risk; inline only for documented subagent-unavailable or unsafe-to-isolate cases. |
-| QA Loop | Follow `systematic-debugging` for failure investigation; it owns `debugger` dispatch per its own contract. Dispatch `verifier` (scenario lens for user-facing flows). |
-| Final Validation | Add one targeted `code-reviewer` only for additional orchestration risk not already covered by Ralph. Paired review requires a named THOROUGH trigger. Dispatch one independent `verifier` when the maker-verifier carve-out applies. |
+Read and follow `ralplan` unless an approved plan already exists per
+Artifact Discovery. Inside Ultrawork the ralplan plan is automatically
+approved for execution once it satisfies Ralplan's consensus,
+direction-preservation, execution profile, and test-quality gates: record
+`Plan approval source: ultrawork automatic approval after interview/spec`
+and do not pause for a separate Plan Approval Brief [U4]. Ralplan's
+`### Ultrawork exception` owns the canonical pause-condition list; when
+one fires, pause for the user instead.
 
-When independent delegated phase work can run in parallel, or when inline
-fallback role blocks need the same isolation plan, read
-`docs/shared/ralph-subagent-policy.md`.
-Use the same ownership and integration rules as `ralph`. If the approved plan
-selects `Parallel trigger: approved-plan-handoff`, preserve that trigger in the
-Ralph handoff and treat it as the parallel-capable execution path for eligible
-isolated roles. If
-the user invoked ultrawork with `parallel`, `subagents`, `spawn`, `delegate`, or
-`one agent per` language outside an approved plan profile, preserve that phrase
-as an explicit dispatch signal. Preserve `Parallel trigger: natural-dispatch`
-only for direct Ralph execution when the host permits proactive dispatch and the
-active skill policy itself authorizes eligible isolated roles.
+### WORKTREE
 
-## Automatic Worktree Execution
-
-For write-capable execution, read and follow
-`docs/shared/worktree-isolation.md`. Ultrawork's distinct responsibility is
-end-to-end orchestration: it uses a registered Git worktree under
-`.oh-no/worktrees/<task-slug>` automatically and then merges the completed work
-back into the integration checkout. `git clone`, `cp -R`, and plain directories
-are not valid substitutes.
-
-worktree_gate: no source file edit until a `Worktree decision` is recorded per `docs/shared/worktree-isolation.md` (the canonical gate lives in that shared doc; the numbered steps below are Ultrawork's own responsibilities under it).
-
-Before editing files, Ultrawork must:
+For write-capable execution [U5]:
 
 1. Create or select a registered Git worktree under
-   `.oh-no/worktrees/<task-slug>` using `git worktree add`.
+   `.oh-no/worktrees/<task-slug>` using `git worktree add` — `git clone`,
+   `cp -R`, and plain directories are not valid substitutes.
 2. Record `Worktree decision: ultrawork automatic worktree`.
 3. Preserve access to the approved `.oh-no` spec, plan, or PRD in the task
-   worktree by copying the relevant artifact, recording an absolute artifact
-   path, or quoting the approved task definition.
+   worktree: copy the artifact, record an absolute path, or quote the
+   approved task definition.
 
-After the implementation passes verification in the task worktree, Ultrawork must
-merge it back into the integration checkout, run post-merge verification, and
-record cleanup-or-left-for-inspection, per `docs/shared/worktree-isolation.md`. If
-worktree creation, merge, or post-merge verification fails, report the blocker
-instead of silently editing the original checkout.
+After execution passes verification, merge the completed work back into
+the integration checkout, run post-merge verification, and record
+cleanup-or-left-for-inspection. If worktree creation, merge, or post-merge
+verification fails, report the blocker instead of silently editing the
+original checkout.
 
-## Phases
+### EXECUTION
 
-### Phase 0: Interview
+Read and follow `ralph` with the Ultrawork-approved plan or spec; treat
+the ordinary `ralph` handoff as approved — no second implementation
+approval unless a planning pause condition fired [U13]. Execution
+preserves Ralph's selected execution mode, artifact policy, verification,
+review, cleanup, and final report requirements. If the approved plan
+selects `Parallel trigger: approved-plan-handoff`, preserve that trigger
+in the handoff.
 
-If the request is vague, read and follow `interview` as the next skill, then resume from the resulting spec.
+Inline execution is a documented fallback only when the host cannot load
+the `ralph` skill (an explicit user instruction overrides); record the
+reason [U1]. Under that fallback, set the required execution mode first,
+then apply Ralph's mode-gated loop including its TDD gate
+(read and follow `test-driven-development` before behavior-changing
+production edits; record RED/GREEN/REFACTOR evidence or the approved
+exception).
 
-If the request already has a clear spec, record the spec path and move to planning.
+### QA
 
-Interview is the only user-facing content approval gate for new Ultrawork work.
-Before leaving this phase, make sure the requirements source is explicit: either
-the user approved the interview spec, an existing approved spec or plan was
-found, or the original request is already concrete enough to plan without
-inventing product intent.
+Ralph owns story-level verification, mode-gated review, cleanup, and
+verification-before-completion. The QA loop is the orchestration layer
+around that result: investigate failed commands, integration problems,
+merge problems, or scenario gaps that remain after Ralph's task-worktree
+evidence — especially after worktree integration or when Ralph reports a
+blocker. Dispatch [U9]:
 
-requirements_gate: planning must not start until the requirements source is recorded.
-
-### Phase 1: Plan
-
-Read and follow `ralplan` unless an approved plan already exists per the
-Artifact Discovery approval-evidence rule.
-
-Inside Ultrawork, the `ralplan` plan is automatically approved for execution
-once the plan satisfies Ralplan's consensus, direction-preservation, execution
-profile, and test-quality gates. Record
-`Plan approval source: ultrawork automatic approval after interview/spec`.
-Do not pause for a separate Plan Approval Brief after the requirements source is
-approved or already concrete. Pause only on a pause condition: changed approved
-scope, a blocking product decision or blocking ambiguity, conflict with the
-approved requirements source (for example the interview spec), a missing
-execution profile, any unresolved rejected/deferred/direction-change Ralplan
-blocker, a pending non-waivable gate, or an explicit user request to review the
-plan manually.
-
-### Phase 2: Execute
-
-Read and follow `ralph` with the Ultrawork-approved plan or spec. Treat the
-ordinary `ralph` execution handoff as approved by Ultrawork; do not ask the user
-for a second implementation approval after Phase 1 unless a pause condition from
-the planning phase was triggered.
-
-Execution must preserve Ralph's selected execution mode, PRD or compact artifact policy, verification, review, cleanup, and final report requirements.
-
-Inline execution is a documented fallback, permitted only when the host cannot
-load or execute the `ralph` skill; record that fallback reason in the session
-ledger (an explicit user instruction always overrides). When executing
-inline under that fallback, first read `docs/shared/execution-modes.md`, set
-the required `LIGHT`, `STANDARD`, or `THOROUGH` execution mode, then apply
-Ralph's mode-gated loop. Apply Ralph's TDD gate before behavior-changing
-production edits: read and follow `test-driven-development`, record
-RED/GREEN/REFACTOR evidence, and document any approved exception.
-
-### Phase 3: QA Loop
-
-When Phase 2 executes through `ralph`, Ralph owns story-level verification,
-mode-gated review, cleanup, and `verification-before-completion`. Ultrawork's
-QA loop is the orchestration-level layer around that result: investigate failed
-commands, integration problems, merge problems, or scenario gaps that remain
-after Ralph's task-worktree evidence.
-
-Run build, lint, test, or scenario checks relevant to the repository when they
-are needed to validate the orchestrated result, especially after worktree
-integration or when Ralph reports a blocker.
-
-Dispatch:
-
-- `systematic-debugging` (skill, not agent) for root-cause investigation of
-  failures before fixes; it owns `debugger` dispatch per its own contract
-  (one STANDARD debugger, or a named THOROUGH pair, plus its hypothesis ledger)
-  — do not dispatch a raw `debugger` outside that flow
-- `verifier` subagent for evidence packaging and, via its scenario lens,
+- `systematic-debugging` (skill, not agent) for root-cause investigation
+  before fixes; it owns `debugger` dispatch per its own contract
+- `verifier` for evidence packaging and, via its scenario lens,
   user-facing flows
 
 Repeat until checks pass or a blocking reason is documented.
 
-### Phase 4: Final Validation
+### FINAL_VALIDATION
 
-Final Validation does not repeat Ralph's required internal gates when Ralph has
-already completed them. Dispatch the additional orchestration-level review
-subagents warranted by integration, merge, public-contract, security, or
-cross-phase risk, and — at STANDARD and THOROUGH on subagent-capable hosts —
-always dispatch an independent `verifier` when execution produced or changed
-proving tests or the implementation/tests were authored or accepted by the same
-agent, regardless of extra orchestration risk (record the fallback reason if the
-host cannot dispatch):
+Do not repeat Ralph's completed internal gates [U11]. Add one targeted
+`code-reviewer` only for additional orchestration risk not already covered
+by Ralph (integration, merge, public-contract, security, or cross-phase),
+with its security lens when security-sensitive behavior was touched.
+Paired review requires a named THOROUGH trigger; the STANDARD small-task
+carve-out is a direct-Ralph path and never applies here; STANDARD records
+`single-reviewer`.
 
-- `code-reviewer` for execution correctness, maintainability, regression risk,
-  and architecture-sensitive implementation concerns, with its security lens
-  for security-sensitive behavior
-- `verifier`: required as an independent pass (acceptance-to-evidence mapping +
-  adversarial test-genuineness audit) under the carve-out in
-  `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation
-  were authored or accepted by the same agent; plus its scenario lens for
-  user-facing behavior
-- STANDARD records `single-reviewer`; the STANDARD small-task carve-out is a
-  direct-Ralph path and does not apply to Ultrawork validation. Use cross-host
-  review or the Same-Host Parallel Fallback only for a named THOROUGH
-  paired-review trigger. The `verifier` remains one self-host pass.
+At STANDARD/THOROUGH on subagent-capable hosts, always dispatch the
+independent `verifier` when execution produced or changed proving tests or
+the implementation/tests were authored or accepted by the same agent
+(record the fallback reason if the host cannot dispatch) [U14]. The
+verifier remains one self-host pass.
 
-Review-then-verify order: run the selected code-review stage first, then the
-confirming independent `verifier` pass (never the maker). This mirrors Ralph.
-
-Before dispatching Final Validation review roles, write the dependency graph into
-the session ledger:
+Review-then-verify order: run the selected code-review stage first, then
+the confirming independent `verifier` pass (never the maker). Before
+dispatching, write the dependency graph into the session ledger:
 
 ```text
 Final Validation dependency graph:
@@ -374,150 +287,145 @@ Final Validation dependency graph:
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
-`verifier eligible to start` is `yes` only after the selected code-review stage
-has completed (or a compliant fallback/not-required reason is recorded), the
-caller has captured the review output or pair synthesis, and blocking findings are either
-resolved or recorded as blocking. A verifier spawned before that point is stale
-evidence for Final Validation, must be recorded as discarded, and must be rerun
-after the reviewer dependency is satisfied before it can count as the
-independent verifier pass. When both code-reviewer and verifier are required,
-the Final Validation ledger must show
-`verifier started after reviewer completion: yes` or the verifier pass is stale
-and does not count.
+`verifier eligible to start` is `yes` only after the selected code-review
+stage completed (or a compliant fallback/not-required reason is recorded),
+its output or synthesis is captured, and blocking findings are resolved or
+recorded. A verifier spawned before that point is stale evidence, must be
+recorded as discarded, and must be rerun after the dependency is
+satisfied. When both roles are required, the ledger must show
+`verifier started after reviewer completion: yes` or the verifier pass
+does not count.
 
-If execution was handled inline instead of through `ralph`, apply Ralph's
+If execution ran inline instead of through `ralph`, apply Ralph's
 mode-gated review, cleanup, baseline guard, review-loop budget, and final
 evidence requirements here before reporting success.
 
-### Phase 5: Report
+### REPORT
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded per Phase 1), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each). A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `single-reviewer` for STANDARD or a named THOROUGH pair topology; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each) [U12]. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `single-reviewer` for STANDARD or a named THOROUGH pair topology; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 
-Before writing the final report, read and follow `verification-before-completion`
-for the final delivery claim unless Ralph already ran it for the same final
-claim and no integration, merge, or orchestration-level evidence changed after
-that point. If post-Ralph evidence changed, run it again against the final
-orchestrated result.
+Skip re-running verification-before-completion only when Ralph already ran
+it for the same final claim and no integration, merge, or
+orchestration-level evidence changed after that point; otherwise run it
+against the final orchestrated result.
 
-Write a final report with:
+The final report contains: spec or plan path; session directory; execution
+mode and mode source; Worktree decision, integration checkout, post-merge
+verification, and cleanup status; phases completed; files changed;
+commands run; review and cleanup status; residual risk.
 
-- spec or plan path
-- session directory
-- execution mode and mode source
-- Worktree decision, integration checkout, post-merge verification, and cleanup
-  status
-- phases completed
-- files changed
-- commands run
-- review and cleanup status
-- residual risk
+## Agent Roles
 
-## Vague Request Signals
+Ultrawork normally reaches most roles by reading and following
+`interview`, `ralplan`, and `ralph` [U1]; inline phase handling is the
+fallback, not the default. Dispatch each phase's agents as separate
+subagents on subagent-capable hosts — dispatch keeps phase noise out of
+the orchestration context, and checker independence requires a separate
+context [U14]. Apply the active platform's dispatch authorization for
+eligible phase agents without per-run subagent approval; do not pause
+Ultrawork only to ask whether subagents may be used [U16]. Eligibility
+still requires decision-changing value; content gates, role isolation,
+fallback reasons, and lifecycle cleanup are never skipped.
 
-Start with `interview` when the prompt lacks:
+| Phase | Agents |
+|---|---|
+| REQUIREMENTS | follow `interview`; it dispatches `explore` for brownfield facts; no planning or review agents here |
+| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; STANDARD uses one reviewer, a pair requires a named THOROUGH risk |
+| EXECUTION | follow `ralph`; isolated `explore`, `executor`, `verifier`, and review agents per the approved mode and plan; inline only for documented unavailable or unsafe-to-isolate cases |
+| QA | `systematic-debugging` owns `debugger`; `verifier` with the scenario lens |
+| FINAL_VALIDATION | one targeted `code-reviewer` for orchestration risk; independent `verifier` under the carve-out |
 
-- target files or subsystem
-- acceptance criteria
-- user or caller impact
-- verification command
-- constraints
-- concrete examples
+If the user invoked ultrawork with `parallel`, `subagents`, `spawn`,
+`delegate`, or `one agent per` language outside an approved plan profile,
+preserve that phrase as an explicit dispatch signal. Preserve
+`Parallel trigger: natural-dispatch` only for direct Ralph execution when
+the host permits proactive dispatch and the active skill policy itself
+authorizes eligible isolated roles.
 
 ## Ultrawork Exception
 
-Ultrawork is the only context that may invoke `interview`, `ralplan`, or `ralph` without the per-step transition question those skills normally require. The user opted into orchestration when they invoked ultrawork, so each phase boundary moves automatically once the prior phase's content gate is satisfied.
+Ultrawork is the only context that may invoke `interview`, `ralplan`, or
+`ralph` without the per-step transition question those skills normally
+require [U13]: the user opted into orchestration, so each phase boundary
+moves automatically once the prior phase's content gate is satisfied. It
+skips the between-phase "which next skill?" question and the separate
+plan-approval prompt (PLANNING's automatic approval per U4 — ralplan's
+`### Ultrawork exception` owns the pause conditions). It does not skip
+interview/spec approval when requirements are unclear, planning quality
+gates, scope-change pauses, verification, or final evidence.
 
-Content gates inside the sub-skills still run, but Ultrawork owns the approval
-handling after requirements are clear:
-
-- `interview` still has the user review the spec when the request is vague or
-  product intent is missing. Ultrawork does not auto-approve the interview spec.
-- After the user approves the interview spec, or when the starting request is
-  already concrete enough to plan, Ultrawork automatically approves `ralplan`
-  output that satisfies the required planning gates.
-- Ultrawork then automatically invokes `ralph` with that Ultrawork-approved
-  plan or spec and treats the implementation handoff as approved.
-- `ralph` still runs `verification-before-completion` before any final
-  completion claim, but that final evidence gate is verification, not a new
-  user approval prompt.
-
-Ultrawork skips the "which next skill?" question between phases and the separate
-`ralplan` plan-approval prompt after requirements are approved. It does not skip
-interview/spec approval when requirements are unclear, planning quality gates,
-scope-change pauses, verification, or final evidence.
-
-Under ultrawork, `interview`'s Phase 1 spec review still surfaces to the user
-when an interview was needed. `ralplan`'s Plan Approval Brief is converted into
-an internal execution record unless it reveals a pause condition: changed
-approved scope, a blocking product decision or blocking ambiguity, conflict
-with the approved requirements source (for example the interview spec), a
-missing execution profile, or an explicit user request to review the plan
-manually.
-When no pause condition exists, record the plan approval source and continue
-directly into `ralph`.
-
-If the user invokes `interview`, `ralplan`, or `ralph` directly without going through ultrawork, the per-step Next Skill Handoff in those skills is required.
+If the user invokes `interview`, `ralplan`, or `ralph` directly without
+going through ultrawork, the per-step Next Skill Handoff in those skills
+is required.
 
 ## Output
 
-Return:
+Return: active artifact paths; phase status; skills used in order;
+verification evidence; final result or blocker.
 
-- Active artifact paths.
-- Phase status.
-- Skills used in order.
-- Verification evidence.
-- Final result or blocker.
+Maintenance references (rationale only, never a runtime prerequisite):
+`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
+`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`.
 
-## Source: docs/platforms/codex-runtime.md
+## Source: docs/platforms/codex-ultrawork.md
 
-# Codex Runtime Rules
+# Ultrawork Codex Adapter
 
-This compact platform section is embedded in generated Codex-facing skill
-documents.
+<ADAPTER_CONTRACT>
+This adapter binds the Ultrawork core to Codex. The core owns every
+semantic decision; this file owns only host invocation and lifecycle
+mechanics. If they conflict, the core wins. The generated core plus this
+adapter is sufficient: longer platform, shared, and agent documents are
+optional maintenance context, never a runtime prerequisite.
+</ADAPTER_CONTRACT>
 
-## Skill Loading
+## Sub-Skill Invocation
 
-Codex-facing public skills live under `skills/`. Generated
-`skills/<skill>/SKILL.md` files compose the matching skill core, this compact
-runtime section, and any Codex skill-specific overlay such as
-`docs/platforms/codex-<skill>.md`.
+Invoke `interview`, `ralplan`, and `ralph` through the installed Codex
+skill mechanism with the artifact path as context; never ask the user to
+type a command. The sub-skill's own generated wrapper is its source of
+truth — do not restate its rules in the handoff prompt.
 
-## User Approval And Prompting
+## Phase-Agent Dispatch
 
-Ask approval, preference, scope, or next-step questions directly in the Codex
-conversation. Keep prompts outcome-first: state the desired outcome,
-acceptance criteria, non-goals or side effects, expected evidence, and output
-shape before detailed steps.
+Dispatch is trigger-loaded — dispatch only after the active phase's trigger
+fires. The Codex SessionStart block
+`CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` is the standing
+session-level authorization for eligible phase-owned roles; do not ask for
+per-run subagent approval to satisfy it. If `spawn_agent` is exposed, make
+the actual registered-agent call first:
 
-Use compact final answers unless the active skill requires a plan, review, or
-verification report. Preserve durable state in written artifacts before long
-work, compaction, or handoff.
+```text
+spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
+            fork_turns="none")
+```
 
-## Role Dispatch
-
-Dispatch only after the active skill's trigger fires, then read
-`docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first, do not combine it with
-`fork_context=true`, and use generic prompt embedding only after the custom
-agent is actually rejected. The task packet carries scope, ownership, expected
-output, and lifecycle.
-
-Every dispatched result is a dependency: `wait_agent` must reach final status,
-the caller captures and uses the output, and only then performs lifecycle
-cleanup. Timeout, empty output, or "No agents completed yet" is not final; do
-not close, redo inline, or use missing output as evidence.
-
-## Generic Role Prompt Fallback
-
-After confirmed custom-agent unavailability, embed
-`docs/agent-core/<role>.md`; see the full platform doc for the fallback shape.
+Only an actual unknown/unavailable `agent_type` rejection confirms the
+custom role cannot be used; then use a generic agent with the matching
+`docs/agent-core/<role>.md` prompt embedded and record the fallback. One
+payload shape per spawn; no `fork_context`. Spawn the whole independent
+batch before `wait_agent`. A timeout, empty wait, or "No agents completed
+yet" is not final — never close a running or pending subagent merely
+because it is slow, and never use missing output as completion evidence.
+Call `close_agent` only after capturing a final result, when the host
+exposes it.
 
 ## Cross-Host Consult Channel
 
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/codex.md` `## Cross-Host Consult Channel` before dispatch. Until
-then, do not preload opposite-host invocation details.
+A named-THOROUGH Final Validation pair starts one Codex `code-reviewer`
+and one transport-owner reviewer making exactly one foreground Claude call
+with the identical redacted packet
+(`claude --print --model opus --permission-mode dontAsk
+--no-session-persistence`). A launch notice, background acknowledgement,
+or empty output is unavailable evidence; on opposite-host unavailability
+run the same-host parallel fallback and record it.
+
+## Worktree Commands
+
+Use ordinary `git worktree add .oh-no/worktrees/<task-slug> -b <branch>`
+from the integration checkout; inspect task changes with
+`git -C .oh-no/worktrees/<task-slug> status`. Remove the worktree only
+after integration and post-merge verification complete.

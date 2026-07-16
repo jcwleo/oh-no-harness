@@ -148,7 +148,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Read and follow `ralplan`", BOTH),
         ("Read and follow `ralph`", BOTH),
         ("Ultrawork-approved", BOTH),
-        ("execution mode and mode source", BOTH),
+        ("mode and mode source", BOTH),
         ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
         ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + ralph-subagent-policy.md)
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
@@ -161,7 +161,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
-        ("Add one targeted `code-reviewer` only for additional orchestration risk", BOTH),
+        ("Add one targeted", BOTH),
+        ("`code-reviewer` only for additional orchestration risk", BOTH),
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),

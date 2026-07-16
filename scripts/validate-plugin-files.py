@@ -38,7 +38,7 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
-SELF_CONTAINED_ADAPTER_SKILLS = {"interview", "ralplan", "ralplan-v2", "ralph"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"interview", "ralplan", "ralplan-v2", "ralph", "ultrawork"}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
@@ -121,18 +121,18 @@ NEXT_SKILL_GATE_MARKERS = (
     "Ultrawork exception",
 )
 ULTRAWORK_EXCEPTION_HEADING = "## Ultrawork Exception"
+# Re-anchored to the FSM core (2026-07-16 rewrite): the auto-approval
+# narration now lives once (U4/U13); stems below survive that single home.
 ULTRAWORK_AUTO_APPROVAL_MARKERS = (
     "Interview is the only user-facing content approval gate",
     "Plan approval source: ultrawork automatic approval after interview/spec",
     "Ultrawork-approved plan or spec",
-    "automatically approves `ralplan`",
-    "automatically invokes `ralph`",
-    "not a new\n  user approval prompt",
+    "automatically approved for execution",
+    "moves automatically once the prior phase's content gate is satisfied",
     "scope-change pauses",
-    "Plan Approval Brief is converted into\nan internal execution record",
+    "do not pause for a separate Plan Approval Brief",
 )
 ULTRAWORK_LOOP_CONTRACT_MARKERS = (
-    "## Loop Contract",
     "planning gate uses `ralplan`",
     "execution handoff uses `ralph`",
     "start_or_resume",
@@ -144,11 +144,10 @@ ULTRAWORK_LOOP_CONTRACT_MARKERS = (
     "final_validation",
     "Heartbeat contents:",
     "Resume precedence:",
-    "State authority:",
-    "Doctor/status gate semantics:",
-    "Checker outputs:",
-    "Escalation rules:",
-    "Terminal states:",
+    "authoritative",
+    "Doctor/status gate semantics",
+    "Checker outputs",
+    "Escalation routes",
     ".oh-no/sessions/{sessionId}/ultrawork.md",
     "No timer, daemon, or background heartbeat",
     "No JSON state artifact in v1",
@@ -271,20 +270,17 @@ PLATFORM_SUBAGENT_MARKERS = {
         "Plan Review Contract",
         "Planner Revision Contract",
     ),
+    # Re-anchored to the FSM core (2026-07-16 rewrite): dispatch bias +
+    # standing authorization live once under ## Agent Roles.
     "ultrawork": (
-        "separate role contexts",
-        "separation can improve planning or review",
+        "checker independence requires a separate\ncontext",
         "Parallel trigger: approved-plan-handoff",
         "Parallel trigger: natural-dispatch",
-        "should keep separate role contexts",
-        "independent delegated phase work",
+        "keeps phase noise out",
         "active platform's dispatch authorization",
-        "standing authorization",
-        "per-run subagent approval",
-        "`interview`/`explore`",
-        "QA Loop roles",
-        "Final Validation roles",
-        "lifecycle cleanup requirements",
+        "without per-run subagent approval",
+        "do not pause\nUltrawork only to ask whether subagents may be used",
+        "lifecycle cleanup are never skipped",
     ),
     "interview": (
         "active platform's dispatch authorization",
@@ -605,7 +601,7 @@ WORKTREE_SKILL_MARKERS = {
         "integration checkout and post-merge verification",
     ),
     "ultrawork": (
-        "## Automatic Worktree Execution",
+        "### WORKTREE",
         ".oh-no/worktrees/<task-slug>",
         "using `git worktree add`",
         "not valid substitutes",
@@ -731,9 +727,8 @@ EXECUTION_MODE_SKILL_MARKERS = {
         "must follow the",
     ),
     "ultrawork": (
-        "docs/shared/execution-modes.md",
-        "execution mode and mode source",
-        "active platform runtime document",
+        "mode and mode source",
+        "active platform's dispatch authorization",
     ),
 }
 SKILL_REQUIRED_AGENT_ROLES = {
@@ -1763,11 +1758,14 @@ def assert_no_forbidden_ultrawork_runtime_claims(path: Path, body: str) -> None:
 
 
 def assert_ultrawork_loop_contract(path: Path, body: str) -> None:
-    loop_contract = markdown_section(body, "## Loop Contract")
-    if not loop_contract:
-        die(f"{path} is missing required Ultrawork Loop Contract section")
+    # The 2026-07-16 FSM rewrite folded ## Loop Contract into Invariants,
+    # Heartbeat, and the State Machine; the loop-bearing stems now anchor
+    # against the whole core body under those three required sections.
+    for heading in ("## Invariants", "## Heartbeat", "## State Machine"):
+        if not markdown_section(body, heading).strip():
+            die(f"{path} is missing required Ultrawork section: {heading!r}")
     for marker in ULTRAWORK_LOOP_CONTRACT_MARKERS:
-        if not has_required_marker(body if marker.startswith("## ") else loop_contract, marker):
+        if not has_required_marker(body, marker):
             die(f"{path} is missing required Ultrawork Loop Contract marker: {marker!r}")
     assert_no_forbidden_ultrawork_runtime_claims(path, body)
 
@@ -1904,7 +1902,7 @@ def assert_skill(root: Path, skill: str) -> None:
         if ULTRAWORK_EXCEPTION_HEADING not in body:
             die(f"{path} is missing required heading: {ULTRAWORK_EXCEPTION_HEADING!r}")
         for marker in ULTRAWORK_AUTO_APPROVAL_MARKERS:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Ultrawork auto-approval marker: {marker!r}")
         assert_ultrawork_loop_contract(path, body)
     if skill in ROLE_POLICY_MARKERS:
@@ -2831,10 +2829,10 @@ def assert_cross_host_review_contract(root: Path) -> None:
 
     ultrawork_final_validation = markdown_section(
         read_text(root / "docs" / "skill-core" / "ultrawork.md"),
-        "### Phase 4: Final Validation",
+        "### FINAL_VALIDATION",
     )
     if not ultrawork_final_validation:
-        die("docs/skill-core/ultrawork.md is missing required '### Phase 4: Final Validation' section")
+        die("docs/skill-core/ultrawork.md is missing required '### FINAL_VALIDATION' section")
     for marker in (
         "Final Validation dependency graph",
         "verifier eligible to start: yes | no",
@@ -4116,7 +4114,7 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             die(f"{skill}.md must not directly dispatch plan-reviewer outside Ralplan")
 
     ultrawork = read_text(skill_core / "ultrawork.md")
-    final_validation = markdown_section(ultrawork, "### Phase 4: Final Validation")
+    final_validation = markdown_section(ultrawork, "### FINAL_VALIDATION")
     if has_token(final_validation, "plan-reviewer"):
         die("ultrawork.md Final Validation must not directly dispatch plan-reviewer")
     if direct_dispatch.search(final_validation):
@@ -4271,6 +4269,32 @@ FSM_CONTRACTS = {
         ),
         "min_guard_citations": 8,
     },
+    "ultrawork": {
+        "phases": (
+            "START_OR_RESUME",
+            "REQUIREMENTS",
+            "PLANNING",
+            "WORKTREE",
+            "EXECUTION",
+            "QA",
+            "FINAL_VALIDATION",
+            "REPORT",
+        ),
+        "outcomes": (
+            "succeeded_merged_verified_reported",
+            "succeeded_left_worktree_for_inspection",
+            "paused_for_user",
+            "blocked",
+            "cancelled",
+            "failed_verification",
+            "scope_change_pending_approval",
+        ),
+        "rule_ids": (
+            "U1", "U2", "U3", "U4", "U5", "U6", "U7", "U8", "U9",
+            "U10", "U11", "U12", "U13", "U14", "U16", "U17",
+        ),
+        "min_guard_citations": 10,
+    },
 }
 
 
@@ -4297,6 +4321,7 @@ def assert_fsm_contract(root: Path, skill: str) -> None:
         "ralplan": "## Planning Run Snapshot",
         "ralph": "## Execution Run Snapshot",
         "interview": "## Interview Run Snapshot",
+        "ultrawork": "## Heartbeat",
     }
     snapshot = markdown_section(body, snapshot_headings[skill])
     for phase in contract["phases"]:
