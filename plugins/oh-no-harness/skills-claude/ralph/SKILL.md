@@ -16,7 +16,6 @@ This generated file is the Claude Code-facing runtime skill document. Claude Cod
 Source order:
 
 - `../../docs/skill-core/ralph.md`
-- `../../docs/platforms/claude-code-runtime.md`
 - `../../docs/platforms/claude-code-ralph.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
@@ -25,785 +24,658 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 # Ralph
 
-Ralph is a mode-gated execution loop. It keeps working according to the selected
-execution mode until acceptance criteria are satisfied, verification evidence is
-recorded, required review and cleanup gates are handled, and the final report is
-written.
+Ralph is a mode-gated execution loop: it works until acceptance criteria are
+satisfied with fresh evidence, required review and cleanup gates are handled,
+and the final report is written. Ralph owns execution mode selection or
+enforcement for ordinary implementation. Do not route concrete
+add/fix/refactor/implement requests directly to `test-driven-development`;
+Ralph invokes TDD internally when behavior-changing edits require it.
 
-## Software Development Stage
+Do not use when requirements are still vague — use `interview` or `ralplan`
+first. Entering directly from `interview`, accept the path only if the spec's
+provisional Ralph mode is `LIGHT`; a non-LIGHT spec without a `ralplan` plan
+needs user re-confirmation before editing.
 
-Ralph is the implementation and integration stage for LLM software development.
+Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 
-Use it after requirements are clear enough to execute: an approved `interview` spec, an approved `ralplan` plan, a PRD, ticket, or concrete task with acceptance criteria. Ralph owns execution mode selection or enforcement, story execution, TDD enforcement, debugging handoff, optional `fusion-rescue` escalation for stalled hard problems, verification, review, cleanup, and final reporting.
+## Invariants
 
-## When To Use
+```text
+E1. Copy the approved Direction Contract without reinterpretation before
+    editing. If execution would change it, stop for explicit approval instead
+    of silently rescoping. If the approved plan or an AC is itself wrong or
+    infeasible as written, stop and route back to the user or `ralplan`
+    (present options; never auto-invoke).
+E2. An execution mode is recorded before any file change. Source priority:
+    approved ralplan profile > explicit user instruction > interview LIGHT
+    hint > Ralph-derived. Never de-escalate below an approved plan's mode
+    without user approval.
+E3. No source edit until a `Worktree decision` is recorded from the allowed
+    table. A registered Git worktree is the direct-Ralph default; substitutes
+    (`git clone`, `cp -R`, plain directories) are forbidden.
+E4. Behavior-changing work requires RED evidence (fails against old behavior)
+    before implementation and GREEN evidence before story completion; bug
+    fixes need a reproduction; refactors need characterization; exceptions
+    are recorded compactly.
+E5. Every changed file and meaningful changed line traces to approved work;
+    out-of-scope findings become residual risk or follow-ups, not diff growth.
+E6. Parallel dispatch only for disjoint write scopes with no inter-dependency
+    and clear ownership; create the whole eligible batch before waiting; a
+    timeout or empty wait is never a final result.
+E7. Review-then-verify: the selected code-review stage completes before the
+    single independent self-host verifier starts; the verifier is never the
+    maker and never a pair.
+E8. Review topology is mode-gated with a bounded budget: one original review
+    plus one focused re-check; a second unresolved blocking round requires
+    rescope or user direction.
+E9. Mutation invalidates intersecting evidence. A success status without the
+    observable effect is missing evidence. Redact secrets/PII before writing
+    evidence.
+E10. Budget gates stop for rescope; a budget breach never authorizes
+     automatic expansion.
+E11. The run is invalid until every completion criterion is individually
+     recorded in the session ledger; a silently omitted step is a named
+     ledger gap, not a pass.
+E12. Cleanup is trigger-gated after the behavior lock and required review;
+     rerun relevant verification whenever cleanup changes files.
+E13. A direct-Ralph automatic worktree is not complete while work sits in the
+     worktree: merge back with post-merge verification, or report the
+     branch/PR handoff; on failure leave the worktree intact.
+E14. Resume reconstructs state from artifacts, never working memory.
+E15. Ralph is terminal: after the final report, no workflow skill is
+     auto-invoked. Mid-loop skills (`test-driven-development`, `simplify`,
+     `verification-before-completion`, `systematic-debugging`,
+     `fusion-rescue`) are documented loop internals, not chaining events.
+E16. A rebound `executor-codex` transport owns no evidence; the identity
+     rebind does not change Ralph eligibility.
+```
 
-Use when:
+`STOP` / `blocked` means: persist the snapshot with the blocked transition,
+evidence, and unblock condition, then report — never a silent exit.
 
-- the user gives an approved plan, PRD, or concrete spec
-- acceptance criteria exist or can be made explicit before editing
-- an execution mode is provided or can be selected before editing
-- the task needs durable progress tracking
-- the work should not stop at "probably done"
+## Execution Run Snapshot
 
-Do not use when requirements are still vague. Use `interview` or `ralplan` first.
+Maintain one snapshot in the session note or PRD; persist it at every phase
+change, story completion, verdict, mutation, and before any pause [E14].
+It is a resume index into the artifacts below, not a second evidence ledger.
 
-When entering directly from `interview`, accept the path only if the spec's provisional Ralph mode is `LIGHT`. If a non-LIGHT spec arrives without a `ralplan` plan, re-confirm with the user before editing — the interview-side gate should have routed to `ralplan` first.
+```text
+Execution run:
+- Run: <id>; Phase: PREPARE | EXECUTE | REVIEW | FINALIZE
+- Checkpoint: none | CLEANUP | RECHECK | INTEGRATE | COMPLETION_AUDIT
+- Outcome: none | COMPLETE | PAUSED | RETURN_TO_PLAN
+- Plan/approval: <path>; <status/source>
+- Mode: <LIGHT|STANDARD|THOROUGH>; <source>; <tier>; <policies>; <Parallel trigger>
+- Worktree decision and location: <decision>; <location>
+- Stories: <id: status/passes — detail stays in prd.json>
+- Review: <topology>; <verdict>; verifier-after-reviewer <yes|no|not-required>
+- Budgets: <process-budget status>; diff-budget <pending|run>
+- Freshness: <evidence invalidated by the last mutation>
+```
 
-## Required Reading
+## State Machine
 
-Read always-active owners before the first story. Read a triggered owner
-immediately before the first dependent gate. A path reference here is a
-pointer, not a substitute for reading. If a listed file cannot be read, record
-the blocker instead of proceeding past the gate that depends on it.
-
-| Contract | Class | Trigger / timing |
+| Phase | Exit guard | Next |
 |---|---|---|
-| `docs/shared/execution-modes.md` | always | before mode, Direction Contract, active gates, and process budget are recorded |
-| `docs/shared/worktree-isolation.md` | always | before the worktree decision |
-| `docs/shared/verification-tiers.md` | always | before the acceptance-to-evidence ledger is planned |
-| `docs/shared/ralph-subagent-policy.md` | triggered | before dispatch or maker-verifier independence is needed |
-| `docs/shared/agent-tiers.md` | triggered | before selecting a role's scrutiny level |
-| `docs/shared/validation-check.md` | triggered | when measurable evidence influences a decision or claim |
-| `docs/shared/cross-host-review.md` | triggered | only when a named THOROUGH risk selects paired review |
-| `docs/shared/failure-taxonomy.md` | triggered | when a non-obvious story risk needs classification |
+| PREPARE | Direction Contract copied; mode, profile, active gates, budgets recorded; Worktree decision recorded; artifacts scaffolded per policy [E1, E2, E3] | EXECUTE |
+| PREPARE | input too vague, or non-LIGHT spec without plan unconfirmed [E1] | outcome RETURN_TO_PLAN |
+| PREPARE | worktree or environment blocked [E3] | outcome PAUSED |
+| EXECUTE | a ready story remains | EXECUTE (story loop below [E4, E5, E10]) |
+| EXECUTE | all stories pass with fresh evidence; Diff-Budget Gate run exactly once [E9, E10] | REVIEW |
+| EXECUTE | plan or AC infeasible as written [E1] | outcome RETURN_TO_PLAN |
+| EXECUTE | debugging ladder exhausted [E15] | outcome PAUSED |
+| REVIEW | review topology satisfied; blockers resolved or recorded; verifier ran after reviewer completion [E7, E8] | FINALIZE |
+| REVIEW | blocking findings within budget [E8] | EXECUTE (focused fix + focused re-check only) |
+| REVIEW | second unresolved blocking round [E8, E10] | outcome PAUSED |
+| FINALIZE | checkpoints CLEANUP -> RECHECK -> INTEGRATE -> COMPLETION_AUDIT all satisfied [E11, E12, E13] | outcome COMPLETE |
+| FINALIZE | merge or post-merge verification fails [E13] | outcome PAUSED |
+| any | user stop, or a Direction Contract change is required [E1] | outcome PAUSED |
 
 ## Artifacts
 
-Use artifacts according to the selected execution mode from
-`docs/shared/execution-modes.md`.
-
-Full session artifacts are:
+Phase: PREPARE — scaffold per the artifact policy before editing.
 
 ```text
-.oh-no/sessions/{sessionId}/prd.json
+.oh-no/sessions/{sessionId}/prd.json          (full-prd-session)
 .oh-no/sessions/{sessionId}/progress.md
-.oh-no/sessions/{sessionId}/verification.md
+.oh-no/sessions/{sessionId}/verification.md   (canonical AC-to-evidence ledger)
 ```
 
-Reuse the chain session directory established earlier in this run when one
-exists; if the selected mode requires a session and no chain session directory
-was established earlier in this run, create a timestamped directory under
-`.oh-no/sessions/`. On resume, the session directory recorded in the run's
-artifacts wins. `LIGHT` mode may use a compact session note instead of full PRD
-scaffolding unless the input requires stories.
-
-`verification.md` is the canonical acceptance-to-evidence ledger. PRD,
-progress, review, and final-report sections point to its AC IDs and delta rather
-than recreating unchanged mappings.
+Reuse the chain session directory established earlier in this run; otherwise
+create a timestamped one. On resume, the directory recorded in the run's
+artifacts wins. LIGHT may use a compact session note unless the input
+requires stories. `verification.md` is the canonical acceptance-to-evidence
+ledger; PRD, progress, review, and report sections point to its AC IDs
+instead of recreating mappings:
 
 ```text
-Acceptance-to-evidence ledger:
-- AC ID:
-- Planned evidence:
-- Actual evidence:
+Acceptance-to-evidence ledger row:
+- AC ID; planned evidence; actual evidence;
 - Coverage strength: direct | indirect | manual | missing
 - Status: planned | actual | audited | stale | blocked
-- Freshness source:
-- Reviewer findings by AC ID:
-- Verifier audit:
-- Residual risk:
+- Freshness source; reviewer findings by AC ID; verifier audit; residual risk
 ```
 
-## Required Execution Mode
-
-Read `docs/shared/execution-modes.md` before editing.
-
-Ralph must set an execution mode before changing files and must follow the
-selected mode during implementation, review, cleanup, and reporting.
-
-Execution mode source priority:
-
-1. approved `ralplan` execution profile
-2. explicit user instruction
-3. approved `interview` provisional sizing hint when direct Ralph was chosen
-4. Ralph-derived mode using the Execution Mode Decision Prompt
-
-If no approved plan profile exists, answer the Execution Mode Decision Prompt
-from `docs/shared/execution-modes.md`, record the result, and continue with the
-lightest credible mode. Ask before editing only when the mode depends on an
-assumption that changes user-visible behavior, architecture, data handling,
-security posture, or delivery scope.
-
-The final report must include the selected mode, mode source, verification tier,
-artifact policy, agent policy, parallel trigger, cleanup policy, and any
-escalation that happened while working. It must also include the `Worktree
-decision` from `docs/shared/worktree-isolation.md`.
-
-## PRD Shape
-
-Represent work as stories:
+PRD stories (when the artifact policy requires a PRD, scaffold one from the
+approved input before editing):
 
 ```json
 {
-  "title": "Task title",
-  "directionContract": {
-    "requirementsSource": "approved spec, plan, ticket, or request",
-    "primaryGoal": "user-confirmed outcome",
-    "requiredOutcomeIds": ["AC-1"],
-    "nonGoals": [],
-    "constraints": [],
-    "protectedAssumptions": [],
-    "directionChangeApprovalRule": "explicit user approval",
-    "confirmationStatus": "confirmed | inferred | open"
-  },
-  "activeGates": ["worktree", "verification", "other triggered gates only"],
-  "executionMode": {
-    "overallRalphMode": "LIGHT | STANDARD | THOROUGH",
-    "modeSource": "plan | spec | user | derived by Ralph",
-    "verificationTier": "LIGHT | STANDARD | THOROUGH",
-    "artifactPolicy": "compact | session-verification | full-prd-session",
-    "agentPolicy": "inline-only | targeted-subagents | full-review-set",
-    "parallelTrigger": "approved-plan-handoff | explicit-user-request | natural-dispatch | none",
-    "worktreeDecision": "approved worktree | already in approved worktree | direct automatic worktree | light direct checkout | user declined/current checkout | ultrawork automatic worktree | read-only/not applicable | blocked",
-    "worktreeLocation": ".oh-no/worktrees/<task-slug> | current checkout | not-applicable | explicit fallback path",
-    "cleanupPolicy": "not-needed | conditional | required"
-  },
-  "stories": [
-    {
-      "id": "story-1",
-      "description": "User-visible or maintainer-visible outcome",
-      "executionMode": "LIGHT | STANDARD | THOROUGH",
-      "acceptanceCriteria": [
-        "Concrete criterion"
-      ],
-      "status": "pending",
-      "passes": false
-    }
-  ]
+  "title": "...",
+  "directionContract": { "requirementsSource": "...", "primaryGoal": "...",
+    "requiredOutcomeIds": ["AC-1"], "nonGoals": [], "constraints": [],
+    "protectedAssumptions": [], "directionChangeApprovalRule": "explicit user approval",
+    "confirmationStatus": "confirmed | inferred | open" },
+  "executionMode": { "overallRalphMode": "...", "modeSource": "...",
+    "verificationTier": "...", "artifactPolicy": "...", "agentPolicy": "...",
+    "parallelTrigger": "...", "worktreeDecision": "...",
+    "worktreeLocation": "...", "cleanupPolicy": "..." },
+  "stories": [ { "id": "story-1", "description": "outcome", "executionMode": "...",
+    "acceptanceCriteria": ["..."], "status": "pending", "passes": false } ]
 }
 ```
 
-Product or maintainer outcomes are stories. Tests, review, cleanup, and evidence
-remain activities under the AC-bearing story unless the user explicitly asked
-for their infrastructure as a deliverable.
+Product or maintainer outcomes are stories; tests, review, cleanup, and
+evidence stay activities under the AC-bearing story unless the user asked for
+that infrastructure as a deliverable.
 
-Both `user declined/current checkout` and `light direct checkout` runs record
-`Worktree location: current checkout`.
+## Required Execution Mode
 
-If the selected artifact policy requires a PRD and one does not exist, scaffold
-one from the approved input before editing.
+Phase: PREPARE. Ralph must set an execution mode before changing files and
+must follow the selected mode during implementation, review, cleanup, and
+reporting [E2]. Source priority per E2; with no approved profile, answer the
+Execution Mode Decision Prompt and record `Mode source: derived by Ralph`.
 
-## Agent Roles
+Execution Mode Decision Prompt — answer from the request, repository facts,
+and known verification commands, then choose the lightest credible loop:
 
-Ralph uses these roles while preserving the current platform's rules for agent use:
+```text
+1. Expected size (files/lines) and existing test or verification coverage?
+2. What observable behavior changes, and what real surface validates it?
+3. Isolated, or crossing modules/generated artifacts/routing/public surface?
+4. Could it affect runtime behavior, persisted data, permissions, secrets,
+   network/filesystem, external services, concurrency, migrations, or
+   destructive operations?
+5. Are ACs and direct evidence already clear enough for a lighter loop?
+6. What would force escalation mid-run?
+7. Can a lighter mode produce credible evidence without skipping a stated
+   requirement?
+```
 
-| Agent | Use |
-|---|---|
-| `explore` | Find relevant files, existing tests, commands, and integration surfaces when they are not obvious. Independent read-only exploration targets may be dispatched as parallel `explore` subagents in one batch. |
-| `executor` | Implement scoped story work. |
-| `verifier` | Package evidence against acceptance criteria and verification tiers; apply the scenario lens to validate user-facing flows and scenario coverage when applicable. Required as an independent pass under the carve-out in `docs/shared/ralph-subagent-policy.md` when the proving tests/implementation were authored or accepted by the same agent. An unconditionally single self-host independent pass, never a cross-host or same-host pair. |
-| `code-reviewer` | Review execution correctness, maintainability, regressions, missing tests, scope trace, and overcomplication; apply the security lens to auth, data, secrets, file system, network, policy, and injection risk. Cross-host merge: merged findings. |
+Mode definitions (semantic risk selects; category words alone never
+escalate):
 
-Whether a role is inline or dispatched is decided by `## Mode-Gated Agent Dispatch`.
+```text
+LIGHT    = small, isolated, non-behavioral work with no public,
+           security/data, migration, concurrency/lifecycle, destructive, or
+           release risk (every exclusion must hold); compact artifacts;
+           direct-diff review allowed.
+STANDARD = LIGHT | STANDARD | THOROUGH middle tier: localized behavior/config
+           /prompt work with bounded blast radius; session + verification
+           artifacts; one targeted reviewer for behavior-affecting changes.
+THOROUGH = active security/data/auth, destructive, public/release-critical,
+           migration, changed concurrency/lifecycle, multi-system, or
+           unknown-root-cause risk; full PRD session; risk-warranted roles.
+```
 
-STANDARD uses one dispatched reviewer instance when review is triggered.
-Cross-host review (or the Same-Host Parallel Fallback) applies only when a named
-THOROUGH risk selects paired `code-reviewer` review. The
-confirming `verifier` is always one independent self-host pass and starts after
-the selected code-review stage completes.
+Escalate on new semantic risk (behavior change, more files than expected,
+security/data/public surface, unexpected verification results); de-escalate
+only when evidence removes the risk and no approved plan pins the mode.
 
-`simplify` is a skill, not an agent. Use the active platform's Simplify route
-and cleanup invocation rules.
+### STANDARD Small-Task Carve-Out
 
-`verification-before-completion` and `systematic-debugging` are skills, not agents.
+All conditions must hold — size alone is never sufficient:
 
-## Input Hardening
+- at most two tightly coupled handwritten implementation files, roughly 50
+  or fewer handwritten changed lines (mechanical regeneration excluded)
+- an existing test, focused command, or direct observable check already
+  distinguishes the new behavior from the old
+- no security, data, permission, public-contract, release-critical,
+  migration, new-dependency, shared-schema, generated-surface, or
+  concurrency-semantics surface; root cause is not unknown
+- direct `ralph` execution (`ultrawork` keeps the ordinary reviewer)
 
-Before editing, make the executable scope explicit and choose the lightest
-credible loop that can prove the work without skipping a stated requirement.
-
-Copy the approved Direction Contract first. Every story, changed file, test,
-review finding, and final claim must map to an AC ID, a safety invariant, or an
-approved behavior-preserving cleanup boundary. If execution would change the
-Direction Contract, stop for explicit approval instead of silently rescoping.
-
-If the input lacks acceptance criteria, derive them from the approved request and record them in the PRD. Ask before editing when an assumption changes user-visible behavior, architecture, data handling, security posture, or delivery scope.
-
-For each story, record (the named gate owns the detail — do not restate it here):
-
-- expected outcome and acceptance criteria
-- story execution mode
-- owned files or investigation targets
-- scope trace — see Scope Trace Gate
-- contract surface: the actual public, caller, or verifier-facing entrypoint,
-  schema, format, protocol, command, or prompt surface; the source used to
-  identify it; and any compatibility constraint or uncertainty that blocks editing
-- baseline guard: nearby existing tests, smoke checks, or behavior-preserving
-  inspections that should still pass, or the reason no viable baseline exists
-- TDD requirement or exception
-- Worktree decision and location, or the fact that the worktree gate has not yet been resolved
-- verification command or evidence type
-- acceptance-to-evidence mapping plan and verification budget — see Verification
-  Budget Policy
-- story risk check — the most likely `docs/shared/failure-taxonomy.md` risk
-  (for example `contract-surface mismatch`, `semantic-lifecycle/state miss`, `hidden regression`)
-- validation check when measurable evidence influenced the task — see Validation Gate
-- diff-budget expectation — see Diff-Budget Gate
-- STANDARD small-carveout eligibility block when the carve-out is claimed — see
-  `docs/shared/execution-modes.md`
+Record the eligibility block before editing with
+`Review topology: not-required (STANDARD small carve-out: <reason>)` and
+`Status: provisional`. TDD, worktree isolation, session evidence, the
+independent verifier, and verification-before-completion are unchanged. The
+step-recheck reclassifies it against the actual diff: any unexpected file or
+surface, bound breach, proof-path failure, test-infrastructure addition, or
+new semantic uncertainty invalidates it — record
+`Review topology: single-reviewer` and run ordinary STANDARD review before
+the verifier. A record still `provisional` at completion-claim time is a
+named ledger gap.
 
 ## Worktree Isolation Gate
 
 <HARD-GATE>
 For write-capable execution, do not edit source files until a `Worktree
-decision` is recorded.
+decision` is recorded [E3].
 </HARD-GATE>
 
-Read `docs/shared/worktree-isolation.md` before editing.
+Phase: PREPARE. Record exactly one decision from this table; `Worktree
+decision and location` (the PRD `worktreeLocation` field) appear in the
+snapshot and final report:
 
-`interview` and `ralplan` artifacts do not require a worktree by default, but
-Ralph execution does. If the task will edit files, record exactly one allowed
-decision from `docs/shared/worktree-isolation.md` before the first edit.
+| Decision (recorded verbatim) | When | Mutation allowed |
+|---|---|---|
+| `Worktree decision: direct automatic worktree` | direct Ralph default: create or select a registered worktree before editing, no approval question asked | in the worktree |
+| `Worktree decision: light direct checkout` | LIGHT carve-out below fully holds | current checkout |
+| `Worktree decision: user declined/current checkout` | the user explicitly declined worktree use | current checkout |
+| `Worktree decision: approved worktree` / `already in approved worktree` | the user named a worktree, or the checkout already is the approved task worktree | in that worktree |
+| `Worktree decision: ultrawork automatic worktree` | invoked from `ultrawork`; execute there, then return control to Ultrawork for merge and post-merge verification | in the worktree |
+| `Worktree decision: read-only/not applicable` | the task edits no files | none |
+| `Worktree decision: blocked` | the repository cannot support the worktree and no fallback is approved | none — stop |
 
-For direct Ralph execution, create or select a registered Git worktree using
-`git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>` by default
-before editing and record `Worktree decision: direct automatic worktree`. Do not
-ask a worktree approval question. Keep automatic task worktrees project-local
-under `.oh-no/worktrees/` — not the parent workspace directory by default — and do
-not use `git clone`, `cp -R`, a plain directory, or a manual checkout as a
-substitute, per `docs/shared/worktree-isolation.md`.
+Default creation:
 
-A narrow LIGHT carve-out exists for direct Ralph: when every condition of the
-LIGHT carve-out in `docs/shared/worktree-isolation.md` holds — it applies only
-when "no approved-plan worktree policy applies to this run — Ralph derives and
-owns the worktree decision" — record
-`Worktree decision: light direct checkout` plus a one-line reason and edit in
-the current checkout. If the task escalates
-from LIGHT mid-run, stop editing immediately; continue only after the user
-explicitly approves the current checkout (record
-`user declined/current checkout` from that point) or an automatic worktree is
-created for all further edits (re-record
-`Worktree decision: direct automatic worktree` from that point), with
-already-landed edits listed in the final report. STANDARD and THOROUGH work
-keeps the automatic-worktree default.
+```sh
+git worktree add .oh-no/worktrees/<task-slug> -b <branch-name>
+```
 
-When invoked from `ultrawork`, record `Worktree decision: ultrawork automatic worktree`,
-create or select a registered Git worktree under `.oh-no/worktrees/<task-slug>`,
-execute there, then return control to Ultrawork for merge into the
-integration checkout and post-merge verification.
+Keep automatic task worktrees project-local under `.oh-no/worktrees/` — not
+the parent workspace directory — and never substitute `git clone`, `cp -R`, a
+plain directory, or a manual checkout. Do not nest a worktree inside an
+existing `.oh-no/worktrees/` checkout. Inspect task changes from inside the
+worktree (`git -C .oh-no/worktrees/<task-slug> status`); the integration
+checkout's status does not show them.
 
-For direct Ralph execution that created an automatic worktree, completion is not
-finished while the work sits in the worktree: after the verification, review, and
-cleanup gates pass, carry out the merge-back, post-merge verification, branch/PR
-handoff, and worktree-removal responsibilities in `docs/shared/worktree-isolation.md`.
-If merge or post-merge verification fails, report the blocker and leave the
-worktree intact instead of claiming completion.
+LIGHT direct-checkout carve-out — ALL must hold: (1) LIGHT mode, (2) one
+obvious file or tightly bounded edit set, (3) non-runtime change, (4) no
+uncommitted changes overlapping the edit set, (5) no approved-plan worktree
+policy applies — Ralph derives and owns the decision. Record the decision
+plus a one-line reason. On mid-run escalation stop editing immediately;
+continue only after the user approves the current checkout (record
+`user declined/current checkout`) or re-record
+`Worktree decision: direct automatic worktree` for all further edits, with
+already-landed edits listed in the final report.
 
-When execution moves to a worktree, preserve access to the approved `.oh-no`
-spec, plan, PRD, or task definition before editing by applying the artifact
-handoff options in `docs/shared/worktree-isolation.md`.
+Artifact handoff: a new worktree does not see the integration checkout's
+untracked `.oh-no` plan/spec. Before editing, copy the artifact into the
+worktree, record an absolute path, or quote the approved task definition.
 
-If the worktree decision is missing, ambiguous, or cannot be recorded, stop and
-report the blocker instead of editing.
-
-## Scope Trace Gate
-
-Before editing and before marking a story complete, Ralph must keep the change
-set traceable to the approved work.
-
-Every changed file and every meaningful changed line should map to at least one
-of:
-
-- the user's concrete request
-- an approved `interview` spec, `ralplan` plan, PRD story, or ticket
-- a test, acceptance criterion, or verification requirement
-- removal of code made unused by the current change
-- behavior-preserving cleanup protected by the current behavior lock
-
-Do not improve adjacent code, reformat unrelated sections, add speculative
-configuration, or delete pre-existing dead code unless that work is explicitly
-in scope. If an unrelated problem is found, report it as residual risk or a
-follow-up instead of folding it into the current diff.
-
-## Validation Gate
-
-Ralph must not treat metric movement or an internal shortcut as the acceptance criteria
-for real software development work.
-
-When measurable evidence influenced the task, apply
-`docs/shared/validation-check.md` before marking the work complete. The
-change is acceptable only if it maps to a recurring software engineering failure mode and
-preserves the user, maintainer, operator, or public contract outcome as the
-source of truth for acceptance.
-
-Record a `Validation check` using the canonical template in
-`docs/shared/validation-check.md`. At minimum, cover evidence used, supported
-acceptance criterion or user outcome, proof and gap, recurring risk addressed,
-similar-work expectation, excluded case-specific details, added process cost,
-and completion claim.
-
-Reject or narrow changes whose only justification is metric movement,
-unseen-check guessing, task-name-specific guidance, fixture knowledge, or
-process inflation that would not help a skeptical maintainer on a similar task.
+Completion responsibility [E13]: after verification, review, and cleanup
+pass, carry out the merge back into the
+integration checkout and post-merge verification — or, when the user
+requested a branch/PR handoff, report the branch name and path. On merge
+failure report the blocker and leave the worktree intact. Remove the
+worktree only after integration and post-merge verification complete.
 
 ## Execution Loop
 
-This loop is the top-level shape. Detail for review, cleanup, agent dispatch, parallelism, and persistence lives in the dedicated sections below; do not duplicate it here.
+Phase: EXECUTE. Per story:
 
-Ralph owns execution mode selection or enforcement for ordinary implementation. Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`; Ralph invokes TDD internally when behavior-changing edits require it.
-
-1. Read the input artifact and the always-active contracts in `## Required
-   Reading`. Copy the Direction Contract without reinterpretation, record active
-   gates and budgets, and load triggered contracts only immediately before the
-   dependent gate.
-2. Set or confirm the required execution mode before editing. Record mode
-   source, verification tier, artifact policy, agent policy, parallel trigger,
-   cleanup policy, task sizing, and escalation triggers. When the input is an
-   approved `ralplan` plan and the user chooses ordinary `oh-no-harness:ralph`,
-   treat that handoff as `Parallel trigger: approved-plan-handoff`; no separate
-   "parallel Ralph" wording is needed.
-3. Resolve the `## Worktree Isolation Gate` before editing. Record the `Worktree decision`, preserve approved artifact access when moving to a worktree, and stop if the decision is missing or blocked.
-4. Select the next incomplete story or task and apply its task-level mode — from the approved profile, or derived from the overall mode and story risk.
-5. Use `explore` when files, tests, or integration surfaces are not obvious. Independent exploration targets may be dispatched as parallel `explore` subagents in one batch per `docs/shared/ralph-subagent-policy.md`. Apply the `Scope Trace Gate` and record why the intended edits are in scope.
-6. Classify the story's TDD requirement (behavior change, bug-fix reproduction, refactor characterization, or documented exception). If TDD applies, read and follow `test-driven-development` before editing production code, and record RED/GREEN/REFACTOR or exception evidence per the artifact policy.
-7. Implement inline or dispatch `executor` per `## Mode-Gated Agent Dispatch` (and `## Parallel Subagent Policy` when concurrent). Run the story-specific verification required by the selected mode and verification tier. In STANDARD and THOROUGH on subagent-capable hosts, scan remaining work for disjoint scopes before implementing serially: when two or more pending stories or tasks have non-overlapping write scopes and no inter-dependency, proactively partition disjoint implementation into one concurrent `executor` batch (recorded as `Parallel trigger: natural-dispatch`) per `## Parallel Subagent Policy` and `docs/shared/ralph-subagent-policy.md`, then apply the post-batch per-executor scope check before integrating. This is conditional on isolation, dependency safety, and benefit gates — never unconditional parallelism.
-8. After each story, recheck the `Scope Trace Gate` and the cumulative Process
-   Budget Gate (`## Process Budget Gate`) against all work completed so far.
-   Reclassify any
-   `provisional` STANDARD small-carveout eligibility here per
-   `docs/shared/execution-modes.md`; on invalidation record
-   `Review topology: single-reviewer` and run ordinary STANDARD review before
-   the verifier. Mark the story complete only when acceptance criteria, TDD evidence
-   (or documented exception), scope-trace evidence, acceptance-to-evidence
-   mapping, contract-surface evidence, baseline guard, story risk-check evidence,
-   and any required validation check all pass or have explicit residual risk.
-   If this story changed files or shared behavior that an already-completed
-   story's acceptance depended on, re-verify that earlier story before
-   continuing; never leave a stale `passes: true`.
-9. Repeat steps 4–8 for each remaining story. After all stories, run the `##
-   Diff-Budget Gate` exactly once against the final diff, before `## Review Gate`,
-   then run review. If a check fails or behavior is unexpected, read and follow `systematic-debugging` before attempting fixes. If ordinary Ralph analysis or systematic debugging stalls after credible evidence has been gathered, read and follow `fusion-rescue`, then return control to Ralph with the synthesis before editing or verifying further. Bound per-story attempts: if a story fails verification for the same root cause after one `systematic-debugging` pass and one further fix, stop — escalate to `fusion-rescue` or record `blocked`/`failed_verification` with the failure evidence instead of looping. If execution reveals the approved plan or an acceptance criterion is itself wrong or infeasible as written — not an unrelated adjacent problem — stop and route back to the user or `ralplan` (present the options; do not auto-invoke) with the evidence instead of silently improvising.
-10. Apply cleanup per `## Cleanup And Final Verification` (which owns the cleanup policy, post-cleanup verification, and any focused post-cleanup review).
-11. Read and follow `verification-before-completion` before any completion claim, then write the final report.
+1. Select the next incomplete story; apply its task-level mode.
+2. Dispatch `explore` when files, tests, or integration surfaces are not
+   obvious — independent targets as one parallel batch. Apply the
+   `## Scope Trace Gate` and record why the intended edits are in scope.
+3. Record the story fields: expected outcome and ACs; owned files; contract
+   surface (the actual public, caller, or verifier-facing entrypoint and any
+   compatibility uncertainty that blocks editing); baseline guard (nearby
+   existing checks that must still pass, or why none exists); TDD
+   requirement or exception; verification command and acceptance-to-evidence
+   mapping; the most likely story risk (for example contract-surface
+   mismatch, semantic-lifecycle miss, hidden regression); diff-budget
+   expectation; carve-out eligibility when claimed.
+4. Classify the story's TDD requirement (behavior change, bug-fix
+   reproduction, refactor characterization, or documented exception). If TDD
+   applies, read and follow `test-driven-development` before editing
+   production code and record RED/GREEN/REFACTOR or exception evidence [E4].
+5. Implement inline or dispatch `executor` per `## Mode-Gated Agent
+   Dispatch`. In STANDARD and THOROUGH on subagent-capable hosts, scan
+   remaining work for disjoint scopes before implementing serially: partition
+   disjoint stories into one concurrent `executor` batch (recorded as
+   `Parallel trigger: natural-dispatch`) when the isolation gates hold, then
+   apply the per-executor scope check before integrating.
+6. Run the story-specific verification required by the mode and tier.
+7. After each story, recheck the `Scope Trace Gate` and the cumulative
+   Process Budget Gate against all work so far; reclassify a `provisional`
+   carve-out here. Mark the story complete only when ACs, TDD evidence,
+   scope trace, acceptance-to-evidence mapping, contract-surface evidence,
+   baseline guard, and story risk-check evidence all pass or carry explicit
+   residual risk. If this story changed behavior an earlier story depended
+   on, re-verify that story — never leave a stale `passes: true` [E9].
+8. On a failing check or unexpected behavior, read and follow
+   `systematic-debugging` before attempting fixes. Ladder per root cause:
+   one systematic-debugging pass plus one further fix, then `fusion-rescue`
+   or record `blocked`/`failed_verification` with the evidence [E15].
+9. After all stories, run the `## Diff-Budget Gate` exactly once against the
+   final diff, before `## Review Gate`.
 
 ## Mode-Gated Agent Dispatch
 
-This section governs *agent role* dispatch only. Workflow-skill chaining (`interview` to `ralplan` to `ralph`, ralph as terminal) still follows `## Final Handoff` and the Skill Chaining contract in `using-oh-no-harness`. Do not auto-invoke a workflow skill here.
+This section governs agent-role dispatch only; workflow-skill chaining
+follows `## Final Handoff`.
 
-Follow the mode and agent policy from `docs/shared/execution-modes.md`: LIGHT
-stays inline when context separation has no benefit; in STANDARD, use targeted
-subagents on subagent-capable hosts only when their result can change the
-implementation, review, verification, or ship/block decision; THOROUGH uses the
-risk-warranted isolable roles.
+Dispatch roles as real subagents by default on subagent-capable hosts —
+dispatch keeps exploration noise, implementation churn, and log output out
+of the main context, and review/verification independence requires a
+separate context. LIGHT stays inline only for tiny edits with no
+context-separation benefit; STANDARD uses targeted subagents whose result
+can change the implementation, review, verification, or ship/block decision;
+THOROUGH dispatches every risk-warranted isolable role. In STANDARD and
+THOROUGH, proactively partition disjoint implementation into parallel
+`executor` batches when ownership, dependency, TDD, and benefit gates hold.
 
-An approved plan authorizes its eligible isolated roles, not every possible
-role. Scan for safe exploration, disjoint implementation, test/log analysis,
-review, and verification batches. In STANDARD and THOROUGH, proactively
-partition disjoint executors only when ownership, dependency, TDD, and benefit
-gates in `docs/shared/ralph-subagent-policy.md` hold. The independent verifier
-audit remains required under the maker-verifier carve-out.
-
-Record `Parallel trigger: approved-plan-handoff`, `explicit-user-request`,
-`natural-dispatch`, or `none` from the actual source. Read the active adapter
-before dispatch; use inline fallback only for a documented unavailable,
-unsafe-to-isolate, or no-benefit case. Pick the lightest credible role tier and
-preserve distinct required role boundaries.
-
-## Codex Executor Delegation Boundary
-
-When the Claude Code SessionStart policy rebinds the executor role to
-`executor-codex`, treat that agent as a thin raw-output transport, not as an
-evidence owner. The identity rebind does not change Ralph eligibility: only a
-disjoint batch already admitted by the existing Batch Rule and Isolation
-Contract may overlap at the outer `executor-codex` layer. Ineligible, unknown,
-or unsafe work stays serial, and every inner companion transport remains one
-foreground call. Wait for every started member before existing scope checks,
-independent verification, and review; fallback and integration stay sequential.
-
-Apply the complete caller-owned guard, scope-check, partial-change inspection,
-and degrade rules in `docs/shared/ralph-subagent-policy.md` under
-`## Delegated Codex Executor Boundary`; do not duplicate or replace that shared
-contract here.
+An approved plan authorizes its eligible isolated roles, not every role.
+Record `Parallel trigger: approved-plan-handoff | explicit-user-request |
+natural-dispatch | none` from the actual source; use targeted subagents on
+subagent-capable hosts, and fall back inline only for a documented
+unavailable, unsafe-to-isolate, or no-benefit case — keep the role boundary
+visible and record the reason.
 
 ## Parallel Subagent Policy
 
-Parallelize under the dispatch conditions and platform deference already set in
-`## Mode-Gated Agent Dispatch`, once the work can be safely isolated. Read and
-apply `docs/shared/ralph-subagent-policy.md`, then use only the active adapter named by the generated
-runtime skill document.
+Dispatch conditions [E6]:
 
-Apply the `## Batch Rule` and `## Isolation Contract` from
-`docs/shared/ralph-subagent-policy.md`: create the whole eligible batch before
-waiting on any one result, and before dispatching partition the work into the
-per-task fields that contract lists (id, role, owned and forbidden scope,
-expected output, verification responsibility, dependencies, integration owner,
-and start timing). Continue local critical-path work only when it does not
-overlap with delegated scopes; the dispatch packet below adds the active
-adapter's platform-invocation syntax.
+- allowed: disjoint executor write scopes; read-only agents on different
+  subsystems; reviewers inspecting the same final diff without editing
+- forbidden: overlapping writes to any file, schema, migration, generated
+  artifact, lockfile, or shared config; dependent tasks; one behavior's TDD
+  RED/GREEN order split across agents; unclear ownership; a verifier whose
+  evidence depends on unresolved reviewer findings
 
-Use the allowed and forbidden parallelization rules from
-`docs/shared/ralph-subagent-policy.md`. In particular, do not parallelize
-overlapping write scopes, dependent tasks, one behavior's TDD RED/GREEN order,
-or unclear ownership.
+Batch rule: create the whole eligible batch of independent same-depth work
+before waiting on any result; never merge dependent review stages into one
+batch. Continue local work only where it does not overlap delegated scopes.
 
-Use this dispatch shape for every parallel subagent, with the active platform
-adapter deciding whether the invocation is a registered custom agent, a
-plugin-scoped agent, or a documented fallback:
+Dispatch packet (the active adapter deciding whether the invocation is a
+registered custom agent, a plugin-scoped agent, or a documented fallback):
 
-````markdown
+```text
 Role: {explore|executor|verifier|code-reviewer}
-Story/task: {id and short title}
+Story/task: {id and title}
 Scope: {owned files/directories, or read-only areas}
-Do not touch: {files/directories owned by other agents}
+Do not touch: {files owned by other agents}
 Expected output: {patch, findings, evidence, or test result}
 TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
 Verification responsibility: {command/evidence}
 Platform invocation: {active adapter invocation syntax}
-Lifecycle: caller captures a final result, integrates or records it, then closes or cleans up the completed subagent using the active platform mechanism; timeout/no-completion wait results are not final results and MUST NOT be used to close a running or pending subagent merely because it is slow
-Coordination: You are not alone in the codebase. Do not revert, overwrite, or reformat work outside your scope. Report conflicts instead of resolving them silently.
-````
+Lifecycle: caller captures the final result, integrates or records it, then
+closes the completed subagent via the platform mechanism; timeout or
+no-completion wait results are not final results and MUST NOT be used to
+close a running or pending subagent merely because it is slow
+Coordination: you are not alone in the codebase — do not revert, overwrite,
+or reformat work outside your scope; report conflicts instead of resolving
+them silently
+```
 
-After parallel work completes, integrate sequentially:
+Integration, sequential: inspect each result and changed-file set; run the
+per-executor scope check (owned files only, slice satisfied, no conflict —
+escalate only a stray or risky slice); resolve conflicts deliberately; close
+each completed subagent after capture; run story-specific then cross-story
+verification; only then mark stories complete. Never use missing output as
+completion evidence.
 
-1. Inspect each subagent result and changed-file set. For executor results, apply the per-executor scope check defined in `docs/shared/ralph-subagent-policy.md` `## Integration` (owned-files-only, slice satisfied, no conflict) and escalate only a stray or risky slice before integrating.
-2. Resolve conflicts deliberately.
-3. Close or clean up each completed subagent after its output has been captured
-   and integrated, rejected, or recorded as blocked.
-4. Run story-specific verification.
-5. Run cross-story verification when shared behavior could be affected.
-6. Only then mark stories complete.
+## Codex Executor Delegation Boundary
+
+When the Claude Code SessionStart policy rebinds the executor role to
+`executor-codex`, treat that agent as a thin raw-output transport, not an
+evidence owner [E16]. The identity rebind does not change Ralph eligibility:
+only a batch already admitted by the Batch Rule and dispatch conditions may
+overlap at the outer `executor-codex` layer; ineligible, unknown, or unsafe
+work stays serial. Every inner companion transport remains one
+foreground call. Wait for every started member before scope checks,
+independent verification, and review; fallback and integration stay sequential.
+Apply the caller-owned escape guard, scope-check, and partial-change
+inspection rules in `## Delegated Codex Executor Boundary` of the shared
+subagent policy; do not duplicate them here.
+
+## Scope Trace Gate
+
+Every changed file and every meaningful changed line maps to at least one of:
+the user's concrete request; an approved spec, plan, PRD story, or ticket; a
+test, AC, or verification requirement; removal of code made unused by the
+current change; behavior-preserving cleanup under the current behavior lock
+[E5]. Do not improve adjacent code, reformat unrelated sections, add
+speculative abstraction or configuration, or delete pre-existing dead code
+out of scope — report such findings as residual risk or follow-ups.
+
+## Validation Gate
+
+When measurable evidence influenced the task, record a validation check
+before completion: evidence used, supported AC or user outcome, proof and
+gap, recurring engineering risk addressed, similar-work expectation, and
+excluded case-specific details. Reject changes justified only by metric
+movement, unseen-check guessing, fixture knowledge, or process inflation
+that would not help a skeptical maintainer on similar work. Metric movement
+never replaces the user, maintainer, operator, or public-contract outcome.
+
+## Verification Budget Policy
+
+Tier minimums [E9]:
+
+```text
+LIGHT    = inspect changed files; run the smallest relevant check; map the
+           change to the inspection or command that proves it.
+STANDARD = LIGHT + focused semantic tests mapped to ACs; RED/GREEN or a
+           recorded exception; risk-activated negative/regression cases; a
+           relevant baseline or smoke check.
+THOROUGH = STANDARD + the integration, migration, smoke, end-to-end, or
+           recovery evidence each named risk requires; record residual risk.
+```
+
+Budget rules:
+
+- Prove each AC with focused evidence before broad suites; run a broad suite
+  once after behavior stabilizes and rerun only for a patch-related reason;
+  on a slow or flaky suite record the limitation and use a smaller semantic
+  check.
+- Lint, typecheck, compile, and formatting are support evidence, not
+  behavior evidence.
+- In STANDARD/THOROUGH, behavior-changing stories need a real-surface
+  artifact (actual command output, terminal/UI capture, or response body);
+  a printed or `--dry-run` command is indirect. Inspect every artifact for
+  silent failure: a success status (exit 0, HTTP 2xx, a "done" log) without
+  the observable effect is missing evidence, not a pass.
+- Redact secrets and PII to labeled placeholders before writing any output
+  into `.oh-no` files or the report, keeping only the non-sensitive evidence
+  shape (status, lengths, hashes, short non-secret prefixes).
+- Record skipped checks and residual risk honestly; never claim stronger
+  coverage than the evidence supports. Map every acceptance criterion to
+  direct, indirect, manual, or missing evidence (acceptance-to-evidence
+  mapping) before the final claim.
+
+## Process Budget Gate
+
+This is the cumulative per-story mid-run early-stop check (the Diff-Budget
+Gate owns the final pre-review evaluation). At PREPARE, copy the plan's
+expected changed-file groups, diff size, review topology, cleanup depth,
+broad-suite cap, and review-round cap — or derive conservative values.
+
+Stop for rescope, simplify, or user approval when [E10]: the handwritten
+diff exceeds twice the estimate; generated output hides unexpectedly broad
+source changes; supporting test/validation lines grow to roughly three times
+the product change (measure via `git diff --stat` at each story recheck); a
+second blocking review round remains unresolved; or the same invariant is
+being implemented a third time. The ratio is a stop signal, not a license to
+delete required negative, regression, or safety cases.
+
+## Diff-Budget Gate
+
+Run this final gate exactly once, after all stories and before
+`## Review Gate` [E10]. Thresholds decide whether the single evaluation
+expands into the detailed scope review — not whether the gate runs:
+
+- more than twice the expected handwritten file or diff estimate
+- more than 20 changed files, or more than 500 insertions
+- generated files mixed with handwritten logic
+- public API changes across more than three subsystems
+- multiple packages changed without explicit acceptance-to-evidence mapping
+
+The expanded scope review answers: why this breadth is necessary for the
+current ACs; which changed files are essential versus collateral; whether a
+narrower patch would satisfy the request; and the maintainer's rollback
+boundary. Unjustified breadth narrows the patch or records a blocker.
 
 ## Review Gate
 
-Completion requires evidence, not confidence.
+Phase: REVIEW. Completion requires evidence, not confidence.
 
-The reviewer pass is mode-gated. `LIGHT` may satisfy review through direct diff
-inspection unless the selected mode or risk requires independence. `STANDARD`
-uses one targeted reviewer instance for behavior-affecting or workflow changes,
-except under the STANDARD small-task carve-out in
-`docs/shared/execution-modes.md`, where review may be satisfied by direct diff
-inspection recorded as `not-required (STANDARD small carve-out: <reason>)`.
-`THOROUGH` uses paired review only for a named security, data, destructive,
-public-contract, release-critical, new-concurrency, migration, or broad
-multi-system risk; otherwise it may also use one targeted reviewer.
+Topology by mode [E8]:
 
-Review-then-verify order: when both code review and an independent verifier are
-required, run the selected code-review topology first, resolve or record its
-blocking findings, and then run one independent verifier (never the maker).
-Record `single-reviewer` for STANDARD, or `not-required` with the carve-out
-reason when the STANDARD small-task carve-out holds. For a named THOROUGH pair, apply
-`docs/shared/cross-host-review.md` and record `cross-host` or
-`same-host-parallel-fallback`; an inline fallback always includes a reason.
+```text
+LIGHT    -> direct diff inspection unless mode or risk requires independence.
+STANDARD -> one targeted reviewer instance for behavior-affecting or
+            workflow changes, or the compliant carve-out record
+            `not-required (STANDARD small carve-out: <reason>)`.
+THOROUGH -> paired review only for a named security, data, destructive,
+            public-contract, release-critical, new-concurrency, migration,
+            or broad multi-system risk (cross-host or
+            same-host-parallel-fallback, with the fallback reason);
+            otherwise one targeted reviewer.
+```
 
-Before dispatching review roles, build the Review Gate dependency graph and write
-it into the PRD/progress ledger:
+Review-then-verify [E7]: run the selected code-review stage first, capture
+its output or synthesis, resolve or record blocking findings, then run one
+independent self-host `verifier` pass (never the maker, never a pair). The
+verifier audit is required at STANDARD/THOROUGH when the proving tests or
+implementation were authored or accepted by the same agent; record the
+dispatch-unavailable fallback reason when the host cannot dispatch.
+
+Record the Review Gate dependency graph in the ledger:
 
 ```text
 Review Gate dependency graph:
 - code-reviewer topology: not-required | single-reviewer | paired-thorough
 - code-reviewer pass: pending | complete | blocked | not-required
-- code-reviewer synthesis captured: yes | no | not-required
 - blocking reviewer findings: resolved | blocking | none | not-reviewed
 - verifier eligible to start: yes | no
 - verifier started after reviewer completion: yes | no | not-required
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
-`verifier eligible to start` is `yes` only after the selected code-review stage
-has completed (or a compliant not-required/fallback reason is recorded), the
-caller has captured its output or paired synthesis, and blocking findings are either
-resolved or recorded as blocking. A verifier spawned before that point is stale
-evidence for this Review Gate, must be recorded as discarded, and must be rerun
-after the reviewer dependency is satisfied before it can count as the independent
-verifier pass. When both code-reviewer and verifier are required, the Review
-Gate ledger must show `verifier started after reviewer completion: yes` or the
-verifier pass is stale and does not count.
+`verifier eligible to start` is `yes` only after the selected code-review
+stage completed (or a compliant not-required reason is recorded) and blocking
+findings are resolved or recorded. A verifier spawned before that point is stale
+evidence: record it as discarded and rerun it after the dependency is
+satisfied. When both roles are required, the ledger must show
+`verifier started after reviewer completion: yes` or the verifier pass does
+not count.
 
-When review is required, the reviewer pass must answer:
+Review focus — the reviewer pass must check: every story satisfies its ACs
+with mapped (not merely listed) evidence; the contract surface, semantic
+model, and baseline guard were identified before accepting local green
+results; a simpler or safer approach; scope trace and speculative-complexity
+rejection; RED/GREEN or documented exceptions for behavior changes; the
+security lens when auth, data, secrets, filesystem, network, config, or
+destructive operations were touched; and the applicable negative-path
+scenarios — malformed or boundary input, stale state, cancel/resume or
+concurrency — probed when their triggers hold, or each ruled out with a
+one-line reason that names why no approved AC ID, named risk, adjacent
+regression surface, safety invariant, or directly changed semantic model
+triggers it.
 
-- Do all stories satisfy their acceptance criteria?
-- Does the evidence map each acceptance criterion to direct, indirect, manual,
-  or missing evidence instead of only listing commands?
-- Did Ralph complete a story risk check for likely maintainer or user-facing
-  edge cases without adding case-specific solution hints?
-- Did Ralph identify the actual contract surface, semantic model when
-  applicable, and baseline guard before accepting local green evidence?
-- Is there a simpler or safer approach that still satisfies the PRD?
-- Does every changed file and meaningful changed line trace to the approved
-  scope, verification requirement, unused-code removal, or behavior-preserving
-  cleanup lock?
-- Did the implementation avoid speculative abstraction, configurability,
-  dependencies, or generalization not required by the current acceptance
-  criteria?
-- Did code review or cleanup identify practical maintainability risks such as
-  unclear ownership, brittle coupling, hidden state, fragile tests,
-  generated-handwritten drift, or behavior-changing cleanup pressure?
-- If auth, data, secrets, filesystem, shell, network, generated prompts,
-  config, logs, sandbox, or destructive operations were touched, did
-  `code-reviewer`'s security lens apply the Safety Trigger Checklist
-  or was the risk explicitly ruled out?
-- When the opposite host was available, was `code-reviewer` paired only for a
-  named THOROUGH trigger per
-  `docs/shared/cross-host-review.md`? Was STANDARD kept to one reviewer or a
-  compliant small-carveout `not-required` record? Was the
-  `verifier` run as the confirming pass after the selected code-review stage — an unconditionally single self-host
-  independent pass (never a cross-host or same-host pair)? Does the ledger show
-  `verifier started after reviewer completion: yes` or a compliant not-required
-  reason?
-- For behavior-changing work, does RED/GREEN/REFACTOR evidence exist, or is an exception documented with a specific, justified reason rather than a vague convenience claim?
-- For STANDARD or THOROUGH behavior-changing work, were the applicable
-  negative-path scenarios — malformed or boundary input, stale or cached state,
-  cancel/resume or concurrency — probed when their trigger conditions hold, with
-  the observable result recorded, or each ruled out with a one-line reason that
-  names why no approved AC ID, named risk, adjacent regression surface, safety
-  invariant, or directly changed semantic model triggers it?
-- Are tests or verification sufficient for the risk?
-- Did broad-suite verification add meaningful confidence, or should a focused
-  semantic or baseline check replace another broad rerun?
-
-Reviewer findings that do not map to the approved work under the `Scope Trace
-Gate` — an AC ID, a safety invariant, a verification requirement, removal of
-code made unused by the current change, or the approved behavior-preserving
-cleanup boundary — are recorded as residual risk or follow-ups, not fixed in
-this run; do not expand the diff for them without explicit user approval. A
-regression or contract break caused by the current change always maps to the
-approved scope and may block.
-
-If review rejects the work, return to the relevant story and continue within the
-review loop budget: one required review cycle using the selected topology and
-one confirming `verifier` pass — at
-STANDARD and THOROUGH on subagent-capable hosts the verifier pass is required
-when execution produced or changed proving tests, or the implementation/tests
-were authored or accepted by the same agent (record the fallback reason if the
-host cannot dispatch), and otherwise when required by mode or risk; after a
-blocker fix, run one focused re-check of the blocked scope. That focused
-re-check is the single permitted re-review, not an addition to it; re-run only
-the evidence the fix invalidated — the blocked scope's story verification and
-any verifier or ledger rows whose covered files or behavior changed — while
-evidence for untouched scopes stays fresh. Record
-`single-reviewer` for STANDARD (or the compliant small-carveout `not-required`
-record); for a named THOROUGH pair, record its
-independence mode per `docs/shared/cross-host-review.md`
-`## Recording the Independence Mode`. The single self-host verifier pass is governed by the carve-out and the `verifier started after reviewer completion` sequencing field, not the enum. Do not run more than one re-review after the original blocking
-review unless the user explicitly authorizes it. If a blocker remains after that
-budget, enter `systematic-debugging` for unknown root cause or report `blocked`
-or `failed_verification` instead of looping.
-
-## Verification Budget Policy
-
-Ralph should be rigorous without confusing repeated broad commands for semantic
-proof. For behavior-changing work:
-
-- Apply the verification budget policy from `docs/shared/verification-tiers.md`:
-  prove each acceptance criterion with focused evidence before broad suites,
-  prefer a nearby baseline or smoke check over new tests alone, run a broad suite
-  once after behavior stabilizes or when shared/public/generated/concurrency/
-  persistence/cross-package surfaces could be affected, and do not rerun it
-  without a patch-related reason; on a slow, flaky, or noisy suite, document the
-  limitation and spend the next step on a smaller semantic check.
-- Treat lint, typecheck, compile, formatting, and `git diff --check` as support
-  evidence. They do not replace direct behavior evidence.
-- In STANDARD or THOROUGH mode, for user-facing or behavior-changing stories,
-  the direct evidence must be a real-surface artifact (actual command output,
-  terminal or UI capture, or response body); a printed or `--dry-run` command is
-  indirect at best. See `verification-before-completion`'s
-  `## Acceptance-To-Evidence Mapping` for the full rule. This does not apply to
-  LIGHT or trivial work.
-- Inspect each real-surface artifact for silent failure: a success status (HTTP
-  2xx, exit 0, a "done" log line) without the observable effect is missing
-  evidence, not a pass. See `verification-before-completion`'s `## Evidence Rules`.
-- Before writing a real-surface artifact, command output, or log into a `.oh-no`
-  session file or the final report, redact secrets and PII to a labeled
-  placeholder, keeping only the non-sensitive shape needed as evidence (status
-  line, lengths, hashes, short non-secret prefixes), per the evidence-redaction
-  rule in `docs/shared/verification-tiers.md`.
-
-Record skipped broad checks and residual risk honestly. Do not claim stronger
-coverage than the evidence supports.
-
-## Process Budget Gate
-
-This gate is the cumulative per-story mid-run early-stop check; the `##
-Diff-Budget Gate` owns the final pre-review blast-radius review.
-
-Before implementation, copy the plan's expected handwritten changed-file groups,
-approximate diff size, review topology/trigger, cleanup depth, broad-suite cap,
-and review-round cap. If no plan supplied them, derive conservative values from
-`docs/shared/execution-modes.md`.
-
-Stop for rescope, simplify, or user approval when the actual handwritten diff
-exceeds twice the estimate, generated output hides unexpectedly broad source
-changes, supporting tests/validation grow to roughly three times the
-product/source-contract change, a second blocking review round remains
-unresolved, or the same invariant is being implemented a third time. A budget
-breach never authorizes automatic expansion.
-
-Measure the supporting-test ratio as changed test/validation lines versus
-changed product or source-contract lines (for example from `git diff --stat`),
-checked cumulatively at each story's step-8 recheck. The ratio is a stop-and-rescope signal,
-not a license to delete required negative, regression, or safety cases.
-
-## Diff-Budget Gate
-
-Ralph must run this final gate exactly once after all stories and before `##
-Review Gate`; mid-run early stops belong to `## Process Budget Gate`. If the final diff
-crosses any of these thresholds, run a scope review before completion:
-
-- more than twice the plan's expected handwritten file or diff estimate
-- more than 20 changed files
-- more than 500 insertions
-- generated files mixed with handwritten logic
-- public API changes across more than three subsystems
-- multiple packages changed without explicit acceptance-to-evidence mapping
-
-The scope review must answer:
-
-```text
-Diff-budget scope review:
-- Why is this breadth necessary for the current acceptance criteria?
-- Which changed files are essential?
-- Which changed files are collateral or cleanup?
-- Is there a narrower patch that would satisfy the request?
-- What rollback boundary would a maintainer use?
-```
-
-If the breadth is not justified, narrow the patch or record a blocker instead of
-presenting the work as complete.
+Reviewer findings outside the Scope Trace Gate are residual risk or
+follow-ups, not fixes in this run; a regression caused by the current change
+always maps to approved scope and may block. Budget [E8]: one required
+review cycle plus one focused re-check of the blocked scope after a fix —
+rerun only the evidence the fix invalidated. A blocker remaining after that
+budget goes to `systematic-debugging`, `blocked`, or `failed_verification`.
 
 ## Cleanup And Final Verification
 
-Cleanup happens only after the review required by the selected mode is satisfied
-and a behavior lock exists.
+Phase: FINALIZE — checkpoints in order [E12]:
 
-Cleanup is mode- and trigger-gated per `docs/shared/execution-modes.md`.
-LIGHT and STANDARD first run a caller-owned quick diff scan and invoke the
-`simplify` skill (one combined scan) only when the quick scan finds actual
-candidates or candidate uncertainty remains; a clean quick scan records cleanup
-as not needed without invoking Simplify. THOROUGH expands to four
-independent viewpoints only for a named safety or broad-diff trigger. Record the
-trigger, candidates found, and fixes made; do not create cleanup work merely to
-satisfy a pass count. Rerun relevant verification whenever cleanup changes files.
-
-The post-cleanup pass must answer:
-
-- Did cleanup preserve behavior?
-- Did the behavior lock or relevant verification pass after cleanup?
-- Did cleanup stay inside the changed-file scope?
-- Is any additional code review required because cleanup changed structure, tests, or control flow?
+1. CLEANUP — after the behavior lock and required review: LIGHT/STANDARD run
+   a caller-owned quick diff scan and invoke `simplify` (one combined scan)
+   only when actual candidates or candidate uncertainty remain; a clean scan
+   records cleanup as not needed. THOROUGH expands to four independent
+   viewpoints only for a named safety or broad-diff trigger. Never create
+   cleanup work to satisfy a pass count.
+2. RECHECK — when cleanup changed files: rerun relevant verification and
+   confirm behavior, the behavior lock, and changed-file scope survived;
+   run a focused review when cleanup changed structure, tests, or control
+   flow.
+3. INTEGRATE — carry out the worktree completion responsibility [E13]:
+   merge back into the integration checkout and run post-merge
+   verification, or report the branch/PR handoff.
+4. COMPLETION_AUDIT — read and follow `verification-before-completion`
+   before any completion claim, then write the final report.
 
 ## Resume Protocol
 
-Ralph's loop is long and may resume after an interruption or context compaction.
-On re-entry, do not trust working memory — reconstruct state from artifacts first:
-
-1. Re-read the input artifact and `.oh-no/sessions/{sessionId}/prd.json`,
-   `progress.md`, and `verification.md` when present.
-2. Recompute the incomplete-story set from each story's `status`/`passes`, not
-   from memory.
-3. Re-confirm the execution mode and recorded `Worktree decision` and location
-   before any further edit.
-4. Treat any story in progress when the loop stopped as unverified — its evidence
-   may be stale or partial: re-run its story-specific verification before marking
-   it complete.
-5. If the worktree diverged since the last pass (a `git status`/`git diff` shows
-   changes not attributable to recorded work — a rebase, manual edit, or conflict
-   resolution), re-verify any already-completed story whose acceptance depended on
-   the changed files before trusting its `passes: true`.
-6. Resume the Execution Loop at the first incomplete story.
+On re-entry after interruption or compaction, reconstruct from artifacts
+[E14]: re-read the input artifact, snapshot, and session files; recompute
+incomplete stories from recorded `status`/`passes`; re-confirm the mode and
+`Worktree decision` before further edits; treat the story in flight as
+unverified and re-run its verification; if the worktree diverged from
+recorded work, re-verify completed stories whose acceptance depended on the
+changed files; resume the loop at the first incomplete story.
 
 ## Persistence Rule
 
 <HARD-GATE>
-The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each); do not make a completion claim until every criterion is recorded. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the Review Gate dependency-graph values: `not-required` (with the compliant reason, including LIGHT direct-diff inspection and the STANDARD small-task carve-out), `single-reviewer` (STANDARD, or THOROUGH without a named pair trigger), or `paired-thorough` (a named THOROUGH pair, recording its independence mode as `cross-host` / `same-host-parallel-fallback`); an inline fallback requires a reason. Missing review topology is a named ledger gap. The single self-host verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session does not show each required completion criterion below satisfied — including, named individually, the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion (or an explicit missing-evidence blocker / not-required reason recorded for each) [E11]. Evidence status lives in `verification.md`; PRD/progress point to its AC IDs. A silently omitted step is a named ledger gap, not a pass. Every review records its topology using the dependency-graph values (`not-required` with the compliant reason, `single-reviewer`, or `paired-thorough` with its independence mode); an inline fallback requires a reason. Missing review topology is a named ledger gap. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
 </HARD-GATE>
 
-For a LIGHT run with no behavior change, the four named criteria may be
-recorded as one combined ledger line when each part is actually true, for
-example: `review: direct diff inspection; verifier: not-required (no
-maker-authored proving tests); simplify: no candidates;
-verification-before-completion: ran`. A STANDARD small-carveout run may
-similarly compact the review and simplify entries into one line (`review:
-not-required (STANDARD small carve-out: <reason>); simplify: no candidates`)
-while the verifier and verification-before-completion entries stay individually
-recorded.
+Completion criteria:
 
-Ship when all completion criteria are satisfied:
-
-- the selected execution mode is recorded and followed
-- every story or task has `passes: true`
-- the canonical `verification.md` ledger has one row per AC ID, with planned and
-  actual evidence, freshness, audit status, and direct evidence or explicitly classified
-  indirect/manual gaps for every acceptance criterion
+- selected execution mode recorded and followed; every story `passes: true`
+- `verification.md` has one row per AC ID with planned/actual evidence,
+  freshness, and audit status
 - required TDD evidence exists, or each exception is documented
-- the reviewer (code-review) pass required by the selected mode is approved, recorded as compliant `not-required` (LIGHT direct diff or STANDARD small carve-out), or a blocking reason is documented
-- the independent `verifier` pass required by the selected mode or the verifier carve-out ran (per the Review-then-verify order, never the maker), or its dispatch-unavailable or not-required reason is recorded
-- the proportional `simplify` scan ran, was explicitly disabled, or recorded no
-  candidates with the applicable mode/trigger
-- post-cleanup verification passed when cleanup changed files
-- a direct-Ralph automatic worktree was merged back with post-merge verification, or its task branch and handoff path were reported, or no direct-Ralph automatic worktree existed per the recorded `Worktree decision`
-- `verification-before-completion` ran for the final completion claim
-- acceptance-to-evidence mapping, contract-surface evidence, baseline guard,
-  story risk checks, and the final risk check before completion were completed
-  or a missing-evidence blocker was recorded
-- final report was written
+- the mode-required reviewer pass is approved or compliantly not-required
+- the independent verifier pass ran per the review-then-verify order, or its
+  dispatch-unavailable / not-required reason is recorded
+- the proportional `simplify` scan ran, was disabled, or recorded no
+  candidates; post-cleanup verification passed when cleanup changed files
+- the direct-Ralph automatic worktree was merged back with post-merge
+  verification, or its branch/PR handoff was reported, or none existed per
+  the recorded `Worktree decision`
+- `verification-before-completion` ran for the final claim; story risk
+  checks and the final risk check completed or a missing-evidence blocker is
+  recorded
+- the final report was written
 
-If those criteria pass and only optional cleanup, optional re-review, or
-non-blocking follow-up remains, record the residual risk and stop instead of
-continuing the loop.
+A LIGHT run with no behavior change may compact the four named criteria into
+one combined ledger line when each part is actually true; a STANDARD
+small-carveout run may compact the review and simplify entries while the
+verifier and verification-before-completion entries stay individual. When
+the criteria pass and only optional follow-ups remain, record residual risk
+and stop instead of continuing the loop.
 
 ## Output
 
-Return:
+Return: session directory and PRD path; execution profile (mode/source,
+tier, policies, `Parallel trigger`, `Worktree decision and location`,
+integration status); delivery (stories, files, cleanup); verification
+(commands/results, AC mapping, contract/baseline, risk/completion,
+validation check, diff budget); residual risk.
 
-- Session directory and PRD path.
-- Execution profile: mode/source, parallel trigger, policies, worktree decision/location, and integration status.
-- Delivery: stories, files, cleanup.
-- Verification: commands/results, AC mapping, contract/baseline, risk/completion, validation, and diff budget.
-- Review phases: when 2+ stages ran, include exactly `Review phases: plan=<n>; implementation-code=<n>; focused-recheck=<n>; independent-verifier=<n>`; when fewer than two ran, use ordinary labeled prose and omit that count line.
-- Residual risk.
-- Process budget outcome: planned versus actual tests/TDD cycles, role dispatch count and reasons, broad-suite count, and rescope events.
+Review-phase attribution: when 2+ stages ran, include exactly
+`Review phases: plan=<n>; implementation-code=<n>; focused-recheck=<n>; independent-verifier=<n>`;
+when fewer than two ran, use ordinary labeled prose and omit that count line.
+
+Process budget outcome: planned versus actual tests/TDD cycles, role
+dispatch count and reasons, broad-suite count, and rescope events.
 
 ## Final Handoff
 
-Ralph is the terminal workflow skill. After the final report, do NOT auto-invoke another workflow skill (`interview`, `ralplan`, `ultrawork`). Further work needs a fresh user request and a new skill selection.
+Ralph is the terminal workflow skill [E15]. After the final report, do NOT
+auto-invoke another workflow skill; further work needs a fresh user request.
+Mid-loop skills used inside the loop are Ralph's documented procedure and
+are not subject to a per-step transition question — the user opted in by
+invoking Ralph.
 
-Internal mid-loop skills used during the execution loop - `test-driven-development`, `fusion-rescue`, `simplify`, `verification-before-completion`, `systematic-debugging` - are part of Ralph's documented procedure and are NOT subject to the per-step transition question. The user has already opted into Ralph's loop by invoking it.
+## Agent Roles
 
-## Source: docs/platforms/claude-code-runtime.md
+| Agent | Use |
+|---|---|
+| `explore` | find relevant files, tests, commands, and integration surfaces; independent read-only targets as one parallel batch |
+| `executor` | implement scoped story work with an explicit ownership boundary |
+| `verifier` | independently map evidence to ACs and audit test genuineness; one self-host pass after review, never the maker |
+| `code-reviewer` | review correctness, maintainability, regressions, scope trace, and overcomplication; applies the security lens when triggered |
 
-# Claude Code Runtime Rules
+`simplify`, `verification-before-completion`, `test-driven-development`, and
+`systematic-debugging` are skills, not agents. Whether a role is inline or
+dispatched is decided by `## Mode-Gated Agent Dispatch`.
 
-This compact platform section is embedded in generated Claude Code-facing skill
-documents.
-
-## Skill Loading
-
-Claude Code-facing public skills live under `skills-claude/`. Generated
-`skills-claude/<skill>/SKILL.md` files compose the matching skill core, this
-compact runtime section, and any Claude Code skill-specific overlay such as
-`docs/platforms/claude-code-<skill>.md`. Slash commands must delegate to the
-matching generated skill document.
-
-## User Approval, Tasks, And Prompting
-
-Use the host's structured question tool when available for approval,
-preference, scope, or next-step selection; otherwise ask one focused plain-text
-question and wait. Present options as actions the host agent will take.
-
-When a core skill has a multi-phase approval handoff and the host exposes task
-tracking, create one task per phase and complete them sequentially.
-
-Keep Claude prompts explicit and sectioned: state scope, non-goals,
-constraints, approval gates, expected evidence, and output format. Preserve
-long-running context in artifacts before compaction, task handoff, or subagent
-dispatch.
-
-## Role Dispatch
-
-Dispatch only after the active skill's trigger fires, then read
-`docs/platforms/claude-code.md` `## Role Dispatch` for the full host contract.
-Prefer `oh-no-harness:<role>`, request the whole independent batch before
-waiting, capture every final result, and clean up only after integration. An
-approved-plan handoff is dispatch authorization for eligible isolated roles;
-plugin-agent unavailability uses the documented embedded-role fallback.
-
-## Cross-Host Consult Channel
-
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
-Until then, do not preload opposite-host invocation details.
+Maintenance references (rationale only, never a runtime prerequisite):
+`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
+`docs/shared/ralph-subagent-policy.md`, `docs/shared/verification-tiers.md`,
+`docs/shared/validation-check.md`, `docs/shared/cross-host-review.md`,
+`docs/shared/failure-taxonomy.md`, `docs/shared/agent-tiers.md`.
 
 ## Source: docs/platforms/claude-code-ralph.md
 
@@ -811,62 +683,69 @@ Until then, do not preload opposite-host invocation details.
 
 CLAUDE_CODE_ONLY_RALPH_ADAPTER
 
-Use this adapter only on Claude Code. Do not apply it on Codex or other
-platforms.
-
-When Ralph reaches cleanup on Claude Code, use the host built-in `simplify`
-skill when available as the cleanup contract.
+<ADAPTER_CONTRACT>
+This adapter binds the Ralph core to Claude Code. The core owns every
+semantic decision; this file owns only host invocation and lifecycle
+mechanics. If they conflict, the core wins. The generated core plus this
+adapter is sufficient: longer platform, shared, and agent documents are
+optional maintenance context, never a runtime prerequisite. Do not apply it
+on Codex or other platforms.
+</ADAPTER_CONTRACT>
 
 ## Invocation
 
-When Ralph dispatches a role, use Claude Code's Task, Agent, Workflow `agent()`,
-or subagent mechanism with the plugin-scoped agents from `agents/`.
+When Ralph dispatches a role, use Claude Code's Task, Agent, Workflow
+`agent()`, or subagent mechanism with the plugin-scoped agents from
+`agents/`. Use `oh-no-harness:<agent>` as the agent name when the tool lists
+plugin agents; when explicit prompt text or a user-facing manual mention is
+needed, use `@agent-oh-no-harness:<agent>`. Dispatch is trigger-loaded —
+dispatch only after the active skill's trigger fires.
 
-An approved `ralplan` handoff to ordinary `oh-no-harness:ralph` is the default
-parallel-capable execution path. Treat `Parallel trigger:
-approved-plan-handoff` as authorization to use every eligible isolated role in
-the approved plan; do not require a separate `ralph with parallel subagents`
-choice. Authorization is not a command to dispatch roles whose output would not
-change the implementation, review, verification, or ship/block decision.
+An approved `ralplan` handoff to ordinary `oh-no-harness:ralph` is the
+default parallel-capable execution path: treat
+`Parallel trigger: approved-plan-handoff` as authorization for every
+eligible isolated role in the approved plan, without a separate "parallel
+subagents" choice. Authorization is not a command to dispatch roles whose
+output would not change the implementation, review, verification, or
+ship/block decision.
 
-Use `oh-no-harness:<agent>` as the agent name when the tool lists plugin agents.
-When explicit prompt text or a user-facing manual mention is needed, use
-`@agent-oh-no-harness:<agent>`.
-
-For independent read-only, review, verification, QA, security, or exploration work — and for disjoint implementation (executor) work in STANDARD/THOROUGH, when write scopes are non-overlapping per `docs/shared/ralph-subagent-policy.md` — request background subagents and start the whole independent batch before waiting for any one result.
-
-After each background subagent reaches a final status, capture its result and
-changed-file set. When no further input is needed, close or clean up that
-completed subagent with the Claude Code mechanism exposed by the host. If the
-host does not expose explicit close or cleanup, record that no close mechanism
-was available.
+For independent read-only, review, verification, QA, security, or
+exploration work — and for disjoint implementation (executor) work in
+STANDARD/THOROUGH when write scopes are non-overlapping — request background
+subagents and start the whole independent batch before waiting for any one
+result.
 
 If a plugin-scoped agent is unavailable, keep the same role boundary by
-embedding the matching `agents/<agent>.md` prompt into the available Claude Code
-subagent mechanism.
+embedding the matching `agents/<agent>.md` prompt into the available Claude
+Code subagent mechanism.
 
-## Ralph Prompt Shape
+## Dispatch Packet Additions
 
-Every Claude Code Ralph dispatch should include:
+Add to the core dispatch packet:
 
 ```text
 Role: oh-no-harness:<agent>
-Story/task: <id and title>
-Scope: <owned files/directories, or read-only areas>
-Do not touch: <other agents' scopes>
-Expected output: <patch, findings, evidence, or test result>
-Verification responsibility: <command/evidence>
 Background: <yes for independent work, no when sequential>
-Lifecycle: caller captures the result, integrates or records it, then closes or
-cleans up this completed subagent when the host exposes that mechanism
-Coordination: You are not alone in the codebase. Do not revert or overwrite
-other agents' work. Stay inside your assigned scope.
 ```
 
-## Batch Discipline
+## Lifecycle
 
-For an eligible independent batch, issue all Claude Code subagent requests
-before waiting. After they return, integrate their outputs in Ralph and run the
-verification required by the selected execution mode. Close or clean up each
-completed subagent after its output has been captured and no further input is
-needed.
+After each background subagent reaches a final status, capture its result
+and changed-file set. When no further input is needed, close or clean up
+that completed subagent with the Claude Code mechanism exposed by the host;
+if the host does not expose explicit close or cleanup, record that no close
+mechanism was available. A notification, timeout, or empty wait result is
+not a final status.
+
+## Cross-Host Consult Channel
+
+Paired THOROUGH review on Claude Code dispatches the current-host
+`code-reviewer` and the `code-reviewer-codex` transport with identical
+packets; the Codex consult is read-only, foreground, one hop, and returns
+the actual opposite-host result. On opposite-host unavailability run the
+same-host parallel fallback and record it.
+
+## Cleanup
+
+When Ralph reaches the CLEANUP checkpoint on Claude Code, use the host
+built-in `simplify` skill when available as the cleanup contract.

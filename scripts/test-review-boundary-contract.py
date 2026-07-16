@@ -111,7 +111,7 @@ def main() -> int:
         "must not directly dispatch plan-reviewer outside Ralplan",
         lambda root: append_before_heading(
             root / "docs" / "skill-core" / "ralph.md",
-            "## Input Hardening",
+            "## Scope Trace Gate",
             "Dispatch `plan-reviewer` for Ralph completion review.",
         ),
     )

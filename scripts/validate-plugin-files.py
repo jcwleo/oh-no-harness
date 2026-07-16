@@ -38,7 +38,7 @@ ALL_SKILLS = PUBLIC_SKILLS
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
 CLAUDE_ONLY_SKILLS = {"install-statusline"}
-SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan", "ralplan-v2"}
+SELF_CONTAINED_ADAPTER_SKILLS = {"ralplan", "ralplan-v2", "ralph"}
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
@@ -2976,7 +2976,7 @@ def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
         path = root / relative_path
         text = read_text(path)
         for marker in markers:
-            if marker not in text:
+            if not has_required_marker(text, marker):
                 die(f"{path} is missing TDD routing contract marker: {marker!r}")
 
     readme_markers = {
@@ -3825,8 +3825,8 @@ def assert_proportional_workflow_contract(root: Path) -> None:
             "Only a named",
         ),
         "ralph": (
-            "`verification.md` is the canonical acceptance-to-evidence ledger",
-            "uses one targeted reviewer instance",
+            "`verification.md` is the canonical acceptance-to-evidence",
+            "one targeted reviewer instance",
             "## Process Budget Gate",
         ),
         "simplify": (
@@ -4246,6 +4246,15 @@ FSM_CONTRACTS = {
         ),
         "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R16"),
         "min_guard_citations": 6,
+    },
+    "ralph": {
+        "phases": ("PREPARE", "EXECUTE", "REVIEW", "FINALIZE"),
+        "outcomes": ("COMPLETE", "PAUSED", "RETURN_TO_PLAN"),
+        "rule_ids": (
+            "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
+            "E9", "E10", "E11", "E12", "E13", "E14", "E15", "E16",
+        ),
+        "min_guard_citations": 10,
     },
 }
 

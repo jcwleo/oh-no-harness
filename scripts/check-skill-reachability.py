@@ -125,16 +125,16 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
         ("trigger-loaded", BOTH),
-        ("Read and follow `verification-before-completion` before any completion claim", BOTH),  # G1 thin VBC reference (ralph.md:274)
+        ("read and follow `verification-before-completion`", BOTH),  # G1 thin VBC reference (FINALIZE COMPLETION_AUDIT checkpoint)
+        ("before any completion claim", BOTH),
         ("The run is invalid if the session does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
-        ("After all stories, run the `##\n   Diff-Budget Gate` exactly once", BOTH),
+        ("run the `## Diff-Budget Gate` exactly once", BOTH),
         ("cumulative per-story mid-run early-stop check", BOTH),
-        ("final gate exactly once after all stories and before `##\nReview Gate`", BOTH),
-        ("All Ralph modes always evaluate the final Diff-Budget Gate exactly once after", BOTH),
-        ("all stories and before the Review Gate. Thresholds decide whether that one", BOTH),
-        ("evaluation expands into the detailed diff-budget scope review", BOTH),
+        ("Run this final gate exactly once, after all stories and before", BOTH),
+        ("Thresholds decide whether the single evaluation", BOTH),
+        ("expands into the detailed scope review", BOTH),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),

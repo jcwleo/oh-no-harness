@@ -104,15 +104,15 @@ fi
 context="<OH_NO_RALPH_PLATFORM_ADAPTER>
 Platform: ${platform_name}
 
-Ralph is being invoked. Read and apply the shared Ralph subagent policy and the
-active platform adapter source files below. This hook is a compact reminder; the
-files remain the source of truth. Do not apply another platform's invocation
+Ralph is being invoked. The generated Ralph skill core plus the active
+platform adapter below are the source of truth (the core owns dispatch
+policy; docs/shared/ralph-subagent-policy.md is maintenance rationale). This
+hook is a compact reminder. Do not apply another platform's invocation
 syntax.
 
 ${codex_agent_preflight}
 
-Shared policy source: docs/shared/ralph-subagent-policy.md
-Shared policy reminders:
+Dispatch policy reminders:
 - Dispatch only when the selected mode/policy allows it, the role is isolated,
   and the result can change implementation, review, verification, or ship/block
   decisions.
