@@ -385,6 +385,8 @@ registered custom agent, a plugin-scoped agent, or a documented fallback):
 ```text
 Role: {explore|executor|verifier|code-reviewer}
 Story/task: {id and title}
+Execution mode: {task-level mode; artifact policy when the role writes artifacts}
+Worktree decision: {recorded decision and location — required for write roles}
 Scope: {owned files/directories, or read-only areas}
 Do not touch: {files owned by other agents}
 Expected output: {patch, findings, evidence, or test result}

@@ -16,7 +16,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Responsibilities
 
-- Identify user goals, non-goals, constraints, and stakeholders.
+- Identify user goals, non-goals, constraints, and stakeholders — keep these
+  separable so the caller can derive its Direction Contract fields without
+  reinterpreting your prose.
 - Identify the acceptance criteria: who or what will validate success in practice,
   what observable success and failure signals matter, and which checks are
   useful but insufficient proof.

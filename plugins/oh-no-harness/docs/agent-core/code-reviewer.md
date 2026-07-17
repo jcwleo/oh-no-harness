@@ -36,6 +36,11 @@ Output below); apply full security depth only when a trigger matches.
   cleanup lock.
 - Check whether nearby existing behavior, tests, or smoke paths could regress;
   treat new tests alone as insufficient when a viable baseline exists.
+- Probe the applicable negative-path scenarios — malformed or boundary input,
+  stale state, cancel/resume or concurrency — when their triggers hold, or
+  rule each out with a one-line reason naming why no AC ID, named risk,
+  adjacent regression surface, safety invariant, or changed semantic model
+  triggers it.
 - Flag speculative abstraction, configurability, dependencies, broad refactors,
   or drive-by formatting that are not required by the current task.
 - Flag task-name-specific, fixture-specific, or changes justified only by
@@ -71,8 +76,8 @@ on your own host; do not split the lenses across hosts. The current-host main
 agent merges both reviews' findings, deduplicated and tagged with host
 provenance, and returns the merged set to the caller. When the opposite host is
 unavailable in default mode, the calling skill runs the Same-Host Parallel
-Fallback (two same-host reviewers under distinct lenses, synthesized) per the
-shared doc instead of a single pass; require-cross-host mode blocks.
+Fallback (two same-host reviewers under distinct lenses, synthesized) per its
+own review contract instead of a single pass; require-cross-host mode blocks.
 
 You may use same-host read-only subagents or tools to form your review, but you
 must not make any further cross-host call beyond the single assigned consult;

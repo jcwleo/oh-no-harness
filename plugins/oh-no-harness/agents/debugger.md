@@ -40,10 +40,10 @@ synthesizes both investigations into a single root-cause direction (competing
 hypotheses, the evidence that decides between them, and the smallest next
 diagnostic or fix step) and returns it to `systematic-debugging`; you do not
 emit a verdict. When the opposite host is unavailable in default mode,
-`systematic-debugging` runs the Same-Host Parallel Fallback (two same-host
-debuggers under distinct hypothesis angles, synthesized) (the caller deduplicates host-tagged findings into one verdict) instead of a
-single pass; require-cross-host
-mode blocks.
+`systematic-debugging` runs the Same-Host Parallel Fallback — two same-host
+debuggers under distinct hypothesis angles, whose host-tagged findings the
+caller deduplicates and synthesizes into one verdict — instead of a single
+pass; require-cross-host mode blocks.
 
 You may use same-host read-only subagents or tools, but you must not make any
 further cross-host call beyond the single assigned consult; that
