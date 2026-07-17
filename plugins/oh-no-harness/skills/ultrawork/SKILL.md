@@ -350,15 +350,10 @@ authorizes eligible isolated roles.
 
 ## Ultrawork Exception
 
-Ultrawork is the only context that may invoke `interview`, `ralplan`, or
-`ralph` without the per-step transition question those skills normally
-require [U13]: the user opted into orchestration, so each phase boundary
-moves automatically once the prior phase's content gate is satisfied. It
-skips the between-phase "which next skill?" question and the separate
-plan-approval prompt (PLANNING's automatic approval per U4 — ralplan's
-`### Ultrawork exception` owns the pause conditions). It does not skip
-interview/spec approval when requirements are unclear, planning quality
-gates, scope-change pauses, verification, or final evidence.
+Apply U13 verbatim: the user opted into orchestration, so each phase
+boundary moves automatically once the prior phase's content gate is
+satisfied (PLANNING's automatic approval per U4 — ralplan's
+`### Ultrawork exception` owns the pause conditions).
 
 If the user invokes `interview`, `ralplan`, or `ralph` directly without
 going through ultrawork, the per-step Next Skill Handoff in those skills

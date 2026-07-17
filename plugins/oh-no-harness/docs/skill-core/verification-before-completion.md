@@ -95,8 +95,8 @@ smoke check could catch regressions.
 
 ## Evidence Rules
 
-- A previous run is not fresh evidence unless no file or dependency changed
-  since that run [V1].
+- Freshness is V1 verbatim: "no file or dependency changed since that run"
+  is the only reading of "nothing it depends on changed".
 - A passing lint check does not prove tests pass; a passing unit test does
   not prove a user-facing flow; a broad-suite pass does not prove a new
   semantic contract unless the new behavior is directly represented in it.

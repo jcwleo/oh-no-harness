@@ -237,7 +237,7 @@ Topology by mode:
 
 ```text
 LIGHT    -> review may be omitted with one concrete risk-based reason.
-STANDARD -> STANDARD runs one Plan-Reviewer instance.
+STANDARD -> one Plan-Reviewer instance.
 THOROUGH -> one instance, unless a named security/data/destructive,
             public/release-contract, concurrency, migration, or comparable
             multi-system trigger selects paired review: two instances of the
@@ -272,9 +272,10 @@ Direction preservation: preserved | requested-direction-change: yes
 Required changes for Planner: <list | none>
 ```
 
-APPROVE freezes the exact reviewed Planner draft [R4]. Non-blocking findings
-are optional follow-ups. Any plan-body change that must be incorporated
-before approval is blocking and yields ITERATE.
+Verdict consequences are R4 verbatim: APPROVE freezes the exact reviewed
+Planner draft; Non-blocking findings are optional follow-ups; Any plan-body
+change that must be incorporated before approval is blocking and yields
+ITERATE.
 
 ## Planner Revision Contract
 
@@ -370,7 +371,7 @@ Plan identity:
 - Approval source: user approve-and-run | ultrawork automatic approval | none
 ```
 
-Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance criteria, tasks, key files, verification, compact execution profile, and approval status; they may omit inactive review, process, dispatch, risk, and rollout inactive ceremony. Dispatch detail appears only for roles passing the dispatch-eligibility test in `## Execution Profile`.
+Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance criteria, tasks, key files, verification, compact execution profile, and approval status; they may omit inactive review, process, dispatch, risk, and rollout ceremony. Dispatch detail appears only for roles passing the dispatch-eligibility test in `## Execution Profile`.
 
 ## Plan Approval Brief
 
@@ -379,9 +380,9 @@ goal/scope; tasks/key files; AC alignment; smallest approach and rejected
 complexity; active stack/validation/test/rollout decisions; review summary
 with unresolved blockers/waivers; worktree/dispatch handoff; verification;
 risks/open decisions; one compact execution-profile recap. Omit inactive
-sections. Compact LIGHT preserves goal, scope, acceptance criteria,
-tasks/key files, verification, compact profile, and approval. When dispatch
-is active, recap only roles/scopes passing the dispatch-eligibility test in
+sections. Compact LIGHT preserves the same items `## Plan File Requirements`
+lists for compact LIGHT plans. When dispatch is active, recap only
+roles/scopes passing the dispatch-eligibility test in
 `## Execution Profile`.
 
 ## Next Skill Handoff

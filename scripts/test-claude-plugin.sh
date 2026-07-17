@@ -818,7 +818,7 @@ policy = read(root / "docs" / "skill-core" / "ralph.md")
 for m in ("## Codex Executor Delegation Boundary", "returns raw Codex stdout",
           "Caller-owned escape guard", "filesystem sentinel",
           "`path + mtime + size` manifest", "EXCLUDING the delegated task worktrees",
-          "same path, mtime, and size", "identity rebind does not change the existing Batch Rule",
+          "same path, mtime, and size", "identity rebind changes neither Ralph eligibility nor the existing Batch Rule",
           "fallback and integration stay sequential"):
     if m not in policy:
         raise SystemExit(f"ralph.md missing caller guard marker {m!r}")

@@ -978,7 +978,7 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Re-review scope: delta | full",
     "Re-review: not required (no blocking findings)",
     "Worst-case THOROUGH role dispatch chain remains bounded to two review rounds",
-    "STANDARD runs one Plan-Reviewer instance",
+    "STANDARD -> one Plan-Reviewer instance",
     "required Plan-Reviewer cannot be skipped",
     "accepted blocking feedback is not in the body",
     "accepted section pointer",
@@ -1032,17 +1032,15 @@ RALPLAN_LIGHT_PLAN_FILE_MARKERS = (
     "approval status",
     "may omit",
     "inactive review",
-    "inactive ceremony",
+    "rollout ceremony",
 )
+# The compact-LIGHT item list is defined once in ## Plan File Requirements;
+# the Approval Brief references it instead of restating it (single-definition
+# rule from the 2026-07-16 FSM rewrite).
 RALPLAN_LIGHT_APPROVAL_BRIEF_MARKERS = (
     "Compact LIGHT",
-    "goal",
-    "scope",
-    "acceptance criteria",
-    "tasks/key files",
-    "verification",
-    "compact profile",
-    "approval",
+    "same items",
+    "## Plan File Requirements",
     "Omit inactive sections",
 )
 RALPLAN_DIRECT_HANDOFF_REQUIRED_PATTERNS = (
@@ -2118,7 +2116,7 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
 
     ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
     for marker in (
-        "identity rebind does not change Ralph eligibility",
+        "identity rebind changes neither Ralph eligibility nor the existing Batch Rule",
         "outer `executor-codex` layer",
         "foreground call. Wait for every started member",
         "fallback and integration stay sequential",
@@ -2137,7 +2135,7 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "EXCLUDING the delegated task worktrees",
         "same path, mtime, and size",
         "worktree diff alone does not prove confinement",
-        "identity rebind does not change the existing Batch Rule",
+        "identity rebind changes neither Ralph eligibility nor the existing Batch Rule",
         "fallback and integration stay sequential",
     ):
         if not has_required_marker(ralph_core, marker):
@@ -3599,7 +3597,7 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     for skill, markers in {
         "ralplan": (
             "single canonical schema",
-            "STANDARD runs one Plan-Reviewer instance",
+            "STANDARD -> one Plan-Reviewer instance",
             "Only a named",
         ),
         "ralph": (

@@ -254,11 +254,10 @@ restatement counts as direct user judgment for the Dialectic Rhythm Guard.
 
 ## Dialectic Rhythm Guard
 
-The interview is with the user, not the codebase [I6]. After three
-consecutive answers derived from repository facts, code confirmations, or
-external research, the next question MUST route to direct user judgment.
-Reset the count whenever the user supplies or corrects a decision,
-constraint, priority, non-goal, or acceptance criterion.
+The interview is with the user, not the codebase — apply I6 verbatim.
+Fact-derived answers are those from repository facts, code confirmations,
+or external research; a user-supplied decision is any supplied or corrected
+decision, constraint, priority, non-goal, or acceptance criterion.
 
 ## Hidden-Assumption Persona Check
 

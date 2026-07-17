@@ -412,7 +412,7 @@ completion evidence.
 When the Claude Code SessionStart policy rebinds the executor role to
 `executor-codex`, treat that agent as a thin raw-output transport that
 returns raw Codex stdout and owns no repository evidence [E16]. The
-identity rebind does not change Ralph eligibility (and the identity rebind does not change the existing Batch Rule):
+identity rebind changes neither Ralph eligibility nor the existing Batch Rule:
 only a batch already admitted by the Batch Rule and dispatch conditions may
 overlap at the outer `executor-codex` layer; ineligible, unknown, or unsafe
 work stays serial. Every inner companion transport remains one
