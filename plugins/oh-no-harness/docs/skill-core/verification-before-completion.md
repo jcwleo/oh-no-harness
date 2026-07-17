@@ -196,8 +196,3 @@ validation check when applicable; skipped checks and reason; residual risk.
 None — this is the final evidence gate [V8]. Return the result to the
 caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to
 another workflow skill.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/verification-tiers.md`, `docs/shared/validation-check.md`,
-`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`,
-`docs/shared/failure-taxonomy.md`.

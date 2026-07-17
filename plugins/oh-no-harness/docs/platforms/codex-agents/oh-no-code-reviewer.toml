@@ -77,9 +77,8 @@ user-facing scenario validation (see `verifier`).
 
 ## Cross-Host Review
 
-When the calling skill runs cross-host review (see
-`docs/shared/cross-host-review.md`), you may be dispatched as the current-host
-reviewer or as the opposite-host reviewer. Run BOTH lenses (correctness and
+When the calling skill runs paired cross-host review, you may be dispatched
+as the current-host reviewer or as the opposite-host reviewer. Run BOTH lenses (correctness and
 maintainability first, then the security lens via the Safety Trigger Checklist)
 on your own host; do not split the lenses across hosts. The current-host main
 agent merges both reviews' findings, deduplicated and tagged with host

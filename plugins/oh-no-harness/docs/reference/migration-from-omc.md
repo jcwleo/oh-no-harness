@@ -36,7 +36,7 @@ Oh No Harness keeps selected OMC workflow content and removes the OMC runtime la
 | `.omc/specs/` | `.oh-no/specs/` |
 | `.omc/plans/` | `.oh-no/plans/` |
 | OMC company-context config files | not ported as runtime dependencies |
-| `docs/company-context-interface.md` | `docs/shared/company-context-interface.md` as an advisory context shape |
+| `docs/company-context-interface.md` | `docs/shared/ (retired 2026-07-17) company-context-interface.md` as an advisory context shape |
 
 ## Agent Mapping
 

@@ -458,11 +458,6 @@ Return: plan path; role and review-topology summary; findings ledger;
 execution profile; plan approval brief; approval status; recommended next
 skill or pause reason.
 
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
-`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`,
-`docs/shared/validation-check.md`.
-
 ## Source: docs/platforms/claude-code-ralplan.md
 
 # Ralplan Claude Code Adapter

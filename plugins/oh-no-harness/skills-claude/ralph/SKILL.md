@@ -410,16 +410,31 @@ completion evidence.
 ## Codex Executor Delegation Boundary
 
 When the Claude Code SessionStart policy rebinds the executor role to
-`executor-codex`, treat that agent as a thin raw-output transport, not an
-evidence owner [E16]. The identity rebind does not change Ralph eligibility:
+`executor-codex`, treat that agent as a thin raw-output transport that
+returns raw Codex stdout and owns no repository evidence [E16]. The
+identity rebind does not change Ralph eligibility (and the identity rebind does not change the existing Batch Rule):
 only a batch already admitted by the Batch Rule and dispatch conditions may
 overlap at the outer `executor-codex` layer; ineligible, unknown, or unsafe
 work stays serial. Every inner companion transport remains one
 foreground call. Wait for every started member before scope checks,
 independent verification, and review; fallback and integration stay sequential.
-Apply the caller-owned escape guard, scope-check, and partial-change
-inspection rules in `## Delegated Codex Executor Boundary` of the shared
-subagent policy; do not duplicate them here.
+
+Caller-owned escape guard: capture protected-target state immediately
+before the outer batch and after every started member finishes —
+integration-checkout git status plus a filesystem sentinel for the ignored
+`.oh-no/` subtree and sibling worktrees, EXCLUDING the delegated task worktrees
+from protected-target traversal. Halt before merge on an unexpected
+protected-target change and record the result. The sentinel is a
+`path + mtime + size` manifest, not a content hash: it cannot detect a
+content rewrite with the same path, mtime, and size, the git-status
+arm cannot attribute an already-dirty unchanged file, and temp or
+non-`.oh-no/` ignored paths stay outside the guard — it is best-effort
+detection, not a sandbox guarantee. After a clean guard, derive the
+changed-file set from the task worktree and apply the normal per-executor
+scope check, RED preservation, verification, and review; a
+worktree diff alone does not prove confinement. On transport failure,
+inspect partial worktree changes before the caller-mediated sequential
+native fallback.
 
 ## Scope Trace Gate
 
@@ -695,12 +710,6 @@ invoking Ralph.
 `simplify`, `verification-before-completion`, `test-driven-development`, and
 `systematic-debugging` are skills, not agents. Whether a role is inline or
 dispatched is decided by `## Mode-Gated Agent Dispatch`.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
-`docs/shared/ralph-subagent-policy.md`, `docs/shared/verification-tiers.md`,
-`docs/shared/validation-check.md`, `docs/shared/cross-host-review.md`,
-`docs/shared/failure-taxonomy.md`.
 
 ## Source: docs/platforms/claude-code-ralph.md
 

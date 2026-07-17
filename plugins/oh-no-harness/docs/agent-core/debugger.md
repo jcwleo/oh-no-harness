@@ -33,8 +33,8 @@ hypotheses, the evidence that decides between them, and the smallest next
 diagnostic or fix step) and returns it to `systematic-debugging`; you do not
 emit a verdict. When the opposite host is unavailable in default mode,
 `systematic-debugging` runs the Same-Host Parallel Fallback (two same-host
-debuggers under distinct hypothesis angles, synthesized) per
-`docs/shared/cross-host-review.md` instead of a single pass; require-cross-host
+debuggers under distinct hypothesis angles, synthesized) (the caller deduplicates host-tagged findings into one verdict) instead of a
+single pass; require-cross-host
 mode blocks.
 
 You may use same-host read-only subagents or tools, but you must not make any

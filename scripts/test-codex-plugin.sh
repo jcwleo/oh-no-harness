@@ -889,7 +889,6 @@ text = output.get("additionalContext", "")
 required = [
     "OH_NO_RALPH_PLATFORM_ADAPTER",
     "CODEX_ONLY_RALPH_ADAPTER",
-    "docs/shared/ralph-subagent-policy.md",
     "docs/platforms/codex-ralph.md",
     "Agent prompt source: docs/agent-core/<role>.md",
     "Agent prompt content:",

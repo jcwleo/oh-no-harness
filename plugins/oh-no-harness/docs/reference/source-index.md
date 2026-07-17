@@ -39,14 +39,6 @@ This file records the source material used to build Oh No Harness.
 
 | Oh No Harness file | Source file |
 |---|---|
-| `docs/shared/verification-tiers.md` | `omc/raw/docs/shared/verification-tiers.md` |
-| `docs/shared/company-context-interface.md` | `omc/raw/docs/company-context-interface.md` |
-| `docs/shared/execution-modes.md` | local execution-intensity contract for Interview, Ralplan, Ralph, and Ultrawork |
-| `docs/shared/ralph-subagent-policy.md` | local platform-neutral shared subagent dispatch and integration policy for Ralph-originated and other eligible Oh No Harness role workflows |
-| `docs/shared/worktree-isolation.md` | local worktree hard gate, allowed decisions, default task-worktree location, and artifact handoff policy |
-| `docs/shared/cross-host-review.md` | local platform-neutral cross-host review/verification contract: pairing, same-host parallel fallback, independence-mode recording, and the review-then-verify exception, reusing the Fusion Rescue consult mechanism |
-| `docs/shared/validation-check.md` | local validation template for evidence-informed improvements |
-| `docs/shared/failure-taxonomy.md` | local recurring engineering failure labels used by validation, risk checks, review, and verification |
 
 ## Local Platform Adapter Docs
 

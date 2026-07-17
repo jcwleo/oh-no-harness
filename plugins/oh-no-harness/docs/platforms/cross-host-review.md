@@ -1,10 +1,12 @@
 # Cross-Host Review
 
-> **Skill-runtime note (2026-07-17).** No skill core reads this file at
-> runtime — the skill cores are self-contained. This document remains an
-> ACTIVE contract for the agent-core role prompts that reference it; it is
-> not retired. If this file and a skill core disagree on a skill-owned rule,
-> the skill core wins.
+> **Cross-host mechanism document (moved from docs/shared, 2026-07-17).**
+> No skill core reads this file at runtime — the skill cores are
+> self-contained and each carries its own paired-review rules. This file is
+> the transport-mechanism reference for the cross-host consult channel and
+> the machine-checkable fixture for the opt-in cross-host live test lanes.
+> If this file and a skill core disagree on a skill-owned rule, the skill
+> core wins.
 
 Cross-host review is the paired-review implementation used only after a calling
 skill records a named THOROUGH risk. It lets two instances of the SAME assigned

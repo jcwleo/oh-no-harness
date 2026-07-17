@@ -813,14 +813,15 @@ for m in ("PROTECTED TARGET SET", "escape_net_verdict", "Raw PRE and POST",
     if m in executor:
         raise SystemExit(f"executor-codex.md still contains forbidden wrapper-owned marker {m!r}")
 
-policy = read(root / "docs" / "shared" / "ralph-subagent-policy.md")
-for m in ("## Delegated Codex Executor Boundary", "transport returns raw Codex stdout",
-          "caller-owned escape guard", "filesystem sentinel",
+# 2026-07-17: the caller-owned guard moved into the self-contained ralph core.
+policy = read(root / "docs" / "skill-core" / "ralph.md")
+for m in ("## Codex Executor Delegation Boundary", "returns raw Codex stdout",
+          "Caller-owned escape guard", "filesystem sentinel",
           "`path + mtime + size` manifest", "EXCLUDING the delegated task worktrees",
           "same path, mtime, and size", "identity rebind does not change the existing Batch Rule",
           "fallback and integration stay sequential"):
     if m not in policy:
-        raise SystemExit(f"ralph-subagent-policy.md missing caller guard marker {m!r}")
+        raise SystemExit(f"ralph.md missing caller guard marker {m!r}")
 
 # Trigger-loaded Claude channel: runtime pointer plus detailed maintenance owner,
 # with codex-companion transport and no /codex:rescue.
@@ -1088,7 +1089,6 @@ text = output.get("additionalContext", "")
 required = [
     "OH_NO_RALPH_PLATFORM_ADAPTER",
     "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
-    "docs/shared/ralph-subagent-policy.md",
     "docs/platforms/claude-code-ralph.md",
     "@agent-oh-no-harness:<agent>",
     "Parallel trigger:",
@@ -3554,9 +3554,9 @@ run_cross_host_fallback_live_test() {
 
 Named THOROUGH trigger: security-sensitive public authentication contract review. Pairing is trigger-driven, not availability-driven.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the oh-no-harness:*-codex cross-host consult agents and their codex-companion transport are not available or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT dispatch oh-no-harness:plan-reviewer-codex, oh-no-harness:code-reviewer-codex, oh-no-harness:debugger-codex, oh-no-harness:fusion-codex, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
+First, read ${read_root}/docs/platforms/cross-host-review.md, paying attention to its "## Same-Host Parallel Fallback" and "## Parallel Execution And Synthesis" sections. This run is in DEFAULT mode (NOT require-cross-host). The opposite host (Codex) is UNAVAILABLE: the oh-no-harness:*-codex cross-host consult agents and their codex-companion transport are not available or authorized in this run, so you MUST NOT attempt any cross-host hop, must NOT dispatch oh-no-harness:plan-reviewer-codex, oh-no-harness:code-reviewer-codex, oh-no-harness:debugger-codex, oh-no-harness:fusion-codex, rescue, fusion-rescue, or any opposite-host or another-host call. Treat the opposite host as unavailable and take the default-mode Same-Host Parallel Fallback, NOT the cross-host path.
 
-Lightweight contract pre-check (read-only). From ${read_root}/docs/shared/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback. Include the exact phrases "exactly two same-host agents" and "require-cross-host" so this pre-check is machine-checkable.
+Lightweight contract pre-check (read-only). From ${read_root}/docs/platforms/cross-host-review.md, confirm and state, behind the marker OH_NO_CLAUDE_DEEP_OK cross-host-fallback, all of: (1) in default mode when the opposite host is unavailable the review dispatches EXACTLY TWO same-host agents of the same role synthesized into one result rather than a single pass; (2) require-cross-host mode still BLOCKS instead of using this fallback. Include the exact phrases "exactly two same-host agents" and "require-cross-host" so this pre-check is machine-checkable.
 
 Behavioral fallback task. Drive the code-reviewer role over this tiny fixed diff under the Same-Host Parallel Fallback. The diff under review (treat as the stable diff):
 --- a/auth.py
@@ -3844,7 +3844,7 @@ run_cross_host_review_live_test() {
 
 Named THOROUGH trigger: security-sensitive public authentication contract review. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the code-reviewer role as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host code-reviewer pair: dispatch no other role (no verifier, explore, analyst, planner, debugger, or plan-reviewer) and no other opposite-host consult agent.
+First, read ${read_root}/docs/platforms/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the code-reviewer role as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the cross-host code-reviewer pair: dispatch no other role (no verifier, explore, analyst, planner, debugger, or plan-reviewer) and no other opposite-host consult agent.
 
 The diff under review (treat as the stable diff):
 --- a/session.py
@@ -6184,7 +6184,7 @@ run_ralplan_xhost_live_test() {
 
 Named THOROUGH trigger: public workflow contract planning. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:plan-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the Plan Review stage as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the planner then the cross-host plan-reviewer pair: dispatch no other role and no other opposite-host consult agent.
+First, read ${read_root}/docs/platforms/cross-host-review.md, paying attention to its "## Parallel Execution And Synthesis", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:plan-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. Run the Plan Review stage as a CROSS-HOST review pair, NOT the Same-Host Parallel Fallback. Exercise ONLY the planner then the cross-host plan-reviewer pair: dispatch no other role and no other opposite-host consult agent.
 
 Synthetic approved task (already analyzed): document that the host asks the user which execution workflow to run after ralplan plan approval.
 
@@ -6590,7 +6590,7 @@ run_vbc_xhost_live_test() {
 
 Named THOROUGH trigger: authentication and session safety review. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not availability-driven.
 
-First, read ${read_root}/docs/shared/cross-host-review.md, paying attention to its "## When It Applies", "## Sequencing Preserved", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. The verifier role is out of cross-host scope: it is an unconditional SINGLE self-host pass with ZERO cross-host consults, dispatched only AFTER the code-reviewer pair completes and is synthesized. Exercise ONLY the cross-host code-reviewer pair and then the single self-host verifier: dispatch no other role and no other opposite-host consult agent.
+First, read ${read_root}/docs/platforms/cross-host-review.md, paying attention to its "## When It Applies", "## Sequencing Preserved", "## Role-Owned Review Instances", and "## Reuse Of The Cross-Host Mechanism" sections, and read ${read_root}/docs/platforms/claude-code-runtime.md paying attention to its "## Cross-Host Consult Channel" section. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:code-reviewer-codex cross-host consult agent and its node codex-companion.mjs transport are available. The verifier role is out of cross-host scope: it is an unconditional SINGLE self-host pass with ZERO cross-host consults, dispatched only AFTER the code-reviewer pair completes and is synthesized. Exercise ONLY the cross-host code-reviewer pair and then the single self-host verifier: dispatch no other role and no other opposite-host consult agent.
 
 Risk-gated completion claim to verify: I changed auth and session logic; verify it is safe to ship. The reviewed change is this diff (treat as the stable diff):
 --- a/session.py
@@ -7039,7 +7039,7 @@ run_sysdebug_xhost_live_test() {
 
 Named THOROUGH trigger: repeated intermittent failure under new concurrency semantics. Read ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel before dispatch; pairing is trigger-driven, not the debugger default.
 
-First, read ${read_root}/docs/shared/cross-host-review.md and ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:debugger-codex consult owner and codex-companion transport are available. The named THOROUGH repeated-failure and concurrency trigger selects a CROSS-HOST debugger pair, NOT the Same-Host Parallel Fallback. Exercise ONLY that pair: dispatch no other role and no other opposite-host consult agent.
+First, read ${read_root}/docs/platforms/cross-host-review.md and ${read_root}/docs/platforms/claude-code.md Cross-Host Consult Channel. In this run the opposite host (Codex) is AVAILABLE and authorized: the oh-no-harness:debugger-codex consult owner and codex-companion transport are available. The named THOROUGH repeated-failure and concurrency trigger selects a CROSS-HOST debugger pair, NOT the Same-Host Parallel Fallback. Exercise ONLY that pair: dispatch no other role and no other opposite-host consult agent.
 
 Synthetic bug (all failure facts inline; no code change requested): a request handler intermittently returns HTTP 200 with an empty body under concurrent load. The response builder writes the body inside a background task, but the handler returns its response object before that background task has finished writing, so the body is occasionally empty. Reproduction: 50 concurrent requests, roughly 1 in 20 returns an empty body. There is no stack trace; logs show the background writer completing AFTER the response is flushed to the client.
 

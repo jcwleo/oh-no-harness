@@ -459,39 +459,8 @@ PROVIDER_DOC_MARKERS = {
 }
 # agent-tiers.md and parallel-subagents.md were retired 2026-07-17 (no
 # remaining consumers after the self-contained FSM rewrites).
-PLATFORM_SUBAGENT_DOC_MARKERS = {
-    "execution-modes.md": (
-        "Parallel trigger",
-        "docs/shared/ralph-subagent-policy.md",
-    ),
-}
-RALPH_SUBAGENT_POLICY_MARKERS = (
-    "# Ralph Subagent Policy",
-    "Ralph, Ultrawork, Simplify, Systematic Debugging",
-    "Interview brownfield exploration",
-    "## Subagent Bias",
-    "Requests to maximize subagents",
-    "prefer dispatch",
-    "decision-changing delegation",
-    "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
-    "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",
-    "credential values must be redacted",
-    "may dispatch the registered read-only `oh-no-explore` custom agent",
-    "use it before the next action",
-    "explicit user-requested subagent task",
-    "explicit session-level authorization",
-    "per-run subagent approval",
-    "## Subagent-Unavailable Environments",
-    "prefer dispatch over silently compressing every role",
-    "platform's subagent",
-    "## Batch Rule",
-    "eligible batch first",
-    "## Subagent Lifecycle",
-    "close or clean up the completed subagent",
-    "MUST NOT close a running or pending subagent",
-    "never use missing output as completion evidence",
-    "They must not revert, overwrite, reformat, or broaden work outside their",
-)
+# All docs/shared subjects retired 2026-07-17.
+PLATFORM_SUBAGENT_DOC_MARKERS: dict[str, tuple[str, ...]] = {}
 PLATFORM_ADAPTER_DOC_MARKERS = {
     "claude-code-ralph.md": (
         "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
@@ -528,32 +497,6 @@ PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
     "claude-code-ralph.md": ("spawn_agent", "CODEX_ONLY_RALPH_ADAPTER"),
     "codex-ralph.md": ("@agent-oh-no-harness:<agent>", "CLAUDE_CODE_ONLY_RALPH_ADAPTER"),
 }
-WORKTREE_SHARED_MARKERS = (
-    "# Worktree Isolation",
-    "## HARD-GATE",
-    "## Default Location",
-    "`interview` and `ralplan` do not need to run inside a worktree by default",
-    "`Worktree decision`",
-    "Profile policy values:",
-    "registered Git worktrees",
-    "Do not substitute `git clone`",
-    "cannot support `git worktree add`",
-    "`light direct checkout`",
-    "not a gate skip",
-    "keeps the automatic-worktree",
-    "re-record",
-    ".oh-no/worktrees/<task-slug>",
-    "parent-directory siblings",
-    "git -C .oh-no/worktrees/<task-slug> status",
-    "git worktree remove .oh-no/worktrees/<task-slug>",
-    "recursive nested worktree",
-    "integration checkout's untracked",
-    "git worktree add .oh-no/worktrees/<task-slug>",
-    "`direct-automatic-worktree`",
-    "`ultrawork` also uses automatic worktree execution",
-    "integration checkout",
-    "post-merge verification",
-)
 WORKTREE_FORBIDDEN_MARKERS = (
     "git worktree add ../<repo>-<task-slug>",
     "../<repo>-<task-slug>",
@@ -561,7 +504,7 @@ WORKTREE_FORBIDDEN_MARKERS = (
 WORKTREE_SKILL_MARKERS = {
     "using-oh-no-harness": (
         "## Worktree Isolation Default",
-        "docs/shared/worktree-isolation.md",
+        "`ralph` owns the decision table",
         ".oh-no/worktrees/<task-slug>",
         "parent-directory siblings",
         "git clone",
@@ -571,7 +514,7 @@ WORKTREE_SKILL_MARKERS = {
     "ralplan": (
         "worktree policy",
         "Execution handoff",
-        "docs/shared/worktree-isolation.md",
+        "Ralph owns the actual worktree",
     ),
     "ralph": (
         "## Worktree Isolation Gate",
@@ -610,63 +553,9 @@ WORKTREE_AGENT_MARKERS = {
     ),
     "executor": (
         "Worktree decision",
-        "docs/shared/worktree-isolation.md",
+        "caller's\n  dispatch packet",
     ),
 }
-EXECUTION_MODE_SHARED_MARKERS = (
-    "# Execution Modes",
-    "Mode is required for every handoff to `ralph`.",
-    "## Execution Mode Decision Prompt",
-    "## LIGHT",
-    "## STANDARD",
-    "## THOROUGH",
-    "`ralph` must read the execution profile before editing.",
-    "What observable behavior, artifact, prompt, config, or documentation will",
-    "skeptical maintainer or user test before accepting",
-    "Validation check",
-    "docs/shared/validation-check.md",
-    "Could the change affect runtime behavior",
-    "Does the change alter agent behavior",
-    "Can a lighter mode produce credible evidence",
-    "verification budget policy",
-    "Diff-Budget Gate",
-    "What would force escalation while working",
-    "Worktree policy",
-    "Worktree location",
-    "Worktree decision",
-)
-VERIFICATION_TIER_SHARED_MARKERS = (
-    "# Verification Tiers",
-    "docs/shared/validation-check.md",
-    "Measurable evidence is diagnostic evidence",
-    "Every tier uses the caller's canonical AC-ID acceptance-to-evidence ledger",
-    "A command list is not enough",
-    "direct, indirect, manual, or missing",
-    "Every behavior-changing tier also uses a risk check before completion",
-    "category-level risk modeling",
-    "Verification budget policy",
-    "Prefer focused semantic evidence before broad suites",
-    "Avoid repeated broad-suite reruns",
-    "Map every acceptance criterion",
-    "Record the risk check before completion",
-    "Include diff-budget scope review",
-    "with its security lens when auth, data, network, file system, policy, or secret handling can be affected",
-    "`code-reviewer`",
-)
-VALIDATION_CHECK_SHARED_MARKERS = (
-    "# Validation Check",
-    "Measurable evidence is useful, but it is not the same as satisfying acceptance",
-    "Examples of measurable evidence include local command success",
-    "recurring software engineering failure mode",
-    "## Forbidden Patterns",
-    "task-name, fixture-name, dataset-label, issue-id, or environment-specific",
-    "Validation check:",
-    "Acceptance criteria or user outcome it supports",
-    "Why this should apply to similar work",
-    "Case-specific details deliberately excluded",
-    "only supported by local checks and not acceptable as a harness improvement",
-    "## Similar-Work Expectation",
-)
 EXECUTION_MODE_SKILL_MARKERS = {
     "using-oh-no-harness": (
         "required Ralph execution mode",
@@ -2233,16 +2122,16 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "outer `executor-codex` layer",
         "foreground call. Wait for every started member",
         "fallback and integration stay sequential",
-        "`## Delegated Codex Executor Boundary`",
+        "## Codex Executor Delegation Boundary",
     ):
         if marker not in ralph_core:
             die(f"docs/skill-core/ralph.md missing delegated executor marker: {marker!r}")
 
-    caller_policy = read_text(root / "docs" / "shared" / "ralph-subagent-policy.md")
+    # 2026-07-17: the caller-owned guard moved into the ralph core with the
+    # shared-policy retirement; ralph_core (read above) is the single home.
     for marker in (
-        "## Delegated Codex Executor Boundary",
-        "transport returns raw Codex stdout",
-        "caller-owned escape guard",
+        "returns raw Codex stdout",
+        "Caller-owned escape guard",
         "filesystem sentinel",
         "`path + mtime + size` manifest",
         "EXCLUDING the delegated task worktrees",
@@ -2251,8 +2140,8 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
         "identity rebind does not change the existing Batch Rule",
         "fallback and integration stay sequential",
     ):
-        if marker not in caller_policy:
-            die(f"docs/shared/ralph-subagent-policy.md missing caller guard marker: {marker!r}")
+        if not has_required_marker(ralph_core, marker):
+            die(f"docs/skill-core/ralph.md missing caller guard marker: {marker!r}")
 
     # Source-aware stale-contract scan. Generic words such as ``snapshot`` and
     # ``filesystem sentinel`` remain valid on the CALLER side, so only exact
@@ -2500,23 +2389,8 @@ def assert_expected_references(root: Path) -> None:
 
 
 def assert_execution_mode_contract(root: Path) -> None:
-    path = root / "docs" / "shared" / "execution-modes.md"
-    text = read_text(path)
-    for marker in EXECUTION_MODE_SHARED_MARKERS:
-        if not has_required_marker(text, marker):
-            die(f"{path} is missing required Execution-Mode contract marker: {marker!r}")
-    shared_root = root / "docs" / "shared"
-    for filename, markers in PLATFORM_SUBAGENT_DOC_MARKERS.items():
-        doc = shared_root / filename
-        doc_text = read_text(doc)
-        for marker in markers:
-            if not has_required_marker(doc_text, marker):
-                die(f"{doc} is missing required Platform-Subagent marker: {marker!r}")
-    policy_path = shared_root / "ralph-subagent-policy.md"
-    policy_text = read_text(policy_path)
-    for marker in RALPH_SUBAGENT_POLICY_MARKERS:
-        if not has_required_marker(policy_text, marker):
-            die(f"{policy_path} is missing required Ralph-Subagent-Policy marker: {marker!r}")
+    # docs/shared/* retired 2026-07-17: the mode/subagent semantics live in the
+    # self-contained skill cores, already pinned by their own marker sets.
     platform_root = root / "docs" / "platforms"
     for filename, markers in PLATFORM_RULE_DOC_MARKERS.items():
         doc = platform_root / filename
@@ -2535,20 +2409,9 @@ def assert_execution_mode_contract(root: Path) -> None:
                 die(f"{doc} contains forbidden cross-platform adapter marker: {marker!r}")
 
 
-def assert_verification_tier_contract(root: Path) -> None:
-    path = root / "docs" / "shared" / "verification-tiers.md"
-    text = read_text(path)
-    for marker in VERIFICATION_TIER_SHARED_MARKERS:
-        if marker not in text:
-            die(f"{path} is missing required Verification-Tier contract marker: {marker!r}")
-
-
-def assert_validation_check_contract(root: Path) -> None:
-    path = root / "docs" / "shared" / "validation-check.md"
-    text = read_text(path)
-    for marker in VALIDATION_CHECK_SHARED_MARKERS:
-        if marker not in text:
-            die(f"{path} is missing required Validation-Check contract marker: {marker!r}")
+# assert_verification_tier_contract / assert_validation_check_contract were
+# retired 2026-07-17 with docs/shared: tier and validation semantics are
+# pinned inside ralph.md / verification-before-completion.md marker sets.
 
 
 def assert_required_reading_contract(root: Path) -> None:
@@ -2929,11 +2792,8 @@ def assert_provider_guidance(root: Path) -> None:
 
 
 def assert_worktree_contract(marketplace_root: Path, root: Path) -> None:
-    path = root / "docs" / "shared" / "worktree-isolation.md"
-    text = read_text(path)
-    for marker in WORKTREE_SHARED_MARKERS:
-        if marker not in text:
-            die(f"{path} is missing required Worktree contract marker: {marker!r}")
+    # docs/shared/worktree-isolation.md retired 2026-07-17; the decision table
+    # lives in ralph.md, pinned by WORKTREE_SKILL_MARKERS.
 
     forbidden_scan_paths = list(root.rglob("*.md"))
     forbidden_scan_paths.extend(marketplace_root.glob("README*.md"))
@@ -3099,7 +2959,6 @@ def assert_hook_contract(root: Path) -> None:
         "lowered_prompt=",
         '"what "*',
         '"oh-no-harness:ralph"*',
-        "docs/shared/ralph-subagent-policy.md",
         "docs/platforms/claude-code-ralph.md",
         "docs/platforms/codex-ralph.md",
         "hookEventName\": \"UserPromptSubmit",
@@ -3552,26 +3411,15 @@ def assert_parallel_executor_contract(root: Path) -> None:
     # canonical homes (bias + per-executor check in the shared policy; loop and
     # dispatch shape in ralph.md) cannot silently drift. Pre-edit docs lack these
     # phrases, so this guard fails before the change and passes after it.
-    shared = root / "docs" / "shared"
-    policy = read_text(shared / "ralph-subagent-policy.md")
-    bias = markdown_section(policy, "## Subagent Bias")
-    if not has_required_marker(bias, "disjoint implementation (executor) work"):
-        die(
-            "ralph-subagent-policy.md `## Subagent Bias` must name "
-            "disjoint implementation (executor) work as a first-class dispatch reason"
-        )
-    integration = markdown_section(policy, "## Integration")
+    # docs/shared/ralph-subagent-policy.md retired 2026-07-17: the dispatch
+    # bias and per-executor integration check live in the ralph core.
+    ralph_policy = read_text(root / "docs" / "skill-core" / "ralph.md")
     for marker in (
         "per-executor scope check",
-        "scope/correctness check",
         "only a stray or risky slice",
     ):
-        if not has_required_marker(integration, marker):
-            die(
-                "ralph-subagent-policy.md `## Integration` is missing the "
-                f"post-batch per-executor check marker: {marker!r}"
-            )
-
+        if not has_required_marker(ralph_policy, marker):
+            die(f"ralph.md is missing the per-executor integration marker: {marker!r}")
     ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
     loop = markdown_section(ralph_core, "## Execution Loop")
     if not has_required_marker(loop, "scan remaining work for disjoint scopes"):
@@ -3579,10 +3427,6 @@ def assert_parallel_executor_contract(root: Path) -> None:
     dispatch = markdown_section(ralph_core, "## Mode-Gated Agent Dispatch")
     if not has_required_marker(dispatch, "proactively partition disjoint"):
         die("ralph.md `## Mode-Gated Agent Dispatch` must make proactive disjoint-executor partition first-class")
-
-    modes = read_text(shared / "execution-modes.md")
-    if not has_required_marker(modes, "proactively partition disjoint"):
-        die("execution-modes.md must reference proactive disjoint-executor partition in STANDARD/THOROUGH")
 
     platforms = root / "docs" / "platforms"
     for adapter in ("claude-code-ralph.md", "codex-ralph.md"):
@@ -3740,37 +3584,17 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     shared = root / "docs" / "shared"
     skill_core = root / "docs" / "skill-core"
 
-    modes = read_text(shared / "execution-modes.md")
+    # docs/shared retired 2026-07-17: proportionality semantics are pinned in
+    # the self-contained ralph core.
+    ralph_body = read_text(skill_core / "ralph.md")
     for marker in (
-        "## Direction Contract",
-        "## Process Budgets And Gate Governance",
-        "STANDARD uses one reviewer instance per required role",
         "### STANDARD Small-Task Carve-Out",
-        "STANDARD small-carveout eligibility:",
-        "TDD, worktree isolation, session\nevidence",
-        "still `provisional` at completion-claim time",
-        "Four independent\n  cleanup viewpoints require a named THOROUGH",
-        "Mandatory gate proposal:",
-        "- Canonical owner:",
-        "- Trigger:",
-        "- Applicable modes:",
-        "- Added cost:",
-        "- Evidence of benefit:",
-        "- Not-applicable path:",
-        "- Retirement or merge condition:",
-        "- Duplicate prose/marker check:",
+        "size alone is never sufficient",
+        "`Status: provisional`",
+        "provisional` at completion-claim time",
     ):
-        if not has_required_marker(modes, marker):
-            die(f"execution-modes.md is missing proportional-workflow marker: {marker!r}")
-
-    cross_host = read_text(shared / "cross-host-review.md")
-    for marker in (
-        "STANDARD uses at most one reviewer instance",
-        "named THOROUGH paired-review trigger",
-        "Host\navailability alone never activates a pair",
-    ):
-        if not has_required_marker(cross_host, marker):
-            die(f"cross-host-review.md is missing risk-gated pairing marker: {marker!r}")
+        if not has_required_marker(ralph_body, marker):
+            die(f"ralph.md is missing proportional-workflow marker: {marker!r}")
 
     for skill, markers in {
         "ralplan": (
@@ -3816,7 +3640,6 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     gate_inventory = read_text(gate_inventory_path)
     for marker in (
         "# Mandatory Gate Inventory",
-        "docs/shared/execution-modes.md",
         "runtime skills do not preload this registry",
     ):
         if not has_required_marker(gate_inventory, marker):
@@ -3856,13 +3679,15 @@ def assert_proportional_workflow_contract(root: Path) -> None:
                 "add a complete canonical inventory row and update the reviewed gate-id baseline"
             )
 
+    gate_registry = root / "docs" / "reference" / "mandatory-gate-inventory.md"
     owners = [
         path
-        for path in (*skill_core.glob("*.md"), *shared.glob("*.md"))
+        for path in skill_core.glob("*.md")
         if "Mandatory gate proposal:" in read_text(path)
     ]
-    if owners != [shared / "execution-modes.md"]:
-        die("Mandatory gate proposal schema must have one canonical owner: execution-modes.md")
+    if owners:
+        die("Mandatory gate proposal schema must not leak into skill cores; "
+            f"its canonical owner is {gate_registry}")
 
 
 def assert_ralplan_review_boundary_contract(root: Path) -> None:
@@ -4042,20 +3867,9 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     if not has_required_marker(reviewer_transport, "Only Ralplan may call you"):
         die("plan-reviewer-codex.md must restrict the transport to Ralplan")
 
-    cross_host = read_text(root / "docs" / "shared" / "cross-host-review.md")
-    when_applies = markdown_section(cross_host, "## When It Applies")
-    for marker in (
-        "`plan-reviewer`: `ralplan` consensus plan review only",
-        "must not dispatch it for their own completion, final, post-fix, or debugging review",
-    ):
-        if not has_required_marker(when_applies, marker):
-            die(f"cross-host-review.md must keep plan-reviewer Ralplan-only: {marker!r}")
-    synthesis = markdown_section(cross_host, "## Parallel Execution And Synthesis")
-    if not has_required_marker(
-        synthesis,
-        "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
-    ):
-        die("cross-host-review.md must preserve each merged blocking finding's basis")
+    # docs/shared/cross-host-review.md retired 2026-07-17: the Ralplan-only
+    # plan-reviewer ownership is enforced below against the skill cores, and
+    # blocker-basis preservation is pinned by the ralplan core's own markers.
 
     direct_dispatch = re.compile(
         r"^(?![^\n]*\b(?:do not|must not|never)\b)[^\n]*"
@@ -4130,21 +3944,17 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         ):
             die(f"{host} explicit Ralplan live parser must compare exact normalized Reviewed draft id")
 
-    modes = read_text(root / "docs" / "shared" / "execution-modes.md")
-    governance = markdown_section(modes, "## Process Budgets And Gate Governance")
-    for marker in (
-        "All Ralph modes always evaluate the final Diff-Budget Gate exactly once after all stories and before the Review Gate",
-        "Thresholds decide whether that one evaluation expands into the detailed diff-budget scope review",
-    ):
-        if not has_required_marker(governance, marker):
-            die(f"execution-modes.md is missing canonical Diff-Budget timing: {marker!r}")
+    # docs/shared retired 2026-07-17: the canonical Diff-Budget timing lives
+    # in ralph.md and is asserted above; guard only against the conditional
+    # phrasing regressing inside the ralph core.
+    ralph_modes = read_text(root / "docs" / "skill-core" / "ralph.md")
     for pattern in (
         r"run\s+the\s+diff-budget\s+gate\s+when",
         r"Diff-Budget Gate[^\n]{0,80}\bonly\s+if\b",
         r"Diff-Budget Gate[^\n]{0,80}\bper[- ]story\b",
     ):
-        if re.search(pattern, modes, flags=re.IGNORECASE):
-            die(f"execution-modes.md makes final Diff-Budget execution conditional or repeated: {pattern!r}")
+        if re.search(pattern, ralph_modes, flags=re.IGNORECASE):
+            die(f"ralph.md makes final Diff-Budget execution conditional or repeated: {pattern!r}")
 
 
 def assert_workflow_object_routing_contract(root: Path) -> None:
@@ -4342,9 +4152,6 @@ def main() -> None:
     assert_codex_custom_agent_count(root)
     assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)
-    assert_verification_tier_contract(root)
-    assert_validation_check_contract(root)
-    assert_cross_host_review_contract(root)
     assert_required_reading_contract(root)
     assert_independence_mode_gates(root)
     assert_parallel_executor_contract(root)

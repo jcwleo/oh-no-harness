@@ -12,7 +12,6 @@ Claude Code SessionStart
 Claude Code UserPromptSubmit for Ralph
   -> hooks/run-hook.cmd ralph-platform-adapter
   -> hooks/ralph-platform-adapter
-  -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/claude-code-ralph.md
   -> agents/<role>.md as Claude Code plugin-scoped subagents
 
@@ -48,7 +47,6 @@ Codex UserPromptSubmit for Ralph when plugin hooks are enabled
   -> hooks/run-hook.cmd ralph-platform-adapter
   -> hooks/ralph-platform-adapter
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort fallback preflight
-  -> docs/shared/ralph-subagent-policy.md
   -> docs/platforms/codex-ralph.md
   -> docs/agent-core/<role>.md for Codex spawn_agent prompt embedding
 ```
@@ -73,14 +71,12 @@ install-statusline
 
 interview
   -> explore for brownfield context
-  -> docs/shared/execution-modes.md for provisional Ralph sizing
   -> ralplan after approval for consensus planning
   -> ralph after approval for direct execution
   -> ultrawork after approval for end-to-end orchestration
 
 ralplan
   -> embedded consensus planning workflow
-  -> docs/shared/execution-modes.md for required Ralph execution profile
   -> explore when codebase context is needed
   -> analyst for hidden requirements, risks, and constraints
   -> planner
@@ -88,9 +84,7 @@ ralplan
   -> ralph or ultrawork after approval
 
 ralph
-  -> docs/shared/execution-modes.md before editing
   -> explore when files, tests, or integration surfaces are not obvious
-  -> docs/shared/ralph-subagent-policy.md before subagent dispatch
   -> docs/platforms/claude-code-ralph.md on Claude Code
   -> docs/platforms/codex-ralph.md on Codex
   -> test-driven-development before behavior-changing production edits
@@ -111,7 +105,6 @@ ultrawork
   -> test-driven-development when execution is handled inline and behavior changes
   -> systematic-debugging when QA or verification fails
   -> verification-before-completion before the final report
-  -> docs/shared/ralph-subagent-policy.md when inline phases can safely run in parallel
   -> explore / analyst / planner / executor when phases are handled inline; Ralplan alone owns its plan-reviewer phase
   -> QA loop via systematic-debugging, which owns debugger dispatch; verifier (scenario lens included), code-reviewer (security lens included)
 
@@ -136,7 +129,6 @@ systematic-debugging
   -> fusion-rescue when competing hypotheses remain contradictory or stalled after ordinary diagnostics
   -> code-reviewer for post-fix review when risk requires (security lens included)
   -> verifier and verification-before-completion for fix evidence
-  -> docs/shared/ralph-subagent-policy.md for dispatch/inline decisions and batch dispatch
 
 fusion-rescue
   -> fusion-rescue-analyst for current-host panel lenses

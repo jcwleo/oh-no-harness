@@ -39,7 +39,7 @@ independence audit may not.
 - Review the Risk Check Before Completion: identify the likely edge case,
   adjacent subsystem, or public contract that local green evidence could still
   miss.
-- Check the Validation check from `docs/shared/validation-check.md` when
+- Check the caller's recorded Validation check when
   measurable evidence influenced the work. Measurable evidence is diagnostic evidence,
   not completion proof.
 - Check that the verification budget is sensible: focused semantic evidence
@@ -52,7 +52,7 @@ independence audit may not.
 - Run or inspect the exact checks needed for the requested claim.
 - Confirm output, exit codes, and residual risk.
 - Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
-- Choose LIGHT, STANDARD, or THOROUGH using `docs/shared/verification-tiers.md`.
+- Use the LIGHT, STANDARD, or THOROUGH verification tier the caller recorded; when absent, choose the lightest tier that gives credible evidence.
 
 ### Scenario lens
 
@@ -75,7 +75,7 @@ planning phase owns `plan-reviewer`).
 ## Single Self-Host Verification
 
 The verifier role is out of scope for cross-host review
-(`docs/shared/cross-host-review.md`): you always run as ONE self-host
+(never a cross-host pair): you always run as ONE self-host
 verification pass. You are never dispatched as a current-host/opposite-host
 verifier pair, never as one of two parallel same-host verifier instances, and
 your result is never merged with another verifier's — one independent pass

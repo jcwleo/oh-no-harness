@@ -501,6 +501,3 @@ Do not use execution, review, or planning agents inside this skill [I1].
 Return: spec path; ambiguity score summary; key decisions; open questions;
 execution sizing hint; approval status; next-skill question asked
 (yes / no — skipped under ultrawork); selected next skill, if approved.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/company-context-interface.md`.

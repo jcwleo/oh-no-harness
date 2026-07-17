@@ -2,7 +2,7 @@
 
 This maintenance registry supplies one complete governance row per existing
 `<HARD-GATE>`. The proposal schema and runtime policy remain canonically owned
-by `docs/shared/execution-modes.md`; runtime skills do not preload this registry.
+by this registry itself (the former docs/shared/execution-modes.md owner was retired 2026-07-17); runtime skills do not preload this registry.
 
 | Gate ID | Canonical owner | Trigger | Modes | Added cost | Evidence benefit | Not-applicable path | Retirement / merge | Duplicate check |
 |---|---|---|---|---|---|---|---|---|

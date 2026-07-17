@@ -329,12 +329,12 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "execution-modes conditional Diff-Budget execution",
-        "execution-modes.md makes final Diff-Budget execution conditional or repeated",
+        "ralph conditional Diff-Budget execution",
+        "makes final Diff-Budget execution conditional or repeated",
         lambda root: (
             append_before_heading(
-                root / "docs" / "shared" / "execution-modes.md",
-                "## Execution Mode Decision Prompt",
+                root / "docs" / "skill-core" / "ralph.md",
+                "## Review Gate",
                 "Run the Diff-Budget Gate only if thresholds are crossed.",
             )
         ),

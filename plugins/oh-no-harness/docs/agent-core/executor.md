@@ -25,8 +25,8 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 - Read the relevant plan and acceptance criteria before editing.
 - Read and follow the assigned Ralph execution mode, task sizing, artifact policy, and agent policy before editing.
-- Read and follow the assigned `Worktree decision` from
-  `docs/shared/worktree-isolation.md` before editing. If the decision is missing,
+- Read and follow the assigned `Worktree decision` from the caller's
+  dispatch packet before editing. If the decision is missing,
   ambiguous, or blocked, report that blocker to the calling skill instead of
   editing files.
 - Do not improve adjacent code, reformat unrelated sections, add speculative

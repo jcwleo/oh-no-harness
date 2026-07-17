@@ -166,6 +166,3 @@ None — this is a failure-investigation mid-loop skill [D9]. It may use
 `fusion-rescue` as a bounded internal escalation, then return to this flow.
 After verification, return the result to the caller. Do not chain to
 another workflow skill.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`.

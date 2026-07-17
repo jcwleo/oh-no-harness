@@ -219,9 +219,6 @@ Oh No Harness does not include an automatic mode controller or external state le
 
 If a workflow requires persistence, the persistence requirement lives in the skill text and in written artifacts.
 
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`.
-
 ## Source: docs/platforms/claude-code-runtime.md
 
 # Claude Code Runtime Rules

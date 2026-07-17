@@ -350,7 +350,3 @@ is required.
 
 Return: active artifact paths; phase status; skills used in order;
 verification evidence; final result or blocker.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`,
-`docs/shared/ralph-subagent-policy.md`, `docs/shared/cross-host-review.md`.

@@ -108,7 +108,6 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),
         ("Non-blocking findings", BOTH),
         ("optional follow-ups", BOTH),
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
         ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
     "ralph": [
@@ -117,11 +116,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Mode-Gated Agent Dispatch", BOTH),
         ("Parallel trigger", BOTH),
         (".oh-no/worktrees/<task-slug>", BOTH),
-        ("parent-directory siblings", BOTH),
+        ("parent workspace directory", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph.md body + ralph-subagent-policy.md)
-        ("the implementing or accepting agent is not sufficient", BOTH),  # STANDARD/THOROUGH verifier-required rule (verification-tiers.md, path-referenced)
+        ("authored or accepted by the same agent", BOTH),  # STANDARD/THOROUGH verifier-required carve-out (ralph.md Review Gate)
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count

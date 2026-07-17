@@ -108,7 +108,7 @@ makes a missing explanation an automatic approval rule.
 
 ## Cross-Host Review
 
-When Ralplan selects paired review under `docs/shared/cross-host-review.md`, run
+When Ralplan selects paired review under its named THOROUGH trigger, run
 this complete two-pass review on your assigned host. The caller deduplicates
 host-tagged findings and derives one verdict. Cross-host findings never override
 the Direction Contract. Do not make another cross-host hop.

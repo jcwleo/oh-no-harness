@@ -200,6 +200,3 @@ Do not use legacy harness artifact paths.
 Oh No Harness does not include an automatic mode controller or external state ledger.
 
 If a workflow requires persistence, the persistence requirement lives in the skill text and in written artifacts.
-
-Maintenance references (rationale only, never a runtime prerequisite):
-`docs/shared/execution-modes.md`, `docs/shared/worktree-isolation.md`.
