@@ -146,29 +146,6 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
     {
       "host": "codex",
       "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--ralplan-v2-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "containment",
-        "forensic invariant",
-        "generated-wrapper freshness"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Generated two-source Codex wrapper assertion plus stored parent-child rollout graph from a verified disposable clone of the active config and agents tree, proving the requested model against each rollout's turn_context model provenance, the parent collaboration-call sequence, registered Planner then Plan-Reviewer role metadata and developer prompts, completion ordering, a per-run handoff nonce, canonical execution profile, exact Planner-draft echo in the Reviewer result, minimal verdict token, and no shell/write/next-workflow event",
-      "non_proofs": [
-        "marker-only output",
-        "final natural-language summary",
-        "comparison with a canned Planner draft",
-        "direct equality of encrypted Codex spawn packets"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
       "flag": "--named-agents-live",
       "release_status": "opt-in-live",
       "hard_failures": [
@@ -408,28 +385,6 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "marker-only output",
         "model self-report alone",
         "broad command success alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--ralplan-v2-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "containment",
-        "forensic invariant",
-        "generated-wrapper freshness"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Generated two-source Claude wrapper assertion plus a Read-and-Agent-only capability surface and Task/Agent events proving Planner completion before Plan-Reviewer, exactly two total role calls, identical actual contract payloads, canonical execution profile, per-run handoff nonce, exact captured-draft handoff, minimal verdict token, generated-wrapper-only read, and no write/Workflow/next-skill event",
-      "non_proofs": [
-        "marker-only output",
-        "final natural-language summary",
-        "comparison with a canned Planner draft"
       ]
     },
     {

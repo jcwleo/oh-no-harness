@@ -19,7 +19,6 @@ PUBLIC_SKILLS = [
     "using-oh-no-harness",
     "interview",
     "ralplan",
-    "ralplan-v2",
     "ralph",
     "ultrawork",
     "auto-routing",
@@ -41,7 +40,6 @@ CLAUDE_ONLY_SKILLS = {"install-statusline"}
 SELF_CONTAINED_ADAPTER_SKILLS = {
     "interview",
     "ralplan",
-    "ralplan-v2",
     "ralph",
     "systematic-debugging",
     "ultrawork",
@@ -52,7 +50,7 @@ SELF_CONTAINED_ADAPTER_SKILLS = {
 # model must never auto-invoke them). This is the invocation dimension and is kept
 # separate from CLAUDE_ONLY_SKILLS (the platform dimension) on purpose. Every other
 # command wrapper must still set disable-model-invocation: false.
-MODEL_UNINVOCABLE_SKILLS = {"ralplan-v2", "install-statusline"}
+MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
 
 AGENTS = [
     "explore",
@@ -1786,10 +1784,11 @@ def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
 
 
 def assert_model_uninvocable_skill_mutation_guards(root: Path) -> None:
-    skill = "ralplan-v2"
+    # ralplan-v2 retired 2026-07-17; install-statusline is the remaining
+    # model-uninvocable skill (Claude-only, so no Codex wrapper path).
+    skill = "install-statusline"
     paths = (
         root / SKILL_CORE_ROOT / f"{skill}.md",
-        root / CODEX_SKILL_ROOT / skill / "SKILL.md",
         root / CLAUDE_SKILL_ROOT / skill / "SKILL.md",
     )
     for source in paths:
@@ -3546,49 +3545,6 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
     ):
         if forbidden in body:
             die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
-
-    v2_checker_path = marketplace_root / "scripts" / "check-ralplan-v2-live.py"
-    v2_checker = read_text(v2_checker_path)
-    for marker in (
-        "Verify Ralplan v2 live behavior from runtime events, not final prose.",
-        "assert_relational_handoff",
-        "Reviewer did not receive the exact captured Planner draft",
-        "unexpectedly embeds a common platform runtime",
-        "VERDICT_APPROVE",
-        '"task_packet_observability": "encrypted-unavailable"',
-        "turn_context model provenance",
-        '"model": parent["model"]',
-        "unexpected_capabilities",
-        "generic extra Agent call",
-        "malformed execution profile",
-    ):
-        if marker not in v2_checker:
-            die(f"{v2_checker_path} is missing Ralplan v2 event-check marker: {marker!r}")
-    self_test = subprocess.run(
-        [sys.executable, str(v2_checker_path), "--self-test"],
-        capture_output=True,
-        text=True,
-    )
-    if self_test.returncode != 0:
-        details = "\n".join(
-            part for part in (self_test.stdout.strip(), self_test.stderr.strip()) if part
-        )
-        die(f"Ralplan v2 live checker mutation self-test failed:\n{details}")
-    for test_name, host in (
-        ("test-codex-plugin.sh", "Codex"),
-        ("test-claude-plugin.sh", "Claude"),
-    ):
-        test_path = marketplace_root / "scripts" / test_name
-        test_body = read_text(test_path)
-        for marker in (
-            "--ralplan-v2-live",
-            "run_ralplan_v2_live_test",
-            "check-ralplan-v2-live.py",
-            "it ignores your final prose",
-        ):
-            if marker not in test_body:
-                die(f"{test_path} is missing {host} Ralplan v2 live marker: {marker!r}")
-
 
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a

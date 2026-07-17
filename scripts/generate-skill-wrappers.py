@@ -16,7 +16,6 @@ PUBLIC_SKILLS = [
     "using-oh-no-harness",
     "interview",
     "ralplan",
-    "ralplan-v2",
     "ralph",
     "ultrawork",
     "auto-routing",
@@ -41,13 +40,12 @@ CLAUDE_ONLY_SKILLS = {"install-statusline"}
 SELF_CONTAINED_ADAPTER_SKILLS = {
     "interview",
     "ralplan",
-    "ralplan-v2",
     "ralph",
     "systematic-debugging",
     "ultrawork",
     "verification-before-completion",
 }
-MODEL_UNINVOCABLE_SKILLS = {"ralplan-v2", "install-statusline"}
+MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
 
 
 @dataclass(frozen=True)

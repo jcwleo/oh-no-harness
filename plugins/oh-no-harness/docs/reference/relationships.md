@@ -20,7 +20,7 @@ Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
   -> generated runtime document. Self-contained skills (interview, ralplan,
-     ralplan-v2, ralph, systematic-debugging, ultrawork,
+     ralph, systematic-debugging, ultrawork,
      verification-before-completion) compose docs/skill-core/<skill>.md plus
      the required docs/platforms/claude-code-<skill>.md adapter only; the
      remaining skills compose docs/skill-core/<skill>.md,
@@ -36,7 +36,7 @@ Codex
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
   -> using-oh-no-harness through native skill discovery
   -> skills/<skill>/SKILL.md generated runtime document. Self-contained
-     skills (interview, ralplan, ralplan-v2, ralph, systematic-debugging,
+     skills (interview, ralplan, ralph, systematic-debugging,
      ultrawork, verification-before-completion) compose
      docs/skill-core/<skill>.md plus the required docs/platforms/codex-<skill>.md
      adapter only; the remaining skills compose docs/skill-core/<skill>.md,
@@ -86,13 +86,6 @@ ralplan
   -> planner
   -> plan-reviewer
   -> ralph or ultrawork after approval
-
-ralplan-v2
-  -> parallel explicit-invocation preview; not selected by automatic routing
-  -> self-sufficient state-machine planning core
-  -> required minimal Codex or Claude Code adapter without common runtime
-  -> explore, analyst, planner, then plan-reviewer under the core state order
-  -> ralph or ultrawork only after the core approval handoff
 
 ralph
   -> docs/shared/execution-modes.md before editing

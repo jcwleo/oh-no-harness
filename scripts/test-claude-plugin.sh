@@ -18,7 +18,6 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
-RUN_RALPLAN_V2_LIVE="${OH_NO_RALPLAN_V2_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CROSS_HOST_FALLBACK_LIVE:-0}"
 RUN_CROSS_HOST_REVIEW_LIVE="${OH_NO_CROSS_HOST_REVIEW_LIVE:-0}"
@@ -46,7 +45,6 @@ PUBLIC_SKILLS=(
   using-oh-no-harness
   interview
   ralplan
-  ralplan-v2
   ralph
   ultrawork
   auto-routing
@@ -86,7 +84,6 @@ Options:
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
   --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
-  --ralplan-v2-live      Run the generated Ralplan v2 composition and sequential planning-role live test.
   --fusion-rescue-live   Run live Fusion Rescue oh-no-harness:fusion-codex and panel-subagent smoke test.
   --cross-host-fallback-live
                          Run live cross-host Same-Host Parallel Fallback smoke test:
@@ -158,7 +155,7 @@ Options:
 
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_RALPLAN_V2_LIVE, OH_NO_TEST_MODEL,
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
   OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MODEL,
   OH_NO_FUSION_RESCUE_MAX_BUDGET_USD, OH_NO_CROSS_HOST_FALLBACK_LIVE,
   OH_NO_CROSS_HOST_REVIEW_LIVE,
@@ -186,10 +183,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
-      shift
-      ;;
-    --ralplan-v2-live)
-      RUN_RALPLAN_V2_LIVE=1
       shift
       ;;
     --fusion-rescue-live)
@@ -1354,9 +1347,6 @@ live_prompt_for_skill() {
     ralplan)
       printf '/%s:ralplan Add a small smoke-test feature to an existing app. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the planning artifact you would create and the approval gate.' "$PLUGIN_NAME"
       ;;
-    ralplan-v2)
-      printf '/%s:ralplan-v2 Read-only smoke test. Read only the generated skill document; do not edit files, create artifacts, or invoke another workflow. Reply with the state order and direct approval gate.' "$PLUGIN_NAME"
-      ;;
     ralph)
       printf '/%s:ralph Approved no-op smoke-test plan: inspect scope, make no file changes, and report verification approach. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with how execution would proceed.' "$PLUGIN_NAME"
       ;;
@@ -2380,81 +2370,6 @@ run_natural_session_start_live_tests() {
   ok "natural Claude live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
-run_ralplan_v2_live_test() {
-  if [[ "$RUN_RALPLAN_V2_LIVE" != "1" ]]; then
-    log "Skipping live Claude ralplan-v2 runtime-event test"
-    printf 'Run with --ralplan-v2-live or OH_NO_RALPLAN_V2_LIVE=1 to verify the self-contained wrapper and Planner -> Plan-Reviewer event contract.\n' >&2
-    return
-  fi
-
-  log "Running live Claude ralplan-v2 runtime-event test (${LIVE_LOAD_MODE})"
-  mkdir -p "$RUN_DIR"
-  local out_file="$RUN_DIR/ralplan-v2-runtime-events.jsonl"
-  local err_file="$RUN_DIR/ralplan-v2-runtime-events.err"
-  local handoff_nonce
-  handoff_nonce="$($PYTHON_BIN - <<'PY'
-import secrets
-print(secrets.token_hex(12))
-PY
-)"
-  local prompt
-  prompt="$(cat <<'PROMPT'
-/${PLUGIN_NAME}:ralplan-v2 Read-only runtime instrumentation lane. The requirements source and Analyst gate are already satisfied. Do not inspect repository files beyond the generated skill document, run Bash, create artifacts, edit files, or invoke Ralph, Ultrawork, or any other workflow. The generated wrapper is self-contained; do not read shared, platform-maintenance, or agent-core documents.
-
-Create one compact Active Plan Contract for this synthetic STANDARD task. Supplied repository facts: `src/api/preferences.py` owns `update_preference(request, store)`; `src/storage/preferences.py` owns `PreferenceStore.set(key, value)`; focused tests live in `tests/api/test_preferences.py`; rollout is guarded by `preferences_write_v2`; rollback disables that flag and reverts the handler-to-store call. Acceptance criteria: AC1 a valid request persists through `PreferenceStore` and returns 200; AC2 storage failure returns 503 without reporting success; AC3 focused tests prove both cases and the rollback note names the flag. The host must not start execution before explicit approve-and-run. No repository exploration is required. Put the identical serialized contract in both role messages between unindented ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END lines. The harness compares the two actual Claude Agent payloads; it does not compare your plan wording with a canned answer.
-
-Use direct Task/Agent calls exactly twice and in strict sequence: oh-no-harness:planner, wait for its final result, then oh-no-harness:plan-reviewer, wait for its final result, then stop. Do not use Workflow, retry, run them in parallel, dispatch any other role, or dispatch Planner again.
-
-The Planner role message must contain the exact line `RALPLAN_V2_ROLE: planner`, the identical Active Plan Contract, the complete synthetic task packet, and `Handoff nonce: __HANDOFF_NONCE__`. Tell the registered Planner this is a read-only inline instrumentation run: it must not inspect files, use tools, create a plan artifact, or invoke another workflow. Ask it to return one compact draft between unindented PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines. The content may vary, but it must include `Planner draft id: live-v2-draft`, the exact line `Handoff nonce: __HANDOFF_NONCE__`, enough goal/AC/approach/verification content, and the identical Active Plan Contract block inside the draft.
-
-The Planner message must also embed this applicable core contract and require the draft to reproduce it exactly once with non-empty Task sizing and Escalation triggers values:
-
-Execution profile:
-- Overall Ralph mode: STANDARD
-- Mode source: ralplan
-- Verification tier: STANDARD
-- Artifact policy: session-verification
-- Agent policy: inline-only
-- Parallel trigger: none
-- Worktree policy: direct-automatic-worktree
-- Worktree location: .oh-no/worktrees/preferences-write-v2
-- Cleanup policy: not-needed
-- Task sizing: T1 STANDARD - bounded behavior and focused-test change
-- Escalation triggers: ownership contradiction; public-contract drift; additional-file requirement
-
-After capture, copy that actual complete Planner draft block into the Reviewer message without reconstructing it. The Reviewer role message must contain the exact line RALPLAN_V2_ROLE: plan-reviewer, the identical Active Plan Contract block, and the captured draft block. Ask it to perform the core two-pass review and, for this synthetic no-blocker fixture, include the minimal machine token VERDICT_APPROVE in its result.
-
-Do not emit a required final-answer marker. The harness evaluates runtime events, role identity, completion ordering, relational payload equality, exact draft handoff, absence of external reads/writes, and absence of a next-workflow invocation; it ignores your final prose.
-PROMPT
-)"
-  prompt="${prompt//__HANDOFF_NONCE__/$handoff_nonce}"
-  prompt="${prompt//\$\{PLUGIN_NAME\}/$PLUGIN_NAME}"
-
-  local cmd=(
-    "$CLAUDE_BIN"
-    --print
-    --verbose
-    --output-format stream-json
-    --include-hook-events
-    --model "$LIVE_MODEL"
-    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
-    --permission-mode dontAsk
-    --tools "Read,Agent"
-    --allowedTools "Read,Agent"
-    --no-session-persistence
-    --system-prompt "You are a read-only live test runner. Follow only the invoked generated Ralplan v2 skill and use subagents only for the requested sequential role test."
-  )
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-
-  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-ralplan-v2-live.py" \
-    --platform claude \
-    --wrapper "$PLUGIN_ROOT/skills-claude/ralplan-v2/SKILL.md" \
-    --transcript "$out_file" \
-    --handoff-nonce "$handoff_nonce"
-}
 
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
@@ -7477,7 +7392,6 @@ main() {
   install_or_update_plugin
   run_live_tests
   run_deep_live_tests
-  run_ralplan_v2_live_test
   run_ralplan_live_test
   run_parallel_live_test
   run_fusion_rescue_live_test

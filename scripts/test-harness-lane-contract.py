@@ -95,12 +95,6 @@ LIVE_HARD_REQUIREMENTS = {
     "--deep-live": {"malformed output"},
     "--parallel-live": {"lifecycle", "forensic invariant"},
     "--ralplan-live": {"lifecycle", "forensic invariant"},
-    "--ralplan-v2-live": {
-        "lifecycle",
-        "containment",
-        "forensic invariant",
-        "generated-wrapper freshness",
-    },
     "--named-agents-live": {"lifecycle", "forensic invariant"},
     "--fusion-rescue-live": {"lifecycle", "host-boundary", "forensic invariant"},
     "--cross-host-fallback-live": {"lifecycle", "host-boundary", "containment", "forensic invariant"},
@@ -551,7 +545,7 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
     )
     if not request_predicate:
         die(f"{script_path} is missing the Ralplan live isolation predicate")
-    for required_flag in ("RUN_RALPLAN_LIVE", "RUN_RALPLAN_V2_LIVE"):
+    for required_flag in ("RUN_RALPLAN_LIVE",):
         if required_flag not in request_predicate.group("body"):
             die(f"{script_path} must scope cloned-home isolation to {required_flag}")
     for unrelated_flag in (
@@ -611,7 +605,6 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
         r"(?m)^\s*(run_[a-z0-9_]+_live_test)\s*$", registry_match.group("body")
     )
     for required in (
-        "run_ralplan_v2_live_test",
         "run_ralplan_live_test",
         "run_named_agents_live_test",
     ):
@@ -693,49 +686,6 @@ run_future_isolated_live_skill_test() {
                 f"{script_path} Ralplan prompt {index} exceeds its audited size budget: "
                 f"{len(prompt)}>{limit}"
             )
-
-
-def assert_ralplan_v2_live_contract(marketplace_root: Path) -> None:
-    def body_for(path: Path, name: str) -> str:
-        text = read_text(path)
-        start = re.search(rf"(?m)^{re.escape(name)}\(\) \{{", text)
-        if start is None:
-            die(f"{path} is missing {name}")
-        next_function = re.search(r"(?m)^run_[a-z0-9_]+_live_test\(\) \{", text[start.end():])
-        end = start.end() + next_function.start() if next_function else len(text)
-        return text[start.end():end]
-
-    codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
-    codex_body = body_for(codex_path, "run_ralplan_v2_live_test")
-    for fragment in (
-        "Handoff nonce: __HANDOFF_NONCE__",
-        "- Overall Ralph mode: STANDARD",
-        "- Agent policy: inline-only",
-        "Codex stores spawn packets encrypted",
-        '--handoff-nonce "$handoff_nonce"',
-        '--expected-model "$LIVE_MODEL"',
-    ):
-        if fragment not in codex_body:
-            die(f"{codex_path} Ralplan v2 live contract is missing {fragment!r}")
-    if "identical actual contract payloads" in codex_body:
-        die(f"{codex_path} must not claim direct equality for encrypted Codex spawn packets")
-
-    claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
-    claude_body = body_for(claude_path, "run_ralplan_v2_live_test")
-    for fragment in (
-        "Handoff nonce: __HANDOFF_NONCE__",
-        "- Overall Ralph mode: STANDARD",
-        "- Agent policy: inline-only",
-        '--permission-mode dontAsk',
-        '--tools "Read,Agent"',
-        '--allowedTools "Read,Agent"',
-        '--handoff-nonce "$handoff_nonce"',
-    ):
-        if fragment not in claude_body:
-            die(f"{claude_path} Ralplan v2 live contract is missing {fragment!r}")
-    for forbidden in ("--permission-mode bypassPermissions", "--tools default"):
-        if forbidden in claude_body:
-            die(f"{claude_path} Ralplan v2 live lane exposes unsafe capability via {forbidden!r}")
 
 
 def assert_claude_live_budget_floor(marketplace_root: Path) -> None:
@@ -1174,7 +1124,6 @@ def validate_classification_fixtures(
     assert_release_default_live_safe(marketplace_root, lanes)
     assert_codex_natural_session_role_order_wiring(marketplace_root)
     assert_codex_live_isolation_contract(marketplace_root)
-    assert_ralplan_v2_live_contract(marketplace_root)
     assert_claude_live_budget_floor(marketplace_root)
     assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)

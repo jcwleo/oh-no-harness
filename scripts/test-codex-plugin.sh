@@ -18,7 +18,6 @@ RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
 RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
-RUN_RALPLAN_V2_LIVE="${OH_NO_RALPLAN_V2_LIVE:-0}"
 RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
 RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
 RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE:-0}"
@@ -33,7 +32,6 @@ CODEX_ACTIVE_HOME_DIR=""
 CODEX_LIVE_TEMP_ROOTS=()
 CODEX_LIVE_CLONE_MARKER=".oh-no-live-clone-provenance.json"
 ISOLATED_CODEX_LIVE_FUNCTIONS=(
-  run_ralplan_v2_live_test
   run_ralplan_live_test
   run_named_agents_live_test
 )
@@ -52,7 +50,6 @@ PUBLIC_SKILLS=(
   using-oh-no-harness
   interview
   ralplan
-  ralplan-v2
   ralph
   ultrawork
   auto-routing
@@ -76,7 +73,6 @@ Options:
   --parallel-live    Run live Ralph explicit and SessionStart-natural subagent smoke tests.
   --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
                      Requires install mode and must run separately from other subagent live flags.
-  --ralplan-v2-live  Run the generated Ralplan v2 composition and sequential planning-role live test.
                      Requires install mode and runs separately from legacy --ralplan-live.
   --named-agents-live
                      Run live Codex custom-agent name spawn smoke test.
@@ -101,7 +97,7 @@ Options:
 
 Environment overrides:
   CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_RALPLAN_V2_LIVE, OH_NO_CODEX_TEST_MODEL,
+  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
   OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
   OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE,
   OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
@@ -125,10 +121,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ralplan-live)
       RUN_RALPLAN_LIVE=1
-      shift
-      ;;
-    --ralplan-v2-live)
-      RUN_RALPLAN_V2_LIVE=1
       shift
       ;;
     --named-agents-live)
@@ -193,10 +185,7 @@ done
 CODEX_ACTIVE_HOME_DIR="$CODEX_HOME_DIR"
 
 isolated_codex_live_home_requested() {
-  if [[ "${RUN_RALPLAN_LIVE}" == "1" ]]; then
-    return 0
-  fi
-  [[ "${RUN_RALPLAN_V2_LIVE}" == "1" ]]
+  [[ "${RUN_RALPLAN_LIVE}" == "1" ]]
 }
 
 validate_ralplan_live_option_compatibility() {
@@ -204,10 +193,6 @@ validate_ralplan_live_option_compatibility() {
 
   [[ "$INSTALL_MODE" == "1" ]] \
     || fail "Ralplan live lanes cannot be combined with --no-install because their isolated home requires current plugin and agent fixtures"
-
-  if [[ "$RUN_RALPLAN_LIVE" == "1" && "$RUN_RALPLAN_V2_LIVE" == "1" ]]; then
-    fail "Run --ralplan-live and --ralplan-v2-live separately"
-  fi
 
   local conflicting_flags=()
   [[ "$RUN_PARALLEL_LIVE" == "1" ]] && conflicting_flags+=(--parallel-live)
@@ -1583,9 +1568,6 @@ live_prompt_for_skill() {
     ralplan)
       printf 'Use the oh-no-harness:ralplan skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan.'
       ;;
-    ralplan-v2)
-      printf 'Use the oh-no-harness:ralplan-v2 skill. Read only its generated wrapper. Smoke test only. Do not edit files or invoke another workflow. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan-v2.'
-      ;;
     ralph)
       printf 'Use the oh-no-harness:ralph skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralph.'
       ;;
@@ -2604,133 +2586,6 @@ run_natural_session_start_live_tests() {
   ok "natural SessionStart live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
-run_ralplan_v2_live_test() {
-  if [[ "$RUN_RALPLAN_V2_LIVE" != "1" ]]; then
-    log "Skipping live Codex ralplan-v2 runtime-event test"
-    printf 'Run with --ralplan-v2-live or OH_NO_RALPLAN_V2_LIVE=1 to verify the self-contained wrapper and Planner -> Plan-Reviewer event contract.\n' >&2
-    return
-  fi
-
-  log "Running live Codex ralplan-v2 runtime-event test"
-  mkdir -p "$RUN_DIR"
-  local selector_out_file="$RUN_DIR/ralplan-v2-selector-events.jsonl"
-  local selector_err_file="$RUN_DIR/ralplan-v2-selector-events.err"
-  local out_file="$RUN_DIR/ralplan-v2-runtime-events.jsonl"
-  local err_file="$RUN_DIR/ralplan-v2-runtime-events.err"
-  local handoff_nonce
-  handoff_nonce="$($PYTHON_BIN - <<'PY'
-import secrets
-print(secrets.token_hex(12))
-PY
-)"
-  local selector_prompt
-  selector_prompt='Ralplan v2 registered-role selector capability probe. Do not invoke a skill, inspect files, run shell commands, or edit anything. This isolated home is a clone of the active Codex configuration and installed agent TOMLs. Your first collaboration call MUST be spawn_agent with agent_type "oh-no-planner", message "Selector probe only. Do not inspect files or create a plan artifact. Return a compact non-empty final response.", and fork_turns "none". Do not call wait before spawn. After the spawn returns one receiver, wait for that exact receiver to reach final completion. Do not spawn another role, and do not narrate success without an actual completed child rollout.'
-  local selector_cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-  if [[ -n "$LIVE_MODEL" ]]; then
-    selector_cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${selector_cmd[@]}" "$selector_prompt" \
-    >"$selector_out_file" 2>"$selector_err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$selector_out_file" \
-    "$selector_err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$selector_out_file" "$selector_err_file"
-    fail "Codex Ralplan v2 selector artifacts failed the credential-leak guard and were removed"
-  fi
-  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-ralplan-v2-live.py" \
-    --platform codex \
-    --phase selector \
-    --transcript "$selector_out_file" \
-    --sessions-root "$CODEX_HOME_DIR/sessions" \
-    --expected-model "$LIVE_MODEL" \
-    --evidence-output "$RUN_DIR/ralplan-v2-selector-rollout-evidence.json"
-
-  local prompt
-  prompt="$(cat <<'PROMPT'
-Use the oh-no-harness:ralplan-v2 skill for a read-only runtime instrumentation lane.
-The requirements source and Analyst gate are already satisfied. Do not inspect repository files, run shell commands, create artifacts, edit files, or invoke Ralph, Ultrawork, or any other workflow. The generated Ralplan v2 wrapper is self-contained; do not read shared, platform-maintenance, or agent-core documents.
-
-Create one compact Active Plan Contract for this synthetic STANDARD task. Supplied repository facts: `src/api/preferences.py` owns `update_preference(request, store)`; `src/storage/preferences.py` owns `PreferenceStore.set(key, value)`; focused tests live in `tests/api/test_preferences.py`; rollout is guarded by `preferences_write_v2`; rollback disables that flag and reverts the handler-to-store call. Acceptance criteria: AC1 a valid request persists through `PreferenceStore` and returns 200; AC2 storage failure returns 503 without reporting success; AC3 focused tests prove both cases and the rollback note names the flag. The host must not start execution before explicit approve-and-run. No repository exploration is required. Put the identical serialized contract in both role messages between unindented ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END lines. Codex stores spawn packets encrypted, so the harness does not claim direct input-payload visibility; it validates the registered-role rollout graph, a per-run nonce, the exact captured-draft echo, and the contract retained in that draft.
-
-The selector preflight must prove that the cloned active Codex configuration loads the installed custom role. Use only the registered `oh-no-planner` and `oh-no-plan-reviewer` agent types. Do not use generic fallback aliases or prompt-only role simulation.
-
-Do not simulate, narrate, or assume a role result. A parent message saying a role completed is not evidence. After the generated wrapper read, your next collaboration tool call MUST be the Planner spawn_agent call below; never call wait before a receiver exists.
-
-Run exactly two roles in strict sequence:
-1. Call spawn_agent with agent_type "oh-no-planner", message only, and fork_turns "none".
-2. Wait until its final result is captured.
-3. Call spawn_agent with agent_type "oh-no-plan-reviewer", message only, and fork_turns "none".
-4. Wait until its final result is captured, then stop. Do not retry, mix protocols, run the roles in parallel, or dispatch Planner again.
-
-The Planner role message must contain the exact line `RALPLAN_V2_ROLE: planner`, the identical Active Plan Contract, the complete synthetic task packet, and `Handoff nonce: __HANDOFF_NONCE__`. Tell the registered Planner this is a read-only inline instrumentation run: it must not inspect files, use tools, create a plan artifact, or invoke another workflow. Ask it to return one compact draft between unindented PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines. The content may vary, but it must include `Planner draft id: live-v2-draft`, the exact line `Handoff nonce: __HANDOFF_NONCE__`, enough goal/AC/approach/verification content, and the identical Active Plan Contract block inside the draft.
-
-The Planner message must also embed this applicable core contract and require the draft to reproduce it exactly once with non-empty Task sizing and Escalation triggers values:
-
-Execution profile:
-- Overall Ralph mode: STANDARD
-- Mode source: ralplan
-- Verification tier: STANDARD
-- Artifact policy: session-verification
-- Agent policy: inline-only
-- Parallel trigger: none
-- Worktree policy: direct-automatic-worktree
-- Worktree location: .oh-no/worktrees/preferences-write-v2
-- Cleanup policy: not-needed
-- Task sizing: T1 STANDARD - bounded behavior and focused-test change
-- Escalation triggers: ownership contradiction; public-contract drift; additional-file requirement
-
-After capture, copy that actual complete Planner draft block into the Reviewer message without reconstructing it. The Reviewer role message must contain the exact line `RALPLAN_V2_ROLE: plan-reviewer`, the identical Active Plan Contract block, and the captured draft block. Tell the registered Plan-Reviewer this is a read-only inline instrumentation run: it must perform architecture then quality-gate review without files, tools, artifacts, replacement drafting, or another workflow. Ask it to echo that exact contract and draft block unchanged in its own final result, then include the minimal machine token `VERDICT_APPROVE` for this synthetic no-blocker fixture.
-
-Do not emit a required final-answer marker. The harness evaluates runtime events, role ownership, completion ordering, relational payload equality, exact draft handoff, absence of external reads/writes, and absence of a next-workflow invocation; it ignores your final prose.
-PROMPT
-)"
-  prompt="${prompt//__HANDOFF_NONCE__/$handoff_nonce}"
-
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Ralplan v2 live artifacts failed the credential-leak guard and were removed"
-  fi
-
-  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/check-ralplan-v2-live.py" \
-    --platform codex \
-    --wrapper "$PLUGIN_ROOT/skills/ralplan-v2/SKILL.md" \
-    --transcript "$out_file" \
-    --sessions-root "$CODEX_HOME_DIR/sessions" \
-    --evidence-output "$RUN_DIR/ralplan-v2-rollout-evidence.json" \
-    --expected-model "$LIVE_MODEL" \
-    --handoff-nonce "$handoff_nonce"
-}
 
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
@@ -5985,7 +5840,6 @@ main() {
   assert_codex_prompt_exposes_skills
   run_live_tests
   run_deep_live_tests
-  run_ralplan_v2_live_test
   run_ralplan_live_test
   run_named_agents_live_test
   run_fusion_rescue_live_test
