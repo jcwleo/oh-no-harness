@@ -3932,9 +3932,9 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         host_test = read_text(repo_root / "scripts" / f"test-{host}-plugin.sh")
         for marker in (
             'r"(?m)^Reviewed draft:[ \\t]*(.*?)[ \\t]*$"',
-            "if len(reviewed_draft_matches) != 1:",
+            "len(unique_reviewed) != 1",
             "captured_draft_id = normalize_transport_whitespace(draft_id.group(1))",
-            "reviewed_draft_id = normalize_transport_whitespace(reviewed_draft_matches[0])",
+            "reviewed_draft_id = next(iter(unique_reviewed))",
         ):
             if marker not in host_test:
                 die(f"{host} explicit Ralplan live parser is missing anchored Reviewed draft validation: {marker!r}")

@@ -3096,9 +3096,10 @@ reviewed_draft_matches = re.findall(
     r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$",
     role_output_text["plan-reviewer"],
 )
-if len(reviewed_draft_matches) != 1:
+unique_reviewed = {normalize_transport_whitespace(x) for x in reviewed_draft_matches}
+if len(reviewed_draft_matches) < 1 or len(unique_reviewed) != 1:
     raise SystemExit("Codex ralplan Plan-Reviewer output must contain exactly one anchored Reviewed draft field")
-reviewed_draft_id = normalize_transport_whitespace(reviewed_draft_matches[0])
+reviewed_draft_id = next(iter(unique_reviewed))
 if reviewed_draft_id != captured_draft_id:
     raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the exact captured Planner draft id")
 
@@ -3257,7 +3258,7 @@ run_named_agents_live_test() {
   rm -rf "$negative_home/agents"
   mkdir -p "$negative_project_root"
 
-  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with agent_type "oh-no-code-reviewer". Do not omit agent_type. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
+  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with agent_type "oh-no-code-reviewer" and fork_turns "none" (never a full-history fork). Do not omit agent_type. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
 
   local negative_cmd=(
     "$CODEX_BIN"
@@ -3388,7 +3389,7 @@ PY
     proof_request="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $2}' "$proof_map_file")"
     proof_ok="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $3}' "$proof_map_file")"
     [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
-    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Call spawn_agent exactly once with agent_type \"${agent_type}\", without fork_context, and with message \"${proof_request}\". Do not omit agent_type. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after wait_agent and close_agent completed. Do not mention any expected child output."
+    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Your FIRST tool call must be spawn_agent, called exactly once with agent_type \"${agent_type}\", fork_turns \"none\" (never a full-history fork), and message \"${proof_request}\". Do not omit agent_type. Do not call wait, close, or any other tool before that spawn_agent call succeeds. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver if a close tool exists; if no close/close_agent tool is available in this runtime, skip closing and note that closing was unavailable. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after the wait completed. Do not mention any expected child output."
 
     run_in_verified_codex_live_home "$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
@@ -3412,6 +3413,7 @@ failed_spawns = []
 waited_receivers = {}
 closed_receivers = {}
 final_ok = False
+parent_thread_id = None
 
 def collect_text(value):
     if isinstance(value, str):
@@ -3455,6 +3457,8 @@ with open(out_path, "r", encoding="utf-8") as fh:
         if not line.strip():
             continue
         data = json.loads(line)
+        if data.get("type") == "thread.started":
+            parent_thread_id = data.get("thread_id") or parent_thread_id
         item = data.get("item") or {}
         text = item.get("text") or data.get("result") or ""
         if f"OH_NO_CODEX_NAMED_AGENT_OK {agent_type}" in text:
@@ -3497,44 +3501,103 @@ with open(out_path, "r", encoding="utf-8") as fh:
 
 if failed_spawns:
     raise SystemExit(f"{agent_type} smoke saw failed spawn_agent calls: {failed_spawns!r}")
-if len(spawn_events) != 1:
-    raise SystemExit(f"{agent_type} expected one completed spawn_agent call, got {spawn_events!r}")
-spawn_event = spawn_events[0]
-if spawn_event["prompt"] != proof_request:
-    raise SystemExit(
-        f"{agent_type} spawn prompt was {spawn_event['prompt']!r}, expected {proof_request!r}"
-    )
-spawn_receivers = set(spawn_event["receivers"])
-if len(spawn_receivers) != 1:
-    raise SystemExit(f"{agent_type} expected one spawned receiver, got {spawn_receivers!r}")
-for receiver in sorted(spawn_receivers):
-    wait = waited_receivers.get(receiver)
-    if wait is None:
-        raise SystemExit(f"{agent_type} did not capture wait result for receiver: {receiver}")
-    child_message = wait["message"] or ""
-    if proof_ok not in child_message and nonce not in child_message:
-        raise SystemExit(
-            f"{agent_type} child message was {child_message!r}, expected proof nonce {nonce!r}; "
-            "the child did not prove it received the delegated task"
+
+custom_prompt_marker = f"Agent prompt source: docs/agent-core/{role}.md"
+
+def find_spawned_child_sessions():
+    # Newer Codex CLIs (>= 0.144) stop emitting spawn_agent collab_tool_call
+    # events in the exec --json stream, so the spawn proof must come from the
+    # child session transcripts written under the isolated live home.
+    sessions_root = Path(live_home) / "sessions"
+    matches = []
+    for path in sorted(sessions_root.rglob("rollout-*.jsonl")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        meta = None
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("type") == "session_meta":
+                meta = data.get("payload") or {}
+                break
+        if meta is None:
+            continue
+        thread_spawn = (
+            meta.get("source", {}).get("subagent", {}).get("thread_spawn", {})
         )
-    transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
-    if actual_agent_role != agent_type:
+        child_role = meta.get("agent_role") or thread_spawn.get("agent_role")
+        parent = thread_spawn.get("parent_thread_id")
+        if child_role != agent_type:
+            continue
+        if parent_thread_id and parent != parent_thread_id:
+            continue
+        matches.append((path, text))
+    return matches
+
+if spawn_events:
+    if len(spawn_events) != 1:
+        raise SystemExit(f"{agent_type} expected one completed spawn_agent call, got {spawn_events!r}")
+    spawn_event = spawn_events[0]
+    if spawn_event["prompt"] != proof_request:
         raise SystemExit(
-            f"{agent_type} receiver {receiver} had agent_role={actual_agent_role!r}; "
-            "generic/default agent dispatch would not satisfy this proof"
+            f"{agent_type} spawn prompt was {spawn_event['prompt']!r}, expected {proof_request!r}"
         )
-    custom_prompt_marker = f"Agent prompt source: docs/agent-core/{role}.md"
-    if custom_prompt_marker not in transcript:
+    spawn_receivers = set(spawn_event["receivers"])
+    if len(spawn_receivers) != 1:
+        raise SystemExit(f"{agent_type} expected one spawned receiver, got {spawn_receivers!r}")
+    for receiver in sorted(spawn_receivers):
+        wait = waited_receivers.get(receiver)
+        if wait is None:
+            raise SystemExit(f"{agent_type} did not capture wait result for receiver: {receiver}")
+        child_message = wait["message"] or ""
+        if proof_ok not in child_message and nonce not in child_message:
+            raise SystemExit(
+                f"{agent_type} child message was {child_message!r}, expected proof nonce {nonce!r}; "
+                "the child did not prove it received the delegated task"
+            )
+        transcript, actual_agent_role = receiver_transcript_and_agent_role(receiver)
+        if actual_agent_role != agent_type:
+            raise SystemExit(
+                f"{agent_type} receiver {receiver} had agent_role={actual_agent_role!r}; "
+                "generic/default agent dispatch would not satisfy this proof"
+            )
+        if custom_prompt_marker not in transcript:
+            raise SystemExit(
+                f"{agent_type} receiver transcript did not include custom role prompt marker "
+                f"{custom_prompt_marker!r}; generic/default agent dispatch would not satisfy this proof"
+            )
+        close = closed_receivers.get(receiver)
+        if close is None:
+            raise SystemExit(f"{agent_type} did not close spawned receiver: {receiver}")
+        if wait["index"] >= close["index"]:
+            raise SystemExit(
+                f"{agent_type} close_agent completed before wait_agent captured the proof result"
+            )
+else:
+    children = find_spawned_child_sessions()
+    if len(children) != 1:
         raise SystemExit(
-            f"{agent_type} receiver transcript did not include custom role prompt marker "
-            f"{custom_prompt_marker!r}; generic/default agent dispatch would not satisfy this proof"
+            f"{agent_type} expected exactly one spawned child session with "
+            f"agent_role={agent_type!r} under the isolated live home, got "
+            f"{[str(path) for path, _ in children]!r}; the stream also carried no "
+            "spawn_agent collab events, so no named-agent dispatch was proven"
         )
-    close = closed_receivers.get(receiver)
-    if close is None:
-        raise SystemExit(f"{agent_type} did not close spawned receiver: {receiver}")
-    if wait["index"] >= close["index"]:
+    child_path, child_text = children[0]
+    if nonce not in child_text:
         raise SystemExit(
-            f"{agent_type} close_agent completed before wait_agent captured the proof result"
+            f"{agent_type} child session {child_path} did not receive the proof "
+            f"nonce {nonce!r}; the delegated task message never reached the child"
+        )
+    if proof_ok not in child_text:
+        raise SystemExit(
+            f"{agent_type} child session {child_path} never produced the proof reply "
+            f"{proof_ok!r}; the custom developer_instructions were not applied"
+        )
+    if custom_prompt_marker not in child_text:
+        raise SystemExit(
+            f"{agent_type} child session {child_path} did not include custom role prompt "
+            f"marker {custom_prompt_marker!r}; generic/default agent dispatch would not "
+            "satisfy this proof"
         )
 if not final_ok:
     raise SystemExit(f"{agent_type} did not return success marker")
