@@ -11,7 +11,8 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Launch the four cleanup passes via Codex `spawn_agent` following the shared
-core's one batch before waiting dispatch rule; if Codex subagent dispatch is
-unavailable, use the core's inline labeled-block fallback. The core owns the
+Launch the four cleanup passes via Codex `spawn_agent` with
+`fork_turns="none"` following the shared core's one batch before waiting
+dispatch rule; if Codex subagent dispatch is unavailable, use the core's
+inline labeled-block fallback. The core owns the
 batch, inline-fallback, and fallback-reason rules; do not restate them here.

@@ -75,9 +75,11 @@ and the confirmed fallback reason is recorded. No-skill read-only repository
 lookups may dispatch only the read-only `oh-no-explore` custom agent and must
 not use generic/default fallback.
 
-Do not combine `agent_type = "oh-no-<role>"` with `fork_context = true` or any
-full-history fork request. Codex full-history forks inherit the parent agent
-configuration and cannot be used with a custom role agent type. Put the required
+Spawn custom roles with `fork_turns = "none"`: omitting `fork_turns` defaults
+to a full-history fork, and Codex full-history forks inherit the parent agent
+configuration, so the custom `agent_type` is rejected. Do not combine
+`agent_type = "oh-no-<role>"` with `fork_context = true` (unsupported on
+current hosts) or any full-history fork request. Put the required
 scope, constraints, and evidence context in the spawned-agent message instead.
 Use one spawn payload shape only: prompt/message or items, never both.
 
@@ -160,8 +162,10 @@ that subagent, the task scope invalidates the work, the spawn was duplicate or
 mis-scoped, or continuing creates a safety, security, or filesystem risk. Record
 that close as cancelled or abandoned and never use missing output as completion
 evidence. When no further input is needed for a completed, failed, cancelled,
-user-cancelled, scope-invalidated, or unsafe subagent, call `close_agent` and
-record the result.
+user-cancelled, scope-invalidated, or unsafe subagent and the host exposes
+`close_agent`, call it and record the result; if no close primitive exists
+(newer Codex CLIs manage closure themselves), record that closure is
+host-managed and continue.
 
 When dispatch is unavailable, keep the same role boundary inline and record the
 fallback reason when the core skill requires it.

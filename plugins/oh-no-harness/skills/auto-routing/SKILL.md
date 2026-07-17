@@ -211,9 +211,10 @@ work, compaction, or handoff.
 
 Dispatch only after the active skill's trigger fires, then read
 `docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first, do not combine it with
-`fork_context=true`, and use generic prompt embedding only after the custom
-agent is actually rejected. The task packet carries scope, ownership, expected
+`spawn_agent(agent_type="oh-no-<role>", ...)` first with `fork_turns="none"`
+(omitting it defaults to a full-history fork, which rejects a custom
+`agent_type`), do not combine it with `fork_context=true`, and use generic
+prompt embedding only after the custom agent is actually rejected. The task packet carries scope, ownership, expected
 output, and lifecycle.
 
 Every dispatched result is a dependency: `wait_agent` must reach final status,

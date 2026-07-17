@@ -768,10 +768,12 @@ Do not claim custom agents are unavailable without a failed
 current host rejection; do not infer unavailability from rendered schema
 text, display comments, or missing shown parameters.
 
-Do not use `fork_context = true` or a full-history fork with
-`agent_type = "oh-no-<role>"`. Send the relevant plan, scope, ownership, and
-evidence context in the spawn message, one payload shape only
-(prompt/message or items, never both). The generated `oh-no-explore`
+Spawn with `fork_turns="none"` — omitting `fork_turns` defaults to a
+full-history fork, and forked agents inherit the parent agent type, so the
+custom `agent_type` is rejected. Do not use `fork_context` (unsupported) or
+any full-history fork with `agent_type = "oh-no-<role>"`. Send the relevant
+plan, scope, ownership, and evidence context in the spawn message, one
+payload shape only (prompt/message or items, never both). The generated `oh-no-explore`
 template sets `sandbox_mode = "read-only"`; other role templates inherit the
 host sandbox and stay scoped by the core dispatch packet.
 

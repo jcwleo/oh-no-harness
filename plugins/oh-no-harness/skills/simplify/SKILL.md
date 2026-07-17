@@ -247,9 +247,10 @@ work, compaction, or handoff.
 
 Dispatch only after the active skill's trigger fires, then read
 `docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first, do not combine it with
-`fork_context=true`, and use generic prompt embedding only after the custom
-agent is actually rejected. The task packet carries scope, ownership, expected
+`spawn_agent(agent_type="oh-no-<role>", ...)` first with `fork_turns="none"`
+(omitting it defaults to a full-history fork, which rejects a custom
+`agent_type`), do not combine it with `fork_context=true`, and use generic
+prompt embedding only after the custom agent is actually rejected. The task packet carries scope, ownership, expected
 output, and lifecycle.
 
 Every dispatched result is a dependency: `wait_agent` must reach final status,
@@ -284,7 +285,8 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Launch the four cleanup passes via Codex `spawn_agent` following the shared
-core's one batch before waiting dispatch rule; if Codex subagent dispatch is
-unavailable, use the core's inline labeled-block fallback. The core owns the
+Launch the four cleanup passes via Codex `spawn_agent` with
+`fork_turns="none"` following the shared core's one batch before waiting
+dispatch rule; if Codex subagent dispatch is unavailable, use the core's
+inline labeled-block fallback. The core owns the
 batch, inline-fallback, and fallback-reason rules; do not restate them here.
