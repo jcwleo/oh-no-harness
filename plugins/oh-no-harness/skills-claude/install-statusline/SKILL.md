@@ -30,7 +30,10 @@ Install Statusline is a user-invoked setup action. It installs a developer-focus
 Claude Code statusline (working directory, git branch/status, model and reasoning
 effort, context-window gauge, and rate-limit gauges) into the user's
 `~/.claude` configuration so a freshly set up Claude Code environment gets the
-same statusline.
+same statusline. In the same pass it also installs a matching
+**subagent statusline** (`subagentStatusLine`) that renders each running
+subagent's row with its status, resolved model, context-usage gauge, elapsed
+time, and description — using the same visual language as the main statusline.
 
 This skill is **human-invoke-only**. It is never auto-invoked by the model: its
 frontmatter sets `disable-model-invocation: true`, and it is intentionally left
@@ -57,20 +60,38 @@ for this skill.
 
 ## What Gets Installed
 
-- The statusline script is copied to `~/.claude/statusline-command.sh`.
-- The user's `~/.claude/settings.json` `statusLine` key is set to:
+Everything installs into the config directory this Claude Code binary actually
+reads — `CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude` — so a relocated
+config directory is respected instead of always writing to `~/.claude`. The paths
+below use `~/.claude` for the common case; substitute the resolved config dir
+when `CLAUDE_CONFIG_DIR` is set (the installed command values then carry that
+absolute path).
+
+- The statusline script is copied to `<config-dir>/statusline-command.sh`, and
+  the subagent statusline script to `<config-dir>/subagent-statusline-command.sh`.
+- The `settings.json` `statusLine` and `subagentStatusLine` keys are set to:
 
 ```json
 {
-  "type": "command",
-  "command": "bash ~/.claude/statusline-command.sh",
-  "refreshInterval": 3
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh",
+    "refreshInterval": 3
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/subagent-statusline-command.sh"
+  }
 }
 ```
 
 All other keys in `settings.json` are preserved. The change takes effect within a
 few seconds (the statusline refreshes on `refreshInterval`); a new session or
 `/clear` guarantees it.
+
+The subagent statusline rows require Claude Code v2.1.205+ to show a per-task
+model and context gauge (those fields are omitted for a task whose model isn't
+resolved yet, and the row degrades to `inherit` plus a raw token count).
 
 ## Install Procedure
 
@@ -82,20 +103,24 @@ the safe-by-default flow and owns the conflict decision.
 2. Run it in check mode first: `"<plugin-root>/scripts/install-statusline" check`.
    It prints a `STATUS:` line describing the current state without changing
    anything:
-   - `STATUS: not-installed` — no statusLine configured yet.
-   - `STATUS: installed-outdated` — our statusLine is configured but the script
-     is missing or differs from the bundled payload.
-   - `STATUS: installed-matching` — already installed and current.
-   - `STATUS: conflict` — a *different* statusLine is already configured.
+   - `STATUS: not-installed` — neither statusLine nor subagentStatusLine is
+     configured yet.
+   - `STATUS: installed-outdated` — our lines are configured but a bundled script
+     is missing or differs, or an older install predates the subagentStatusLine
+     slot. A plain `apply` brings it current.
+   - `STATUS: installed-matching` — both lines already installed and current.
+   - `STATUS: conflict` — a *different* statusLine or subagentStatusLine is
+     already configured.
 3. Act on the status:
    - `installed-matching`: report that nothing needs to change and stop.
    - `not-installed` or `installed-outdated`: run
      `"<plugin-root>/scripts/install-statusline" apply` (no prompt needed — this
      is the harness's own statusline).
-   - `conflict`: show the user the existing `statusLine.command`, then ASK whether
-     to back up and replace it. Only on an explicit yes, run
+   - `conflict`: show the user the existing conflicting command (`statusLine.command`
+     and/or `subagentStatusLine.command`), then ASK whether to back up and replace
+     it. Only on an explicit yes, run
      `"<plugin-root>/scripts/install-statusline" apply --replace`, which
-     timestamp-backs-up the existing script and `settings.json` before replacing.
+     timestamp-backs-up the existing scripts and `settings.json` before replacing.
      On no, make no change and report that the existing statusline was kept.
 4. Report exactly what changed (files written, backups created, the `settings.json`
    keys that were preserved) and that the statusline refreshes within a few
@@ -165,7 +190,9 @@ This platform overlay is source content for the generated Claude Code-facing
 `install-statusline` runtime document, after the shared core and
 `docs/platforms/claude-code-runtime.md`.
 
-The statusline installs into Claude Code's user settings at `~/.claude`.
+The statusline installs into the config directory this Claude Code binary reads:
+`CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude`. The bundled installer
+resolves this itself; do not hardcode `~/.claude`.
 
 When `CLAUDE_PLUGIN_ROOT` is set, run the bundled installer directly:
 

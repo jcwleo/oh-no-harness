@@ -4,7 +4,9 @@ This platform overlay is source content for the generated Claude Code-facing
 `install-statusline` runtime document, after the shared core and
 `docs/platforms/claude-code-runtime.md`.
 
-The statusline installs into Claude Code's user settings at `~/.claude`.
+The statusline installs into the config directory this Claude Code binary reads:
+`CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude`. The bundled installer
+resolves this itself; do not hardcode `~/.claude`.
 
 When `CLAUDE_PLUGIN_ROOT` is set, run the bundled installer directly:
 

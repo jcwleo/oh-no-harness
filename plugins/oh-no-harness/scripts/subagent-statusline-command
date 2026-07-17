@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# Claude Code subagent statusline — one custom row per running subagent.
+#
+# Reads the subagentStatusLine JSON on stdin: a single object with `columns`
+# (usable row width) and a `tasks` array. Emits one JSON line per task in the
+# form {"id": "...", "content": "..."} — the host renders `content` as-is,
+# including ANSI colors. Rows we don't emit keep their default rendering.
+#
+# Row layout (matches the main developer statusline's visual language):
+#   ● name ✦ Model · ctx ▰▰▱▱▱▱▱▱▱▱ 18% · 2m10s · "description"
+# When the per-task model / contextWindowSize are not resolved yet (they need
+# Claude Code v2.1.205+ and are omitted until the task's model is known), the
+# row degrades gracefully:
+#   ● name · inherit · 12.5k tok · "description"
+
+input=$(cat)
+
+# UTF-8 locale so ${#str} counts display characters (not bytes) for the
+# multibyte gauge glyphs when measuring width.
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+command -v jq >/dev/null 2>&1 || exit 0
+[ -n "$input" ] || exit 0
+
+# ── color helpers (real ESC bytes; JSON transport encodes them as ) ─────
+ESC=$'\033'
+RESET="${ESC}[0m"
+BOLD="${ESC}[1m"
+DIM="${ESC}[2m"
+fg() { printf '%s[38;5;%sm' "$ESC" "$1"; }
+
+# Build a 10-block gauge bar (▰▱) given percentage and fill/empty colors.
+make_gauge() {
+  local pct=$1 fill=$2 empty=$3 filled bar="" i
+  filled=$(( pct * 10 / 100 ))
+  [ "$filled" -gt 10 ] && filled=10
+  [ "$filled" -lt 0 ] && filled=0
+  for i in $(seq 1 10); do
+    if [ "$i" -le "$filled" ]; then bar+="${fill}▰${RESET}"; else bar+="${empty}▱${RESET}"; fi
+  done
+  printf '%s' "$bar"
+}
+
+# Context-usage threshold color: green < 50 <= orange < 80 <= red.
+ctx_color() {
+  local pct=$1
+  if   [ "$pct" -ge 80 ]; then fg 203
+  elif [ "$pct" -ge 50 ]; then fg 214
+  else                          fg 114
+  fi
+}
+
+# Status dot color by task status.
+status_color() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    running|active|in_progress) fg 220 ;;  # gold — working
+    completed|complete|done|success|finished) fg 114 ;;  # green — done
+    failed|error|cancelled|canceled|killed) fg 203 ;;    # red — failed
+    *) fg 245 ;;                                          # dim — pending/unknown
+  esac
+}
+
+# Resolved model IDs (e.g. claude-sonnet-5) → short display label. Falls back to
+# the id with the "claude-" prefix stripped so future ids still render sanely.
+prettify_model() {
+  case "$1" in
+    "")                    printf '' ;;
+    *opus-4-8*|*opus-4.8*) printf 'Opus4.8' ;;
+    *sonnet-5*)            printf 'Sonnet5' ;;
+    *haiku-4-5*)           printf 'Haiku4.5' ;;
+    *fable-5*)             printf 'Fable5' ;;
+    *opus*)                printf 'Opus' ;;
+    *sonnet*)              printf 'Sonnet' ;;
+    *haiku*)               printf 'Haiku' ;;
+    *)                     printf '%s' "${1#claude-}" ;;
+  esac
+}
+
+# Compact a token count: 12500 → 12.5k, 3100 → 3.1k, 950 → 950.
+compact_num() {
+  local n=$1
+  if   [ "$n" -ge 1000000 ]; then printf '%d.%dM' $(( n / 1000000 )) $(( (n % 1000000) / 100000 ))
+  elif [ "$n" -ge 1000 ];    then printf '%d.%dk' $(( n / 1000 )) $(( (n % 1000) / 100 ))
+  else                            printf '%d' "$n"
+  fi
+}
+
+# Compact elapsed seconds: 5000 → 1h23m, 130 → 2m10s, 40 → 40s.
+fmt_elapsed() {
+  local s=$1 h m sec
+  h=$(( s / 3600 )); m=$(( (s % 3600) / 60 )); sec=$(( s % 60 ))
+  if   [ "$h" -gt 0 ]; then printf '%dh%dm' "$h" "$m"
+  elif [ "$m" -gt 0 ]; then printf '%dm%ds' "$m" "$sec"
+  else                      printf '%ds' "$sec"
+  fi
+}
+
+# ── inputs ───────────────────────────────────────────────────────────────────
+cols=$(printf '%s' "$input" | jq -r '.columns // empty')
+[ -n "$cols" ] || cols=${COLUMNS:-80}
+[ "$cols" -le 0 ] 2>/dev/null && cols=80
+now=$(date +%s)
+
+# Emit every task field as a NUL-delimited stream (8 fields per task). NUL can
+# never occur inside JSON text, so `read -d ''` splits cleanly even when a field
+# is empty (e.g. an unresolved model) — unlike @tsv+IFS, where a tab is treated
+# as collapsing whitespace and empty fields shift the columns.
+emit_fields() {
+  jq -j '.tasks[]?
+    | (.id // ""), "\u0000",
+      (.name // .type // ""), "\u0000",
+      (.status // ""), "\u0000",
+      (.model // ""), "\u0000",
+      ((.tokenCount // 0) | tostring), "\u0000",
+      ((.contextWindowSize // 0) | tostring), "\u0000",
+      ((.startTime // 0) | tostring), "\u0000",
+      ((.description // .label // "") | gsub("[\n\r\t]"; " ")), "\u0000"'
+}
+
+int() { local v="${1%%.*}"; case "$v" in ''|*[!0-9]*) printf '0' ;; *) printf '%s' "$v" ;; esac; }
+
+while IFS= read -r -d '' id \
+   && IFS= read -r -d '' name \
+   && IFS= read -r -d '' status \
+   && IFS= read -r -d '' model \
+   && IFS= read -r -d '' tokens \
+   && IFS= read -r -d '' ctxsize \
+   && IFS= read -r -d '' start \
+   && IFS= read -r -d '' desc; do
+  [ -n "$id" ] || continue
+  tokens="$(int "$tokens")"; ctxsize="$(int "$ctxsize")"; start="$(int "$start")"
+
+  sc="$(status_color "$status")"
+  short_model="$(prettify_model "$model")"
+
+  # accumulate visible-plain + colored strings in lockstep so width math is exact
+  acc_plain="● ${name}"
+  acc_color="${sc}●${RESET} $(fg 251)${name}${RESET}"
+  add() {  # $1 plain, $2 colored — joined with a dim middot
+    acc_plain+=" · $1"
+    acc_color+=" ${DIM}·${RESET} $2"
+  }
+
+  # model — attached right after the name (the ✦ glyph is its own separator);
+  # the unresolved fallback has no glyph, so it uses the normal middot.
+  if [ -n "$short_model" ]; then
+    acc_plain+=" ✦ ${short_model}"
+    acc_color+=" $(fg 180)✦ ${short_model}${RESET}"
+  else
+    add "inherit" "${DIM}inherit${RESET}"
+  fi
+
+  # context gauge when contextWindowSize is resolved; else raw token count
+  if [ "$ctxsize" -gt 0 ] 2>/dev/null; then
+    pct=$(( tokens * 100 / ctxsize ))
+    [ "$pct" -gt 100 ] && pct=100
+    ncol="$(ctx_color "$pct")"
+    gauge="$(make_gauge "$pct" "$ncol" "$(fg 238)")"
+    # plain form is fixed-width: "ctx " + 10 gauge glyphs + " " + "NN%"
+    add "ctx ▱▱▱▱▱▱▱▱▱▱ ${pct}%" \
+        "${DIM}$(fg 246)ctx${RESET} ${gauge} ${BOLD}${ncol}${pct}%${RESET}"
+  else
+    add "$(compact_num "$tokens") tok" "$(fg 246)$(compact_num "$tokens")${RESET} ${DIM}tok${RESET}"
+  fi
+
+  # elapsed time
+  start_s=$start
+  if [ "$start_s" -ge 1000000000000 ] 2>/dev/null; then start_s=$(( start_s / 1000 )); fi
+  if [ "$start_s" -gt 0 ] 2>/dev/null && [ "$now" -ge "$start_s" ]; then
+    add "$(fmt_elapsed $(( now - start_s )))" "${DIM}$(fmt_elapsed $(( now - start_s )))${RESET}"
+  fi
+
+  # description — last, truncated to whatever width remains
+  avail=$(( cols - ${#acc_plain} - 3 ))
+  if [ -n "$desc" ] && [ "$avail" -ge 6 ]; then
+    maxdesc=$(( avail - 2 ))
+    if [ "${#desc}" -gt "$maxdesc" ]; then desc="${desc:0:$(( maxdesc - 1 ))}…"; fi
+    add "\"${desc}\"" "${DIM}\"${desc}\"${RESET}"
+  fi
+
+  jq -cn --arg id "$id" --arg content "$acc_color" '{id: $id, content: $content}'
+  unset -f add
+done < <(printf '%s' "$input" | emit_fields)

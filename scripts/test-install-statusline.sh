@@ -10,12 +10,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLUGIN="$ROOT/plugins/oh-no-harness"
 INSTALLER="$PLUGIN/scripts/install-statusline"
 PAYLOAD="$PLUGIN/scripts/statusline-command"
+SUB_PAYLOAD="$PLUGIN/scripts/subagent-statusline-command"
 SKILL_WRAPPER="$PLUGIN/skills-claude/install-statusline/SKILL.md"
 COMMAND_WRAPPER="$PLUGIN/commands/install-statusline.md"
 CODEX_WRAPPER="$PLUGIN/skills/install-statusline/SKILL.md"
 CODEX_OVERLAY="$PLUGIN/docs/platforms/codex-install-statusline.md"
 SESSION_START="$PLUGIN/hooks/session-start"
-TARGET_CMD="bash ~/.claude/statusline-command.sh"
+
+# Expected settings.json command values, mirroring the installer's $HOME->~
+# collapse. The install dir is $CLAUDE (a temp dir via OH_NO_CLAUDE_DIR), so
+# these resolve to an absolute path unless the temp dir happens to sit in $HOME.
+cmd_dir_for() { case "$CLAUDE" in "$HOME"/*) printf '~%s' "${CLAUDE#"$HOME"}" ;; "$HOME") printf '~' ;; *) printf '%s' "$CLAUDE" ;; esac; }
+expected_cmd()     { printf 'bash %s/statusline-command.sh' "$(cmd_dir_for)"; }
+expected_sub_cmd() { printf 'bash %s/subagent-statusline-command.sh' "$(cmd_dir_for)"; }
 
 pass=0
 fail=0
@@ -28,6 +35,8 @@ run() { OH_NO_CLAUDE_DIR="$CLAUDE" "$INSTALLER" "$@"; }
 setup_home() {
   WORK="$(mktemp -d)"
   CLAUDE="$WORK/.claude"
+  TARGET_CMD="$(expected_cmd)"
+  TARGET_SUB_CMD="$(expected_sub_cmd)"
 }
 teardown_home() { rm -rf "$WORK"; }
 
@@ -45,10 +54,15 @@ if [ -f "$CLAUDE/settings.json" ]; then
   [ "$cmd" = "$TARGET_CMD" ] && ok "statusLine.command set to target" || bad "statusLine.command ($cmd)"
   [ "$ri" = "3" ] && ok "refreshInterval is 3" || bad "refreshInterval ($ri)"
   [ "$typ" = "command" ] && ok "statusLine.type is command" || bad "statusLine.type ($typ)"
+  subcmd="$(jq -r '.subagentStatusLine.command' "$CLAUDE/settings.json")"
+  subtyp="$(jq -r '.subagentStatusLine.type' "$CLAUDE/settings.json")"
+  [ "$subcmd" = "$TARGET_SUB_CMD" ] && ok "subagentStatusLine.command set to target" || bad "subagentStatusLine.command ($subcmd)"
+  [ "$subtyp" = "command" ] && ok "subagentStatusLine.type is command" || bad "subagentStatusLine.type ($subtyp)"
 else
   bad "settings.json created"
 fi
 if cmp -s "$PAYLOAD" "$CLAUDE/statusline-command.sh"; then ok "payload copied byte-identical"; else bad "payload copied byte-identical"; fi
+if cmp -s "$SUB_PAYLOAD" "$CLAUDE/subagent-statusline-command.sh"; then ok "subagent payload copied byte-identical"; else bad "subagent payload copied byte-identical"; fi
 teardown_home
 
 # ---------------------------------------------------------------------------
@@ -129,6 +143,62 @@ forced_block="$(awk '/<OH_NO_FORCED_ROUTING>/{f=1} f{print} /<\/OH_NO_FORCED_ROU
 bootstrap_block="$(awk '/<OH_NO_BOOTSTRAP>/{f=1} f{print} /<\/OH_NO_BOOTSTRAP>/{f=0}' "$SESSION_START")"
 printf '%s' "$forced_block" | grep -q 'install-statusline' && bad "absent from FORCED_ROUTING block" || ok "absent from FORCED_ROUTING block"
 printf '%s' "$bootstrap_block" | grep -q 'install-statusline' && bad "absent from BOOTSTRAP block" || ok "absent from BOOTSTRAP block"
+
+# ---------------------------------------------------------------------------
+echo "== honors CLAUDE_CONFIG_DIR when OH_NO_CLAUDE_DIR is unset =="
+WORK="$(mktemp -d)"; CFG="$WORK/custom-config"
+CLAUDE_CONFIG_DIR="$CFG" "$INSTALLER" apply >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && ok "apply into CLAUDE_CONFIG_DIR exits 0" || bad "apply into CLAUDE_CONFIG_DIR (got $rc)"
+[ -f "$CFG/settings.json" ] && ok "settings.json created in CLAUDE_CONFIG_DIR" || bad "settings.json in CLAUDE_CONFIG_DIR"
+[ -f "$CFG/statusline-command.sh" ] && ok "statusline script in CLAUDE_CONFIG_DIR" || bad "statusline script in CLAUDE_CONFIG_DIR"
+[ -f "$CFG/subagent-statusline-command.sh" ] && ok "subagent script in CLAUDE_CONFIG_DIR" || bad "subagent script in CLAUDE_CONFIG_DIR"
+case "$CFG" in "$HOME"/*) cd_="~${CFG#"$HOME"}" ;; *) cd_="$CFG" ;; esac
+exp="bash $cd_/statusline-command.sh"
+[ "$(jq -r '.statusLine.command' "$CFG/settings.json")" = "$exp" ] && ok "command points at CLAUDE_CONFIG_DIR (not ~/.claude)" || bad "command points at CLAUDE_CONFIG_DIR ($(jq -r '.statusLine.command' "$CFG/settings.json"))"
+rm -rf "$WORK"
+
+# ---------------------------------------------------------------------------
+echo "== upgrade: our statusLine present but subagentStatusLine missing =="
+setup_home
+run apply >/dev/null                                    # full install (both slots)
+# simulate a pre-subagent install: drop subagentStatusLine, keep our statusLine
+tmp="$(mktemp)"; jq 'del(.subagentStatusLine)' "$CLAUDE/settings.json" > "$tmp" && mv "$tmp" "$CLAUDE/settings.json"
+status="$(run check | grep '^STATUS:')"
+[ "$status" = "STATUS: installed-outdated" ] && ok "missing subagent slot reads outdated" || bad "check ($status)"
+run apply >/dev/null; rc=$?                              # no --replace needed: our own line
+[ "$rc" -eq 0 ] && ok "upgrade apply exits 0 (no --replace)" || bad "upgrade apply exits 0 (got $rc)"
+[ "$(jq -r '.subagentStatusLine.command' "$CLAUDE/settings.json")" = "$TARGET_SUB_CMD" ] && ok "subagent slot added on upgrade" || bad "subagent slot added on upgrade"
+if ls "$CLAUDE"/*.bak.* >/dev/null 2>&1; then bad "no backup on own-line upgrade"; else ok "no backup on own-line upgrade"; fi
+teardown_home
+
+# ---------------------------------------------------------------------------
+echo "== conflict: existing different subagentStatusLine =="
+setup_home
+mkdir -p "$CLAUDE"
+printf '%s' '{"subagentStatusLine":{"type":"command","command":"echo SUBMINE"}}' > "$CLAUDE/settings.json"
+status="$(run check | grep '^STATUS:')"
+[ "$status" = "STATUS: conflict" ] && ok "different subagentStatusLine reports conflict" || bad "check ($status)"
+before="$(sha "$CLAUDE/settings.json")"
+run apply >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 3 ] && ok "apply refuses subagent conflict (exit 3)" || bad "apply refuses (got $rc)"
+[ "$(sha "$CLAUDE/settings.json")" = "$before" ] && ok "settings unchanged on subagent conflict" || bad "settings unchanged on subagent conflict"
+teardown_home
+
+# ---------------------------------------------------------------------------
+echo "== subagent renderer: emits one JSON row per task =="
+now="$(date +%s)"
+render_in='{"columns":100,"tasks":[
+  {"id":"t1","name":"Explore","status":"running","model":"claude-sonnet-5","tokenCount":36000,"contextWindowSize":200000,"startTime":'"$(( (now-90) * 1000 ))"',"description":"searching"},
+  {"id":"t2","name":"gen","status":"completed","tokenCount":3100,"startTime":'"$(( (now-5) * 1000 ))"',"description":"no model resolved"}
+]}'
+out="$(printf '%s' "$render_in" | bash "$SUB_PAYLOAD")"
+[ "$(printf '%s\n' "$out" | grep -c '"id"')" -eq 2 ] && ok "one JSON row per task" || bad "row count ($(printf '%s' "$out" | grep -c '"id"'))"
+if printf '%s\n' "$out" | jq -e '.id and .content' >/dev/null 2>&1; then ok "each row is valid JSON with id+content"; else bad "each row is valid JSON with id+content"; fi
+printf '%s\n' "$out" | grep -q 'Sonnet5' && ok "resolved model shown (Sonnet5)" || bad "resolved model shown"
+printf '%s\n' "$out" | grep -q 'inherit' && ok "unresolved model falls back to inherit" || bad "unresolved model fallback"
+# empty / no-task inputs must produce no output and succeed
+[ -z "$(printf '' | bash "$SUB_PAYLOAD")" ] && ok "empty input yields no rows" || bad "empty input yields no rows"
+[ -z "$(printf '%s' '{"columns":80,"tasks":[]}' | bash "$SUB_PAYLOAD")" ] && ok "no tasks yields no rows" || bad "no tasks yields no rows"
 
 # ---------------------------------------------------------------------------
 echo "== Claude-Code-only: no Codex artifacts =="
