@@ -27,7 +27,9 @@ claim; evidence scope (changed files, AC-ID ledger reference, commands);
 expected output; and the no-edit instruction for read-only roles. A
 timeout, empty wait, or queued acknowledgement is not final — never close
 a running or pending subagent merely because it is slow, and never use
-missing output as completion evidence.
+missing output as completion evidence. Close a completed receiver only if
+the host exposes a close primitive; if none exists, closure is
+host-managed — record that and continue.
 
 ## Cross-Host Consult Channel
 

@@ -552,7 +552,9 @@ fallback. Pass one payload shape (`message` or `items`), never both; no
 question set, owned subsystem scope, and expected fact output with path
 context. Spawn the whole independent batch before `wait_agent`; a timeout,
 empty wait, or queued acknowledgement is not final — keep waiting, and
-never use missing output as evidence.
+never use missing output as evidence. Close a completed receiver only if
+the host exposes a close primitive; if none exists, closure is
+host-managed — record that and continue.
 
 ## User Questions
 

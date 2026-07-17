@@ -36,8 +36,9 @@ payload shape per spawn; no `fork_context`. Spawn the whole independent
 batch before `wait_agent`. A timeout, empty wait, or "No agents completed
 yet" is not final — never close a running or pending subagent merely
 because it is slow, and never use missing output as completion evidence.
-Call `close_agent` only after capturing a final result, when the host
-exposes it.
+Call `close_agent` only after capturing a final result, and only when the
+host exposes it; if no close primitive exists, closure is host-managed —
+record that and continue.
 
 ## Cross-Host Consult Channel
 
