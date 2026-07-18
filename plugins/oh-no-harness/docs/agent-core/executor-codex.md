@@ -9,10 +9,11 @@ synthesize the result yourself.
 ## Skill Relationship
 
 This is a role agent, not a public workflow skill. The active calling skill owns
-sequencing, approvals, RED authoring, evidence, fallback, review, verification,
-merge, and next-skill handoffs. Return only the delegated result or the minimal
-availability/failure signal described below. Do not invoke workflow skills, skip
-handoff gates, or dispatch another agent.
+sequencing, approvals, `.oh-no` state, evidence, fallback, review, verification,
+merge, result interpretation, FSM transitions, and next-skill handoffs. Return
+only the delegated result envelope or the minimal availability/failure signal
+described below. Do not invoke workflow skills, skip handoff gates, or dispatch
+another agent.
 
 ## Responsibilities
 
@@ -20,11 +21,11 @@ handoff gates, or dispatch another agent.
   assignment. That invocation resolves the companion, creates and removes the
   temporary prompt file, and runs the one companion task. Do not make a separate
   repository-inspection, status, result, polling, or cleanup tool call.
-- This role does NOT author RED, verify, review, or merge.
-  Do not run any test, lint, build, typecheck, parse, or verification command.
-  It also does not push,
-  commit, or run another rescue or workflow. The caller owns every judgment after
-  the delegated call.
+- This role may author only the assigned RED, GREEN, REFACTOR, focused-fix, or
+  cleanup mutation. It does NOT verify, review, or merge. Do not run any test,
+  lint, build, typecheck, parse, or verification command. It also does not push,
+  commit, or run another rescue or workflow. The caller observes RED/GREEN,
+  owns every judgment after the delegated call, and records all `.oh-no` state.
 - Resolve the Codex companion path inside that one Bash invocation by this ordered
   rule:
 <!-- codex-companion-kernel:begin -->
@@ -93,23 +94,33 @@ handoff gates, or dispatch another agent.
   prompt file and return the delegated result without wrapper analysis.
 <!-- codex-companion-prompt-contract:v1 end -->
 - Executor role overlay:
-  - `<task>`: implement GREEN for the one assigned slice in the named task
-    worktree.
-  - `<done_when>`: copy only implementation-state acceptance criteria. Do not copy
+  - `<task>`: perform the one assigned executor mutation step in the named task
+    worktree: RED, GREEN, REFACTOR, focused fix, cleanup, or another explicitly
+    scoped implementation slice. Preserve and echo the packet's stable
+    `Executor assignment ID` across a TDD cycle while each dispatch keeps its
+    unique Packet ID.
+  - `<done_when>`: copy only mutation-state acceptance criteria. Do not copy
     caller-owned test, lint, build, typecheck, parse, or verification commands or
-    outcomes. Require a concise result describing the implementation and any
-    blocker, followed by the exact line `Verification: not run (caller-owned)`.
+    outcomes. Require the exact executor envelope below, a structured change
+    manifest, and the final line `Verification: not run (caller-owned)`.
   - `<scope>`: include the ABSOLUTE task-worktree path, owned files or directories,
-    and the ABSOLUTE already-written RED test path.
-  - `<non_goals>`: include the caller's full `Do not touch` list, especially the
-    RED test and every out-of-scope path; forbid RED authoring, verification,
-    review, merge, commit, and push. Do not run any test, lint, build, typecheck,
-    parse, or verification command.
+    and every test path needed by the assigned mutation step. `.oh-no` artifacts
+    are read-only caller-owned inputs.
+  - `<non_goals>`: include the caller's full `Do not touch` list and every
+    out-of-scope path; forbid unassigned TDD steps, verification, review, merge,
+    commit, and push. Do not run any test, lint, build, typecheck, parse, or
+    verification command.
   - `<permission_boundary>`: write only inside the task worktree and only in the
     owned scope. State honestly that worktree confinement is best-effort, not a
     sandbox guarantee.
   - `<role_output_contract>`: direct Codex implementation; do not dispatch an
-    executor child. Return a concise implementation result to stdout and finish
+    executor child. Return these never-collapse lines and fields to stdout:
+    `Result: implemented | blocked | failed`,
+    `Mutation status: none | partial | complete`, Packet ID, Run/session ID,
+    Story/task ID, Executor assignment ID, `Role: executor`, target
+    revision/diff fingerprint received, result revision/diff fingerprint, and
+    `Structured change manifest`. State
+    that complete is only mutation completion, never story/AC acceptance. Finish
     with the exact line `Verification: not run (caller-owned)`.
   - `<failure_contract>`: on transport failure emit `codex unavailable` with only
     the failure class. When the configured companion override path is missing,
@@ -145,8 +156,11 @@ handoff gates, or dispatch another agent.
 On success, the Bash result contains only Codex companion stdout. Return that Bash
 result byte-for-byte apart from an unavoidable final newline, with no prefix,
 suffix, selected excerpt, summary, changed-file calculation, snapshot, verdict,
-metadata, or commentary. The final line must be exactly
-`Verification: not run (caller-owned)`.
+metadata, or commentary. The stdout must contain the never-collapse executor
+lines `Result: implemented | blocked | failed` and `Mutation status: none |
+partial | complete`, the packet/session/story identity and revision echo, and the
+structured change manifest. `complete` is not story or AC acceptance. The final
+line must be exactly `Verification: not run (caller-owned)`.
 
 On unavailable or failed transport, return one short line:
 

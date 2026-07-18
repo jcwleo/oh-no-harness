@@ -39,20 +39,32 @@ VALID_PLATFORMS = {BOTH, CODEX, CLAUDE}
 
 # Explicit handoff edges that a required cross-skill phrase is reached through.
 # Only these edges are followed when resolving a skill's reachable text, so an
-# incidental backtick mention cannot satisfy a required rule and dropping a real
-# handoff fails the check.
+# incidental backtick mention cannot satisfy a required rule. The source patterns
+# below derive the same graph from the operational handoff prose and main() rejects
+# any divergence before checking phrase reachability.
 SKILL_REFERENCES: dict[str, list[str]] = {
     "ralph": ["simplify"],                       # 'Required Behavior Lock'
     "ultrawork": ["interview", "ralplan", "ralph"],  # spec path / 2 loops / cleanup heading
+}
+
+SOURCE_HANDOFF_PATTERNS: dict[str, tuple[str, ...]] = {
+    "ralph": (r"\binvoke `([a-z0-9-]+)` \(one combined scan\)",),
+    "ultrawork": (r"\bread and follow `([a-z0-9-]+)`",),
 }
 
 # skill -> list of (canonical phrase, platform). platform=both unless the rule is
 # genuinely platform-specific. Every phrase is re-verified reachable on each run,
 # so drift fails loudly here instead of intermittently in a paid live test.
 REQUIRED: dict[str, list[tuple[str, str]]] = {
+    "using-oh-no-harness": [
+        ("Orchestration Ownership Boundary", BOTH),
+        ("repository work-product mutation is", BOTH),
+        ("orchestration state, not inline implementation", BOTH),
+    ],
     "auto-routing": [
         # Shared codexExecutor toggle facts from the skill core (both platforms).
         ("executor role's implementation work to Codex", BOTH),
+        ("assigned RED, GREEN, REFACTOR", BOTH),
         ("Default OFF.", BOTH),
         ("Existing Ralph eligibility remains the sole gate.", BOTH),
         ("the caller owns the escape-DETECTION guard", BOTH),
@@ -108,6 +120,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),
         ("Non-blocking findings", BOTH),
         ("optional follow-ups", BOTH),
+        ("`Agent policy: inline-only` is valid", BOTH),
+        ("executor ownership survives", BOTH),
+        ("no concurrent batch, not inline mutation", BOTH),
+        ("Plan-Reviewer: dispatch-unavailable", BOTH),
         ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
     "ralph": [
@@ -129,11 +145,25 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("The run is invalid if the session does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
         ("the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
-        ("run the `## Diff-Budget Gate` exactly once", BOTH),
+        ("run the `## Diff-Budget Gate` once for the current", BOTH),
         ("cumulative per-story mid-run early-stop check", BOTH),
-        ("Run this final gate exactly once, after all stories and before", BOTH),
-        ("Thresholds decide whether the single evaluation", BOTH),
+        ("Run this final gate once for the current stabilized revision", BOTH),
+        ("that revision-bound evaluation expands into the", BOTH),
         ("expands into the detailed scope review", BOTH),
+        ("main agent is the orchestrator", BOTH),
+        ("executor-default trigger", BOTH),
+        ("Packet ID:", BOTH),
+        ("Executor assignment ID:", BOTH),
+        ("Artifacts:", BOTH),
+        ("Direction Contract binding:", BOTH),
+        ("source pointer alone is an incomplete Direction Contract packet", BOTH),
+        ("Target revision/diff fingerprint:", BOTH),
+        ("Reject stale or misrouted results", BOTH),
+        ("Active dispatches:", BOTH),
+        ("Mark it `final` only after", BOTH),
+        ("A frozen `none` remains `none`", BOTH),
+        ("`dispatch-unavailable` is a blocker", BOTH),
+        ("reviewer `approve` (or compliant `not-required`) plus verifier `pass`", BOTH),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -148,7 +178,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Ultrawork-approved", BOTH),
         ("mode and mode source", BOTH),
         ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + ralph-subagent-policy.md)
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + Ralph core)
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
@@ -161,6 +191,17 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
         ("Add one targeted", BOTH),
         ("`code-reviewer` only for additional orchestration risk", BOTH),
+        ("Ralph-unavailable fallback", BOTH),
+        ("Ultrawork still owns `.oh-no` state", BOTH),
+        ("executor ownership", BOTH),
+        ("inline evidence cannot satisfy it", BOTH),
+    ],
+    "test-driven-development": [
+        ("Execution Ownership", BOTH),
+        ("one stable `Executor assignment ID`", BOTH),
+        ("RED, GREEN, and REFACTOR", BOTH),
+        ("each Packet ID remains unique", BOTH),
+        ("caller remains the orchestrator", BOTH),
     ],
     "simplify": [
         ("Required Behavior Lock", BOTH),
@@ -179,6 +220,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("false positive", BOTH),
         ("intended behavior", BOTH),
         ("Maintainability Debt Boundary", BOTH),
+        ("read-only discovery", BOTH),
+        ("scoped `executor` assignment", BOTH),
+        ("Mutation fallback: dispatch-unavailable", BOTH),
     ],
     "systematic-debugging": [
         ("Find the root cause before changing behavior", BOTH),
@@ -186,14 +230,18 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("causal toggle", BOTH),  # the falsifiable root-cause confirmation gate
         ("the failure mode is gone", BOTH),
         ("verification-before-completion", BOTH),
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ralph-subagent-policy.md, path-referenced)
+        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (Ralph core, path-referenced)
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
         ("do not directly dispatch\n    `plan-reviewer`", BOTH),
+        ("executor-default minimal fix", BOTH),
+        ("Apply the minimal fix through `executor` by default", BOTH),
+        ("Mutation fallback: LIGHT-tiny", BOTH),
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
-        ("confirm an independent `verifier` audit ran per the carve-out", BOTH),  # standalone-VBC check-for: maker-authored STANDARD/THOROUGH must confirm the independent verifier ran (not a substitute)
+        ("confirm a separate-context independent `verifier` audit ran", BOTH),  # required maker-authored STANDARD/THOROUGH audit cannot fall back inline
+        ("target role's required identity/result envelope", BOTH),
         ("Do not claim success without fresh evidence", BOTH),
         ("Acceptance-To-Evidence Mapping", BOTH),
         ("Risk Check Before Completion", BOTH),
@@ -222,6 +270,37 @@ def read(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except OSError:
         return None
+
+
+def source_skill_references(root: Path) -> dict[str, list[str]]:
+    derived: dict[str, list[str]] = {}
+    for skill, patterns in SOURCE_HANDOFF_PATTERNS.items():
+        core_path = root / "docs" / "skill-core" / f"{skill}.md"
+        text = read(core_path)
+        if text is None:
+            raise SystemExit(f"missing handoff source: {core_path}")
+        targets = {
+            match
+            for pattern in patterns
+            for match in re.findall(pattern, text, flags=re.IGNORECASE)
+        }
+        if targets:
+            derived[skill] = sorted(targets)
+    return derived
+
+
+def assert_reference_graph_matches_source(root: Path) -> None:
+    declared = {
+        skill: sorted(set(targets))
+        for skill, targets in SKILL_REFERENCES.items()
+        if targets
+    }
+    derived = source_skill_references(root)
+    if declared != derived:
+        raise SystemExit(
+            "SKILL_REFERENCES diverged from source handoff directives: "
+            f"declared={declared!r} derived={derived!r}"
+        )
 
 
 def resolve(root: Path, platform: str, skill: str, depth: int = 2,
@@ -259,6 +338,7 @@ def main() -> int:
     ap.add_argument("--plugin-root", default=".")
     args = ap.parse_args()
     root = find_plugin_root(Path(args.plugin_root))
+    assert_reference_graph_matches_source(root)
 
     # Fail on a typo'd platform tag rather than silently skipping a check.
     for skill, reqs in REQUIRED.items():
@@ -272,16 +352,17 @@ def main() -> int:
     checked = 0
     for skill, reqs in REQUIRED.items():
         missing: list[str] = []
-        bag = resolve(root, args.platform, skill, missing=missing).lower()
+        bag = " ".join(resolve(root, args.platform, skill, missing=missing).lower().split())
         warnings.extend(missing)
-        if not bag.strip():
+        if not bag:
             failures.append(f"{skill}: composed wrapper not found under {WRAPPER_DIR[args.platform]}/")
             continue
         for phrase, platform in reqs:
             if platform not in (BOTH, args.platform):
                 continue
             checked += 1
-            if phrase.lower() not in bag:
+            normalized_phrase = " ".join(phrase.lower().split())
+            if normalized_phrase not in bag:
                 failures.append(f"{skill} [{args.platform}]: rule not reachable -> {phrase!r}")
 
     for w in sorted(set(warnings)):

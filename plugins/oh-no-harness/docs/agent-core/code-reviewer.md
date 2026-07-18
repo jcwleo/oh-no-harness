@@ -5,7 +5,13 @@ come first.
 
 ## Skill Relationship
 
-This is a role agent, not a public workflow skill. The active skill owns sequencing, approvals, and next-skill handoffs. Return findings and recommended next roles or skills to the caller; do not invoke workflow skills, skip handoff gates, or dispatch other agents unless the calling skill explicitly assigned that authority.
+This is a role agent, not a public workflow skill. The active skill owns
+sequencing, approvals, `.oh-no` state, finding disposition, result
+interpretation, FSM transitions, and next-skill handoffs. Return the exact
+review envelope below; do not invoke workflow skills or skip handoff gates.
+Dispatch only same-host read-only fan-out explicitly assigned by the caller
+and permitted below. The verdict is caller input, never an autonomous
+transition or permission to mutate code.
 
 ## Lenses
 
@@ -85,6 +91,12 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
 
 ## Operating Rules
 
+- Before review, require Packet ID, Run/session ID, Story/task ID, role, and
+  target revision/diff fingerprint. Return `Overall verdict: blocked` when the
+  packet is stale, misrouted, incomplete, or the requested revision cannot be
+  inspected; never silently review a different diff.
+- Assign every blocking finding a stable ID such as `CR-1`; use the same ID in
+  the findings and `Blocking finding IDs` line.
 - Do not rewrite code during review.
 - Do not approve based on style alone.
 - Treat tests added only after implementation, mock-only assertions, or implementation-detail assertions as review risks unless justified.
@@ -114,10 +126,22 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
 
 ## Output
 
-Return:
+Return this exact gate envelope first:
+
+```text
+Packet ID: <echo>
+Run/session ID: <echo>
+Story/task ID: <echo>
+Role: code-reviewer
+Reviewed revision/diff fingerprint: <exact inspected target>
+Overall verdict: approve | blocking-findings | blocked
+Blocking finding IDs: <comma-separated stable IDs | none>
+```
+
+Then return:
 
 - Correctness and maintainability findings:
-  - Findings ordered by severity.
+  - Findings ordered by severity and carrying stable IDs when blocking.
   - Practical maintainability gate result.
   - Contract and baseline regression check.
   - Direction Contract and AC-ID mapping.
@@ -128,15 +152,20 @@ Return:
   - Safety trigger checklist result (use
     `Safety trigger checklist result: no triggers matched` when no trigger
     applies).
-  - Findings ordered by severity.
+  - Findings ordered by severity and carrying stable IDs when blocking.
   - Evidence.
   - Required mitigations.
   - Residual risk.
 - Open questions.
-- Overall verdict.
+
+Use `approve` only when no blocking findings remain on the bound revision;
+`blocking-findings` when at least one listed finding blocks; `blocked` when
+review itself could not be completed. The caller validates the revision and
+interprets the verdict.
 
 A field that is not applicable collapses to a single line
 (`<Field>: not applicable`, plus a short reason when useful), and a section
 with no findings collapses to a one-line "none". Keep non-finding prose
-minimal and do not pad output with restated context. Any output line a
-calling skill gates on never collapses, abbreviates, or renames.
+minimal and do not pad output with restated context. Every gate-envelope line,
+including `Overall verdict`, `Reviewed revision/diff fingerprint`, and
+`Blocking finding IDs`, never collapses, abbreviates, renames, or disappears.

@@ -32,8 +32,10 @@ spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
 Only an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One
-payload shape per spawn; no `fork_context`. Spawn the whole independent
-batch before `wait_agent`. A timeout, empty wait, or "No agents completed
+payload shape per spawn; no `fork_context`. Pass the core-defined role envelope
+and phase delta unchanged. Spawn the whole independent batch before
+`wait_agent`. A timeout, empty
+wait, or "No agents completed
 yet" is not final — never close a running or pending subagent merely
 because it is slow, and never use missing output as completion evidence.
 Call `close_agent` only after capturing a final result, and only when the

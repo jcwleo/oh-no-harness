@@ -14,15 +14,14 @@ Dispatch `verifier` and risk-gated `code-reviewer` through the exposed
 Task, Agent, Workflow `agent()`, or subagent primitive with the plugin
 agents (`oh-no-harness:<agent>`; manual mention
 `@agent-oh-no-harness:<agent>`). Dispatch is trigger-loaded — dispatch only
-after the core's trigger fires. Each packet carries: the exact claim;
-evidence scope (changed files, AC-ID ledger reference, commands); expected
-output (evidence mapping, verdict, findings); and the no-edit instruction
-for read-only roles. A notification, timeout, or empty wait result is not
+after the core's trigger fires. Pass the core-defined role envelope and
+verification delta unchanged. A notification, timeout, or empty wait result is not
 a final status; capture the result, then close or clean up the completed
 subagent when the host exposes that mechanism. If a plugin-scoped agent is
 unavailable, embed the matching `agents/<agent>.md` prompt into the
-available subagent mechanism; with no subagent primitive, verify inline
-and record the fallback reason.
+available subagent mechanism. With no subagent primitive, verify inline only
+when the core does not require an independent audit; otherwise report the
+`dispatch-unavailable` blocker so the caller remains blocked/PAUSED.
 
 ## Cross-Host Consult Channel
 

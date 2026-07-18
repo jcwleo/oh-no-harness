@@ -29,6 +29,8 @@ Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements ->
 
 Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork before behavior-changing edits.
 
+Orchestration default: workflow main agents own .oh-no state and gate decisions; STANDARD/THOROUGH repository work-product mutations use executor roles, with inline mutation only for a recorded LIGHT-tiny or dispatch-unavailable fallback.
+
 Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
 
@@ -100,24 +102,22 @@ This instruction is Claude Code-only. Do not apply it on Codex or other platform
 </CLAUDE_CODE_ONLY>'
 
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
-Standing user/workflow preference: use sub-agents, delegation, and parallel agent work proactively.
-Treat this as the explicit user request for eligible Oh No Harness workflow
-subagents when isolated role work is allowed and the host exposes tools.
+Standing preference: use sub-agents, delegation, and parallel agent work proactively. This is the explicit user request for eligible Oh No Harness workflow subagents when host tools allow isolated work.
 
-Hard rules: for active workflows or explicit subagent tasks, spawn_agent MUST use custom agent_type "oh-no-<role>" when recognized; generic fallback requires confirmed unavailability and is never allowed for no-skill read-only lookup. With custom agent_type, omit fork_context and use one prompt/message payload. Timeout/empty/no agents completed is not final. MUST NOT call close_agent for a running or pending subagent. Once spawned, every in-scope subagent result is a workflow dependency: wait to final status, capture it, and use it before advancing or claiming completion. MUST NOT redo delegated work inline or spawn a duplicate replacement merely because a subagent is slow; continue only non-overlapping work or record pending/blocked. Never use missing output as completion evidence.
+Hard rules: active/explicit subagent work uses recognized custom agent_type "oh-no-<role>"; generic fallback requires confirmed unavailability and is never allowed for no-skill read-only lookup. With custom agent_type, set fork_turns="none", omit fork_context, and send one prompt/message. Timeout/empty/no-completion waits are not final. MUST NOT call close_agent for a running or pending subagent merely for a slow/timed-out wait; explicit cancel, invalidation, duplicate/mis-scope, or safety stop follows the adapter; every in-scope subagent result is a workflow dependency: wait to final status, capture it, and use it before advancing. MUST NOT redo delegated work inline or duplicate a slow subagent; continue non-overlapping work or record pending/blocked. Never use missing output as completion evidence.
 </CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>'
 
 codex_subagent_troubleshooting_policy="On subagent errors, read \`${OH_NO_PLUGIN_ROOT}/docs/platforms/codex.md\` section \`Custom-Agent Spawn Troubleshooting\` before fallback."
 
 codex_readonly_exploration_policy='<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>
-For simple read-only repository fact lookup prompts without an active Oh No Harness workflow or explicit user-requested subagent task, you may dispatch the registered read-only oh-no-explore custom agent, as many as the lookup needs and not capped at one. If oh-no-explore is unknown or unavailable, answer inline; do not fall back to a generic or prompt-embedded subagent for this no-skill lane. When you dispatch, every oh-no-explore result is a dependency: wait_agent to final status completed, capture the result, and use it before the next action. A timeout, empty wait, or "no agents completed" result is not final and is not completion evidence; MUST NOT call close_agent for a running or pending subagent merely because it is slow; close_agent only after the waited result is captured. Eligible work: locate, trace, or summarize existing code/config/tests/docs. This lane is not for planning, debugging, implementation, review, QA, security, verification, ambiguity, or edits. Do not read/reproduce secrets unless asked; redact credential values in any output. If role work beyond read-only exploration would be useful, first select the relevant Oh No Harness skill or get an explicit subagent request, then follow that active workflow policy.
+For simple read-only repository fact lookup prompts outside an active workflow or explicit user-requested subagent task, you may dispatch the registered read-only oh-no-explore custom agent, as many as the lookup needs and not capped at one. Spawn it with fork_turns="none". If unavailable, answer inline; generic or prompt-embedded fallback is never allowed for no-skill read-only lookup. Each result is a dependency: wait_agent to completed, capture it, and use it before the next action. Timeout/empty/no-completion is not final; MUST NOT call close_agent for a running or pending subagent; close only after capture. Eligible: locate, trace, or summarize existing code/config/tests/docs. This lane is not for planning, debugging, implementation, review, QA, security, verification, ambiguity, or edits. Do not read/reproduce secrets unless asked; redact credential values. For other role work, first select the relevant Oh No Harness skill or get an explicit subagent request, then follow its policy.
 </CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>'
 
 codex_agent_ensure_warning() {
   local installer_path="${OH_NO_PLUGIN_ROOT}/scripts/install-codex-agents"
   local ensure_output
   local warning_suffix
-  warning_suffix='oh-no-* custom-agent dispatch remains the default when the host recognizes agent_type, prompt-embedded fallback requires confirmed unavailability, custom agent_type spawns must not use fork_context, and no-skill read-only exploration may dispatch oh-no-explore and must wait for each result before the next action. MUST NOT call close_agent for a running or pending subagent; spawned in-scope subagent results are workflow dependencies that must be waited for, captured, and used before advancing; never use missing output as completion evidence.'
+  warning_suffix='oh-no-* custom-agent dispatch remains the default when the host recognizes agent_type, prompt-embedded fallback requires confirmed unavailability, custom agent_type spawns must not use fork_context, and no-skill read-only exploration may dispatch oh-no-explore and must wait for each result before the next action. MUST NOT call close_agent for a running or pending subagent merely for timeout/slowness; explicit cancel, invalidation, duplicate/mis-scope, or safety stop follows the active adapter; spawned in-scope subagent results are workflow dependencies that must be waited for, captured, and used before advancing; never use missing output as completion evidence.'
 
   if [ ! -x "$installer_path" ]; then
     printf 'Codex custom-agent ensure warning: installer unavailable; %s' "$warning_suffix"

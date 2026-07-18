@@ -47,6 +47,26 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(body.replace(old, new, 1), encoding="utf-8")
 
 
+def move_bootstrap_orchestration_sentence(path: Path) -> None:
+    sentence = (
+        "Orchestration default: workflow main agents own .oh-no state and gate "
+        "decisions; STANDARD/THOROUGH repository work-product mutations use "
+        "executor roles, with inline mutation only for a recorded LIGHT-tiny "
+        "or dispatch-unavailable fallback."
+    )
+    body = path.read_text(encoding="utf-8")
+    if body.count(sentence) != 1:
+        raise RuntimeError(f"expected one bootstrap orchestration sentence in {path}")
+    body = body.replace(f"{sentence}\n\n", "", 1)
+    anchor = "</OH_NO_FORCED_ROUTING>'"
+    if body.count(anchor) != 1:
+        raise RuntimeError(f"expected one forced-routing close anchor in {path}")
+    path.write_text(
+        body.replace(anchor, f"{sentence}\n{anchor}", 1),
+        encoding="utf-8",
+    )
+
+
 def expect_rejected(
     validator,
     plugin_root: Path,
@@ -63,7 +83,11 @@ def expect_rejected(
         scripts_copy = repo_copy / "scripts"
         scripts_copy.mkdir()
         source_scripts = plugin_root.parent.parent / "scripts"
-        for name in ("test-codex-plugin.sh", "test-claude-plugin.sh"):
+        for name in (
+            "test-codex-plugin.sh",
+            "test-claude-plugin.sh",
+            "generate-agent-wrappers.py",
+        ):
             shutil.copy2(source_scripts / name, scripts_copy / name)
         mutate(copy)
         stderr = io.StringIO()
@@ -89,6 +113,7 @@ def main() -> int:
     repo_root = plugin_root.parent.parent
     validator = load_validator(repo_root)
     validator.assert_workflow_object_routing_contract(plugin_root)
+    validator.assert_orchestration_ownership_contract(plugin_root)
     validator.assert_ralplan_review_boundary_contract(plugin_root)
 
     expect_rejected(
@@ -102,6 +127,234 @@ def main() -> int:
             "A workflow name used as the subject of analysis still forces that workflow.",
         ),
         assertion="assert_workflow_object_routing_contract",
+    )
+
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph executor-default mandate becomes optional",
+        "executor-default orchestration contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "MUST dispatch `executor`",
+            "MAY dispatch `executor`",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph dispatch packet drops Artifacts",
+        "dispatch packet Artifacts/identity contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Artifacts: {verification ledger and read-only inputs; .oh-no state stays main-owned}",
+            "Inputs: {selected context}",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph packet drops persistent executor assignment identity",
+        "dispatch packet Artifacts/identity contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Executor assignment ID: {stable across one executor assignment or TDD cycle; not applicable for non-executor roles}",
+            "Executor context: {optional prose}",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "review failure is allowed to enter FINALIZE",
+        "caller-owned FSM transition contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "bound reviewer verdict is `approve` or compliant `not-required`; bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`; no blocking findings remain",
+            "caller accepted the role outputs; blockers are recorded",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "executor result enum becomes free-form",
+        "executor result envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "executor.md",
+            "Result: implemented | blocked | failed",
+            "Result: free-form summary",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "executor result drops assignment identity echo",
+        "executor result envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "executor.md",
+            "Executor assignment ID: <echo>",
+            "Executor context: <summary>",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "executor-codex drops identity/revision echo",
+        "raw executor result envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "executor-codex.md",
+            "packet/session/story identity and revision echo",
+            "task summary",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "code-reviewer drops reviewed revision binding",
+        "code-reviewer verdict/revision envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "code-reviewer.md",
+            "Reviewed revision/diff fingerprint: <exact inspected target>",
+            "Reviewed target: <description>",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "verifier regains a write loophole",
+        "verifier read-only verdict/revision envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "verifier.md",
+            "Unconditionally read-only",
+            "Read-only unless the caller assigns a write",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralplan overwrites a frozen none parallel trigger",
+        "Ralplan frozen parallel-trigger handoff contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            "preserves the plan path and\n  the exact frozen `Parallel trigger` value",
+            "always changes the trigger to approved-plan-handoff",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph overrides a frozen none parallel trigger",
+        "executor-default orchestration contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "A frozen `none` remains `none`:",
+            "A frozen `none` becomes `natural-dispatch`:",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "simplify applies cleanup without executor",
+        "simplify executor-apply ownership",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "simplify.md",
+            "dispatch one scoped `executor` assignment",
+            "apply each cleanup directly",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "systematic debugging makes executor optional",
+        "systematic-debugging executor-default ownership",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "systematic-debugging.md",
+            "Apply the minimal fix through `executor` by default",
+            "Apply the minimal fix inline by default",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "orchestration default moves into forced routing",
+        "unconditional bootstrap_policy",
+        lambda root: move_bootstrap_orchestration_sentence(
+            root / "hooks" / "session-start"
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph resume redispatches overlapping active work",
+        "active-dispatch resume reconciliation",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Never redispatch\noverlapping work while the prior entry remains pending.",
+            "Redispatch overlapping work before reconciling the prior pending entry.",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "required verifier dispatch-unavailable satisfies completion",
+        "required verifier fail-closed completion contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "`dispatch-unavailable` is a blocker\n  and cannot satisfy completion",
+            "`dispatch-unavailable` is recorded and may satisfy completion",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "required Plan-Reviewer passes inline",
+        "review-boundary marker",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            "an inline review cannot satisfy the required pass",
+            "an inline review may satisfy the required pass",
+        ),
+        assertion="assert_ralplan_review_boundary_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Diff-Budget remains valid after material mutation",
+        "revision-bound marker",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Any later material mutation marks the result `stale` and returns the gate to\n`pending`;",
+            "Any later material mutation leaves the prior passed fingerprint valid;",
+        ),
+        assertion="assert_ralplan_review_boundary_contract",
+    )
+
+    expect_rejected(
+        validator,
+        plugin_root,
+        "cross-host review restores retired Ralph policy reference",
+        "stale ralph-subagent-policy reference",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "cross-host-review.md",
+            "docs/skill-core/ralph.md",
+            "docs/shared/ralph-subagent-policy.md",
+        ),
+        assertion="assert_orchestration_ownership_contract",
     )
 
     expect_rejected(
@@ -309,15 +562,15 @@ def main() -> int:
         "must compare exact normalized Reviewed draft id",
         lambda root: replace_once(
             root.parent.parent / "scripts" / "test-codex-plugin.sh",
-            "if reviewed_draft_id != captured_draft_id:",
-            "if not reviewed_draft_id.startswith(captured_draft_id):",
+            'if next(iter(unique_reviewed)) != proof["draft_id"]:\n    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the dynamic draft id")',
+            'if not next(iter(unique_reviewed)).startswith(proof["draft_id"]):\n    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the dynamic draft id")',
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
         "duplicate Ralph Execution Loop Diff-Budget execution",
-        "Execution Loop must schedule Diff-Budget Gate exactly once",
+        "Execution Loop must schedule one Diff-Budget Gate per stabilized revision",
         lambda root: (
             append_before_heading(
                 root / "docs" / "skill-core" / "ralph.md",

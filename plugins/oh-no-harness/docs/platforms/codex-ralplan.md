@@ -28,9 +28,12 @@ both. Do not request `fork_context` or inherited conversation.
 
 Only an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used. Then record the failure and use an exposed
-generic agent with the matching `docs/agent-core/<role>.md` prompt embedded;
-otherwise run a separate inline role block. Never label a generic child as a
-custom agent. Classify other failures:
+generic agent with the matching `docs/agent-core/<role>.md` prompt embedded.
+If no separate agent context exists, optional roles may use the core's recorded
+inline fallback; a required Plan-Reviewer instead reports
+`dispatch-unavailable` so the core records the blocker and transitions PAUSED.
+Never label a generic child as a custom agent or substitute an inline required
+review. Classify other failures:
 
 ```text
 message + items conflict   -> retry once with exactly one payload shape

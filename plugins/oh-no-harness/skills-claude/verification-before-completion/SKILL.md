@@ -74,7 +74,7 @@ Before making a completion claim, complete every step below; the claim is invali
    and record the delta since the last independent audit [V6].
 6. Complete the Risk Check Before Completion below.
 7. Report skipped checks and residual risk.
-8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm an independent `verifier` audit ran per the carve-out [V4] (record the dispatch-unavailable fallback if the host cannot dispatch).
+8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
 9. When a `code-reviewer` was dispatched, record `single-reviewer` for
    STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
    `same-host-parallel-fallback`; an inline fallback requires a reason.
@@ -179,10 +179,15 @@ ship/block decision or expose residual risk, and independence requires a
 separate context [V4]. Add a `code-reviewer` (security lens included) when
 the changed scope, verification tier, or user-facing risk warrants it.
 Apply the active platform's dispatch authorization; do not ask for per-run
-subagent approval when standing authorization covers these roles. Inline
-verification is appropriate only for tiny direct checks with no
-context-separation benefit or when dispatch is unavailable — record that
-fallback or no-benefit reason before making the claim.
+subagent approval when standing authorization covers these roles. Every direct
+role dispatch reuses the target role's required identity/result envelope and
+adds only this workflow's claim and evidence delta. A standalone invocation
+creates compact Packet, run/session, and task IDs plus the target revision/diff
+fingerprint from its current claim and scope; adapters pass that packet
+unchanged. Inline verification is appropriate only for tiny direct checks where
+V4 does not require an independent audit. When V4 requires one and dispatch is
+unavailable, record the blocker and return blocked/PAUSED; inline evidence may
+supplement the record but cannot satisfy the audit.
 
 | Agent | Use |
 |---|---|
@@ -233,15 +238,14 @@ Dispatch `verifier` and risk-gated `code-reviewer` through the exposed
 Task, Agent, Workflow `agent()`, or subagent primitive with the plugin
 agents (`oh-no-harness:<agent>`; manual mention
 `@agent-oh-no-harness:<agent>`). Dispatch is trigger-loaded — dispatch only
-after the core's trigger fires. Each packet carries: the exact claim;
-evidence scope (changed files, AC-ID ledger reference, commands); expected
-output (evidence mapping, verdict, findings); and the no-edit instruction
-for read-only roles. A notification, timeout, or empty wait result is not
+after the core's trigger fires. Pass the core-defined role envelope and
+verification delta unchanged. A notification, timeout, or empty wait result is not
 a final status; capture the result, then close or clean up the completed
 subagent when the host exposes that mechanism. If a plugin-scoped agent is
 unavailable, embed the matching `agents/<agent>.md` prompt into the
-available subagent mechanism; with no subagent primitive, verify inline
-and record the fallback reason.
+available subagent mechanism. With no subagent primitive, verify inline only
+when the core does not require an independent audit; otherwise report the
+`dispatch-unavailable` blocker so the caller remains blocked/PAUSED.
 
 ## Cross-Host Consult Channel
 

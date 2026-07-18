@@ -80,8 +80,9 @@ Shared facts (all platforms):
 - **Default OFF.** Delegation is opt-in; with the toggle OFF the native
   `oh-no-harness:executor` runs and nothing changes.
 - **Executor role only.** When ON, only the executor role is re-bound to Codex.
-  RED authoring, verification, review, and merge stay with the native
-  independent roles.
+  Its assigned RED, GREEN, REFACTOR, focused-fix, and cleanup mutations may be
+  delegated; caller-run checks, verification, review, and merge stay with the
+  native independent roles.
 - **Eligibility unchanged.** Existing Ralph eligibility remains the sole gate.
   An already-admitted disjoint executor batch may overlap only at the outer
   `executor-codex` agent layer; each inner companion call remains foreground.

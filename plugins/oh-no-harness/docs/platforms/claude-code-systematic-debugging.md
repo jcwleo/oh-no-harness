@@ -14,10 +14,8 @@ Dispatch roles through the exposed Task, Agent, Workflow `agent()`, or
 subagent primitive with the plugin agents from `agents/`
 (`oh-no-harness:<agent>`; manual mention `@agent-oh-no-harness:<agent>`).
 Dispatch is trigger-loaded — dispatch only after the core's trigger fires.
-Each packet carries: role; the exact failure and reproduction command;
-owned or read-only scope; expected output (evidence, patch, or verdict);
-and the no-edit instruction for read-only roles. Parallel hypothesis
-debuggers are one batch — request all before waiting. A notification,
+Pass the core-defined role envelope and debugging delta unchanged. Parallel
+hypothesis debuggers are one batch — request all before waiting. A notification,
 timeout, or empty wait result is not a final status; capture each result,
 then close or clean up the completed subagent when the host exposes that
 mechanism. If a plugin-scoped agent is unavailable, embed the matching

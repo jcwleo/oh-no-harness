@@ -56,7 +56,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-runtime.md` | compact Codex-specific runtime rules included in generated Codex skill documents |
 | `docs/platforms/claude-code.md` | longer Claude Code platform maintenance reference summarized into `docs/platforms/claude-code-runtime.md` |
 | `docs/platforms/codex.md` | longer Codex platform maintenance reference summarized into `docs/platforms/codex-runtime.md` |
-| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `plugins/oh-no-harness/scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by repository-root `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for read-only roles such as `oh-no-explore` and `oh-no-fusion-rescue-analyst` |
+| `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `plugins/oh-no-harness/scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by repository-root `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for read-only roles such as `oh-no-explore`, `oh-no-verifier`, `oh-no-code-reviewer`, and `oh-no-fusion-rescue-analyst` |
 
 ## Local Provider Guidance
 

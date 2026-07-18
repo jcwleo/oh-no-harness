@@ -209,19 +209,35 @@ def expected_files(plugin_root: Path) -> dict[Path, str]:
     return files
 
 
+def generated_wrapper_files(plugin_root: Path) -> set[Path]:
+    return {
+        path
+        for platform in PLATFORMS
+        for path in (plugin_root / platform.skill_root).glob("*/SKILL.md")
+        if path.is_file()
+    }
+
+
 def check(plugin_root: Path) -> int:
+    expected = expected_files(plugin_root)
     stale: list[Path] = []
-    for path, expected in expected_files(plugin_root).items():
+    for path, expected_text in expected.items():
         actual = path.read_text(encoding="utf-8") if path.exists() else None
-        if actual != expected:
+        if actual != expected_text:
             stale.append(path)
-    if stale:
-        print("skill wrappers are stale; run:", file=sys.stderr)
-        print("  python3 scripts/generate-skill-wrappers.py --write", file=sys.stderr)
-        for path in stale:
-            print(f"stale: {path}", file=sys.stderr)
+    unexpected = sorted(generated_wrapper_files(plugin_root) - set(expected))
+    if stale or unexpected:
+        if stale:
+            print("skill wrappers are stale; run:", file=sys.stderr)
+            print("  python3 scripts/generate-skill-wrappers.py --write", file=sys.stderr)
+            for path in stale:
+                print(f"stale: {path}", file=sys.stderr)
+        if unexpected:
+            print("unexpected generated skill wrappers must be removed:", file=sys.stderr)
+            for path in unexpected:
+                print(f"unexpected: {path}", file=sys.stderr)
         return 1
-    print("ok - generated skill wrappers are fresh")
+    print("ok - generated skill wrappers are fresh and inventory-closed")
     return 0
 
 

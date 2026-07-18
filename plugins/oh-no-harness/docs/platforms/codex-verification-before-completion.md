@@ -22,14 +22,16 @@ Roles are `verifier` and `code-reviewer`. Only an actual
 unknown/unavailable `agent_type` rejection confirms the custom role cannot
 be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One
-payload shape per spawn; no `fork_context`. Each packet carries: the exact
-claim; evidence scope (changed files, AC-ID ledger reference, commands);
-expected output; and the no-edit instruction for read-only roles. A
-timeout, empty wait, or queued acknowledgement is not final — never close
+payload shape per spawn; no `fork_context`. Pass the core-defined role envelope
+and verification delta unchanged. A timeout, empty wait, or queued acknowledgement
+is not final — never close
 a running or pending subagent merely because it is slow, and never use
-missing output as completion evidence. Close a completed receiver only if
-the host exposes a close primitive; if none exists, closure is
-host-managed — record that and continue.
+missing output as completion evidence. If no separate agent context exists,
+inline verification is allowed only when the core does not require an
+independent audit; otherwise report the `dispatch-unavailable` blocker so the
+caller remains blocked/PAUSED. Close a completed receiver only if the host
+exposes a close primitive; if none exists, closure is host-managed — record
+that and continue.
 
 ## Cross-Host Consult Channel
 

@@ -85,6 +85,7 @@ Planning run:
 | REQUIREMENTS | gap changes product intent, architecture, data, security, or delivery scope [R1] | PAUSED for user decision |
 | DRAFT | Planner draft vN complete against the Active Plan Contract [R2] | REVIEW |
 | REVIEW | LIGHT no-review reason recorded, or verdict APPROVE [R4] | APPROVAL |
+| REVIEW | a required Plan-Reviewer has no separate context after allowed fallback (`dispatch-unavailable`) | PAUSED |
 | REVIEW | ITERATE with all blockers accepted, loop budget left [R5, R6] | DRAFT |
 | REVIEW | ITERATE with rejected/deferred/direction-change disposition [R5] | PAUSED for user decision |
 | REVIEW | user resolved every non-accepted disposition as a permitted waiver with no body change: reviewed draft stays frozen [R4, R5] | APPROVAL |
@@ -213,7 +214,12 @@ reviewer starts before the complete draft exists.
 
 Plan-Reviewer receives the exact Active plan contract, draft id, and full
 draft or path, then runs the architecture pass and the quality-gate pass in
-one dispatch [R3].
+one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
+context. If the named role is unavailable, use a generic separate subagent or
+the existing same-host/cross-host fallback. If no separate context exists,
+record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
+PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
+no-review carve-out remains unchanged.
 
 Topology by mode:
 
@@ -295,9 +301,10 @@ trigger, each finding with reviewer-owned `blocking | non-blocking` severity
 and its blocking basis, disposition, accepted section pointer, permitted
 waiver, and `Re-review scope: delta | full` when v2 ran — or
 `Re-review: not required (no blocking findings)`.
-A required Plan-Reviewer cannot be skipped; missing review topology is a
-named ledger gap. Do not advance while a user-pending disposition or
-non-waivable gate is open, or accepted blocking feedback is not in the body.
+A required Plan-Reviewer cannot be skipped or satisfied inline; missing review
+topology or `Plan-Reviewer: dispatch-unavailable` is a blocker, not a pass. Do
+not advance while a user-pending disposition or non-waivable gate is open, or
+accepted blocking feedback is not in the body.
 
 ## Test Case Design Quality
 
@@ -331,11 +338,21 @@ Execution profile:
 - Escalation triggers:
 ```
 
+For repository work-product mutation, `Agent policy: inline-only` is valid
+only for a recorded LIGHT-tiny execution or when the execution host cannot
+dispatch and Ralph must record that fallback. STANDARD/THOROUGH repository
+work-product mutation plans select
+`targeted-subagents` or `full-review-set` so executor ownership survives even
+when `Parallel trigger: none`; `none` means no concurrent batch, not inline
+mutation. Ralplan plans this ownership while Ralph remains the execution
+orchestrator and `.oh-no` state owner.
+
 Dispatch-eligibility test (canonical; other sections reference it): a role
-qualifies only with safe isolation, decision-changing value, and reasonable
-coordination cost. Record `Parallel trigger: approved-plan-handoff` only
-when at least one isolated role passes it; otherwise use `inline-only` and
-`none`. Ralplan records worktree policy; Ralph owns the actual worktree
+qualifies for parallel dispatch only with safe isolation, decision-changing
+value, and reasonable coordination cost. Record `Parallel trigger:
+approved-plan-handoff` only when at least one isolated role passes it;
+otherwise record `none` while preserving the mode-required sequential executor
+policy above. Ralplan records worktree policy; Ralph owns the actual worktree
 decision.
 
 ## Plan File Requirements
@@ -378,12 +395,14 @@ chosen the next step. Skill chaining is approval-gated, not automatic.
 The Plan Approval Brief ends with exactly one combined choice:
 
 - approve-and-run Ralph (recommended) — approve the plan and execute it
-  task-by-task with eligible isolated subagents when they add
-  decision-changing evidence, plus verification, review, cleanup, and final
-  report. The ordinary `oh-no-harness:ralph` choice is the parallel-capable execution
-  handoff: preserve the plan path plus `Parallel trigger:
-  approved-plan-handoff` so Ralph treats the approved dispatch plan as
-  authorization for every eligible isolated role.
+  task-by-task with Ralph as orchestrator, mode-required executor ownership for
+  repository work-product mutation, and eligible isolated subagents when they
+  add decision-changing evidence, plus verification, review, cleanup, and final
+  report. The ordinary `oh-no-harness:ralph` choice preserves the plan path and
+  the exact frozen `Parallel trigger` value. When that value is
+  `approved-plan-handoff`, Ralph treats the approved dispatch plan as
+  authorization for every eligible isolated role; `none` preserves sequential
+  executor ownership without authorizing a concurrent batch.
 - approve-and-run Ultrawork — approve the plan and orchestrate execution,
   QA, and final validation end-to-end
 - request plan changes — revise the plan (the approval freeze is
@@ -418,12 +437,15 @@ the main context, and Plan-Reviewer independence requires a separate context
 — a same-context review self-confirms its own plan. Keep sequential role
 boundaries [R9].
 
-Run a role inline ONLY when the host cannot dispatch subagents, host policy
-does not authorize dispatch, or the role lacks a concrete input artifact,
-isolated responsibility, or expected output — then keep a visibly separate
-inline role block and record the fallback reason. Record the trigger as
-`Planning dispatch: natural-dispatch`, `explicit-user-request`, or
-`inline-fallback`.
+Optional roles retain recorded inline fallback when the host cannot dispatch
+subagents, host policy does not authorize dispatch, or the role lacks a concrete
+input artifact, isolated responsibility, or expected output — keep a visibly
+separate inline role block and record the reason. A required Plan-Reviewer is
+the exception: it must use a separate context, with a generic separate subagent
+or the existing same-host/cross-host fallback when the named role is
+unavailable; if none exists, record the blocker and transition PAUSED instead
+of reviewing inline. Record the trigger as `Planning dispatch:
+natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 
 | Agent | Dispatch (when) |
 |---|---|

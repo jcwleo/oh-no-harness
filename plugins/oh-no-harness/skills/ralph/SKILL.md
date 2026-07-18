@@ -26,10 +26,13 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 Ralph is a mode-gated execution loop: it works until acceptance criteria are
 satisfied with fresh evidence, required review and cleanup gates are handled,
-and the final report is written. Ralph owns execution mode selection or
-enforcement for ordinary implementation. Do not route concrete
-add/fix/refactor/implement requests directly to `test-driven-development`;
-Ralph invokes TDD internally when behavior-changing edits require it.
+and the final report is written. Ralph's main agent is the orchestrator: it
+owns `.oh-no` state, gate decisions, result intake, and FSM transitions while
+executor roles own default repository work-product mutation in
+STANDARD/THOROUGH. Ralph owns execution mode selection or enforcement for
+ordinary implementation. Do not route concrete add/fix/refactor/implement
+requests directly to `test-driven-development`; Ralph invokes TDD internally
+when behavior-changing edits require it.
 
 Do not use when requirements are still vague — use `interview` or `ralplan`
 first. Entering directly from `interview`, accept the path only if the spec's
@@ -88,6 +91,11 @@ E15. Ralph is terminal: after the final report, no workflow skill is
      `fusion-rescue`) are documented loop internals, not chaining events.
 E16. A rebound `executor-codex` transport owns no evidence; the identity
      rebind does not change Ralph eligibility.
+E17. The main agent is the orchestrator and sole owner of `.oh-no` state and
+     FSM transitions. STANDARD/THOROUGH repository work-product mutation,
+     including REVIEW-to-EXECUTE focused fixes, dispatches `executor`; inline
+     mutation is only a recorded LIGHT-tiny or dispatch-unavailable fallback.
+     Role result enums are caller gate inputs, never autonomous transitions.
 ```
 
 `STOP` / `blocked` means: persist the snapshot with the blocked transition,
@@ -96,7 +104,8 @@ evidence, and unblock condition, then report — never a silent exit.
 ## Execution Run Snapshot
 
 Maintain one snapshot in the session note or PRD; persist it at every phase
-change, story completion, verdict, mutation, and before any pause [E14].
+change, story completion, verdict, mutation, dispatch lifecycle change, and
+before any pause [E14].
 It is a resume index into the artifacts below, not a second evidence ledger.
 
 ```text
@@ -109,9 +118,15 @@ Execution run:
 - Worktree decision and location: <decision>; <location>
 - Stories: <id: status/passes — detail stays in prd.json>
 - Review: <topology>; <verdict>; verifier-after-reviewer <yes|no|not-required>
-- Budgets: <process-budget status>; diff-budget <pending|run>
+- Budgets: <process-budget status>; diff-budget <pending | passed@<fingerprint> | stale>
 - Freshness: <evidence invalidated by the last mutation>
+- Active dispatches: <Packet ID; host handle; role; scope; pending|final|abandoned>
 ```
+
+Keep an entry `pending` until its final output is captured, identity/revision is
+validated, and the result is integrated or recorded with the host cleanup
+decision. Mark it `final` only after those caller-owned intake steps complete;
+the Packet ID remains the compact reference to the full issued packet.
 
 ## State Machine
 
@@ -120,14 +135,15 @@ Execution run:
 | PREPARE | Direction Contract copied; mode, profile, active gates, budgets recorded; Worktree decision recorded; artifacts scaffolded per policy [E1, E2, E3] | EXECUTE |
 | PREPARE | input too vague, or non-LIGHT spec without plan unconfirmed [E1] | outcome RETURN_TO_PLAN |
 | PREPARE | worktree or environment blocked [E3] | outcome PAUSED |
-| EXECUTE | a ready story remains | EXECUTE (story loop below [E4, E5, E10]) |
-| EXECUTE | all stories pass with fresh evidence; Diff-Budget Gate run exactly once [E9, E10] | REVIEW |
+| EXECUTE | a ready story remains | EXECUTE (orchestrated story loop below [E4, E5, E10, E17]) |
+| EXECUTE | all stories pass with fresh evidence; Diff-Budget Gate is `passed@<current stabilized fingerprint>` [E9, E10] | REVIEW |
 | EXECUTE | plan or AC infeasible as written [E1] | outcome RETURN_TO_PLAN |
 | EXECUTE | debugging ladder exhausted [E15] | outcome PAUSED |
-| REVIEW | review topology satisfied; blockers resolved or recorded; verifier ran after reviewer completion [E7, E8] | FINALIZE |
-| REVIEW | blocking findings within budget [E8] | EXECUTE (focused fix + focused re-check only) |
-| REVIEW | second unresolved blocking round [E8, E10] | outcome PAUSED |
-| FINALIZE | checkpoints CLEANUP -> RECHECK -> INTEGRATE -> COMPLETION_AUDIT all satisfied [E11, E12, E13] | outcome COMPLETE |
+| REVIEW | bound reviewer verdict is `approve` or compliant `not-required`; bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`; no blocking findings remain [E7, E8, E17] | FINALIZE |
+| REVIEW | bound reviewer verdict is `blocking-findings` or bound verifier verdict is `fail`, and remediation remains within budget [E8, E17] | EXECUTE (executor-owned focused fix + focused re-check only) |
+| REVIEW | a required independent verifier has no separate context (`dispatch-unavailable`) [E7, E11] | outcome PAUSED |
+| REVIEW | reviewer or verifier verdict is `blocked`, or the focused remediation budget is exhausted [E8, E10] | outcome PAUSED |
+| FINALIZE | checkpoints CLEANUP -> RECHECK -> INTEGRATE -> COMPLETION_AUDIT all satisfied and Diff-Budget is `passed@<current stabilized fingerprint>` [E9, E11, E12, E13] | outcome COMPLETE |
 | FINALIZE | merge or post-merge verification fails [E13] | outcome PAUSED |
 | any | user stop, or a Direction Contract change is required [E1] | outcome PAUSED |
 
@@ -237,7 +253,8 @@ All conditions must hold — size alone is never sufficient:
 
 Record the eligibility block before editing with
 `Review topology: not-required (STANDARD small carve-out: <reason>)` and
-`Status: provisional`. TDD, worktree isolation, session evidence, the
+`Status: provisional`. This waives only reviewer dispatch; STANDARD executor
+ownership is unchanged. TDD, worktree isolation, session evidence, the
 independent verifier, and verification-before-completion are unchanged. The
 step-recheck reclassifies it against the actual diff: any unexpected file or
 surface, bound breach, proof-path failure, test-infrastructure addition, or
@@ -320,13 +337,16 @@ Phase: EXECUTE. Per story:
 4. Classify the story's TDD requirement (behavior change, bug-fix
    reproduction, refactor characterization, or documented exception). If TDD
    applies, read and follow `test-driven-development` before editing
-   production code and record RED/GREEN/REFACTOR or exception evidence [E4].
-5. Implement inline or dispatch `executor` per `## Mode-Gated Agent
-   Dispatch`. In STANDARD and THOROUGH on subagent-capable hosts, scan
-   remaining work for disjoint scopes before implementing serially: partition
-   disjoint stories into one concurrent `executor` batch (recorded as
-   `Parallel trigger: natural-dispatch`) when the isolation gates hold, then
-   apply the per-executor scope check before integrating.
+   production code; assign one stable `Executor assignment ID` across its
+   RED/GREEN/REFACTOR writes on the dispatch path, while the main agent records
+   the evidence [E4, E17].
+5. Dispatch `executor` for repository work-product mutation per
+   `## Mode-Gated Agent Dispatch`; the main agent mutates only its `.oh-no`
+   state unless a permitted fallback is recorded. Honor any frozen `Parallel
+   trigger`: `none` keeps execution sequential. When direct Ralph has no frozen
+   trigger, scan remaining STANDARD/THOROUGH work for disjoint scopes and record
+   `natural-dispatch` only when the isolation gates authorize one concurrent
+   `executor` batch; apply the per-executor scope check before integrating.
 6. Run the story-specific verification required by the mode and tier.
 7. After each story, recheck the `Scope Trace Gate` and the cumulative
    Process Budget Gate against all work so far; reclassify a `provisional`
@@ -339,30 +359,42 @@ Phase: EXECUTE. Per story:
    `systematic-debugging` before attempting fixes. Ladder per root cause:
    one systematic-debugging pass plus one further fix, then `fusion-rescue`
    or record `blocked`/`failed_verification` with the evidence [E15].
-9. After all stories, run the `## Diff-Budget Gate` exactly once against the
-   final diff, before `## Review Gate`.
+9. After all stories, run the `## Diff-Budget Gate` once for the current
+   stabilized revision, before `## Review Gate`.
 
 ## Mode-Gated Agent Dispatch
 
 Phase: EXECUTE and REVIEW. This section governs agent-role dispatch only;
 workflow-skill chaining follows `## Final Handoff`.
 
-Dispatch roles as real subagents by default on subagent-capable hosts —
-dispatch keeps exploration noise, implementation churn, and log output out
-of the main context, and review/verification independence requires a
-separate context. LIGHT stays inline only for tiny edits with no
-context-separation benefit; STANDARD uses targeted subagents whose result
-can change the implementation, review, verification, or ship/block decision;
-THOROUGH dispatches every risk-warranted isolable role. In STANDARD and
-THOROUGH, proactively partition disjoint implementation into parallel
-`executor` batches when ownership, dependency, TDD, and benefit gates hold.
+Ralph's main agent is the orchestrator, not the default maker. It owns
+`.oh-no` artifacts, packet issuance, result validation, gate interpretation,
+and transitions. A role's `Result`, `Overall verdict`, or `Verification
+verdict` is caller input; no enum advances the state machine by itself.
+
+On subagent-capable hosts, STANDARD/THOROUGH repository work-product mutation
+MUST dispatch `executor`, including REVIEW-to-EXECUTE focused fixes. This
+executor-default trigger is sequential-capable and does not require a
+parallel trigger. Inline mutation is permitted only with one recorded fallback:
+`Mutation fallback: LIGHT-tiny — <reason>` for a tiny LIGHT edit, or
+`Mutation fallback: dispatch-unavailable — <attempt and reason>` after the
+host cannot dispatch. The STANDARD small-task carve-out waives only reviewer
+dispatch, never executor ownership.
+
+For non-mutating roles, use targeted subagents on subagent-capable hosts when
+the result can change the implementation, review, verification, or ship/block
+decision; record unavailable, unsafe-to-isolate, or no-benefit inline reasons
+without weakening the executor rule above. THOROUGH dispatches every
+risk-warranted isolable role. In STANDARD and THOROUGH, proactively partition
+disjoint implementation into parallel `executor` batches only when the recorded
+trigger authorizes concurrency and ownership, dependency, TDD, and benefit gates
+hold.
 
 An approved plan authorizes its eligible isolated roles, not every role.
 Record `Parallel trigger: approved-plan-handoff | explicit-user-request |
-natural-dispatch | none` from the actual source; use targeted subagents on
-subagent-capable hosts, and fall back inline only for a documented
-unavailable, unsafe-to-isolate, or no-benefit case — keep the role boundary
-visible and record the reason.
+natural-dispatch | none` from the actual source. A frozen `none` remains `none`:
+it means no concurrent batch and does not disable sequential executor ownership.
+Keep every fallback role boundary visible and recorded.
 
 ## Parallel Subagent Policy
 
@@ -383,31 +415,57 @@ Dispatch packet (the active adapter deciding whether the invocation is a
 registered custom agent, a plugin-scoped agent, or a documented fallback):
 
 ```text
+Packet ID: {unique dispatch id; mechanically distinct from run/session and story/task ids}
+Run/session ID: {Ralph run id and main-owned .oh-no session id}
+Story/task ID: {stable id and title; never reused as Packet ID}
+Executor assignment ID: {stable across one executor assignment or TDD cycle; not applicable for non-executor roles}
 Role: {explore|executor|verifier|code-reviewer}
-Story/task: {id and title}
-Execution mode: {task-level mode; artifact policy when the role writes artifacts}
-Worktree decision: {recorded decision and location — required for write roles}
+Execution mode: {task-level mode and applicable policy}
+Worktree decision and location: {recorded decision and absolute location}
+Direction Contract source: {approved artifact path/section or direct request}
+Direction Contract binding: {primary goal; applicable non-goals, constraints/protected assumptions, and direction-change approval rule}
+AC IDs: {accepted criteria this role may affect or audit}
+Plan/PRD path: {authoritative path or direct-task record}
+Artifacts: {verification ledger and read-only inputs; .oh-no state stays main-owned}
+Target revision/diff fingerprint: {revision plus stable fingerprint of the assigned target}
 Scope: {owned files/directories, or read-only areas}
-Do not touch: {files owned by other agents}
-Expected output: {patch, findings, evidence, or test result}
-TDD responsibility: {RED/GREEN/REFACTOR step, exception, or none}
-Verification responsibility: {command/evidence}
+Do not touch: {other ownership, generated boundaries, and excluded paths}
+Expected structured output: {exact role envelope, identity echo, and required evidence}
+TDD responsibility: {RED/GREEN/REFACTOR step, persistent executor assignment, exception, or none}
+Verification responsibility: {caller-owned, role-owned command/evidence, or none}
 Platform invocation: {active adapter invocation syntax}
-Lifecycle: caller captures the final result, integrates or records it, then
-closes the completed subagent via the platform mechanism; timeout or
-no-completion wait results are not final results and MUST NOT be used to
-close a running or pending subagent merely because it is slow
+Lifecycle: caller waits for and captures the final result, validates its
+identity/revision, integrates or records it, then applies host-specific cleanup
+or closure only when the host exposes it; timeout or no-completion wait results
+are not final results and never justify abandoning a running or pending subagent
+merely because it is slow
 Coordination: you are not alone in the codebase — do not revert, overwrite,
 or reformat work outside your scope; report conflicts instead of resolving
 them silently
 ```
 
-Integration, sequential: inspect each result and changed-file set; run the
-per-executor scope check (owned files only, slice satisfied, no conflict —
-escalate only a stray or risky slice); resolve conflicts deliberately; close
-each completed subagent after capture; run story-specific then cross-story
-verification; only then mark stories complete. Never use missing output as
-completion evidence.
+For `executor`, `code-reviewer`, and `verifier`, a source pointer alone is an
+incomplete Direction Contract packet: copy every applicable goal, non-goal,
+constraint/protected assumption, and approval rule into the binding field so the
+role can mechanically reject scope drift.
+
+Result intake is caller-owned. Before a role output can gate anything, require
+exact Packet ID, Run/session ID, Story/task ID, role, and target
+revision/diff-fingerprint echoes; executor results also echo the stable
+`Executor assignment ID`. Require the executor's result fingerprint or the
+reviewer's/verifier's reviewed/verified revision to bind to the current target.
+Reject stale or misrouted results, record the mismatch, and redispatch or
+rebase the packet instead of interpreting the enum. A later mutation
+invalidates intersecting reviewer/verifier results [E9].
+
+Integration, sequential: inspect each accepted result and structured change
+manifest; run the per-executor scope check (owned files only, slice satisfied,
+no conflict — escalate only a stray or risky slice); resolve conflicts
+deliberately; apply host-specific cleanup or closure after capture when exposed;
+run story-specific then cross-story verification; only then mark stories complete. `Result:
+implemented`, `Overall verdict: approve`, and `Verification verdict: pass`
+are caller gate inputs, not story acceptance or autonomous transitions. Never
+use missing output as completion evidence.
 
 ## Codex Executor Delegation Boundary
 
@@ -420,6 +478,9 @@ overlap at the outer `executor-codex` layer; ineligible, unknown, or unsafe
 work stays serial. Every inner companion transport remains one
 foreground call. Wait for every started member before scope checks,
 independent verification, and review; fallback and integration stay sequential.
+Accept successful raw stdout only when it preserves the executor `Result` /
+`Mutation status` envelope, identity/revision echo, structured change manifest,
+and caller-owned verification line required by the transport role.
 
 Caller-owned escape guard: capture protected-target state immediately
 before the outer batch and after every started member finishes —
@@ -516,9 +577,14 @@ delete required negative, regression, or safety cases.
 
 ## Diff-Budget Gate
 
-Phase: EXECUTE exit. Run this final gate exactly once, after all stories and before
-`## Review Gate` [E10]. Thresholds decide whether the single evaluation
-expands into the detailed scope review — not whether the gate runs:
+Phase: EXECUTE exit. Snapshot status is `pending | passed@<fingerprint> |
+stale`. Run this final gate once for the current stabilized revision, after all
+stories and before `## Review Gate`, then record `passed@<fingerprint>` [E10].
+Any later material mutation marks the result `stale` and returns the gate to
+`pending`; run it once for the newly stabilized revision before entering REVIEW
+or, after REVIEW/FINALIZE mutation, before INTEGRATE and COMPLETION_AUDIT.
+Thresholds decide whether that revision-bound evaluation expands into the
+detailed scope review — not whether the gate runs:
 
 - more than twice the expected handwritten file or diff estimate
 - more than 20 changed files, or more than 500 insertions
@@ -549,12 +615,27 @@ THOROUGH -> paired review only for a named security, data, destructive,
             otherwise one targeted reviewer.
 ```
 
-Review-then-verify [E7]: run the selected code-review stage first, capture
-its output or synthesis, resolve or record blocking findings, then run one
-independent self-host `verifier` pass (never the maker, never a pair). The
-verifier audit is required at STANDARD/THOROUGH when the proving tests or
-implementation were authored or accepted by the same agent; record the
-dispatch-unavailable fallback reason when the host cannot dispatch.
+Review-then-verify [E7]: run the selected code-review stage first, validate
+its `Overall verdict`, blocking finding IDs, and reviewed revision binding,
+and resolve every blocking finding before starting a required independent
+self-host `verifier` pass (never the maker, never a pair). Validate the
+verifier's `Verification verdict` and verified revision binding before using
+it. Only reviewer `approve` (or compliant `not-required`) plus verifier `pass`
+(or compliant verifier `not-required`) may enter FINALIZE directly.
+`pass-with-residual-risk` also requires the caller to record why the named risk
+is non-blocking and every AC remains satisfied. Reviewer `blocking-findings`
+or verifier `fail` returns to an executor-owned focused fix within budget;
+either role's `blocked` verdict pauses. These enums are caller inputs under
+E17, never autonomous transitions.
+
+The verifier audit is required at STANDARD/THOROUGH when the proving tests or
+implementation were authored or accepted by the same agent. It MUST run in a
+separate context. If no separate context is available, record `Independent
+verifier: dispatch-unavailable` as a blocker and transition to PAUSED. Inline
+command reruns may still strengthen caller-owned evidence, but they cannot
+count as the required independent audit. When the audit is optional or not
+required, including a compliant LIGHT path, record that reason without turning
+dispatch unavailability into a pass.
 
 Record the Review Gate dependency graph in the ledger:
 
@@ -569,8 +650,9 @@ Review Gate dependency graph:
 ```
 
 `verifier eligible to start` is `yes` only after the selected code-review
-stage completed (or a compliant not-required reason is recorded) and blocking
-findings are resolved or recorded. A verifier spawned before that point is stale
+stage completed with `approve` (or a compliant not-required reason is recorded)
+and blocking findings are resolved or absent. A verifier spawned before that
+point is stale
 evidence: record it as discarded and rerun it after the dependency is
 satisfied. When both roles are required, the ledger must show
 `verifier started after reviewer completion: yes` or the verifier pass does
@@ -594,10 +676,13 @@ Review focus — the reviewer pass must check:
 
 Reviewer findings outside the Scope Trace Gate are residual risk or
 follow-ups, not fixes in this run; a regression caused by the current change
-always maps to approved scope and may block. Budget [E8]: one required
-review cycle plus one focused re-check of the blocked scope after a fix —
-rerun only the evidence the fix invalidated. A blocker remaining after that
-budget goes to `systematic-debugging`, `blocked`, or `failed_verification`.
+always maps to approved scope and may block. For accepted blocking finding
+IDs, the main agent issues one focused `executor` assignment, then rechecks only
+the bound revision and evidence the fix invalidated; the reviewer never
+applies the fix or advances the FSM. Budget [E8]: one required review cycle
+plus one focused re-check of the blocked scope after a fix. A blocker
+remaining after that budget goes to `systematic-debugging`, `blocked`, or
+`failed_verification`.
 
 ## Cleanup And Final Verification
 
@@ -609,10 +694,10 @@ Phase: FINALIZE — checkpoints in order [E12]:
    records cleanup as not needed. THOROUGH expands to four independent
    viewpoints only for a named safety or broad-diff trigger. Never create
    cleanup work to satisfy a pass count.
-2. RECHECK — when cleanup changed files: rerun relevant verification and
-   confirm behavior, the behavior lock, and changed-file scope survived;
-   run a focused review when cleanup changed structure, tests, or control
-   flow.
+2. RECHECK — when cleanup changed files: rerun relevant verification, refresh
+   Diff-Budget for the stabilized cleanup revision, and confirm behavior, the
+   behavior lock, and changed-file scope survived; run a focused review when
+   cleanup changed structure, tests, or control flow.
 3. INTEGRATE — carry out the worktree completion responsibility [E13]:
    merge back into the integration checkout and run post-merge
    verification, or report the branch/PR handoff.
@@ -626,8 +711,12 @@ Phase: any, on re-entry.
 On re-entry after interruption or compaction, reconstruct from artifacts
 [E14]: re-read the input artifact, snapshot, and session files; recompute
 incomplete stories from recorded `status`/`passes`; re-confirm the mode and
-`Worktree decision` before further edits; treat the story in flight as
-unverified and re-run its verification; if the worktree diverged from
+`Worktree decision` before further edits. Reconcile every `pending` Active
+dispatch entry through its recorded host handle before redispatching overlapping
+scope: capture a final result, keep it pending, or mark it `abandoned` only for
+an explicit cancel, invalidation, duplicate, or safety reason. Never redispatch
+overlapping work while the prior entry remains pending. Treat the story in
+flight as unverified and re-run its verification; if the worktree diverged from
 recorded work, re-verify completed stories whose acceptance depended on the
 changed files; resume the loop at the first incomplete story.
 
@@ -654,12 +743,14 @@ each). A silently omitted step is a named ledger gap, not a pass.
 Completion criteria:
 
 - selected execution mode recorded and followed; every story `passes: true`
+- Diff-Budget is `passed@<current stabilized fingerprint>` for the delivered diff
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status
 - required TDD evidence exists, or each exception is documented
 - the mode-required reviewer pass is approved or compliantly not-required
-- the independent verifier pass ran per the review-then-verify order, or its
-  dispatch-unavailable / not-required reason is recorded
+- the independent verifier pass ran per the review-then-verify order, or a
+  compliant not-required reason is recorded; `dispatch-unavailable` is a blocker
+  and cannot satisfy completion
 - the proportional `simplify` scan ran, was disabled, or recorded no
   candidates; post-cleanup verification passed when cleanup changed files
 - the direct-Ralph automatic worktree was merged back with post-merge
@@ -742,10 +833,21 @@ maximize subagents — which authorizes eligible isolated roles for the whole
 run, including read-heavy exploration, test/log analysis, verification,
 review, and disjoint implementation (executor) work in STANDARD/THOROUGH
 when write scopes are non-overlapping, but never roles whose output would
-not change a decision. When no dispatch-worthy role exists or host policy
-denies dispatch, run roles inline and record `Parallel trigger: none`.
-Record `Parallel trigger: natural-dispatch` only when the host permits
-proactive dispatch and the active skill policy authorizes it.
+not change a decision. When no non-mutating dispatch-worthy role exists, it
+may run inline under the core's role fallback rules; host denial must be
+recorded. Record `Parallel trigger: none` when no concurrent batch is
+admitted. Record `Parallel trigger: natural-dispatch` only when the host
+permits proactive dispatch and the active skill policy authorizes it.
+
+## Executor-Default Trigger
+
+When the core records STANDARD/THOROUGH repository work-product mutation,
+call `spawn_agent` for `oh-no-executor` even when `Parallel trigger: none`;
+that trigger controls concurrency, not sequential executor ownership. The
+same rule applies to REVIEW-to-EXECUTE focused fixes. Inline mutation is valid
+only for the core's recorded LIGHT-tiny or dispatch-unavailable fallback, and
+unavailability requires the failed named-agent attempt or equivalent current
+host rejection described below.
 
 ## Invocation
 
@@ -775,9 +877,10 @@ full-history fork, and forked agents inherit the parent agent type, so the
 custom `agent_type` is rejected. Do not use `fork_context` (unsupported) or
 any full-history fork with `agent_type = "oh-no-<role>"`. Send the relevant
 plan, scope, ownership, and evidence context in the spawn message, one
-payload shape only (prompt/message or items, never both). The generated `oh-no-explore`
-template sets `sandbox_mode = "read-only"`; other role templates inherit the
-host sandbox and stay scoped by the core dispatch packet.
+payload shape only (prompt/message or items, never both). The generated
+`oh-no-explore`, `oh-no-verifier`, and `oh-no-code-reviewer` templates set
+`sandbox_mode = "read-only"`; other Ralph role templates inherit the host
+sandbox and stay scoped by the core dispatch packet.
 
 Spawn every independent agent in the eligible batch before calling
 `wait_agent`.

@@ -421,6 +421,30 @@ def assert_codex_natural_session_role_order_wiring(marketplace_root: Path) -> No
     if not systematic_call:
         die(f"{script_path} systematic-debugging natural SessionStart lane must opt into grouped-fanout")
 
+    ultrawork_call = re.search(
+        r"run_natural_session_start_live_skill_test\s+\\\s*\n"
+        r"\s+ultrawork\s+\\(?P<body>.*?ordered-optional)",
+        script_text,
+        flags=re.S,
+    )
+    if not ultrawork_call or "explore:,analyst?:,planner:,verifier:" not in ultrawork_call.group("body"):
+        die(
+            f"{script_path} Ultrawork natural SessionStart lane must allow only the "
+            "source-authorized optional Analyst gap check"
+        )
+    for fragment in (
+        'if role.endswith("?"):',
+        "optional_roles.add(role)",
+        'elif role_order_mode == "ordered-optional":',
+        "expected_present_order = [role for role in expected_roles if role in ordered_roles]",
+        "expected_present_order = [role for role in expected_roles if role in roles_seen]",
+    ):
+        if fragment not in script_text:
+            die(
+                f"{script_path} natural role parser must preserve ordered optional roles: "
+                f"missing {fragment!r}"
+            )
+
 
 CODEX_HOME_ASSIGNMENT_RE = re.compile(
     r"(?m)(?:^|[;&|()\s])(?:export\s+)?CODEX_HOME\s*="
@@ -504,6 +528,8 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
         "CODEX_ACTIVE_HOME_DIR",
         "CODEX_LIVE_TEMP_ROOTS",
         "CODEX_LIVE_CLONE_MARKER",
+        "OH_NO_ISOLATE_CODEX_HOME",
+        "OH_NO_ISOLATE_CODEX_HOME must be 0 or 1",
         "ISOLATED_CODEX_LIVE_FUNCTIONS",
         "isolated_codex_live_home_requested()",
         "validate_ralplan_live_option_compatibility()",
@@ -519,6 +545,12 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
         "assert_no_codex_live_secret_leak()",
         "validate_codex_live_secret_scanner()",
         "Codex live secret scanner missed its credential fixture",
+        "visible_line_parts",
+        "is_public_url_slug",
+        "public URL slug",
+        "secret-like URL query value",
+        "opaque encrypted transcript content",
+        "visible secret-like fixture",
         "id_token",
         "session_token",
         "private_key",
@@ -545,7 +577,7 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
     )
     if not request_predicate:
         die(f"{script_path} is missing the Ralplan live isolation predicate")
-    for required_flag in ("RUN_RALPLAN_LIVE",):
+    for required_flag in ("RUN_RALPLAN_LIVE", "FORCE_ISOLATED_CODEX_HOME"):
         if required_flag not in request_predicate.group("body"):
             die(f"{script_path} must scope cloned-home isolation to {required_flag}")
     for unrelated_flag in (
@@ -596,6 +628,125 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
     if policy_errors:
         die(f"{script_path} Codex live-home policy violations: {policy_errors!r}")
 
+    functions = shell_function_bodies(script_text)
+    for function_name, lane_name, expected_scans in (
+        ("run_parallel_live_test", "Parallel", 2),
+        ("run_simplify_live_test", "Simplify", 2),
+        ("run_fusion_rescue_live_test", "Fusion Rescue", 2),
+        ("run_codex_cross_host_fallback_live_test", "cross-host fallback", 1),
+    ):
+        body = functions.get(function_name, "")
+        if "--ephemeral" in body:
+            die(
+                f"{script_path} {lane_name} transcript-dependent live lane must "
+                "persist child sessions instead of using --ephemeral"
+            )
+        if body.count("assert_no_codex_live_secret_leak") != expected_scans:
+            die(
+                f"{script_path} {lane_name} live lane must scan all "
+                "transcript-dependent artifacts for credential leaks"
+            )
+        if body.count('"$CODEX_HOME_DIR/sessions"') < expected_scans:
+            die(
+                f"{script_path} {lane_name} live credential guards must scan "
+                "persisted Codex child sessions"
+            )
+
+    for function_name, lane_name, minimum_count in (
+        ("run_fusion_rescue_live_test", "Fusion Rescue", 2),
+        ("run_codex_cross_host_fallback_live_test", "cross-host fallback", 1),
+    ):
+        body = functions.get(function_name, "")
+        for fragment in (
+            'payload.get("type") == "agent_message"',
+            'item.get("type") == "encrypted_content"',
+            'task_complete_messages[-1]',
+            '"encrypted_task_messages": encrypted_task_messages',
+            'isinstance(meta.get("source"), dict)',
+            'isinstance(source.get("subagent"), dict)',
+        ):
+            if body.count(fragment) < minimum_count:
+                die(
+                    f"{script_path} {lane_name} transcript fallback must preserve "
+                    f"encrypted task and authoritative completion evidence: missing {fragment!r}"
+                )
+
+    fusion_body = functions.get("run_fusion_rescue_live_test", "")
+    for fragment in (
+        'payload.get("type") == "custom_tool_call"',
+        'payload.get("name") == "exec"',
+        'payload.get("type") == "custom_tool_call_output"',
+        "command_from_payload(payload)",
+    ):
+        if fragment not in fusion_body:
+            die(
+                f"{script_path} Fusion Rescue must inspect Codex custom exec tool "
+                f"events for Claude-call provenance: missing {fragment!r}"
+            )
+
+    cross_host_body = functions.get("run_codex_cross_host_fallback_live_test", "")
+    for fragment in (
+        "def missing_panel_evidence(text):",
+        're.search(r"(?im)^\\s*blocking finding ids:',
+        "missing_fields = missing_panel_evidence(result_text)",
+    ):
+        if fragment not in cross_host_body:
+            die(
+                f"{script_path} cross-host fallback must accept semantic code-reviewer "
+                f"panel evidence without exact field labels: missing {fragment!r}"
+            )
+
+    parallel_body = functions.get("run_parallel_live_test", "")
+    parallel_transcript_requirements = (
+        'payload.get("type") == "agent_message"',
+        'item.get("type") == "encrypted_content"',
+        'task_complete_messages[-1]',
+        '"encrypted_task_messages": encrypted_task_messages',
+        'def has_role_heading(text, role):',
+        'normalized.startswith("role heading:")',
+        'normalized.startswith("role:")',
+        'marker in normalized and heading in normalized',
+        'Child lifetimes do not reveal when the parent issued wait_agent',
+        'invalid_lifetimes',
+    )
+    for fragment in parallel_transcript_requirements:
+        if fragment not in parallel_body:
+            die(
+                f"{script_path} Parallel transcript fallback must preserve encrypted "
+                f"task and authoritative completion evidence: missing {fragment!r}"
+            )
+
+    simplify_body = functions.get("run_simplify_live_test", "")
+    simplify_transcript_requirements = {
+        'payload.get("type") == "agent_message"': 2,
+        'item.get("type") == "encrypted_content"': 2,
+        'task_complete_messages[-1]': 2,
+        'linked_children != len(expected_angles)': 2,
+        '"encrypted_task_messages": encrypted_task_messages': 2,
+        'expected_agent_nodes = {': 1,
+        'allowed_discovery_roles = {': 1,
+        'thread_spawn.get("agent_path")': 1,
+        'agent_role not in allowed_discovery_roles': 1,
+        'contradicted its typed': 1,
+        'no (?:cleanup )?(?:candidates?|findings?)': 1,
+    }
+    for fragment, minimum_count in simplify_transcript_requirements.items():
+        if simplify_body.count(fragment) < minimum_count:
+            die(
+                f"{script_path} Simplify transcript fallback must preserve encrypted "
+                f"task and authoritative completion evidence: missing {fragment!r}"
+            )
+    if "Named THOROUGH broad-diff maintainability trigger." not in simplify_body:
+        die(
+            f"{script_path} Simplify natural prompt must use an outcome-only "
+            "maintainability trigger"
+        )
+    if "prompt='Named THOROUGH broad-diff cleanup trigger." in simplify_body:
+        die(
+            f"{script_path} Simplify natural prompt must not prescribe cleanup "
+            "dispatch mechanics"
+        )
+
     registry_match = re.search(
         r"(?ms)^ISOLATED_CODEX_LIVE_FUNCTIONS=\(\s*(?P<body>.*?)^\)",
         script_text,
@@ -610,6 +761,43 @@ def assert_codex_live_isolation_contract(marketplace_root: Path) -> None:
     ):
         if required not in isolated_functions:
             die(f"{script_path} isolated Codex live registry is missing {required}")
+
+    named_agents = re.search(
+        r"run_named_agents_live_test\(\) \{(?P<body>.*?)\n\}\n\nrun_fusion_rescue_live_test\(\)",
+        script_text,
+        flags=re.S,
+    )
+    if not named_agents:
+        die(f"{script_path} is missing run_named_agents_live_test")
+    named_agents_body = named_agents.group("body")
+    for fragment in (
+        'payload.get("type") == "agent_message"',
+        'item.get("type") == "encrypted_content"',
+        '"encrypted_task_messages": encrypted_task_messages',
+        'child["encrypted_task_messages"] != 1',
+        "nor one encrypted inter-agent task message",
+    ):
+        if fragment not in named_agents_body:
+            die(
+                f"{script_path} named-agent transcript fallback must preserve encrypted "
+                f"task-channel evidence: missing {fragment!r}"
+            )
+
+    for fragment in (
+        "Approved synthetic low-risk internal goal",
+        "This message is the complete approved requirements source.",
+        "No product, architecture, public-contract, security, migration, concurrency, or release decision is in scope.",
+    ):
+        if fragment not in script_text:
+            die(
+                f"{script_path} Ultrawork natural smoke must stay bounded and avoid "
+                f"activating a THOROUGH release workflow: missing {fragment!r}"
+            )
+    if "enough live natural smoke coverage for a release handoff" in script_text:
+        die(
+            f"{script_path} Ultrawork natural smoke still activates the release-risk "
+            "planning topology"
+        )
 
     assignment_mutations = (
         'CODEX_HOME="$live_home" codex exec',
@@ -652,10 +840,36 @@ run_future_isolated_live_skill_test() {
         die(f"{script_path} Ralplan subagent live lane must preserve parent transcripts in its isolated home")
     for fragment in (
         'fork_turns "none"',
-        "OH_NO_RALPLAN_PRIVATE_PLANNER_PROOF",
-        "OH_NO_RALPLAN_PRIVATE_REVIEW_PROOF",
-        "inspected private proof material",
-        "ralplan-natural-private-proof.json",
+        "OH_NO_RALPLAN_PLANNER_PROOF_REQUEST",
+        "OH_NO_RALPLAN_REVIEW_PROOF_REQUEST",
+        "Planner draft id: ${draft_id}",
+        "REVIEWED_PLANNER_DRAFT_BEGIN",
+        "typed Plan-Reviewer did not echo the exact Planner draft",
+        "inspected test-only proof material",
+        "transcript_children = {role: [] for role in expected_roles}",
+        "if not 1 <= len(reviewer_sessions) <= 4:",
+        "at most one THOROUGH pair per round",
+        '"last_task_timestamp": task_timestamps[-1] if task_timestamps else ""',
+        "final_reviewer_evidence",
+        "if len(final_reviewer_evidence) not in (1, 2):",
+        "reviewer_task and reviewer_task <= planner_final_completion",
+        "max(final_review_dispatches) >= min(final_review_completions)",
+        'acceptance_markers = ("acceptance", "required outcomes", "success criteria")',
+        'ac_ids = set(re.findall(r"(?i)\\bAC[- ]?([0-9]+)\\b", planner_output))',
+        "Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither",
+        "Codex ralplan natural Planner output lacked one stable draft id",
+        "canonical_draft_id",
+        'strip("` *_")',
+        "semantic_lines",
+        "planner_coverage < 0.85",
+        "Codex ralplan natural parent did not preserve the complete Planner draft",
+        "Codex ralplan natural parent Planner draft did not identify the final draft id",
+        "Codex ralplan natural parent Planner draft omitted acceptance outcome ids",
+        "Codex ralplan natural parent review synthesis did not identify the final Planner draft id",
+        "Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair",
+        "Codex ralplan natural typed child {role} lacked task_complete",
+        '"encrypted_task_messages": encrypted_task_messages',
+        "parent did not preserve the exact Planner output",
         "assert_no_codex_live_secret_leak",
         "Close/cleanup was not available.",
     ):
@@ -665,6 +879,11 @@ run_future_isolated_live_skill_test() {
     for forbidden in (
         "then wait for and close planner before plan-reviewer",
         "After both subagents finish and both completed planning agents are closed",
+        "natural transcript proof found duplicate typed child sessions for",
+        "if len(reviewer_sessions) not in (1, 2):",
+        "Plan-Reviewer {reviewer_index} did not identify the final Planner draft id",
+        "natural parent did not preserve the Planner payload",
+        "natural parent did not preserve the Plan-Reviewer decision payload",
     ):
         if forbidden in body:
             die(f"{script_path} Ralplan prompt still contains a conflicting legacy lifecycle rule: {forbidden!r}")
@@ -674,11 +893,51 @@ run_future_isolated_live_skill_test() {
     if "err_text[:2000]" in body:
         die(f"{script_path} Ralplan live parser must not interpolate raw stderr into failures")
     if re.search(r"command_events[.]append\([^\n]*\[:2000\]", body):
-        die(f"{script_path} Ralplan private-proof taint scan must inspect complete command events")
+        die(f"{script_path} Ralplan test-only proof taint scan must inspect complete command events")
 
-    prompts = re.findall(r'prompt="\$\(cat <<PROMPT\n(.*?)\nPROMPT\n\)"', body, flags=re.S)
-    if len(prompts) != 2:
-        die(f"{script_path} Ralplan live lane must contain exactly two compact prompt blocks")
+    instrumented_prompts = re.findall(
+        r"IFS= read -r -d '' prompt <<PROMPT \|\| true\n(.*?)\nPROMPT",
+        body,
+        flags=re.S,
+    )
+    natural_prompts = re.findall(
+        r"IFS= read -r -d '' prompt <<'PROMPT' \|\| true\n(.*?)\nPROMPT",
+        body,
+        flags=re.S,
+    )
+    if len(instrumented_prompts) != 1 or len(natural_prompts) != 1:
+        die(
+            f"{script_path} Ralplan live lane must contain one instrumented prompt "
+            "and one standalone natural prompt"
+        )
+    natural_forbidden_terms = (
+        "subagent",
+        "sub-agent",
+        "spawn",
+        "delegate",
+        "delegation",
+        "parallel agent",
+        "worker",
+        "agent_type",
+        "role:",
+        "wave",
+        "wait results",
+        "wait_agent",
+        "close_agent",
+        "clean up",
+        "cleanup",
+        "lifecycle",
+    )
+    natural_prompt_lower = natural_prompts[0].lower()
+    leaked_terms = [
+        term for term in natural_forbidden_terms if term in natural_prompt_lower
+    ]
+    if leaked_terms:
+        die(
+            f"{script_path} Ralplan natural prompt prescribes dispatch mechanics: "
+            f"{leaked_terms!r}"
+        )
+    prompts = (*instrumented_prompts, *natural_prompts)
     prompt_limits = (2600, 1500)
     for index, (prompt, limit) in enumerate(zip(prompts, prompt_limits), 1):
         if len(prompt) > limit:
@@ -686,6 +945,344 @@ run_future_isolated_live_skill_test() {
                 f"{script_path} Ralplan prompt {index} exceeds its audited size budget: "
                 f"{len(prompt)}>{limit}"
             )
+
+
+def assert_codex_parallel_transcript_fixture(marketplace_root: Path) -> None:
+    script_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    script_text = read_text(script_path)
+    function_start = script_text.find("run_parallel_live_test() {")
+    function_end = script_text.find("\nrun_simplify_live_test() {", function_start)
+    if function_start == -1 or function_end == -1:
+        die(f"{script_path} is missing the Parallel live function boundary")
+    function_body = script_text[function_start:function_end]
+    parser_sources = re.findall(r"<<'PY'\n(.*?)\nPY(?:\n|$)", function_body, re.S)
+    if len(parser_sources) != 1:
+        die(
+            f"{script_path} must expose exactly one Parallel transcript parser; "
+            f"found {len(parser_sources)}"
+        )
+
+    role_waves = (
+        ("explore", "analyst", "planner"),
+        ("executor", "debugger"),
+        ("verifier", "code-reviewer", "fusion-rescue-analyst"),
+    )
+    role_headings = {
+        "explore": "# Explore Agent",
+        "analyst": "# Analyst Agent",
+        "planner": "# Planner Agent",
+        "executor": "# Executor Agent",
+        "debugger": "# Debugger Agent",
+        "verifier": "# Verifier Agent",
+        "code-reviewer": "# Code Reviewer Agent",
+        "fusion-rescue-analyst": "# Fusion Rescue Analyst Agent",
+    }
+
+    with tempfile.TemporaryDirectory(prefix="oh-no-parallel-parser-") as temp:
+        root = Path(temp)
+        sessions = root / "sessions"
+        sessions.mkdir()
+        parent_thread_id = "fixture-parent-thread"
+        parent_markers = [
+            f"OH_NO_PARALLEL_RESULT {role}"
+            for wave in role_waves
+            for role in wave
+        ]
+        out_path = root / "out.jsonl"
+        out_path.write_text(
+            "\n".join(
+                json.dumps(row)
+                for row in (
+                    {"type": "thread.started", "thread_id": parent_thread_id},
+                    {
+                        "type": "item.completed",
+                        "item": {
+                            "type": "agent_message",
+                            "text": (
+                                "OH_NO_CODEX_PARALLEL_SUBAGENTS_OK\n"
+                                + "\n".join(parent_markers)
+                            ),
+                        },
+                    },
+                )
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        err_path = root / "err.txt"
+        err_path.write_text("", encoding="utf-8")
+
+        session_index = 0
+        for wave_index, wave in enumerate(role_waves):
+            for role_index, role in enumerate(wave):
+                if wave_index == 0:
+                    started = f"2026-07-18T00:00:{2 * role_index:02d}.000000Z"
+                    completed = f"2026-07-18T00:00:{2 * role_index + 1:02d}.000000Z"
+                else:
+                    started = f"2026-07-18T00:0{wave_index}:{role_index:02d}.000000Z"
+                    completed = f"2026-07-18T00:0{wave_index}:{10 + role_index:02d}.000000Z"
+                if role == "fusion-rescue-analyst":
+                    heading_line = "Role heading: Fusion Rescue Analyst Agent"
+                elif role == "verifier":
+                    heading_line = "- OH_NO_PARALLEL_RESULT verifier — **Verifier Agent**"
+                elif role == "analyst":
+                    heading_line = "Role: analyst"
+                else:
+                    heading_line = role_headings[role]
+                output = "\n".join(
+                    (
+                        f"OH_NO_PARALLEL_RESULT {role}",
+                        heading_line,
+                        "Skill Relationship: present",
+                        "Responsibilities: present",
+                        "Operating Rules: present",
+                        "Output: present",
+                    )
+                )
+                rows = (
+                    {
+                        "type": "session_meta",
+                        "timestamp": started,
+                        "payload": {
+                            "timestamp": started,
+                            "parent_thread_id": parent_thread_id,
+                            "agent_role": f"oh-no-{role}",
+                        },
+                    },
+                    {
+                        "type": "response_item",
+                        "timestamp": started,
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": "bootstrap context without task fields",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "type": "response_item",
+                        "timestamp": started,
+                        "payload": {
+                            "type": "agent_message",
+                            "content": [
+                                {"type": "encrypted_content", "ciphertext": "fixture"}
+                            ],
+                        },
+                    },
+                    {
+                        "type": "event_msg",
+                        "timestamp": completed,
+                        "payload": {
+                            "type": "task_complete",
+                            "last_agent_message": output,
+                        },
+                    },
+                )
+                (sessions / f"rollout-{session_index}.jsonl").write_text(
+                    "\n".join(json.dumps(row) for row in rows) + "\n",
+                    encoding="utf-8",
+                )
+                session_index += 1
+
+        result = subprocess.run(
+            [sys.executable, "-", str(out_path), str(err_path), str(root)],
+            input=parser_sources[0],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            die(
+                f"{script_path} Parallel encrypted-task transcript fixture failed:\n"
+                f"{result.stdout}{result.stderr}"
+            )
+
+
+def assert_codex_simplify_transcript_fixtures(marketplace_root: Path) -> None:
+    script_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    script_text = read_text(script_path)
+    function_start = script_text.find("run_simplify_live_test() {")
+    function_end = script_text.find("\nrun_worktree_live_test() {", function_start)
+    if function_start == -1 or function_end == -1:
+        die(f"{script_path} is missing the Simplify live function boundary")
+    function_body = script_text[function_start:function_end]
+    parser_sources = re.findall(r"<<'PY'\n(.*?)\nPY(?:\n|$)", function_body, re.S)
+    if len(parser_sources) != 2:
+        die(
+            f"{script_path} must expose exactly two Simplify transcript parsers; "
+            f"found {len(parser_sources)}"
+        )
+
+    angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
+    markers = {
+        "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
+        "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
+        "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
+        "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
+    }
+    agent_nodes = {
+        "Reuse": "simplify_reuse",
+        "Simplification": "simplify_simplification",
+        "Efficiency": "simplify_efficiency",
+        "Altitude": "simplify_altitude",
+    }
+
+    def run_fixture(
+        parser_source: str,
+        natural: bool,
+        contradictory_output: bool = False,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="oh-no-simplify-parser-") as temp:
+            root = Path(temp)
+            sessions = root / "sessions"
+            sessions.mkdir()
+            parent_thread_id = "fixture-parent-thread"
+            if natural:
+                parent_text = "OH_NO_CODEX_SIMPLIFY_NATURAL_OK\n" + "\n".join(angles)
+            else:
+                parent_text = (
+                    "OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK\n"
+                    + "\n".join(markers.values())
+                )
+            out_path = root / "out.jsonl"
+            out_path.write_text(
+                "\n".join(
+                    json.dumps(row)
+                    for row in (
+                        {"type": "thread.started", "thread_id": parent_thread_id},
+                        {
+                            "type": "item.completed",
+                            "item": {"type": "agent_message", "text": parent_text},
+                        },
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            err_path = root / "err.txt"
+            err_path.write_text("", encoding="utf-8")
+
+            for index, angle in enumerate(angles):
+                if angle == "Altitude":
+                    started = "2026-07-18T00:01:00.000000Z"
+                    completed = "2026-07-18T00:01:10.000000Z"
+                else:
+                    started = f"2026-07-18T00:00:{index:02d}.000000Z"
+                    completed = f"2026-07-18T00:00:{10 + index:02d}.000000Z"
+                output_lines = [] if natural else [markers[angle]]
+                if natural:
+                    if contradictory_output and angle == "Altitude":
+                        output_lines.append("## Reuse review")
+                    if angle == "Reuse":
+                        output_lines.append(
+                            "- `docs/reference/source-index.md:29` — Repeated platform wording. Concrete cost: synchronized edits can drift."
+                        )
+                    else:
+                        output_lines.extend(
+                            (
+                                "Location: docs/reference/source-index.md",
+                                "Key findings: no candidates",
+                            )
+                        )
+                else:
+                    output_lines.extend(
+                        (
+                            f"Angle: {angle}",
+                            "File: docs/reference/source-index.md",
+                            "Line: 1",
+                            "Summary: no candidate",
+                            "Concrete cost: none",
+                        )
+                    )
+                rows = (
+                    {
+                        "type": "session_meta",
+                        "timestamp": started,
+                        "payload": {
+                            "timestamp": started,
+                            "parent_thread_id": parent_thread_id,
+                            "agent_role": "oh-no-explore",
+                            "source": {
+                                "subagent": {
+                                    "thread_spawn": {
+                                        "parent_thread_id": parent_thread_id,
+                                        "agent_role": "oh-no-explore",
+                                        "agent_path": f"/root/{agent_nodes[angle]}",
+                                    }
+                                }
+                            },
+                        },
+                    },
+                    {
+                        "type": "response_item",
+                        "timestamp": started,
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": "bootstrap context without task fields",
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "type": "response_item",
+                        "timestamp": started,
+                        "payload": {
+                            "type": "agent_message",
+                            "content": [
+                                {"type": "encrypted_content", "ciphertext": "fixture"}
+                            ],
+                        },
+                    },
+                    {
+                        "type": "event_msg",
+                        "timestamp": completed,
+                        "payload": {
+                            "type": "task_complete",
+                            "last_agent_message": "\n".join(output_lines),
+                        },
+                    },
+                )
+                (sessions / f"rollout-{index}.jsonl").write_text(
+                    "\n".join(json.dumps(row) for row in rows) + "\n",
+                    encoding="utf-8",
+                )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-",
+                    str(out_path),
+                    str(err_path),
+                    str(root),
+                ],
+                input=parser_source,
+                capture_output=True,
+                text=True,
+            )
+            lane = "natural" if natural else "explicit"
+            if contradictory_output:
+                if result.returncode == 0:
+                    die(
+                        f"{script_path} Simplify {lane} transcript fixture accepted "
+                        "output that contradicted its typed agent-path identity"
+                    )
+                return
+            if result.returncode != 0:
+                die(
+                    f"{script_path} Simplify {lane} encrypted-task transcript fixture "
+                    f"failed:\n{result.stdout}{result.stderr}"
+                )
+
+    run_fixture(parser_sources[0], natural=False)
+    run_fixture(parser_sources[1], natural=True)
+    run_fixture(parser_sources[1], natural=True, contradictory_output=True)
 
 
 def assert_claude_live_budget_floor(marketplace_root: Path) -> None:
@@ -711,9 +1308,9 @@ def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
         "codex_write_commands",
         "invoked codex-companion with --write",
         "invoked codex-companion with --background",
-        # The --write/--background scan must cover every codex-companion
-        # command, not only the --prompt-file-shaped delegation call.
-        'if "codex-companion.mjs" in command:',
+        # Inspect actual codex-companion task invocation lines rather than
+        # matching --write text copied inside the prompt-file heredoc.
+        "companion_call_lines = [",
         "pending_background_events",
         "late_pending_background_events",
         "left background/still-running work after Codex",
@@ -726,15 +1323,14 @@ def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
         if fragment not in script_text:
             die(f"{script_path} Claude Fusion Rescue live read-only guard is missing {fragment!r}")
     # All five companion lanes (fusion, cross-host-review, ralplan-xhost,
-    # vbc-xhost, sysdebug-xhost) must apply the unconditional scan; a single
-    # lane regressing to a --prompt-file-gated forbid would otherwise hide
-    # behind the other lanes' copies of the fragment.
-    unconditional_scan = 'if "codex-companion.mjs" in command:'
-    scan_count = script_text.count(unconditional_scan)
+    # vbc-xhost, sysdebug-xhost) must inspect the actual task invocation line;
+    # packet prose such as "no --write" must not become a false positive.
+    invocation_scan = "companion_call_lines = ["
+    scan_count = script_text.count(invocation_scan)
     if scan_count < 5:
         die(
-            f"{script_path} must apply the unconditional codex-companion --write/--background "
-            f"scan in all five live lanes (found {scan_count})"
+            f"{script_path} must inspect codex-companion task invocation flags "
+            f"in all five live lanes (found {scan_count})"
         )
 
 
@@ -790,6 +1386,11 @@ def assert_goal_preservation_and_proportional_lane_contract(marketplace_root: Pa
 def assert_claude_parallel_executor_hard_guards(marketplace_root: Path) -> None:
     script_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     script_text = read_text(script_path)
+    function_start = script_text.find("run_parallel_executor_live_test()")
+    function_end = script_text.find("run_codex_executor_delegation_live_test()", function_start)
+    if function_start == -1 or function_end == -1:
+        die(f"{script_path} is missing the parallel-executor function boundary")
+    function_body = script_text[function_start:function_end]
     required_fragments = (
         "permission_denials",
         "Claude parallel-executor live had permission denials",
@@ -804,14 +1405,14 @@ def assert_claude_parallel_executor_hard_guards(marketplace_root: Path) -> None:
         'if [[ "$run_rc" != "0" ]]',
     )
     for fragment in required_fragments:
-        if fragment not in script_text:
+        if fragment not in function_body:
             die(f"{script_path} Claude parallel-executor hard guard is missing {fragment!r}")
     forbidden_fragments = (
         "WARN (non-gating): parallel-executor",
         "raise SystemExit(0)",
     )
     for fragment in forbidden_fragments:
-        if fragment in script_text:
+        if fragment in function_body:
             die(f"{script_path} Claude parallel-executor must not soft-pass hard failures via {fragment!r}")
 
 
@@ -1124,6 +1725,8 @@ def validate_classification_fixtures(
     assert_release_default_live_safe(marketplace_root, lanes)
     assert_codex_natural_session_role_order_wiring(marketplace_root)
     assert_codex_live_isolation_contract(marketplace_root)
+    assert_codex_parallel_transcript_fixture(marketplace_root)
+    assert_codex_simplify_transcript_fixtures(marketplace_root)
     assert_claude_live_budget_floor(marketplace_root)
     assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)

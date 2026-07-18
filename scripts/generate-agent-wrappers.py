@@ -118,7 +118,7 @@ AGENTS = [
         codex_description=(
             "Oh No Harness executor-codex role: compile and forward one scoped executor "
             "slice through a foreground write-capable Codex companion call and return "
-            "raw stdout without authoring RED, verifying, reviewing, or merging."
+            "raw stdout without running verification, reviewing, or merging."
         ),
         # Claude-Code-only delegation agent: Claude delegates write work TO Codex.
         # On the Codex host there is nothing to delegate, so no Codex custom-agent
@@ -153,6 +153,7 @@ AGENTS = [
             "artifacts, verification evidence, and user-facing scenario coverage "
             "before completion claims."
         ),
+        codex_sandbox_mode="read-only",
     ),
     AgentMetadata(
         role="code-reviewer",
@@ -168,6 +169,7 @@ AGENTS = [
             "maintainability, regressions, missing tests, and security risks through "
             "ordered lenses."
         ),
+        codex_sandbox_mode="read-only",
     ),
     AgentMetadata(
         role="fusion-rescue-analyst",

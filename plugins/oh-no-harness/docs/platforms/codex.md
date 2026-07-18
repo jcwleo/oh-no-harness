@@ -213,10 +213,11 @@ the host cannot recognize the custom agent. Outside an active workflow or
 explicit user-requested subagent task, the no-skill read-only repository lookup
 lane may dispatch the registered read-only `oh-no-explore` agent when the host
 recognizes it, and must wait for each dispatched result before the next action.
-The generated `oh-no-explore` template sets `sandbox_mode = "read-only"` so the
-read-only exploration role does not rely on prompt text alone for write
-isolation when it is dispatched by an active workflow, an explicit subagent
-request, or the no-skill read-only lookup lane.
+The generated read-only role templates (`oh-no-explore`, `oh-no-verifier`,
+`oh-no-code-reviewer`, and `oh-no-fusion-rescue-analyst`) set
+`sandbox_mode = "read-only"` so their write
+boundary does not rely on prompt text alone. The no-skill repository lookup
+lane remains limited to `oh-no-explore`.
 
 The generated templates pin the current 5.6 family and a per-agent
 `model_reasoning_effort` so custom-agent role files do not depend on inheriting

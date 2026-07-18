@@ -11,8 +11,9 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Launch the four cleanup passes via Codex `spawn_agent` with
-`fork_turns="none"` following the shared core's one batch before waiting
-dispatch rule; if Codex subagent dispatch is unavailable, use the core's
-inline labeled-block fallback. The core owns the
-batch, inline-fallback, and fallback-reason rules; do not restate them here.
+When the core selects combined depth, run one combined pass. When it selects
+four-viewpoint depth, use Codex `spawn_agent` with `fork_turns="none"`: launch
+all four before waiting only when the host limit permits four; otherwise launch
+three, wait and capture them, then launch the remaining viewpoint. If Codex
+subagent dispatch is unavailable, use the core's inline labeled-block fallback.
+The core owns selection, inline-fallback, and fallback-reason semantics.

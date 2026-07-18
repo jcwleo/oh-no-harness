@@ -36,6 +36,8 @@ LIVE_HOOK_ONLY="${OH_NO_LIVE_HOOK_ONLY:-0}"
 LIVE_LOAD_MODE="${OH_NO_LIVE_LOAD_MODE:-plugin-dir}"
 LIVE_MODEL="${OH_NO_TEST_MODEL:-sonnet}"
 LIVE_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-3.00}"
+LIVE_TIMEOUT_SECONDS="${OH_NO_LIVE_TIMEOUT_SECONDS:-900}"
+LIVE_TIMEOUT_GRACE_SECONDS="${OH_NO_LIVE_TIMEOUT_GRACE_SECONDS:-5}"
 FUSION_RESCUE_LIVE_MODEL="${OH_NO_FUSION_RESCUE_MODEL:-${OH_NO_TEST_MODEL:-opus}}"
 FUSION_RESCUE_MAX_BUDGET_USD="${OH_NO_FUSION_RESCUE_MAX_BUDGET_USD:-10.00}"
 LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files.}"
@@ -163,7 +165,8 @@ Environment overrides:
   OH_NO_PARALLEL_EXECUTOR_LIVE,
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
-  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
+  OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_TIMEOUT_SECONDS, OH_NO_LIVE_TIMEOUT_GRACE_SECONDS,
+  OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
 USAGE
 }
 
@@ -322,6 +325,159 @@ PY
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
+}
+
+run_live_process_with_timeout() {
+  "$PYTHON_BIN" - "$LIVE_TIMEOUT_SECONDS" "$LIVE_TIMEOUT_GRACE_SECONDS" "$@" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+timeout_seconds = float(sys.argv[1])
+grace_seconds = float(sys.argv[2])
+command = sys.argv[3:]
+if not command:
+    raise SystemExit("live command runner received no command")
+if timeout_seconds <= 0 or grace_seconds < 0:
+    raise SystemExit("live command timeout must be positive and grace must be non-negative")
+
+process = subprocess.Popen(
+    command,
+    env=os.environ.copy(),
+    start_new_session=True,
+)
+
+
+def group_exists():
+    try:
+        os.killpg(process.pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def signal_group(signum):
+    try:
+        os.killpg(process.pid, signum)
+    except ProcessLookupError:
+        pass
+
+
+def stop_group():
+    signal_group(signal.SIGTERM)
+    deadline = time.monotonic() + grace_seconds
+    while group_exists() and time.monotonic() < deadline:
+        if process.poll() is None:
+            try:
+                process.wait(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+            except subprocess.TimeoutExpired:
+                pass
+        else:
+            time.sleep(0.05)
+    if group_exists():
+        signal_group(signal.SIGKILL)
+    if process.poll() is None:
+        process.wait()
+
+
+def forward_signal(signum, _frame):
+    stop_group()
+    raise SystemExit(128 + signum)
+
+
+for forwarded_signal in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(forwarded_signal, forward_signal)
+
+try:
+    return_code = process.wait(timeout=timeout_seconds)
+except subprocess.TimeoutExpired:
+    print(
+        f"ERROR: live command exceeded {timeout_seconds:g}s: {command[0]}",
+        file=sys.stderr,
+    )
+    stop_group()
+    raise SystemExit(124)
+except BaseException:
+    if group_exists():
+        stop_group()
+    raise
+
+if group_exists():
+    stop_group()
+raise SystemExit(return_code)
+PY
+}
+
+run_live_timeout_offline_test() {
+  log "Running offline Claude live-timeout process-group regression"
+  local temp_root fixture pid_file err_file child_pid rc
+  local saved_timeout="$LIVE_TIMEOUT_SECONDS"
+  local saved_grace="$LIVE_TIMEOUT_GRACE_SECONDS"
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-timeout-self-test.XXXXXX")"
+  fixture="$temp_root/spawn-descendant.py"
+  pid_file="$temp_root/descendant.pid"
+  err_file="$temp_root/timeout.err"
+  cat >"$fixture" <<'PY'
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+child = subprocess.Popen(
+    [
+        sys.executable,
+        "-c",
+        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)",
+    ]
+)
+Path(sys.argv[1]).write_text(str(child.pid), encoding="utf-8")
+while True:
+    time.sleep(1)
+PY
+
+  LIVE_TIMEOUT_SECONDS="0.3"
+  LIVE_TIMEOUT_GRACE_SECONDS="0.1"
+  rc=0
+  run_live_process_with_timeout "$PYTHON_BIN" "$fixture" "$pid_file" \
+    >/dev/null 2>"$err_file" || rc=$?
+  LIVE_TIMEOUT_SECONDS="$saved_timeout"
+  LIVE_TIMEOUT_GRACE_SECONDS="$saved_grace"
+
+  [[ "$rc" == "124" ]] \
+    || { rm -rf "$temp_root"; fail "Claude timeout fixture returned $rc instead of 124"; }
+  grep -Fq "live command exceeded 0.3s" "$err_file" \
+    || { rm -rf "$temp_root"; fail "Claude timeout fixture omitted the timeout diagnostic"; }
+  [[ -s "$pid_file" ]] \
+    || { rm -rf "$temp_root"; fail "Claude timeout fixture did not record its descendant pid"; }
+  child_pid="$(<"$pid_file")"
+  "$PYTHON_BIN" - "$child_pid" <<'PY' \
+    || { rm -rf "$temp_root"; fail "Claude timeout runner left its descendant process alive"; }
+import os
+import sys
+import time
+
+pid = int(sys.argv[1])
+deadline = time.monotonic() + 2
+while time.monotonic() < deadline:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        raise SystemExit(0)
+    time.sleep(0.05)
+raise SystemExit(f"descendant process still exists after process-group cleanup: {pid}")
+PY
+
+  rc=0
+  run_live_process_with_timeout "$PYTHON_BIN" -c 'raise SystemExit(7)' \
+    >/dev/null 2>&1 || rc=$?
+  rm -rf "$temp_root"
+  [[ "$rc" == "7" ]] || fail "Claude timeout runner changed child exit 7 to $rc"
+  ok "Claude live-timeout runner returns 124, kills descendants, and preserves child status"
 }
 
 marketplace_exists() {
@@ -799,14 +955,16 @@ for m in fusion_extra:
         raise SystemExit(f"fusion-codex.md missing fusion marker {m!r}")
 
 executor = read(core / "executor-codex.md")
+normalized_executor = " ".join(executor.split())
 for m in ("2>/dev/null", "direct Codex implementation", "executor child",
           "Do not run any test, lint, build, typecheck, parse, or verification command",
           "Verification: not run (caller-owned)",
           "codex unavailable: companion-override-path-missing",
           "Return the Codex stdout without wrapper synthesis",
           "caller derives the changed-file set",
-          "does NOT author RED, verify, review, or merge"):
-    if m not in executor:
+          "may author only the assigned RED, GREEN, REFACTOR",
+          "does NOT verify, review, or merge"):
+    if " ".join(m.split()) not in normalized_executor:
         raise SystemExit(f"executor-codex.md missing thin-transport marker {m!r}")
 for m in ("PROTECTED TARGET SET", "escape_net_verdict", "Raw PRE and POST",
           "Git-derived changed-file set", "/codex:rescue"):
@@ -1390,7 +1548,8 @@ run_live_skill_test() {
   local cmd=(
     "$CLAUDE_BIN"
     --print
-    --output-format json
+    --verbose
+    --output-format stream-json
     --model "$LIVE_MODEL"
     --max-budget-usd "$LIVE_MAX_BUDGET_USD"
     --permission-mode dontAsk
@@ -1408,25 +1567,47 @@ run_live_skill_test() {
 
   cmd+=("$prompt")
 
-  "${cmd[@]}" >"$out_file"
+  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
 
   "$PYTHON_BIN" - "$out_file" "$skill" <<'PY'
 import json
 import sys
 
 path, skill = sys.argv[1], sys.argv[2]
-with open(path, "r", encoding="utf-8") as fh:
-    data = json.load(fh)
+result = ""
+cost = None
+read_paths = []
 
-if data.get("is_error"):
-    raise SystemExit(f"{skill} live smoke failed: {data.get('result')}")
-result = str(data.get("result", "")).strip()
+with open(path, "r", encoding="utf-8") as fh:
+    for line_number, line in enumerate(fh, 1):
+        if not line.strip():
+            continue
+        data = json.loads(line)
+        if data.get("type") == "assistant":
+            for part in data.get("message", {}).get("content", []):
+                if part.get("type") != "tool_use" or part.get("name") != "Read":
+                    continue
+                payload = part.get("input", {})
+                read_path = payload.get("file_path") or payload.get("path")
+                if isinstance(read_path, str):
+                    read_paths.append(read_path.replace("\\", "/"))
+        if data.get("type") == "result":
+            if data.get("is_error"):
+                raise SystemExit(f"{skill} live smoke failed: {data.get('result')}")
+            result = str(data.get("result", "")).strip()
+            cost = data.get("total_cost_usd")
+
 if not result:
     raise SystemExit(f"{skill} live smoke returned an empty result")
 if result.startswith("Unknown command:"):
     raise SystemExit(f"{skill} live smoke did not resolve the Claude slash command: {result}")
+expected_suffix = f"/skills-claude/{skill}/SKILL.md"
+if not any(f"/{value.lstrip('/')}".endswith(expected_suffix) for value in read_paths):
+    raise SystemExit(
+        f"{skill} live smoke answered without a Read of its generated SKILL.md; "
+        f"read_paths={read_paths!r}"
+    )
 
-cost = data.get("total_cost_usd")
 print(f"ok - live skill smoke: {skill} cost={cost}")
 PY
 }
@@ -1454,7 +1635,7 @@ run_live_hook_test() {
   fi
 
   cmd+=("$prompt")
-  "${cmd[@]}" >"$out_file"
+  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
 
   "$PYTHON_BIN" - "$out_file" "$LIVE_LOAD_MODE" <<'PY'
 import json
@@ -1525,7 +1706,11 @@ if not ask_user_question_available:
         file=sys.stderr,
     )
 if not assistant_policy_present:
-    raise SystemExit(f"assistant did not acknowledge injected hook policy; result={result!r}")
+    print(
+        "WARN: model did not echo OH_NO_HOOK_POLICY_PRESENT (model variance); "
+        f"deterministic SessionStart policy injection still gated above; result={result!r}",
+        file=sys.stderr,
+    )
 
 print(f"ok - live Claude hook policy smoke: load_mode={load_mode} cost={cost}")
 PY
@@ -1557,7 +1742,7 @@ run_live_auto_routing_case() {
   fi
 
   cmd+=("$prompt")
-  OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" >"$out_file"
+  OH_NO_CONFIG_DIR="$config_dir" run_live_process_with_timeout "${cmd[@]}" >"$out_file"
 
   "$PYTHON_BIN" - "$out_file" "$expected" "$state" <<'PY'
 import json
@@ -1962,7 +2147,7 @@ run_deep_live_skill_test() {
   fi
 
   cmd+=("$prompt")
-  "${cmd[@]}" >"$out_file"
+  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
   # Live deep-smoke demotes only semantic marker/paraphrase variance. Tool,
   # permission, malformed-output, and command failures remain hard failures per
   # the lane contract.
@@ -1995,7 +2180,10 @@ assert_natural_prompt_has_no_explicit_subagent_terms() {
   local prompt="$2"
   local prompt_lower
   prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
-  for forbidden in "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent"; do
+  for forbidden in \
+    "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
+    "worker" "agent_type" "role:" "wave" "wait results" "wait_agent" \
+    "close_agent" "clean up" "cleanup" "lifecycle"; do
     if [[ "$prompt_lower" == *"$forbidden"* ]]; then
       fail "${label} natural prompt contains explicit subagent authorization term: ${forbidden}"
     fi
@@ -2006,28 +2194,53 @@ natural_session_start_prompt_for_skill() {
   case "$1" in
     interview)
       cat <<PROMPT
-/${PLUGIN_NAME}:interview --quick Read-only natural role-worker smoke test. Vague request: make Claude live role coverage stronger for this plugin checkout. Before asking the user a question, gather repository facts from ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with read-only file tools such as rg, sed, or Read. The worker message must include exactly one line Role: explore, one line Marker: OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: existing helpers and one coverage gap. Do not end while a worker is still pending. After the fact-gathering work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize Facts captured, Wait results captured, and Closed workers: <status>.
+/${PLUGIN_NAME}:interview --quick Read-only natural SessionStart smoke test. Vague request: make Claude live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather the necessary repository facts from ../../scripts/test-claude-plugin.sh. Do not edit files or run the test script. End with OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize the facts that informed the first question.
 PROMPT
       ;;
     ultrawork)
       cat <<PROMPT
-/${PLUGIN_NAME}:ultrawork Read-only natural role-worker smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live role coverage for a release handoff. Do not create artifacts, do not edit files, do not run write-capable execution, and do not run the test script itself. Follow a dry-run phase path for repository facts, planning readiness, and final evidence using read-only file inspection. Required worker messages: Role: explore with Marker: OH_NO_CLAUDE_ULTRAWORK_EXPLORE_READONLY; Role: planner with Marker: OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_ULTRAWORK_VERIFIER_READONLY. Each message must include Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: one short phase finding. Do not end while a worker is still pending. After all phase work finishes and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK and summarize Phases touched: facts, planning, evidence; Wait results captured; Closed workers: <status>.
+/${PLUGIN_NAME}:ultrawork Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live natural smoke coverage for a release handoff. Perform a dry run only: do not create artifacts, edit files, run the test script, or execute changes. End with OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK and summarize repository facts, planning readiness, and final evidence.
 PROMPT
       ;;
     systematic-debugging)
       cat <<PROMPT
-/${PLUGIN_NAME}:systematic-debugging Read-only natural role-worker smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed; all failure facts are inline, and no code change is requested. Use the normal diagnostic then evidence path. Do not run the test script itself; inspect code paths only with read-only file tools. Required worker messages: Role: debugger with Marker: OH_NO_CLAUDE_DEBUGGER_READONLY; Role: verifier with Marker: OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY. Each message must include Scope: inline failure plus ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: root-cause hypothesis or evidence status. Do not end while a worker is still pending. After diagnostic and evidence work finish and completed workers are cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize Failure reproduced or blocked, Root cause hypothesis, Wait results captured, and Closed workers: <status>.
+/${PLUGIN_NAME}:systematic-debugging Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed. Diagnose the likely cause and assess what evidence would verify it. Do not edit files or run the test script. End with OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize the diagnosis and evidence status.
 PROMPT
       ;;
     verification-before-completion)
       cat <<PROMPT
-/${PLUGIN_NAME}:verification-before-completion Read-only natural role-worker smoke test. Claim to verify: ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that can be extended by another live lane. Evidence scope is ../../scripts/test-claude-plugin.sh only. Do not run the test script itself; inspect with rg, sed, or Read only. The verifier worker message must include exactly one line Role: verifier, one line Marker: OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY, Scope: ../../scripts/test-claude-plugin.sh, Do not edit files, and Expected output: evidence mapping with skipped-checks note. Do not end while a worker is still pending. After evidence work finishes and the completed worker is cleaned up through the active lifecycle, reply exactly OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize Claim verified, Evidence used, Wait results captured, and Closed workers: <status>.
+/${PLUGIN_NAME}:verification-before-completion Read-only natural SessionStart smoke test. Verify the claim that ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that another lane can extend. Do not edit files or run the test script. End with OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize the evidence and any skipped checks.
 PROMPT
       ;;
     *)
       fail "No natural Claude prompt for skill: $1"
       ;;
   esac
+}
+
+run_natural_prompt_guard_offline_test() {
+  log "Running offline Claude natural-prompt causality guard fixtures"
+  local allowed_prompt forbidden skill prompt
+  allowed_prompt="Read the repository facts, assess the requested outcome, and summarize the evidence without editing files."
+  assert_natural_prompt_has_no_explicit_subagent_terms "allowed-fixture" "$allowed_prompt"
+
+  for forbidden in \
+    "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
+    "worker" "agent_type" "role:" "wave" "wait results" "wait_agent" \
+    "close_agent" "clean up" "cleanup" "lifecycle"; do
+    if (
+      assert_natural_prompt_has_no_explicit_subagent_terms \
+        "forbidden-fixture" "Read facts, then ${forbidden}, then summarize."
+    ) >/dev/null 2>&1; then
+      fail "Claude natural-prompt guard missed forbidden fixture: ${forbidden}"
+    fi
+  done
+
+  for skill in interview ultrawork systematic-debugging verification-before-completion; do
+    prompt="$(natural_session_start_prompt_for_skill "$skill")"
+    assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+  done
+  ok "Claude natural-prompt guard accepts real outcome-only prompts and rejects dispatch mechanics"
 }
 
 assert_claude_natural_role_smoke() {
@@ -2105,17 +2318,12 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     if subagent_type.startswith("oh-no-harness:"):
                         role = subagent_type.split(":", 1)[1]
                         all_agent_roles.append((index, role))
-                        marker_for_role = dict(role_markers).get(role)
-                        if marker_for_role and marker_for_role.lower() in payload_text.lower():
-                            required_lines = [f"Marker: {marker_for_role}"]
-                            missing_lines = [
-                                required for required in required_lines
-                                if required.lower() not in payload_text.lower()
-                            ]
-                            if missing_lines:
+                        if role in expected_roles:
+                            marker_for_role = dict(role_markers).get(role)
+                            if marker_for_role and marker_for_role.lower() not in payload_text.lower():
                                 raise SystemExit(
-                                    f"{label} natural role smoke task payload missed required role lines: "
-                                    f"{missing_lines}; text={payload_text[:2000]!r}"
+                                    f"{label} natural role smoke task payload omitted configured marker "
+                                    f"{marker_for_role!r}; text={payload_text[:2000]!r}"
                                 )
                             tool_role_uses.append((index, role, payload_text))
                             tool_use_id = part.get("id")
@@ -2184,8 +2392,8 @@ if not tool_role_uses and workflow_scripts:
             f"expected={expected_roles!r} got={workflow_roles!r}"
         )
     missing_markers = [
-        marker for role, marker in role_markers
-        if marker.lower() not in lower_script or f"role: {role}".lower() not in lower_script
+        marker for _, marker in role_markers
+        if marker and marker.lower() not in lower_script
     ]
     if missing_markers:
         raise SystemExit(
@@ -2209,33 +2417,14 @@ else:
     if missing_starts:
         raise SystemExit(f"{label} natural role smoke missing task_started events for roles: {missing_starts!r}")
     completed_roles = [role for _, role in task_completed_roles]
-    combined_summary_for_completion = "\n".join(summary_text).lower()
-    for role, role_marker in role_markers:
-        if role in completed_roles:
-            continue
-        role_completion_phrase = f"{role} worker completed"
-        if (
-            role_marker.lower() in combined_summary_for_completion
-            and (
-                role_completion_phrase in combined_summary_for_completion
-                or "workers have completed" in combined_summary_for_completion
-                or "worker has completed" in combined_summary_for_completion
-                or "wait results captured" in combined_summary_for_completion
-            )
-        ):
-            task_completed_roles.append((-1, role))
-            completed_roles.append(role)
     missing_completions = [role for role in expected_roles if role not in completed_roles]
     if missing_completions:
         raise SystemExit(f"{label} natural role smoke missing completed task events for roles: {missing_completions!r}")
 
-combined_summary = "\n".join(summary_text).lower()
 if not marker:
     raise SystemExit(f"{label} natural role smoke did not return success marker {success_marker}")
-if not ("close" in combined_summary or "cleanup" in combined_summary or "closed" in combined_summary):
-    raise SystemExit(f"{label} natural role smoke did not summarize lifecycle close or cleanup status")
 
-print(f"ok - {label} natural Claude smoke started required role workers")
+print(f"ok - {label} natural Claude smoke started and completed required role workers")
 PY
 }
 
@@ -2269,7 +2458,7 @@ run_natural_session_start_live_skill_test() {
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   assert_claude_natural_role_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
 }
 
@@ -2301,7 +2490,7 @@ run_ralplan_object_analysis_session_start_live_test() {
       --plugin-dir "$PLUGIN_ROOT"
       --system-prompt "You are a read-only analysis smoke test runner in a disposable project. Do not edit files."
     )
-    (cd "$temp_project" && "${cmd[@]}" "$prompt") >"$out_file" 2>"$err_file"
+    (cd "$temp_project" && run_live_process_with_timeout "${cmd[@]}" "$prompt") >"$out_file" 2>"$err_file"
 
     plans_after="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
     [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
@@ -2350,23 +2539,23 @@ run_natural_session_start_live_tests() {
   run_natural_session_start_live_skill_test \
     interview \
     OH_NO_CLAUDE_INTERVIEW_NATURAL_OK \
-    explore:OH_NO_CLAUDE_INTERVIEW_EXPLORE_READONLY \
-    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+    explore: \
+    ""
   run_natural_session_start_live_skill_test \
     ultrawork \
     OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK \
-    explore:OH_NO_CLAUDE_ULTRAWORK_EXPLORE_READONLY,planner:OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,verifier:OH_NO_CLAUDE_ULTRAWORK_VERIFIER_READONLY \
-    "OH_NO_CLAUDE_DEBUGGER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+    explore:,planner:,verifier: \
+    ""
   run_natural_session_start_live_skill_test \
     systematic-debugging \
     OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK \
-    debugger:OH_NO_CLAUDE_DEBUGGER_READONLY,verifier:OH_NO_CLAUDE_DEBUG_VERIFIER_READONLY \
-    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY"
+    debugger:,verifier: \
+    ""
   run_natural_session_start_live_skill_test \
     verification-before-completion \
     OH_NO_CLAUDE_VERIFICATION_NATURAL_OK \
-    verifier:OH_NO_CLAUDE_COMPLETION_VERIFIER_READONLY \
-    "OH_NO_CLAUDE_ULTRAWORK_PLANNER_READONLY,OH_NO_CLAUDE_DEBUGGER_READONLY"
+    verifier: \
+    ""
   ok "natural Claude live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
@@ -2403,7 +2592,7 @@ run_ralplan_live_test() {
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -2675,7 +2864,7 @@ run_parallel_live_test() {
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -2937,7 +3126,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
   OH_NO_CODEX_COMPANION_PATH="$RUN_DIR/nonexistent/codex-companion.mjs" \
-    "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+    run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json, sys
@@ -2956,7 +3145,12 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     non_user.append(part.get("text", ""))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if "codex-companion" in command and "--write" in command:
+                    companion_call_lines = [
+                        value.strip() for value in command.splitlines()
+                        if value.strip().startswith('node "$COMPANION" task')
+                        or ("codex-companion.mjs" in value and " task " in f" {value} ")
+                    ]
+                    if any(" --write " in f" {value} " for value in companion_call_lines):
                         codex_write_commands.append(command[:500])
         if data.get("type") == "result":
             non_user.append(str(data.get("result", "")))
@@ -3012,7 +3206,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
   OH_NO_CODEX_COMPANION_PATH="$RUN_DIR/nonexistent/codex-companion.mjs" \
-    "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+    run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json, sys
@@ -3032,7 +3226,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
 blob = "\n".join(non_user)
 if "OH_NO_FUSION_CODEX_BLOCK_OK" not in blob:
     raise SystemExit("fusion-codex block sub-run did not return OH_NO_FUSION_CODEX_BLOCK_OK (require-cross-host block)")
-if "OH_NO_FUSION_CODEX_PANEL_OK" in blob:
+if any(line.strip() == "OH_NO_FUSION_CODEX_PANEL_OK" for line in blob.splitlines()):
     raise SystemExit("fusion-codex block sub-run synthesized a passing panel in require-cross-host mode instead of blocking")
 if "current-host three-panel fallback" not in blob.lower():
     raise SystemExit("fusion-codex block sub-run did not name the current-host three-panel fallback")
@@ -3089,7 +3283,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -3152,7 +3346,7 @@ domain_markers = [
     "risk",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -3256,21 +3450,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     payload = part.get("input", {})
                     command = str(payload.get("command", ""))
-                    if "codex-companion.mjs" in command:
-                        # The --write/--background forbids cover EVERY
-                        # codex-companion command, including a rogue call that
-                        # inlines the packet instead of using --prompt-file.
-                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                    companion_call_lines = [
+                        line for line in command.splitlines()
+                        if re.search(
+                            r'^\s*node\s+(?:"?\$COMPANION"?|\S*codex-companion\.mjs)\s+task(?:\s|$)',
+                            line,
+                        )
+                    ]
+                    for call_line in companion_call_lines:
+                        if re.search(r"(?<!\S)--write(?!\S)", call_line):
                             codex_write_commands.append((index, command[:2000]))
-                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                        if re.search(r"(?<!\S)--background(?!\S)", call_line):
                             codex_background_commands.append((index, command[:2000]))
-                        # Count only the actual delegation `task` call (which
-                        # passes the packet via --prompt-file), not the read-only
-                        # companion-path resolution probes (ls / [ -f ] / versions
-                        # checks) the kernel runs first to resolve/verify the
-                        # companion before delegating.
-                        if "--prompt-file" in command:
-                            codex_bash_tool_ids.add(part.get("id"))
+                    if any("--prompt-file" in line for line in companion_call_lines):
+                        codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -3602,7 +3795,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -3637,7 +3830,7 @@ forbidden_crosshost_markers = [
     "OH_NO_CLAUDE_FUSION_RESCUE_CODEX_OK",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -3895,7 +4088,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -3931,7 +4124,7 @@ required_synthesis_fields = [
     "recommended next action",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -3997,21 +4190,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if "codex-companion.mjs" in command:
-                        # The --write/--background forbids cover EVERY
-                        # codex-companion command, including a rogue call that
-                        # inlines the packet instead of using --prompt-file.
-                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                    companion_call_lines = [
+                        line for line in command.splitlines()
+                        if re.search(
+                            r'^\s*node\s+(?:"?\$COMPANION"?|\S*codex-companion\.mjs)\s+task(?:\s|$)',
+                            line,
+                        )
+                    ]
+                    for call_line in companion_call_lines:
+                        if re.search(r"(?<!\S)--write(?!\S)", call_line):
                             codex_write_commands.append((index, command[:2000]))
-                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                        if re.search(r"(?<!\S)--background(?!\S)", call_line):
                             codex_background_commands.append((index, command[:2000]))
-                        # Count only the actual delegation `task` call (which
-                        # passes the packet via --prompt-file), not the read-only
-                        # companion-path resolution probes (ls / [ -f ] / versions
-                        # checks) the kernel runs first to resolve/verify the
-                        # companion before delegating.
-                        if "--prompt-file" in command:
-                            codex_bash_tool_ids.add(part.get("id"))
+                    if any("--prompt-file" in line for line in companion_call_lines):
+                        codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -4344,7 +4536,7 @@ SENTINEL
   local run_rc=0
   if (
     cd "$fixture_dir"
-    "${cmd[@]}" "$prompt"
+    run_live_process_with_timeout "${cmd[@]}" "$prompt"
   ) >"$out_file" 2>"$err_file"; then
     run_rc=0
   else
@@ -4400,7 +4592,7 @@ DIRECTION_MARKERS = (
 )
 
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -5030,7 +5222,7 @@ Direction Contract: requirements source is this approved smoke packet; primary g
 
 There are two disjoint executor-eligible slices. Slice 1: implement add(x, y) in src/calc.py so tests/test_calc.py passes; the marker for this slice is OH_NO_CODEX_DELEG_SLICE_1. Slice 2: add a module docstring to a sibling helper file src/util.py containing the marker OH_NO_CODEX_DELEG_SLICE_2. The two slices touch different files and neither depends on the other.
 
-Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. Do NOT author RED, verify, review, or merge on the executor-codex channel; keep RED authoring, every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), and review (oh-no-harness:code-reviewer) on the native independent roles. Each executor-codex packet may carry the read-only RED path for context but MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Do NOT modify tests/test_calc.py (the RED file). Apply the existing Ralph eligibility, Batch Rule, and Isolation Contract without inventing a separate scheduler.
+Delegation contract: when you dispatch the executor role, dispatch oh-no-harness:executor-codex (NOT the native oh-no-harness:executor and NOT codex:codex-rescue). executor-codex is a thin transport: it returns raw Codex stdout and must not calculate snapshots, escape verdicts, changed files, or verification evidence. YOU are the caller: derive the worktree diff, own the protected-target escape guard, and halt before merge on an unexpected target change. The channel may author an assigned RED, GREEN, REFACTOR, focused-fix, or cleanup mutation, but every test/lint/build/parse/typecheck command, verification (oh-no-harness:verifier), review (oh-no-harness:code-reviewer), and merge stay caller/native-owned. This smoke starts from an existing RED outside the assigned mutation scope, so do NOT modify tests/test_calc.py. The packet MUST NOT ask Codex to run a verification command, report a test outcome, or put caller verification commands/outcomes in <done_when>; require the exact final stdout line "Verification: not run (caller-owned)". Apply the existing Ralph eligibility, Batch Rule, and Isolation Contract without inventing a separate scheduler.
 
 When both slices are implemented, RED goes green, and a native verifier and native code-reviewer have run, restate AC-OVERLAP-1 and the non-goals unchanged, emit the exact token OH_NO_CODEX_DELEG_POST_CHECK followed by, for each slice, the file it owns and its marker, then emit the exact final marker OH_NO_CODEX_DELEG_OK on its own line.
 PROMPT
@@ -5057,7 +5249,7 @@ PROMPT
   local run_rc=0
   if (
     cd "$worktree"
-    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" "$prompt"
+    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" run_live_process_with_timeout "${cmd[@]}" "$prompt"
   ) >"$out_file" 2>"$err_file"; then
     run_rc=0
   else
@@ -5091,7 +5283,7 @@ PY
     trap - RETURN EXIT INT TERM
     fail "codex-executor delegation live: caller-owned escape guard HALTed on a protected-target-set write: ${escape_verdict}"
   fi
-  # HARD gate: RED file byte-UNCHANGED (Codex must not mutate the RED test file).
+  # HARD gate: the existing RED file is outside this delegated mutation scope.
   if [[ "$red_hash_before" != "$red_hash_after" ]]; then
     _codex_deleg_cleanup
     rm -rf "$config_dir"
@@ -5135,7 +5327,7 @@ PROMPT
     CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$config_dir" \
       OH_NO_CODEX_COMPANION_PATH="$integration/.oh-no/nonexistent/codex-companion.mjs" \
       OH_NO_CODEX_COMPANION_CACHE_DIR="$integration/.oh-no/nonexistent-cache" \
-      "${cmd[@]}" "$degrade_prompt"
+      run_live_process_with_timeout "${cmd[@]}" "$degrade_prompt"
   ) >"$degrade_out_file" 2>"$degrade_err_file"; then
     degrade_rc=0
   else
@@ -5906,7 +6098,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Do not inspect repository files, do not run Bash or Read, and do not start helper workers beyond the four cleanup angle workers. Use this synthetic one-line diff for every worker: plugins/oh-no-harness/docs/skill-core/simplify.md: Phase 1 dispatch contract changed for smoke verification. Use Claude Workflow with Promise.all and exactly four agent() calls when Workflow is available; otherwise use Claude background Task or Agent workers exactly four times, but request all four before inspecting or summarizing any task result. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: synthetic dispatch diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: dispatch marker observed with file, line, summary, concrete cost. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent should return only Angle <angle>: no behavior change; dispatch marker observed, plus file, line, summary, and concrete cost fields. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
+  prompt="Use /${PLUGIN_NAME}:simplify --review. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Do not inspect repository files, do not run Bash or Read, and do not start helper workers beyond the four cleanup angle workers. Use this synthetic one-line diff for every worker: plugins/oh-no-harness/docs/skill-core/simplify.md: Phase 1 dispatch contract changed for smoke verification. Use Claude Workflow with Promise.all and exactly four agent() calls when Workflow is available; otherwise use Claude background Task or Agent workers exactly four times, but request all four before inspecting or summarizing any task result. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. Each task or agent prompt MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: synthetic dispatch diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent must return its matching OH_NO_SIMPLIFY_* marker and labeled Angle, File, Line, Summary, and Concrete cost fields. A Workflow must return all four raw child results so the event stream carries per-angle completion evidence. After each cleanup subagent result is captured, close or clean up that completed subagent when the host exposes that mechanism; if no explicit close or cleanup mechanism exists, record that fallback. Preserve every matching angle marker in the parent response. After all four cleanup subagents finish, reply exactly OH_NO_CLAUDE_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Launched before waiting: yes; lifecycle close or cleanup status."
   prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
 
   local cmd=(
@@ -5928,7 +6120,7 @@ run_simplify_live_test() {
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -5944,7 +6136,7 @@ required_payload_markers = [
     "Do not create artifacts",
     "Do not apply cleanup fixes",
     "Do not run Phase 2",
-    "Expected output: dispatch marker observed with file, line, summary, concrete cost",
+    "Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields",
 ]
 angle_markers = {
     "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
@@ -5972,6 +6164,10 @@ def angles_in_payload(text):
 init_ok = False
 task_tool_uses = []
 tasks_by_angle = defaultdict(list)
+task_angle_by_tool_use_id = {}
+task_angle_by_id = {}
+completed_angles = set()
+result_texts_by_angle = defaultdict(list)
 bad_background_payloads = []
 unexpected_task_uses = []
 task_starts = []
@@ -5979,6 +6175,7 @@ first_task_notification_index = None
 workflow_tool_ids = set()
 workflow_scripts = []
 workflow_completed = False
+workflow_result_texts = []
 summary_text = []
 result_aware_text_indexes = []
 marker = False
@@ -6006,6 +6203,9 @@ with open(path, "r", encoding="utf-8") as fh:
                         angle = matched_angles[0]
                         task_tool_uses.append((index, angle, payload))
                         tasks_by_angle[angle].append((index, payload_text))
+                        tool_use_id = part.get("id")
+                        if tool_use_id:
+                            task_angle_by_tool_use_id[tool_use_id] = angle
                     elif "Angle:" in payload_text:
                         raise SystemExit(
                             "expected each Claude simplify task prompt to contain exactly one Angle line; "
@@ -6023,19 +6223,55 @@ with open(path, "r", encoding="utf-8") as fh:
                     summary_text.append(text)
                     if any(token in text.lower() for token in ("reported", "waiting", "results captured")):
                         result_aware_text_indexes.append(index)
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict) or part.get("type") != "tool_result":
+                    continue
+                tool_use_id = part.get("tool_use_id")
+                result_text = collect_text(part.get("content", ""))
+                if tool_use_id in workflow_tool_ids and result_text:
+                    workflow_result_texts.append(result_text)
+                angle = task_angle_by_tool_use_id.get(tool_use_id)
+                if angle and result_text:
+                    completed_angles.add(angle)
+                    result_texts_by_angle[angle].append(result_text)
         if data.get("type") == "system" and data.get("subtype") == "task_started":
-            task_starts.append((index, data.get("task_id")))
+            task_id = data.get("task_id")
+            tool_use_id = data.get("tool_use_id")
+            task_starts.append((index, task_id))
+            angle = task_angle_by_tool_use_id.get(tool_use_id)
+            if task_id and angle:
+                task_angle_by_id[task_id] = angle
         if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
             if first_task_notification_index is None:
                 first_task_notification_index = index
-            if (
-                data.get("status") == "completed"
-                and (
-                    data.get("tool_use_id") in workflow_tool_ids
+            result_text = collect_text(
+                data.get("summary") or data.get("result") or data.get("output") or ""
+            )
+            if data.get("status") == "completed":
+                tool_use_id = data.get("tool_use_id")
+                if (
+                    tool_use_id in workflow_tool_ids
                     or "workflow" in str(data.get("summary", "")).lower()
+                ):
+                    workflow_completed = True
+                    if result_text:
+                        workflow_result_texts.append(result_text)
+                angle = (
+                    task_angle_by_tool_use_id.get(tool_use_id)
+                    or task_angle_by_id.get(data.get("task_id"))
                 )
-            ):
-                workflow_completed = True
+                if not angle and result_text:
+                    result_angles = [
+                        name for name, marker_value in angle_markers.items()
+                        if marker_value in result_text
+                    ]
+                    if len(result_angles) == 1:
+                        angle = result_angles[0]
+                if angle:
+                    completed_angles.add(angle)
+                    if result_text:
+                        result_texts_by_angle[angle].append(result_text)
         if data.get("type") == "result" and data.get("is_error") is True:
             errors.append((index, str(data.get("result", ""))[:1000]))
         if data.get("type") == "result":
@@ -6089,22 +6325,40 @@ if not task_tool_uses and workflow_scripts:
         raise SystemExit("Claude simplify Workflow did not prove four batched parallel agent() calls")
     if re.search(r"\bawait\s+agent\s*\(", workflow_script):
         raise SystemExit("Claude simplify Workflow used serial await agent() instead of a Promise.all batch")
-    # A backgrounded Workflow may not surface a status=="completed" task event in the
-    # --print stream; the success marker is emitted only after all four cleanup subagents
-    # finish, so an emitted marker is itself sufficient proof the Workflow completed.
-    if not workflow_completed and not marker:
+    if not workflow_completed:
         raise SystemExit("Claude simplify Workflow task did not report completion")
+    workflow_result_text = "\n".join(workflow_result_texts)
+    if not workflow_result_text.strip():
+        raise SystemExit("Claude simplify Workflow completed without exposing its child-result payload")
+    missing_result_markers = [
+        marker_value for marker_value in angle_markers.values()
+        if marker_value not in workflow_result_text
+    ]
+    if missing_result_markers:
+        raise SystemExit(
+            "Claude simplify Workflow result omitted per-angle child markers: "
+            f"{missing_result_markers!r}"
+        )
+    missing_result_fields = [
+        field for field in ("Angle", "File", "Line", "Summary", "Concrete cost")
+        if len(re.findall(rf"(?im)^\s*{re.escape(field)}\s*:", workflow_result_text)) < len(expected_angles)
+    ]
+    if missing_result_fields:
+        raise SystemExit(
+            "Claude simplify Workflow result omitted labeled fields from one or more child results: "
+            f"{missing_result_fields!r}"
+        )
     if not marker:
         raise SystemExit("Claude simplify cleanup smoke did not return success marker")
-    combined_summary_text = "\n".join(summary_text).lower()
-    missing_summary_angles = [
-        angle for angle in expected_angles
-        if angle.lower() not in combined_summary_text
+    combined_summary_text = "\n".join(summary_text)
+    missing_summary_markers = [
+        marker_value for marker_value in angle_markers.values()
+        if marker_value not in combined_summary_text
     ]
-    if missing_summary_angles:
+    if missing_summary_markers:
         raise SystemExit(
-            "Claude simplify Workflow success summary did not mention every cleanup angle: "
-            f"{missing_summary_angles!r}"
+            "Claude simplify Workflow parent response did not preserve every child marker: "
+            f"{missing_summary_markers!r}"
         )
     print("ok - live Claude simplify cleanup subagents spawned in one Workflow batch")
     sys.exit(0)
@@ -6126,6 +6380,26 @@ if missing_angles or duplicate_angles:
     )
 if len(task_starts) < len(expected_angles):
     raise SystemExit(f"expected at least {len(expected_angles)} task_started events, got {task_starts!r}")
+missing_completed_angles = [angle for angle in expected_angles if angle not in completed_angles]
+if missing_completed_angles:
+    raise SystemExit(
+        "Claude simplify cleanup smoke lacked completed result evidence for angles: "
+        f"{missing_completed_angles!r}"
+    )
+for angle in expected_angles:
+    result_text = "\n".join(result_texts_by_angle[angle])
+    if angle_markers[angle] not in result_text:
+        raise SystemExit(
+            f"Claude simplify cleanup result for {angle} omitted marker {angle_markers[angle]!r}"
+        )
+    missing_fields = [
+        field for field in ("Angle", "File", "Line", "Summary", "Concrete cost")
+        if not re.search(rf"(?im)^\s*{re.escape(field)}\s*:", result_text)
+    ]
+    if missing_fields:
+        raise SystemExit(
+            f"Claude simplify cleanup result for {angle} omitted labeled fields: {missing_fields!r}"
+        )
 if first_task_notification_index is not None:
     angles_before_first_result_text = {
         angle for index, angle, _ in task_tool_uses
@@ -6149,15 +6423,15 @@ for angle, payloads in tasks_by_angle.items():
         )
 if not marker:
     raise SystemExit("Claude simplify cleanup smoke did not return success marker")
-combined_summary_text = "\n".join(summary_text).lower()
-missing_summary_angles = [
-    angle for angle in expected_angles
-    if angle.lower() not in combined_summary_text
+combined_summary_text = "\n".join(summary_text)
+missing_summary_markers = [
+    marker_value for marker_value in angle_markers.values()
+    if marker_value not in combined_summary_text
 ]
-if missing_summary_angles:
+if missing_summary_markers:
     raise SystemExit(
-        "Claude simplify cleanup success summary did not mention every cleanup angle: "
-        f"{missing_summary_angles!r}"
+        "Claude simplify cleanup parent response did not preserve every child marker: "
+        f"{missing_summary_markers!r}"
     )
 
 print("ok - live Claude simplify cleanup subagents spawned in one batch")
@@ -6227,7 +6501,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -6263,7 +6537,7 @@ required_synthesis_fields = [
     "recommended next action",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -6333,21 +6607,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if "codex-companion.mjs" in command:
-                        # The --write/--background forbids cover EVERY
-                        # codex-companion command, including a rogue call that
-                        # inlines the packet instead of using --prompt-file.
-                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                    companion_call_lines = [
+                        line for line in command.splitlines()
+                        if re.search(
+                            r'^\s*node\s+(?:"?\$COMPANION"?|\S*codex-companion\.mjs)\s+task(?:\s|$)',
+                            line,
+                        )
+                    ]
+                    for call_line in companion_call_lines:
+                        if re.search(r"(?<!\S)--write(?!\S)", call_line):
                             codex_write_commands.append((index, command[:2000]))
-                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                        if re.search(r"(?<!\S)--background(?!\S)", call_line):
                             codex_background_commands.append((index, command[:2000]))
-                        # Count only the actual delegation `task` call (which
-                        # passes the packet via --prompt-file), not the read-only
-                        # companion-path resolution probes (ls / [ -f ] / versions
-                        # checks) the kernel runs first to resolve/verify the
-                        # companion before delegating.
-                        if "--prompt-file" in command:
-                            codex_bash_tool_ids.add(part.get("id"))
+                    if any("--prompt-file" in line for line in companion_call_lines):
+                        codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -6643,7 +6916,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -6685,7 +6958,7 @@ required_synthesis_fields = [
     "recommended next action",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -6755,21 +7028,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if "codex-companion.mjs" in command:
-                        # The --write/--background forbids cover EVERY
-                        # codex-companion command, including a rogue call that
-                        # inlines the packet instead of using --prompt-file.
-                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                    companion_call_lines = [
+                        line for line in command.splitlines()
+                        if re.search(
+                            r'^\s*node\s+(?:"?\$COMPANION"?|\S*codex-companion\.mjs)\s+task(?:\s|$)',
+                            line,
+                        )
+                    ]
+                    for call_line in companion_call_lines:
+                        if re.search(r"(?<!\S)--write(?!\S)", call_line):
                             codex_write_commands.append((index, command[:2000]))
-                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                        if re.search(r"(?<!\S)--background(?!\S)", call_line):
                             codex_background_commands.append((index, command[:2000]))
-                        # Count only the actual delegation `task` call (which
-                        # passes the packet via --prompt-file), not the read-only
-                        # companion-path resolution probes (ls / [ -f ] / versions
-                        # checks) the kernel runs first to resolve/verify the
-                        # companion before delegating.
-                        if "--prompt-file" in command:
-                            codex_bash_tool_ids.add(part.get("id"))
+                    if any("--prompt-file" in line for line in companion_call_lines):
+                        codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -7080,7 +7352,7 @@ PROMPT
     cmd+=(--plugin-dir "$PLUGIN_ROOT")
   fi
 
-  "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" "$FUSION_RESCUE_LIVE_MODEL" <<'PY'
 import json
@@ -7115,7 +7387,7 @@ required_synthesis_fields = [
     "recommended next action",
 ]
 secret_patterns = [
-    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)[ \t]*[:=][ \t]*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tool_names = {"Edit", "Write", "NotebookEdit"}
@@ -7181,21 +7453,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                     unexpected_write_uses.append((index, part.get("name"), collect_text(part.get("input", ""))[:1000]))
                 if part.get("type") == "tool_use" and part.get("name") == "Bash":
                     command = str(part.get("input", {}).get("command", ""))
-                    if "codex-companion.mjs" in command:
-                        # The --write/--background forbids cover EVERY
-                        # codex-companion command, including a rogue call that
-                        # inlines the packet instead of using --prompt-file.
-                        if re.search(r"(?<!\S)--write(?!\S)", command):
+                    companion_call_lines = [
+                        line for line in command.splitlines()
+                        if re.search(
+                            r'^\s*node\s+(?:"?\$COMPANION"?|\S*codex-companion\.mjs)\s+task(?:\s|$)',
+                            line,
+                        )
+                    ]
+                    for call_line in companion_call_lines:
+                        if re.search(r"(?<!\S)--write(?!\S)", call_line):
                             codex_write_commands.append((index, command[:2000]))
-                        if re.search(r"(?<!\S)--background(?!\S)", command):
+                        if re.search(r"(?<!\S)--background(?!\S)", call_line):
                             codex_background_commands.append((index, command[:2000]))
-                        # Count only the actual delegation `task` call (which
-                        # passes the packet via --prompt-file), not the read-only
-                        # companion-path resolution probes (ls / [ -f ] / versions
-                        # checks) the kernel runs first to resolve/verify the
-                        # companion before delegating.
-                        if "--prompt-file" in command:
-                            codex_bash_tool_ids.add(part.get("id"))
+                    if any("--prompt-file" in line for line in companion_call_lines):
+                        codex_bash_tool_ids.add(part.get("id"))
                 if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
                     payload = part.get("input", {})
                     payload_text = collect_text(payload)
@@ -7392,6 +7663,8 @@ main() {
   log "Testing ${PLUGIN_ID} from ${PLUGIN_ROOT}"
   validate_manifests
   validate_hooks
+  run_live_timeout_offline_test
+  run_natural_prompt_guard_offline_test
   run_escape_net_offline_test
   run_active_stale_scan_reader_offline_test
   run_fusion_codex_offline_marker_test

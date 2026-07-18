@@ -38,8 +38,10 @@ Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 ```text
 U1. Ultrawork orchestrates the retained chain and never replaces it: the
     planning gate uses `ralplan`, the execution handoff uses `ralph`.
-    Inline phase handling is a documented fallback only when the host
-    cannot load the sub-skill, recorded in the ledger.
+    When Ralph is unavailable, Ultrawork may inline the phase procedure but
+    remains an orchestrator: STANDARD/THOROUGH repository mutation still
+    dispatches `executor`; inline writes require a recorded LIGHT-tiny or
+    dispatch-unavailable fallback.
 U2. Approved existing specs or plans may skip earlier phases only when the
     skip reason and source artifact are recorded; a merely relevant plan
     without approval evidence or with mismatched scope goes through the
@@ -235,13 +237,15 @@ review, cleanup, and final report requirements. If the approved plan
 selects `Parallel trigger: approved-plan-handoff`, preserve that trigger
 in the handoff.
 
-Inline execution is a documented fallback only when the host cannot load
-the `ralph` skill (an explicit user instruction overrides); record the
-reason [U1]. Under that fallback, set the required execution mode first,
-then apply Ralph's mode-gated loop including its TDD gate
-(read and follow `test-driven-development` before behavior-changing
-production edits; record RED/GREEN/REFACTOR evidence or the approved
-exception).
+Ralph-unavailable fallback applies only when the host cannot load the `ralph`
+skill (an explicit user instruction overrides); record the reason [U1]. Under
+that fallback, Ultrawork still owns `.oh-no` state and gate decisions, sets the
+required execution mode first, and applies Ralph's mode-gated loop. Dispatch
+`executor` for STANDARD/THOROUGH repository work-product mutation and keep one
+executor identity across the TDD cycle; inline mutation is only a recorded
+LIGHT-tiny or dispatch-unavailable fallback. Read and follow
+`test-driven-development` before behavior-changing production edits and record
+RED/GREEN/REFACTOR evidence or the approved exception.
 
 ### QA
 
@@ -269,11 +273,11 @@ Paired review requires a named THOROUGH trigger; the STANDARD small-task
 carve-out is a direct-Ralph path and never applies here; STANDARD records
 `single-reviewer`.
 
-At STANDARD/THOROUGH on subagent-capable hosts, always dispatch the
-independent `verifier` when execution produced or changed proving tests or
-the implementation/tests were authored or accepted by the same agent
-(record the fallback reason if the host cannot dispatch) [U14]. The
-verifier remains one self-host pass.
+At STANDARD/THOROUGH, dispatch the independent `verifier` when execution
+produced or changed proving tests or the implementation/tests were authored or
+accepted by the same agent [U14]. The verifier remains one self-host pass. When
+that audit is required but no separate context exists, record the
+`dispatch-unavailable` blocker and pause; inline evidence cannot satisfy it.
 
 Review-then-verify order: run the selected code-review stage first, then
 the confirming independent `verifier` pass (never the maker). Before
@@ -291,9 +295,8 @@ Final Validation dependency graph:
 ```
 
 `verifier eligible to start` is `yes` only after the selected code-review
-stage completed (or a compliant fallback/not-required reason is recorded),
-its output or synthesis is captured, and blocking findings are resolved or
-recorded. A verifier spawned before that point is stale evidence, must be
+stage completed (or a compliant not-required reason is recorded), its output
+or synthesis is captured, and blocking findings are resolved or absent. A verifier spawned before that point is stale evidence, must be
 recorded as discarded, and must be rerun after the dependency is
 satisfied. When both roles are required, the ledger must show
 `verifier started after reviewer completion: yes` or the verifier pass
@@ -331,13 +334,16 @@ context [U14]. Apply the active platform's dispatch authorization for
 eligible phase agents without per-run subagent approval; do not pause
 Ultrawork only to ask whether subagents may be used [U16]. Eligibility
 still requires decision-changing value; content gates, role isolation,
-fallback reasons, and lifecycle cleanup are never skipped.
+fallback reasons, and lifecycle cleanup are never skipped. Every direct phase
+role dispatch reuses the target role's required identity/result envelope and
+adds only Ultrawork's workflow delta: phase, source plan/spec, and phase-owned
+scope.
 
 | Phase | Agents |
 |---|---|
 | REQUIREMENTS | follow `interview`; it dispatches `explore` for brownfield facts; no planning or review agents here |
 | PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; STANDARD uses one reviewer, a pair requires a named THOROUGH risk |
-| EXECUTION | follow `ralph`; isolated `explore`, `executor`, `verifier`, and review agents per the approved mode and plan; inline only for documented unavailable or unsafe-to-isolate cases |
+| EXECUTION | follow `ralph`; isolated `explore`, executor-default repository mutation, `verifier`, and review agents per the approved mode and plan; Ralph-unavailable phase fallback preserves executor ownership, with inline mutation only for recorded LIGHT-tiny or dispatch-unavailable cases |
 | QA | `systematic-debugging` owns `debugger`; `verifier` with the scenario lens |
 | FINAL_VALIDATION | one targeted `code-reviewer` for orchestration risk; independent `verifier` under the carve-out |
 
@@ -389,7 +395,8 @@ Dispatch phase agents through the exposed Task, Agent, Workflow `agent()`,
 or subagent primitive with the plugin agents from `agents/`
 (`oh-no-harness:<agent>`; manual mention `@agent-oh-no-harness:<agent>`).
 Dispatch is trigger-loaded — dispatch only after the active phase's trigger
-fires. Batch independent background agents before waiting; a notification,
+fires. Pass the core-defined role envelope and phase delta unchanged. Batch
+independent background agents before waiting; a notification,
 timeout, or empty wait result is not a final status. Capture each result
 and changed-file set, then close or clean up the completed subagent when
 the host exposes that mechanism; record when no close mechanism exists. If

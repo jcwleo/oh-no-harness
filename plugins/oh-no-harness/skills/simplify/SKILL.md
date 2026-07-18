@@ -26,7 +26,10 @@ The sections below are already composed for this platform. Do not ask the runtim
 # Simplify
 
 Simplify reviews changed code for reuse, simplification, efficiency, and
-altitude issues, then applies behavior-preserving fixes.
+altitude issues, then applies behavior-preserving fixes. Its main skill pass
+is read-only discovery; accepted repository work-product cleanup is applied
+through `executor`, with inline mutation only as a recorded LIGHT-tiny or
+dispatch-unavailable fallback.
 
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
 selected mode's required review is satisfied and before final verification;
@@ -62,10 +65,13 @@ mandatory jobs.
   inline blocks and record the fallback.
 
 Record `Cleanup depth: combined | four-viewpoint`, its trigger, and the changed
-files inspected. Use subagents only when separate contexts can change the
-cleanup decision enough to justify lifecycle cost. If cleanup creates a need
-for additional review or evidence, return it to the caller; Simplify does not
-expand its own mandate.
+files inspected. Viewpoint work is read-only discovery. Use discovery
+subagents only when separate contexts can change the cleanup decision enough
+to justify lifecycle cost. Every direct role dispatch reuses the target role's
+required identity/result envelope and adds only Simplify's workflow delta: the
+behavior lock and, for apply assignments, accepted cleanup finding IDs. If
+cleanup creates a need for additional review or evidence, return it to the
+caller; Simplify does not expand its own mandate.
 
 ## When To Use
 
@@ -148,12 +154,16 @@ the review scope.
 
 ## Phase 1 - Review
 
+This phase is read-only discovery: do not edit repository work product or
+`.oh-no` state while finding and classifying candidates.
+
 Apply the Cleanup Depth Decision. A combined scan checks Reuse, Simplification,
 Efficiency, and Altitude in one bounded pass. When a named THOROUGH trigger
 selects four-viewpoint depth, launch the four independent cleanup subagents in
-one batch before waiting, or use four labeled inline blocks with a recorded
-dispatch-unavailable reason. The caller captures and cleans up every dispatched
-result.
+one batch before waiting when the host concurrency limit permits it. Otherwise
+use the smallest bounded waves that preserve four independent contexts; use four
+labeled inline blocks only with a recorded dispatch-unavailable reason. The
+caller captures and cleans up every dispatched result.
 
 Each pass returns findings with `file`, `line`, a one-line `summary`, and the
 concrete cost: what is duplicated, wasted, fragile, or harder to maintain.
@@ -189,17 +199,27 @@ the reviewed scope.
 ## Phase 2 - Apply The Fixes
 
 Capture the combined result or all four expanded results, then deduplicate
-findings that point at the same line or mechanism and fix each remaining
-behavior-preserving cleanup directly.
+findings that point at the same line or mechanism. Select only accepted
+behavior-preserving cleanup and dispatch one scoped `executor` assignment (or
+disjoint assignments when the caller's isolation policy permits). Reuse the
+executor's required envelope and add only the behavior lock plus accepted
+cleanup finding IDs. Simplify interprets the executor envelope; `Mutation
+status: complete` is not cleanup acceptance.
+
+Inline application is allowed only with `Mutation fallback: LIGHT-tiny` for a
+tiny LIGHT cleanup or `Mutation fallback: dispatch-unavailable` after a failed
+dispatch attempt. Record the reason. `.oh-no` state and finding dispositions
+remain caller-owned.
 
 Skip any finding whose fix would change intended behavior, require changes well
 outside the reviewed diff, or that is a false positive. Note the skip rather
 than debating it.
 
 Run the behavior lock again after cleanup. If the post-cleanup behavior lock
-regresses from the pre-cleanup result, revert the offending cleanup before
-reporting. If cleanup changed structure, tests, or control flow, return that need
-to the caller so `code-reviewer` or `verifier` can inspect the result.
+regresses from the pre-cleanup result, assign a focused executor revert/fix or
+report the blocker; do not let a discovery role mutate the work product. If
+cleanup changed structure, tests, or control flow, return that need to the
+caller so `code-reviewer` or `verifier` can inspect the result.
 
 ## Output
 
@@ -285,8 +305,9 @@ context is the standing explicit user request for Simplify cleanup delegation.
 Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
-Launch the four cleanup passes via Codex `spawn_agent` with
-`fork_turns="none"` following the shared core's one batch before waiting
-dispatch rule; if Codex subagent dispatch is unavailable, use the core's
-inline labeled-block fallback. The core owns the
-batch, inline-fallback, and fallback-reason rules; do not restate them here.
+When the core selects combined depth, run one combined pass. When it selects
+four-viewpoint depth, use Codex `spawn_agent` with `fork_turns="none"`: launch
+all four before waiting only when the host limit permits four; otherwise launch
+three, wait and capture them, then launch the remaining viewpoint. If Codex
+subagent dispatch is unavailable, use the core's inline labeled-block fallback.
+The core owns selection, inline-fallback, and fallback-reason semantics.

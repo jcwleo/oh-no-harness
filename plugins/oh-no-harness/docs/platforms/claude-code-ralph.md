@@ -28,6 +28,14 @@ subagents" choice. Authorization is not a command to dispatch roles whose
 output would not change the implementation, review, verification, or
 ship/block decision.
 
+## Executor-Default Trigger
+
+When the core records STANDARD/THOROUGH repository work-product mutation,
+dispatch `oh-no-harness:executor` even when `Parallel trigger: none`; that
+trigger controls concurrency, not sequential executor ownership. The same
+rule applies to REVIEW-to-EXECUTE focused fixes. Inline mutation is valid only
+for the core's recorded LIGHT-tiny or dispatch-unavailable fallback.
+
 For independent read-only, review, verification, QA, security, or
 exploration work — and for disjoint implementation (executor) work in
 STANDARD/THOROUGH when write scopes are non-overlapping — request background
@@ -43,7 +51,7 @@ Code subagent mechanism.
 Add to the core dispatch packet:
 
 ```text
-Role: oh-no-harness:<agent>
+Claude agent: oh-no-harness:<agent>
 Background: <yes for independent work, no when sequential>
 ```
 

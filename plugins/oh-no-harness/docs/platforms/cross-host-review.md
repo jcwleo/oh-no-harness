@@ -169,7 +169,10 @@ review does not add a new verdict type:
   blocker first raised in review v2, synthesis also preserves its short `Why
   first raised now` explanation; a real revision-created defect or material v1
   miss may still block.
-- `code-reviewer`: return the merged, provenance-tagged findings to the caller.
+- `code-reviewer`: return the merged, provenance-tagged findings in the role's
+  existing exact result envelope, preserving the shared packet/run/task identity
+  and reviewed revision. Re-key each source finding as `<host>:<finding-id>`
+  before deduplication so the synthesized blocking IDs remain deterministic.
 - `debugger`: the judge synthesizes a single root-cause direction — competing
   hypotheses, the evidence that decides between them, and the smallest next
   diagnostic or fix step — and returns it to `systematic-debugging`. The
@@ -257,14 +260,16 @@ independence-mode value:
 - `cross-host`: the synthesized current-host + opposite-host pair.
 - `same-host-parallel-fallback`: the two-same-host-agent fallback above,
   synthesized when the opposite host was unavailable.
-- `inline-fallback`: a single inline pass — compliant only with an explicit
-  subagent-unavailable or unsafe-to-isolate reason recorded with it. An
-  unlabelled single inline pass is a gap, not a pass.
+- `inline-fallback`: a single inline pass — compliant only when the active skill
+  allows inline substitution and records an explicit subagent-unavailable or
+  unsafe-to-isolate reason. It never satisfies Ralplan's required Plan-Reviewer
+  pass. An unlabelled single inline pass is a gap, not a pass.
 
 The `verifier` is not part of this enum. It is an unconditionally single
 self-host independent pass, governed by the maker-verifier independence carve-out
-(`docs/shared/ralph-subagent-policy.md`) and the `verifier started after reviewer
-completion` sequencing field — not by a cross-host independence-mode value.
+(`docs/skill-core/ralph.md`, `## Mode-Gated Agent Dispatch`) and the
+`verifier started after reviewer completion` sequencing field — not by a
+cross-host independence-mode value.
 
 The calling skill owns the consequence of a missing or non-compliant mode, and
 every in-scope dispatcher records the independence mode through its own

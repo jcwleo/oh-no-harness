@@ -85,6 +85,21 @@ No behavior-changing production code without a failing test first.
 
 If production behavior was changed before a failing test existed, do not treat later tests as TDD evidence. Either restart the behavior change from a failing test or document explicit user approval to continue without TDD.
 
+## Execution Ownership
+
+Inside a dispatch-capable caller, assign one stable `Executor assignment ID`
+to each observable behavior and keep its repository work-product writes across
+RED, GREEN, and REFACTOR. Continue the same executor session when the host
+supports it; a transport rebind may use one call per assigned mutation step
+but must preserve and echo that assignment ID while each Packet ID remains
+unique. Do not split one behavior's RED and GREEN writes across assignments.
+
+The caller remains the orchestrator: it observes and records RED/GREEN results,
+updates `.oh-no` evidence, validates the executor envelope, and decides every
+gate. `Mutation status: complete` is not TDD or AC acceptance. Inline writes
+are only a recorded LIGHT-tiny or dispatch-unavailable fallback inherited from
+the caller's execution policy.
+
 ## Required Cycle
 
 For each behavior:
@@ -94,12 +109,16 @@ approved Direction Contract, not each internal branch, helper, or condition.
 Coupled internal conditions that serve one observable outcome may share one
 minimal RED; independent user-visible outcomes remain separate cycles.
 
-1. RED: write one minimal test that states the desired behavior.
-2. Verify RED: run the test and confirm it fails for the expected reason.
-3. GREEN: write the smallest production change that can pass that test.
-4. Verify GREEN: run the test and confirm it passes.
-5. REFACTOR: clean names, duplication, and structure only after green.
-6. Verify GREEN again: rerun the relevant check after refactor.
+1. RED: the assigned executor writes one minimal test that states the desired
+   behavior.
+2. Verify RED: the caller runs the test and confirms it fails for the expected
+   reason.
+3. GREEN: the same executor writes the smallest production change that can
+   pass that test.
+4. Verify GREEN: the caller runs the test and confirms it passes.
+5. REFACTOR: the same executor cleans names, duplication, and structure only
+   after green.
+6. Verify GREEN again: the caller reruns the relevant check after refactor.
 7. Repeat for the next behavior.
 
 Do not batch independent observable behaviors into one RED step. If the test

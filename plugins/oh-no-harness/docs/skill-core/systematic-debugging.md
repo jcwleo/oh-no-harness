@@ -36,9 +36,10 @@ D5. Stop and route back to the user or `ralplan` after three failed fix
     `plan-reviewer` — planning review is Ralplan-owned.
 D6. `fusion-rescue` is a bounded internal escalation when diagnostics
     stall; it returns control here before any fix is applied.
-D7. Diagnostic and evidence roles dispatch by default on subagent-capable
-    hosts so logs, traces, and exploratory output do not pollute the main
-    thread; inline only as a recorded fallback.
+D7. The main agent orchestrates and owns `.oh-no` state. Diagnostic and
+    evidence roles dispatch by default, and confirmed repository work-product
+    fixes dispatch `executor`; inline mutation is only a recorded LIGHT-tiny
+    or dispatch-unavailable fallback.
 D8. The verification evidence must show the failure mode is gone, not only
     that the current trigger no longer appears in this environment.
 D9. Mid-loop skill: after verification, return the result to the caller
@@ -68,8 +69,12 @@ D9. Mid-loop skill: after verification, return the result to the caller
 8. If reproduction and hypothesis evidence exist but the diagnosis remains
    contradictory, repeatedly inconclusive, or blocked, read and follow
    `fusion-rescue`, then return here with the synthesis [D6].
-9. Apply the minimal fix — `executor` subagent when the write scope is
-   isolated, otherwise inline with a recorded reason [D4].
+9. Apply the minimal fix through `executor` by default once root cause and
+   reproduction evidence exist. Keep the same executor identity across the
+   reproduction RED, GREEN, and REFACTOR writes when TDD applies. Inline
+   mutation is allowed only with `Mutation fallback: LIGHT-tiny` or after a
+   failed dispatch attempt recorded as `Mutation fallback:
+   dispatch-unavailable` [D4, D7].
 10. Dispatch warranted post-fix review roles per `## Agent Roles`.
 11. Run the reproduction check, relevant regression checks, and
     `verification-before-completion` before claiming the failure is fixed
@@ -119,20 +124,25 @@ the main thread. Dispatch is trigger-loaded and governed by the active
 platform adapter; when this debugging pass runs inside Ralph, Ralph's
 `## Mode-Gated Agent Dispatch` governs. Apply the active platform's
 dispatch authorization; do not ask for per-run subagent approval when
-standing authorization covers these roles. Use inline fallback only when
-dispatch is unavailable, unsafe to isolate, or too small to benefit — record
-the fallback reason. Do not collapse diagnostic or evidence roles inline
-when the host can dispatch them with an isolated scope.
+standing authorization covers these roles. For diagnostic or evidence roles,
+inline fallback may be unavailable, unsafe-to-isolate, or too-small-to-benefit
+when recorded. Repository mutation follows the stricter executor-default rule
+in D7: only LIGHT-tiny or dispatch-unavailable permits inline writes. Do not
+collapse diagnostic or evidence roles inline when the host can dispatch them
+with an isolated scope.
 
 The normal flow is diagnostic first (`debugger`, plus `explore` when
-context is missing), then the minimal fix (`executor`), then evidence
-(`verifier`).
+context is missing), then the executor-default minimal fix (`executor`), then
+evidence (`verifier`). Every direct role dispatch reuses the target role's
+required identity/result envelope and adds only the debugging workflow delta:
+the failure/reproduction command, confirmed root cause or active hypothesis,
+and diagnostic or fix scope. Debugger output itself is not redesigned here.
 
 | Agent | Dispatch (when) |
 |---|---|
 | `debugger` | one instance to reproduce, identify root cause, and recommend the minimal fix; a paired cross-host or same-host investigation ONLY for a named THOROUGH uncertainty or repeated-failure trigger |
 | `explore` | gather codebase facts, related call sites, working examples, and commands |
-| `executor` | apply the minimal fix only after root cause and reproduction evidence exist [D4] |
+| `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair — required when the proving tests or fix were authored or accepted by the same agent |
 | `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; cross-host merge: merged findings |
 

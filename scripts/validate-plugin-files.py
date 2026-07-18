@@ -248,11 +248,11 @@ PLATFORM_SUBAGENT_MARKERS = {
         "ship/block decision",
         "whole eligible batch",
         "active adapter invocation syntax",
-        "Lifecycle: caller captures",
+        "Lifecycle: caller waits for and captures",
         "Role: {explore|executor|verifier|code-reviewer}",
         "adapter deciding whether the invocation is a registered custom agent",
         "Platform invocation: {active adapter invocation syntax}",
-        "MUST NOT be used to close a running or pending subagent",
+        "host-specific cleanup",
         # parallel-executor-dispatch (AC1/AC3): proactive disjoint-executor
         # batching is first-class in ralph skill-core and survives composition
         # into the generated wrapper.
@@ -261,7 +261,7 @@ PLATFORM_SUBAGENT_MARKERS = {
     "ralplan": (
         "eligible isolated subagents when they add decision-changing evidence",
         "Parallel trigger: approved-plan-handoff",
-        "ordinary `oh-no-harness:ralph` choice is the parallel-capable execution",
+        "ordinary `oh-no-harness:ralph` choice preserves the plan path",
         "sequential role boundaries",
         "Parallel dispatch",
         "active platform adapter",
@@ -304,8 +304,8 @@ PLATFORM_SUBAGENT_MARKERS = {
     "verification-before-completion": (
         "Dispatch `verifier` by default for nontrivial completion claims",
         "ship/block decision",
-        "context-separation benefit",
-        "fallback or no-benefit reason",
+        "separate-context independent `verifier` audit",
+        "`dispatch-unavailable` as a blocker",
         "## Acceptance-To-Evidence Mapping",
         "## Risk Check Before Completion",
         "Completion claim",
@@ -467,6 +467,7 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "Workflow `agent()`",
         "oh-no-harness:<agent>",
         "@agent-oh-no-harness:<agent>",
+        "Claude agent: oh-no-harness:<agent>",
         "background subagents",
         "close or cleanup",
     ),
@@ -494,7 +495,11 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
     ),
 }
 PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
-    "claude-code-ralph.md": ("spawn_agent", "CODEX_ONLY_RALPH_ADAPTER"),
+    "claude-code-ralph.md": (
+        "spawn_agent",
+        "CODEX_ONLY_RALPH_ADAPTER",
+        "Role: oh-no-harness:<agent>",
+    ),
     "codex-ralph.md": ("@agent-oh-no-harness:<agent>", "CLAUDE_CODE_ONLY_RALPH_ADAPTER"),
 }
 WORKTREE_FORBIDDEN_MARKERS = (
@@ -649,6 +654,8 @@ AGENT_SKILL_RELATIONSHIP_MARKERS = (
 )
 READ_ONLY_CODEX_AGENT_ROLES = {
     "explore",
+    "verifier",
+    "code-reviewer",
     "fusion-rescue-analyst",
 }
 CODEX_AGENT_MODEL_CONFIG = {
@@ -695,7 +702,7 @@ EXECUTION_MODE_AGENT_MARKERS = {
     "verifier": (
         "selected execution mode",
         "Execution mode compliance",
-        "Canonical acceptance-to-evidence ledger audit and delta status",
+        "Canonical acceptance-to-evidence ledger audit and proposed delta status",
         "Risk check before completion status",
         "Validation check",
         "Verification budget and diff-budget status",
@@ -728,7 +735,11 @@ DELEGATION_CONTRACT_AGENT_MARKERS = {
         "caller derives the changed-file set",
         "caller-mediated degrade",
         "sequential native fallback",
-        "does NOT author RED, verify, review, or merge",
+        "assigned RED, GREEN, REFACTOR",
+        "does NOT verify, review, or merge",
+        "Result: implemented | blocked | failed",
+        "Mutation status: none | partial | complete",
+        "Executor assignment ID",
         "one-hop guard",
         "best-effort",
         "ONE foreground Bash invocation",
@@ -821,6 +832,7 @@ AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
     "Default OFF.",
     "Existing Ralph eligibility remains the sole gate.",
     "already-admitted disjoint executor batch may overlap",
+    "assigned RED, GREEN, REFACTOR",
     "each inner companion call remains foreground",
     "fallback and integration",
     "the caller owns the escape-DETECTION guard",
@@ -1933,7 +1945,7 @@ def assert_agent(root: Path, agent: str) -> None:
                 die(f"{path} is missing required Execution-Mode agent marker: {marker!r}")
     if agent in DELEGATION_CONTRACT_AGENT_MARKERS:
         for marker in DELEGATION_CONTRACT_AGENT_MARKERS[agent]:
-            if marker not in body:
+            if not has_required_marker(body, marker):
                 die(f"{path} is missing required Delegation-Contract agent marker: {marker!r}")
     if agent in SIMPLICITY_SCOPE_AGENT_MARKERS:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
@@ -2108,7 +2120,9 @@ def assert_codex_delegation_prompt_contract(root: Path) -> None:
     for marker in (
         "Return the Codex stdout without wrapper synthesis",
         "caller derives the changed-file set",
-        "does NOT author RED, verify, review, or merge",
+        "does NOT verify, review, or merge",
+        "Result: implemented | blocked | failed",
+        "Mutation status: none | partial | complete",
         "Caller-authorized overlap",
     ):
         if marker not in executor:
@@ -2780,6 +2794,7 @@ def assert_hook_contract(root: Path) -> None:
         "sub-agents, delegation, and parallel agent work proactively",
         "every in-scope subagent result is a workflow dependency",
         "wait to final status, capture it, and use it",
+        "explicit cancel, invalidation, duplicate/mis-scope, or safety stop",
         "MUST NOT redo delegated work inline",
         "redact credential values",
         "never allowed for no-skill read-only lookup",
@@ -3193,6 +3208,547 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
         if forbidden in body:
             die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
 
+
+def assert_orchestration_ownership_contract(root: Path) -> None:
+    """Source-only guards for orchestration ownership and role envelopes.
+
+    This intentionally avoids generated wrappers so mutation tests fail on the
+    changed source contract rather than on expected wrapper staleness.
+    """
+    skill_core = root / "docs" / "skill-core"
+    agent_core = root / "docs" / "agent-core"
+    platforms = root / "docs" / "platforms"
+
+    def require(path: Path, body: str, markers: tuple[str, ...], label: str) -> None:
+        for marker in markers:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing {label}: {marker!r}")
+
+    ralph_path = skill_core / "ralph.md"
+    ralph = read_text(ralph_path)
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Invariants"),
+        (
+            "main agent is the orchestrator",
+            "sole owner of `.oh-no` state",
+            "REVIEW-to-EXECUTE focused fixes",
+            "Role result enums are caller gate inputs",
+        ),
+        "executor-default orchestration contract",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Execution Run Snapshot"),
+        (
+            "dispatch lifecycle change",
+            "Active dispatches:",
+            "Packet ID; host handle; role; scope; pending|final|abandoned",
+            "Mark it `final` only after those caller-owned intake steps complete",
+            "Packet ID remains the compact reference",
+            "diff-budget <pending | passed@<fingerprint> | stale>",
+        ),
+        "active-dispatch and revision-bound snapshot contract",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Resume Protocol"),
+        (
+            "Reconcile every `pending` Active dispatch entry",
+            "before redispatching overlapping scope",
+            "Never redispatch overlapping work while the prior entry remains pending",
+        ),
+        "active-dispatch resume reconciliation",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## State Machine"),
+        (
+            "bound reviewer verdict is `approve` or compliant `not-required`",
+            "bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`",
+            "bound reviewer verdict is `blocking-findings` or bound verifier verdict is `fail`",
+            "required independent verifier has no separate context",
+            "reviewer or verifier verdict is `blocked`",
+            "executor-owned focused fix",
+        ),
+        "caller-owned FSM transition contract",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Execution Loop"),
+        (
+            "assign one stable `Executor assignment ID`",
+            "Dispatch `executor` for repository work-product mutation",
+            "main agent mutates only its `.oh-no` state",
+        ),
+        "executor-default execution-loop contract",
+    )
+    mode_dispatch = markdown_section(ralph, "## Mode-Gated Agent Dispatch")
+    require(
+        ralph_path,
+        mode_dispatch,
+        (
+            "main agent is the orchestrator, not the default maker",
+            "STANDARD/THOROUGH repository work-product mutation\nMUST dispatch `executor`",
+            "executor-default trigger",
+            "does not require a parallel trigger",
+            "Mutation fallback: LIGHT-tiny",
+            "Mutation fallback: dispatch-unavailable",
+            "waives only reviewer dispatch",
+            "A frozen `none` remains `none`",
+            "does not disable sequential executor ownership",
+        ),
+        "executor-default orchestration contract",
+    )
+    packet = markdown_section(ralph, "## Parallel Subagent Policy")
+    require(
+        ralph_path,
+        packet,
+        (
+            "Packet ID:",
+            "mechanically distinct from run/session and story/task ids",
+            "Run/session ID:",
+            "Story/task ID:",
+            "Executor assignment ID:",
+            "stable across one executor assignment or TDD cycle",
+            "Execution mode:",
+            "Worktree decision and location:",
+            "Direction Contract source:",
+            "Direction Contract binding:",
+            "source pointer alone is an\nincomplete Direction Contract packet",
+            "mechanically reject scope drift",
+            "AC IDs:",
+            "Plan/PRD path:",
+            "Artifacts:",
+            "verification ledger",
+            ".oh-no state stays main-owned",
+            "Target revision/diff fingerprint:",
+            "Scope:",
+            "Do not touch:",
+            "Expected structured output:",
+            "TDD responsibility:",
+            "Verification responsibility:",
+            "Lifecycle:",
+            "host-specific cleanup",
+            "only when the host exposes it",
+            "Coordination:",
+        ),
+        "dispatch packet Artifacts/identity contract",
+    )
+    require(
+        ralph_path,
+        packet,
+        (
+            "Result intake is caller-owned",
+            "Reject stale or misrouted results",
+            "exact Packet ID, Run/session ID, Story/task ID, role",
+            "target revision/diff-fingerprint echoes",
+            "executor results also echo the stable\n`Executor assignment ID`",
+            "caller gate inputs, not story acceptance or autonomous transitions",
+        ),
+        "stale/misrouted result guard",
+    )
+    review = markdown_section(ralph, "## Review Gate")
+    require(
+        ralph_path,
+        review,
+        (
+            "Overall verdict",
+            "blocking finding IDs",
+            "reviewed revision binding",
+            "Verification verdict",
+            "verified revision binding",
+            "reviewer `approve` (or compliant `not-required`) plus verifier `pass`",
+            "pass-with-residual-risk` also requires the caller to record",
+            "Reviewer\n`blocking-findings` or verifier `fail` returns to an executor-owned focused fix",
+            "either role's `blocked` verdict pauses",
+            "MUST run in a\nseparate context",
+            "Independent\nverifier: dispatch-unavailable",
+            "transition to PAUSED",
+            "cannot\ncount as the required independent audit",
+            "focused `executor` assignment",
+            "reviewer never applies the fix or advances the FSM",
+        ),
+        "review-to-executor ownership contract",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Persistence Rule"),
+        (
+            "compliant not-required reason",
+            "`dispatch-unavailable` is a blocker",
+            "cannot satisfy completion",
+            "Diff-Budget is `passed@<current stabilized fingerprint>`",
+        ),
+        "required verifier fail-closed completion contract",
+    )
+    for forbidden in (
+        "Implement inline or dispatch `executor`",
+        "| EXECUTE (focused fix + focused re-check only) |",
+    ):
+        if forbidden in ralph:
+            die(f"{ralph_path} retains forbidden inline-maker wording: {forbidden!r}")
+
+    executor_path = agent_core / "executor.md"
+    executor = read_text(executor_path)
+    require(
+        executor_path,
+        executor,
+        (
+            "Result: implemented | blocked | failed",
+            "Mutation status: none | partial | complete",
+            "Packet ID: <echo>",
+            "Run/session ID: <echo>",
+            "Story/task ID: <echo>",
+            "Executor assignment ID: <echo>",
+            "Keep the assignment ID stable",
+            "Target revision/diff fingerprint received",
+            "Result revision/diff fingerprint",
+            "Structured change manifest",
+            "not story completion, AC acceptance",
+            "never collapse, abbreviate",
+        ),
+        "executor result envelope",
+    )
+    require(
+        executor_path,
+        executor,
+        (
+            "packet is stale, misrouted, or incomplete",
+            "`.oh-no` paths as read-only inputs",
+            "caller owns all `.oh-no` state updates",
+            "direct non-Ralph caller",
+            "explicit work location",
+        ),
+        "executor identity/state boundary",
+    )
+
+    executor_codex_path = agent_core / "executor-codex.md"
+    executor_codex = read_text(executor_codex_path)
+    require(
+        executor_codex_path,
+        executor_codex,
+        (
+            "Result: implemented | blocked | failed",
+            "Mutation status: none | partial | complete",
+            "packet/session/story identity and revision echo",
+            "Executor assignment ID",
+            "each dispatch keeps its\n    unique Packet ID",
+            "structured change manifest",
+            "complete` is not story or AC acceptance",
+            "Verification: not run (caller-owned)",
+            "byte-for-byte",
+            "Return the Codex stdout without wrapper synthesis",
+        ),
+        "raw executor result envelope",
+    )
+    for forbidden in ("implement GREEN for the one assigned slice", "forbid RED authoring"):
+        if forbidden in executor_codex:
+            die(f"{executor_codex_path} retains stale GREEN-only ownership: {forbidden!r}")
+
+    reviewer_path = agent_core / "code-reviewer.md"
+    reviewer = read_text(reviewer_path)
+    require(
+        reviewer_path,
+        reviewer,
+        (
+            "Overall verdict: approve | blocking-findings | blocked",
+            "Reviewed revision/diff fingerprint:",
+            "Blocking finding IDs:",
+            "Packet ID: <echo>",
+            "verdict is caller input",
+            "never collapses, abbreviates",
+        ),
+        "code-reviewer verdict/revision envelope",
+    )
+
+    verifier_path = agent_core / "verifier.md"
+    verifier = read_text(verifier_path)
+    require(
+        verifier_path,
+        verifier,
+        (
+            "Verification verdict: pass | pass-with-residual-risk | fail | blocked",
+            "Verified revision/diff fingerprint:",
+            "Packet ID: <echo>",
+            "Unconditionally read-only",
+            "No assignment or tool availability creates a write exception",
+            "mutate any file",
+            "proposed ledger delta",
+            "never collapse, abbreviate",
+        ),
+        "verifier read-only verdict/revision envelope",
+    )
+    for forbidden in (
+        "unless explicitly assigned by the current skill",
+        "Fill missing/stale audit status",
+    ):
+        if forbidden in verifier:
+            die(f"{verifier_path} contains verifier read-only loophole: {forbidden!r}")
+    if "verifier" not in READ_ONLY_CODEX_AGENT_ROLES:
+        die("verifier read-only contract is not host-enforced in Codex metadata")
+
+    ralplan_path = skill_core / "ralplan.md"
+    ralplan = read_text(ralplan_path)
+    require(
+        ralplan_path,
+        markdown_section(ralplan, "## Execution Profile"),
+        (
+            "For repository work-product mutation, `Agent policy: inline-only` is valid",
+            "STANDARD/THOROUGH repository work-product mutation plans",
+            "executor ownership survives even when `Parallel trigger: none`",
+            "`none` means no concurrent batch, not inline mutation",
+            "Ralph remains the execution orchestrator",
+        ),
+        "Ralplan inline-only/executor ownership contract",
+    )
+    require(
+        ralplan_path,
+        markdown_section(ralplan, "## Next Skill Handoff"),
+        (
+            "preserves the plan path and\n  the exact frozen `Parallel trigger` value",
+            "When that value is\n  `approved-plan-handoff`",
+            "`none` preserves sequential\n  executor ownership without authorizing a concurrent batch",
+        ),
+        "Ralplan frozen parallel-trigger handoff contract",
+    )
+    if "otherwise use `inline-only` and\n`none`" in ralplan:
+        die(f"{ralplan_path} retains stale inline-only fallback semantics")
+
+    simplify_path = skill_core / "simplify.md"
+    simplify = read_text(simplify_path)
+    require(
+        simplify_path,
+        markdown_section(simplify, "## Phase 1 - Review"),
+        ("read-only discovery", "do not edit repository work product or\n`.oh-no` state"),
+        "simplify read-only discovery ownership",
+    )
+    require(
+        simplify_path,
+        markdown_section(simplify, "## Phase 2 - Apply The Fixes"),
+        (
+            "dispatch one scoped `executor` assignment",
+            "executor's required envelope",
+            "behavior lock plus accepted\ncleanup finding IDs",
+            "Mutation fallback: LIGHT-tiny",
+            "Mutation fallback: dispatch-unavailable",
+            "`.oh-no` state and finding dispositions remain caller-owned",
+        ),
+        "simplify executor-apply ownership",
+    )
+    if "fix each remaining\nbehavior-preserving cleanup directly" in simplify:
+        die(f"{simplify_path} retains direct cleanup mutation")
+
+    tdd_path = skill_core / "test-driven-development.md"
+    tdd = read_text(tdd_path)
+    require(
+        tdd_path,
+        markdown_section(tdd, "## Execution Ownership"),
+        (
+            "one stable `Executor assignment ID`",
+            "RED, GREEN, and REFACTOR",
+            "preserve and echo that assignment ID",
+            "each Packet ID remains\nunique",
+            "caller remains the orchestrator",
+            "updates `.oh-no` evidence",
+            "Mutation status: complete` is not TDD or AC acceptance",
+        ),
+        "persistent TDD executor ownership",
+    )
+
+    debugging_path = skill_core / "systematic-debugging.md"
+    debugging = read_text(debugging_path)
+    require(
+        debugging_path,
+        debugging,
+        (
+            "confirmed repository work-product\n    fixes dispatch `executor`",
+            "Apply the minimal fix through `executor` by default",
+            "Mutation fallback: LIGHT-tiny",
+            "Mutation fallback:\n   dispatch-unavailable",
+            "executor-default minimal fix",
+            "target role's\nrequired identity/result envelope",
+            "failure/reproduction command",
+            "confirmed root cause or active hypothesis",
+            "diagnostic or fix scope",
+        ),
+        "systematic-debugging executor-default ownership",
+    )
+    if "`executor` subagent when the write scope is\n   isolated, otherwise inline" in debugging:
+        die(f"{debugging_path} retains isolation-optional executor ownership")
+
+    ultrawork_path = skill_core / "ultrawork.md"
+    ultrawork = read_text(ultrawork_path)
+    require(
+        ultrawork_path,
+        ultrawork,
+        (
+            "When Ralph is unavailable",
+            "STANDARD/THOROUGH repository mutation still\n    dispatches `executor`",
+            "Ralph-unavailable fallback",
+            "Ultrawork still owns `.oh-no` state and gate decisions",
+            "inline mutation is only a recorded\nLIGHT-tiny or dispatch-unavailable fallback",
+            "target role's required identity/result envelope",
+            "phase, source plan/spec, and phase-owned\nscope",
+            "`dispatch-unavailable` blocker and pause",
+            "inline evidence cannot satisfy it",
+        ),
+        "Ultrawork Ralph-unavailable executor ownership",
+    )
+
+    vbc_path = skill_core / "verification-before-completion.md"
+    vbc = read_text(vbc_path)
+    require(
+        vbc_path,
+        vbc,
+        (
+            "separate-context independent `verifier` audit",
+            "target role's required identity/result envelope",
+            "standalone invocation",
+            "adapters pass that packet\nunchanged",
+            "`dispatch-unavailable` as a blocker",
+            "return blocked/PAUSED",
+            "inline command reruns cannot satisfy the audit",
+        ),
+        "verification-before-completion independent-audit contract",
+    )
+    for adapter_name in (
+        "claude-code-verification-before-completion.md",
+        "codex-verification-before-completion.md",
+    ):
+        adapter_path = platforms / adapter_name
+        require(
+            adapter_path,
+            read_text(adapter_path),
+            (
+                "core-defined role envelope",
+                "verification delta unchanged",
+                "core does not require an independent audit",
+                "`dispatch-unavailable` blocker",
+                "blocked/PAUSED",
+            ),
+            "verification-before-completion adapter fail-closed contract",
+        )
+
+    using_path = skill_core / "using-oh-no-harness.md"
+    using = read_text(using_path)
+    require(
+        using_path,
+        markdown_section(using, "## Orchestration Ownership Boundary"),
+        (
+            "Workflow main agents own `.oh-no` artifacts",
+            "repository work-product mutation is\nexecutor-owned",
+            "orchestration state, not inline implementation",
+            "LIGHT-tiny or dispatch-unavailable fallback",
+        ),
+        "router orchestration ownership boundary",
+    )
+
+    for adapter_name in ("claude-code-ralph.md", "codex-ralph.md"):
+        adapter_path = platforms / adapter_name
+        adapter = read_text(adapter_path)
+        require(
+            adapter_path,
+            markdown_section(adapter, "## Executor-Default Trigger"),
+            (
+                "STANDARD/THOROUGH repository work-product mutation",
+                "Parallel trigger: none",
+                "controls concurrency, not sequential executor ownership",
+                "REVIEW-to-EXECUTE focused fixes",
+                "LIGHT-tiny or dispatch-unavailable fallback",
+            ),
+            "Ralph adapter executor-default trigger",
+        )
+    for adapter_name in ("claude-code-simplify.md", "codex-simplify.md"):
+        adapter_path = platforms / adapter_name
+        require(
+            adapter_path,
+            read_text(adapter_path),
+            ("combined depth", "one combined pass", "four-viewpoint depth", "before waiting"),
+            "Simplify platform pass shape",
+        )
+    codex_adapter = read_text(platforms / "codex-ralph.md")
+    require(
+        platforms / "codex-ralph.md",
+        codex_adapter,
+        (
+            'Spawn with `fork_turns="none"`',
+            "host exposes `close_agent`",
+            "MUST NOT call `close_agent` for a running or pending",
+        ),
+        "Codex lifecycle preservation",
+    )
+
+    hook_path = root / "hooks" / "session-start"
+    hook = read_text(hook_path)
+    bootstrap_sentence = (
+        "Orchestration default: workflow main agents own .oh-no state and gate "
+        "decisions; STANDARD/THOROUGH repository work-product mutations use "
+        "executor roles, with inline mutation only for a recorded LIGHT-tiny "
+        "or dispatch-unavailable fallback."
+    )
+    bootstrap_start = hook.find("bootstrap_policy='")
+    forced_start = hook.find('auto_routing_policy=""')
+    if bootstrap_start < 0 or forced_start < 0 or forced_start <= bootstrap_start:
+        die(f"{hook_path} cannot locate unconditional bootstrap_policy")
+    bootstrap_block = hook[bootstrap_start:forced_start]
+    if bootstrap_sentence not in bootstrap_block or hook.count(bootstrap_sentence) != 1:
+        die(f"{hook_path} must place one orchestration sentence in unconditional bootstrap_policy")
+    codex_policy_blocks = {
+        "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION": re.search(
+            r"<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>.*?</CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>",
+            hook,
+            flags=re.DOTALL,
+        ),
+        "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION": re.search(
+            r"<CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>.*?</CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION>",
+            hook,
+            flags=re.DOTALL,
+        ),
+    }
+    for block_name, match in codex_policy_blocks.items():
+        if not match or match.group(0).count('fork_turns="none"') != 1:
+            die(f"{hook_path} must place one fork_turns=none rule in {block_name}")
+    if hook.count('fork_turns="none"') != 2:
+        die(f"{hook_path} must keep fork_turns=none only in the two Codex dispatch authorization blocks")
+
+    cross_host_path = platforms / "cross-host-review.md"
+    cross_host = read_text(cross_host_path)
+    if "docs/shared/ralph-subagent-policy.md" in cross_host:
+        die(f"{cross_host_path} retains stale ralph-subagent-policy reference")
+    require(
+        cross_host_path,
+        cross_host,
+        (
+            "docs/skill-core/ralph.md",
+            "## Mode-Gated Agent Dispatch",
+            "existing exact result envelope",
+            "<host>:<finding-id>",
+            "never satisfies Ralplan's required Plan-Reviewer",
+        ),
+        "current Ralph core owner reference",
+    )
+
+    generator_path = root.parent.parent / "scripts" / "generate-agent-wrappers.py"
+    generator = read_text(generator_path)
+    verifier_meta = re.search(
+        r'role="verifier"(?P<body>.*?)(?=\n\s*AgentMetadata\()',
+        generator,
+        flags=re.DOTALL,
+    )
+    if not verifier_meta or 'codex_sandbox_mode="read-only"' not in verifier_meta.group("body"):
+        die(f"{generator_path} must host-enforce verifier read-only Codex metadata")
+    code_reviewer_meta = re.search(
+        r'role="code-reviewer"(?P<body>.*?)(?=\n\s*AgentMetadata\()',
+        generator,
+        flags=re.DOTALL,
+    )
+    if "code-reviewer" not in READ_ONLY_CODEX_AGENT_ROLES:
+        die("code-reviewer read-only contract is not host-enforced in Codex validation metadata")
+    if not code_reviewer_meta or 'codex_sandbox_mode="read-only"' not in code_reviewer_meta.group("body"):
+        die(f"{generator_path} must host-enforce code-reviewer read-only Codex metadata")
+
+
 def assert_parallel_executor_contract(root: Path) -> None:
     # Parallel-executor-dispatch contract (R1-R6 / AC1-AC4). Section-scoped so a
     # marker cannot be satisfied by unrelated or wrong-section text, and so the
@@ -3210,7 +3766,7 @@ def assert_parallel_executor_contract(root: Path) -> None:
             die(f"ralph.md is missing the per-executor integration marker: {marker!r}")
     ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
     loop = markdown_section(ralph_core, "## Execution Loop")
-    if not has_required_marker(loop, "scan remaining work for disjoint scopes"):
+    if not has_required_marker(loop, "scan remaining STANDARD/THOROUGH work for disjoint scopes"):
         die("ralph.md `## Execution Loop` must direct scanning remaining work for disjoint scopes")
     dispatch = markdown_section(ralph_core, "## Mode-Gated Agent Dispatch")
     if not has_required_marker(dispatch, "proactively partition disjoint"):
@@ -3482,6 +4038,7 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     """Pin plan-reviewer ownership and the Ralplan/Ralph timing boundaries."""
     skill_core = root / "docs" / "skill-core"
     agent_core = root / "docs" / "agent-core"
+    platforms = root / "docs" / "platforms"
 
     ralplan = read_text(skill_core / "ralplan.md")
     active_contract = markdown_section(ralplan, "## Active Plan Contract")
@@ -3557,6 +4114,12 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             "APPROVE freezes the exact reviewed Planner draft",
             "Non-blocking findings are optional follow-ups",
             "Any plan-body change that must be incorporated before approval is blocking",
+            "Every required Plan-Reviewer pass runs in a separate\ncontext",
+            "generic separate subagent",
+            "Plan-Reviewer: dispatch-unavailable",
+            "transition to\nPAUSED",
+            "inline review cannot satisfy the required pass",
+            "LIGHT\nno-review carve-out remains unchanged",
         ),
         "## Findings Ledger Gate": (
             # Stem: the ledger row must reference the blocker's basis; the full
@@ -3572,6 +4135,18 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
                 die(f"ralplan.md {heading} is missing review-boundary marker: {marker!r}")
     plan_review = markdown_section(ralplan, "## Plan Review Contract")
     revision = markdown_section(ralplan, "## Planner Revision Contract")
+    for adapter_name in ("claude-code-ralplan.md", "codex-ralplan.md"):
+        adapter_path = platforms / adapter_name
+        adapter = read_text(adapter_path)
+        for marker in (
+            "generic",
+            "required Plan-Reviewer",
+            "dispatch-unavailable",
+            "PAUSED",
+            "inline",
+        ):
+            if not has_required_marker(adapter, marker):
+                die(f"{adapter_path} is missing required Plan-Reviewer fail-closed marker: {marker!r}")
     forbidden_approval_mutations = (
         r"after\s+APPROVE[^\n]{0,120}\b(?:revise|mutate|change|incorporate|apply)\b",
         r"\b(?:incorporate|apply)\b[^\n]{0,80}\bnon-blocking\b[^\n]{0,80}\b(?:Planner draft|plan body)\b",
@@ -3686,21 +4261,30 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         "cumulative Process Budget Gate",
         "After each story",
         "After all stories",
-        "run the `## Diff-Budget Gate` exactly once",
+        "run the `## Diff-Budget Gate` once for the current",
+        "stabilized revision",
         "before `## Review Gate`",
     ):
         if not has_required_marker(execution_loop, marker):
             die(f"ralph.md Execution Loop is missing budget-timing marker: {marker!r}")
     if len(re.findall(r"Diff-Budget Gate", execution_loop, flags=re.IGNORECASE)) != 1:
-        die("ralph.md Execution Loop must schedule Diff-Budget Gate exactly once")
+        die("ralph.md Execution Loop must schedule one Diff-Budget Gate per stabilized revision")
     process_budget = markdown_section(ralph, "## Process Budget Gate")
     for marker in ("cumulative", "per-story"):
         if not has_required_marker(process_budget, marker):
             die(f"ralph.md Process Budget Gate is missing timing marker: {marker!r}")
     diff_budget = markdown_section(ralph, "## Diff-Budget Gate")
-    for marker in ("final", "exactly once", "before `## Review Gate`"):
+    for marker in (
+        "pending | passed@<fingerprint> |\nstale",
+        "current stabilized revision",
+        "record `passed@<fingerprint>`",
+        "later material mutation marks the result `stale`",
+        "returns the gate to\n`pending`",
+        "before entering REVIEW",
+        "before INTEGRATE and COMPLETION_AUDIT",
+    ):
         if not has_required_marker(diff_budget, marker):
-            die(f"ralph.md Diff-Budget Gate is missing timing marker: {marker!r}")
+            die(f"ralph.md Diff-Budget Gate is missing revision-bound marker: {marker!r}")
     ralph_output = markdown_section(ralph, "## Output")
     phase_attribution = (
         "Review phases: plan=<n>; implementation-code=<n>; "
@@ -3718,18 +4302,30 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     repo_root = root.parent.parent
     for host in ("codex", "claude"):
         host_test = read_text(repo_root / "scripts" / f"test-{host}-plugin.sh")
-        for marker in (
+        common_markers = (
             'r"(?m)^Reviewed draft:[ \\t]*(.*?)[ \\t]*$"',
             "len(unique_reviewed) != 1",
-            "captured_draft_id = normalize_transport_whitespace(draft_id.group(1))",
-            "reviewed_draft_id = next(iter(unique_reviewed))",
-        ):
+        )
+        host_markers = (
+            (
+                'planner_draft_ids != [proof["draft_id"]]',
+                'next(iter(unique_reviewed)) != proof["draft_id"]',
+            )
+            if host == "codex"
+            else (
+                "captured_draft_id = normalize_transport_whitespace(draft_id.group(1))",
+                "reviewed_draft_id = next(iter(unique_reviewed))",
+                "if reviewed_draft_id != captured_draft_id:",
+            )
+        )
+        for marker in (*common_markers, *host_markers):
             if marker not in host_test:
                 die(f"{host} explicit Ralplan live parser is missing anchored Reviewed draft validation: {marker!r}")
-        if (
-            "if reviewed_draft_id != captured_draft_id:" not in host_test
-            or "reviewed_draft_id.startswith(captured_draft_id)" in host_test
-        ):
+        prefix_comparisons = (
+            "reviewed_draft_id.startswith(captured_draft_id)",
+            'next(iter(unique_reviewed)).startswith(proof["draft_id"])',
+        )
+        if any(value in host_test for value in prefix_comparisons):
             die(f"{host} explicit Ralplan live parser must compare exact normalized Reviewed draft id")
 
     # docs/shared retired 2026-07-17: the canonical Diff-Budget timing lives
@@ -3796,7 +4392,17 @@ FSM_CONTRACTS = {
             "RETURN_ULTRAWORK",
             "PAUSED",
         ),
-        "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R16"),
+        "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R15", "R16"),
+        "transition_targets": {
+            "ROUTE": ("outcome:ROUTED_INTERVIEW", "outcome:ROUTED_RALPH", "phase:REQUIREMENTS"),
+            "REQUIREMENTS": ("outcome:PAUSED", "phase:DRAFT"),
+            "DRAFT": ("phase:REVIEW",),
+            "REVIEW": (
+                "outcome:PAUSED", "outcome:PAUSED", "outcome:PAUSED",
+                "phase:APPROVAL", "phase:APPROVAL", "phase:DRAFT",
+            ),
+            "APPROVAL": ("outcome:*",),
+        },
         "min_guard_citations": 6,
     },
     "ralph": {
@@ -3805,7 +4411,19 @@ FSM_CONTRACTS = {
         "rule_ids": (
             "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
             "E9", "E10", "E11", "E12", "E13", "E14", "E15", "E16",
+            "E17",
         ),
+        "transition_targets": {
+            "PREPARE": ("outcome:PAUSED", "outcome:RETURN_TO_PLAN", "phase:EXECUTE"),
+            "EXECUTE": (
+                "outcome:PAUSED", "outcome:RETURN_TO_PLAN", "phase:EXECUTE", "phase:REVIEW",
+            ),
+            "REVIEW": (
+                "outcome:PAUSED", "outcome:PAUSED", "phase:EXECUTE", "phase:FINALIZE",
+            ),
+            "FINALIZE": ("outcome:COMPLETE", "outcome:PAUSED"),
+            "any": ("outcome:PAUSED",),
+        },
         "min_guard_citations": 10,
     },
     "interview": {
@@ -3822,6 +4440,16 @@ FSM_CONTRACTS = {
             "I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8",
             "I9", "I10", "I11", "I12", "I13", "I15", "I16",
         ),
+        "transition_targets": {
+            "ROUTE": ("outcome:ROUTED_DIRECT", "phase:CONTEXT"),
+            "CONTEXT": ("phase:INTERVIEW",),
+            "INTERVIEW": ("outcome:PAUSED", "phase:CLOSURE"),
+            "CLOSURE": ("phase:APPROVAL", "phase:INTERVIEW"),
+            "APPROVAL": (
+                "outcome:*", "outcome:PAUSED", "outcome:RETURN_ULTRAWORK",
+                "phase:CLOSURE", "phase:INTERVIEW",
+            ),
+        },
         "min_guard_citations": 8,
     },
     "ultrawork": {
@@ -3848,9 +4476,72 @@ FSM_CONTRACTS = {
             "U1", "U2", "U3", "U4", "U5", "U6", "U7", "U8", "U9",
             "U10", "U11", "U12", "U13", "U14", "U16", "U17",
         ),
+        "transition_targets": {
+            "START_OR_RESUME": ("phase:REQUIREMENTS",),
+            "REQUIREMENTS": ("phase:PLANNING", "phase:REQUIREMENTS"),
+            "PLANNING": ("outcome:paused_for_user", "phase:WORKTREE"),
+            "WORKTREE": ("outcome:blocked", "phase:EXECUTION"),
+            "EXECUTION": (
+                "outcome:scope_change_pending_approval", "phase:PLANNING", "phase:QA",
+            ),
+            "QA": ("outcome:blocked,failed_verification", "phase:FINAL_VALIDATION", "phase:QA"),
+            "FINAL_VALIDATION": ("phase:QA", "phase:REPORT"),
+            "REPORT": (
+                "outcome:succeeded_left_worktree_for_inspection,succeeded_merged_verified_reported",
+            ),
+            "any": ("outcome:cancelled,paused_for_user,scope_change_pending_approval",),
+        },
         "min_guard_citations": 10,
     },
 }
+
+
+def parse_fsm_rows(path: Path, machine: str) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    for line in machine.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells == ["Phase", "Exit guard", "Next"]:
+            continue
+        if cells and all(re.fullmatch(r"-+", cell) for cell in cells):
+            continue
+        if len(cells) != 3:
+            die(f"{path} state-machine row must have exactly three cells: {line!r}")
+        source, guard, target = cells
+        if not source or not guard or not target:
+            die(f"{path} state-machine row has an empty phase, guard, or target: {line!r}")
+        rows.append((source, guard, target))
+    if not rows:
+        die(f"{path} state machine has no transition rows")
+    return rows
+
+
+def normalized_fsm_target(path: Path, contract: dict, target: str) -> str:
+    clean = target.replace("`", "").strip()
+    phases = set(contract["phases"])
+    outcomes = set(contract["outcomes"])
+    if clean.lower().startswith("outcome "):
+        found = sorted(
+            outcome
+            for outcome in outcomes
+            if re.search(rf"(?<![A-Za-z0-9_]){re.escape(outcome)}(?![A-Za-z0-9_])", clean)
+        )
+        if found:
+            return "outcome:" + ",".join(found)
+        if "HANDOFF_*" in clean or clean.lower().startswith("outcome per "):
+            return "outcome:*"
+        die(f"{path} state-machine target names no declared outcome: {target!r}")
+
+    match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)", clean)
+    if not match:
+        die(f"{path} state-machine target is not parseable: {target!r}")
+    first = match.group(1)
+    if first in phases:
+        return f"phase:{first}"
+    if first in outcomes:
+        return f"outcome:{first}"
+    die(f"{path} state-machine target starts with undeclared phase/outcome: {target!r}")
 
 
 def assert_fsm_contract(root: Path, skill: str) -> None:
@@ -3861,8 +4552,15 @@ def assert_fsm_contract(root: Path, skill: str) -> None:
     invariants = markdown_section(body, "## Invariants")
     if not invariants.strip():
         die(f"{path} is missing required '## Invariants' section")
+    defined_rule_ids = re.findall(r"^([REIU]\d+)\.", invariants, flags=re.MULTILINE)
+    expected_rule_ids = set(contract["rule_ids"])
+    if set(defined_rule_ids) != expected_rule_ids:
+        die(
+            f"{path} invariant rule inventory drifted: "
+            f"expected={sorted(expected_rule_ids)!r} actual={sorted(set(defined_rule_ids))!r}"
+        )
     for rule_id in contract["rule_ids"]:
-        definitions = len(re.findall(rf"^{rule_id}\.", invariants, flags=re.MULTILINE))
+        definitions = defined_rule_ids.count(rule_id)
         if definitions != 1:
             die(
                 f"{path} must define rule {rule_id} exactly once in "
@@ -3885,6 +4583,37 @@ def assert_fsm_contract(root: Path, skill: str) -> None:
     for outcome in contract["outcomes"]:
         if not re.search(rf"\b{outcome}\b", body):
             die(f"{path} is missing outcome: {outcome}")
+
+    transition_rows = parse_fsm_rows(path, machine)
+    transition_targets: dict[str, list[str]] = {}
+    for source, guard, target in transition_rows:
+        if source != "any" and source not in contract["phases"]:
+            die(f"{path} state-machine row starts from undeclared phase: {source!r}")
+        cited_rules = set(re.findall(r"\b[REIU]\d+\b", f"{guard} {target}"))
+        unknown_rules = sorted(cited_rules - expected_rule_ids)
+        if unknown_rules:
+            die(
+                f"{path} state-machine row cites undefined invariant IDs: "
+                f"source={source!r} target={target!r} unknown={unknown_rules!r}"
+            )
+        transition_targets.setdefault(source, []).append(
+            normalized_fsm_target(path, contract, target)
+        )
+
+    normalized_actual = {
+        source: tuple(sorted(targets))
+        for source, targets in transition_targets.items()
+    }
+    normalized_expected = {
+        source: tuple(sorted(targets))
+        for source, targets in contract["transition_targets"].items()
+    }
+    if normalized_actual != normalized_expected:
+        die(
+            f"{path} normalized state-machine transition graph drifted: "
+            f"expected={normalized_expected!r} actual={normalized_actual!r}"
+        )
+
     guard_citations = len(re.findall(r"\[(?:R|E|I|U)\d+(?:,\s*(?:R|E|I|U)\d+)*\]", machine))
     if guard_citations < contract["min_guard_citations"]:
         die(
@@ -3918,6 +4647,7 @@ def main() -> None:
         root = nested if nested.exists() else requested_root
 
     assert_workflow_object_routing_contract(root)
+    assert_orchestration_ownership_contract(root)
     assert_ralplan_proportionality_contract(root)
     for fsm_skill in FSM_CONTRACTS:
         assert_fsm_contract(root, fsm_skill)

@@ -25,10 +25,21 @@ maximize subagents — which authorizes eligible isolated roles for the whole
 run, including read-heavy exploration, test/log analysis, verification,
 review, and disjoint implementation (executor) work in STANDARD/THOROUGH
 when write scopes are non-overlapping, but never roles whose output would
-not change a decision. When no dispatch-worthy role exists or host policy
-denies dispatch, run roles inline and record `Parallel trigger: none`.
-Record `Parallel trigger: natural-dispatch` only when the host permits
-proactive dispatch and the active skill policy authorizes it.
+not change a decision. When no non-mutating dispatch-worthy role exists, it
+may run inline under the core's role fallback rules; host denial must be
+recorded. Record `Parallel trigger: none` when no concurrent batch is
+admitted. Record `Parallel trigger: natural-dispatch` only when the host
+permits proactive dispatch and the active skill policy authorizes it.
+
+## Executor-Default Trigger
+
+When the core records STANDARD/THOROUGH repository work-product mutation,
+call `spawn_agent` for `oh-no-executor` even when `Parallel trigger: none`;
+that trigger controls concurrency, not sequential executor ownership. The
+same rule applies to REVIEW-to-EXECUTE focused fixes. Inline mutation is valid
+only for the core's recorded LIGHT-tiny or dispatch-unavailable fallback, and
+unavailability requires the failed named-agent attempt or equivalent current
+host rejection described below.
 
 ## Invocation
 
@@ -58,9 +69,10 @@ full-history fork, and forked agents inherit the parent agent type, so the
 custom `agent_type` is rejected. Do not use `fork_context` (unsupported) or
 any full-history fork with `agent_type = "oh-no-<role>"`. Send the relevant
 plan, scope, ownership, and evidence context in the spawn message, one
-payload shape only (prompt/message or items, never both). The generated `oh-no-explore`
-template sets `sandbox_mode = "read-only"`; other role templates inherit the
-host sandbox and stay scoped by the core dispatch packet.
+payload shape only (prompt/message or items, never both). The generated
+`oh-no-explore`, `oh-no-verifier`, and `oh-no-code-reviewer` templates set
+`sandbox_mode = "read-only"`; other Ralph role templates inherit the host
+sandbox and stay scoped by the core dispatch packet.
 
 Spawn every independent agent in the eligible batch before calling
 `wait_agent`.

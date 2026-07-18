@@ -25,6 +25,14 @@ or critique is not an invocation trigger. Route from the requested deliverable:
 an analysis report versus a plan or execution artifact. Explicit requests to
 create a plan, implement, execute, or invoke a workflow still route normally.
 
+## Orchestration Ownership Boundary
+
+Workflow main agents own `.oh-no` artifacts, packet/result gates, and workflow
+transitions. STANDARD/THOROUGH repository work-product mutation is
+executor-owned; writing workflow-owned `.oh-no` specs, plans, sessions, and
+ledgers is orchestration state, not inline implementation. Inline work-product
+mutation is only a recorded LIGHT-tiny or dispatch-unavailable fallback.
+
 The available public skills are:
 
 - `interview`: clarify vague product, design, or engineering requests into an approved spec.
@@ -69,9 +77,9 @@ must follow the relevant TDD, debugging, cleanup, and verification gates for
 that mode.
 
 A small behavior-changing task that meets `ralph`'s STANDARD small-task
-carve-out is the lightweight path: review by direct diff inspection and
-conditional cleanup, with TDD, the independent `verifier` pass, and worktree
-isolation unchanged.
+carve-out is the lightweight path: it waives only reviewer dispatch, not
+executor ownership, with conditional cleanup, TDD, the independent `verifier`
+pass, and worktree isolation unchanged.
 
 A concrete change that reuses an existing scheduler, eligibility decision,
 lifecycle owner, or contract surface normally routes to Ralph STANDARD when its

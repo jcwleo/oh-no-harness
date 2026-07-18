@@ -22,11 +22,9 @@ Roles are `debugger`, `explore`, `executor`, `verifier`, and
 `code-reviewer`. Only an actual unknown/unavailable `agent_type` rejection
 confirms the custom role cannot be used; then use a generic agent with the
 matching `docs/agent-core/<role>.md` prompt embedded and record the
-fallback. One payload shape per spawn; no `fork_context`. Each packet
-carries: role; the exact failure and reproduction command; owned or
-read-only scope; expected output; and the no-edit instruction for
-read-only roles. Spawn parallel hypothesis debuggers as one batch before
-`wait_agent`. A timeout, empty wait, or queued acknowledgement is not
+fallback. One payload shape per spawn; no `fork_context`. Pass the core-defined
+role envelope and debugging delta unchanged. Spawn parallel hypothesis
+debuggers as one batch before `wait_agent`. A timeout, empty wait, or queued acknowledgement is not
 final — never close a running or pending subagent merely because it is
 slow, and never use missing output as completion evidence. Close a
 completed receiver only if the host exposes a close primitive; if none

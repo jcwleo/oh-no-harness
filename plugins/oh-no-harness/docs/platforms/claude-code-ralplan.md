@@ -31,9 +31,11 @@ scope/non-goals; required output; and dependency/return owner. Do not assume
 inherited conversation.
 
 If the plugin agent is unavailable, use a generic subagent with the matching
-`agents/<role>.md` prompt embedded; if no subagent primitive exists, execute
-the same role in a visibly separate inline role block and record the
-fallback reason.
+`agents/<role>.md` prompt embedded. If no subagent primitive exists, optional
+roles may use the core's visibly separate inline fallback. A required
+Plan-Reviewer instead reports `dispatch-unavailable` to the core so the skill
+records the blocker and transitions PAUSED; the adapter must not substitute an
+inline pass.
 
 ## Lifecycle
 

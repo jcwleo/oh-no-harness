@@ -21,7 +21,8 @@ Dispatch phase agents through the exposed Task, Agent, Workflow `agent()`,
 or subagent primitive with the plugin agents from `agents/`
 (`oh-no-harness:<agent>`; manual mention `@agent-oh-no-harness:<agent>`).
 Dispatch is trigger-loaded — dispatch only after the active phase's trigger
-fires. Batch independent background agents before waiting; a notification,
+fires. Pass the core-defined role envelope and phase delta unchanged. Batch
+independent background agents before waiting; a notification,
 timeout, or empty wait result is not a final status. Capture each result
 and changed-file set, then close or clean up the completed subagent when
 the host exposes that mechanism; record when no close mechanism exists. If
