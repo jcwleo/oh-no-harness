@@ -306,7 +306,7 @@ Phase: EXECUTE. Per story:
 
 1. Select the next incomplete story; apply its task-level mode.
 2. Dispatch `explore` when files, tests, or integration surfaces are not
-   obvious — independent targets as one parallel batch. Apply the
+   obvious — independent targets as one parallel batch (up to 5). Apply the
    `## Scope Trace Gate` and record why the intended edits are in scope.
 3. Record the story fields: expected outcome and ACs; owned files; contract
    surface (the actual public, caller, or verifier-facing entrypoint and any
@@ -391,7 +391,7 @@ Dispatch conditions [E6]:
 
 Batch rule: create the whole eligible batch of independent same-depth work
 before waiting on any result; never merge dependent review stages into one
-batch. Continue local work only where it does not overlap delegated scopes.
+batch. Cap a concurrent `executor` batch at up to 5 disjoint scopes; queue the remainder for the next batch. Continue local work only where it does not overlap delegated scopes.
 
 Dispatch packet (the active adapter deciding whether the invocation is a
 registered custom agent, a plugin-scoped agent, or a documented fallback):
@@ -777,7 +777,7 @@ invoking Ralph.
 
 | Agent | Use |
 |---|---|
-| `explore` | find relevant files, tests, commands, and integration surfaces; independent read-only targets as one parallel batch |
+| `explore` | find relevant files, tests, commands, and integration surfaces; independent read-only targets as one parallel batch (up to 5) |
 | `executor` | implement scoped story work with an explicit ownership boundary |
 | `verifier` | independently map evidence to ACs and audit test genuineness; one self-host pass after review, never the maker |
 | `code-reviewer` | review correctness, maintainability, regressions, scope trace, and overcomplication; applies the security lens when triggered |

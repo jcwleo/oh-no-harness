@@ -100,7 +100,7 @@ D9. Mid-loop skill: after verification, return the result to the caller
 
 Parallel hypothesis testing (steps 4-5): when reproduction is established
 and two or more plausible hypotheses are independently testable, dispatch
-one `debugger` per hypothesis (cap 3) in a single batch. Each parallel
+one `debugger` per hypothesis in a single batch — at most 3 by default, extending toward 5 only when 3+ genuinely independent hypotheses are testable. Each parallel
 debugger receives exactly one hypothesis, its confirming/refuting evidence
 targets, and a read-only diagnostic scope; each runs only non-mutating
 diagnostics in disjoint scopes and returns evidence, confidence movement,

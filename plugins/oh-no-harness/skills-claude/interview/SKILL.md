@@ -499,7 +499,7 @@ Dispatch `explore` by default on subagent-capable hosts so exploratory
 output stays outside the main interview thread [I15] — context separation
 protects the conversation itself. When brownfield exploration spans
 independent subsystems or fact-finding questions, dispatch one `explore`
-per independent subsystem as a single batch and synthesize the results
+per independent subsystem (up to 5) as a single batch and synthesize the results
 before asking the user codebase questions. Apply the active platform's
 dispatch authorization; do not ask for per-run subagent approval when
 standing authorization exists.
@@ -509,7 +509,7 @@ small to benefit from context separation — record the fallback reason.
 
 | Agent | Use |
 |---|---|
-| `explore` | gather brownfield repository facts before codebase questions; one per independent subsystem, batched |
+| `explore` | gather brownfield repository facts before codebase questions; one per independent subsystem (up to 5), batched |
 
 Do not use execution, review, or planning agents inside this skill [I1].
 

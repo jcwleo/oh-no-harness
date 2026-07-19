@@ -105,12 +105,12 @@ Source priority: approved `interview` spec > approved PRD/issue/ticket >
 current user request plus repository evidence.
 
 Dispatch `explore` first when repository facts are needed — one subagent per
-independent subsystem, batched. Exploration replaces no role.
+independent subsystem (up to 5), batched. Exploration replaces no role.
 
 If an approved spec covers goal, scope, non-goals, constraints, risks, and
 acceptance criteria, record `Analyst: satisfied by approved interview spec`
 with `Gap check: none blocking`; otherwise run `analyst` (or a limited gap
-check) before Planner. Analyst output feeds the Planner draft; it never
+check) before Planner — one `analyst` per independent requirement or risk area (up to 5), batched, when gaps span independent areas. Analyst output feeds the Planner draft; it never
 replaces it.
 
 Copy or derive the Direction Contract without changing its meaning:
@@ -449,8 +449,8 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `explore` | repository facts needed; one per independent subsystem, batched |
-| `analyst` | requirements gaps, unless satisfied by an approved interview spec |
+| `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
+| `analyst` | requirements gaps, unless satisfied by an approved interview spec; one per independent requirement or risk area (up to 5), batched |
 | `planner` | creates `Planner draft v1` and every `Planner revision v2`; owns body and dispositions |
 | `plan-reviewer` | reviews the exact draft per `## Plan Review Contract`; may run paired only under its named THOROUGH trigger |
 

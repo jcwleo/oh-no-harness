@@ -201,7 +201,7 @@ the reviewed scope.
 Capture the combined result or all four expanded results, then deduplicate
 findings that point at the same line or mechanism. Select only accepted
 behavior-preserving cleanup and dispatch one scoped `executor` assignment (or
-disjoint assignments when the caller's isolation policy permits). Reuse the
+up to 5 disjoint assignments when the caller's isolation policy permits). Reuse the
 executor's required envelope and add only the behavior lock plus accepted
 cleanup finding IDs. Simplify interprets the executor envelope; `Mutation
 status: complete` is not cleanup acceptance.
