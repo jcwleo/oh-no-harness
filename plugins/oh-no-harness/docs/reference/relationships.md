@@ -69,6 +69,14 @@ install-statusline
   -> copies scripts/statusline-command to ~/.claude/statusline-command.sh and sets settings.json statusLine via scripts/install-statusline
   -> docs/platforms/claude-code-install-statusline.md on Claude Code (no Codex variant)
 
+configure-subagents
+  -> user-invoked Claude-Code-only setup action; never model-invoked (disable-model-invocation: true on both the skill and the command wrapper)
+  -> kept out of the SessionStart routing map so the model has no auto-invoke path
+  -> collects a model and reasoning effort per subagent and rewrites the installed runtime agents/*.md in one recoverable transaction via scripts/configure-subagents (never the generator-owned canonical agents in a source checkout, never Codex TOMLs)
+  -> stores schema-versioned preferences outside the plugin cache and never records or prints proxy credentials
+  -> Claude Code hooks/session-start runs scripts/configure-subagents reapply best-effort after a plugin-cache update resets the runtime agents
+  -> docs/platforms/claude-code-configure-subagents.md on Claude Code (no Codex variant)
+
 interview
   -> explore for brownfield context
   -> ralplan after approval for consensus planning

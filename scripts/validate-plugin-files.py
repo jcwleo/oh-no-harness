@@ -28,6 +28,7 @@ PUBLIC_SKILLS = [
     "systematic-debugging",
     "fusion-rescue",
     "install-statusline",
+    "configure-subagents",
 ]
 
 ALL_SKILLS = PUBLIC_SKILLS
@@ -36,7 +37,7 @@ ALL_SKILLS = PUBLIC_SKILLS
 # assert_skill validates only the Claude wrapper and asserts the Codex wrapper is
 # absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
 # (this validator runs that generator's `--check` as a subprocess).
-CLAUDE_ONLY_SKILLS = {"install-statusline"}
+CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
 SELF_CONTAINED_ADAPTER_SKILLS = {
     "interview",
     "ralplan",
@@ -50,7 +51,7 @@ SELF_CONTAINED_ADAPTER_SKILLS = {
 # model must never auto-invoke them). This is the invocation dimension and is kept
 # separate from CLAUDE_ONLY_SKILLS (the platform dimension) on purpose. Every other
 # command wrapper must still set disable-model-invocation: false.
-MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
+MODEL_UNINVOCABLE_SKILLS = {"install-statusline", "configure-subagents"}
 
 AGENTS = [
     "explore",
@@ -1683,29 +1684,32 @@ def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
 
 
 def assert_model_uninvocable_skill_mutation_guards(root: Path) -> None:
-    # ralplan-v2 retired 2026-07-17; install-statusline is the remaining
-    # model-uninvocable skill (Claude-only, so no Codex wrapper path).
-    skill = "install-statusline"
-    paths = (
-        root / SKILL_CORE_ROOT / f"{skill}.md",
-        root / CLAUDE_SKILL_ROOT / skill / "SKILL.md",
-    )
-    for source in paths:
-        text = read_text(source)
-        marker = "disable-model-invocation: true\n"
-        if text.count(marker) != 1:
-            die(f"{source} must contain exactly one {marker.strip()!r} marker")
-        with tempfile.TemporaryDirectory() as temp_dir:
-            mutated = Path(temp_dir) / source.name
-            mutated.write_text(text.replace(marker, "", 1), encoding="utf-8")
-            try:
-                assert_skill_frontmatter(mutated, skill)
-            except SystemExit:
-                continue
-            die(
-                "Ralplan v2 invocation guard accepted a core/wrapper mutation without "
-                f"disable-model-invocation: true ({source})"
-            )
+    # ralplan-v2 retired 2026-07-17. install-statusline and configure-subagents
+    # are the remaining model-uninvocable skills (Claude-only, so no Codex
+    # wrapper path). Each must keep exactly one disable-model-invocation marker,
+    # and the frontmatter guard must reject a core/wrapper mutation that drops it.
+    for skill in sorted(MODEL_UNINVOCABLE_SKILLS):
+        paths = (
+            root / SKILL_CORE_ROOT / f"{skill}.md",
+            root / CLAUDE_SKILL_ROOT / skill / "SKILL.md",
+        )
+        for source in paths:
+            text = read_text(source)
+            marker = "disable-model-invocation: true\n"
+            if text.count(marker) != 1:
+                die(f"{source} must contain exactly one {marker.strip()!r} marker")
+            with tempfile.TemporaryDirectory() as temp_dir:
+                mutated = Path(temp_dir) / source.name
+                mutated.write_text(text.replace(marker, "", 1), encoding="utf-8")
+                try:
+                    assert_skill_frontmatter(mutated, skill)
+                except SystemExit:
+                    continue
+                die(
+                    "Model-uninvocable invocation guard accepted a core/wrapper "
+                    "mutation without disable-model-invocation: true "
+                    f"({source})"
+                )
 
 
 def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str) -> None:
@@ -2824,6 +2828,17 @@ def assert_hook_contract(root: Path) -> None:
         "Best-effort framing (honest)",
         "The caller owns the escape-DETECTION guard",
         "EXCLUDING the delegated task worktrees",
+        # Configure-subagents best-effort reapply block (Claude-Code branch only).
+        # Statically gate the SessionStart drift-repair wiring so it cannot
+        # silently regress, and so it stays sanitized (a wrapped notice, never
+        # credentials, keeping the SessionStart JSON valid). The exit status is
+        # captured explicitly (no `|| true`); success and failure both emit a
+        # FIXED credential-free notice, never the subprocess's raw output.
+        "scripts/configure-subagents",
+        "reapply --quiet",
+        "OH_NO_SUBAGENT_CONFIG_NOTICE",
+        "subagent_reapply_rc=$?",
+        "could not reapply your saved subagent model configuration",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
@@ -3082,6 +3097,56 @@ def assert_no_deprecated_artifact_paths(root: Path) -> None:
         text = read_text(path)
         if "docs/oh-no" in text:
             die(f"{path} contains deprecated artifact path `docs/oh-no`; use `.oh-no/specs`, `.oh-no/plans`, or `.oh-no/sessions`")
+
+
+def assert_configure_subagents_contract(root: Path) -> None:
+    # Claude-Code-only setup skill. The reachability deep-smoke gates the skill
+    # core's load-bearing rules in the composed Claude wrapper; this contract
+    # gates the runtime configurator (which reachability does not read) plus the
+    # proxy-first ordering and the no-Codex-mutation guarantee.
+    script = root / "scripts" / "configure-subagents"
+    if not script.exists():
+        die(f"{script} is missing; configure-subagents needs its runtime configurator")
+    if not (script.stat().st_mode & 0o111):
+        die(f"{script} must be executable")
+    script_text = read_text(script)
+
+    # The configurator's role inventory must mirror AGENTS exactly and in order.
+    normalized = " ".join(script_text.split())
+    cursor = -1
+    for role in AGENTS:
+        found = normalized.find(role, cursor + 1)
+        if found == -1:
+            die(f"{script} is missing canonical subagent role {role!r} in AGENTS order")
+        cursor = found
+
+    for token in (
+        "fable", "opus", "sonnet",           # native models
+        "gpt-5.6-sol", "gpt-5.6-terra",      # proxy-only GPT aliases
+        "max", "xhigh", "high", "medium",    # reasoning effort vocabulary
+    ):
+        if token not in script_text:
+            die(f"{script} is missing required selection-vocabulary token {token!r}")
+
+    # The configurator must never rewrite Codex custom-agent TOMLs.
+    if "codex-agents" in script_text:
+        die(f"{script} must not reference the Codex custom-agent TOML directory")
+
+    # Proxy-first ordering (AC-1): the CLIProxyAPI question must precede the
+    # per-agent model selection in the skill core.
+    core_text = read_text(root / SKILL_CORE_ROOT / "configure-subagents.md")
+    proxy_at = core_text.find("CLIProxyAPI")
+    agents_at = core_text.find("Configure these 14 agents one at a time")
+    if proxy_at == -1 or agents_at == -1 or proxy_at > agents_at:
+        die(
+            f"{root / SKILL_CORE_ROOT / 'configure-subagents.md'} must ask the "
+            "CLIProxyAPI question before the per-agent model selection"
+        )
+    if "No file is written before that confirmation" not in core_text:
+        die(
+            f"{root / SKILL_CORE_ROOT / 'configure-subagents.md'} must state that "
+            "no file is written before the final confirmation"
+        )
 
 
 def assert_generated_agent_wrappers(marketplace_root: Path, root: Path) -> None:
@@ -4689,6 +4754,7 @@ def main() -> None:
     assert_expected_references(root)
     assert_no_omc_runtime_coupling(root)
     assert_no_deprecated_artifact_paths(root)
+    assert_configure_subagents_contract(root)
     print("ok - skill and agent files passed static checks")
 
 

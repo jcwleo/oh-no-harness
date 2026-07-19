@@ -56,6 +56,7 @@ PUBLIC_SKILLS=(
   systematic-debugging
   fusion-rescue
   install-statusline
+  configure-subagents
 )
 
 ALL_SKILLS=(
@@ -1531,6 +1532,9 @@ live_prompt_for_skill() {
       ;;
     install-statusline)
       printf '/%s:install-statusline check Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files or run the installer. Reply with what this setup skill installs and that it is user-invoked only.' "$PLUGIN_NAME"
+      ;;
+    configure-subagents)
+      printf '/%s:configure-subagents check Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files or run the configurator. Reply with what this setup skill configures, that it asks about CLIProxyAPI first, and that it is user-invoked only.' "$PLUGIN_NAME"
       ;;
     *)
       fail "No live prompt for skill: $1"
@@ -7655,6 +7659,13 @@ PY
 }
 
 
+run_configure_subagents_offline_test() {
+  log "Running offline configure-subagents behavior + contract test suite"
+  bash "$MARKETPLACE_ROOT/scripts/test-configure-subagents.sh" \
+    || fail "configure-subagents offline test suite failed"
+}
+
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
@@ -7668,6 +7679,7 @@ main() {
   run_escape_net_offline_test
   run_active_stale_scan_reader_offline_test
   run_fusion_codex_offline_marker_test
+  run_configure_subagents_offline_test
   validate_frontmatter
   install_or_update_plugin
   run_live_tests

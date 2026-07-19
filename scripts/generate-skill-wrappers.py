@@ -25,6 +25,7 @@ PUBLIC_SKILLS = [
     "systematic-debugging",
     "fusion-rescue",
     "install-statusline",
+    "configure-subagents",
 ]
 
 # Skills that ship a Claude Code wrapper only (no Codex wrapper). The Codex
@@ -32,7 +33,7 @@ PUBLIC_SKILLS = [
 # set and asserts the Codex wrapper is absent. Keep this set identical to the
 # one in scripts/validate-plugin-files.py (the validator runs `--check` here as
 # a subprocess, so any divergence fails loudly).
-CLAUDE_ONLY_SKILLS = {"install-statusline"}
+CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
 
 # These skills carry every required host binding in a required skill-specific
 # adapter. Embedding the common platform runtime would duplicate those bindings
@@ -45,7 +46,7 @@ SELF_CONTAINED_ADAPTER_SKILLS = {
     "ultrawork",
     "verification-before-completion",
 }
-MODEL_UNINVOCABLE_SKILLS = {"install-statusline"}
+MODEL_UNINVOCABLE_SKILLS = {"install-statusline", "configure-subagents"}
 
 
 @dataclass(frozen=True)

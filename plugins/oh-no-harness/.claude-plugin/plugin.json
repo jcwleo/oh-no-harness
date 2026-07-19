@@ -28,7 +28,8 @@
     "./skills-claude/verification-before-completion/",
     "./skills-claude/systematic-debugging/",
     "./skills-claude/fusion-rescue/",
-    "./skills-claude/install-statusline/"
+    "./skills-claude/install-statusline/",
+    "./skills-claude/configure-subagents/"
   ],
   "commands": "./commands/"
 }

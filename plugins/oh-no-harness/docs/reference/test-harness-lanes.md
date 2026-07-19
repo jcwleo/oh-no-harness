@@ -292,7 +292,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude plugin install/update, manifest validation, generated-wrapper checks, command and hook/static output",
+      "evidence_artifact": "Claude plugin install/update, manifest validation, generated-wrapper checks, command and hook/static output, and the deterministic configure-subagents transaction/fault, lock-serialization, journal-trust, byte-exact, and SessionStart-reapply suite run offline by scripts/test-configure-subagents.sh",
       "non_proofs": [
         "marker-only output",
         "live model smoke",

@@ -16,12 +16,21 @@ Keep the external skill surface limited to:
 - `systematic-debugging`
 - `fusion-rescue`
 - `install-statusline`
+- `configure-subagents`
 
-`install-statusline` is a Claude-Code-only, human-invoke-only setup skill: its
-frontmatter sets `disable-model-invocation: true` (so the model never
-auto-invokes it), it is intentionally left out of the SessionStart routing map,
-and it ships no Codex wrapper. It is tracked by `CLAUDE_ONLY_SKILLS` (platform)
-and `MODEL_UNINVOCABLE_SKILLS` (invocation) in the generator and validator.
+`install-statusline` and `configure-subagents` are Claude-Code-only,
+human-invoke-only setup skills: their frontmatter sets
+`disable-model-invocation: true` (so the model never auto-invokes them), they are
+intentionally left out of the SessionStart routing map, and they ship no Codex
+wrapper. Both are tracked by `CLAUDE_ONLY_SKILLS` (platform) and
+`MODEL_UNINVOCABLE_SKILLS` (invocation) in the generator and validator.
+
+`configure-subagents` collects a model and reasoning effort per subagent and
+rewrites the installed runtime `agents/*.md` in one recoverable transaction via
+`scripts/configure-subagents`. It never edits the generator-owned canonical
+`agents/*.md` in a source checkout, never mutates Codex custom-agent TOMLs, and
+never stores or prints proxy credentials. The SessionStart hook reapplies stored
+preferences best-effort after a plugin-cache update.
 
 Treat `docs/agent-core/*.md`, `agents/*.md`, and
 `docs/platforms/codex-agents/*.toml` as internal role prompts, not additional

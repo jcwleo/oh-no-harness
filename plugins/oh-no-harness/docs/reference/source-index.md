@@ -95,11 +95,14 @@ This file records the source material used to build Oh No Harness.
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `docs/skill-core/install-statusline.md` | local Claude-Code-only, human-invoke-only setup skill core (`disable-model-invocation: true`) for installing the developer statusline |
 | `docs/platforms/claude-code-install-statusline.md` | Claude Code-specific Install Statusline overlay included only in the generated Claude Code Install Statusline runtime document (no Codex variant) |
+| `docs/skill-core/configure-subagents.md` | local Claude-Code-only, human-invoke-only setup skill core (`disable-model-invocation: true`) for configuring the installed subagents' model and reasoning effort |
+| `docs/platforms/claude-code-configure-subagents.md` | Claude Code-specific Configure Subagents overlay included only in the generated Claude Code Configure Subagents runtime document (no Codex variant) |
 | `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral cross-host consultation contracts and no OpenRouter API integration |
 | `docs/agent-core/fusion-rescue-analyst.md` | local panel-lens role body used by `fusion-rescue` for current-host analysis slots |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
 | `scripts/statusline-command` | bundled developer statusline payload copied to `~/.claude/statusline-command.sh` by `install-statusline` |
 | `scripts/install-statusline` | installer for the `install-statusline` skill; `check`/`apply [--replace]` modes, jq non-clobbering settings.json merge, timestamped backups, refuses without jq or on invalid JSON |
+| `scripts/configure-subagents` | runtime configurator for the `configure-subagents` skill; `check`/`apply --proxy`/`reapply` modes, physical-root confinement, byte-exact frontmatter transform, lock-serialized recoverable transaction (per-file atomic rename + backup + journal), best-effort SessionStart reapply; never stores or prints proxy credentials |
 | repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |

@@ -45,8 +45,8 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
-- **Skills + agents.** 11 workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`).
-- **Slash ↔ skill parity.** `commands/*.md` mirrors all 11 skill names with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md`.
+- **Skills + agents.** 11 cross-platform workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`), plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) for one-time environment setup — 13 Claude-visible commands in total.
+- **Slash ↔ skill parity.** In Claude Code, `commands/*.md` mirrors all 13 command names (11 workflow + 2 setup) with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md` for the 11 workflow skills only (the 2 setup skills are Claude-Code-only).
 
 | Too much | Too little | Oh No Harness |
 |---|---|---|
@@ -155,6 +155,15 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 
 Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
 
+### Setup commands (Claude Code only)
+
+These two are one-time environment-setup actions, not workflow stages. They are human-invoked only (never auto-selected by the model) and ship no Codex wrapper:
+
+| Command | Use when |
+|---|---|
+| `/oh-no-harness:install-statusline [check]` | Install the bundled developer statusline into `~/.claude` (`check` reports status only). |
+| `/oh-no-harness:configure-subagents [check]` | Choose the model and reasoning effort for each installed subagent (`check` reports status only). |
+
 Typical staged flow:
 
 1. You describe the work; Claude Code or Codex chooses `interview` when the goal is still fuzzy.
@@ -178,6 +187,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 - No npm runtime, no custom CLI process, no tmux process, no MCP server.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
+- `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
 - All commands, skills, and agents are plain Markdown. No daemon, no background process.
 
 ## Artifacts

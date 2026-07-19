@@ -45,8 +45,8 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 - **호스트 native 설치.** Claude Code와 Codex가 각자의 plugin/skill 시스템으로 로드합니다. Oh No Harness가 관리할 대상을 하나 더 늘리지 않습니다.
 - **터미널은 선택 사항.** 설치는 shell에서 할 수 있지만, 일상 workflow는 터미널에 묶이지 않습니다. 같은 Markdown skill이 Claude Code 세션과 Codex App 스타일 plugin UI에서도 맞게 동작합니다.
 - **Workflow spine.** 공개 skill은 소프트웨어 개발 단계를 맡고, 내부 agent는 사용자가 외울 새 명령이 아니라 전문 판단 패스로 붙습니다.
-- **Skill + 에이전트.** 11개 워크플로우 skill을 9명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`)가 떠받칩니다.
-- **슬래시 ↔ skill 1:1.** `commands/*.md`가 동일한 11개 이름과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 `skills/<name>/SKILL.md` wrapper를 읽습니다.
+- **Skill + 에이전트.** 11개 크로스 플랫폼 워크플로우 skill을 9명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`)가 떠받치고, 여기에 일회성 환경 설정용 Claude Code 전용·사용자 직접 호출 setup skill 2개(`install-statusline`, `configure-subagents`)가 더해져 Claude에 노출되는 명령은 총 13개입니다.
+- **슬래시 ↔ skill 1:1.** Claude Code에서는 `commands/*.md`가 동일한 13개 명령 이름(워크플로우 11 + setup 2)과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 워크플로우 11개 skill에 대해서만 `skills/<name>/SKILL.md` wrapper를 읽습니다(setup skill 2개는 Claude Code 전용).
 
 | 너무 무거움 | 너무 헐거움 | Oh No Harness |
 |---|---|---|
@@ -155,6 +155,15 @@ codex plugin marketplace upgrade oh-no-harness
 
 어느 걸 쓸지 모르겠다면 그냥 작업을 자연어로 적으세요 — harness가 요청 형태에 맞춰 라우팅합니다. 한 요청으로 전 과정을 묶고 싶을 때만 `/oh-no-harness:ultrawork`을 쓰면 됩니다.
 
+### Setup 명령 (Claude Code 전용)
+
+아래 두 개는 워크플로우 단계가 아니라 일회성 환경 설정 작업입니다. 사용자가 직접 호출할 때만 실행되며(모델이 자동 선택하지 않음), Codex wrapper는 없습니다:
+
+| 명령 | 사용 시점 |
+|---|---|
+| `/oh-no-harness:install-statusline [check]` | 번들 개발자 statusline을 `~/.claude`에 설치 (`check`는 상태만 보고). |
+| `/oh-no-harness:configure-subagents [check]` | 설치된 각 subagent의 model과 reasoning effort 선택 (`check`는 상태만 보고). |
+
 일반적인 단계 흐름:
 
 1. 사용자가 작업을 설명하면, 목표가 아직 흐릿할 때 Claude Code나 Codex가 `interview`를 선택합니다.
@@ -178,6 +187,7 @@ codex plugin marketplace upgrade oh-no-harness
 - npm 런타임 없음, 별도 CLI 프로세스 없음, tmux 프로세스 없음, MCP 서버 없음.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
+- `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정과 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
 - 모든 command, skill, agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
 
 ## 산출물

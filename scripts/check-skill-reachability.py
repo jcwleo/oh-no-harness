@@ -37,6 +37,11 @@ WRAPPER_DIR = {"codex": "skills", "claude": "skills-claude"}
 BOTH, CODEX, CLAUDE = "both", "codex", "claude"
 VALID_PLATFORMS = {BOTH, CODEX, CLAUDE}
 
+# Claude-Code-only skills ship no Codex wrapper, so they are only resolvable (and
+# only checked) on the claude platform. Keep this identical to CLAUDE_ONLY_SKILLS
+# in scripts/validate-plugin-files.py and scripts/generate-skill-wrappers.py.
+CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
+
 # Explicit handoff edges that a required cross-skill phrase is reached through.
 # Only these edges are followed when resolving a skill's reachable text, so an
 # incidental backtick mention cannot satisfy a required rule. The source patterns
@@ -251,6 +256,22 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
     ],
+    # Claude-Code-only setup skill: checked on claude only (skipped on codex,
+    # which ships no wrapper for it). Every phrase lives in the shared skill core
+    # so it composes into the Claude wrapper regardless of the platform overlay.
+    "configure-subagents": [
+        ("human-invoke-only", CLAUDE),  # never model-invoked
+        ("`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `executor-codex`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`, `plan-reviewer-codex`, `code-reviewer-codex`, `debugger-codex`, `fusion-codex`", CLAUDE),  # exact 14-agent order
+        ("GPT models are offered only after an explicit CLIProxyAPI", CLAUDE),  # proxy gate
+        ("gpt-5.6-sol", CLAUDE),
+        ("gpt-5.6-terra", CLAUDE),
+        ("`fable`, `opus`, `sonnet`", CLAUDE),  # native model vocab
+        ("`max`, `xhigh`, `high`, `medium`", CLAUDE),  # effort vocab
+        ("No file is written before that confirmation", CLAUDE),  # final-confirmation-before-write
+        ("all 14 agents change in one", CLAUDE),  # one all-or-nothing transaction
+        ("reapplies stored preferences best-effort", CLAUDE),  # SessionStart drift repair
+        ("No proxy URL or token value is ever stored or printed", CLAUDE),  # credential safety
+    ],
 }
 
 
@@ -351,6 +372,10 @@ def main() -> int:
     warnings: list[str] = []
     checked = 0
     for skill, reqs in REQUIRED.items():
+        # Claude-only skills have no Codex wrapper; skip them on the codex run so
+        # a deliberately absent wrapper is not reported as unreachable.
+        if skill in CLAUDE_ONLY_SKILLS and args.platform != CLAUDE:
+            continue
         missing: list[str] = []
         bag = " ".join(resolve(root, args.platform, skill, missing=missing).lower().split())
         warnings.extend(missing)
