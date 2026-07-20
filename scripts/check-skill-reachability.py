@@ -67,22 +67,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("orchestration state, not inline implementation", BOTH),
     ],
     "auto-routing": [
-        # Shared codexExecutor toggle facts from the skill core (both platforms).
-        ("executor role's implementation work to Codex", BOTH),
-        ("assigned RED, GREEN, REFACTOR", BOTH),
-        ("Default OFF.", BOTH),
-        ("Existing Ralph eligibility remains the sole gate.", BOTH),
-        ("the caller owns the escape-DETECTION guard", BOTH),
-        ("not a sandbox guarantee", BOTH),  # honest best-effort, not-a-guarantee framing
-        ("oh-no-config codex-executor on|off|status", BOTH),  # command token
-        # Claude-Code-only overlay: the delegation block is injected via
-        # SessionStart and dispatches executor-codex. Tagged CLAUDE so it is NOT
-        # required on Codex (Codex has no such SessionStart block).
-        ("injected via `SessionStart` on Claude Code only", CLAUDE),
-        ("dispatches `oh-no-harness:executor-codex` in place of", CLAUDE),
-        # Codex overlay: no Codex SessionStart block; delegated role stays native.
-        ("adds NO Codex SessionStart block", CODEX),
-        ("executor role behaves as the native `oh-no-executor`", CODEX),
+        # The retired executor-delegation toggle has no replacement in this
+        # skill. Keep only the persistent routing-setting contract reachable.
+        ("The bundled `scripts/oh-no-config` script resolves the data directory", BOTH),
+        ("\"<plugin-root>/scripts/oh-no-config\" on", BOTH),
+        ("\"<plugin-root>/scripts/oh-no-config\" off", BOTH),
     ],
     "interview": [
         ("consider advisory context", BOTH),
@@ -118,7 +107,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("negative or forbidden-behavior case", BOTH),
         ("old broken behavior", BOTH),
         (".oh-no/worktrees/<task-slug>", BOTH),
-        ("Cross-Host Consult Channel", BOTH),
+        ("Model Diversity Pair", CLAUDE),
+        ("Cross-Host Consult Channel", CODEX),
         ("trigger-loaded", BOTH),
         ("Re-reviews run only when the previous", BOTH),
         ("APPROVE freezes the exact reviewed Planner draft", BOTH),
@@ -129,6 +119,20 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor ownership survives", BOTH),
         ("no concurrent batch, not inline mutation", BOTH),
         ("Plan-Reviewer: dispatch-unavailable", BOTH),
+        # Platform-owned paired-review vocabulary. Claude proves the A1-amended
+        # unoverridden-primary/native-secondary shape; Codex keeps cross-host.
+        ("model-diversity-pair", CLAUDE),
+        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("serial dispatch-wait-dispatch", CLAUDE),
+        ("primary leg is dispatched without a model override", CLAUDE),
+        ("diversity leg uses an explicit NATIVE model override", CLAUDE),
+        ("validated secondary top-tier model", CLAUDE),
+        ("same-model-parallel-fallback", CLAUDE),
+        ("require-model-diversity", CLAUDE),
+        ("transition to PAUSED", CLAUDE),
+        ("require-cross-host", CODEX),
+        ("same-host/cross-host fallback", CODEX),
+        ("foreground Claude call", CODEX),
         ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
     "ralph": [
@@ -169,6 +173,17 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("A frozen `none` remains `none`", BOTH),
         ("`dispatch-unavailable` is a blocker", BOTH),
         ("reviewer `approve` (or compliant `not-required`) plus verifier `pass`", BOTH),
+        ("model-diversity-pair", CLAUDE),
+        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("serial dispatch-wait-dispatch", CLAUDE),
+        ("primary leg is dispatched without a model override", CLAUDE),
+        ("diversity leg uses an explicit NATIVE model override", CLAUDE),
+        ("validated secondary top-tier model", CLAUDE),
+        ("same-model-parallel-fallback", CLAUDE),
+        ("require-model-diversity", CLAUDE),
+        ("transition to PAUSED", CLAUDE),
+        ("same-host-parallel-fallback", CODEX),
+        ("foreground Claude call", CODEX),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -200,6 +215,17 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Ultrawork still owns `.oh-no` state", BOTH),
         ("executor ownership", BOTH),
         ("inline evidence cannot satisfy it", BOTH),
+        ("model-diversity-pair", CLAUDE),
+        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("serial dispatch-wait-dispatch", CLAUDE),
+        ("primary leg is dispatched without a model override", CLAUDE),
+        ("diversity leg uses an explicit NATIVE model override", CLAUDE),
+        ("validated secondary top-tier model", CLAUDE),
+        ("same-model-parallel-fallback", CLAUDE),
+        ("require-model-diversity", CLAUDE),
+        ("transition to PAUSED", CLAUDE),
+        ("same-host parallel fallback", CODEX),
+        ("foreground Claude call", CODEX),
     ],
     "test-driven-development": [
         ("Execution Ownership", BOTH),
@@ -242,6 +268,17 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor-default minimal fix", BOTH),
         ("Apply the minimal fix through `executor` by default", BOTH),
         ("Mutation fallback: LIGHT-tiny", BOTH),
+        ("model-diversity-pair", CLAUDE),
+        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("serial dispatch-wait-dispatch", CLAUDE),
+        ("primary leg is dispatched without a model override", CLAUDE),
+        ("diversity leg uses an explicit NATIVE model override", CLAUDE),
+        ("validated secondary top-tier model", CLAUDE),
+        ("same-model-parallel-fallback", CLAUDE),
+        ("require-model-diversity", CLAUDE),
+        ("transition to PAUSED", CLAUDE),
+        ("same-host-parallel-fallback", CODEX),
+        ("foreground Claude", CODEX),
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
@@ -255,20 +292,50 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("redact secrets", BOTH),  # the evidence-redaction rule
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
+        ("model-diversity-pair", CLAUDE),
+        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("serial dispatch-wait-dispatch", CLAUDE),
+        ("primary leg is dispatched without a model override", CLAUDE),
+        ("diversity leg uses an explicit NATIVE model override", CLAUDE),
+        ("validated secondary top-tier model", CLAUDE),
+        ("same-model-parallel-fallback", CLAUDE),
+        ("require-model-diversity", CLAUDE),
+        ("transition to PAUSED", CLAUDE),
+        ("same-host-parallel-fallback", CODEX),
+        ("foreground Claude call", CODEX),
+    ],
+    "fusion-rescue": [
+        ("exactly three same-role `fusion-rescue-analyst` panels in parallel", CLAUDE),
+        ("All three panel identities MUST be members of the block's resolved top-tier list", CLAUDE),
+        ("explicit NATIVE model override", CLAUDE),
+        ("declared-frontmatter primary", CLAUDE),
+        ("otherwise it is the first NATIVE entry of the top-tier list", CLAUDE),
+        ("assign exactly two panels the explicit NATIVE secondary override", CLAUDE),
+        ("assign exactly one panel a distinct top-tier identity", CLAUDE),
+        ("Degenerate configured case", CLAUDE),
+        ("3 × panel-default (top-tier)", CLAUDE),
+        ("require-model-diversity` transitions to PAUSED", CLAUDE),
+        ("Unconfigured case", CLAUDE),
+        ("Claude Code defines no opposite-host consult path for Fusion Rescue", CLAUDE),
+        ("require-cross-host", CODEX),
+        ("Claude consult", CODEX),
+        ("current-host Codex panel agents in default mode", CODEX),
     ],
     # Claude-Code-only setup skill: checked on claude only (skipped on codex,
     # which ships no wrapper for it). Every phrase lives in the shared skill core
     # so it composes into the Claude wrapper regardless of the platform overlay.
     "configure-subagents": [
         ("human-invoke-only", CLAUDE),  # never model-invoked
-        ("`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `executor-codex`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`, `plan-reviewer-codex`, `code-reviewer-codex`, `debugger-codex`, `fusion-codex`", CLAUDE),  # exact 14-agent order
-        ("GPT models are offered only after an explicit CLIProxyAPI", CLAUDE),  # proxy gate
-        ("gpt-5.6-sol", CLAUDE),
-        ("gpt-5.6-terra", CLAUDE),
-        ("`fable`, `opus`, `sonnet`", CLAUDE),  # native model vocab
+        ("`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`", CLAUDE),  # exact 9-agent order
+        ("GPT primary models are offered only after an explicit CLIProxyAPI", CLAUDE),  # proxy gate
+        ("`fable`, `opus`, `sonnet`", CLAUDE),  # primary native model vocab
+        ("native aliases `fable`, `opus`, `sonnet`, and `haiku`", CLAUDE),  # secondary native-only vocab
+        ("`top_tier_models`", CLAUDE),
+        ("`secondary_top_model`", CLAUDE),
+        ("require the selection to be present in `top_tier_models`", CLAUDE),
         ("`max`, `xhigh`, `high`, `medium`", CLAUDE),  # effort vocab
         ("No file is written before that confirmation", CLAUDE),  # final-confirmation-before-write
-        ("all 14 agents change in one", CLAUDE),  # one all-or-nothing transaction
+        ("all 9 agents and the diversity settings change in one", CLAUDE),  # one transaction
         ("reapplies stored preferences best-effort", CLAUDE),  # SessionStart drift repair
         ("No proxy URL or token value is ever stored or printed", CLAUDE),  # credential safety
     ],
@@ -389,6 +456,26 @@ def main() -> int:
             normalized_phrase = " ".join(phrase.lower().split())
             if normalized_phrase not in bag:
                 failures.append(f"{skill} [{args.platform}]: rule not reachable -> {phrase!r}")
+
+    # Platform vocabulary is mutually exclusive. Check every generated wrapper,
+    # not only REQUIRED entries, so a future skill cannot leak the other host's
+    # strict-mode terms without being added to this table first.
+    forbidden_terms = (
+        ("model-diversity-pair", "require-model-diversity")
+        if args.platform == CODEX
+        else ("require-cross-host",)
+    )
+    wrapper_root = root / WRAPPER_DIR[args.platform]
+    for wrapper in sorted(wrapper_root.glob("*/SKILL.md")):
+        text = read(wrapper)
+        if text is None:
+            continue
+        lowered = text.lower()
+        for term in forbidden_terms:
+            if term in lowered:
+                failures.append(
+                    f"{wrapper.parent.name} [{args.platform}]: forbidden platform term -> {term!r}"
+                )
 
     for w in sorted(set(warnings)):
         print(f"WARN - missing referenced doc/wrapper: {w}", file=sys.stderr)

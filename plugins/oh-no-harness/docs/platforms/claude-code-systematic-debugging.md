@@ -22,10 +22,28 @@ mechanism. If a plugin-scoped agent is unavailable, embed the matching
 `agents/<agent>.md` prompt into the available subagent mechanism; with no
 subagent primitive, keep the role boundary inline and record the fallback.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-A named-THOROUGH paired `debugger` or post-fix `code-reviewer` dispatches
-the current-host role and its `-codex` transport with identical packets;
-the consult is read-only, foreground, one hop, returning the actual
-opposite-host result. On opposite-host unavailability run the same-host
-parallel fallback and record it.
+For a named THOROUGH paired `debugger` or post-fix `code-reviewer`, dispatch two
+same-role instances in parallel with identical packets and synthesize one
+result. Both legs MUST be requested in a single batch: issue both subagent tool
+calls in the same assistant turn (or with `Background: yes` for both) BEFORE
+waiting on either result; a serial dispatch-wait-dispatch sequence is not a valid
+pair. The two legs' packet bodies MUST be byte-identical; leg identity
+(`primary` vs `diversity`) is carried ONLY by the host dispatch metadata (the
+description field and the model override), never inside the packet text. Read
+that role's declared stored primary and the validated secondary top-tier model
+from the session `<OH_NO_MODEL_DIVERSITY>` block.
+
+- `model-diversity-pair`: the primary leg is dispatched without a model
+  override and therefore uses the concrete declared-frontmatter primary; the
+  diversity leg uses an explicit NATIVE model override for the validated
+  secondary. The primary must not be `host-default`, and the secondary must
+  differ from the declared stored primary.
+- `same-model-parallel-fallback`: when no valid diversity configuration exists,
+  the declared primary cannot be applied, or the secondary override fails in
+  default mode, dispatch two independent same-model instances of the selected
+  role and record the reason.
+- `require-model-diversity`: an explicit caller demand for diversity is strict;
+  if the diversity leg is unavailable or fails, transition to PAUSED. Do not
+  substitute the same-model fallback.

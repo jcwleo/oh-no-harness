@@ -1,7 +1,7 @@
 ---
 name: auto-routing
-description: Use when the user wants to manage Oh No Harness session toggles, such as turning automatic skill-selection guidance on or off, checking routing status, making the bootstrap prompt more or less assertive across sessions, or turning the Codex executor delegation toggle on or off.
-argument-hint: "[on|off|status | codex-executor on|off|status]"
+description: Use when the user wants to turn Oh No Harness automatic skill-selection guidance on or off, check routing status, or make the bootstrap prompt more or less assertive across sessions.
+argument-hint: "[on|off|status]"
 ---
 
 <!-- oh-no-harness-generated-skill-wrapper -->
@@ -25,14 +25,8 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 # Auto Routing
 
-Auto Routing is the manager of the Oh No Harness **session toggles**. It manages
-two independent, session-scoped preferences stored in the same `config.json`:
-the `autoRouting` skill-selection toggle described here, and the `codexExecutor`
-executor-delegation toggle described under Codex Executor Delegation Toggle
-below. Both are read at bootstrap/session-start.
-
-Auto Routing (the `autoRouting` toggle) controls whether a supported platform
-bootstrap hook adds stronger skill-selection guidance to `using-oh-no-harness`.
+Auto Routing controls whether a supported platform bootstrap hook adds stronger
+skill-selection guidance to `using-oh-no-harness`.
 
 It does not add hidden runtime routing. It only changes persistent user preference for the SessionStart prompt.
 
@@ -50,9 +44,6 @@ Use when the user asks to:
 - disable, turn off, deactivate, or make skill routing quieter
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
-- enable or disable delegating the executor role's implementation work to Codex
-  (the `codexExecutor` toggle)
-- check current codex-executor delegation status
 
 Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
 
@@ -66,37 +57,6 @@ When the active platform supports persistent bootstrap routing, changes take
 effect on the next bootstrap or session-start event, such as a new session, app
 restart, clear/reset command, or compaction. Existing session context is not
 rewritten.
-
-## Codex Executor Delegation Toggle
-
-The `codexExecutor` toggle is the second session toggle this skill manages. When
-ON, and on a platform whose bootstrap supports delegation, Oh No Harness
-delegates the **executor role's implementation work to Codex** instead of the
-native `oh-no-harness:executor`, for every executor dispatch path (ralph,
-ultrawork, systematic-debugging).
-
-Shared facts (all platforms):
-
-- **Default OFF.** Delegation is opt-in; with the toggle OFF the native
-  `oh-no-harness:executor` runs and nothing changes.
-- **Executor role only.** When ON, only the executor role is re-bound to Codex.
-  Its assigned RED, GREEN, REFACTOR, focused-fix, and cleanup mutations may be
-  delegated; caller-run checks, verification, review, and merge stay with the
-  native independent roles.
-- **Eligibility unchanged.** Existing Ralph eligibility remains the sole gate.
-  An already-admitted disjoint executor batch may overlap only at the outer
-  `executor-codex` agent layer; each inner companion call remains foreground.
-  Ineligible, unknown, or unsafe work stays serial, and fallback and integration
-  remain caller-owned and sequential.
-- **Best-effort confinement, not a guarantee.** Delegated writes are scoped
-  best-effort to the task worktree. The executor transport returns raw Codex
-  output; the caller owns the escape-DETECTION guard, derives the worktree diff,
-  and halts before merge on an unexpected protected-target change. This is
-  DETECTION, not prevention, and is not a sandbox guarantee.
-- Manage it with `oh-no-config codex-executor on|off|status` (see Commands), then
-  restart or clear the session so the bootstrap re-fires (see Response Rules).
-  Whether the toggle produces a runtime effect depends on the active platform
-  (see Platform Behavior and the platform runtime document).
 
 ## Configuration
 
@@ -117,22 +77,15 @@ Fallback location when no platform plugin-data directory exists:
 ${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json
 ```
 
-Stored shape (both toggles are independent sibling keys):
+Stored shape:
 
 ```json
 {
   "autoRouting": {
     "enabled": true
-  },
-  "codexExecutor": {
-    "enabled": false
   }
 }
 ```
-
-`codexExecutor` defaults to OFF (`enabled: false`). Writing one toggle must
-preserve the sibling toggle's value; never clobber `autoRouting` when changing
-`codexExecutor`, or vice versa.
 
 ## Commands
 
@@ -154,15 +107,6 @@ script="$(find <platform-plugin-cache> -path '*/oh-no-harness/*/scripts/oh-no-co
 "$script" status
 ```
 
-The same script manages the `codexExecutor` toggle through the `codex-executor`
-subcommand, mirroring the auto-routing verbs:
-
-```bash
-"<plugin-root>/scripts/oh-no-config" codex-executor status
-"<plugin-root>/scripts/oh-no-config" codex-executor on
-"<plugin-root>/scripts/oh-no-config" codex-executor off
-```
-
 ## Response Rules
 
 - For `on`, enable the setting, report the config path, and tell the user to
@@ -170,16 +114,6 @@ subcommand, mirroring the auto-routing verbs:
 - For `off`, disable the setting, report the config path, and tell the user to
   restart or clear the active platform session before expecting the new behavior.
 - For `status`, report whether auto-routing is on or off and where the setting is stored.
-- For `codex-executor on`, enable the `codexExecutor` toggle, report the config
-  path, and tell the user to restart or clear the active platform session before
-  the delegation takes effect — the bootstrap re-fires on the next session-start.
-- For `codex-executor off`, disable the `codexExecutor` toggle, report the config
-  path, and tell the user to restart or clear the session before the change takes
-  effect.
-- For `codex-executor status`, report whether codex-executor delegation is on or
-  off and where the setting is stored.
-- When changing either toggle, preserve the sibling toggle's value; do not clobber
-  `autoRouting` or `codexExecutor` when writing the other.
 - If Bash is unavailable, explain the config file shape without claiming the setting changed.
 - Do not invoke workflow skills from this configuration skill.
 
@@ -249,11 +183,3 @@ preference, but it does not add forced routing to Codex SessionStart.
 
 If a Codex-facing SessionStart hook runs, it must stay compact and must not
 embed full skill core bodies.
-
-The `codexExecutor` toggle behaves the same way as auto-routing on Codex: its
-state is stored and explained here, but it adds NO Codex SessionStart block.
-Codex native skill loading is unchanged, and on the Codex host the delegated
-executor role behaves as the native `oh-no-executor` — delegation-to-Codex is a
-no-op there. The `oh-no-config codex-executor on|off|status` verbs still read and
-write the stored preference for portability, but they do not inject a delegation
-block on Codex.

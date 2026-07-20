@@ -27,7 +27,7 @@ The sections below are already composed for this platform. Do not ask the runtim
 # Configure Subagents
 
 Configure Subagents is a user-invoked setup action. It walks you through choosing
-a `model` and reasoning `effort` for each of the 14 Oh No Harness Claude Code
+a `model` and reasoning `effort` for each of the 9 Oh No Harness Claude Code
 subagents, then applies those choices to the **installed runtime** agent Markdown
 so the next Claude Code session dispatches each role with your chosen model and
 effort.
@@ -65,8 +65,10 @@ preserving every other frontmatter and body byte.
 
 Your choices are also saved as durable, schema-versioned preferences outside the
 plugin cache (in the Oh No Harness data directory), so they can be reapplied
-after a plugin update restores the canonical runtime agents. **No proxy URL or
-token value is ever stored or printed.**
+after a plugin update restores the canonical runtime agents. The same preferences
+store `top_tier_models`, the machine's top-tier model set, and the optional
+native-only `secondary_top_model` used as the diversity leg for paired reviews
+and fusion. **No proxy URL or token value is ever stored or printed.**
 
 ## Status-Only Check
 
@@ -82,33 +84,40 @@ below only when the command is invoked with no argument.
 Follow this order to the end and write no files before the final confirmation.
 
 1. Run the bundled configurator's read-only `check` to confirm the active plugin
-   root and locate the 14 installed agent files.
+   root and locate the 9 installed agent files.
 2. Ask first whether the user has **CLIProxyAPI** installed, as an explicit
    yes/no question. Do not let any auto-detection stand in for the user's answer.
 3. When the answer is `yes`, diagnose only the *presence* of the
    `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` environment variables (never
    print their values); warn if the proxy wiring looks incomplete.
-4. Configure these 14 agents one at a time, in this exact order:
-   `explore`, `analyst`, `planner`, `plan-reviewer`, `executor`,
-   `executor-codex`, `debugger`, `verifier`, `code-reviewer`,
-   `fusion-rescue-analyst`, `plan-reviewer-codex`, `code-reviewer-codex`,
-   `debugger-codex`, `fusion-codex`.
+4. Configure these 9 agents one at a time, in this exact order:
+   `explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`,
+   `verifier`, `code-reviewer`, `fusion-rescue-analyst`.
 5. For each agent, decide both a model and an effort before moving to the next
    agent.
    - Model choices when proxy is `no`: `fable`, `opus`, `sonnet`.
    - Model choices when proxy is `yes`: the three native models plus
-     `GPT via CLIProxyAPI`; if the user picks GPT, ask a follow-up to choose
-     `gpt-5.6-sol` or `gpt-5.6-terra`. Splitting the GPT choice into a follow-up
-     keeps every question within the host's 4-option limit.
+     `GPT via CLIProxyAPI`; if the user picks GPT, ask a follow-up to choose an
+     available GPT model alias. Splitting the GPT choice into a follow-up keeps
+     every question within the host's 4-option limit.
    - Effort choices: `max`, `xhigh`, `high`, `medium`.
-6. Summarize all 14 selections in a table and ask for a single final apply or
-   cancel confirmation. No file is written before that confirmation.
-7. On apply, invoke the configurator exactly once so all 14 agents change in one
-   all-or-nothing transaction.
+6. Ask for `top_tier_models`, the space-separated models that count as top tier
+   on this machine. Propose the native default `fable opus`; when proxy is `yes`,
+   the user may also include GPT aliases offered by the per-role primary-model
+   flow.
+7. Ask whether to set `secondary_top_model`, the diversity model for paired
+   reviews and fusion. If yes, offer only the native aliases `fable`, `opus`,
+   `sonnet`, and `haiku` — never GPT — and require the selection to be present in
+   `top_tier_models`.
+8. Summarize all 9 model+effort selections and both diversity settings, then ask
+   for a single final apply or cancel confirmation. No file is written before
+   that confirmation.
+9. On apply, invoke the configurator exactly once so all 9 agents and the
+   diversity settings change in one all-or-nothing transaction.
 
 ## Apply And Activation
 
-- The configurator applies all 14 agents as one transaction: it stages and
+- The configurator applies all 9 agents as one transaction: it stages and
   re-validates every result, backs up the originals, writes a recovery journal,
   and swaps each file in with an atomic rename. Any mid-transaction failure rolls
   every file back, and a stale journal from an interrupted run is recovered on
@@ -128,9 +137,10 @@ Follow this order to the end and write no files before the final confirmation.
 - The configurator refuses to apply inside a Git source checkout, so the
   generator-owned canonical `agents/*.md` are never changed with user
   preferences.
-- GPT models are offered only after an explicit CLIProxyAPI `yes`; when the
-  answer is `no`, only the native models are valid and a GPT choice is rejected
-  before any write.
+- GPT primary models are offered only after an explicit CLIProxyAPI `yes`; when
+  the answer is `no`, only native primary models are valid and a GPT choice is
+  rejected before any write. `secondary_top_model` is always native-only,
+  regardless of the proxy answer.
 - Never print or store the proxy base URL or auth token.
 - Do not invoke workflow skills from this setup skill.
 
@@ -172,12 +182,24 @@ waiting, capture every final result, and clean up only after integration. An
 approved-plan handoff is dispatch authorization for eligible isolated roles;
 plugin-agent unavailability uses the documented embedded-role fallback.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
-Until then, do not preload opposite-host invocation details.
+This mechanism is trigger-loaded, not embedded in every workflow decision. Both legs MUST be requested in a single batch: issue both subagent tool calls
+in the same assistant turn (or with `Background: yes` for both) BEFORE waiting
+on either result; a serial dispatch-wait-dispatch sequence is not a valid pair.
+The two legs' packet bodies MUST be byte-identical; leg identity (`primary` vs
+`diversity`) is carried ONLY by the host dispatch metadata (the description field
+and the model override), never inside the packet text. For a named THOROUGH
+pair, read the role's concrete stored primary and validated secondary top-tier
+model from the session `<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
+unoverridden and uses the declared-frontmatter primary; the
+secondary leg carries an explicit NATIVE model override. Claim
+`model-diversity-pair` only when the primary is not `host-default` and the
+secondary differs from it. Otherwise default to two independent same-model
+instances as `same-model-parallel-fallback` with the reason recorded; an
+explicit `require-model-diversity` demand transitions to PAUSED when the
+diversity leg is unavailable. Fusion Rescue uses its Claude Code overlay's
+three-panel assignment instead of this two-leg shape.
 
 ## Source: docs/platforms/claude-code-configure-subagents.md
 
@@ -219,7 +241,7 @@ interrupted; re-running an `apply` (or the SessionStart `reapply`) recovers it.
 
 Only when the command is invoked with no argument do you run the full interview
 below. Every run — including the interview's first step — begins with this same
-read-only `check` to confirm the plugin root and the 14 installed agent files.
+read-only `check` to confirm the plugin root and the 9 installed agent files.
 
 ## Asking The Questions
 
@@ -238,48 +260,55 @@ focused question at a time.
    [ -n "${ANTHROPIC_BASE_URL:-}" ] && printf 'ANTHROPIC_BASE_URL: set\n' || printf 'ANTHROPIC_BASE_URL: missing\n'
    [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && printf 'ANTHROPIC_AUTH_TOKEN: set\n' || printf 'ANTHROPIC_AUTH_TOKEN: missing\n'
    ```
-3. For each of the 14 agents in order, ask the model question:
+3. For each of the 9 agents in order, ask the model question:
    - Proxy `no`: offer exactly `fable`, `opus`, `sonnet`.
    - Proxy `yes`: offer `fable`, `opus`, `sonnet`, and `GPT via CLIProxyAPI`.
-     When the user picks the GPT option, ask a second question offering
-     `gpt-5.6-sol` and `gpt-5.6-terra`. Keeping GPT behind a follow-up keeps each
+     When the user picks the GPT option, ask a second question offering the
+     available GPT aliases. Keeping GPT behind a follow-up keeps each
      `AskUserQuestion` within its four-option limit.
 4. Then ask the effort question offering `max`, `xhigh`, `high`, `medium`.
+5. Ask for the space-separated `top_tier_models` value, proposing the native
+   default `fable opus`. GPT aliases may be included only when the proxy answer
+   was `yes`.
+6. Ask whether to configure `secondary_top_model`. If yes, offer exactly
+   `fable`, `opus`, `sonnet`, and `haiku`; do not offer GPT for this key, and
+   require the selection to be present in `top_tier_models`.
 
 ## Applying
 
-Collect all 14 model+effort selections, show a final summary table, and ask a
-single apply-or-cancel confirmation with `AskUserQuestion`. Only after an explicit
-apply, run the configurator once with the collected assignments so all 14 agents
-change in one transaction. Write nothing before that confirmation.
+Collect all 9 model+effort selections plus the diversity settings, show a final
+summary table, and ask a single apply-or-cancel confirmation with
+`AskUserQuestion`. Only after an explicit apply, run the configurator once with
+the collected settings so all 9 agents change in one transaction. Write nothing
+before that confirmation.
 
-Build the apply invocation as a Bash argument array so each `role=model,effort`
-token is passed as one literal argument (never interpolated into a single string
-and never through `eval`). The 14 tokens must be in the canonical role order:
+Build the apply invocation as a Bash argument array so each option and
+`role=model,effort` token is passed as one literal argument (never interpolated
+into a single string and never through `eval`). The 9 role tokens must be in the
+canonical role order:
 
 ```bash
 args=(apply --proxy no
+  --secondary-top-model fable
+  --top-tier-models "fable opus"
   explore=sonnet,high
   analyst=opus,xhigh
   planner=opus,max
   plan-reviewer=opus,xhigh
   executor=opus,high
-  executor-codex=sonnet,medium
   debugger=opus,xhigh
   verifier=sonnet,high
   code-reviewer=opus,xhigh
-  fusion-rescue-analyst=opus,xhigh
-  plan-reviewer-codex=sonnet,medium
-  code-reviewer-codex=sonnet,medium
-  debugger-codex=sonnet,medium
-  fusion-codex=sonnet,medium)
+  fusion-rescue-analyst=opus,xhigh)
 "$script" "${args[@]}"    # or "${CLAUDE_PLUGIN_ROOT}/scripts/configure-subagents" "${args[@]}"
 ```
 
-Use `--proxy yes` instead when CLIProxyAPI was confirmed; only then may a token's
-model be `gpt-5.6-sol` or `gpt-5.6-terra`. The configurator exits non-zero and
-writes nothing if the tokens are incomplete, reordered, or use a model the proxy
-answer does not allow.
+Omit `--secondary-top-model` when the user chooses no secondary. Use
+`--proxy yes` when CLIProxyAPI was confirmed; only then may a per-role primary or
+a `top_tier_models` entry use one of the GPT aliases offered by the wizard. The
+configurator exits non-zero and writes nothing if the role tokens are incomplete
+or reordered, if a model is not allowed by the proxy answer, or if the secondary
+is not native and present in the top-tier list.
 
 After a successful apply, tell the user the change takes effect in the next Claude
 Code session; `/clear` or a new session guarantees it. Stored preferences are

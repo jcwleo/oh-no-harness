@@ -89,8 +89,6 @@ E15. Ralph is terminal: after the final report, no workflow skill is
      auto-invoked. Mid-loop skills (`test-driven-development`, `simplify`,
      `verification-before-completion`, `systematic-debugging`,
      `fusion-rescue`) are documented loop internals, not chaining events.
-E16. A rebound `executor-codex` transport owns no evidence; the identity
-     rebind does not change Ralph eligibility.
 E17. The main agent is the orchestrator and sole owner of `.oh-no` state and
      FSM transitions. STANDARD/THOROUGH repository work-product mutation,
      including REVIEW-to-EXECUTE focused fixes, dispatches `executor`; inline
@@ -467,38 +465,6 @@ implemented`, `Overall verdict: approve`, and `Verification verdict: pass`
 are caller gate inputs, not story acceptance or autonomous transitions. Never
 use missing output as completion evidence.
 
-## Codex Executor Delegation Boundary
-
-When the Claude Code SessionStart policy rebinds the executor role to
-`executor-codex`, treat that agent as a thin raw-output transport that
-returns raw Codex stdout and owns no repository evidence [E16]. The
-identity rebind changes neither Ralph eligibility nor the existing Batch Rule:
-only a batch already admitted by the Batch Rule and dispatch conditions may
-overlap at the outer `executor-codex` layer; ineligible, unknown, or unsafe
-work stays serial. Every inner companion transport remains one
-foreground call. Wait for every started member before scope checks,
-independent verification, and review; fallback and integration stay sequential.
-Accept successful raw stdout only when it preserves the executor `Result` /
-`Mutation status` envelope, identity/revision echo, structured change manifest,
-and caller-owned verification line required by the transport role.
-
-Caller-owned escape guard: capture protected-target state immediately
-before the outer batch and after every started member finishes —
-integration-checkout git status plus a filesystem sentinel for the ignored
-`.oh-no/` subtree and sibling worktrees, EXCLUDING the delegated task worktrees
-from protected-target traversal. Halt before merge on an unexpected
-protected-target change and record the result. The sentinel is a
-`path + mtime + size` manifest, not a content hash: it cannot detect a
-content rewrite with the same path, mtime, and size, the git-status
-arm cannot attribute an already-dirty unchanged file, and temp or
-non-`.oh-no/` ignored paths stay outside the guard — it is best-effort
-detection, not a sandbox guarantee. After a clean guard, derive the
-changed-file set from the task worktree and apply the normal per-executor
-scope check, RED preservation, verification, and review; a
-worktree diff alone does not prove confinement. On transport failure,
-inspect partial worktree changes before the caller-mediated sequential
-native fallback.
-
 ## Scope Trace Gate
 
 Phase: EXECUTE — checked before editing and at every story recheck.
@@ -610,9 +576,13 @@ STANDARD -> one targeted reviewer instance for behavior-affecting or
             `not-required (STANDARD small carve-out: <reason>)`.
 THOROUGH -> paired review only for a named security, data, destructive,
             public-contract, release-critical, new-concurrency, migration,
-            or broad multi-system risk (cross-host or
-            same-host-parallel-fallback, with the fallback reason);
-            otherwise one targeted reviewer.
+            or broad multi-system risk: two same-role reviewer instances with
+            identical packets, dispatched in parallel and synthesized into one
+            verdict; otherwise one targeted reviewer. The active platform
+            supplies the diversity leg. If that leg is unavailable, default
+            mode uses two independent same-model instances and records the
+            reason; an explicit caller demand for diversity is strict mode and
+            transitions to PAUSED instead of falling back.
 ```
 
 Review-then-verify [E7]: run the selected code-review stage first, validate
@@ -733,8 +703,8 @@ each). A silently omitted step is a named ledger gap, not a pass.
 - Evidence status lives in `verification.md`; PRD/progress point to its AC IDs.
 - Every review records its topology using the dependency-graph values
   (`not-required` with the compliant reason, `single-reviewer`, or
-  `paired-thorough` with its independence mode); an inline fallback requires
-  a reason. Missing review topology is a named ledger gap.
+  `paired-thorough` with the active platform's pair-mode value); an inline
+  fallback requires a reason. Missing review topology is a named ledger gap.
 - When both code-reviewer and verifier are required, the ledger must show
   `verifier started after reviewer completion: yes` or the verifier pass is
   stale and does not count.
@@ -872,13 +842,31 @@ if the host does not expose explicit close or cleanup, record that no close
 mechanism was available. A notification, timeout, or empty wait result is
 not a final status.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-Paired THOROUGH review on Claude Code dispatches the current-host
-`code-reviewer` and the `code-reviewer-codex` transport with identical
-packets; the Codex consult is read-only, foreground, one hop, and returns
-the actual opposite-host result. On opposite-host unavailability run the
-same-host parallel fallback and record it.
+For a named THOROUGH `code-reviewer` pair, dispatch two same-role instances in
+parallel with identical packets and synthesize one verdict. Both legs MUST be
+requested in a single batch: issue both subagent tool calls in the same assistant
+turn (or with `Background: yes` for both) BEFORE waiting on either result; a
+serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
+packet bodies MUST be byte-identical; leg identity (`primary` vs `diversity`)
+is carried ONLY by the host dispatch metadata (the description field and the model
+override), never inside the packet text. Read the role's declared stored primary
+and the validated secondary top-tier model from the session
+`<OH_NO_MODEL_DIVERSITY>` block.
+
+- `model-diversity-pair`: the primary leg is dispatched without a model
+  override and therefore uses the concrete declared-frontmatter primary; the
+  diversity leg uses an explicit NATIVE model override for the validated
+  secondary. The primary must not be `host-default`, and the secondary must
+  differ from the declared stored primary.
+- `same-model-parallel-fallback`: when no valid diversity configuration exists,
+  the declared primary cannot be applied, or the secondary override fails in
+  default mode, dispatch two independent same-model `code-reviewer` instances
+  and record the reason.
+- `require-model-diversity`: an explicit caller demand for diversity is strict;
+  if the diversity leg is unavailable or fails, transition to PAUSED. Do not
+  substitute the same-model fallback.
 
 ## Cleanup
 

@@ -25,12 +25,16 @@ intentionally left out of the SessionStart routing map, and they ship no Codex
 wrapper. Both are tracked by `CLAUDE_ONLY_SKILLS` (platform) and
 `MODEL_UNINVOCABLE_SKILLS` (invocation) in the generator and validator.
 
-`configure-subagents` collects a model and reasoning effort per subagent and
-rewrites the installed runtime `agents/*.md` in one recoverable transaction via
-`scripts/configure-subagents`. It never edits the generator-owned canonical
-`agents/*.md` in a source checkout, never mutates Codex custom-agent TOMLs, and
-never stores or prints proxy credentials. The SessionStart hook reapplies stored
-preferences best-effort after a plugin-cache update.
+`configure-subagents` collects a model and reasoning effort for each of the 9
+subagents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`,
+`debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`) and rewrites
+the installed runtime `agents/*.md` in one recoverable transaction via
+`scripts/configure-subagents`. It also stores the optional secondary top-tier
+model used for config-driven Claude-host review-pair and Fusion Rescue model
+diversity. It never edits the generator-owned canonical `agents/*.md` in a
+source checkout, never mutates Codex custom-agent TOMLs, and never stores or
+prints proxy credentials. The SessionStart hook reapplies stored preferences
+best-effort after a plugin-cache update.
 
 Treat `docs/agent-core/*.md`, `agents/*.md`, and
 `docs/platforms/codex-agents/*.toml` as internal role prompts, not additional

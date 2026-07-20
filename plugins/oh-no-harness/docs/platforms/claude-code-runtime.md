@@ -34,9 +34,21 @@ waiting, capture every final result, and clean up only after integration. An
 approved-plan handoff is dispatch authorization for eligible isolated roles;
 plugin-agent unavailability uses the documented embedded-role fallback.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
-Until then, do not preload opposite-host invocation details.
+This mechanism is trigger-loaded, not embedded in every workflow decision. Both legs MUST be requested in a single batch: issue both subagent tool calls
+in the same assistant turn (or with `Background: yes` for both) BEFORE waiting
+on either result; a serial dispatch-wait-dispatch sequence is not a valid pair.
+The two legs' packet bodies MUST be byte-identical; leg identity (`primary` vs
+`diversity`) is carried ONLY by the host dispatch metadata (the description field
+and the model override), never inside the packet text. For a named THOROUGH
+pair, read the role's concrete stored primary and validated secondary top-tier
+model from the session `<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
+unoverridden and uses the declared-frontmatter primary; the
+secondary leg carries an explicit NATIVE model override. Claim
+`model-diversity-pair` only when the primary is not `host-default` and the
+secondary differs from it. Otherwise default to two independent same-model
+instances as `same-model-parallel-fallback` with the reason recorded; an
+explicit `require-model-diversity` demand transitions to PAUSED when the
+diversity leg is unavailable. Fusion Rescue uses its Claude Code overlay's
+three-panel assignment instead of this two-leg shape.

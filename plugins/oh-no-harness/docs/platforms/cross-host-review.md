@@ -1,17 +1,15 @@
-# Cross-Host Review
+# Codex-Host Cross-Host Review
 
-> **Cross-host mechanism document (moved from docs/shared, 2026-07-17).**
-> No skill core reads this file at runtime — the skill cores are
-> self-contained and each carries its own paired-review rules. This file is
-> the transport-mechanism reference for the cross-host consult channel and
-> the machine-checkable fixture for the opt-in cross-host live test lanes.
-> If this file and a skill core disagree on a skill-owned rule, the skill
-> core wins.
+> **Codex-host mechanism document (moved from docs/shared, 2026-07-17).**
+> This reference is consumed only by the Codex-host consult channel and its
+> live-test fixtures. It is not composed into generated wrappers; each affected
+> Codex skill adapter carries its own runtime rules. If this file and a Codex
+> adapter disagree on a skill-owned rule, the adapter wins.
 
-Cross-host review is the paired-review implementation used only after a calling
-skill records a named THOROUGH risk. It lets two instances of the SAME assigned
-role run on the current host and the opposite host in parallel, then has the
-current-host main agent synthesize the two analyses into one result. It does not
+Cross-host review is the Codex-host paired-review implementation used only after
+a calling skill records a named THOROUGH risk. It lets two instances of the SAME
+assigned role run on Codex and Claude in parallel, then has the Codex main agent
+synthesize the two analyses into one result. It does not
 make dependent DIFFERENT roles eligible for the same batch. When a named
 code-reviewer pair runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
 `verifier` starts only after that pair is synthesized and blocking findings are
@@ -20,11 +18,11 @@ trigger fires, the Same-Host Parallel Fallback supplies two same-host instances.
 This reuses the Fusion Rescue cross-host mechanism; it is not a new channel,
 daemon, background job, weight fusion, or hidden runtime.
 
-This is a platform-neutral contract. For the actual invocation (how the current
-host reaches the opposite host), the synchronous-response requirement, the
-permission or capability preflight, and secret redaction, use the active
-platform runtime document's `## Cross-Host Consult Channel` section. Do not
-hard-code host binaries, plugin or capability names, or permission states here.
+This is a Codex-host contract. For the actual invocation (how Codex reaches
+Claude), the synchronous-response requirement, the permission or capability
+preflight, and secret redaction, use the Codex platform runtime document's
+`## Cross-Host Consult Channel` section. Do not hard-code host binaries, plugin
+or capability names, or permission states here.
 
 ## When It Applies
 
@@ -209,7 +207,7 @@ parallel.
 
 ## Reuse Of The Cross-Host Mechanism
 
-The cross-host review consult reuses the Fusion Rescue mechanism via the active
+The cross-host review consult reuses the Fusion Rescue mechanism via the Codex
 platform runtime document's `## Cross-Host Consult Channel` section:
 
 - Send a panel-style packet: the assigned work is the role's full review or

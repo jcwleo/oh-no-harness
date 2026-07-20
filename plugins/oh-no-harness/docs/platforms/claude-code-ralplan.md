@@ -17,7 +17,6 @@ native_role(r)   = plugin agent `oh-no-harness:<r>` through the exposed Task,
                    Agent, Workflow agent(), or equivalent subagent primitive;
                    manual mention form is `@agent-oh-no-harness:<r>`
 roles            = explore | analyst | planner | plan-reviewer
-cross_host_role  = `oh-no-harness:plan-reviewer-codex`
 next_skill       = invoke the installed Ralph or Ultrawork skill through the
                    host skill mechanism; never ask the user to type a command
 ```
@@ -46,20 +45,31 @@ status, capture and use the result, then clean up when the host exposes
 cleanup. A notification, timeout, empty result, or queued/background
 acknowledgement is not completion. Do not duplicate pending work inline.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-On a named THOROUGH paired risk, dispatch the current-host `plan-reviewer`
-and `plan-reviewer-codex` with the identical review packet. The Codex consult
-is read-only, foreground/synchronous, one hop, and returns the actual Codex
-Plan-Reviewer result — not a launch notice or Claude-authored substitute.
-Neither reviewer may make another cross-host hop.
+For a named THOROUGH `plan-reviewer` pair, dispatch two same-role instances in
+parallel with identical review packets and synthesize one verdict. Both legs MUST
+be requested in a single batch: issue both subagent tool calls in the same
+assistant turn (or with `Background: yes` for both) BEFORE waiting on either
+result; a serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
+packet bodies MUST be byte-identical; leg identity (`primary` vs `diversity`)
+is carried ONLY by the host dispatch metadata (the description field and the model
+override), never inside the packet text. Read the role's declared stored primary
+and the validated secondary top-tier model from the session
+`<OH_NO_MODEL_DIVERSITY>` block.
 
-```text
-opposite-host success -> synthesize both host-tagged results into one verdict
-opposite-host unavailable + default -> second independent Claude
-                                       plan-reviewer; record same-host fallback
-opposite-host unavailable + require-cross-host -> PAUSED
-```
+- `model-diversity-pair`: the primary leg is dispatched without a model
+  override and therefore uses the concrete declared-frontmatter primary; the
+  diversity leg uses an explicit NATIVE model override for the validated
+  secondary. The primary must not be `host-default`, and the secondary must
+  differ from the declared stored primary.
+- `same-model-parallel-fallback`: when no valid diversity configuration exists,
+  the declared primary cannot be applied, or the secondary override fails in
+  default mode, dispatch two independent same-model `plan-reviewer` instances
+  and record the reason.
+- `require-model-diversity`: an explicit caller demand for diversity is strict;
+  if the diversity leg is unavailable or fails, transition to PAUSED. Do not
+  substitute the same-model fallback.
 
 ## Approval Handoff
 

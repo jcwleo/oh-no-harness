@@ -397,16 +397,17 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "command invocation",
         "tool/permission",
         "lifecycle",
-        "host-boundary",
+        "hook policy",
         "malformed output",
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus role-owned Codex rescue capability evidence",
+      "evidence_artifact": "Claude stream-json output proving three parallel fusion-rescue-analyst panels use identities resolved from the injected model-diversity block: a configured native secondary takes exactly two explicit override slots, the third slot uses a distinct top-tier identity through an explicit native override or the declared-frontmatter primary, all panels return results, and the host synthesizes them",
       "non_proofs": [
         "marker-only output",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
+        "model self-report alone",
+        "panel count without model-assignment proof",
+        "identity inferred from an unknown host default"
       ]
     },
     {
@@ -419,109 +420,43 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "command invocation",
         "tool/permission",
         "lifecycle",
-        "host-boundary",
+        "hook policy",
+        "malformed output",
+        "forensic invariant"
+      ],
+      "warnings": [],
+      "evidence_artifact": "Claude stream-json output proving that no valid secondary model yields exactly two independent same-model code-reviewer instances with same-model-parallel-fallback recorded, while require-model-diversity transitions to PAUSED instead of falling back",
+      "non_proofs": [
+        "marker-only output",
+        "single reviewer pass",
+        "model self-report alone",
+        "two dispatches without fallback-ledger and strict-mode proof"
+      ]
+    },
+    {
+      "host": "claude",
+      "owner": "scripts/test-claude-plugin.sh",
+      "flag": "--model-diversity-live",
+      "release_status": "opt-in-live",
+      "hard_failures": [
+        "install/load",
+        "command invocation",
+        "tool/permission",
+        "lifecycle",
+        "hook policy",
         "containment",
         "malformed output",
         "forensic invariant"
       ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving opposite-host unavailable default and two same-host reviewer instances",
-      "non_proofs": [
-        "marker-only output",
-        "single current-host pass",
-        "parent inline opposite-host answer"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--cross-host-review-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "malformed output",
-        "forensic invariant"
+      "warnings": [
+        "live-model concurrency compliance"
       ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving a named THOROUGH security/public-contract trigger selects the opposite-host-available code-review pair: current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex dispatched concurrently, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer, and one synthesized verdict",
+      "evidence_artifact": "Claude stream-json output proving the real isolated-preferences to canonical resolver to SessionStart model-diversity block to Ralph Review Gate path: exactly two same-role code-reviewer dispatches receive equal packets after normalizing the model override, leg-identity labels, and dispatch-meta lines, the declared stored primary leg is unoverridden, the distinct native secondary leg has an explicit override, both return results, model-diversity-pair is recorded, and the caller emits a substantive synthesized verdict; lifecycle overlap is recorded as an advisory, non-gating live-model concurrency signal",
       "non_proofs": [
         "marker-only output",
-        "sequential (non-concurrent) reviewer dispatch",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--ralplan-xhost-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving a named THOROUGH public-workflow trigger dispatches the planner first, then the cross-host plan-review pair: current-host oh-no-harness:plan-reviewer plus opposite-host oh-no-harness:plan-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-plan-reviewer, and one synthesized verdict",
-      "non_proofs": [
-        "marker-only output",
-        "plan-review pair without the preceding planner",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--vbc-xhost-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving the real verification-before-completion flow dispatches the cross-host code-review pair (current-host oh-no-harness:code-reviewer plus opposite-host oh-no-harness:code-reviewer-codex, one read-only foreground codex-companion call, role-owned oh-no-code-reviewer) then exactly one self-host oh-no-harness:verifier with zero verifier-codex and zero cross-host verifier delegation",
-      "non_proofs": [
-        "marker-only output",
-        "verifier dispatched as a cross-host pair or before the reviewer pair",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--sysdebug-xhost-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving a named THOROUGH repeated-failure/new-concurrency trigger dispatches the cross-host debugger pair: current-host oh-no-harness:debugger plus opposite-host oh-no-harness:debugger-codex, one read-only foreground codex-companion call, role-owned oh-no-debugger, and one synthesized root-cause direction",
-      "non_proofs": [
-        "marker-only output",
-        "single-host debugger despite the lane's named THOROUGH pairing trigger",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
+        "model self-report alone",
+        "two serial reviewer dispatches",
+        "pair output without injected-block, packet-equality, override, ledger, and synthesis proof"
       ]
     },
     {
@@ -544,30 +479,6 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "marker-only output",
         "model self-report alone",
         "broad command success alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--codex-executor-delegation-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "containment",
-        "worktree",
-        "host-boundary",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus caller-owned integration-checkout and ignored-.oh-no escape-guard snapshots and a caller-derived worktree diff proving AC-OVERLAP-1 and its non-goals survive executor/reviewer/verifier packets and final summary while two eligible disjoint outer executor-codex dispatches overlap, each inner transport stays one foreground single-shot call, the caller guard is clean, RED goes GREEN with an unchanged RED file, verifier/reviewer stay off the write channel, and fallback/commit/integration remain serial",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "positive-only writes-exist-in-worktree claim without a caller-owned escape guard",
-        "caller escape guard relying only on git-status blind to the ignored .oh-no/ subtree"
       ]
     },
     {
@@ -705,10 +616,12 @@ generated-wrapper freshness, manifest/source assertion, reachability-contract,
 and release default expansion.
 
 `WARN` means exit 0 is allowed only when the lane row explicitly lists the
-warning. `VARIANCE` is a subset of `WARN`, limited to model paraphrase variance,
-semantic marker variance, AskUserQuestion tool-list exposure, auto-routing model
-echo, or a post-completion observation gap after stronger lifecycle evidence has
-already passed.
+warning. The `--model-diversity-live` lifecycle-overlap observation is advisory
+live-model concurrency compliance and does not waive its other lifecycle or
+forensic gates. `VARIANCE` is a subset of `WARN`, limited to model paraphrase
+variance, semantic marker variance, AskUserQuestion tool-list exposure,
+auto-routing model echo, or a post-completion observation gap after stronger
+lifecycle evidence has already passed.
 
 `NON_PROOF` means an evidence limitation. It must never upgrade a lane to proof:
 marker-only output, exact semantic markers alone, broad command success alone,

@@ -8,7 +8,7 @@ disable-model-invocation: true
 # Configure Subagents
 
 Configure Subagents is a user-invoked setup action. It walks you through choosing
-a `model` and reasoning `effort` for each of the 14 Oh No Harness Claude Code
+a `model` and reasoning `effort` for each of the 9 Oh No Harness Claude Code
 subagents, then applies those choices to the **installed runtime** agent Markdown
 so the next Claude Code session dispatches each role with your chosen model and
 effort.
@@ -46,8 +46,10 @@ preserving every other frontmatter and body byte.
 
 Your choices are also saved as durable, schema-versioned preferences outside the
 plugin cache (in the Oh No Harness data directory), so they can be reapplied
-after a plugin update restores the canonical runtime agents. **No proxy URL or
-token value is ever stored or printed.**
+after a plugin update restores the canonical runtime agents. The same preferences
+store `top_tier_models`, the machine's top-tier model set, and the optional
+native-only `secondary_top_model` used as the diversity leg for paired reviews
+and fusion. **No proxy URL or token value is ever stored or printed.**
 
 ## Status-Only Check
 
@@ -63,33 +65,40 @@ below only when the command is invoked with no argument.
 Follow this order to the end and write no files before the final confirmation.
 
 1. Run the bundled configurator's read-only `check` to confirm the active plugin
-   root and locate the 14 installed agent files.
+   root and locate the 9 installed agent files.
 2. Ask first whether the user has **CLIProxyAPI** installed, as an explicit
    yes/no question. Do not let any auto-detection stand in for the user's answer.
 3. When the answer is `yes`, diagnose only the *presence* of the
    `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` environment variables (never
    print their values); warn if the proxy wiring looks incomplete.
-4. Configure these 14 agents one at a time, in this exact order:
-   `explore`, `analyst`, `planner`, `plan-reviewer`, `executor`,
-   `executor-codex`, `debugger`, `verifier`, `code-reviewer`,
-   `fusion-rescue-analyst`, `plan-reviewer-codex`, `code-reviewer-codex`,
-   `debugger-codex`, `fusion-codex`.
+4. Configure these 9 agents one at a time, in this exact order:
+   `explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`,
+   `verifier`, `code-reviewer`, `fusion-rescue-analyst`.
 5. For each agent, decide both a model and an effort before moving to the next
    agent.
    - Model choices when proxy is `no`: `fable`, `opus`, `sonnet`.
    - Model choices when proxy is `yes`: the three native models plus
-     `GPT via CLIProxyAPI`; if the user picks GPT, ask a follow-up to choose
-     `gpt-5.6-sol` or `gpt-5.6-terra`. Splitting the GPT choice into a follow-up
-     keeps every question within the host's 4-option limit.
+     `GPT via CLIProxyAPI`; if the user picks GPT, ask a follow-up to choose an
+     available GPT model alias. Splitting the GPT choice into a follow-up keeps
+     every question within the host's 4-option limit.
    - Effort choices: `max`, `xhigh`, `high`, `medium`.
-6. Summarize all 14 selections in a table and ask for a single final apply or
-   cancel confirmation. No file is written before that confirmation.
-7. On apply, invoke the configurator exactly once so all 14 agents change in one
-   all-or-nothing transaction.
+6. Ask for `top_tier_models`, the space-separated models that count as top tier
+   on this machine. Propose the native default `fable opus`; when proxy is `yes`,
+   the user may also include GPT aliases offered by the per-role primary-model
+   flow.
+7. Ask whether to set `secondary_top_model`, the diversity model for paired
+   reviews and fusion. If yes, offer only the native aliases `fable`, `opus`,
+   `sonnet`, and `haiku` — never GPT — and require the selection to be present in
+   `top_tier_models`.
+8. Summarize all 9 model+effort selections and both diversity settings, then ask
+   for a single final apply or cancel confirmation. No file is written before
+   that confirmation.
+9. On apply, invoke the configurator exactly once so all 9 agents and the
+   diversity settings change in one all-or-nothing transaction.
 
 ## Apply And Activation
 
-- The configurator applies all 14 agents as one transaction: it stages and
+- The configurator applies all 9 agents as one transaction: it stages and
   re-validates every result, backs up the originals, writes a recovery journal,
   and swaps each file in with an atomic rename. Any mid-transaction failure rolls
   every file back, and a stale journal from an interrupted run is recovered on
@@ -109,8 +118,9 @@ Follow this order to the end and write no files before the final confirmation.
 - The configurator refuses to apply inside a Git source checkout, so the
   generator-owned canonical `agents/*.md` are never changed with user
   preferences.
-- GPT models are offered only after an explicit CLIProxyAPI `yes`; when the
-  answer is `no`, only the native models are valid and a GPT choice is rejected
-  before any write.
+- GPT primary models are offered only after an explicit CLIProxyAPI `yes`; when
+  the answer is `no`, only native primary models are valid and a GPT choice is
+  rejected before any write. `secondary_top_model` is always native-only,
+  regardless of the proxy answer.
 - Never print or store the proxy base URL or auth token.
 - Do not invoke workflow skills from this setup skill.

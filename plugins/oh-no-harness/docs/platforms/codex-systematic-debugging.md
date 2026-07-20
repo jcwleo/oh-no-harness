@@ -30,6 +30,21 @@ slow, and never use missing output as completion evidence. Close a
 completed receiver only if the host exposes a close primitive; if none
 exists, closure is host-managed — record that and continue.
 
+## Re-Homed Core Pair Rules
+
+| `debugger` | one instance to reproduce, identify root cause, and recommend the minimal fix; a paired cross-host or same-host investigation ONLY for a named THOROUGH uncertainty or repeated-failure trigger |
+| `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair — required when the proving tests or fix were authored or accepted by the same agent |
+| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; cross-host merge: merged findings |
+
+STANDARD uses one dispatched reviewer or debugger instance; a pair requires
+a named THOROUGH trigger, with same-host parallel fallback recorded when the
+opposite host is unavailable.
+
+Do not emit the Output below until every dispatched review records topology:
+`single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` /
+`same-host-parallel-fallback`; an inline fallback requires a reason.
+Missing review topology is a named ledger gap, not a pass.
+
 ## Cross-Host Consult Channel
 
 A named-THOROUGH paired `debugger` or post-fix `code-reviewer` starts one

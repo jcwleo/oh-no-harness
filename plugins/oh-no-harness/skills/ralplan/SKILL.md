@@ -209,7 +209,7 @@ Canonical activation table:
 | Validation check | measurable evidence influenced request | evidence source, supported AC, proof and gap | never required without the trigger |
 | Parallel dispatch | agent policy not `inline-only` | eligible roles/scopes and dependencies; integration owner | inline-only needs only its profile value |
 | Risk semantics | migration, data/security/destructive, concurrency/lifecycle, or public/release trigger | semantics/evidence for the fired trigger | depth/gates limited to named trigger and owner |
-| Cross-host review | named THOROUGH paired-review trigger | trigger and topology; synthesis evidence | never required in STANDARD or without trigger |
+| Paired review | named THOROUGH paired-review trigger | trigger, platform-defined diversity mode, and synthesis evidence | never required in STANDARD or without trigger |
 
 Audited deduplicated baseline caps: LIGHT=11; STANDARD=24; THOROUGH=26.
 Inactive rows are omitted — do not emit `not applicable` ceremony. The
@@ -234,7 +234,7 @@ Plan-Reviewer receives the exact Active plan contract, draft id, and full
 draft or path, then runs the architecture pass and the quality-gate pass in
 one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
 context. If the named role is unavailable, use a generic separate subagent or
-the existing same-host/cross-host fallback. If no separate context exists,
+the active platform's default pair fallback. If no separate context exists,
 record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
 PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
 no-review carve-out remains unchanged.
@@ -247,9 +247,12 @@ STANDARD -> one Plan-Reviewer instance.
 THOROUGH -> one instance, unless a named security/data/destructive,
             public/release-contract, concurrency, migration, or comparable
             multi-system trigger selects paired review: two instances of the
-            same reviewer role, identical packet, synthesized into one
-            verdict by the caller. Same-host parallel fallback is allowed
-            unless `require-cross-host` was selected, which pauses instead.
+            same reviewer role, identical packet, dispatched in parallel and
+            synthesized into one verdict by the caller. The active platform
+            supplies the diversity leg. If that leg is unavailable, default
+            mode uses two independent same-model instances and records the
+            reason; an explicit caller demand for diversity is strict mode and
+            transitions to PAUSED instead of falling back.
 ```
 
 Worst-case THOROUGH role dispatch chain remains bounded to two review rounds.
@@ -460,7 +463,7 @@ subagents, host policy does not authorize dispatch, or the role lacks a concrete
 input artifact, isolated responsibility, or expected output — keep a visibly
 separate inline role block and record the reason. A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent
-or the existing same-host/cross-host fallback when the named role is
+or the active platform's default pair fallback when the named role is
 unavailable; if none exists, record the blocker and transition PAUSED instead
 of reviewing inline. Record the trigger as `Planning dispatch:
 natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
@@ -564,6 +567,34 @@ opposite-host unavailable + default -> second independent Codex
                                        plan-reviewer; record same-host fallback
 opposite-host unavailable + require-cross-host -> PAUSED
 ```
+
+## Re-Homed Core Pair Rules
+
+| Cross-host review | named THOROUGH paired-review trigger | trigger and topology; synthesis evidence | never required in STANDARD or without trigger |
+
+Plan-Reviewer receives the exact Active plan contract, draft id, and full
+draft or path, then runs the architecture pass and the quality-gate pass in
+one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
+context. If the named role is unavailable, use a generic separate subagent or
+the existing same-host/cross-host fallback. If no separate context exists,
+record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
+PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
+no-review carve-out remains unchanged.
+
+```text
+THOROUGH -> one instance, unless a named security/data/destructive,
+            public/release-contract, concurrency, migration, or comparable
+            multi-system trigger selects paired review: two instances of the
+            same reviewer role, identical packet, synthesized into one
+            verdict by the caller. Same-host parallel fallback is allowed
+            unless `require-cross-host` was selected, which pauses instead.
+```
+
+A required Plan-Reviewer is
+the exception: it must use a separate context, with a generic separate subagent
+or the existing same-host/cross-host fallback when the named role is
+unavailable; if none exists, record the blocker and transition PAUSED instead
+of reviewing inline.
 
 ## Approval Handoff
 

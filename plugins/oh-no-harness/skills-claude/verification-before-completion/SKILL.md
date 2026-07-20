@@ -76,9 +76,9 @@ Before making a completion claim, complete every step below; the claim is invali
 7. Report skipped checks and residual risk.
 8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
 9. When a `code-reviewer` was dispatched, record `single-reviewer` for
-   STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
-   `same-host-parallel-fallback`; an inline fallback requires a reason.
-   Missing review topology is a named ledger gap, not a pass.
+   STANDARD, or the named THOROUGH pair trigger plus the active platform's
+   pair-mode value; an inline fallback requires a reason. Missing review
+   topology is a named ledger gap, not a pass.
 </HARD-GATE>
 
 If no meaningful command exists, inspect the changed files and write a
@@ -191,8 +191,15 @@ supplement the record but cannot satisfy the audit.
 
 | Agent | Use |
 |---|---|
-| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (cross-host merge: merged findings) |
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (paired-review synthesis: merged findings) |
+
+A named THOROUGH reviewer pair uses two same-role instances with identical
+packets, dispatched in parallel and synthesized into one verdict. The active
+platform supplies the diversity leg. If that leg is unavailable, default mode
+uses two independent same-model instances and records the reason; an explicit
+caller demand for diversity is strict mode and transitions to PAUSED instead of
+falling back. The `verifier` remains outside this pair contract.
 
 Confirming-verifier reuse: when this skill runs as the final gate inside
 `ralph` or `ultrawork` and the caller already completed the required
@@ -247,10 +254,30 @@ available subagent mechanism. With no subagent primitive, verify inline only
 when the core does not require an independent audit; otherwise report the
 `dispatch-unavailable` blocker so the caller remains blocked/PAUSED.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-A named-THOROUGH paired `code-reviewer` dispatches the current-host
-reviewer and the `code-reviewer-codex` transport with identical packets;
-the consult is read-only, foreground, one hop, returning the actual
-opposite-host result. On opposite-host unavailability run the same-host
-parallel fallback and record it. The `verifier` is never paired.
+For a named THOROUGH `code-reviewer` pair, dispatch two same-role instances in
+parallel with identical packets and synthesize one verdict. Both legs MUST be
+requested in a single batch: issue both subagent tool calls in the same assistant
+turn (or with `Background: yes` for both) BEFORE waiting on either result; a
+serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
+packet bodies MUST be byte-identical; leg identity (`primary` vs `diversity`)
+is carried ONLY by the host dispatch metadata (the description field and the model
+override), never inside the packet text. Read the role's declared stored primary
+and the validated secondary top-tier model from the session
+`<OH_NO_MODEL_DIVERSITY>` block.
+
+- `model-diversity-pair`: the primary leg is dispatched without a model
+  override and therefore uses the concrete declared-frontmatter primary; the
+  diversity leg uses an explicit NATIVE model override for the validated
+  secondary. The primary must not be `host-default`, and the secondary must
+  differ from the declared stored primary.
+- `same-model-parallel-fallback`: when no valid diversity configuration exists,
+  the declared primary cannot be applied, or the secondary override fails in
+  default mode, dispatch two independent same-model `code-reviewer` instances
+  and record the reason.
+- `require-model-diversity`: an explicit caller demand for diversity is strict;
+  if the diversity leg is unavailable or fails, transition to PAUSED. Do not
+  substitute the same-model fallback.
+
+The `verifier` is never paired.
