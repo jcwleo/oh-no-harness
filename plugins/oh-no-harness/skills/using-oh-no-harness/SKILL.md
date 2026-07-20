@@ -43,6 +43,18 @@ or critique is not an invocation trigger. Route from the requested deliverable:
 an analysis report versus a plan or execution artifact. Explicit requests to
 create a plan, implement, execute, or invoke a workflow still route normally.
 
+Routing may resolve to no workflow skill at all. When the requested deliverable
+does not create or change repository work products (code, tests, docs, configs)
+and does not claim their completion, answer directly without invoking a
+workflow skill. This no-route lane covers research and information gathering,
+conceptual or codebase questions, status or progress reports, and
+version-control or environment housekeeping over already-written changes
+(commit, push, branch, tag, stash, conflict-free rebase or merge, dependency
+install, tool or editor config). Committing or pushing existing work is
+housekeeping, not implementation, and does not route to `ralph`. If
+housekeeping unexpectedly turns into content changes — for example a conflicted
+rebase that needs code edits — re-route from the new deliverable at that point.
+
 ## Orchestration Ownership Boundary
 
 Workflow main agents own `.oh-no` artifacts, packet/result gates, and workflow
