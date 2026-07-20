@@ -7,12 +7,21 @@ config_dir() {
     return
   fi
 
-  # Pin to the oh-no-harness plugin data dir directly. CLAUDE_PLUGIN_DATA
-  # resolves to whichever plugin's context invoked the script, so honoring
-  # it would let the writer (called from another plugin's Bash) and the
-  # SessionStart-hook reader (always in oh-no-harness's context) land on
-  # different files — which silently breaks the auto-routing toggle.
-  local plugins_data="${HOME}/.claude/plugins/data"
+  # Pin to the oh-no-harness plugin data dir directly. Deliberately do NOT
+  # honor CLAUDE_PLUGIN_DATA: it resolves to whichever plugin's context
+  # invoked the script, so using it would let the writer (called from another
+  # plugin's Bash) and the SessionStart-hook reader (always in oh-no-harness's
+  # context) land on different files — silently breaking the auto-routing
+  # toggle. CLAUDE_CONFIG_DIR is safe here because it is host-session-level and
+  # identical for every plugin in a session, so writer and reader agree. When
+  # it is set, resolve plugins-data under it and never consult ~/.claude, so a
+  # single resolution order can never straddle two config homes.
+  local plugins_data
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    plugins_data="${CLAUDE_CONFIG_DIR}/plugins/data"
+  else
+    plugins_data="${HOME}/.claude/plugins/data"
+  fi
   if [ -d "$plugins_data" ]; then
     local match
     match=$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | head -n 1)
@@ -101,12 +110,16 @@ operate on auto-routing; the codex-executor subcommand operates on the
 codexExecutor key. Both keys are stored side by side and preserved
 independently.
 
-Stored at $HOME/.claude/plugins/data/<oh-no-harness-*>/config.json on
-Claude Code, or $XDG_CONFIG_HOME/oh-no-harness/config.json (default
-$HOME/.config/oh-no-harness/config.json) on hosts without that layout.
+Stored at <config-home>/plugins/data/<oh-no-harness-*>/config.json on
+Claude Code, where <config-home> is $CLAUDE_CONFIG_DIR when set, else
+$HOME/.claude. Falls back to $XDG_CONFIG_HOME/oh-no-harness/config.json
+(default $HOME/.config/oh-no-harness/config.json) on hosts without that
+layout.
 
 Environment:
-  OH_NO_CONFIG_DIR    Test override for the config directory.
+  OH_NO_CONFIG_DIR    Test override for the config directory (highest priority).
+  CLAUDE_CONFIG_DIR   Claude Code host config home; when set, plugins-data is
+                      resolved under it instead of $HOME/.claude.
 USAGE
 }
 

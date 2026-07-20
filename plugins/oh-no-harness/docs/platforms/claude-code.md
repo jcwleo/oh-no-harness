@@ -42,7 +42,7 @@ stronger skill-selection guidance to `using-oh-no-harness`.
 Preferred config location:
 
 ```text
-$HOME/.claude/plugins/data/<oh-no-harness-*>/config.json
+${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/<oh-no-harness-*>/config.json
 ```
 
 When `CLAUDE_PLUGIN_ROOT` is set, use:

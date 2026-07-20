@@ -30,7 +30,7 @@ a native current-host role.
   2. Otherwise use the recorded `installed_plugins.json` installPath for
      `openai-codex` when it is available.
   3. Otherwise pick the HIGHEST cached semver under
-     `~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs`
+     `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs`
      (an `OH_NO_CODEX_COMPANION_CACHE_DIR` override, when set, names that cache
      root). Multiple cached versions is NOT ambiguous — always take the highest.
   4. Degrade ONLY when no source above resolves an existing companion, or Codex

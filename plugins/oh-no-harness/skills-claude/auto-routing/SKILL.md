@@ -239,7 +239,7 @@ This platform overlay is source content for the generated Claude Code-facing
 Preferred config location:
 
 ```text
-$HOME/.claude/plugins/data/<oh-no-harness-*>/config.json
+${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/<oh-no-harness-*>/config.json
 ```
 
 When `CLAUDE_PLUGIN_ROOT` is set, use:

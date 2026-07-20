@@ -17,7 +17,7 @@ derives its own physical plugin root from that location, so no root path is
 passed to it:
 
 ```bash
-script="$(find ~/.claude/plugins -path '*/oh-no-harness/*/scripts/configure-subagents' -print -quit)"
+script="$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins" -path '*/oh-no-harness/*/scripts/configure-subagents' -print -quit)"
 "$script" check
 ```
 

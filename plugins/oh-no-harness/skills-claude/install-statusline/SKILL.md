@@ -211,7 +211,7 @@ When `CLAUDE_PLUGIN_ROOT` is set, run the bundled installer directly:
 If the plugin root is not exposed, locate the installed script first:
 
 ```bash
-script="$(find ~/.claude/plugins -path '*/oh-no-harness/*/scripts/install-statusline' -print -quit)"
+script="$(find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins" -path '*/oh-no-harness/*/scripts/install-statusline' -print -quit)"
 "$script" check
 ```
 

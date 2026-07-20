@@ -715,7 +715,7 @@ printf '%s' "$bootstrap_block" | grep -q 'configure-subagents' && bad "absent fr
 # overlay/core define the [check] status-only branch and safe argument-array shape
 grep -q 'check' "$SKILL_CORE" && ok "skill core documents the check branch" || bad "skill core check branch"
 grep -Fq '"${CLAUDE_PLUGIN_ROOT}/scripts/configure-subagents" check' "$SKILL_OVERLAY" && ok "overlay shows check invocation" || bad "overlay check invocation"
-grep -Fq 'find ~/.claude/plugins' "$SKILL_OVERLAY" && ok "overlay shows located-script fallback" || bad "overlay fallback"
+grep -Fq 'find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"' "$SKILL_OVERLAY" && ok "overlay shows located-script fallback" || bad "overlay fallback"
 
 # ---------------------------------------------------------------------------
 echo
