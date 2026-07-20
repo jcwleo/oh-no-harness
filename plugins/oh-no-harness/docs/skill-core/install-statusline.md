@@ -13,8 +13,9 @@ effort, context-window gauge, and rate-limit gauges) into the user's
 `~/.claude` configuration so a freshly set up Claude Code environment gets the
 same statusline. In the same pass it also installs a matching
 **subagent statusline** (`subagentStatusLine`) that renders each running
-subagent's row with its status, resolved model, context-usage gauge, elapsed
-time, and description — using the same visual language as the main statusline.
+subagent's row with its status, resolved model and reasoning effort,
+context-usage gauge, elapsed time, and description — using the same visual
+language as the main statusline.
 
 This skill is **human-invoke-only**. It is never auto-invoked by the model: its
 frontmatter sets `disable-model-invocation: true`, and it is intentionally left
@@ -72,7 +73,10 @@ few seconds (the statusline refreshes on `refreshInterval`); a new session or
 
 The subagent statusline rows require Claude Code v2.1.205+ to show a per-task
 model and context gauge (those fields are omitted for a task whose model isn't
-resolved yet, and the row degrades to `inherit` plus a raw token count).
+resolved yet, and the row degrades to `inherit` plus a raw token count). When a
+task also carries a flat `effort` value (for example `high`), it's shown right
+after the model; a task without that field keeps the existing model/context
+output unchanged.
 
 When a dispatched subagent task starts its description with the canonical marker
 `[oh-no-harness:<role>]`, the subagent statusline shows that role (for example

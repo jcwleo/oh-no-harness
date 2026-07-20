@@ -7,7 +7,7 @@
 # including ANSI colors. Rows we don't emit keep their default rendering.
 #
 # Row layout (matches the main developer statusline's visual language):
-#   ● name ✦ Model · ctx ▰▰▱▱▱▱▱▱▱▱ 18% · 2m10s · "description"
+#   ● name ✦ Model · effort · ctx ▰▰▱▱▱▱▱▱▱▱ 18% · 2m10s · "description"
 # When the per-task model / contextWindowSize are not resolved yet (they need
 # Claude Code v2.1.205+ and are omitted until the task's model is known), the
 # row degrades gracefully:
@@ -101,7 +101,7 @@ cols=$(printf '%s' "$input" | jq -r '.columns // empty')
 [ "$cols" -le 0 ] 2>/dev/null && cols=80
 now=$(date +%s)
 
-# Emit every task field as a NUL-delimited stream (8 fields per task). NUL can
+# Emit every task field as a NUL-delimited stream (9 fields per task). NUL can
 # never occur inside JSON text, so `read -d ''` splits cleanly even when a field
 # is empty (e.g. an unresolved model) — unlike @tsv+IFS, where a tab is treated
 # as collapsing whitespace and empty fields shift the columns.
@@ -111,6 +111,7 @@ emit_fields() {
       (.name // .type // ""), "\u0000",
       (.status // ""), "\u0000",
       (.model // ""), "\u0000",
+      (.effort // ""), "\u0000",
       ((.tokenCount // 0) | tostring), "\u0000",
       ((.contextWindowSize // 0) | tostring), "\u0000",
       ((.startTime // 0) | tostring), "\u0000",
@@ -123,6 +124,7 @@ while IFS= read -r -d '' id \
    && IFS= read -r -d '' name \
    && IFS= read -r -d '' status \
    && IFS= read -r -d '' model \
+   && IFS= read -r -d '' effort \
    && IFS= read -r -d '' tokens \
    && IFS= read -r -d '' ctxsize \
    && IFS= read -r -d '' start \
@@ -176,6 +178,9 @@ while IFS= read -r -d '' id \
     acc_color+=" $(fg 180)✦ ${short_model}${RESET}"
   else
     add "inherit" "${DIM}inherit${RESET}"
+  fi
+  if [ -n "$effort" ]; then
+    add "$effort" "${DIM}${effort}${RESET}"
   fi
 
   # context gauge when contextWindowSize is resolved; else raw token count

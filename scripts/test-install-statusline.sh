@@ -189,13 +189,18 @@ echo "== subagent renderer: emits one JSON row per task =="
 now="$(date +%s)"
 render_in='{"columns":100,"tasks":[
   {"id":"t1","name":"Explore","status":"running","model":"claude-sonnet-5","tokenCount":36000,"contextWindowSize":200000,"startTime":'"$(( (now-90) * 1000 ))"',"description":"searching"},
-  {"id":"t2","name":"gen","status":"completed","tokenCount":3100,"startTime":'"$(( (now-5) * 1000 ))"',"description":"no model resolved"}
+  {"id":"t2","name":"gen","status":"completed","tokenCount":3100,"startTime":'"$(( (now-5) * 1000 ))"',"description":"no model resolved"},
+  {"id":"t3","name":"Coder","status":"running","model":"claude-sonnet-5","effort":"high","tokenCount":1000,"contextWindowSize":200000,"startTime":'"$(( (now-10) * 1000 ))"',"description":"deep work"}
 ]}'
 out="$(printf '%s' "$render_in" | bash "$SUB_PAYLOAD")"
-[ "$(printf '%s\n' "$out" | grep -c '"id"')" -eq 2 ] && ok "one JSON row per task" || bad "row count ($(printf '%s' "$out" | grep -c '"id"'))"
+[ "$(printf '%s\n' "$out" | grep -c '"id"')" -eq 3 ] && ok "one JSON row per task" || bad "row count ($(printf '%s' "$out" | grep -c '"id"'))"
 if printf '%s\n' "$out" | jq -e '.id and .content' >/dev/null 2>&1; then ok "each row is valid JSON with id+content"; else bad "each row is valid JSON with id+content"; fi
 printf '%s\n' "$out" | grep -q 'Sonnet5' && ok "resolved model shown (Sonnet5)" || bad "resolved model shown"
 printf '%s\n' "$out" | grep -q 'inherit' && ok "unresolved model falls back to inherit" || bad "unresolved model fallback"
+row3="$(printf '%s\n' "$out" | jq -r 'select(.id=="t3") | .content')"
+printf '%s' "$row3" | grep -q 'high' && ok "flat effort shown next to model (high)" || bad "flat effort shown next to model"
+row1="$(printf '%s\n' "$out" | jq -r 'select(.id=="t1") | .content')"
+printf '%s' "$row1" | grep -q 'high' && bad "row with no effort field does not invent one" || ok "missing effort keeps existing output unchanged"
 # empty / no-task inputs must produce no output and succeed
 [ -z "$(printf '' | bash "$SUB_PAYLOAD")" ] && ok "empty input yields no rows" || bad "empty input yields no rows"
 [ -z "$(printf '%s' '{"columns":80,"tasks":[]}' | bash "$SUB_PAYLOAD")" ] && ok "no tasks yields no rows" || bad "no tasks yields no rows"
