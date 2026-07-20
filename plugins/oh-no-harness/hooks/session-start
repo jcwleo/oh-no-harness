@@ -111,6 +111,16 @@ Use the exact bracketed prefix only at the very start of the description, and on
 This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
 </OH_NO_SUBAGENT_ROLE_LABEL>'
 
+claude_code_orchestration_policy='<OH_NO_MAIN_AGENT_ORCHESTRATION>
+This platform is Claude Code. Session-wide standing preference, active in every turn and not only inside an invoked workflow skill: the main agent is an orchestrator. It owns conversation flow, `.oh-no` state, gate decisions, and synthesis; it does not perform exploration, investigation, analysis, or repository work-product mutation inline when an Oh No Harness role subagent can do the work.
+
+Delegation map: read-only code/config/docs lookup, tracing, and research sweeps dispatch oh-no-harness:explore; requirements and risk analysis dispatch oh-no-harness:analyst; every repository work-product mutation (code, tests, docs, configs) dispatches oh-no-harness:executor; root-cause investigation dispatches oh-no-harness:debugger; changed-code review dispatches oh-no-harness:code-reviewer; evidence audits dispatch oh-no-harness:verifier. Planner, plan-reviewer, and fusion roles stay workflow-internal. Active workflow skills keep their own stricter dispatch and review topology rules.
+
+Executor-always preference: do not use the LIGHT-tiny inline mutation fallback. Dispatch oh-no-harness:executor for every repository work-product mutation regardless of size or execution mode; inline mutation is acceptable only after a failed dispatch attempt recorded as Mutation fallback: dispatch-unavailable. Trivial conversation-local writes that are not repository work products (for example a scratch note the user asked to be typed inline) are exempt. Every executor dispatch, including LIGHT mode, uses the model configured in the executor agent definition as-is; do not override the model per call.
+
+Concurrency: up to 5 Oh No Harness subagents may run in parallel. Batch independent dispatches in a single request; wait for and use every started result. Do not redo delegated work inline.
+</OH_NO_MAIN_AGENT_ORCHESTRATION>'
+
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
 Standing preference: use sub-agents, delegation, and parallel agent work proactively. This is the explicit user request for eligible Oh No Harness workflow subagents when host tools allow isolated work.
 
@@ -196,6 +206,8 @@ Oh No Harness could not reapply your saved subagent model configuration (status 
   session_context="${base_session_context}
 
 ${claude_code_question_policy}
+
+${claude_code_orchestration_policy}
 
 ${claude_code_subagent_role_label_policy}${subagent_config_notice}"
   session_context_escaped=$(escape_for_json "$session_context")
