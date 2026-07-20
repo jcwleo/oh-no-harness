@@ -11,6 +11,15 @@ Two `AGENTS.md` files are authoritative and constrain almost every change here. 
 
 Contributor workflow detail lives in [`plugins/oh-no-harness/CONTRIBUTING.md`](plugins/oh-no-harness/CONTRIBUTING.md).
 
+## Never register this checkout as a live marketplace source
+
+Do not register this development checkout as a `directory`-source marketplace for daily use (`claude plugin marketplace add <this checkout>` or a `directory` entry in `extraKnownMarketplaces`). When the marketplace points at the checkout, Claude Code loads skills/agents **directly from the working tree**, which causes two recurring failure modes:
+
+- `configure-subagents` refuses to run against a Git checkout (generator-owned agents), so subagent model/effort preferences silently never apply — agents run on the generator defaults committed in `agents/*.md`.
+- Uncommitted working-tree edits leak into live sessions, and debugging "which file is actually loaded" wastes time (cache vs. checkout confusion).
+
+The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin cache, and test local changes with the sandboxed smoke scripts (`scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh`), which register the checkout under a temp scope on their own. Only use a `directory` marketplace registration temporarily, and remove it afterwards.
+
 ## What this is
 
 Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 cross-platform workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 14 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 13 Claude-visible skills in total.
