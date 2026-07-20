@@ -22,7 +22,7 @@ The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`
 
 ## What this is
 
-Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 cross-platform workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 14 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 13 Claude-visible skills in total.
+Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 cross-platform workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 9 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 13 Claude-visible skills in total.
 
 ## The single most important rule: source vs. generated
 
@@ -49,7 +49,7 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Skills are the public workflow stages**; **agents are internal role prompts** the skills (or the host's subagent mechanism) call. Skills own stage selection, artifact creation, approval gates, and next-skill handoffs.
 - **Skill chaining is explicit Markdown only** — no hidden automation. Skill bodies must not contain `Task(...)` / `Skill(...)` calls; the validator rejects them. A skill that hands off presents a `Next Skill Handoff` and the caller decides.
 - **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
-- **Two plugin hook entrypoints only:** a `SessionStart` bootstrap (skill-loading guidance; appends forced-routing when auto-routing is enabled, a Claude-Code-only codex-executor delegation block when that toggle is on, and a best-effort reapply of saved subagent model/effort settings after a plugin-cache update) and a narrow Ralph `UserPromptSubmit` adapter. Claude Code uses these through `CLAUDE_PLUGIN_ROOT`; Codex also declares the same hook file when plugin hooks are enabled. No `PreToolUse`/`PostToolUse`, no state ledger, no background process.
+- **Two plugin hook entrypoints only:** a `SessionStart` bootstrap (skill-loading guidance; appends forced-routing when auto-routing is enabled, always injects the Claude-Code model-diversity block, and best-effort reapplies saved subagent model/effort settings after a plugin-cache update) and a narrow Ralph `UserPromptSubmit` adapter. Claude Code uses these through `CLAUDE_PLUGIN_ROOT`; Codex also declares the same hook file when plugin hooks are enabled. No `PreToolUse`/`PostToolUse`, no state ledger, no background process.
 
 ## Commands
 

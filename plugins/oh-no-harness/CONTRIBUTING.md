@@ -70,7 +70,7 @@ Useful overrides:
 
 - `--scope user` — install into user scope instead of `local`
 - `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune general live model + budget
-- `OH_NO_FUSION_RESCUE_MODEL=opus` / `OH_NO_FUSION_RESCUE_MAX_BUDGET_USD=10.00` — tune Fusion Rescue cross-host live validation
+- `OH_NO_FUSION_RESCUE_MODEL=opus` / `OH_NO_FUSION_RESCUE_MAX_BUDGET_USD=10.00` — tune Fusion Rescue model-diversity panel live validation
 - `--codex-home /tmp/codex-test` — isolate Codex test installs to a throwaway home
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
 - `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart quietly ensures generated files and Ralph preflight repeats that ensure only as fallback

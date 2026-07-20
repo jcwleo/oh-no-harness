@@ -80,6 +80,34 @@ opposite-host unavailable + default -> second independent Codex
 opposite-host unavailable + require-cross-host -> PAUSED
 ```
 
+## Re-Homed Core Pair Rules
+
+| Cross-host review | named THOROUGH paired-review trigger | trigger and topology; synthesis evidence | never required in STANDARD or without trigger |
+
+Plan-Reviewer receives the exact Active plan contract, draft id, and full
+draft or path, then runs the architecture pass and the quality-gate pass in
+one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
+context. If the named role is unavailable, use a generic separate subagent or
+the existing same-host/cross-host fallback. If no separate context exists,
+record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
+PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
+no-review carve-out remains unchanged.
+
+```text
+THOROUGH -> one instance, unless a named security/data/destructive,
+            public/release-contract, concurrency, migration, or comparable
+            multi-system trigger selects paired review: two instances of the
+            same reviewer role, identical packet, synthesized into one
+            verdict by the caller. Same-host parallel fallback is allowed
+            unless `require-cross-host` was selected, which pauses instead.
+```
+
+A required Plan-Reviewer is
+the exception: it must use a separate context, with a generic separate subagent
+or the existing same-host/cross-host fallback when the named role is
+unavailable; if none exists, record the blocker and transition PAUSED instead
+of reviewing inline.
+
 ## Approval Handoff
 
 Ask the core's `## Next Skill Handoff` combined choice directly in the Codex

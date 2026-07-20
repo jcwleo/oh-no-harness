@@ -8,6 +8,8 @@ Claude Code SessionStart
   -> hooks/session-start
   -> compact native skill-loading bootstrap
   -> OH_NO_FORCED_ROUTING only when auto-routing is enabled
+  -> <OH_NO_MODEL_DIVERSITY> on every Claude Code session, using validated stored top-tier/secondary settings or the built-in top-tier fallback
+  -> scripts/configure-subagents reapply best-effort after plugin-cache updates
 
 Claude Code UserPromptSubmit for Ralph
   -> hooks/run-hook.cmd ralph-platform-adapter
@@ -72,9 +74,10 @@ install-statusline
 configure-subagents
   -> user-invoked Claude-Code-only setup action; never model-invoked (disable-model-invocation: true on both the skill and the command wrapper)
   -> kept out of the SessionStart routing map so the model has no auto-invoke path
-  -> collects a model and reasoning effort per subagent and rewrites the installed runtime agents/*.md in one recoverable transaction via scripts/configure-subagents (never the generator-owned canonical agents in a source checkout, never Codex TOMLs)
-  -> stores schema-versioned preferences outside the plugin cache and never records or prints proxy credentials
+  -> collects a model and reasoning effort for each of the 9 subagents and rewrites the installed runtime agents/*.md in one recoverable transaction via scripts/configure-subagents (never the generator-owned canonical agents in a source checkout, never Codex TOMLs)
+  -> stores schema-versioned preferences outside the plugin cache, including the top-tier model set and optional native secondary model; never records or prints proxy credentials
   -> Claude Code hooks/session-start runs scripts/configure-subagents reapply best-effort after a plugin-cache update resets the runtime agents
+  -> Claude Code hooks/session-start always injects <OH_NO_MODEL_DIVERSITY> so THOROUGH pairs and Fusion Rescue can use configured model diversity or the documented same-model fallback
   -> docs/platforms/claude-code-configure-subagents.md on Claude Code (no Codex variant)
 
 interview
@@ -139,9 +142,9 @@ systematic-debugging
   -> verifier and verification-before-completion for fix evidence
 
 fusion-rescue
-  -> fusion-rescue-analyst for current-host panel lenses
-  -> optional bounded cross-host consult through the active platform-specific
-     Fusion Rescue adapter when the host capability is available
+  -> fusion-rescue-analyst for all three panel lenses
+  -> Claude Code assigns panel identities from the <OH_NO_MODEL_DIVERSITY> block, using configured diversity or the same-model panel fallback
+  -> Codex preserves the optional bounded Claude consult through its platform-specific Fusion Rescue adapter when host capability is available
   -> returns synthesis to ralph, systematic-debugging, ultrawork active phase, or the direct caller
 ```
 
@@ -177,7 +180,7 @@ regenerate skill runtime documents with
 
 ## Agent Relationship Summary
 
-Skills are public workflow entrypoints. Agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the primary user-scope ensure point and Ralph preflight is only a fallback before named custom-agent dispatch. Claude-Code-only delegation roles (such as `executor-codex`, where Claude delegates write work to Codex) ship a Claude wrapper only and are not registered as Codex custom agents, so Codex installs nine `oh-no-*` custom agents. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+Skills are public workflow entrypoints. The 9 agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses the same 9 generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the primary user-scope ensure point and Ralph preflight is only a fallback before named custom-agent dispatch. Claude-host review-pair and Fusion Rescue model diversity is configuration-driven through `configure-subagents` and the SessionStart diversity block, not separate role wrappers. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
@@ -186,15 +189,10 @@ Skills are public workflow entrypoints. Agents are role prompts selected by thos
 | `planner` | `ralplan` | `explore`, `analyst`, `plan-reviewer` |
 | `plan-reviewer` | `ralplan` planning review only, including when another workflow invokes or uses Ralplan | `planner` (blocking findings and optional follow-ups) |
 | `executor` | `ralph`, implementation phases | `explore`, `ralplan` when the approved plan is invalid, `debugger`, `verifier` |
-| `executor-codex` | `ralph`, `ultrawork`, `systematic-debugging` executor dispatch when the `codexExecutor` toggle is on (Claude Code only; ships a Claude wrapper `agents/executor-codex.md` and is NOT registered as a Codex custom agent, so on Codex the native `executor` runs directly) | returns raw Codex stdout without wrapper synthesis; the caller derives the task-worktree diff, owns the escape guard, and performs independent verification and review |
 | `debugger` | `systematic-debugging`, QA, or failing checks | `explore`, `ralplan` when planning must be revisited, `executor`, `verifier` |
 | `verifier` | `ralph`, `ultrawork`, `systematic-debugging`, `verification-before-completion`, user-facing validation, final evidence | `code-reviewer`, `debugger` for failing scenarios |
 | `code-reviewer` | `ralph`, `ultrawork`, `verification-before-completion` validation, `systematic-debugging` (post-fix), security-sensitive validation | `verifier`, `simplify` recommendation |
 | `fusion-rescue-analyst` | `fusion-rescue` panel analysis | returns one assigned panel lens to the caller for current-host synthesis |
-| `plan-reviewer-codex` | `ralplan` cross-host plan review opposite-host leg only (Claude Code only; ships a Claude wrapper `agents/plan-reviewer-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-plan-reviewer` on Codex | returns the role-owned plan-reviewer result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
-| `code-reviewer-codex` | `ralph`, `ultrawork`, `systematic-debugging` cross-host code review, opposite-host leg (Claude Code only; ships a Claude wrapper `agents/code-reviewer-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-code-reviewer` on Codex | returns the role-owned code-reviewer result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
-| `debugger-codex` | `ralph`, `ultrawork`, `systematic-debugging` cross-host debugger review, opposite-host leg (Claude Code only; ships a Claude wrapper `agents/debugger-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-debugger` on Codex | returns the role-owned debugger result plus role-ownership proof, or the caller-mediated degrade to the Same-Host Parallel Fallback |
-| `fusion-codex` | `fusion-rescue` opposite-host panel slot (Claude Code only; ships a Claude wrapper `agents/fusion-codex.md`, NOT a Codex custom agent). Runs a read-only `codex-companion.mjs` call whose packet dispatches `oh-no-fusion-rescue-analyst` on Codex for one assigned panel lens | returns the exact panel fields plus role-ownership proof for current-host synthesis, or the caller-mediated degrade |
 
 ## Hook Boundary
 

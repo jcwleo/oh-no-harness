@@ -59,7 +59,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 **🔁 Workflow**
 - **Socratic interview.** `/oh-no-harness:interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
 - **Mode-gated execution.** Specs and plans size work as `LIGHT` / `STANDARD` / `THOROUGH`; Ralph follows the recorded mode instead of always running the heaviest loop.
-- **Fusion rescue.** `/oh-no-harness:fusion-rescue` runs exactly three panel lenses, including a Codex-preferred adversarial lens when available, then lets the current host synthesize the next action.
+- **Fusion rescue.** `/oh-no-harness:fusion-rescue` runs exactly three panel lenses, applies configured model diversity on Claude Code, preserves the bounded Claude consult from the Codex host when available, then lets the current host synthesize the next action.
 - **Auto-routing.** `/oh-no-harness:auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
 
 **✨ Experience**
@@ -85,14 +85,7 @@ claude plugin install oh-no-harness@oh-no-harness
 
 After install, run `/oh-no-harness:auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
 
-**Optional — cross-host consult.** On Claude Code, cross-host review pairs and Fusion Rescue's Codex panel lens reach Codex through the companion script shipped with the Codex plugin for Claude Code. To enable them, also install that plugin and sign in to the Codex CLI:
-
-```sh
-claude plugin marketplace add openai/codex-plugin-cc
-claude plugin install codex@openai-codex
-```
-
-Without it, default-mode workflows automatically degrade to the Same-Host Parallel Fallback (two same-host agents, synthesized). An explicit `require-cross-host` request still blocks when Codex is unavailable.
+**Optional — model diversity.** On Claude Code, THOROUGH review pairs and Fusion Rescue panels gain model diversity when you configure a secondary top-tier model with `/oh-no-harness:configure-subagents`. Without a valid secondary, workflows use the `same-model-parallel-fallback`; an explicit `require-model-diversity` request blocks instead of falling back.
 
 <details>
 <summary>Interactive install (inside Claude Code)</summary>
@@ -162,7 +155,7 @@ These two are one-time environment-setup actions, not workflow stages. They are 
 | Command | Use when |
 |---|---|
 | `/oh-no-harness:install-statusline [check]` | Install the bundled developer statusline into `~/.claude` (`check` reports status only). |
-| `/oh-no-harness:configure-subagents [check]` | Choose the model and reasoning effort for each installed subagent (`check` reports status only). |
+| `/oh-no-harness:configure-subagents [check]` | Choose each installed subagent's model and reasoning effort plus the optional secondary top-tier model used for Claude-host model diversity (`check` reports status only). |
 
 Typical staged flow:
 
@@ -186,8 +179,8 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 - Compact `SessionStart` guidance plus a narrow `UserPromptSubmit` Ralph adapter hook — no `PreToolUse`/`PostToolUse`.
 - No npm runtime, no custom CLI process, no tmux process, no MCP server.
 - **No** network calls, **no** telemetry.
-- Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for the auto-routing flag.
-- `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
+- Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for persistent harness settings.
+- `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices, top-tier/secondary diversity settings, plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
 - All commands, skills, and agents are plain Markdown. No daemon, no background process.
 
 ## Artifacts

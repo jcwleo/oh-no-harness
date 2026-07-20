@@ -65,6 +65,7 @@ VARIANCE_WARNINGS = {
     "AskUserQuestion tool-list exposure",
     "auto-routing model echo",
     "post-completion observation gap",
+    "live-model concurrency compliance",
 }
 
 HARD_CLASSES = {
@@ -96,24 +97,14 @@ LIVE_HARD_REQUIREMENTS = {
     "--parallel-live": {"lifecycle", "forensic invariant"},
     "--ralplan-live": {"lifecycle", "forensic invariant"},
     "--named-agents-live": {"lifecycle", "forensic invariant"},
-    "--fusion-rescue-live": {"lifecycle", "host-boundary", "forensic invariant"},
-    "--cross-host-fallback-live": {"lifecycle", "host-boundary", "containment", "forensic invariant"},
-    "--cross-host-review-live": {"lifecycle", "host-boundary", "forensic invariant"},
-    "--ralplan-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
-    "--vbc-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
-    "--sysdebug-xhost-live": {"lifecycle", "host-boundary", "forensic invariant"},
+    "--fusion-rescue-live": {"lifecycle", "forensic invariant"},
+    "--cross-host-fallback-live": {"lifecycle", "forensic invariant"},
+    "--model-diversity-live": {"lifecycle", "containment", "forensic invariant", "hook policy"},
     "--simplify-live": {"lifecycle", "forensic invariant"},
     "--natural-session-start-live": {"lifecycle", "hook policy", "forensic invariant"},
     "--worktree-live": {"lifecycle", "worktree", "containment", "forensic invariant"},
     "--live-hook-only": {"hook policy", "malformed output"},
     "--parallel-executor-live": {"lifecycle", "containment", "forensic invariant"},
-    "--codex-executor-delegation-live": {
-        "lifecycle",
-        "containment",
-        "worktree",
-        "host-boundary",
-        "forensic invariant",
-    },
 }
 
 LIVE_BASELINE_HARD_REQUIREMENTS = {"install/load", "command invocation", "tool/permission"}
@@ -145,10 +136,6 @@ LIVE_ENV_BY_HOST = {
         "OH_NO_RALPLAN_V2_LIVE",
         "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CROSS_HOST_FALLBACK_LIVE",
-        "OH_NO_CROSS_HOST_REVIEW_LIVE",
-        "OH_NO_RALPLAN_XHOST_LIVE",
-        "OH_NO_VBC_XHOST_LIVE",
-        "OH_NO_SYSDEBUG_XHOST_LIVE",
         "OH_NO_PARALLEL_EXECUTOR_LIVE",
         "OH_NO_SIMPLIFY_LIVE",
         "OH_NO_NATURAL_SESSION_START_LIVE",
@@ -1299,39 +1286,127 @@ def assert_claude_live_budget_floor(marketplace_root: Path) -> None:
         die(f"{script_path} live max-budget default must be at least 3.00 for subagent lifecycle lanes")
 
 
-def assert_claude_fusion_rescue_readonly_guard(marketplace_root: Path) -> None:
+def assert_claude_model_diversity_lane_contract(marketplace_root: Path) -> None:
+    """Define the post-companion Claude live-lane contract consumed by T8."""
     script_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     script_text = read_text(script_path)
-    required_fragments = (
-        "codex-companion Bash command MUST NOT include --write",
-        "the fusion-codex agent runs codex-companion read-only by design (no --write flag)",
-        "codex_write_commands",
-        "invoked codex-companion with --write",
-        "invoked codex-companion with --background",
-        # Inspect actual codex-companion task invocation lines rather than
-        # matching --write text copied inside the prompt-file heredoc.
-        "companion_call_lines = [",
-        "pending_background_events",
-        "late_pending_background_events",
-        "left background/still-running work after Codex",
-        "expected exactly one codex-companion.mjs Bash invocation",
-        "expected exactly one successful codex-companion.mjs Bash result",
-        "did not return success marker OH_NO_FUSION_CODEX_PANEL_OK{detail}",
-        "matched_result_markers",
+    options = parsed_top_level_options(script_path)
+    functions = shell_function_bodies(script_text)
+    issues: list[str] = []
+
+    removed_flags = (
+        "--cross-host-review-live",
+        "--ralplan-xhost-live",
+        "--vbc-xhost-live",
+        "--sysdebug-xhost-live",
+        "--" + "codex" + "-executor-delegation-live",
     )
-    for fragment in required_fragments:
-        if fragment not in script_text:
-            die(f"{script_path} Claude Fusion Rescue live read-only guard is missing {fragment!r}")
-    # All five companion lanes (fusion, cross-host-review, ralplan-xhost,
-    # vbc-xhost, sysdebug-xhost) must inspect the actual task invocation line;
-    # packet prose such as "no --write" must not become a false positive.
-    invocation_scan = "companion_call_lines = ["
-    scan_count = script_text.count(invocation_scan)
-    if scan_count < 5:
-        die(
-            f"{script_path} must inspect codex-companion task invocation flags "
-            f"in all five live lanes (found {scan_count})"
+    for flag in removed_flags:
+        if flag in options or flag in script_text:
+            issues.append(f"retired Claude companion lane is still present: {flag}")
+
+    if "--model-diversity-live" not in options:
+        issues.append("missing --model-diversity-live option")
+    diversity = functions.get("run_model_diversity_live_test", "")
+    if not diversity:
+        issues.append("missing run_model_diversity_live_test")
+    else:
+        diversity_fragments = (
+            "opus",
+            "fable",
+            "fable opus",
+            "supported native alias",
+            "primary model is not in top-tier models",
+            "secondary model is not in top-tier models",
+            "primary and secondary models must differ",
+            "plugins/data/oh-no-harness-live-fixture",
+            'OH_NO_CONFIG_DIR="$temp_config_dir/plugins/data/oh-no-harness-live-fixture"',
+            'fixture_parent="$(cd "$(mktemp -d)" && pwd -P)"',
+            "isolated_plugin_root",
+            'cp -Rp "$PLUGIN_ROOT/." "$isolated_plugin_root/"',
+            '"$isolated_plugin_root/scripts/configure-subagents" apply',
+            '"$isolated_plugin_root/agents/code-reviewer.md"',
+            "copied code-reviewer frontmatter does not declare primary model",
+            '--plugin-dir "$isolated_plugin_root"',
+            "<OH_NO_MODEL_DIVERSITY>",
+            "top_tier_models",
+            "secondary_top_model",
+            "effective_primaries",
+            "expected exactly two same-role code-reviewer dispatches",
+            "WARN: code-reviewer dispatches were serial (non-gating; live-model concurrency compliance is advisory)",
+            "def normalize(payload):",
+            "MODEL_OVERRIDE",
+            "Platform invocation",
+            "Lifecycle",
+            "Coordination",
+            ": NORMALIZED",
+            "re.MULTILINE",
+            're.sub(r"\\b(?:primary|diversity)\\b", "LEG"',
+            "normalized packets differ beyond the model override",
+            "expected exactly one native secondary override",
+            "expected exactly one unoverridden declared-primary leg",
+            "did not complete both code-reviewer results",
+            "model-diversity-pair",
+            "substantive synthesized verdict",
         )
+        for fragment in diversity_fragments:
+            if fragment not in diversity:
+                issues.append(f"model-diversity lane missing {fragment!r}")
+        if 'raise SystemExit("code-reviewer dispatches did not overlap")' in diversity:
+            issues.append("model-diversity lifecycle-overlap observation must be warning-only")
+        mkdir_at = diversity.find("mkdir -p")
+        plugin_data_at = diversity.find("plugins/data/oh-no-harness-live-fixture")
+        resolve_at = diversity.find('oh-no-config" path')
+        if min(mkdir_at, plugin_data_at, resolve_at) < 0 or not (mkdir_at <= plugin_data_at < resolve_at):
+            issues.append("model-diversity lane must create matching plugin-data before oh-no-config path resolution")
+        copy_at = diversity.find('cp -Rp "$PLUGIN_ROOT/." "$isolated_plugin_root/"')
+        apply_at = diversity.find('"$isolated_plugin_root/scripts/configure-subagents" apply')
+        frontmatter_at = diversity.find('grep -q "^model: $primary_model$" "$isolated_plugin_root/agents/code-reviewer.md"')
+        launch_at = diversity.find("run_live_process_with_timeout")
+        if min(copy_at, apply_at, frontmatter_at, launch_at) < 0 or not (copy_at < apply_at < frontmatter_at < launch_at):
+            issues.append("model-diversity lane must copy a non-Git plugin, apply preferences there, and assert primary frontmatter before launch")
+
+    fallback = functions.get("run_same_model_fallback_live_test") or functions.get("run_cross_host_fallback_live_test", "")
+    if not fallback:
+        issues.append("missing reworked same-model fallback live function")
+    else:
+        for fragment in (
+            "no secondary configured",
+            "expected exactly two same-model code-reviewer instances",
+            "same-model-parallel-fallback",
+            "require-model-diversity",
+            "PAUSED",
+        ):
+            if fragment not in fallback:
+                issues.append(f"same-model fallback lane missing {fragment!r}")
+        for forbidden in ("codex-companion", "require-cross-host"):
+            if forbidden in fallback:
+                issues.append(f"same-model fallback lane retains cross-host mechanism {forbidden!r}")
+
+    fusion = functions.get("run_fusion_rescue_live_test", "")
+    if not fusion:
+        issues.append("missing run_fusion_rescue_live_test")
+    else:
+        for fragment in (
+            "exactly three same-role fusion-rescue-analyst panels",
+            "expected exactly two panels with the native secondary override",
+            "expected exactly one distinct top-tier panel",
+            "explicit native override or declared-frontmatter primary",
+            "panel-default",
+            "substantive synthesized verdict",
+        ):
+            if fragment not in fusion:
+                issues.append(f"Fusion Rescue model-diversity lane missing {fragment!r}")
+        for forbidden in ("codex-companion", "require-cross-host"):
+            if forbidden in fusion:
+                issues.append(f"Fusion Rescue lane retains cross-host mechanism {forbidden!r}")
+
+    if issues:
+        die(
+            f"{script_path} Claude model-diversity lane contract failed:\n  - "
+            + "\n  - ".join(issues)
+        )
+
 
 
 def assert_claude_deep_live_hard_failure_guard(marketplace_root: Path) -> None:
@@ -1377,8 +1452,6 @@ def assert_goal_preservation_and_proportional_lane_contract(marketplace_root: Pa
 
     if "Pairing is trigger-driven" not in codex:
         die(f"{codex_path} cross-host fallback lane lacks a named pairing trigger")
-    if claude.lower().count("pairing is trigger-driven") < 4:
-        die(f"{claude_path} paired-review lanes must state trigger-driven pairing")
     if "Dual-host is the default for the debugger" in claude:
         die(f"{claude_path} still encodes the retired debugger pair-by-default policy")
 
@@ -1387,7 +1460,7 @@ def assert_claude_parallel_executor_hard_guards(marketplace_root: Path) -> None:
     script_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     script_text = read_text(script_path)
     function_start = script_text.find("run_parallel_executor_live_test()")
-    function_end = script_text.find("run_codex_executor_delegation_live_test()", function_start)
+    function_end = script_text.find("run_simplify_live_test()", function_start)
     if function_start == -1 or function_end == -1:
         die(f"{script_path} is missing the parallel-executor function boundary")
     function_body = script_text[function_start:function_end]
@@ -1728,7 +1801,6 @@ def validate_classification_fixtures(
     assert_codex_parallel_transcript_fixture(marketplace_root)
     assert_codex_simplify_transcript_fixtures(marketplace_root)
     assert_claude_live_budget_floor(marketplace_root)
-    assert_claude_fusion_rescue_readonly_guard(marketplace_root)
     assert_claude_deep_live_hard_failure_guard(marketplace_root)
     assert_goal_preservation_and_proportional_lane_contract(marketplace_root)
     assert_claude_parallel_executor_hard_guards(marketplace_root)
@@ -1762,6 +1834,7 @@ def main() -> int:
 
     marketplace_root = find_marketplace_root(Path(args.marketplace_root))
     plugin_root = find_plugin_root(marketplace_root, Path(args.plugin_root) if args.plugin_root else None)
+    assert_claude_model_diversity_lane_contract(marketplace_root)
     lanes, doc_text, doc_path = load_lanes(plugin_root)
     indexed = validate_matrix_coverage(marketplace_root, lanes)
     validate_classification_fixtures(marketplace_root, indexed, doc_text, doc_path)

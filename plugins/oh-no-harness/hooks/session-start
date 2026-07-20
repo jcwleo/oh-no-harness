@@ -6,6 +6,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_CODEX_PLUGIN_ROOT="${PLUGIN_ROOT:-}"
 OH_NO_PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DEFAULT_TOP_TIER_MODELS="fable opus"
+DIVERSITY_PREF_SCHEMA_VERSION=2
+DIVERSITY_PRIMARY_NATIVE_MODELS="fable opus sonnet"
+DIVERSITY_NATIVE_MODELS="fable opus sonnet haiku"
+DIVERSITY_GPT_MODELS="gpt-5.6-sol gpt-5.6-terra"
+DIVERSITY_EFFORTS="max xhigh high medium"
+DIVERSITY_ROLES=(
+  explore analyst planner plan-reviewer executor debugger verifier
+  code-reviewer fusion-rescue-analyst
+)
 
 escape_for_json() {
     local s="$1"
@@ -15,6 +25,129 @@ escape_for_json() {
     s="${s//$'\r'/\\r}"
     s="${s//$'\t'/\\t}"
     printf '%s' "$s"
+}
+
+model_in_list() {
+  local needle="$1" item
+  for item in $2; do [ "$item" = "$needle" ] && return 0; done
+  return 1
+}
+
+prefs_key_count() {
+  LC_ALL=C awk -F= -v key="$2" '$1 == key { count++ } END { print count + 0 }' "$1"
+}
+
+prefs_value() {
+  LC_ALL=C awk -F= -v key="$2" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$1"
+}
+
+load_model_diversity_prefs() {
+  local file="$1" schema proxy top_tier secondary allowed_top_tier allowed_primary
+  local model normalized="" native_found=0 count i=0 line role rest effort
+  local plan_reviewer="host-default" code_reviewer="host-default"
+  local debugger="host-default" fusion_rescue_analyst="host-default"
+
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  LC_ALL=C awk '
+    /^#/ { next }
+    /^(schema_version|proxy|secondary_top_model|top_tier_models|assignment)=/ { next }
+    { exit 1 }
+  ' "$file" || return 1
+  [ "$(prefs_key_count "$file" schema_version)" = 1 ] || return 1
+  [ "$(prefs_key_count "$file" proxy)" = 1 ] || return 1
+  [ "$(prefs_key_count "$file" secondary_top_model)" -le 1 ] || return 1
+  [ "$(prefs_key_count "$file" top_tier_models)" -le 1 ] || return 1
+  schema="$(prefs_value "$file" schema_version)"
+  [ "$schema" = "$DIVERSITY_PREF_SCHEMA_VERSION" ] || return 1
+  proxy="$(prefs_value "$file" proxy)"
+  [ "$proxy" = yes ] || [ "$proxy" = no ] || return 1
+
+  if [ "$(prefs_key_count "$file" top_tier_models)" = 1 ]; then
+    top_tier="$(prefs_value "$file" top_tier_models)"
+    [ -n "$top_tier" ] || return 1
+  else
+    top_tier="$DEFAULT_TOP_TIER_MODELS"
+  fi
+  allowed_top_tier="$DIVERSITY_NATIVE_MODELS"
+  [ "$proxy" = yes ] && allowed_top_tier="$allowed_top_tier $DIVERSITY_GPT_MODELS"
+  for model in $top_tier; do
+    model_in_list "$model" "$allowed_top_tier" || return 1
+    model_in_list "$model" "$DIVERSITY_NATIVE_MODELS" && native_found=1
+    if [ -n "$normalized" ]; then normalized="$normalized $model"; else normalized="$model"; fi
+  done
+  [ -n "$normalized" ] || return 1
+  [ "$native_found" = 1 ] || return 1
+
+  count="$(prefs_key_count "$file" assignment)"
+  [ "$count" = 9 ] || return 1
+  allowed_primary="$DIVERSITY_PRIMARY_NATIVE_MODELS"
+  [ "$proxy" = yes ] && allowed_primary="$allowed_primary $DIVERSITY_GPT_MODELS"
+  while IFS= read -r line; do
+    role="${line%%,*}"
+    rest="${line#*,}"
+    model="${rest%%,*}"
+    effort="${rest#*,}"
+    [ "$rest" != "$line" ] || return 1
+    [ "$effort" = "${rest##*,}" ] || return 1
+    [ "$i" -lt "${#DIVERSITY_ROLES[@]}" ] || return 1
+    [ "$role" = "${DIVERSITY_ROLES[$i]}" ] || return 1
+    model_in_list "$model" "$allowed_primary" || return 1
+    model_in_list "$effort" "$DIVERSITY_EFFORTS" || return 1
+    case "$role" in
+      plan-reviewer) plan_reviewer="$model" ;;
+      code-reviewer) code_reviewer="$model" ;;
+      debugger) debugger="$model" ;;
+      fusion-rescue-analyst) fusion_rescue_analyst="$model" ;;
+    esac
+    i=$((i + 1))
+  done <<EOF
+$(LC_ALL=C awk -F= '$1 == "assignment" { sub(/^[^=]*=/, ""); print }' "$file")
+EOF
+  [ "$i" = 9 ] || return 1
+
+  secondary="$(prefs_value "$file" secondary_top_model)"
+  if [ -n "$secondary" ] && { ! model_in_list "$secondary" "$DIVERSITY_NATIVE_MODELS" || ! model_in_list "$secondary" "$normalized"; }; then
+    secondary=""
+  fi
+
+  DIVERSITY_TOP_TIER_MODELS="$normalized"
+  DIVERSITY_SECONDARY_TOP_MODEL="$secondary"
+  DIVERSITY_PLAN_REVIEWER_PRIMARY="$plan_reviewer"
+  DIVERSITY_CODE_REVIEWER_PRIMARY="$code_reviewer"
+  DIVERSITY_DEBUGGER_PRIMARY="$debugger"
+  DIVERSITY_FUSION_RESCUE_ANALYST_PRIMARY="$fusion_rescue_analyst"
+  return 0
+}
+
+model_diversity_policy() {
+  local config_path prefs_file
+  DIVERSITY_TOP_TIER_MODELS="$DEFAULT_TOP_TIER_MODELS"
+  DIVERSITY_SECONDARY_TOP_MODEL=""
+  DIVERSITY_PLAN_REVIEWER_PRIMARY="host-default"
+  DIVERSITY_CODE_REVIEWER_PRIMARY="host-default"
+  DIVERSITY_DEBUGGER_PRIMARY="host-default"
+  DIVERSITY_FUSION_RESCUE_ANALYST_PRIMARY="host-default"
+
+  if [ -x "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" ] && \
+     config_path="$("${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" path 2>/dev/null)" && \
+     [ -n "$config_path" ]; then
+    prefs_file="$(dirname "$config_path")/subagent-models.conf"
+    if load_model_diversity_prefs "$prefs_file"; then :; fi
+  fi
+
+  if [ -n "$DIVERSITY_SECONDARY_TOP_MODEL" ]; then
+    printf '<OH_NO_MODEL_DIVERSITY>\n'
+    printf 'top_tier_models=%s\n' "$DIVERSITY_TOP_TIER_MODELS"
+    printf 'secondary_top_model=%s\n' "$DIVERSITY_SECONDARY_TOP_MODEL"
+  else
+    printf '<OH_NO_MODEL_DIVERSITY>\n'
+    printf 'top_tier_models=%s\n' "$DIVERSITY_TOP_TIER_MODELS"
+  fi
+  printf 'effective_primaries=plan-reviewer:%s code-reviewer:%s debugger:%s fusion-rescue-analyst:%s\n' \
+    "$DIVERSITY_PLAN_REVIEWER_PRIMARY" "$DIVERSITY_CODE_REVIEWER_PRIMARY" \
+    "$DIVERSITY_DEBUGGER_PRIMARY" "$DIVERSITY_FUSION_RESCUE_ANALYST_PRIMARY"
+  printf 'Pair rule: unoverridden dispatch uses the stored primary; the diversity leg uses an explicit NATIVE override with secondary_top_model; strict mode pauses when no valid secondary.\n'
+  printf '</OH_NO_MODEL_DIVERSITY>'
 }
 
 is_claude_code=false
@@ -63,24 +196,6 @@ If an invoked skill turns out not to apply, say so briefly in one line and conti
 </OH_NO_FORCED_ROUTING>'
 fi
 
-codex_executor_policy=""
-if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" codex-executor is-enabled >/dev/null 2>&1; then
-  codex_executor_policy='
-<OH_NO_CODEX_EXECUTOR_DELEGATION>
-Codex-executor delegation is ON (session-scoped, Claude-Code-only). This is a highest-priority scoped override of ONLY the executor role, session-global across ralph, ultrawork, and systematic-debugging.
-
-Executor role re-bind: when Ralph (or any Oh No Harness workflow) dispatches the `executor` role, dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`. That agent is a thin transport: it compiles one scoped packet, makes one foreground write-capable Codex companion call, and returns raw Codex stdout without wrapper synthesis.
-
-Executor-only fence: ONLY the executor role is delegated. Verify, review, and merge MUST NOT be routed to the write-capable executor-codex channel; they stay with Claude / native review and verifier roles, so maker-verifier independence cannot silently collapse.
-
-Eligibility-preserving rebind: existing Ralph eligibility remains the sole gate. An executor batch already admitted as disjoint under the Ralph Batch Rule and Isolation Contract may overlap at the outer executor-codex agent layer. Ineligible, unknown, or unsafe work stays serial. Each inner companion call remains foreground; the caller waits for every started member, then runs existing scope checks, native verification, and review. Fallback and integration remain sequential.
-
-Caller-mediated degrade: if the codex companion is unavailable, unresolvable, or the delegated call fails, executor-codex SIGNALS companion-unavailable and returns; the main ralph agent (the caller) inspects any partial worktree delta before sequential native `oh-no-harness:executor` fallback and records a warning. executor-codex CANNOT self-dispatch.
-
-Best-effort framing (honest): worktree/sandbox confinement of delegated writes is BEST-EFFORT, NOT a guarantee. The caller owns the escape-DETECTION guard: capture protected-target state immediately before the admitted outer batch and after every started member finishes, EXCLUDING the delegated task worktrees from protected-target traversal, derive each worktree diff, and HALT before merge on any unexpected protected-target change. Its filesystem sentinel is a path + mtime + size manifest, not a content hash. Same-path/mtime/size rewrites, tracked files already dirty with unchanged status, arbitrary temp dirs, and non-.oh-no/ ignored paths remain undetected.
-</OH_NO_CODEX_EXECUTOR_DELEGATION>'
-fi
-
 rg_search_policy=""
 if command -v rg >/dev/null 2>&1; then
   rg_search_policy='
@@ -90,7 +205,7 @@ Ripgrep is available. Prefer `rg` and `rg --files` for repository search; use a 
 fi
 
 base_session_context="<EXTREMELY_IMPORTANT>
-You have oh-no-harness.${auto_routing_policy}${codex_executor_policy}${rg_search_policy}
+You have oh-no-harness.${auto_routing_policy}${rg_search_policy}
 
 ${bootstrap_policy}
 </EXTREMELY_IMPORTANT>"
@@ -203,13 +318,16 @@ Oh No Harness could not reapply your saved subagent model configuration (status 
 </OH_NO_SUBAGENT_CONFIG_NOTICE>"
     fi
   fi
+  model_diversity_block="$(model_diversity_policy)"
   session_context="${base_session_context}
 
 ${claude_code_question_policy}
 
 ${claude_code_orchestration_policy}
 
-${claude_code_subagent_role_label_policy}${subagent_config_notice}"
+${claude_code_subagent_role_label_policy}
+
+${model_diversity_block}${subagent_config_notice}"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 else

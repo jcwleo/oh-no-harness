@@ -1,7 +1,7 @@
 ---
 name: auto-routing
-description: Use when the user wants to manage Oh No Harness session toggles, such as turning automatic skill-selection guidance on or off, checking routing status, making the bootstrap prompt more or less assertive across sessions, or turning the Codex executor delegation toggle on or off.
-argument-hint: "[on|off|status | codex-executor on|off|status]"
+description: Use when the user wants to turn Oh No Harness automatic skill-selection guidance on or off, check routing status, or make the bootstrap prompt more or less assertive across sessions.
+argument-hint: "[on|off|status]"
 ---
 
 <!-- oh-no-harness-generated-skill-wrapper -->
@@ -25,14 +25,8 @@ The sections below are already composed for this platform. Do not ask the runtim
 
 # Auto Routing
 
-Auto Routing is the manager of the Oh No Harness **session toggles**. It manages
-two independent, session-scoped preferences stored in the same `config.json`:
-the `autoRouting` skill-selection toggle described here, and the `codexExecutor`
-executor-delegation toggle described under Codex Executor Delegation Toggle
-below. Both are read at bootstrap/session-start.
-
-Auto Routing (the `autoRouting` toggle) controls whether a supported platform
-bootstrap hook adds stronger skill-selection guidance to `using-oh-no-harness`.
+Auto Routing controls whether a supported platform bootstrap hook adds stronger
+skill-selection guidance to `using-oh-no-harness`.
 
 It does not add hidden runtime routing. It only changes persistent user preference for the SessionStart prompt.
 
@@ -50,9 +44,6 @@ Use when the user asks to:
 - disable, turn off, deactivate, or make skill routing quieter
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
-- enable or disable delegating the executor role's implementation work to Codex
-  (the `codexExecutor` toggle)
-- check current codex-executor delegation status
 
 Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
 
@@ -66,37 +57,6 @@ When the active platform supports persistent bootstrap routing, changes take
 effect on the next bootstrap or session-start event, such as a new session, app
 restart, clear/reset command, or compaction. Existing session context is not
 rewritten.
-
-## Codex Executor Delegation Toggle
-
-The `codexExecutor` toggle is the second session toggle this skill manages. When
-ON, and on a platform whose bootstrap supports delegation, Oh No Harness
-delegates the **executor role's implementation work to Codex** instead of the
-native `oh-no-harness:executor`, for every executor dispatch path (ralph,
-ultrawork, systematic-debugging).
-
-Shared facts (all platforms):
-
-- **Default OFF.** Delegation is opt-in; with the toggle OFF the native
-  `oh-no-harness:executor` runs and nothing changes.
-- **Executor role only.** When ON, only the executor role is re-bound to Codex.
-  Its assigned RED, GREEN, REFACTOR, focused-fix, and cleanup mutations may be
-  delegated; caller-run checks, verification, review, and merge stay with the
-  native independent roles.
-- **Eligibility unchanged.** Existing Ralph eligibility remains the sole gate.
-  An already-admitted disjoint executor batch may overlap only at the outer
-  `executor-codex` agent layer; each inner companion call remains foreground.
-  Ineligible, unknown, or unsafe work stays serial, and fallback and integration
-  remain caller-owned and sequential.
-- **Best-effort confinement, not a guarantee.** Delegated writes are scoped
-  best-effort to the task worktree. The executor transport returns raw Codex
-  output; the caller owns the escape-DETECTION guard, derives the worktree diff,
-  and halts before merge on an unexpected protected-target change. This is
-  DETECTION, not prevention, and is not a sandbox guarantee.
-- Manage it with `oh-no-config codex-executor on|off|status` (see Commands), then
-  restart or clear the session so the bootstrap re-fires (see Response Rules).
-  Whether the toggle produces a runtime effect depends on the active platform
-  (see Platform Behavior and the platform runtime document).
 
 ## Configuration
 
@@ -117,22 +77,15 @@ Fallback location when no platform plugin-data directory exists:
 ${XDG_CONFIG_HOME:-$HOME/.config}/oh-no-harness/config.json
 ```
 
-Stored shape (both toggles are independent sibling keys):
+Stored shape:
 
 ```json
 {
   "autoRouting": {
     "enabled": true
-  },
-  "codexExecutor": {
-    "enabled": false
   }
 }
 ```
-
-`codexExecutor` defaults to OFF (`enabled: false`). Writing one toggle must
-preserve the sibling toggle's value; never clobber `autoRouting` when changing
-`codexExecutor`, or vice versa.
 
 ## Commands
 
@@ -154,15 +107,6 @@ script="$(find <platform-plugin-cache> -path '*/oh-no-harness/*/scripts/oh-no-co
 "$script" status
 ```
 
-The same script manages the `codexExecutor` toggle through the `codex-executor`
-subcommand, mirroring the auto-routing verbs:
-
-```bash
-"<plugin-root>/scripts/oh-no-config" codex-executor status
-"<plugin-root>/scripts/oh-no-config" codex-executor on
-"<plugin-root>/scripts/oh-no-config" codex-executor off
-```
-
 ## Response Rules
 
 - For `on`, enable the setting, report the config path, and tell the user to
@@ -170,16 +114,6 @@ subcommand, mirroring the auto-routing verbs:
 - For `off`, disable the setting, report the config path, and tell the user to
   restart or clear the active platform session before expecting the new behavior.
 - For `status`, report whether auto-routing is on or off and where the setting is stored.
-- For `codex-executor on`, enable the `codexExecutor` toggle, report the config
-  path, and tell the user to restart or clear the active platform session before
-  the delegation takes effect — the bootstrap re-fires on the next session-start.
-- For `codex-executor off`, disable the `codexExecutor` toggle, report the config
-  path, and tell the user to restart or clear the session before the change takes
-  effect.
-- For `codex-executor status`, report whether codex-executor delegation is on or
-  off and where the setting is stored.
-- When changing either toggle, preserve the sibling toggle's value; do not clobber
-  `autoRouting` or `codexExecutor` when writing the other.
 - If Bash is unavailable, explain the config file shape without claiming the setting changed.
 - Do not invoke workflow skills from this configuration skill.
 
@@ -221,12 +155,24 @@ waiting, capture every final result, and clean up only after integration. An
 approved-plan handoff is dispatch authorization for eligible isolated roles;
 plugin-agent unavailability uses the documented embedded-role fallback.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
-This channel is trigger-loaded, not embedded in every workflow decision. When a
-named THOROUGH paired-review or Fusion Rescue trigger fires, read and apply
-`docs/platforms/claude-code.md` `## Cross-Host Consult Channel` before dispatch.
-Until then, do not preload opposite-host invocation details.
+This mechanism is trigger-loaded, not embedded in every workflow decision. Both legs MUST be requested in a single batch: issue both subagent tool calls
+in the same assistant turn (or with `Background: yes` for both) BEFORE waiting
+on either result; a serial dispatch-wait-dispatch sequence is not a valid pair.
+The two legs' packet bodies MUST be byte-identical; leg identity (`primary` vs
+`diversity`) is carried ONLY by the host dispatch metadata (the description field
+and the model override), never inside the packet text. For a named THOROUGH
+pair, read the role's concrete stored primary and validated secondary top-tier
+model from the session `<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
+unoverridden and uses the declared-frontmatter primary; the
+secondary leg carries an explicit NATIVE model override. Claim
+`model-diversity-pair` only when the primary is not `host-default` and the
+secondary differs from it. Otherwise default to two independent same-model
+instances as `same-model-parallel-fallback` with the reason recorded; an
+explicit `require-model-diversity` demand transitions to PAUSED when the
+diversity leg is unavailable. Fusion Rescue uses its Claude Code overlay's
+three-panel assignment instead of this two-leg shape.
 
 ## Source: docs/platforms/claude-code-auto-routing.md
 
@@ -250,20 +196,5 @@ When `CLAUDE_PLUGIN_ROOT` is set, use:
 "${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" off
 ```
 
-The `codexExecutor` toggle uses the same script with the `codex-executor`
-subcommand:
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" codex-executor status
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" codex-executor on
-"${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" codex-executor off
-```
-
 On Claude Code, the shared core's bootstrap/session-start timing applies as the
 `SessionStart` event, and the clear/reset command is `/clear`.
-
-When the `codexExecutor` toggle is ON, the codex-executor delegation block is
-injected via `SessionStart` on Claude Code only. That injected block re-binds the
-executor role and dispatches `oh-no-harness:executor-codex` in place of
-`oh-no-harness:executor`. Turning the toggle on or off takes effect only after
-the `SessionStart` event re-fires (a new session or `/clear`).

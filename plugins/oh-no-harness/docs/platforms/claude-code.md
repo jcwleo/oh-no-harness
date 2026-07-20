@@ -127,23 +127,36 @@ embedding the matching `agents/<role>.md` prompt into the available subagent
 mechanism. If no dispatch mechanism is available, keep the role inline and
 record the fallback reason when the core skill requires it.
 
-## Cross-Host Consult Channel
+## Model Diversity Pair
 
 Load this section only after a named THOROUGH paired-review or Fusion Rescue
-trigger. On Claude Code, the opposite host is Codex.
+trigger. The SessionStart `<OH_NO_MODEL_DIVERSITY>` block declares the resolved
+top-tier list, an optional validated secondary top-tier model, and each paired
+role's stored effective primary or `host-default`.
 
-Dispatch the dedicated read-only `oh-no-harness:<role>-codex` consult owner for
-`plan-reviewer`, `code-reviewer`, or `debugger`, or `fusion` for its assigned
-panel slot. It resolves the companion and runs one synchronous, read-only
-`codex-companion.mjs task` call with a scoped redacted `--prompt-file`; it never
-uses a detached/background call. A queued-job acknowledgement or status pointer
-is not a result, and the caller must not poll a deferred result to compensate.
+For `plan-reviewer`, `code-reviewer`, and `debugger`, a
+`model-diversity-pair` contains two same-role instances with identical packets,
+dispatched in parallel and synthesized by the caller. Both legs MUST be requested
+in a single batch: issue both subagent tool calls in the same assistant turn (or
+with `Background: yes` for both) BEFORE waiting on either result; a serial
+dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet
+bodies MUST be byte-identical; leg identity (`primary` vs `diversity`) is
+carried ONLY by the host dispatch metadata (the description field and the model
+override), never inside the packet text. The primary leg is unoverridden and
+uses the concrete declared-frontmatter primary applied from
+stored preferences. The diversity leg carries an explicit NATIVE model override
+for the validated secondary. Claim this mode only when the primary is not
+`host-default` and the secondary differs from the declared stored primary.
 
-For shared review, the packet requires Codex to dispatch the matching
-`oh-no-<role>` agent, wait for it, and return role-ownership proof. A direct
-Codex parent answer is not a valid opposite-host shared review response. Missing
-role ownership or an unavailable companion triggers the calling skill's
-Same-Host Parallel Fallback in default mode or blocks require-cross-host mode.
-The packet forbids nested rescue, edits, installs, mutating commands, and a
-second cross-host hop. Redact secrets and PII; record only failure class and
-companion/path/auth status on failure.
+If no valid secondary exists, the primary is `host-default`, the declared
+primary cannot be applied, the models are equal, or the secondary override
+fails, default mode dispatches two independent same-model instances as
+`same-model-parallel-fallback` and records the reason. An explicit
+`require-model-diversity` demand is strict: transition to PAUSED when the
+diversity leg is unavailable or fails, and never silently use the fallback.
+
+Fusion Rescue uses the platform-specific three-panel assignment in
+`claude-code-fusion-rescue.md`. Panel identities must come from the resolved
+top-tier list and be proven by an explicit NATIVE override or the declared-
+frontmatter primary on an unoverridden panel. Claude Code defines no
+opposite-host consult path for Fusion Rescue.

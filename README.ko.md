@@ -59,7 +59,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 **🔁 워크플로우**
 - **소크라테스식 인터뷰.** `/oh-no-harness:interview`가 코드 사실, 리서치 사실, 사용자 판단 질문을 분리해 — 스펙 작성 전에 결정·제약·비범위를 보존합니다.
 - **Mode-gated 실행.** 스펙과 계획은 작업을 `LIGHT` / `STANDARD` / `THOROUGH`로 산정하고, Ralph는 기록된 모드에 맞춰 실행합니다 (항상 무거운 루프를 돌리지 않음).
-- **Fusion rescue.** `/oh-no-harness:fusion-rescue`는 세 개 패널 렌즈를 실행하고, 가능하면 Codex가 adversarial 렌즈를 맡게 한 뒤, 현재 host가 다음 행동을 종합합니다.
+- **Fusion rescue.** `/oh-no-harness:fusion-rescue`는 세 개 패널 렌즈를 실행하고, Claude Code에서는 설정된 모델 다양성을 적용하며, Codex host에서는 가능한 경우 제한된 Claude consult를 유지한 뒤, 현재 host가 다음 행동을 종합합니다.
 - **Auto-routing.** `/oh-no-harness:auto-routing on` 한 번이면 Claude가 질문·수정 전에 적절한 skill을 먼저 참조하도록 안내합니다 — 숨겨진 상태도, 승인 게이트 우회도 없습니다.
 
 **✨ 사용 경험**
@@ -85,14 +85,7 @@ claude plugin install oh-no-harness@oh-no-harness
 
 설치 후 `/oh-no-harness:auto-routing on`을 한 번 실행하세요. 이후에는 작업을 자연어로 설명하기만 하면 Claude Code가 질문·계획·수정·완료 선언 전에 적절한 skill을 먼저 확인하도록 안내합니다.
 
-**선택 사항 — cross-host consult.** Claude Code에서 cross-host review 쌍과 Fusion Rescue의 Codex 패널 렌즈는 Claude Code용 Codex plugin에 포함된 companion 스크립트를 통해 Codex에 연결됩니다. 사용하려면 해당 plugin도 설치하고 Codex CLI에 로그인하세요:
-
-```sh
-claude plugin marketplace add openai/codex-plugin-cc
-claude plugin install codex@openai-codex
-```
-
-없으면 기본 모드의 워크플로우는 자동으로 Same-Host Parallel Fallback(같은 호스트 에이전트 2개를 합성)으로 degrade합니다. 명시적으로 `require-cross-host`를 요청한 경우에는 Codex를 사용할 수 없으면 중단됩니다.
+**선택 사항 — 모델 다양성(model diversity).** Claude Code에서 THOROUGH review 쌍과 Fusion Rescue 패널은 `/oh-no-harness:configure-subagents`로 secondary top-tier model을 설정하면 모델 다양성을 얻습니다. 유효한 secondary가 없으면 워크플로우는 `same-model-parallel-fallback`을 사용하고, 명시적으로 `require-model-diversity`를 요청한 경우에는 fallback하지 않고 중단됩니다.
 
 <details>
 <summary>Claude Code 내부 대화형 설치</summary>
@@ -162,7 +155,7 @@ codex plugin marketplace upgrade oh-no-harness
 | 명령 | 사용 시점 |
 |---|---|
 | `/oh-no-harness:install-statusline [check]` | 번들 개발자 statusline을 `~/.claude`에 설치 (`check`는 상태만 보고). |
-| `/oh-no-harness:configure-subagents [check]` | 설치된 각 subagent의 model과 reasoning effort 선택 (`check`는 상태만 보고). |
+| `/oh-no-harness:configure-subagents [check]` | 설치된 각 subagent의 model과 reasoning effort, Claude-host 모델 다양성에 사용할 선택적 secondary top-tier model을 설정 (`check`는 상태만 보고). |
 
 일반적인 단계 흐름:
 
@@ -186,8 +179,8 @@ codex plugin marketplace upgrade oh-no-harness
 - compact `SessionStart` 안내와 좁은 `UserPromptSubmit` Ralph adapter 훅만 사용 — `PreToolUse`/`PostToolUse` 미사용.
 - npm 런타임 없음, 별도 CLI 프로세스 없음, tmux 프로세스 없음, MCP 서버 없음.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
-- 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (auto-routing 플래그용).
-- `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정과 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
+- 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (지속되는 harness 설정용).
+- `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정, top-tier/secondary 다양성 설정, 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
 - 모든 command, skill, agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
 
 ## 산출물

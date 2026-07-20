@@ -36,7 +36,7 @@ interrupted; re-running an `apply` (or the SessionStart `reapply`) recovers it.
 
 Only when the command is invoked with no argument do you run the full interview
 below. Every run — including the interview's first step — begins with this same
-read-only `check` to confirm the plugin root and the 14 installed agent files.
+read-only `check` to confirm the plugin root and the 9 installed agent files.
 
 ## Asking The Questions
 
@@ -55,48 +55,55 @@ focused question at a time.
    [ -n "${ANTHROPIC_BASE_URL:-}" ] && printf 'ANTHROPIC_BASE_URL: set\n' || printf 'ANTHROPIC_BASE_URL: missing\n'
    [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && printf 'ANTHROPIC_AUTH_TOKEN: set\n' || printf 'ANTHROPIC_AUTH_TOKEN: missing\n'
    ```
-3. For each of the 14 agents in order, ask the model question:
+3. For each of the 9 agents in order, ask the model question:
    - Proxy `no`: offer exactly `fable`, `opus`, `sonnet`.
    - Proxy `yes`: offer `fable`, `opus`, `sonnet`, and `GPT via CLIProxyAPI`.
-     When the user picks the GPT option, ask a second question offering
-     `gpt-5.6-sol` and `gpt-5.6-terra`. Keeping GPT behind a follow-up keeps each
+     When the user picks the GPT option, ask a second question offering the
+     available GPT aliases. Keeping GPT behind a follow-up keeps each
      `AskUserQuestion` within its four-option limit.
 4. Then ask the effort question offering `max`, `xhigh`, `high`, `medium`.
+5. Ask for the space-separated `top_tier_models` value, proposing the native
+   default `fable opus`. GPT aliases may be included only when the proxy answer
+   was `yes`.
+6. Ask whether to configure `secondary_top_model`. If yes, offer exactly
+   `fable`, `opus`, `sonnet`, and `haiku`; do not offer GPT for this key, and
+   require the selection to be present in `top_tier_models`.
 
 ## Applying
 
-Collect all 14 model+effort selections, show a final summary table, and ask a
-single apply-or-cancel confirmation with `AskUserQuestion`. Only after an explicit
-apply, run the configurator once with the collected assignments so all 14 agents
-change in one transaction. Write nothing before that confirmation.
+Collect all 9 model+effort selections plus the diversity settings, show a final
+summary table, and ask a single apply-or-cancel confirmation with
+`AskUserQuestion`. Only after an explicit apply, run the configurator once with
+the collected settings so all 9 agents change in one transaction. Write nothing
+before that confirmation.
 
-Build the apply invocation as a Bash argument array so each `role=model,effort`
-token is passed as one literal argument (never interpolated into a single string
-and never through `eval`). The 14 tokens must be in the canonical role order:
+Build the apply invocation as a Bash argument array so each option and
+`role=model,effort` token is passed as one literal argument (never interpolated
+into a single string and never through `eval`). The 9 role tokens must be in the
+canonical role order:
 
 ```bash
 args=(apply --proxy no
+  --secondary-top-model fable
+  --top-tier-models "fable opus"
   explore=sonnet,high
   analyst=opus,xhigh
   planner=opus,max
   plan-reviewer=opus,xhigh
   executor=opus,high
-  executor-codex=sonnet,medium
   debugger=opus,xhigh
   verifier=sonnet,high
   code-reviewer=opus,xhigh
-  fusion-rescue-analyst=opus,xhigh
-  plan-reviewer-codex=sonnet,medium
-  code-reviewer-codex=sonnet,medium
-  debugger-codex=sonnet,medium
-  fusion-codex=sonnet,medium)
+  fusion-rescue-analyst=opus,xhigh)
 "$script" "${args[@]}"    # or "${CLAUDE_PLUGIN_ROOT}/scripts/configure-subagents" "${args[@]}"
 ```
 
-Use `--proxy yes` instead when CLIProxyAPI was confirmed; only then may a token's
-model be `gpt-5.6-sol` or `gpt-5.6-terra`. The configurator exits non-zero and
-writes nothing if the tokens are incomplete, reordered, or use a model the proxy
-answer does not allow.
+Omit `--secondary-top-model` when the user chooses no secondary. Use
+`--proxy yes` when CLIProxyAPI was confirmed; only then may a per-role primary or
+a `top_tier_models` entry use one of the GPT aliases offered by the wizard. The
+configurator exits non-zero and writes nothing if the role tokens are incomplete
+or reordered, if a model is not allowed by the proxy answer, or if the secondary
+is not native and present in the top-tier list.
 
 After a successful apply, tell the user the change takes effect in the next Claude
 Code session; `/clear` or a new session guarantees it. Stored preferences are

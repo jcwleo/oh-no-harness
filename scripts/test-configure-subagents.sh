@@ -29,12 +29,10 @@ PYTHON="$(command -v python3)"
 # Production ignores these seams unless this exact guard is set (asserted below).
 export OH_NO_CONFIGURE_TEST_SEAMS=1
 
-# Canonical role order (must mirror the AGENTS inventory in the validator and
-# the configurator). Includes the five Claude-only Codex transport roles.
+# Canonical 9-role order (must mirror the validator and configurator).
 ROLES=(
-  explore analyst planner plan-reviewer executor executor-codex debugger
-  verifier code-reviewer fusion-rescue-analyst plan-reviewer-codex
-  code-reviewer-codex debugger-codex fusion-codex
+  explore analyst planner plan-reviewer executor debugger verifier
+  code-reviewer fusion-rescue-analyst
 )
 
 pass=0
@@ -42,26 +40,26 @@ fail=0
 ok()  { pass=$((pass + 1)); printf '  ok   %s\n' "$1"; }
 bad() { fail=$((fail + 1)); printf '  FAIL %s\n' "$1"; }
 
-# Native (proxy=no) 14-assignment vector, one token per role in canonical order.
+# Native (proxy=no) 9-assignment vector, one token per role in canonical order.
 native_assignments() {
   printf '%s' \
-    'explore=sonnet,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium'
+    'explore=sonnet,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh'
 }
 
 # Alternate native vector (different efforts) for prefs-restore checks.
 alt_assignments() {
   printf '%s' \
-    'explore=opus,max analyst=sonnet,high planner=sonnet,high plan-reviewer=sonnet,high executor=sonnet,high executor-codex=opus,max debugger=sonnet,high verifier=opus,max code-reviewer=sonnet,high fusion-rescue-analyst=sonnet,high plan-reviewer-codex=opus,max code-reviewer-codex=opus,max debugger-codex=opus,max fusion-codex=opus,max'
+    'explore=opus,max analyst=sonnet,high planner=sonnet,high plan-reviewer=sonnet,high executor=sonnet,high debugger=sonnet,high verifier=opus,max code-reviewer=sonnet,high fusion-rescue-analyst=sonnet,high'
 }
 
 # GPT variant: explore + analyst use CLIProxyAPI GPT aliases, rest native.
 gpt_assignments() {
   printf '%s' \
-    'explore=gpt-5.6-terra,medium analyst=gpt-5.6-sol,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium'
+    'explore=gpt-5.6-terra,medium analyst=gpt-5.6-sol,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh'
 }
 
-model_for() { case "$1" in explore|verifier|executor-codex|plan-reviewer-codex|code-reviewer-codex|debugger-codex|fusion-codex) printf 'sonnet' ;; *) printf 'opus' ;; esac; }
-effort_for() { case "$1" in planner) printf 'max' ;; explore|executor|verifier) printf 'high' ;; executor-codex|plan-reviewer-codex|code-reviewer-codex|debugger-codex|fusion-codex) printf 'medium' ;; *) printf 'xhigh' ;; esac; }
+model_for() { case "$1" in explore|verifier) printf 'sonnet' ;; *) printf 'opus' ;; esac; }
+effort_for() { case "$1" in planner) printf 'max' ;; explore|executor|verifier) printf 'high' ;; *) printf 'xhigh' ;; esac; }
 
 # Independent byte-exact oracle (Python, NOT the production awk/head/tail). Reads
 # raw bytes, transforms only the frontmatter model/effort lines, and copies the
@@ -128,7 +126,7 @@ status="$(run check | grep '^STATUS:')"
 teardown_fixture
 
 # ---------------------------------------------------------------------------
-echo "== apply: native-only 14 agents, byte-exact vs independent oracle (cmp) =="
+echo "== apply: native-only 9 agents, byte-exact vs independent oracle (cmp) =="
 setup_fixture
 out="$(run apply --proxy no $(native_assignments))"; rc=$?
 [ "$rc" -eq 0 ] && ok "native apply exits 0" || bad "native apply exits 0 (got $rc)"
@@ -138,17 +136,51 @@ for role in "${ROLES[@]}"; do
   oracle "$CANONICAL_AGENTS/$role.md" "$(model_for "$role")" "$(effort_for "$role")" "$EXP/$role.md"
   cmp -s "$TARGET/agents/$role.md" "$EXP/$role.md" || { all_bytes_ok=0; printf '        byte mismatch: %s\n' "$role"; }
 done
-[ "$all_bytes_ok" -eq 1 ] && ok "all 14 files byte-exact vs oracle (model replaced, effort after model, rest preserved)" || bad "byte-for-byte preservation"
+[ "$all_bytes_ok" -eq 1 ] && ok "all 9 files byte-exact vs oracle (model replaced, effort after model, rest preserved)" || bad "byte-for-byte preservation"
 adjacency_ok=1
 for role in "${ROLES[@]}"; do
   LC_ALL=C awk '/^model:/{m=NR} /^effort:/{e=NR} END{ if (e!=m+1) exit 1 }' "$TARGET/agents/$role.md" || { adjacency_ok=0; printf '        effort not adjacent: %s\n' "$role"; }
 done
 [ "$adjacency_ok" -eq 1 ] && ok "effort line immediately follows model line" || bad "effort adjacency"
 [ -f "$CFG/subagent-models.conf" ] && ok "durable preferences file written" || bad "preferences file"
-grep -q '^schema_version=' "$CFG/subagent-models.conf" && ok "preferences are schema-versioned" || bad "schema_version"
+grep -q '^schema_version=2$' "$CFG/subagent-models.conf" && ok "preferences use schema v2" || bad "schema_version=2"
 grep -q 'AUTH_TOKEN\|BASE_URL\|Bearer\|password\|secret' "$CFG/subagent-models.conf" && bad "preferences leaked credentials" || ok "preferences store no proxy credentials"
 status="$(run check | grep '^STATUS:')"
 [ "$status" = "STATUS: matching" ] && ok "check reports matching after apply" || bad "check after apply ($status)"
+teardown_fixture
+
+# ---------------------------------------------------------------------------
+echo "== schema-v2 diversity preferences: accept native, reject invalid secondary =="
+setup_fixture
+run apply --proxy no --secondary-top-model fable --top-tier-models "fable opus" $(native_assignments) >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && ok "native secondary accepted" || bad "native secondary rejected (rc=$rc)"
+grep -q '^schema_version=2$' "$CFG/subagent-models.conf" && ok "schema-v2 preferences persisted" || bad "schema-v2 preferences missing"
+grep -q '^secondary_top_model=fable$' "$CFG/subagent-models.conf" && ok "secondary persisted" || bad "secondary not persisted"
+grep -q '^top_tier_models=fable opus$' "$CFG/subagent-models.conf" && ok "top-tier list persisted" || bad "top-tier list not persisted"
+teardown_fixture
+setup_fixture
+before_hash="$(hash_agents)"
+run apply --proxy yes --secondary-top-model gpt-5.6-sol --top-tier-models "fable opus gpt-5.6-sol" $(gpt_assignments) >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && ok "GPT secondary always rejected even with proxy=yes" || bad "GPT secondary must be native-only"
+[ "$before_hash" = "$(hash_agents)" ] && ok "GPT secondary rejection is pre-write" || bad "GPT secondary rejection wrote agents"
+teardown_fixture
+setup_fixture
+before_hash="$(hash_agents)"
+run apply --proxy no --secondary-top-model sonnet --top-tier-models "fable opus" $(native_assignments) >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && ok "secondary outside top-tier models rejected" || bad "secondary outside top-tier models accepted"
+[ "$before_hash" = "$(hash_agents)" ] && ok "non-member secondary rejection is pre-write" || bad "non-member secondary rejection wrote agents"
+teardown_fixture
+setup_fixture
+out="$(run apply --proxy yes --top-tier-models "gpt-5.6-sol opus" $(gpt_assignments) 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && ok "mixed GPT/native top-tier list accepted" || bad "mixed GPT/native top-tier list rejected (rc=$rc output=$out)"
+grep -q '^top_tier_models=gpt-5.6-sol opus$' "$CFG/subagent-models.conf" && ok "mixed GPT/native top-tier list persisted" || bad "mixed GPT/native top-tier list missing"
+teardown_fixture
+setup_fixture
+before_hash="$(hash_agents)"
+out="$(run apply --proxy yes --top-tier-models "gpt-5.6-sol gpt-5.6-terra" $(gpt_assignments) 2>&1)"; rc=$?
+[ "$rc" -ne 0 ] && ok "all-GPT top-tier list rejected by configurator" || bad "all-GPT top-tier list accepted"
+printf '%s' "$out" | grep -q 'at least one of fable/opus/sonnet/haiku required' && ok "all-GPT rejection names native-entry rule" || bad "all-GPT rejection omitted native-entry rule"
+[ "$before_hash" = "$(hash_agents)" ] && ok "all-GPT top-tier rejection is pre-write" || bad "all-GPT top-tier rejection wrote agents"
 teardown_fixture
 
 # ---------------------------------------------------------------------------
@@ -183,7 +215,7 @@ echo "== apply: effort replacement in place on re-apply (cmp) =="
 setup_fixture
 run apply --proxy no $(native_assignments) >/dev/null
 lines_first="$(wc -l < "$TARGET/agents/explore.md")"
-run apply --proxy no explore=sonnet,xhigh analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium >/dev/null
+run apply --proxy no explore=sonnet,xhigh analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh >/dev/null
 lines_second="$(wc -l < "$TARGET/agents/explore.md")"
 [ "$lines_first" = "$lines_second" ] && ok "re-apply replaces effort without adding a line" || bad "effort replacement line count ($lines_first -> $lines_second)"
 oracle "$CANONICAL_AGENTS/explore.md" sonnet xhigh "$EXP/explore-xhigh.md"
@@ -194,9 +226,9 @@ teardown_fixture
 echo "== proxy gate: GPT rejected pre-write when proxy=no, accepted when proxy=yes =="
 setup_fixture
 before_hash="$(hash_agents)"
-run apply --proxy no explore=gpt-5.6-terra,medium analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium >/dev/null 2>&1; rc=$?
+run apply --proxy no explore=gpt-5.6-terra,medium analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ] && ok "gpt-5.6-terra rejected when proxy=no" || bad "gpt-5.6-terra should be rejected when proxy=no"
-run apply --proxy no explore=gpt-5.6-sol,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium >/dev/null 2>&1; rc=$?
+run apply --proxy no explore=gpt-5.6-sol,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ] && ok "gpt-5.6-sol rejected when proxy=no" || bad "gpt-5.6-sol should be rejected when proxy=no"
 [ "$before_hash" = "$(hash_agents)" ] && ok "no files written on proxy-gate rejection" || bad "proxy-gate rejection wrote files"
 run apply --proxy yes $(gpt_assignments) >/dev/null; rc=$?
@@ -215,27 +247,14 @@ reject() {
   local now; now="$(hash_agents)"
   if [ "$rc" -ne 0 ] && [ "$now" = "$before_hash" ]; then ok "$label"; else bad "$label (rc=$rc)"; fi
 }
-reject "invalid model rejected"   --proxy no explore=turbo,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-reject "invalid effort rejected"  --proxy no explore=sonnet,turbo analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-reject "missing role (13) rejected" --proxy no explore=sonnet,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium
-reject "duplicate role rejected"  --proxy no explore=sonnet,high explore=sonnet,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-reject "unknown role rejected"    --proxy no explore=sonnet,high mystery=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-reject "reordered roles rejected" --proxy no analyst=opus,xhigh explore=sonnet,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-reject "missing proxy answer rejected" explore=sonnet,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high executor-codex=sonnet,medium debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh plan-reviewer-codex=sonnet,medium code-reviewer-codex=sonnet,medium debugger-codex=sonnet,medium fusion-codex=sonnet,medium
-teardown_fixture
-
-# ---------------------------------------------------------------------------
-echo "== includes 5 Codex transport roles; leaves Codex TOML untouched =="
-setup_fixture
-mkdir -p "$TARGET/docs/platforms/codex-agents"
-printf 'name = "oh-no-executor"\n' > "$TARGET/docs/platforms/codex-agents/oh-no-executor.toml"
-toml_before="$(shasum "$TARGET/docs/platforms/codex-agents/oh-no-executor.toml")"
-run apply --proxy no $(native_assignments) >/dev/null; rc=$?
-[ "$rc" -eq 0 ] && ok "apply including 5 transport roles succeeds" || bad "apply with transports (got $rc)"
-for t in executor-codex plan-reviewer-codex code-reviewer-codex debugger-codex fusion-codex; do
-  grep -q '^effort: ' "$TARGET/agents/$t.md" && ok "transport role configured: $t" || bad "transport role not configured: $t"
-done
-[ "$toml_before" = "$(shasum "$TARGET/docs/platforms/codex-agents/oh-no-executor.toml")" ] && ok "Codex custom-agent TOML byte-unchanged" || bad "Codex TOML mutated"
+reject "14-role apply rejected by exact-count contract" --proxy no $(native_assignments) extra-a=sonnet,high extra-b=sonnet,high extra-c=sonnet,high extra-d=sonnet,high extra-e=sonnet,high
+reject "invalid model rejected" --proxy no explore=turbo,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh
+reject "invalid effort rejected" --proxy no explore=sonnet,turbo analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh
+reject "missing role (8) rejected" --proxy no explore=sonnet,high analyst=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh
+reject "duplicate role rejected" --proxy no explore=sonnet,high explore=sonnet,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh
+reject "unknown role rejected" --proxy no explore=sonnet,high mystery=opus,xhigh planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh
+reject "reordered roles rejected" --proxy no analyst=opus,xhigh explore=sonnet,high planner=opus,max plan-reviewer=opus,xhigh executor=opus,high debugger=opus,xhigh verifier=sonnet,high code-reviewer=opus,xhigh fusion-rescue-analyst=opus,xhigh
+reject "missing proxy answer rejected" $(native_assignments)
 teardown_fixture
 
 # ---------------------------------------------------------------------------
@@ -571,6 +590,41 @@ status="$(run check | grep '^STATUS:')"
 teardown_fixture
 
 # ---------------------------------------------------------------------------
+echo "== schema migration: v1 prefs stale; v1 interrupted journal recovers cleanly =="
+setup_fixture
+cat >"$CFG/subagent-models.conf" <<'PREFS'
+schema_version=1
+proxy=no
+assignment=explore,sonnet,high
+PREFS
+before_hash="$(hash_agents)"
+status="$(run check | grep '^STATUS:')"
+[ "$status" = "STATUS: invalid-preferences" ] && ok "v1 preferences enter reconfigure path" || bad "v1 preferences status ($status)"
+run reapply --quiet >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 4 ] && ok "v1 preferences are rejected as stale without partial apply" || bad "v1 prefs reapply rc=$rc"
+[ "$before_hash" = "$(hash_agents)" ] && ok "v1 preferences recovery path writes no agents" || bad "v1 preferences path partially wrote agents"
+teardown_fixture
+setup_fixture
+txn="preupgrade-v1"
+mkdir -p "$CFG/subagent-backups/$txn"
+for role in "${ROLES[@]}"; do cp "$TARGET/agents/$role.md" "$CFG/subagent-backups/$txn/$role.md"; done
+baseline_hash="$(hash_agents)"
+printf '
+# interrupted mutation
+' >> "$TARGET/agents/explore.md"
+printf 'schema_version=1
+root=%s
+txn=%s
+prior_prefs=absent
+' "$TARGET" "$txn" > "$CFG/subagent-journal.conf"
+run reapply --quiet >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "pre-upgrade v1 interrupted journal recovers with exit 0 (no exit-7)" || bad "v1 journal recovery rc=$rc"
+[ "$baseline_hash" = "$(hash_agents)" ] && ok "v1 journal recovery rolls runtime back" || bad "v1 journal recovery did not roll back"
+[ ! -e "$CFG/subagent-models.conf" ] && ok "v1 journal recovery restores absent prior prefs" || bad "v1 journal recovery left prefs"
+[ -z "$(journal_files)" ] && ok "v1 journal recovery clears journal" || bad "v1 journal recovery retained journal"
+teardown_fixture
+
+# ---------------------------------------------------------------------------
 echo "== reapply: idempotent no-op when matching; repairs simulated drift (cmp) =="
 setup_fixture
 run apply --proxy no $(native_assignments) >/dev/null
@@ -656,6 +710,101 @@ teardown_fixture
 echo "== SessionStart: no-op / drift-repair / failure path all emit valid JSON =="
 run_hook() { env CLAUDE_PLUGIN_ROOT="$TARGET" OH_NO_CONFIG_DIR="$CFG" "$@" "$TARGET/hooks/session-start"; }
 valid_json() { printf '%s' "$1" | "$PYTHON" -c 'import json,sys; json.loads(sys.stdin.read())' >/dev/null 2>&1; }
+
+# Canonical resolver order, exercised by both the writer and SessionStart reader.
+echo "== resolver: writer and hook reader share deterministic priority =="
+resolver_case() {
+  local label="$1" mode="$2"
+  setup_fixture
+  local explicit="$WORK/explicit" claude_home="$WORK/claude-home" plugin_data="$WORK/wrong-plugin-data" xdg="$WORK/xdg" home="$WORK/home"
+  mkdir -p "$explicit" "$claude_home/plugins/data/oh-no-harness-resolver-fixture" "$plugin_data" "$xdg" "$home"
+  local expected env_args=()
+  case "$mode" in
+    explicit)
+      expected="$explicit"; env_args=(OH_NO_CONFIG_DIR="$explicit" CLAUDE_PLUGIN_DATA="$plugin_data" CLAUDE_CONFIG_DIR="$claude_home" XDG_CONFIG_HOME="$xdg" HOME="$home") ;;
+    plugin-data-ignored)
+      expected="$claude_home/plugins/data/oh-no-harness-resolver-fixture"; env_args=(CLAUDE_PLUGIN_DATA="$plugin_data" CLAUDE_CONFIG_DIR="$claude_home" XDG_CONFIG_HOME="$xdg" HOME="$home") ;;
+    claude-glob)
+      expected="$claude_home/plugins/data/oh-no-harness-resolver-fixture"; env_args=(CLAUDE_CONFIG_DIR="$claude_home" XDG_CONFIG_HOME="$xdg" HOME="$home") ;;
+    xdg)
+      rm -rf "$claude_home/plugins/data"; expected="$xdg/oh-no-harness"; env_args=(CLAUDE_PLUGIN_DATA="$plugin_data" CLAUDE_CONFIG_DIR="$claude_home" XDG_CONFIG_HOME="$xdg" HOME="$home") ;;
+  esac
+  env "${env_args[@]}" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null 2>&1; local rc=$?
+  [ "$rc" -eq 0 ] && [ -f "$expected/subagent-models.conf" ] && ok "$label writer resolved expected directory" || bad "$label writer resolver (rc=$rc expected=$expected)"
+  local out
+  out="$(env "${env_args[@]}" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+  printf '%s' "$out" | grep -q 'effective_primaries=.*code-reviewer:opus' && ok "$label hook reader found writer preferences" || bad "$label hook reader resolver drifted"
+  teardown_fixture
+}
+resolver_case "OH_NO_CONFIG_DIR wins" explicit
+resolver_case "CLAUDE_PLUGIN_DATA ignored" plugin-data-ignored
+resolver_case "CLAUDE_CONFIG_DIR plugins-data glob" claude-glob
+resolver_case "XDG fallback" xdg
+
+# A --plugin-dir session may create a lexically-earlier empty sibling beside the
+# populated fixture. The explicit override preserves writer/reader symmetry.
+echo "== resolver: explicit path avoids lexically-earlier empty plugin-data sibling =="
+setup_fixture
+collision_home="$WORK/claude-home"
+collision_fixture="$collision_home/plugins/data/oh-no-harness-live-fixture"
+mkdir -p "$collision_home/plugins/data/oh-no-harness-inline" "$collision_fixture"
+env OH_NO_CONFIG_DIR="$collision_fixture" "$TARGET/scripts/configure-subagents" apply \
+  --proxy no --secondary-top-model fable --top-tier-models "fable opus" $(native_assignments) >/dev/null
+hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+printf '%s' "$hook_out" | grep -q 'secondary_top_model=' && bad "glob collision unexpectedly found populated fixture" || ok "glob collision resolves empty earlier sibling without explicit override"
+hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" OH_NO_CONFIG_DIR="$collision_fixture" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "explicit override resolves populated fixture despite earlier sibling" || bad "explicit override did not resolve populated fixture"
+teardown_fixture
+
+# Always-injected model-diversity block branches.
+echo "== SessionStart model-diversity injection branches (no secondary, no preferences, degenerate) =="
+setup_fixture
+run apply --proxy no --top-tier-models "fable opus" $(native_assignments) >/dev/null
+hook_out="$(run_hook)"
+printf '%s' "$hook_out" | grep -q '<OH_NO_MODEL_DIVERSITY>' && ok "no-secondary prefs inject diversity block" || bad "no-secondary block missing"
+printf '%s' "$hook_out" | grep -q 'top_tier_models=fable opus' && ok "no-secondary block uses prefs top-tier list" || bad "no-secondary top-tier missing"
+printf '%s' "$hook_out" | grep -q 'effective_primaries=.*code-reviewer:opus' && ok "no-secondary block includes primaries" || bad "no-secondary primaries missing"
+printf '%s' "$hook_out" | grep -q 'secondary_top_model=' && bad "no-secondary block emitted secondary line" || ok "no-secondary block omits secondary line"
+teardown_fixture
+setup_fixture
+run apply --proxy yes --top-tier-models "gpt-5.6-sol opus" $(gpt_assignments) >/dev/null
+hook_out="$(run_hook)"
+printf '%s' "$hook_out" | grep -q 'top_tier_models=gpt-5.6-sol opus' && ok "mixed GPT/native list retained for adapter first-native fallback" || bad "mixed GPT/native injected list changed"
+printf '%s' "$hook_out" | grep -q 'effective_primaries=.*code-reviewer:opus' && ok "mixed GPT/native block retains concrete primaries" || bad "mixed GPT/native primaries missing"
+teardown_fixture
+setup_fixture
+cat >"$CFG/subagent-models.conf" <<'PREFS'
+schema_version=2
+proxy=yes
+secondary_top_model=
+top_tier_models=gpt-5.6-sol gpt-5.6-terra
+assignment=explore,gpt-5.6-terra,medium
+assignment=analyst,gpt-5.6-sol,high
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+hook_out="$(run_hook)"
+printf '%s' "$hook_out" | grep -q 'top_tier_models=fable opus' && ok "hand-written all-GPT prefs degrade to DEFAULT_TOP_TIER_MODELS" || bad "all-GPT prefs did not degrade to default top-tier list"
+printf '%s' "$hook_out" | grep -q 'gpt-5.6-' && bad "all-GPT prefs leaked into injected diversity block" || ok "all-GPT prefs omitted from injected diversity block"
+printf '%s' "$hook_out" | grep -q 'effective_primaries=plan-reviewer:host-default code-reviewer:host-default' && ok "all-GPT prefs degrade all primaries with malformed-prefs path" || bad "all-GPT prefs did not use malformed-prefs fallback"
+teardown_fixture
+setup_fixture
+hook_out="$(run_hook)"
+printf '%s' "$hook_out" | grep -q '<OH_NO_MODEL_DIVERSITY>' && ok "no-prefs injects diversity block" || bad "no-prefs block missing"
+printf '%s' "$hook_out" | grep -q 'top_tier_models=fable opus' && ok "no-prefs block uses DEFAULT_TOP_TIER_MODELS" || bad "no-prefs default top-tier missing"
+printf '%s' "$hook_out" | grep -q 'effective_primaries=plan-reviewer:host-default code-reviewer:host-default' && ok "no-prefs block uses host-default primaries" || bad "no-prefs primaries missing"
+teardown_fixture
+setup_fixture
+run apply --proxy no --secondary-top-model fable --top-tier-models "fable" $(native_assignments) >/dev/null
+hook_out="$(run_hook)"
+printf '%s' "$hook_out" | grep -q 'top_tier_models=fable' && ok "degenerate prefs inject singleton top-tier list" || bad "degenerate top-tier missing"
+printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "degenerate prefs inject validated secondary" || bad "degenerate secondary missing"
+teardown_fixture
 # no stored preferences
 setup_fixture
 hook_out="$(run_hook)"

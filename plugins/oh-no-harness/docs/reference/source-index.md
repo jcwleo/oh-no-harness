@@ -26,14 +26,9 @@ This file records the source material used to build Oh No Harness.
 | `docs/agent-core/planner.md` and `agents/planner.md` | `omc/raw/agents/planner.md` |
 | `docs/agent-core/plan-reviewer.md` and `agents/plan-reviewer.md` | merged from `omc/raw/agents/architect.md` and `omc/raw/agents/critic.md` |
 | `docs/agent-core/executor.md` and `agents/executor.md` | `omc/raw/agents/executor.md` |
-| `docs/agent-core/executor-codex.md` and `agents/executor-codex.md` | new in oh-no-harness; Claude-Code-only Codex-delegation write path for the executor role; ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
 | `docs/agent-core/debugger.md` and `agents/debugger.md` | `omc/raw/agents/debugger.md` |
 | `docs/agent-core/verifier.md` and `agents/verifier.md` | merged from `omc/raw/agents/verifier.md` and `omc/raw/agents/qa-tester.md` |
 | `docs/agent-core/code-reviewer.md` and `agents/code-reviewer.md` | merged from `omc/raw/agents/code-reviewer.md` and `omc/raw/agents/security-reviewer.md` |
-| `docs/agent-core/plan-reviewer-codex.md` and `agents/plan-reviewer-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a plan-reviewer pair (dispatches `oh-no-plan-reviewer` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
-| `docs/agent-core/code-reviewer-codex.md` and `agents/code-reviewer-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a code-reviewer pair (dispatches `oh-no-code-reviewer` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
-| `docs/agent-core/debugger-codex.md` and `agents/debugger-codex.md` | new in oh-no-harness; Claude-Code-only read-only cross-host consult transport, opposite-host leg of a debugger pair (dispatches `oh-no-debugger` on Codex via `codex-companion.mjs`); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
-| `docs/agent-core/fusion-codex.md` and `agents/fusion-codex.md` | new in oh-no-harness; Claude-Code-only read-only Fusion Rescue opposite-host panel slot (dispatches `oh-no-fusion-rescue-analyst` on Codex via `codex-companion.mjs` for one assigned lens); ships a Claude wrapper only and has no `docs/platforms/codex-agents/*.toml` (not registered as a Codex custom agent) |
 
 ## OMC-Derived Shared Docs
 
@@ -48,7 +43,7 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/codex-auto-routing.md` | Codex-specific Auto Routing behavior overlay included only in the generated Codex Auto Routing runtime document |
 | `docs/platforms/claude-code-ralph.md` | Claude Code-specific Ralph subagent invocation adapter included only in the generated Claude Code Ralph runtime document |
 | `docs/platforms/codex-ralph.md` | Codex-specific Ralph `spawn_agent` invocation adapter included only in the generated Codex Ralph runtime document |
-| `docs/platforms/claude-code-fusion-rescue.md` | Claude Code-specific Fusion Rescue Codex consult adapter included only in the generated Claude Code Fusion Rescue runtime document |
+| `docs/platforms/claude-code-fusion-rescue.md` | Claude Code-specific Fusion Rescue model-diversity panel adapter included only in the generated Claude Code Fusion Rescue runtime document |
 | `docs/platforms/codex-fusion-rescue.md` | Codex-specific Fusion Rescue Claude Opus consult adapter included only in the generated Codex Fusion Rescue runtime document |
 | `docs/platforms/claude-code-simplify.md` | Claude Code-specific Simplify cleanup dispatch overlay included only in the generated Claude Code Simplify runtime document |
 | `docs/platforms/codex-simplify.md` | Codex-specific Simplify cleanup dispatch overlay included only in the generated Codex Simplify runtime document |
@@ -71,7 +66,7 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
-| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap, Codex-only standing subagent authorization, Codex no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
+| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap; on Claude Code it always adds the configuration-derived model-diversity block and best-effort subagent preference reapply, while on Codex it adds standing subagent authorization, the no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
 | `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt and repeats Codex custom-agent ensure only as fallback |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |
@@ -97,12 +92,12 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/claude-code-install-statusline.md` | Claude Code-specific Install Statusline overlay included only in the generated Claude Code Install Statusline runtime document (no Codex variant) |
 | `docs/skill-core/configure-subagents.md` | local Claude-Code-only, human-invoke-only setup skill core (`disable-model-invocation: true`) for configuring the installed subagents' model and reasoning effort |
 | `docs/platforms/claude-code-configure-subagents.md` | Claude Code-specific Configure Subagents overlay included only in the generated Claude Code Configure Subagents runtime document (no Codex variant) |
-| `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral cross-host consultation contracts and no OpenRouter API integration |
+| `docs/skill-core/fusion-rescue.md` | local bounded three-panel rescue workflow inspired by inference-time ensemble synthesis, with platform-neutral panel orchestration, platform-owned diversity/consult policy, and no OpenRouter API integration |
 | `docs/agent-core/fusion-rescue-analyst.md` | local panel-lens role body used by `fusion-rescue` for current-host analysis slots |
 | `scripts/oh-no-config` | persistent user settings helper for hook-readable config |
 | `scripts/statusline-command` | bundled developer statusline payload copied to `~/.claude/statusline-command.sh` by `install-statusline` |
 | `scripts/install-statusline` | installer for the `install-statusline` skill; `check`/`apply [--replace]` modes, jq non-clobbering settings.json merge, timestamped backups, refuses without jq or on invalid JSON |
-| `scripts/configure-subagents` | runtime configurator for the `configure-subagents` skill; `check`/`apply --proxy`/`reapply` modes, physical-root confinement, byte-exact frontmatter transform, lock-serialized recoverable transaction (per-file atomic rename + backup + journal), best-effort SessionStart reapply; never stores or prints proxy credentials |
+| `scripts/configure-subagents` | runtime configurator for the `configure-subagents` skill; `check`/`apply --proxy`/`reapply` modes, 9-role model/effort settings plus top-tier/secondary diversity preferences, physical-root confinement, byte-exact frontmatter transform, lock-serialized recoverable transaction (per-file atomic rename + backup + journal), best-effort SessionStart reapply; never stores or prints proxy credentials |
 | repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
 | `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |

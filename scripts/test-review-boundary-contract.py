@@ -204,12 +204,12 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "executor-codex drops identity/revision echo",
-        "raw executor result envelope",
+        "executor drops received revision binding",
+        "executor result envelope",
         lambda root: replace_once(
-            root / "docs" / "agent-core" / "executor-codex.md",
-            "packet/session/story identity and revision echo",
-            "task summary",
+            root / "docs" / "agent-core" / "executor.md",
+            "Target revision/diff fingerprint received: <echo>",
+            "Target revision summary: <description>",
         ),
         assertion="assert_orchestration_ownership_contract",
     )

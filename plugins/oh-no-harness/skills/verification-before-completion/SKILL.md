@@ -76,9 +76,9 @@ Before making a completion claim, complete every step below; the claim is invali
 7. Report skipped checks and residual risk.
 8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
 9. When a `code-reviewer` was dispatched, record `single-reviewer` for
-   STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
-   `same-host-parallel-fallback`; an inline fallback requires a reason.
-   Missing review topology is a named ledger gap, not a pass.
+   STANDARD, or the named THOROUGH pair trigger plus the active platform's
+   pair-mode value; an inline fallback requires a reason. Missing review
+   topology is a named ledger gap, not a pass.
 </HARD-GATE>
 
 If no meaningful command exists, inspect the changed files and write a
@@ -191,8 +191,15 @@ supplement the record but cannot satisfy the audit.
 
 | Agent | Use |
 |---|---|
-| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (cross-host merge: merged findings) |
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (paired-review synthesis: merged findings) |
+
+A named THOROUGH reviewer pair uses two same-role instances with identical
+packets, dispatched in parallel and synthesized into one verdict. The active
+platform supplies the diversity leg. If that leg is unavailable, default mode
+uses two independent same-model instances and records the reason; an explicit
+caller demand for diversity is strict mode and transitions to PAUSED instead of
+falling back. The `verifier` remains outside this pair contract.
 
 Confirming-verifier reuse: when this skill runs as the final gate inside
 `ralph` or `ultrawork` and the caller already completed the required
@@ -256,6 +263,16 @@ independent audit; otherwise report the `dispatch-unavailable` blocker so the
 caller remains blocked/PAUSED. Close a completed receiver only if the host
 exposes a close primitive; if none exists, closure is host-managed — record
 that and continue.
+
+## Re-Homed Core Pair Rules
+
+9. When a `code-reviewer` was dispatched, record `single-reviewer` for
+   STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
+   `same-host-parallel-fallback`; an inline fallback requires a reason.
+   Missing review topology is a named ledger gap, not a pass.
+
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (cross-host merge: merged findings) |
 
 ## Cross-Host Consult Channel
 

@@ -253,7 +253,12 @@ by Ralph (integration, merge, public-contract, security, or cross-phase),
 with its security lens when security-sensitive behavior was touched.
 Paired review requires a named THOROUGH trigger; the STANDARD small-task
 carve-out is a direct-Ralph path and never applies here; STANDARD records
-`single-reviewer`.
+`single-reviewer`. A pair uses two same-role instances with identical packets,
+dispatched in parallel and synthesized into one verdict. The active platform
+supplies the diversity leg. If that leg is unavailable, default mode uses two
+independent same-model instances and records the reason; an explicit caller
+demand for diversity is strict mode and transitions to PAUSED instead of
+falling back.
 
 At STANDARD/THOROUGH, dispatch the independent `verifier` when execution
 produced or changed proving tests or the implementation/tests were authored or

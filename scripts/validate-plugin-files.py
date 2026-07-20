@@ -59,15 +59,10 @@ AGENTS = [
     "planner",
     "plan-reviewer",
     "executor",
-    "executor-codex",
     "debugger",
     "verifier",
     "code-reviewer",
     "fusion-rescue-analyst",
-    "plan-reviewer-codex",
-    "code-reviewer-codex",
-    "debugger-codex",
-    "fusion-codex",
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "tools", "model", "color"}
@@ -406,10 +401,16 @@ PLATFORM_RULE_DOC_MARKERS = {
         "oh-no-harness:<role>",
         "close or clean\nup the completed subagent",
         "record that fallback",
-        "## Cross-Host Consult Channel",
-        "`oh-no-harness:<role>-codex`",
-        "`codex-companion.mjs task`",
-        "A direct\nCodex parent answer is not a valid opposite-host shared review response",
+        "## Model Diversity Pair",
+        "packet bodies MUST be byte-identical",
+        "serial dispatch-wait-dispatch",
+        "<OH_NO_MODEL_DIVERSITY>",
+        "model-diversity-pair",
+        "primary leg is\nunoverridden",
+        "explicit NATIVE model override",
+        "same-model-parallel-fallback",
+        "require-model-diversity",
+        "transition to PAUSED",
     ),
     "claude-code-runtime.md": (
         "# Claude Code Runtime Rules",
@@ -429,7 +430,14 @@ PLATFORM_RULE_DOC_MARKERS = {
         "approved-plan handoff is dispatch authorization",
         "embedded-role fallback",
         "trigger-loaded",
-        "docs/platforms/claude-code.md` `## Cross-Host Consult Channel",
+        "## Model Diversity Pair",
+        "packet bodies MUST be byte-identical",
+        "serial dispatch-wait-dispatch",
+        "<OH_NO_MODEL_DIVERSITY>",
+        "declared-frontmatter primary",
+        "explicit NATIVE model override",
+        "same-model-parallel-fallback",
+        "require-model-diversity",
     ),
 }
 PROVIDER_DOC_MARKERS = {
@@ -470,6 +478,7 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "@agent-oh-no-harness:<agent>",
         "Claude agent: oh-no-harness:<agent>",
         "background subagents",
+        "serial dispatch-wait-dispatch",
         "close or cleanup",
     ),
     "codex-ralph.md": (
@@ -670,17 +679,6 @@ CODEX_AGENT_MODEL_CONFIG = {
     "code-reviewer": ("gpt-5.6-sol", "xhigh"),
     "fusion-rescue-analyst": ("gpt-5.6-sol", "xhigh"),
 }
-# Claude-Code-only delegation roles: Claude delegates write work TO Codex, so on
-# the Codex host there is nothing to delegate and no Codex custom-agent wrapper is
-# generated. These agents ship a Claude wrapper (agents/<role>.md) only and MUST NOT
-# require a docs/platforms/codex-agents/oh-no-<role>.toml template.
-CLAUDE_ONLY_AGENT_ROLES = {
-    "executor-codex",
-    "plan-reviewer-codex",
-    "code-reviewer-codex",
-    "debugger-codex",
-    "fusion-codex",
-}
 EXECUTION_MODE_AGENT_MARKERS = {
     "planner": (
         "Active plan contract",
@@ -715,130 +713,10 @@ EXECUTION_MODE_AGENT_MARKERS = {
     ),
 }
 
-# Load-bearing phrases the Codex-delegation executor role body must keep. This
-# dict is only load-bearing if it is WIRED into assert_agent's if-chain (a
-# defined-but-unreferenced dict gates nothing), so the wiring below is
-# mandatory. Each phrase pins one clause of the executor-codex delegation
-# contract: the write-capable companion invocation, versioned prompt contract,
-# raw-output boundary, caller-mediated degrade, maker-verifier fence, one-hop
-# guard, and honest best-effort framing.
-DELEGATION_CONTRACT_AGENT_MARKERS = {
-    "executor-codex": (
-        "--write --cwd",
-        "2>/dev/null",
-        "oh-no.codex-delegation/v1",
-        "direct Codex implementation",
-        "executor child",
-        "Do not run any test, lint, build, typecheck, parse, or verification command",
-        "Verification: not run (caller-owned)",
-        "codex unavailable: companion-override-path-missing",
-        "Return the Codex stdout without wrapper synthesis",
-        "caller derives the changed-file set",
-        "caller-mediated degrade",
-        "sequential native fallback",
-        "assigned RED, GREEN, REFACTOR",
-        "does NOT verify, review, or merge",
-        "Result: implemented | blocked | failed",
-        "Mutation status: none | partial | complete",
-        "Executor assignment ID",
-        "one-hop guard",
-        "best-effort",
-        "ONE foreground Bash invocation",
-    ),
-    # The four read-only `*-codex` consult transports (Part B). Each is the
-    # opposite-host leg of a synthesized cross-host PAIR (or, for fusion-codex,
-    # one opposite-host panel slot): read-only (no write flag), synchronous (no
-    # --background), packet passed with --prompt-file, caller-mediated degrade to
-    # the Same-Host Parallel Fallback, one-hop guard, and honest best-effort
-    # framing. The three review transports additionally require role-ownership
-    # proof and the maker-verifier fence; fusion-codex requires the one-lens /
-    # exact-panel-fields / never-synthesize contract and its Codex-side target.
-    "plan-reviewer-codex": (
-        "read-only",
-        "--prompt-file",
-        "2>/dev/null",
-        "dispatch exactly `oh-no-plan-reviewer`",
-        "role-owned `oh-no-plan-reviewer` result",
-        "caller-mediated degrade",
-        "Same-Host Parallel Fallback",
-        "one-hop guard",
-        "best-effort",
-        "role-ownership",
-        "proof that the dispatched role agent",
-        "does NOT judge, verify, or merge",
-        "ONE foreground Bash invocation",
-        "is no opposite-host response",
-    ),
-    "code-reviewer-codex": (
-        "read-only",
-        "--prompt-file",
-        "2>/dev/null",
-        "dispatch exactly `oh-no-code-reviewer`",
-        "role-owned `oh-no-code-reviewer` result",
-        "caller-mediated degrade",
-        "Same-Host Parallel Fallback",
-        "one-hop guard",
-        "best-effort",
-        "role-ownership",
-        "proof that the dispatched role agent",
-        "does NOT judge, verify, or merge",
-        "ONE foreground Bash invocation",
-        "is no opposite-host response",
-    ),
-    "debugger-codex": (
-        "read-only",
-        "--prompt-file",
-        "2>/dev/null",
-        "dispatch exactly `oh-no-debugger`",
-        "role-owned `oh-no-debugger` result",
-        "caller-mediated degrade",
-        "Same-Host Parallel Fallback",
-        "one-hop guard",
-        "best-effort",
-        "role-ownership",
-        "proof that the dispatched role agent",
-        "does NOT judge, verify, or merge",
-        "ONE foreground Bash invocation",
-        "is no opposite-host response",
-    ),
-    "fusion-codex": (
-        "read-only",
-        "--prompt-file",
-        "2>/dev/null",
-        "dispatch exactly `oh-no-fusion-rescue-analyst`",
-        "return the exact panel fields from the role-owned",
-        "`oh-no-fusion-rescue-analyst` result",
-        "caller-mediated degrade",
-        "Same-Host Parallel Fallback",
-        "one-hop guard",
-        "best-effort",
-        "one assigned panel lens",
-        "exact panel fields",
-        "never judges or synthesizes",
-        "oh-no-fusion-rescue-analyst",
-        "ONE foreground Bash invocation",
-        "is no opposite-host response",
-    ),
-}
-
-# Load-bearing phrases the reframed auto-routing skill core (T4) must carry so
-# the codexExecutor toggle content is statically gated: the codexExecutor toggle
-# key, the `codex-executor` command token, the default-OFF fact, the
-# eligibility-preserving overlap fact, and the honest caller-owned escape-DETECTION /
-# not-a-guarantee framing.
-# This is only load-bearing if WIRED into assert_skill's if-chain below.
-AUTO_ROUTING_CODEX_EXECUTOR_MARKERS = (
-    "codexExecutor",
-    "codex-executor on|off|status",
-    "Default OFF.",
-    "Existing Ralph eligibility remains the sole gate.",
-    "already-admitted disjoint executor batch may overlap",
-    "assigned RED, GREEN, REFACTOR",
-    "each inner companion call remains foreground",
-    "fallback and integration",
-    "the caller owns the escape-DETECTION guard",
-    "not a sandbox guarantee",
-)
+# The five Claude-only companion transports and their delegation toggle were
+# retired. Their former inventory/TOML/kernel/prompt checks are replaced by the
+# exact Claude-agent inventory, model-diversity hook/adapter contracts, and the
+# preserved nine-role Codex TOML contract below.
 
 SIMPLICITY_SCOPE_SKILL_MARKERS = {
     "ralplan": (
@@ -1236,24 +1114,16 @@ FUSION_RESCUE_SKILL_MARKERS = (
     "primary",
     "adversarial",
     "pragmatic",
-    "platform-specific Fusion Rescue rules",
-    "## Cross-Host Consult",
-    "real assigned-lens analysis from the opposite host",
-    "command or plugin capability",
-    "permission preflight",
-    "background acknowledgement",
-    "single allowed opposite-host consult path",
-    "require-cross-host",
-    "redacted and minimized problem",
-    "read-only analysis tools are allowed only when the active opposite host permits them",
-    "[REDACTED_TOKEN]",
-    "Do not record credential values",
+    "active platform rules",
+    "## Platform-Defined Consult",
+    "Only where the active platform rules define an opposite-host consult path",
+    "Without such a platform rule, no opposite-host consult is attempted or required",
     "## Fallback Behavior",
-    "failure class",
-    "missing response proof",
+    "three independent same-model panel instances",
+    "strict mode transitions to PAUSED",
     "## Recursion Guard",
     "fusion depth: 1",
-    "one-hop",
+    "exactly that one call and no other host call",
     "## Judge And Synthesis",
     "current host main agent",
     "consensus",
@@ -1264,16 +1134,15 @@ FUSION_RESCUE_SKILL_MARKERS = (
     "confidence and why",
     "panel availability/fallback notes",
     "## Semantic Scenario Checks",
+    "Three-panel shape",
     "Intentional contradiction",
-    "Missing opposite host",
-    "Platform preflight denied",
-    "require-cross-host unavailable",
+    "Diversity unavailable",
     "Recursive consult",
     "## Caller Return",
     "return control to `ralph`",
-    "return control to `systematic-debugging`",
+    "return control to\n`systematic-debugging`",
     "Standalone mode",
-    "Do not edit files directly",
+    "Do not edit files\ndirectly",
 )
 FUSION_RESCUE_PANEL_LENSES = ("primary", "adversarial", "pragmatic")
 FUSION_RESCUE_SYNTHESIS_FIELDS = (
@@ -1287,6 +1156,12 @@ FUSION_RESCUE_SYNTHESIS_FIELDS = (
     "fusion depth: 1",
 )
 FUSION_RESCUE_SCENARIO_MARKERS = {
+    "Three-panel shape": (
+        "exactly three same-role panels",
+        "same packet\n  shape",
+        "distinct assigned lenses",
+        "run in parallel",
+    ),
     "Intentional contradiction": (
         "`primary`",
         "`adversarial`",
@@ -1294,36 +1169,33 @@ FUSION_RESCUE_SCENARIO_MARKERS = {
         "must name the contradiction",
         "recommend the smallest next check",
     ),
-    "Missing opposite host": (
-        "unavailable in default mode",
-        "three current-host panel slots",
-        "panel availability/fallback notes",
-    ),
-    "Platform preflight denied": (
-        "active platform-specific Fusion Rescue rules",
-        "permission, auth, budget, command, plugin, foreground, or response-proof preflight",
-        "must prevent the consult",
-        "three current-host panel slots",
-        "failure class",
-    ),
-    "require-cross-host unavailable": (
-        "required host, command, plugin, auth, or budget is unavailable",
-        "must block",
-        "failure class",
-        "path/auth status",
-        "without exposing secret values",
+    "Diversity unavailable": (
+        "platform-defined fallback",
+        "disclose the reason",
+        "strict mode must PAUSE",
     ),
     "Recursive consult": (
         "attempts to call rescue",
         "reject the nested call",
         "`fusion depth: 1`",
-        "one-hop guard",
+        "Same-host\n  read-only subagents",
     ),
 }
+# B4a: concrete panel-model policy belongs only to platform adapters. This list
+# protects the neutral core from silently regaining Claude's configuration terms.
+FUSION_RESCUE_CORE_FORBIDDEN_MODEL_MARKERS = (
+    "top-tier",
+    "panel-default",
+    "secondary_top_model",
+    "model-diversity-pair",
+    "same-model-parallel-fallback",
+    "require-model-diversity",
+    "explicit NATIVE model override",
+    "declared-frontmatter primary",
+)
 FUSION_RESCUE_FORBIDDEN_MARKERS = (
     "weaker mode",
     "approves a weaker",
-    "weaker cross-host",
     "${CLAUDE_BIN:-claude}",
     "`--permission-mode`",
     "`dontAsk`",
@@ -1333,7 +1205,6 @@ FUSION_RESCUE_FORBIDDEN_MARKERS = (
     "Codex permission state",
     "openai/codex-plugin-cc",
     "`/codex:rescue`",
-    "Codex adversarial unavailable",
 )
 FUSION_RESCUE_PLATFORM_DOC_MARKERS = {
     "codex-fusion-rescue.md": (
@@ -1356,22 +1227,29 @@ FUSION_RESCUE_PLATFORM_DOC_MARKERS = {
         "Claude Opus must answer the assigned panel directly",
         "Claude-side skill or slash command",
         "`/oh-no-harness:fusion-rescue`",
-        "`/codex:rescue`",
         "treat the cross-host consult as unavailable",
         "redacted and minimized problem packet",
         "Claude unavailable: Codex permission state is not danger-full-access",
+        "require-cross-host",
     ),
     "claude-code-fusion-rescue.md": (
         "This platform overlay is source content for the generated Claude Code-facing",
-        "oh-no-harness:fusion-codex",
-        "codex-companion.mjs",
-        "oh-no-fusion-rescue-analyst",
-        "read-only",
-        "Codex consult must run synchronously",
-        "omit `--background`",
-        "not a valid opposite-host panel response",
-        "Codex adversarial unavailable",
-        "Codex consult returned no analysis (background job acknowledgment only)",
+        "## Model Diversity Panels",
+        "exactly three same-role `fusion-rescue-analyst` panels in parallel",
+        "All three panel identities MUST be members of the block's resolved top-tier list",
+        "explicit NATIVE model override",
+        "declared-frontmatter primary",
+        "otherwise it is the first NATIVE entry of the top-tier list",
+        "assign exactly two panels the explicit NATIVE secondary override",
+        "assign exactly one panel a distinct top-tier identity",
+        "Degenerate configured case",
+        "3 × panel-default (top-tier)",
+        "same-model-parallel-fallback",
+        "require-model-diversity",
+        "transitions to PAUSED",
+        "Unconfigured case",
+        "## No Opposite-Host Consult",
+        "Claude Code defines no opposite-host consult path for Fusion Rescue",
     ),
 }
 
@@ -1497,8 +1375,11 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
             f"{path} must define exactly these Fusion Rescue panel lenses in order: "
             f"{FUSION_RESCUE_PANEL_LENSES!r}; found {tuple(lens_matches)!r}"
         )
-    if not has_required_marker(panel_contract, "active platform-specific Fusion Rescue rules"):
-        die(f"{path} Panel Contract must delegate lens pinning to platform Fusion Rescue rules")
+    if not has_required_marker(panel_contract, "owned entirely by the active platform rules"):
+        die(f"{path} Panel Contract must delegate panel-model policy to platform rules")
+    for marker in FUSION_RESCUE_CORE_FORBIDDEN_MODEL_MARKERS:
+        if marker in body:
+            die(f"{path} contains adapter-owned panel-model policy: {marker!r}")
     for marker in (
         "caller's Direction Contract",
         "exact blocked decision",
@@ -1509,36 +1390,31 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         if not has_required_marker(panel_contract, marker):
             die(f"{path} Panel Contract is missing goal-preservation marker: {marker!r}")
 
-    cross_host = markdown_section(body, "## Cross-Host Consult")
-    if not cross_host:
-        die(f"{path} is missing required Fusion Rescue Cross-Host Consult section")
+    consult = markdown_section(body, "## Platform-Defined Consult")
+    if not consult:
+        die(f"{path} is missing required Fusion Rescue Platform-Defined Consult section")
     for marker in (
-        "real assigned-lens analysis from the opposite host",
-        "active platform-specific Fusion Rescue rules",
-        "command or plugin capability",
-        "permission preflight",
-        "foreground or response proof",
-        "launch notice, queued-job message, background acknowledgement",
-        "assigned panel analysis",
-        "single allowed opposite-host consult path",
-        "treat the cross-host consult as unavailable",
-        "redacted and minimized problem packet",
-        "read-only consult: no edits, no writes, no installs",
+        "Only where the active platform rules define an opposite-host consult path",
+        "platform owns the\nconsult mechanism",
+        "Without such a platform rule, no\nopposite-host consult is attempted or required",
+        "read-only, bounded to one assigned lens",
+        "launch notice, queued-job message, background\nacknowledgement",
+        "not a panel result",
     ):
-        if not has_required_marker(cross_host, marker):
-            die(f"{path} Cross-Host Consult section is missing marker: {marker!r}")
+        if not has_required_marker(consult, marker):
+            die(f"{path} Platform-Defined Consult section is missing marker: {marker!r}")
 
     fallback = markdown_section(body, "## Fallback Behavior")
     if not fallback:
         die(f"{path} is missing required Fusion Rescue Fallback Behavior section")
     for marker in (
-        "Default mode degrades instead of blocking",
-        "all three panel slots on the current host",
-        "platform-specific permission, auth, budget, command, plugin",
-        "missing response proof",
-        "not opposite-host evidence",
-        "Require-cross-host mode blocks",
-        "failure class",
+        "active platform owns panel-model assignment",
+        "three independent same-model panel instances",
+        "platform-defined\nfallback assignment",
+        "record the reason",
+        "strict mode transitions to PAUSED",
+        "instead of silently degrading",
+        "evidence and unblock details",
     ):
         if not has_required_marker(fallback, marker):
             die(f"{path} Fallback Behavior section is missing marker: {marker!r}")
@@ -1548,9 +1424,10 @@ def assert_fusion_rescue_contract(path: Path, body: str) -> None:
         die(f"{path} is missing required Fusion Rescue Recursion Guard section")
     for marker in (
         "fusion depth: 1",
-        "Do not invoke rescue, fusion-rescue, cross-host consult",
-        "one-hop guard",
-        "current host must not call the opposite host",
+        "Do not invoke rescue, fusion-rescue, another workflow skill, or another host",
+        "Same-host read-only subagents and read-only tools are allowed",
+        "exactly that one call and no other host call",
+        "applies\ntransitively to same-host read-only subagents",
     ):
         if not has_required_marker(recursion, marker):
             die(f"{path} Recursion Guard section is missing marker: {marker!r}")
@@ -1613,20 +1490,18 @@ def assert_fusion_rescue_platform_contracts(root: Path) -> None:
 
     codex_body = read_text(platform_root / "codex-fusion-rescue.md")
     claude_body = read_text(platform_root / "claude-code-fusion-rescue.md")
-    for marker in ("`openai/codex-plugin-cc`",):
+    for marker in ("model-diversity-pair", "require-model-diversity", "panel-default"):
         if marker in codex_body:
-            die(f"{platform_root / 'codex-fusion-rescue.md'} contains Claude Code consult marker: {marker!r}")
-    for marker in ("`${CLAUDE_BIN:-claude}`", "`--permission-mode`", "`dontAsk`"):
+            die(f"{platform_root / 'codex-fusion-rescue.md'} contains Claude model-diversity policy: {marker!r}")
+    for marker in (
+        "`${CLAUDE_BIN:-claude}`",
+        "`--permission-mode`",
+        "`dontAsk`",
+        "codex-companion",
+        "require-cross-host",
+    ):
         if marker in claude_body:
-            die(f"{platform_root / 'claude-code-fusion-rescue.md'} contains Codex consult marker: {marker!r}")
-    # NB2 gated forbid: the Claude fusion overlay must NOT name the removed
-    # Claude→Codex `/codex:rescue` transport (symmetric to the Codex-side
-    # `openai/codex-plugin-cc` forbid above). Gates the "absent from the Claude
-    # fusion overlay" guarantee instead of relying on the grep sweep alone. The
-    # Codex-direction `codex-fusion-rescue.md` forbid-list mention is untouched.
-    for marker in ("/codex:rescue", "codex:codex-rescue"):
-        if marker in claude_body:
-            die(f"{platform_root / 'claude-code-fusion-rescue.md'} still contains the removed Claude->Codex rescue transport marker: {marker!r}")
+            die(f"{platform_root / 'claude-code-fusion-rescue.md'} contains retired cross-host consult policy: {marker!r}")
 
 
 def is_guardrail_line(line: str) -> bool:
@@ -1856,11 +1731,6 @@ def assert_skill(root: Path, skill: str) -> None:
         for marker in RALPLAN_FORBIDDEN_SPLIT_OPTION_MARKERS:
             if marker in body:
                 die(f"{path} contains forbidden old Ralph split-option marker: {marker!r}")
-    if skill == "auto-routing":
-        body = read_text(path)
-        for marker in AUTO_ROUTING_CODEX_EXECUTOR_MARKERS:
-            if marker not in body:
-                die(f"{path} is missing required Auto-Routing codex-executor marker: {marker!r}")
     if skill in WORKTREE_SKILL_MARKERS:
         body = read_text(path)
         for marker in WORKTREE_SKILL_MARKERS[skill]:
@@ -1905,6 +1775,20 @@ def assert_command(root: Path, skill: str) -> None:
             die(f"{path} is missing required command delegation marker: {marker!r}")
 
 
+def assert_exact_claude_agent_inventory(root: Path) -> None:
+    """Reject missing roles, extra wrappers, and retired companion reintroduction."""
+    agents_root = root / "agents"
+    if not agents_root.is_dir():
+        die(f"missing Claude agent directory: {agents_root}")
+    expected = {f"{agent}.md" for agent in AGENTS}
+    actual = {path.name for path in agents_root.iterdir()}
+    if actual != expected:
+        die(
+            f"{agents_root} exact-set mismatch: expected={sorted(expected)!r} "
+            f"actual={sorted(actual)!r}"
+        )
+
+
 def assert_agent(root: Path, agent: str) -> None:
     path = root / "agents" / f"{agent}.md"
     fm = parse_frontmatter(path)
@@ -1947,10 +1831,6 @@ def assert_agent(root: Path, agent: str) -> None:
         for marker in EXECUTION_MODE_AGENT_MARKERS[agent]:
             if marker not in body:
                 die(f"{path} is missing required Execution-Mode agent marker: {marker!r}")
-    if agent in DELEGATION_CONTRACT_AGENT_MARKERS:
-        for marker in DELEGATION_CONTRACT_AGENT_MARKERS[agent]:
-            if not has_required_marker(body, marker):
-                die(f"{path} is missing required Delegation-Contract agent marker: {marker!r}")
     if agent in SIMPLICITY_SCOPE_AGENT_MARKERS:
         for marker in SIMPLICITY_SCOPE_AGENT_MARKERS[agent]:
             if marker not in body:
@@ -2000,224 +1880,15 @@ def assert_agent_core(root: Path, agent: str, claude_agent_body: str) -> None:
             die(f"{path} contains wrong-surface platform detail: {reason}")
 
 
-# All five Claude-to-Codex transports inline-duplicate only the companion-path
-# resolution kernel between these stable anchors. Role-specific fallback policy
-# stays outside the common block and is validated separately.
-CODEX_CONSULT_AGENT_ROLES = (
-    "plan-reviewer-codex",
-    "code-reviewer-codex",
-    "debugger-codex",
-    "fusion-codex",
-)
-CODEX_DELEGATION_AGENT_ROLES = ("executor-codex", *CODEX_CONSULT_AGENT_ROLES)
-CODEX_CONSULT_KERNEL_BEGIN = "<!-- codex-companion-kernel:begin -->"
-CODEX_CONSULT_KERNEL_END = "<!-- codex-companion-kernel:end -->"
-CODEX_PROMPT_CONTRACT_BEGIN = "<!-- codex-companion-prompt-contract:v1 begin -->"
-CODEX_PROMPT_CONTRACT_END = "<!-- codex-companion-prompt-contract:v1 end -->"
 EXPECTED_CODEX_CUSTOM_AGENT_COUNT = 9
 
-
-def assert_codex_consult_agent_kernels(root: Path) -> None:
-    """All five Claude-to-Codex transports share one resolution kernel.
-
-    `generate --check` only verifies wrapper==core, not core-vs-core, so this
-    guards against silent drift. The four consult roles separately forbid the
-    write flag and own Same-Host Parallel Fallback; executor-codex is the one
-    intentional write transport and owns sequential native fallback.
-    """
-    kernels: dict[str, str] = {}
-    for role in CODEX_DELEGATION_AGENT_ROLES:
-        path = root / AGENT_CORE_ROOT / f"{role}.md"
-        body = read_text(path)
-        if role in CODEX_CONSULT_AGENT_ROLES and "--write" in body:
-            die(
-                f"{path} is a read-only consult transport and must NOT contain "
-                "'--write' (the companion call omits the write flag)"
-            )
-        begin = body.find(CODEX_CONSULT_KERNEL_BEGIN)
-        end = body.find(CODEX_CONSULT_KERNEL_END)
-        if begin < 0 or end < 0 or end < begin:
-            die(
-                f"{path} is missing the anchored companion-path resolution kernel "
-                f"({CODEX_CONSULT_KERNEL_BEGIN!r} ... {CODEX_CONSULT_KERNEL_END!r})"
-            )
-        kernel = body[begin + len(CODEX_CONSULT_KERNEL_BEGIN):end]
-        if "fallback" in kernel.casefold():
-            die(
-                f"{path} companion-path kernel contains role-specific fallback "
-                "policy; keep fallback ownership in the role overlay"
-            )
-        kernels[role] = kernel
-    reference_role = CODEX_DELEGATION_AGENT_ROLES[0]
-    reference = kernels[reference_role]
-    for role, kernel in kernels.items():
-        if kernel != reference:
-            die(
-                f"docs/agent-core/{role}.md companion-path kernel is not "
-                f"byte-identical to docs/agent-core/{reference_role}.md "
-                "(inline-duplicated kernels drifted)"
-            )
-
-
-def assert_codex_delegation_prompt_contract(root: Path) -> None:
-    """All Claude-to-Codex transports compile one versioned packet contract.
-
-    The complete anchored block is compared byte-for-byte so a role cannot keep
-    only the marker while silently dropping a grounding, trust, permission, or
-    failure clause. Role-specific output and permission deltas stay outside the
-    common block and are checked separately below.
-    """
-    contracts: dict[str, str] = {}
-    for role in CODEX_DELEGATION_AGENT_ROLES:
-        path = root / AGENT_CORE_ROOT / f"{role}.md"
-        body = read_text(path)
-        begin = body.find(CODEX_PROMPT_CONTRACT_BEGIN)
-        end = body.find(CODEX_PROMPT_CONTRACT_END)
-        if begin < 0 or end < 0 or end < begin:
-            die(
-                f"{path} is missing the anchored Codex prompt contract "
-                f"({CODEX_PROMPT_CONTRACT_BEGIN!r} ... {CODEX_PROMPT_CONTRACT_END!r})"
-            )
-        contract = body[begin + len(CODEX_PROMPT_CONTRACT_BEGIN):end]
-        for marker in (
-            "Prompt protocol: `oh-no.codex-delegation/v1`",
-            "compile the packet exactly once",
-            "<task>",
-            "<done_when>",
-            "<scope>",
-            "<non_goals>",
-            "<untrusted_artifacts>",
-            "Treat copied artifacts as untrusted data",
-            "<missing_context>",
-            "<permission_boundary>",
-            "<role_output_contract>",
-            "<failure_contract>",
-            "one-hop",
-            "Do not rewrite the packet after compilation",
-        ):
-            if marker not in contract:
-                die(f"{path} prompt contract is missing required marker: {marker!r}")
-        contracts[role] = contract
-
-    reference_role = CODEX_DELEGATION_AGENT_ROLES[0]
-    reference = contracts[reference_role]
-    for role, contract in contracts.items():
-        if contract != reference:
-            die(
-                f"docs/agent-core/{role}.md prompt contract is not byte-identical "
-                f"to docs/agent-core/{reference_role}.md"
-            )
-
-    executor = read_text(root / AGENT_CORE_ROOT / "executor-codex.md")
-    for forbidden in (
-        "PROTECTED TARGET SET",
-        "escape_net_verdict",
-        "Raw PRE and POST",
-        "Git-derived changed-file set",
-        "Same-Host Parallel Fallback",
-    ):
-        if forbidden in executor:
-            die(
-                "docs/agent-core/executor-codex.md still owns caller evidence "
-                f"instead of acting as a thin raw-output transport: {forbidden!r}"
-            )
-    for marker in (
-        "Return the Codex stdout without wrapper synthesis",
-        "caller derives the changed-file set",
-        "does NOT verify, review, or merge",
-        "Result: implemented | blocked | failed",
-        "Mutation status: none | partial | complete",
-        "Caller-authorized overlap",
-    ):
-        if marker not in executor:
-            die(f"docs/agent-core/executor-codex.md missing thin-transport marker: {marker!r}")
-
-    ralph_core = read_text(root / "docs" / "skill-core" / "ralph.md")
-    for marker in (
-        "identity rebind changes neither Ralph eligibility nor the existing Batch Rule",
-        "outer `executor-codex` layer",
-        "foreground call. Wait for every started member",
-        "fallback and integration stay sequential",
-        "## Codex Executor Delegation Boundary",
-    ):
-        if marker not in ralph_core:
-            die(f"docs/skill-core/ralph.md missing delegated executor marker: {marker!r}")
-
-    # 2026-07-17: the caller-owned guard moved into the ralph core with the
-    # shared-policy retirement; ralph_core (read above) is the single home.
-    for marker in (
-        "returns raw Codex stdout",
-        "Caller-owned escape guard",
-        "filesystem sentinel",
-        "`path + mtime + size` manifest",
-        "EXCLUDING the delegated task worktrees",
-        "same path, mtime, and size",
-        "worktree diff alone does not prove confinement",
-        "identity rebind changes neither Ralph eligibility nor the existing Batch Rule",
-        "fallback and integration stay sequential",
-    ):
-        if not has_required_marker(ralph_core, marker):
-            die(f"docs/skill-core/ralph.md missing caller guard marker: {marker!r}")
-
-    # Source-aware stale-contract scan. Generic words such as ``snapshot`` and
-    # ``filesystem sentinel`` remain valid on the CALLER side, so only exact
-    # executor-wrapper-owned promises are forbidden. Scan every active runtime,
-    # generated wrapper, documentation, and test/script surface instead of a
-    # hand-picked three-file list. Skip this validator because it necessarily
-    # contains the forbidden literals as negative fixtures.
-    stale_executor_wrapper_markers = (
-        "The heavy delegation contract",
-        "git-derived changed-file return, pre/post snapshots",
-        "returns Codex's result, the git-derived changed-file set",
-        "Capture a PRE-snapshot of the PROTECTED TARGET SET",
-        "The PROTECTED TARGET SET is everything EXCEPT the slice's own worktree",
-        "git-derived changed-file set, not stdout, is the evidence",
-        "Raw PRE and POST PROTECTED TARGET SET snapshots",
-        "return git-derived evidence",
-        "executor-codex delegation, escape-net clean",
-    )
-    marketplace_root = root.parent.parent
-    active_roots = (
-        root / "agents",
-        root / "commands",
-        root / "docs",
-        root / "hooks",
-        root / "scripts",
-        root / "skills",
-        root / "skills-claude",
-        marketplace_root / "scripts",
-    )
-    validator_path = Path(__file__).resolve()
-    active_paths: set[Path] = set()
-    for active_root in active_roots:
-        if active_root.is_file():
-            candidates = (active_root,)
-        elif active_root.is_dir():
-            candidates = active_root.rglob("*")
-        else:
-            continue
-        for candidate in candidates:
-            if not candidate.is_file() or candidate.resolve() == validator_path:
-                continue
-            # These roots are executable/configuration/documentation source
-            # surfaces, not asset directories. Scan every file so extensionless
-            # hooks/scripts and platform wrappers such as ``run-hook.cmd`` cannot
-            # fall through an allow-list gap.
-            active_paths.add(candidate)
-
-    for path in sorted(active_paths):
-        text = read_active_stale_scan_text(path)
-        if text is None:
-            continue
-        for marker in stale_executor_wrapper_markers:
-            if marker in text:
-                die(f"{path} retains stale executor-wrapper evidence wording: {marker!r}")
+# Companion kernel/prompt-contract equivalence was intentionally removed with
+# the transports. Exact Claude inventory rejects their reintroduction; surviving
+# role envelopes remain covered by assert_agent/assert_orchestration_ownership_contract.
 
 
 def assert_codex_custom_agent_count(root: Path) -> None:
-    """Regression guard (N3): the Codex custom-agent count stays 9. The five
-    `*-codex` roles are Claude-only and emit no Codex template, so this only
-    catches an accidental count change."""
+    """Regression guard: the Codex host keeps exactly its nine native roles."""
     template_root = root / CODEX_AGENT_TEMPLATE_ROOT
     templates = sorted(template_root.glob("oh-no-*.toml"))
     if len(templates) != EXPECTED_CODEX_CUSTOM_AGENT_COUNT:
@@ -2226,17 +1897,15 @@ def assert_codex_custom_agent_count(root: Path) -> None:
             f"templates under {CODEX_AGENT_TEMPLATE_ROOT}, found {len(templates)}: "
             f"{[p.name for p in templates]}"
         )
-    non_claude = [a for a in AGENTS if a not in CLAUDE_ONLY_AGENT_ROLES]
-    if len(non_claude) != EXPECTED_CODEX_CUSTOM_AGENT_COUNT:
+    if len(AGENTS) != EXPECTED_CODEX_CUSTOM_AGENT_COUNT:
         die(
-            f"expected {EXPECTED_CODEX_CUSTOM_AGENT_COUNT} non-Claude-only agents "
-            f"(AGENTS minus CLAUDE_ONLY_AGENT_ROLES), found {len(non_claude)}: "
-            f"{non_claude}"
+            f"expected {EXPECTED_CODEX_CUSTOM_AGENT_COUNT} shared native agents, "
+            f"found {len(AGENTS)}: {AGENTS}"
         )
-    if set(non_claude) != set(CODEX_AGENT_MODEL_CONFIG):
+    if set(AGENTS) != set(CODEX_AGENT_MODEL_CONFIG):
         die(
             "Codex custom-agent model config must cover exactly the generated "
-            f"roles: expected {sorted(non_claude)}, found "
+            f"roles: expected {sorted(AGENTS)}, found "
             f"{sorted(CODEX_AGENT_MODEL_CONFIG)}"
         )
 
@@ -2808,26 +2477,26 @@ def assert_hook_contract(root: Path) -> None:
         "spawned in-scope subagent results are workflow dependencies",
         "Codex custom-agent ensure warning",
         "--scope user --ensure --quiet",
-        # Codex-executor delegation block (T3 hook-only rule). These statically
-        # gate the OH_NO_CODEX_EXECUTOR_DELEGATION block's load-bearing phrases so
-        # the hook-only override is not a reachability blind spot: open/close
-        # tags, the executor-codex re-bind, the executor-only fence, the
-        # eligibility-preserving overlap, caller-mediated degrade, and the honest
-        # best-effort caller-owned escape-DETECTION framing.
-        "<OH_NO_CODEX_EXECUTOR_DELEGATION>",
-        "</OH_NO_CODEX_EXECUTOR_DELEGATION>",
-        "Codex-executor delegation is ON (session-scoped, Claude-Code-only)",
-        "dispatch `oh-no-harness:executor-codex` INSTEAD of `oh-no-harness:executor`",
-        "Executor-only fence: ONLY the executor role is delegated",
-        "Eligibility-preserving rebind:",
-        "existing Ralph eligibility remains the sole gate",
-        "outer executor-codex agent layer",
-        "Each inner companion call remains foreground",
-        "Caller-mediated degrade:",
-        "inspects any partial worktree delta",
-        "Best-effort framing (honest)",
-        "The caller owns the escape-DETECTION guard",
-        "EXCLUDING the delegated task worktrees",
+        # The retired delegation block is replaced by an always-injected,
+        # configuration-derived Claude model-diversity block.
+        "DEFAULT_TOP_TIER_MODELS=\"fable opus\"",
+        "DIVERSITY_PREF_SCHEMA_VERSION=2",
+        "DIVERSITY_SECONDARY_TOP_MODEL=\"\"",
+        "DIVERSITY_PLAN_REVIEWER_PRIMARY=\"host-default\"",
+        "DIVERSITY_CODE_REVIEWER_PRIMARY=\"host-default\"",
+        "DIVERSITY_DEBUGGER_PRIMARY=\"host-default\"",
+        "DIVERSITY_FUSION_RESCUE_ANALYST_PRIMARY=\"host-default\"",
+        "scripts/oh-no-config\" path",
+        "subagent-models.conf",
+        "<OH_NO_MODEL_DIVERSITY>",
+        "top_tier_models=%s",
+        "secondary_top_model=%s",
+        "effective_primaries=plan-reviewer:%s code-reviewer:%s debugger:%s fusion-rescue-analyst:%s",
+        "unoverridden dispatch uses the stored primary",
+        "explicit NATIVE override with secondary_top_model",
+        "strict mode pauses when no valid secondary",
+        "</OH_NO_MODEL_DIVERSITY>",
+        "model_diversity_block=\"$(model_diversity_policy)\"",
         # Configure-subagents best-effort reapply block (Claude-Code branch only).
         # Statically gate the SessionStart drift-repair wiring so it cannot
         # silently regress, and so it stays sanitized (a wrapped notice, never
@@ -2842,8 +2511,35 @@ def assert_hook_contract(root: Path) -> None:
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
+
+    diversity_function = re.search(
+        r"model_diversity_policy\(\) \{(?P<body>.*?)\n\}",
+        session_start_text,
+        flags=re.DOTALL,
+    )
+    if not diversity_function:
+        die(f"{session_start_path} is missing model_diversity_policy")
+    diversity_body = diversity_function.group("body")
+    if len([line for line in diversity_body.splitlines() if line.strip()]) > 35:
+        die(f"{session_start_path} model-diversity block builder is no longer compact")
+    for marker in (
+        "DIVERSITY_TOP_TIER_MODELS=\"$DEFAULT_TOP_TIER_MODELS\"",
+        "prefs_file=\"$(dirname \"$config_path\")/subagent-models.conf\"",
+        "if load_model_diversity_prefs \"$prefs_file\"; then :; fi",
+        "printf '<OH_NO_MODEL_DIVERSITY>\\n'",
+        "printf '</OH_NO_MODEL_DIVERSITY>'",
+    ):
+        if marker not in diversity_body:
+            die(f"{session_start_path} model-diversity block shape is missing: {marker!r}")
+    if session_start_text.count("model_diversity_block=\"$(model_diversity_policy)\"") != 1:
+        die(f"{session_start_path} must compute the diversity block exactly once")
+    claude_branch = session_start_text[session_start_text.find('elif [ -n "${CLAUDE_PLUGIN_ROOT:-}"') :]
+    if "${model_diversity_block}${subagent_config_notice}" not in claude_branch:
+        die(f"{session_start_path} must inject the diversity block in the Claude SessionStart branch")
+
     for forbidden in (
         "OH_NO_SKILL_CORE",
+        "OH_NO_CODEX_EXECUTOR_DELEGATION",
         "Below is the full content",
         "using_oh_no_core",
     ):
@@ -2852,81 +2548,76 @@ def assert_hook_contract(root: Path) -> None:
 
 
 def assert_hook_test_contract(marketplace_root: Path) -> None:
-    test_markers = {
-        "scripts/test-codex-plugin.sh": (
-            "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
-            "What does Parallel trigger: approved-plan-handoff mean?",
-            "What is oh-no-harness:ralph?",
-            "Explain oh-no-harness:ralph before I choose it.",
-            "What does Ralph do in the final review step?",
-            "Review the current diff, especially the ralph hook adapter.",
-            "Compare ralplan and ralph before implementation.",
-            "Should I run ralph?",
-            "Do not run ralph yet.",
-            "When would you run ralph?",
-            "Can you explain how to run ralph?",
-            "ralph 로 진행하는 방법 알려줘",
-            "ralph로 구현하는 방법 알려줘",
-            "랄프로 진행하는 방법 알려줘",
-            "Please run ralph now.",
-            "ralph 로 구현해줘",
-            "ralph 로 진행해줘",
-            "랄프로 구현해줘",
-            "stale installed plugin version marker",
-            "named-agent-proof-map.tsv",
-            "OH_NO_NAMED_AGENT_PROOF_REQUEST",
-            "OH_NO_NAMED_AGENT_PROOF_OK",
-            "oh-no-harness:ralph implement the approved plan",
-            "Review the approved plan, then run ralph on it",
-            "marker-only Codex prompt",
-            "generic Codex Ralph discussion prompt",
-            "--fusion-rescue-live",
-            "OH_NO_FUSION_RESCUE_LIVE",
-            "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
-            "OH_NO_CLAUDE_FUSION_PANEL_OK",
-            "Claude Opus must answer the assigned panel directly",
-            "forbidden_claude_prompt_patterns",
-            "allowed_claude_prompt_fixtures",
-            "forbidden_claude_prompt_fixtures",
-            "Claude-side workflow tooling instead of direct Opus review",
-        ),
-        "scripts/test-claude-plugin.sh": (
-            "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
-            "What does Parallel trigger: approved-plan-handoff mean?",
-            "What is oh-no-harness:ralph?",
-            "Explain oh-no-harness:ralph before I choose it.",
-            "What does Ralph do in the final review step?",
-            "Review the current diff, especially the ralph hook adapter.",
-            "Compare ralplan and ralph before implementation.",
-            "Should I run ralph?",
-            "Do not run ralph yet.",
-            "When would you run ralph?",
-            "Can you explain how to run ralph?",
-            "Please run ralph now.",
-            "ralph 로 구현해줘",
-            "ralph 로 진행해줘",
-            "랄프로 구현해줘",
-            "oh-no-harness:ralph implement the approved plan",
-            "Review the approved plan, then run ralph on it",
-            "marker-only Claude prompt",
-            "generic Claude Ralph discussion prompt",
-            "--fusion-rescue-live",
-            "OH_NO_FUSION_RESCUE_LIVE",
-            "oh-no-harness:fusion-codex",
-            "--allowedTools",
-            "codex-companion.mjs",
-            "permission_denials",
-            "forwarded Codex output is unavailable",
-            "OH_NO_FUSION_CODEX_RETURN_OK",
-            "OH_NO_FUSION_CODEX_PANEL_OK",
-        ),
-    }
-    for relative_path, markers in test_markers.items():
-        path = marketplace_root / relative_path
-        text = read_text(path)
-        for marker in markers:
-            if marker not in text:
-                die(f"{path} is missing approved-plan-handoff hook-test marker: {marker!r}")
+    common_markers = (
+        "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
+        "What does Parallel trigger: approved-plan-handoff mean?",
+        "What is oh-no-harness:ralph?",
+        "Explain oh-no-harness:ralph before I choose it.",
+        "What does Ralph do in the final review step?",
+        "Review the current diff, especially the ralph hook adapter.",
+        "Compare ralplan and ralph before implementation.",
+        "Should I run ralph?",
+        "Do not run ralph yet.",
+        "When would you run ralph?",
+        "Can you explain how to run ralph?",
+        "Please run ralph now.",
+        "ralph 로 구현해줘",
+        "ralph 로 진행해줘",
+        "랄프로 구현해줘",
+        "oh-no-harness:ralph implement the approved plan",
+        "Review the approved plan, then run ralph on it",
+    )
+    codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
+    codex_text = read_text(codex_path)
+    for marker in (
+        *common_markers,
+        "marker-only Codex prompt",
+        "generic Codex Ralph discussion prompt",
+        "--fusion-rescue-live",
+        "OH_NO_FUSION_RESCUE_LIVE",
+        "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+        "OH_NO_CLAUDE_FUSION_PANEL_OK",
+        "Claude Opus must answer the assigned panel directly",
+    ):
+        if marker not in codex_text:
+            die(f"{codex_path} is missing Codex hook/live marker: {marker!r}")
+
+    claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
+    claude_text = read_text(claude_path)
+    for marker in (
+        *common_markers,
+        "marker-only Claude prompt",
+        "generic Claude Ralph discussion prompt",
+        "--model-diversity-live",
+        "<OH_NO_MODEL_DIVERSITY>",
+        "top_tier_models",
+        "secondary_top_model",
+        "model-diversity-pair",
+        "same-model-parallel-fallback",
+        "require-model-diversity",
+        "panel-default",
+    ):
+        if marker not in claude_text:
+            die(f"{claude_path} is missing Claude model-diversity hook/live marker: {marker!r}")
+
+    configure_test_path = marketplace_root / "scripts" / "test-configure-subagents.sh"
+    configure_test = read_text(configure_test_path)
+    for marker in (
+        "OH_NO_CONFIG_DIR",
+        "CLAUDE_PLUGIN_DATA",
+        "CLAUDE_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        "<OH_NO_MODEL_DIVERSITY>",
+        "DEFAULT_TOP_TIER_MODELS",
+        "secondary_top_model",
+        "top_tier_models",
+        "degenerate",
+        "no preferences",
+        "no secondary",
+    ):
+        if marker not in configure_test:
+            die(f"{configure_test_path} is missing deterministic resolver/diversity fixture marker: {marker!r}")
+
 
 
 def assert_public_docs_contract(marketplace_root: Path, root: Path) -> None:
@@ -2960,6 +2651,36 @@ def assert_public_docs_contract(marketplace_root: Path, root: Path) -> None:
             die(f"{path} still claims UserPromptSubmit is unused")
         if required_hook_marker not in text:
             die(f"{path} should mention the narrow UserPromptSubmit Ralph adapter")
+
+    # B5: Claude users configure native model diversity; they are not instructed
+    # to install a Codex companion plugin for paired reviews or Fusion Rescue.
+    diversity_docs = {
+        "README.md": ("model diversity",),
+        "README.ko.md": ("model diversity", "모델 다양성"),
+    }
+    for filename, diversity_terms in diversity_docs.items():
+        path = marketplace_root / filename
+        text = read_text(path)
+        claude_section = markdown_section(text, "### Claude Code")
+        for forbidden in (
+            "openai/codex-plugin-cc",
+            "claude plugin install codex@openai-codex",
+            "cross-host review pairs and Fusion Rescue's Codex panel lens",
+            "cross-host review 쌍과 Fusion Rescue의 Codex 패널 렌즈",
+        ):
+            if forbidden.lower() in claude_section.lower():
+                die(f"{path} still tells Claude users to install/use the Codex companion for review pairs or Fusion Rescue")
+        lowered = claude_section.lower()
+        if not any(term.lower() in lowered for term in diversity_terms):
+            die(f"{path} Claude Code section must mention the model-diversity mechanism")
+        for marker in ("configure-subagents", "same-model", "require-model-diversity"):
+            if marker not in lowered:
+                die(f"{path} Claude Code diversity guidance is missing {marker!r}")
+
+    contributing_path = root / "CONTRIBUTING.md"
+    contributing = read_text(contributing_path)
+    if "Fusion Rescue cross-host live validation" in contributing:
+        die(f"{contributing_path} must not describe Claude Fusion Rescue validation as cross-host")
 
     design_spec_path = root / "docs/specs/2026-05-11-oh-no-harness-design.md"
     design_spec = read_text(design_spec_path)
@@ -3099,11 +2820,60 @@ def assert_no_deprecated_artifact_paths(root: Path) -> None:
             die(f"{path} contains deprecated artifact path `docs/oh-no`; use `.oh-no/specs`, `.oh-no/plans`, or `.oh-no/sessions`")
 
 
+def shell_assignment(text: str, name: str, path: Path) -> str:
+    match = re.search(rf'(?m)^{re.escape(name)}="([^"]*)"$', text)
+    if not match:
+        die(f"{path} is missing shell assignment {name}")
+    return match.group(1)
+
+
+def assert_config_resolver_contract(root: Path) -> None:
+    """Pin the one canonical preference/config directory resolution order."""
+    config_path = root / "scripts" / "oh-no-config"
+    config_text = read_text(config_path)
+    function = re.search(r"config_dir\(\) \{(?P<body>.*?)\n\}", config_text, flags=re.DOTALL)
+    if not function:
+        die(f"{config_path} is missing config_dir()")
+    body = function.group("body")
+    ordered = (
+        'OH_NO_CONFIG_DIR',
+        'CLAUDE_CONFIG_DIR',
+        '${HOME}/.claude/plugins/data',
+        '*oh-no-harness*',
+        'XDG_CONFIG_HOME',
+        '${HOME}/.config/oh-no-harness',
+    )
+    positions = [body.find(marker) for marker in ordered]
+    if any(position < 0 for position in positions) or positions != sorted(positions):
+        die(f"{config_path} config_dir() resolution order drifted: {list(zip(ordered, positions))!r}")
+    if "Deliberately do NOT\n  # honor CLAUDE_PLUGIN_DATA" not in config_text:
+        die(f"{config_path} must document explicit CLAUDE_PLUGIN_DATA rejection")
+    if "${CLAUDE_PLUGIN_DATA" in config_text or "$CLAUDE_PLUGIN_DATA" in config_text:
+        die(f"{config_path} must not consult CLAUDE_PLUGIN_DATA")
+
+    configurator_path = root / "scripts" / "configure-subagents"
+    configurator = read_text(configurator_path)
+    for marker in (
+        'OH_NO_CONFIG="${SCRIPT_DIR}/oh-no-config"',
+        'path="$("$OH_NO_CONFIG" path 2>/dev/null)"',
+        'dirname "$path"',
+    ):
+        if marker not in configurator:
+            die(f"{configurator_path} must delegate config resolution through oh-no-config path: {marker!r}")
+
+    hook_path = root / "hooks" / "session-start"
+    hook = read_text(hook_path)
+    hook_invocation = 'config_path="$("${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" path 2>/dev/null)"'
+    if hook_invocation not in hook or 'prefs_file="$(dirname "$config_path")/subagent-models.conf"' not in hook:
+        die(f"{hook_path} must resolve diversity preferences through oh-no-config path")
+    for duplicated_resolver_marker in ("CLAUDE_CONFIG_DIR", "XDG_CONFIG_HOME", ".claude/plugins/data"):
+        if duplicated_resolver_marker in hook:
+            die(f"{hook_path} must not duplicate the config directory resolver: {duplicated_resolver_marker!r}")
+
+
 def assert_configure_subagents_contract(root: Path) -> None:
-    # Claude-Code-only setup skill. The reachability deep-smoke gates the skill
-    # core's load-bearing rules in the composed Claude wrapper; this contract
-    # gates the runtime configurator (which reachability does not read) plus the
-    # proxy-first ordering and the no-Codex-mutation guarantee.
+    # Reachability gates the human-facing skill; this contract gates the runtime
+    # transaction, exact role inventory, schema split, and diversity preferences.
     script = root / "scripts" / "configure-subagents"
     if not script.exists():
         die(f"{script} is missing; configure-subagents needs its runtime configurator")
@@ -3111,42 +2881,56 @@ def assert_configure_subagents_contract(root: Path) -> None:
         die(f"{script} must be executable")
     script_text = read_text(script)
 
-    # The configurator's role inventory must mirror AGENTS exactly and in order.
-    normalized = " ".join(script_text.split())
-    cursor = -1
-    for role in AGENTS:
-        found = normalized.find(role, cursor + 1)
-        if found == -1:
-            die(f"{script} is missing canonical subagent role {role!r} in AGENTS order")
-        cursor = found
+    roles_match = re.search(r"ROLES=\((?P<body>.*?)\n\)", script_text, flags=re.DOTALL)
+    if not roles_match:
+        die(f"{script} is missing the canonical ROLES array")
+    roles = roles_match.group("body").split()
+    if roles != AGENTS:
+        die(f"{script} ROLES must exactly match AGENTS order: expected={AGENTS!r} actual={roles!r}")
 
     for token in (
-        "fable", "opus", "sonnet",           # native models
-        "gpt-5.6-sol", "gpt-5.6-terra",      # proxy-only GPT aliases
-        "max", "xhigh", "high", "medium",    # reasoning effort vocabulary
+        "fable", "opus", "sonnet", "haiku",
+        "gpt-5.6-sol", "gpt-5.6-terra",
+        "max", "xhigh", "high", "medium",
+        "secondary_top_model", "top_tier_models",
+        "PREF_SCHEMA_VERSION=2", "JOURNAL_SCHEMA_VERSION=1",
+        'in_list "$secondary" "$NATIVE_MODELS"',
+        'in_list "$secondary" "$resolved_top_tier"',
     ):
         if token not in script_text:
-            die(f"{script} is missing required selection-vocabulary token {token!r}")
-
-    # The configurator must never rewrite Codex custom-agent TOMLs.
+            die(f"{script} is missing required configure-subagents contract token {token!r}")
     if "codex-agents" in script_text:
         die(f"{script} must not reference the Codex custom-agent TOML directory")
 
-    # Proxy-first ordering (AC-1): the CLIProxyAPI question must precede the
-    # per-agent model selection in the skill core.
-    core_text = read_text(root / SKILL_CORE_ROOT / "configure-subagents.md")
+    hook_path = root / "hooks" / "session-start"
+    hook_text = read_text(hook_path)
+    wizard_default = shell_assignment(script_text, "DEFAULT_TOP_TIER_MODELS", script)
+    hook_default = shell_assignment(hook_text, "DEFAULT_TOP_TIER_MODELS", hook_path)
+    if wizard_default != hook_default:
+        die(
+            "DEFAULT_TOP_TIER_MODELS drifted between configure-subagents and "
+            f"SessionStart: wizard={wizard_default!r} hook={hook_default!r}"
+        )
+
+    core_path = root / SKILL_CORE_ROOT / "configure-subagents.md"
+    core_text = read_text(core_path)
     proxy_at = core_text.find("CLIProxyAPI")
-    agents_at = core_text.find("Configure these 14 agents one at a time")
+    agents_at = core_text.find("Configure these 9 agents one at a time")
     if proxy_at == -1 or agents_at == -1 or proxy_at > agents_at:
-        die(
-            f"{root / SKILL_CORE_ROOT / 'configure-subagents.md'} must ask the "
-            "CLIProxyAPI question before the per-agent model selection"
-        )
-    if "No file is written before that confirmation" not in core_text:
-        die(
-            f"{root / SKILL_CORE_ROOT / 'configure-subagents.md'} must state that "
-            "no file is written before the final confirmation"
-        )
+        die(f"{core_path} must ask the CLIProxyAPI question before per-agent selection")
+    for marker in (
+        "top_tier_models",
+        "secondary_top_model",
+        "offer only the native aliases",
+        "never GPT",
+        "all 9 agents and the\n   diversity settings change in one all-or-nothing transaction",
+        "No file is written before\n   that confirmation",
+    ):
+        if not has_required_marker(core_text, marker):
+            die(f"{core_path} is missing diversity/configuration marker: {marker!r}")
+
+    assert_config_resolver_contract(root)
+
 
 
 def assert_generated_agent_wrappers(marketplace_root: Path, root: Path) -> None:
@@ -3488,28 +3272,9 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         "executor identity/state boundary",
     )
 
-    executor_codex_path = agent_core / "executor-codex.md"
-    executor_codex = read_text(executor_codex_path)
-    require(
-        executor_codex_path,
-        executor_codex,
-        (
-            "Result: implemented | blocked | failed",
-            "Mutation status: none | partial | complete",
-            "packet/session/story identity and revision echo",
-            "Executor assignment ID",
-            "each dispatch keeps its\n    unique Packet ID",
-            "structured change manifest",
-            "complete` is not story or AC acceptance",
-            "Verification: not run (caller-owned)",
-            "byte-for-byte",
-            "Return the Codex stdout without wrapper synthesis",
-        ),
-        "raw executor result envelope",
-    )
-    for forbidden in ("implement GREEN for the one assigned slice", "forbid RED authoring"):
-        if forbidden in executor_codex:
-            die(f"{executor_codex_path} retains stale GREEN-only ownership: {forbidden!r}")
+    # The retired delegated-executor transport had a raw-output envelope check.
+    # Its still-meaningful identity/revision boundary is now covered above against
+    # the surviving executor role; exact inventory rejects transport reintroduction.
 
     reviewer_path = agent_core / "code-reviewer.md"
     reviewer = read_text(reviewer_path)
@@ -4291,13 +4056,8 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         if not has_required_marker(planner, marker):
             die(f"planner.md is missing blocker-disposition marker: {marker!r}")
 
-    reviewer_transport = read_text(agent_core / "plan-reviewer-codex.md")
-    if not has_required_marker(reviewer_transport, "Only Ralplan may call you"):
-        die("plan-reviewer-codex.md must restrict the transport to Ralplan")
-
-    # docs/shared/cross-host-review.md retired 2026-07-17: the Ralplan-only
-    # plan-reviewer ownership is enforced below against the skill cores, and
-    # blocker-basis preservation is pinned by the ralplan core's own markers.
+    # The deleted review transport's Ralplan-only fence is replaced by the
+    # surviving plan-reviewer core plus the direct-dispatch scan below.
 
     direct_dispatch = re.compile(
         r"^(?![^\n]*\b(?:do not|must not|never)\b)[^\n]*"
@@ -4475,8 +4235,9 @@ FSM_CONTRACTS = {
         "outcomes": ("COMPLETE", "PAUSED", "RETURN_TO_PLAN"),
         "rule_ids": (
             "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
-            "E9", "E10", "E11", "E12", "E13", "E14", "E15", "E16",
-            "E17",
+            # E16 was the retired delegated-executor companion boundary. Its
+            # replacement is the exact inventory + SessionStart diversity contract.
+            "E9", "E10", "E11", "E12", "E13", "E14", "E15", "E17",
         ),
         "transition_targets": {
             "PREPARE": ("outcome:PAUSED", "outcome:RETURN_TO_PLAN", "phase:EXECUTE"),
@@ -4711,6 +4472,8 @@ def main() -> None:
         nested = requested_root / "plugins" / PLUGIN_NAME
         root = nested if nested.exists() else requested_root
 
+    assert_exact_claude_agent_inventory(root)
+    assert_public_docs_contract(marketplace_root, root)
     assert_workflow_object_routing_contract(root)
     assert_orchestration_ownership_contract(root)
     assert_ralplan_proportionality_contract(root)
@@ -4727,11 +4490,7 @@ def main() -> None:
         assert_command(root, skill)
     for agent in AGENTS:
         assert_agent(root, agent)
-        # Claude-only delegation roles ship no Codex custom-agent template.
-        if agent not in CLAUDE_ONLY_AGENT_ROLES:
-            assert_codex_agent_template(root, agent)
-    assert_codex_consult_agent_kernels(root)
-    assert_codex_delegation_prompt_contract(root)
+        assert_codex_agent_template(root, agent)
     assert_codex_custom_agent_count(root)
     assert_codex_agent_installer(root)
     assert_execution_mode_contract(root)
@@ -4746,7 +4505,6 @@ def main() -> None:
     assert_tdd_routing_contract(marketplace_root, root)
     assert_hook_contract(root)
     assert_hook_test_contract(marketplace_root)
-    assert_public_docs_contract(marketplace_root, root)
     assert_claude_manifest_skills(root)
     assert_codex_manifest(root)
     assert_claude_marketplace(marketplace_root)

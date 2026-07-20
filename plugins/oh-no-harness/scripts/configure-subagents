@@ -15,9 +15,9 @@ set -uo pipefail
 #
 # Subcommands:
 #   check                     Report configuration state. Makes no changes.
-#   apply --proxy <yes|no> \  Apply a full, ordered 14-agent configuration plus
-#     <role=model,effort> x14  its preferences as one lock-serialized, recoverable
-#                              transaction (per-file atomic rename + journal +
+#   apply --proxy <yes|no> \  Apply a full, ordered 9-agent configuration plus
+#     [diversity options] \     its preferences as one lock-serialized, recoverable
+#     <role=model,effort> x9    transaction (per-file atomic rename + journal +
 #                              backup + rollback). Not globally atomic; each file
 #                              rename is atomic and the whole set is recoverable.
 #   reapply --quiet           Restore stored preferences when the runtime agents
@@ -29,7 +29,7 @@ set -uo pipefail
 # in the Oh No Harness data directory resolved by scripts/oh-no-config.
 # Proxy URL/token values are never stored or printed.
 #
-# Backup retention: each apply snapshots the 14 originals + prior preferences
+# Backup retention: each apply snapshots the 9 originals + prior preferences
 # under <data-dir>/subagent-backups/<txn>/. The newest OH_NO_CONFIGURE_BACKUP_KEEP
 # (default 10) snapshots are kept; older ones are pruned. Snapshots retain agent
 # bodies but never credentials.
@@ -87,18 +87,19 @@ resolve_layout
 OH_NO_CONFIG="${SCRIPT_DIR}/oh-no-config"
 
 # Canonical role inventory and order. Must mirror AGENTS in
-# scripts/validate-plugin-files.py. The final five are the Claude-only
-# Codex-transport roles; they are configured like every other role.
+# scripts/validate-plugin-files.py.
 ROLES=(
-  explore analyst planner plan-reviewer executor executor-codex debugger
-  verifier code-reviewer fusion-rescue-analyst plan-reviewer-codex
-  code-reviewer-codex debugger-codex fusion-codex
+  explore analyst planner plan-reviewer executor debugger verifier
+  code-reviewer fusion-rescue-analyst
 )
 
-NATIVE_MODELS="fable opus sonnet"
+PRIMARY_NATIVE_MODELS="fable opus sonnet"
+NATIVE_MODELS="fable opus sonnet haiku"
 GPT_MODELS="gpt-5.6-sol gpt-5.6-terra"
+DEFAULT_TOP_TIER_MODELS="fable opus"
 EFFORTS="max xhigh high medium"
-PREF_SCHEMA_VERSION=1
+PREF_SCHEMA_VERSION=2
+JOURNAL_SCHEMA_VERSION=1
 # Retention must be a non-negative integer; malformed env input falls back to the
 # default so pruning can never hit an arithmetic error or undefined retention.
 BACKUP_KEEP="${OH_NO_CONFIGURE_BACKUP_KEEP:-10}"
@@ -302,9 +303,11 @@ prefs_path_ok() {
 }
 
 write_prefs_atomic() {
-  # write_prefs_atomic <dest> <proxy> <assignment...>
+  # write_prefs_atomic <dest> <proxy> <secondary> <top-tier> <assignment...>
   local dest="$1"; shift
   local proxy="$1"; shift
+  local secondary="$1"; shift
+  local top_tier="$1"; shift
   mkdir -p "$CFG_DIR" || return 1
   local tmp
   tmp="$(mktemp "${CFG_DIR}/.subagent-models.conf.XXXXXX")" || return 1
@@ -313,6 +316,8 @@ write_prefs_atomic() {
     printf '# Managed by scripts/configure-subagents. No proxy credentials are stored.\n'
     printf 'schema_version=%s\n' "$PREF_SCHEMA_VERSION"
     printf 'proxy=%s\n' "$proxy"
+    printf 'secondary_top_model=%s\n' "$secondary"
+    printf 'top_tier_models=%s\n' "$top_tier"
     local a
     for a in "$@"; do printf 'assignment=%s\n' "$a"; done
   } >"$tmp" || { rm -f "$tmp"; return 1; }
@@ -321,19 +326,48 @@ write_prefs_atomic() {
 
 prefs_present() { [ -f "$PREF_FILE" ]; }
 prefs_proxy() { LC_ALL=C awk -F= '/^proxy=/{print $2; exit}' "$PREF_FILE"; }
+prefs_secondary() { LC_ALL=C awk -F= '/^secondary_top_model=/{print $2; exit}' "$PREF_FILE"; }
+prefs_top_tier() { LC_ALL=C awk -F= '/^top_tier_models=/{print $2; exit}' "$PREF_FILE"; }
 prefs_assignments() { LC_ALL=C awk -F= '/^assignment=/{print $2}' "$PREF_FILE"; }
+prefs_key_count() { LC_ALL=C grep -c "^${1}=" "$PREF_FILE"; }
 
 prefs_valid() {
   [ -f "$PREF_FILE" ] || return 1
-  local sv proxy count
+  local sv proxy count secondary top_tier resolved_top_tier model native_found=0
+  [ "$(prefs_key_count schema_version)" = 1 ] || return 1
+  [ "$(prefs_key_count proxy)" = 1 ] || return 1
+  [ "$(prefs_key_count secondary_top_model)" -le 1 ] || return 1
+  [ "$(prefs_key_count top_tier_models)" -le 1 ] || return 1
   sv="$(LC_ALL=C awk -F= '/^schema_version=/{print $2; exit}' "$PREF_FILE")"
   [ "$sv" = "$PREF_SCHEMA_VERSION" ] || return 1
   proxy="$(prefs_proxy)"
   [ "$proxy" = "yes" ] || [ "$proxy" = "no" ] || return 1
+
+  top_tier="$(prefs_top_tier)"
+  if [ "$(prefs_key_count top_tier_models)" = 0 ]; then
+    resolved_top_tier="$DEFAULT_TOP_TIER_MODELS"
+  else
+    [ -n "$top_tier" ] || return 1
+    resolved_top_tier="$top_tier"
+  fi
+  local allowed_top_tier="$NATIVE_MODELS"
+  [ "$proxy" = yes ] && allowed_top_tier="$allowed_top_tier $GPT_MODELS"
+  for model in $resolved_top_tier; do
+    in_list "$model" "$allowed_top_tier" || return 1
+    in_list "$model" "$NATIVE_MODELS" && native_found=1
+  done
+  [ "$native_found" = 1 ] || return 1
+
+  secondary="$(prefs_secondary)"
+  if [ -n "$secondary" ]; then
+    in_list "$secondary" "$NATIVE_MODELS" || return 1
+    in_list "$secondary" "$resolved_top_tier" || return 1
+  fi
+
   count="$(prefs_assignments | LC_ALL=C grep -c .)"
   [ "$count" = "${#ROLES[@]}" ] || return 1
-  local i=0 line role model effort allowed_models
-  if [ "$proxy" = "yes" ]; then allowed_models="$NATIVE_MODELS $GPT_MODELS"; else allowed_models="$NATIVE_MODELS"; fi
+  local i=0 line role effort allowed_models
+  if [ "$proxy" = "yes" ]; then allowed_models="$PRIMARY_NATIVE_MODELS $GPT_MODELS"; else allowed_models="$PRIMARY_NATIVE_MODELS"; fi
   while IFS= read -r line; do
     role="${line%%,*}"
     model="${line#*,}"; model="${model%%,*}"
@@ -362,9 +396,9 @@ jfield() { LC_ALL=C awk -F= -v k="$1" 'index($0, k "=")==1 { sub(/^[^=]*=/, "");
 journal_schema_ok() {
   # Require exactly one each of the four known keys and no unknown, duplicate, or
   # blank lines. Values are validated by the caller.
-  LC_ALL=C awk -F= '
+  LC_ALL=C awk -F= -v expected="$JOURNAL_SCHEMA_VERSION" '
     { total++ }
-    /^schema_version=/ { sv++; next }
+    /^schema_version=/ { sv++; if ($2 != expected) bad=1; next }
     /^root=/           { r++;  next }
     /^txn=/            { t++;  next }
     /^prior_prefs=/    { p++;  next }
@@ -395,7 +429,7 @@ write_journal_atomic() {
   local tmp
   tmp="$(mktemp "${CFG_DIR}/.subagent-journal.XXXXXX")" || return 1
   {
-    printf 'schema_version=%s\n' "$PREF_SCHEMA_VERSION"
+    printf 'schema_version=%s\n' "$JOURNAL_SCHEMA_VERSION"
     printf 'root=%s\n' "$PLUGIN_ROOT"
     printf 'txn=%s\n' "$1"
     printf 'prior_prefs=%s\n' "$2"
@@ -424,7 +458,7 @@ recover_from_journal() {
   root="$(jfield root)"
   txn="$(jfield txn)"
   prior="$(jfield prior_prefs)"
-  [ "$sv" = "$PREF_SCHEMA_VERSION" ] || { warn_recover; return 2; }
+  [ "$sv" = "$JOURNAL_SCHEMA_VERSION" ] || { warn_recover; return 2; }
   # A structurally valid journal whose recorded root is not the current physical
   # plugin root is moot: it was written under a previous (e.g. pre-update) cache
   # root and can never apply here. Discard ONLY our own fixed config-dir journal
@@ -503,7 +537,7 @@ TXN_BACKUP_RESULT=""
 COMMITTED_ROLES=()
 
 restore_all() {
-  # Restore all 14 agents + prior preference state. Sets RESTORE_OK=1/0.
+  # Restore all 9 agents + prior preference state. Sets RESTORE_OK=1/0.
   RESTORE_OK=1
   local role src dst tmp
   for role in "${ROLES[@]}"; do
@@ -559,8 +593,11 @@ EOF
 }
 
 apply_transaction() {
-  # apply_transaction <proxy> <assignment...>  (lock must already be held).
+  # apply_transaction <proxy> <secondary> <top-tier> <assignment...>
+  # (lock must already be held).
   local proxy="$1"; shift
+  local secondary="$1"; shift
+  local top_tier="$1"; shift
   local assignments=("$@")
 
   # 0) Path safety for the data-dir files we manage.
@@ -637,7 +674,7 @@ apply_transaction() {
   rm -rf "$stage_dir"
 
   # 7) Publish preferences BEFORE clearing the journal (part of the transaction).
-  if seam_on OH_NO_CONFIGURE_FAIL_PREFS || ! write_prefs_atomic "$PREF_FILE" "$proxy" "${assignments[@]}"; then
+  if seam_on OH_NO_CONFIGURE_FAIL_PREFS || ! write_prefs_atomic "$PREF_FILE" "$proxy" "$secondary" "$top_tier" "${assignments[@]}"; then
     fail_after_rollback "runtime agents committed but preferences could not be published"
   fi
 
@@ -660,7 +697,7 @@ parse_assignments() {
     die "expected exactly ${#ROLES[@]} role assignments, got ${#tokens[@]}" 4
   fi
   local allowed_models
-  if [ "$proxy" = "yes" ]; then allowed_models="$NATIVE_MODELS $GPT_MODELS"; else allowed_models="$NATIVE_MODELS"; fi
+  if [ "$proxy" = "yes" ]; then allowed_models="$PRIMARY_NATIVE_MODELS $GPT_MODELS"; else allowed_models="$PRIMARY_NATIVE_MODELS"; fi
   local i=0 token role rest model effort
   for token in "${tokens[@]}"; do
     case "$token" in *=*) ;; *) die "assignment '$token' must be role=model,effort" 4 ;; esac
@@ -677,6 +714,26 @@ parse_assignments() {
     PARSED_ASSIGNMENTS+=("${role},${model},${effort}")
     i=$((i + 1))
   done
+}
+
+parse_diversity_preferences() {
+  local proxy="$1" secondary="$2" top_tier="$3"
+  local allowed_top_tier="$NATIVE_MODELS" model normalized="" native_found=0
+  [ "$proxy" = yes ] && allowed_top_tier="$allowed_top_tier $GPT_MODELS"
+  [ -n "$top_tier" ] || die "top-tier model list must not be empty" 4
+  for model in $top_tier; do
+    in_list "$model" "$allowed_top_tier" || die "top-tier model '$model' is not allowed (proxy=$proxy)" 4
+    in_list "$model" "$NATIVE_MODELS" && native_found=1
+    if [ -n "$normalized" ]; then normalized="$normalized $model"; else normalized="$model"; fi
+  done
+  [ -n "$normalized" ] || die "top-tier model list must not be empty" 4
+  [ "$native_found" = 1 ] || die "top-tier model list must include a native entry; at least one of fable/opus/sonnet/haiku required" 4
+  if [ -n "$secondary" ]; then
+    in_list "$secondary" "$NATIVE_MODELS" || die "secondary top model '$secondary' must be one of: $NATIVE_MODELS" 4
+    in_list "$secondary" "$normalized" || die "secondary top model '$secondary' must be included in the top-tier model list" 4
+  fi
+  PARSED_SECONDARY_TOP_MODEL="$secondary"
+  PARSED_TOP_TIER_MODELS="$normalized"
 }
 
 # --- Subcommands -------------------------------------------------------------
@@ -699,11 +756,15 @@ cmd_check() {
 }
 
 cmd_apply() {
-  local proxy="" tokens=()
+  local proxy="" secondary="" top_tier="$DEFAULT_TOP_TIER_MODELS" tokens=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --proxy) shift; proxy="${1:-}"; [ -n "$proxy" ] || die "--proxy requires yes or no" 4 ;;
       --proxy=*) proxy="${1#--proxy=}" ;;
+      --secondary-top-model) shift; secondary="${1:-}"; [ -n "$secondary" ] || die "--secondary-top-model requires a native model" 4 ;;
+      --secondary-top-model=*) secondary="${1#--secondary-top-model=}" ;;
+      --top-tier-models) shift; top_tier="${1:-}"; [ -n "$top_tier" ] || die "--top-tier-models requires a space-separated model list" 4 ;;
+      --top-tier-models=*) top_tier="${1#--top-tier-models=}" ;;
       -*) die "unknown apply option: $1" 2 ;;
       *) tokens+=("$1") ;;
     esac
@@ -714,13 +775,14 @@ cmd_apply() {
   is_source_checkout "$PLUGIN_ROOT" && die "refusing to apply inside a Git source checkout ($PLUGIN_ROOT); the checkout's agents are generator-owned" 3
 
   parse_assignments "$proxy" "${tokens[@]}"
+  parse_diversity_preferences "$proxy" "$secondary" "$top_tier"
 
   acquire_lock wait || die "another configure-subagents run holds the lock; try again shortly" 8
   trap 'release_lock' EXIT
 
   recover_from_journal || die "an interrupted configuration must be recovered first; re-run after resolving it" 7
 
-  apply_transaction "$proxy" "${PARSED_ASSIGNMENTS[@]}"
+  apply_transaction "$proxy" "$PARSED_SECONDARY_TOP_MODEL" "$PARSED_TOP_TIER_MODELS" "${PARSED_ASSIGNMENTS[@]}"
   release_lock
   trap - EXIT
   printf 'configured %s agent(s) under %s\n' "${#ROLES[@]}" "$AGENTS_DIR"
@@ -781,12 +843,15 @@ cmd_reapply() {
     exit 5
   fi
 
-  local proxy assignments=() line
+  local proxy secondary top_tier assignments=() line
   proxy="$(prefs_proxy)"
+  secondary="$(prefs_secondary)"
+  top_tier="$(prefs_top_tier)"
+  [ -n "$top_tier" ] || top_tier="$DEFAULT_TOP_TIER_MODELS"
   while IFS= read -r line; do [ -n "$line" ] && assignments+=("$line"); done <<EOF
 $(prefs_assignments)
 EOF
-  apply_transaction "$proxy" "${assignments[@]}" >/dev/null
+  apply_transaction "$proxy" "$secondary" "$top_tier" "${assignments[@]}" >/dev/null
   release_lock
   trap - EXIT
   printf 'reapplied subagent configuration after runtime drift; start a new Claude Code session or run /clear.\n'
@@ -796,7 +861,8 @@ usage() {
   cat <<'USAGE'
 Usage:
   configure-subagents check
-  configure-subagents apply --proxy <yes|no> <role=model,effort> ...(14 in order)
+  configure-subagents apply --proxy <yes|no> [--secondary-top-model <native-model>]
+    [--top-tier-models "<space-separated-models>"] <role=model,effort> ...(9 in order)
   configure-subagents reapply --quiet
 
 Configures the installed Claude Code subagents' model and reasoning effort.

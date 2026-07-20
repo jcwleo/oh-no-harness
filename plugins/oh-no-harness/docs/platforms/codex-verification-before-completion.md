@@ -33,6 +33,16 @@ caller remains blocked/PAUSED. Close a completed receiver only if the host
 exposes a close primitive; if none exists, closure is host-managed — record
 that and continue.
 
+## Re-Homed Core Pair Rules
+
+9. When a `code-reviewer` was dispatched, record `single-reviewer` for
+   STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
+   `same-host-parallel-fallback`; an inline fallback requires a reason.
+   Missing review topology is a named ledger gap, not a pass.
+
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (cross-host merge: merged findings) |
+
 ## Cross-Host Consult Channel
 
 A named-THOROUGH paired `code-reviewer` starts one Codex reviewer and one
