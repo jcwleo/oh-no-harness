@@ -201,6 +201,50 @@ printf '%s\n' "$out" | grep -q 'inherit' && ok "unresolved model falls back to i
 [ -z "$(printf '%s' '{"columns":80,"tasks":[]}' | bash "$SUB_PAYLOAD")" ] && ok "no tasks yields no rows" || bad "no tasks yields no rows"
 
 # ---------------------------------------------------------------------------
+echo "== subagent renderer: canonical Oh No Harness role marker =="
+now="$(date +%s)"
+marker_in='{"columns":120,"tasks":[
+  {"id":"m1","type":"local_agent","status":"running","startTime":'"$(( (now-30) * 1000 ))"',"description":"[oh-no-harness:explore] searching repo"},
+  {"id":"m2","type":"local_agent","status":"running","startTime":'"$(( (now-30) * 1000 ))"',"description":"plain unmarked work"}
+]}'
+mout="$(printf '%s' "$marker_in" | bash "$SUB_PAYLOAD")"
+# marked row (m1): canonical role in the leading slot; generic type dropped; only
+# the post-marker text kept as the trailing description; raw marker stripped.
+row1="$(printf '%s\n' "$mout" | jq -r 'select(.id=="m1") | .content')"
+printf '%s' "$row1" | grep -q 'oh-no-harness:explore' && ok "marked row shows canonical role" || bad "marked row shows canonical role"
+printf '%s' "$row1" | grep -q 'local_agent' && bad "marked row still shows local_agent" || ok "marked row drops local_agent"
+printf '%s' "$row1" | grep -q '"searching repo"' && ok "marked row keeps post-marker description" || bad "marked row keeps post-marker description"
+printf '%s' "$row1" | grep -Fq 'oh-no-harness:explore]' && bad "marked row leaves raw marker in description" || ok "marked row strips raw marker from description"
+# unmarked row (m2): existing name/type fallback + description unchanged.
+row2="$(printf '%s\n' "$mout" | jq -r 'select(.id=="m2") | .content')"
+printf '%s' "$row2" | grep -q 'local_agent' && ok "unmarked row keeps type fallback" || bad "unmarked row keeps type fallback"
+printf '%s' "$row2" | grep -q '"plain unmarked work"' && ok "unmarked row keeps description" || bad "unmarked row keeps description"
+printf '%s' "$row2" | grep -q 'oh-no-harness:' && bad "unmarked row invents a role label" || ok "unmarked row shows no role label"
+
+# ---------------------------------------------------------------------------
+echo "== SessionStart context carries the canonical role-marker instruction =="
+# Execute the Claude Code branch of the hook and assert on the instruction that
+# actually reaches the model (the emitted additionalContext), not just the hook
+# source. OH_NO_CONFIG_DIR points at an empty temp dir so the reapply and
+# auto-routing lookups are silent no-ops that never read or mutate the real
+# ~/.claude or plugin data; env -u strips any inherited host markers.
+HOOK_WORK="$(mktemp -d)"
+label_ctx="$(env -u CURSOR_PLUGIN_ROOT -u PLUGIN_ROOT -u COPILOT_CLI \
+  CLAUDE_PLUGIN_ROOT="$HOOK_WORK/plugin" OH_NO_CONFIG_DIR="$HOOK_WORK/config" \
+  bash "$SESSION_START" | jq -r '.hookSpecificOutput.additionalContext')"
+label_block="$(printf '%s\n' "$label_ctx" | awk '/<OH_NO_SUBAGENT_ROLE_LABEL>/{f=1} f{print} /<\/OH_NO_SUBAGENT_ROLE_LABEL>/{f=0}')"
+rm -rf "$HOOK_WORK"
+printf '%s' "$label_block" | grep -Fq '[oh-no-harness:<role>]' && ok "role-marker convention documented in SessionStart" || bad "role-marker convention documented in SessionStart"
+printf '%s' "$label_block" | grep -q 'description' && ok "instruction ties marker to task description" || bad "instruction ties marker to task description"
+# CR-1: the instruction must be dispatch-mechanism-complete, not limited to
+# Task/Agent. It must also name the Workflow agent() call and generalize to any
+# equivalent Claude subagent mechanism that carries a task description.
+printf '%s' "$label_block" | grep -q 'Task' && ok "instruction names the Task tool" || bad "instruction names the Task tool"
+printf '%s' "$label_block" | grep -q 'Agent' && ok "instruction names the Agent tool" || bad "instruction names the Agent tool"
+printf '%s' "$label_block" | grep -Fq 'agent()' && ok "instruction names the Workflow agent() call" || bad "instruction names the Workflow agent() call"
+printf '%s' "$label_block" | grep -Eqi 'subagent mechanism|equivalent' && ok "instruction generalizes to equivalent subagent mechanisms" || bad "instruction generalizes to equivalent subagent mechanisms"
+
+# ---------------------------------------------------------------------------
 echo "== Claude-Code-only: no Codex artifacts =="
 [ ! -e "$CODEX_WRAPPER" ] && ok "no Codex skill wrapper" || bad "no Codex skill wrapper"
 [ ! -e "$CODEX_OVERLAY" ] && ok "no Codex overlay" || bad "no Codex overlay"

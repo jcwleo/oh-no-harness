@@ -130,12 +130,40 @@ while IFS= read -r -d '' id \
   [ -n "$id" ] || continue
   tokens="$(int "$tokens")"; ctxsize="$(int "$ctxsize")"; start="$(int "$start")"
 
+  # Canonical Oh No Harness role marker. A dispatched task can label its row with
+  # the harness role by starting its description with "[oh-no-harness:<role>]".
+  # We recognize the marker ONLY as a leading, well-formed token: the role must be
+  # non-empty and limited to [A-Za-z0-9_-]. Anything else (mid-string brackets, an
+  # empty or odd role token) is left untouched so arbitrary descriptions are never
+  # reinterpreted. On a match the canonical role replaces the generic name/type in
+  # the leading slot and the marker (plus one following space) is stripped from the
+  # shown description.
+  role_label=""
+  case "$desc" in
+    "[oh-no-harness:"*"]"*)
+      marker_role="${desc%%]*}"                    # "[oh-no-harness:<role>"
+      marker_role="${marker_role#\[oh-no-harness:}" # "<role>"
+      case "$marker_role" in
+        ""|*[!A-Za-z0-9_-]*) : ;;                  # malformed role token: leave as-is
+        *)
+          role_label="oh-no-harness:${marker_role}"
+          desc="${desc#*]}"                        # strip up to & including first ]
+          desc="${desc# }"                         # drop a single leading space
+          ;;
+      esac
+      ;;
+  esac
+
   sc="$(status_color "$status")"
   short_model="$(prettify_model "$model")"
 
+  # leading slot: canonical harness role when the marker set it, else the
+  # host-provided name/type fallback
+  label="${role_label:-$name}"
+
   # accumulate visible-plain + colored strings in lockstep so width math is exact
-  acc_plain="● ${name}"
-  acc_color="${sc}●${RESET} $(fg 251)${name}${RESET}"
+  acc_plain="● ${label}"
+  acc_color="${sc}●${RESET} $(fg 251)${label}${RESET}"
   add() {  # $1 plain, $2 colored — joined with a dim middot
     acc_plain+=" · $1"
     acc_color+=" ${DIM}·${RESET} $2"

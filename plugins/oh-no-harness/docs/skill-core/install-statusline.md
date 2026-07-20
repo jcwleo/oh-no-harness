@@ -74,6 +74,12 @@ The subagent statusline rows require Claude Code v2.1.205+ to show a per-task
 model and context gauge (those fields are omitted for a task whose model isn't
 resolved yet, and the row degrades to `inherit` plus a raw token count).
 
+When a dispatched subagent task starts its description with the canonical marker
+`[oh-no-harness:<role>]`, the subagent statusline shows that role (for example
+`oh-no-harness:explore`) in the row's leading slot instead of a generic host
+label such as `local_agent`, and hides the marker from the shown description.
+Unmarked tasks keep the host-provided name or type and their description as-is.
+
 ## Install Procedure
 
 The bundled installer does the deterministic file work; this skill orchestrates

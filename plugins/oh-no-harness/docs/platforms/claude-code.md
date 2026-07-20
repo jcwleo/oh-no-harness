@@ -94,6 +94,15 @@ Use the available Task, Agent, Workflow `agent()`, or subagent mechanism for
 role dispatch. Prefer plugin-scoped agents named `oh-no-harness:<role>` when
 the host lists them.
 
+When you dispatch an Oh No Harness role subagent, begin the task description with
+the canonical role marker `[oh-no-harness:<role>]` followed by a brief task
+summary — for example `[oh-no-harness:explore] locate the retry helper`. The
+subagent statusline reads this leading marker to label the row with the
+canonical role instead of a generic host type such as `local_agent`, then strips
+the marker from the shown description. Use the exact bracketed prefix only at the
+very start of the description and only for Oh No Harness role dispatches; leave
+other task descriptions unmarked.
+
 For independent read-only, review, verification, QA, security, or exploration
 work, request background subagents and start the whole independent batch before
 waiting for any one result.

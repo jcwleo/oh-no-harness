@@ -101,6 +101,14 @@ Prefer one focused question at a time. Use 2-4 mutually exclusive choices when o
 This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
 </CLAUDE_CODE_ONLY>'
 
+claude_code_subagent_role_label_policy='<OH_NO_SUBAGENT_ROLE_LABEL>
+This platform is Claude Code. When you dispatch an Oh No Harness role through any Claude subagent mechanism that carries a task description (the Task tool, the Agent tool, a Workflow `agent()` call, or any equivalent dispatch), begin the task description with the canonical role marker [oh-no-harness:<role>] followed by a brief task summary, for example [oh-no-harness:explore] locate the retry helper. The subagent statusline reads this leading marker to label the row with the canonical role (such as oh-no-harness:explore) instead of a generic host type such as local_agent, and strips the marker from the shown description.
+
+Use the exact bracketed prefix only at the very start of the description, and only for Oh No Harness role dispatches; leave descriptions for other tasks unmarked so their existing name and description render unchanged.
+
+This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
+</OH_NO_SUBAGENT_ROLE_LABEL>'
+
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
 Standing preference: use sub-agents, delegation, and parallel agent work proactively. This is the explicit user request for eligible Oh No Harness workflow subagents when host tools allow isolated work.
 
@@ -185,7 +193,9 @@ Oh No Harness could not reapply your saved subagent model configuration (status 
   fi
   session_context="${base_session_context}
 
-${claude_code_question_policy}${subagent_config_notice}"
+${claude_code_question_policy}
+
+${claude_code_subagent_role_label_policy}${subagent_config_notice}"
   session_context_escaped=$(escape_for_json "$session_context")
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 else
