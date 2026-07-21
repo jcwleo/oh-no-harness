@@ -557,7 +557,8 @@ negative, regression, or safety cases.
 Phase: EXECUTE exit — after CLEANUP and RECHECK. Snapshot status is `pending |
 passed@<fingerprint> | stale`. Run this final gate once for the current
 stabilized revision, after all stories and cleanup, before `## Review Gate`,
-then record `passed@<fingerprint>` [E10]. Any later material mutation marks the result `stale` and returns the gate to
+then record `passed@<fingerprint>` [E10].
+Any later material mutation marks the result `stale` and returns the gate to
 `pending`; run it once for the newly stabilized revision before entering REVIEW
 or, after REVIEW/FINALIZE mutation, before INTEGRATE and COMPLETION_AUDIT.
 Thresholds decide whether that revision-bound evaluation expands into the

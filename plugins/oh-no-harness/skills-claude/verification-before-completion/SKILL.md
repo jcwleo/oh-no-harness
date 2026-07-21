@@ -169,8 +169,10 @@ and gap, recurring risk addressed, similar-work expectation, excluded
 case-specific details, added process cost, and completion claim. Treat
 metric movement as a diagnostic signal, never the acceptance criteria:
 reject completion claims whose only support is metric movement,
-unseen-check guessing, task-name-specific guidance, or a metric that does
-not match the real user, maintainer, operator, or public contract.
+unseen-check guessing, fixture knowledge, task-name-specific guidance, or a
+metric that does not match the real user, maintainer, operator, or public
+contract. Also reject process inflation that would not help a skeptical
+maintainer on similar work.
 
 ## Agent Roles
 
