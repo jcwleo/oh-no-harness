@@ -42,10 +42,9 @@ Reviewed on 2026-07-12:
   `$CODEX_HOME/agents` or `~/.codex/agents` for personal agents, or under
   project `.codex/agents/` for project-scoped agents. They are not defined
   inside `config.toml`; Codex `[agents]` settings are global subagent settings.
-  Oh No Harness uses a quiet user-scope SessionStart ensure by default for
-  named `agent_type` dispatch readiness, and Ralph repeats that ensure only as
-  fallback. Generated files record the plugin version so updates can refresh
-  stale agent definitions. The generated templates pin role-specific models
+  Oh No Harness uses a quiet user-scope SessionStart ensure for named
+  `agent_type` dispatch readiness. Generated files record the plugin version so
+  updates can refresh stale agent definitions. The generated templates pin role-specific models
   from the current 5.6 family and explicit reasoning effort to avoid relying on
   user-specific model inheritance: explore uses Terra at `medium`, analyst and
   executor use Sol at `high`, and the remaining Codex custom agents use Sol at

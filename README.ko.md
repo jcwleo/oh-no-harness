@@ -176,7 +176,7 @@ codex plugin marketplace upgrade oh-no-harness
 
 ## 개인정보 및 동작
 
-- compact `SessionStart` 안내와 좁은 `UserPromptSubmit` Ralph adapter 훅만 사용 — `PreToolUse`/`PostToolUse` 미사용.
+- 간결한 `SessionStart` 부트스트랩이 유일한 플러그인 훅이며, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` 훅은 사용하지 않습니다.
 - npm 런타임 없음, 별도 CLI 프로세스 없음, tmux 프로세스 없음, MCP 서버 없음.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (지속되는 harness 설정용).

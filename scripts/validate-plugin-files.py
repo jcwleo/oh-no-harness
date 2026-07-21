@@ -491,7 +491,7 @@ PLATFORM_ADAPTER_DOC_MARKERS = {
         "Agent prompt source: docs/agent-core/<role>.md",
         "Agent prompt content:",
         "strip the Claude Code YAML frontmatter",
-        "SessionStart is the primary custom-agent preparation path",
+        "SessionStart is the sole automatic custom-agent preparation path",
         "scripts/install-codex-agents --scope user --ensure --quiet",
         'sandbox_mode = "read-only"',
         "This is required for",
@@ -2066,7 +2066,7 @@ def assert_expected_references(root: Path) -> None:
         "scripts/install-codex-agents",
         "docs/platforms/codex-agents/*.toml",
         "--scope user --ensure --quiet",
-        "SessionStart is the primary user-scope ensure point",
+        "SessionStart is the sole automatic user-scope ensure point",
     ):
         if marker not in relationships:
             die(f"relationships.md does not mention required structure marker `{marker}`")
@@ -2395,59 +2395,12 @@ def assert_hook_contract(root: Path) -> None:
     if not isinstance(events, dict):
         die(f"{hooks_path} should define a hooks object")
 
-    required_events = {"SessionStart", "UserPromptSubmit"}
+    required_events = {"SessionStart"}
     actual_events = set(events)
-    missing = required_events - actual_events
-    if missing:
-        die(f"{hooks_path} is missing hook events: {sorted(missing)}")
-
-    user_prompt_groups = events.get("UserPromptSubmit")
-    if not isinstance(user_prompt_groups, list) or len(user_prompt_groups) != 1:
-        die(f"{hooks_path} should define exactly one UserPromptSubmit group")
-    group = user_prompt_groups[0]
-    if "matcher" in group:
-        die(f"{hooks_path} UserPromptSubmit should omit matcher because the event ignores it")
-    handlers = group.get("hooks")
-    if not isinstance(handlers, list) or len(handlers) != 1:
-        die(f"{hooks_path} UserPromptSubmit should define exactly one hook handler")
-    handler = handlers[0]
-    if handler.get("type") != "command":
-        die(f"{hooks_path} UserPromptSubmit handler should be type=command")
-    if "ralph-platform-adapter" not in handler.get("command", ""):
-        die(f"{hooks_path} UserPromptSubmit should invoke ralph-platform-adapter")
-    if handler.get("async") is not False:
-        die(f"{hooks_path} UserPromptSubmit handler should set async=false")
-
-    script_path = root / "hooks" / "ralph-platform-adapter"
-    script_text = read_text(script_path)
-    for marker in (
-        "OH_NO_RALPH_PLATFORM_ADAPTER",
-        "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
-        "CODEX_ONLY_RALPH_ADAPTER",
-        "Codex custom-agent preflight",
-        "install-codex-agents",
-        "--scope user --ensure --quiet",
-        "quiet ensure",
-        "prompt_text=",
-        'json.loads(raw).get("prompt", "")',
-        "lowered_prompt=",
-        '"what "*',
-        '"oh-no-harness:ralph"*',
-        "docs/platforms/claude-code-ralph.md",
-        "docs/platforms/codex-ralph.md",
-        "hookEventName\": \"UserPromptSubmit",
-    ):
-        if marker not in script_text:
-            die(f"{script_path} is missing required hook marker: {marker!r}")
-    for forbidden in (
-        '*" ralph "*',
-        '*"run ralph"*',
-        '*"use ralph',
-        '*"ralph 로 구현"*',
-        '*"랄프"*',
-    ):
-        if forbidden in script_text:
-            die(f"{script_path} contains broad Ralph hook matcher: {forbidden!r}")
+    if actual_events != required_events:
+        missing = required_events - actual_events
+        extra = actual_events - required_events
+        die(f"{hooks_path} has unexpected hook events: missing={sorted(missing)} extra={sorted(extra)}")
 
     session_start_path = root / "hooks" / "session-start"
     session_start_text = read_text(session_start_path)
@@ -2547,31 +2500,10 @@ def assert_hook_contract(root: Path) -> None:
 
 
 def assert_hook_test_contract(marketplace_root: Path) -> None:
-    common_markers = (
-        "Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff",
-        "What does Parallel trigger: approved-plan-handoff mean?",
-        "What is oh-no-harness:ralph?",
-        "Explain oh-no-harness:ralph before I choose it.",
-        "What does Ralph do in the final review step?",
-        "Review the current diff, especially the ralph hook adapter.",
-        "Compare ralplan and ralph before implementation.",
-        "Should I run ralph?",
-        "Do not run ralph yet.",
-        "When would you run ralph?",
-        "Can you explain how to run ralph?",
-        "Please run ralph now.",
-        "ralph 로 구현해줘",
-        "ralph 로 진행해줘",
-        "랄프로 구현해줘",
-        "oh-no-harness:ralph implement the approved plan",
-        "Review the approved plan, then run ralph on it",
-    )
+    """Require the live-lane markers that remain after prompt-hook removal."""
     codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
     codex_text = read_text(codex_path)
     for marker in (
-        *common_markers,
-        "marker-only Codex prompt",
-        "generic Codex Ralph discussion prompt",
         "--fusion-rescue-live",
         "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
@@ -2579,14 +2511,11 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
         "Claude Opus must answer the assigned panel directly",
     ):
         if marker not in codex_text:
-            die(f"{codex_path} is missing Codex hook/live marker: {marker!r}")
+            die(f"{codex_path} is missing Codex fusion-rescue live marker: {marker!r}")
 
     claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     claude_text = read_text(claude_path)
     for marker in (
-        *common_markers,
-        "marker-only Claude prompt",
-        "generic Claude Ralph discussion prompt",
         "--model-diversity-live",
         "<OH_NO_MODEL_DIVERSITY>",
         "top_tier_models",
@@ -2597,7 +2526,7 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
         "panel-default",
     ):
         if marker not in claude_text:
-            die(f"{claude_path} is missing Claude model-diversity hook/live marker: {marker!r}")
+            die(f"{claude_path} is missing Claude model-diversity live marker: {marker!r}")
 
     configure_test_path = marketplace_root / "scripts" / "test-configure-subagents.sh"
     configure_test = read_text(configure_test_path)
@@ -2632,24 +2561,27 @@ def assert_public_docs_contract(marketplace_root: Path, root: Path) -> None:
     readme_expectations = {
         "README.md": (
             "`ralph`, `ralph with parallel subagents`, or `ultrawork`",
-            "no `UserPromptSubmit`",
-            "narrow `UserPromptSubmit` Ralph adapter",
+            "compact `SessionStart` bootstrap is the only plugin hook",
+            "no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook",
+            ("narrow `UserPromptSubmit` Ralph adapter", "Ralph adapter hook"),
         ),
         "README.ko.md": (
             "`ralph`, `ralph with parallel subagents`, `ultrawork`",
-            "`UserPromptSubmit`/`PreToolUse`/`PostToolUse` 미사용",
-            "좁은 `UserPromptSubmit` Ralph adapter",
+            "`SessionStart` 부트스트랩이 유일한 플러그인 훅",
+            "`UserPromptSubmit`, `PreToolUse`, `PostToolUse` 훅은 사용하지 않습니다",
+            ("좁은 `UserPromptSubmit` Ralph adapter", "Ralph adapter 훅"),
         ),
     }
-    for filename, (split_option, stale_hook_claim, required_hook_marker) in readme_expectations.items():
+    for filename, (split_option, sole_hook_marker, absent_hook_marker, forbidden_hook_markers) in readme_expectations.items():
         path = marketplace_root / filename
         text = read_text(path)
         if split_option in text:
             die(f"{path} still presents legacy `ralph with parallel subagents` as a separate handoff option")
-        if stale_hook_claim in text:
-            die(f"{path} still claims UserPromptSubmit is unused")
-        if required_hook_marker not in text:
-            die(f"{path} should mention the narrow UserPromptSubmit Ralph adapter")
+        if sole_hook_marker not in text or absent_hook_marker not in text:
+            die(f"{path} should state that SessionStart is the only plugin hook and that prompt/tool hooks are absent")
+        for forbidden_hook_marker in forbidden_hook_markers:
+            if forbidden_hook_marker in text:
+                die(f"{path} still claims a Ralph prompt adapter hook exists: {forbidden_hook_marker!r}")
 
     # B5: Claude users configure native model diversity; they are not instructed
     # to install a Codex companion plugin for paired reviews or Fusion Rescue.

@@ -67,7 +67,6 @@ This file records the source material used to build Oh No Harness.
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
 | `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap; on Claude Code it always adds the configuration-derived model-diversity block and best-effort subagent preference reapply, while on Codex it adds standing subagent authorization, the no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
-| `hooks/ralph-platform-adapter` | local UserPromptSubmit adapter that injects only the active platform's Ralph subagent prompt and repeats Codex custom-agent ensure only as fallback |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |
 | `plugins/oh-no-harness/.codex-plugin/plugin.json` | `superpowers/raw/runtime/.codex-plugin/plugin.json` structure adapted |
@@ -100,7 +99,7 @@ This file records the source material used to build Oh No Harness.
 | `scripts/configure-subagents` | runtime configurator for the `configure-subagents` skill; `check`/`apply --proxy`/`reapply` modes, 9-role model/effort settings plus top-tier/secondary diversity preferences, physical-root confinement, byte-exact frontmatter transform, lock-serialized recoverable transaction (per-file atomic rename + backup + journal), best-effort SessionStart reapply; never stores or prints proxy credentials |
 | repository-root `scripts/generate-skill-wrappers.py` | regenerates Codex `skills/*/SKILL.md` and Claude Code `skills-claude/*/SKILL.md` runtime skill documents from `docs/skill-core/*.md` and `docs/platforms/*.md`; `--check` is enforced by validation and release |
 | repository-root `scripts/generate-agent-wrappers.py` | regenerates Claude Code `agents/*.md` and Codex `docs/platforms/codex-agents/*.toml` wrappers from `docs/agent-core/*.md`; `--check` is enforced by validation and release |
-| `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart ensures generated files quietly, Ralph preflight is fallback, project scope is explicit |
+| `scripts/install-codex-agents` | optional Codex custom-agent installer; user scope is default, SessionStart is the sole automatic ensure path, and manual or project-scope runs are explicit |
 
 ## Local Design Documents
 

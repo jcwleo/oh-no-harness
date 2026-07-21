@@ -890,10 +890,8 @@ validate_hooks() {
   log "Validating hook wiring"
   assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
   bash -n "$PLUGIN_ROOT/hooks/session-start"
-  bash -n "$PLUGIN_ROOT/hooks/ralph-platform-adapter"
   bash -n "$PLUGIN_ROOT/scripts/oh-no-config"
   ok "shell syntax: hooks/session-start"
-  ok "shell syntax: hooks/ralph-platform-adapter"
   ok "shell syntax: scripts/oh-no-config"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     | "$PYTHON_BIN" -m json.tool >/dev/null
@@ -1022,171 +1020,6 @@ PY
   rm -rf "$temp_data"
   ok "session-start adds rg search guidance only when rg is available"
 
-  temp_data="$(mktemp -d)"
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph on the approved plan."}\n' >"$temp_data/ralph-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-prompt.json" >"$temp_data/ralph-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-output = data.get("hookSpecificOutput", {})
-if output.get("hookEventName") != "UserPromptSubmit":
-    raise SystemExit("Claude Ralph adapter emitted the wrong hook event")
-text = output.get("additionalContext", "")
-required = [
-    "OH_NO_RALPH_PLATFORM_ADAPTER",
-    "CLAUDE_CODE_ONLY_RALPH_ADAPTER",
-    "docs/platforms/claude-code-ralph.md",
-    "@agent-oh-no-harness:<agent>",
-    "Parallel trigger:",
-    "approved-plan-handoff",
-    "close or cleanup",
-]
-missing = [needle for needle in required if needle not in text]
-if missing:
-    raise SystemExit(f"Claude Ralph adapter missing markers: {missing}")
-for forbidden in ("CODEX_ONLY_RALPH_ADAPTER", "docs/platforms/codex-ralph.md", "spawn_agent"):
-    if forbidden in text:
-        raise SystemExit(f"Claude Ralph adapter leaked Codex marker: {forbidden}")
-PY
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Use oh-no-harness:ralph with Parallel trigger: approved-plan-handoff"}\n' >"$temp_data/ralph-approved-handoff-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-approved-handoff-prompt.json" >"$temp_data/ralph-approved-handoff-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-approved-handoff-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-required = ["CLAUDE_CODE_ONLY_RALPH_ADAPTER", "approved-plan-handoff"]
-missing = [needle for needle in required if needle not in text]
-if missing:
-    raise SystemExit(f"Claude approved-plan-handoff Ralph adapter missing markers: {missing}")
-PY
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"What does Parallel trigger: approved-plan-handoff mean?"}\n' >"$temp_data/approved-handoff-discussion-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/approved-handoff-discussion-prompt.json" >"$temp_data/approved-handoff-discussion.out"
-  if [[ -s "$temp_data/approved-handoff-discussion.out" ]]; then
-    fail "Ralph adapter emitted context for marker-only Claude prompt"
-  fi
-
-  discussion_index=0
-  for discussion_prompt in \
-    "What is oh-no-harness:ralph?" \
-    "Explain oh-no-harness:ralph before I choose it." \
-    "What does Ralph do in the final review step?" \
-    "Review the current diff, especially the ralph hook adapter." \
-    "Compare ralplan and ralph before implementation." \
-    "Should I run ralph?" \
-    "Do not run ralph yet." \
-    "When would you run ralph?" \
-    "Can you explain how to run ralph?"; do
-    discussion_index=$((discussion_index + 1))
-    printf '{"hook_event_name":"UserPromptSubmit","prompt":"%s"}\n' "$discussion_prompt" >"$temp_data/ralph-discussion-$discussion_index.json"
-    CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-      <"$temp_data/ralph-discussion-$discussion_index.json" >"$temp_data/ralph-discussion-$discussion_index.out"
-    if [[ -s "$temp_data/ralph-discussion-$discussion_index.out" ]]; then
-      fail "Ralph adapter emitted context for generic Claude Ralph discussion prompt $discussion_index"
-    fi
-  done
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Please run ralph now."}\n' >"$temp_data/ralph-please-run-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-please-run-prompt.json" >"$temp_data/ralph-please-run-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-please-run-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude explicit please-run Ralph prompt did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 구현해줘"}\n' >"$temp_data/ralph-korean-implementation-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-korean-implementation-prompt.json" >"$temp_data/ralph-korean-implementation-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-korean-implementation-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude Korean Ralph implementation prompt did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"ralph 로 진행해줘"}\n' >"$temp_data/ralph-korean-progress-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-korean-progress-prompt.json" >"$temp_data/ralph-korean-progress-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-korean-progress-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude Korean Ralph progress prompt did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"랄프로 구현해줘"}\n' >"$temp_data/ralph-hangul-implementation-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-hangul-implementation-prompt.json" >"$temp_data/ralph-hangul-implementation-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-hangul-implementation-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude Hangul Ralph implementation prompt did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"oh-no-harness:ralph implement the approved plan"}\n' >"$temp_data/ralph-direct-command-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-direct-command-prompt.json" >"$temp_data/ralph-direct-command-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-direct-command-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude direct oh-no-harness:ralph command did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Review the approved plan, then run ralph on it"}\n' >"$temp_data/ralph-review-then-run-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/ralph-review-then-run-prompt.json" >"$temp_data/ralph-review-then-run-adapter.json"
-  "$PYTHON_BIN" - "$temp_data/ralph-review-then-run-adapter.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-text = data.get("hookSpecificOutput", {}).get("additionalContext", "")
-if "CLAUDE_CODE_ONLY_RALPH_ADAPTER" not in text:
-    raise SystemExit("Claude review-then-run Ralph prompt did not inject adapter")
-PY
-
-  printf '{"hook_event_name":"UserPromptSubmit","prompt":"Explain the repository layout."}\n' >"$temp_data/non-ralph-prompt.json"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" ralph-platform-adapter \
-    <"$temp_data/non-ralph-prompt.json" >"$temp_data/non-ralph-adapter.out"
-  if [[ -s "$temp_data/non-ralph-adapter.out" ]]; then
-    fail "Ralph adapter emitted context for a non-Ralph Claude prompt"
-  fi
-  rm -rf "$temp_data"
-  ok "Claude Ralph adapter injects only Claude-specific context"
-
   "$PYTHON_BIN" - "$PLUGIN_ROOT/hooks/hooks.json" <<'PY'
 import json
 import sys
@@ -1194,22 +1027,14 @@ import sys
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     hooks = json.load(fh)
 
-allowed = {"SessionStart", "UserPromptSubmit"}
+required = {"SessionStart"}
 actual = set(hooks.get("hooks", {}).keys())
-extra = actual - allowed
-missing = allowed - actual
+extra = actual - required
+missing = required - actual
 if extra or missing:
     raise SystemExit(f"Unexpected hook events. missing={sorted(missing)} extra={sorted(extra)}")
-groups = hooks["hooks"].get("UserPromptSubmit", [])
-if len(groups) != 1:
-    raise SystemExit("UserPromptSubmit should have exactly one matcher group")
-if "matcher" in groups[0]:
-    raise SystemExit("UserPromptSubmit should not set matcher")
-handlers = groups[0].get("hooks", [])
-if len(handlers) != 1 or "ralph-platform-adapter" not in handlers[0].get("command", ""):
-    raise SystemExit("UserPromptSubmit should invoke ralph-platform-adapter")
 PY
-  ok "SessionStart and Ralph UserPromptSubmit hooks are configured"
+  ok "SessionStart is the only configured plugin hook"
 }
 
 validate_manifests() {

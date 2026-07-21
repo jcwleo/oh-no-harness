@@ -176,7 +176,7 @@ Restart Claude Code or `/clear` after toggling. Setting persists across plugin u
 
 ## Privacy
 
-- Compact `SessionStart` guidance plus a narrow `UserPromptSubmit` Ralph adapter hook — no `PreToolUse`/`PostToolUse`.
+- The compact `SessionStart` bootstrap is the only plugin hook; there is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook.
 - No npm runtime, no custom CLI process, no tmux process, no MCP server.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for persistent harness settings.

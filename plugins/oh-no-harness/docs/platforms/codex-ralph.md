@@ -43,12 +43,13 @@ host rejection described below.
 
 ## Invocation
 
-Codex SessionStart is the primary custom-agent preparation path: it runs
-`scripts/install-codex-agents --scope user --ensure --quiet`, and this
-adapter repeats the same best-effort ensure as a fallback. Installed files
-carry the plugin version marker and pin role models. If ensure fails, named
-custom-agent dispatch stays the default whenever the host still recognizes
-`agent_type = "oh-no-<role>"`; record the ensure failure.
+Codex SessionStart is the sole automatic custom-agent preparation path: it
+runs `scripts/install-codex-agents --scope user --ensure --quiet`. Installed
+files carry the plugin version marker and pin role models. When a named
+`oh-no-*` agent type is not recognized, run
+`scripts/install-codex-agents --scope user --ensure` manually and retry. Use
+generic prompt-embedded dispatch only after confirmed custom-agent
+unavailability, and record the fallback reason.
 
 Dispatch order:
 

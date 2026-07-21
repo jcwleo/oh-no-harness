@@ -11,12 +11,6 @@ Claude Code SessionStart
   -> <OH_NO_MODEL_DIVERSITY> on every Claude Code session, using validated stored top-tier/secondary settings or the built-in top-tier fallback
   -> scripts/configure-subagents reapply best-effort after plugin-cache updates
 
-Claude Code UserPromptSubmit for Ralph
-  -> hooks/run-hook.cmd ralph-platform-adapter
-  -> hooks/ralph-platform-adapter
-  -> docs/platforms/claude-code-ralph.md
-  -> agents/<role>.md as Claude Code plugin-scoped subagents
-
 Claude Code slash command
   -> commands/<skill>.md
   -> skills-claude/<skill>/SKILL.md with raw $ARGUMENTS
@@ -44,13 +38,6 @@ Codex
      docs/platforms/codex-runtime.md, and optional docs/platforms/codex-<skill>.md
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
-
-Codex UserPromptSubmit for Ralph when plugin hooks are enabled
-  -> hooks/run-hook.cmd ralph-platform-adapter
-  -> hooks/ralph-platform-adapter
-  -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort fallback preflight
-  -> docs/platforms/codex-ralph.md
-  -> docs/agent-core/<role>.md for Codex spawn_agent prompt embedding
 ```
 
 ## Skill Graph
@@ -180,7 +167,7 @@ regenerate skill runtime documents with
 
 ## Agent Relationship Summary
 
-Skills are public workflow entrypoints. The 9 agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses the same 9 generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the primary user-scope ensure point and Ralph preflight is only a fallback before named custom-agent dispatch. Claude-host single-round review pairs combine role-specific perspective diversity with configuration-driven model diversity through `configure-subagents` and the SessionStart diversity block; Fusion Rescue model diversity uses the same configuration, not separate role wrappers. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+Skills are public workflow entrypoints. The 9 agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses the same 9 generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the sole automatic user-scope ensure point before named custom-agent dispatch. Claude-host single-round review pairs combine role-specific perspective diversity with configuration-driven model diversity through `configure-subagents` and the SessionStart diversity block; Fusion Rescue model diversity uses the same configuration, not separate role wrappers. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|
@@ -196,10 +183,9 @@ Skills are public workflow entrypoints. The 9 agents are role prompts selected b
 
 ## Hook Boundary
 
-Oh No Harness includes a SessionStart bootstrap hook and a narrow Ralph
-UserPromptSubmit adapter hook.
+Oh No Harness includes one plugin hook entrypoint: the compact `SessionStart`
+bootstrap.
 
-The Ralph adapter hook inspects only the submitted prompt text for a Ralph
-invocation, injects shared Ralph subagent policy plus the current platform's
-adapter, and exits without output for non-Ralph prompts. It does not activate
-workflow state, bridge skill calls, prevent stopping, or mutate a mode ledger.
+The `SessionStart` hook does not inspect submitted prompts, activate workflow
+state, bridge skill calls, prevent stopping, or mutate a mode ledger. It runs
+no background process.

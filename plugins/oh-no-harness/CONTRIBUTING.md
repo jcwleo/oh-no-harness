@@ -43,8 +43,8 @@ cache, and use these smoke scripts to verify local changes in isolation.
 
 1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform guidance in `docs/platforms/*.md`, shared role bodies in `docs/agent-core/*.md`, hooks, `scripts/oh-no-config`, `scripts/install-codex-agents`, or docs. Do not hand-edit generated skill runtime documents in `skills/*/SKILL.md` or `skills-claude/*/SKILL.md`; change `docs/skill-core/*.md`, `docs/platforms/*.md`, or `scripts/generate-skill-wrappers.py` metadata, then regenerate. Do not hand-edit generated role wrappers in `agents/*.md` or `docs/platforms/codex-agents/*.toml`; change `docs/agent-core/*.md` or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
 2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
-3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook. Ralph-specific `UserPromptSubmit` adapter changes apply on the next Ralph prompt.
-4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, the Ralph `UserPromptSubmit` adapter injects the Codex-specific dispatch prompt.
+3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
+4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, `SessionStart` is the only hook entrypoint.
 
 ## Validate before pushing
 
@@ -86,7 +86,7 @@ Useful overrides:
 - `--no-install` — load the plugin from this checkout via `--plugin-dir` without adding, removing, or updating any marketplace registration (pair with `--live` so live tests keep your real `~/.claude` auth)
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
 - `OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1` — deliberately register a local-source marketplace into the real `~/.claude` config (bypasses the fail-closed gate; rarely wanted)
-- `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart quietly ensures generated files and Ralph preflight repeats that ensure only as fallback
+- `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart is the sole automatic ensure path
 
 ## Release
 
@@ -123,7 +123,6 @@ README.md                         # Marketplace wrapper README
 plugins/oh-no-harness/.claude-plugin/plugin.json  # Claude Code plugin manifest
 plugins/oh-no-harness/.codex-plugin/plugin.json   # Codex plugin manifest
 plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
-plugins/oh-no-harness/hooks/ralph-platform-adapter # Ralph UserPromptSubmit platform adapter
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
 plugins/oh-no-harness/skills/<name>/SKILL.md       # Generated Codex-facing runtime skill document (11 total; no Codex wrapper for the two Claude-only setup skills install-statusline and configure-subagents)

@@ -191,15 +191,15 @@ success output to the session context. If installation fails or an unmarked user
 file blocks ensure, SessionStart keeps running and adds only a compact fallback
 warning.
 
-When a Codex Ralph prompt is detected, the Ralph platform adapter repeats the
-same quiet ensure as a fallback before injecting dispatch guidance. Generated
-files include the installed plugin version marker, so a later plugin update can
-refresh stale `oh-no-*` agent definitions during SessionStart or Ralph fallback
-without requiring a repeated user prompt. If ensure fails or an unmarked user
-file blocks it, record the ensure failure but do not treat that failure alone
-as permission for generic prompt-embedded fallback. Continue with
-`agent_type = "oh-no-<role>"` if the current host recognizes that custom agent;
-use generic prompt-embedded fallback only after confirmed custom-agent
+SessionStart is the only automatic custom-agent ensure. Generated files include
+the installed plugin version marker, so a later plugin update can refresh stale
+`oh-no-*` agent definitions during SessionStart without requiring a repeated
+user prompt. If ensure fails or an unmarked user file blocks it, record the
+ensure failure but do not treat that failure alone as permission for generic
+prompt-embedded fallback. Continue with `agent_type = "oh-no-<role>"` if the
+current host recognizes that custom agent. If it does not, run
+`scripts/install-codex-agents --scope user --ensure` manually and retry; use
+generic prompt-embedded fallback only after confirmed custom-agent
 unavailability and record that fallback reason.
 
 Files ensured on disk are not the same thing as same-session named-agent
