@@ -129,20 +129,21 @@ record the fallback reason when the core skill requires it.
 
 ## Model Diversity Pair
 
-Load this section only after a named THOROUGH paired-review or Fusion Rescue
+Load this section after any dispatched `plan-reviewer` or `code-reviewer` pair
+(every dispatched review), a named THOROUGH paired `debugger`, or a Fusion Rescue
 trigger. The SessionStart `<OH_NO_MODEL_DIVERSITY>` block declares the resolved
 top-tier list, an optional validated secondary top-tier model, and each paired
 role's stored effective primary or `host-default`.
 
 For `plan-reviewer`, `code-reviewer`, and `debugger`, a
-`model-diversity-pair` contains two same-role instances with identical packets,
-dispatched in parallel and synthesized by the caller. Both legs MUST be requested
-in a single batch: issue both subagent tool calls in the same assistant turn (or
-with `Background: yes` for both) BEFORE waiting on either result; a serial
-dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet
-bodies MUST be byte-identical; leg identity (`primary` vs `diversity`) is
-carried ONLY by the host dispatch metadata (the description field and the model
-override), never inside the packet text. The primary leg is unoverridden and
+`model-diversity-pair` contains two same-role instances dispatched in parallel and
+synthesized by the caller. Both legs MUST be requested in a single batch: issue
+both subagent tool calls in the same assistant turn (or with `Background: yes`
+for both) BEFORE waiting on either result; a serial dispatch-wait-dispatch
+sequence is not a valid pair. The two legs' packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity (`primary` vs `diversity`) is carried ONLY by
+the host dispatch metadata (the description field and the model override), never
+inside the packet text. The primary leg is unoverridden and
 uses the concrete declared-frontmatter primary applied from
 stored preferences. The diversity leg carries an explicit NATIVE model override
 for the validated secondary. Claim this mode only when the primary is not

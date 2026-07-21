@@ -31,12 +31,12 @@ prompt into the available subagent mechanism.
 
 ## Model Diversity Pair
 
-For a named THOROUGH Final Validation `code-reviewer` pair, dispatch two
-same-role instances in parallel with identical packets and synthesize one
-verdict. Both legs MUST be requested in a single batch: issue both subagent tool
-calls in the same assistant turn (or with `Background: yes` for both) BEFORE
-waiting on either result; a serial dispatch-wait-dispatch sequence is not a valid
-pair. The two legs' packet bodies MUST be byte-identical; leg identity
+For any dispatched Final Validation `code-reviewer` pair (every dispatched
+review), dispatch two same-role instances in parallel and synthesize one verdict.
+Both legs MUST be requested in a single batch: issue both subagent tool calls in
+the same assistant turn (or with `Background: yes` for both) BEFORE waiting on
+either result; a serial dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity
 (`primary` vs `diversity`) is carried ONLY by the host dispatch metadata (the
 description field and the model override), never inside the packet text. Read
 the role's declared stored primary and the validated secondary top-tier model

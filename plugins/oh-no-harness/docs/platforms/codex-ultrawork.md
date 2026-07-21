@@ -42,15 +42,25 @@ Call `close_agent` only after capturing a final result, and only when the
 host exposes it; if no close primitive exists, closure is host-managed —
 record that and continue.
 
+## Review Pair Modes
+
+Every dispatched Final Validation `code-reviewer` review runs as one
+perspective-diverse pair. STANDARD uses two Codex reviewers and records
+`same-host-perspective-pair`; this is intentional same-host review, so no
+fallback reason is required. A fired named THOROUGH trigger selects cross-host
+review when available, or `same-host-parallel-fallback` when the opposite host
+is unavailable; record the required fallback reason.
+
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
+
 ## Cross-Host Consult Channel
 
-A named-THOROUGH Final Validation pair starts one Codex `code-reviewer`
-and one transport-owner reviewer making exactly one foreground Claude call
-with the identical redacted packet
-(`claude --print --model opus --permission-mode dontAsk
---no-session-persistence`). A launch notice, background acknowledgement,
-or empty output is unavailable evidence; on opposite-host unavailability
-run the same-host parallel fallback and record it.
+A fired named THOROUGH Final Validation trigger starts one Codex
+`code-reviewer` and one transport-owner reviewer making exactly one foreground
+Claude call (`claude --print --model opus --permission-mode dontAsk
+--no-session-persistence`). A launch notice, background acknowledgement, or
+empty output is unavailable evidence; on opposite-host unavailability run
+`same-host-parallel-fallback` and record the required fallback reason.
 
 ## Worktree Commands
 

@@ -36,6 +36,12 @@ the Safety Trigger Checklist as a cheap screen and reports the
 `Safety trigger checklist result` line even when negative (exact wording in
 Output below); apply full security depth only when a trigger matches.
 
+### Assigned perspective
+
+When the packet includes `Assigned perspective:`, run the complete role with
+both ordered lenses. Treat the assigned perspective as an emphasis, never a
+pass filter or a split of role responsibilities.
+
 ## Responsibilities
 
 ### Lens 1: correctness and maintainability
@@ -89,15 +95,16 @@ user-facing scenario validation (see `verifier`).
 
 ## Cross-Host Review
 
-When the calling skill runs paired cross-host review, you may be dispatched
-as the current-host reviewer or as the opposite-host reviewer. Run BOTH lenses (correctness and
-maintainability first, then the security lens via the Safety Trigger Checklist)
-on your own host; do not split the lenses across hosts. The current-host main
-agent merges both reviews' findings, deduplicated and tagged with host
-provenance, and returns the merged set to the caller. When the opposite host is
+Every dispatched review runs as a perspective-diverse pair. STANDARD uses a
+same-host pair; when the named THOROUGH trigger selects cross-host review, you
+may be dispatched as the current-host reviewer or as the opposite-host
+reviewer. Run BOTH lenses (correctness and maintainability first, then the
+security lens via the Safety Trigger Checklist) on your own host; do not split
+the lenses across hosts. The caller synthesizes both reviews' findings,
+deduplicated and tagged with host provenance. When the opposite host is
 unavailable in default mode, the calling skill runs the Same-Host Parallel
-Fallback (two same-host reviewers under distinct lenses, synthesized) per its
-own review contract instead of a single pass; require-cross-host mode blocks.
+Fallback (two same-host reviewers with distinct assigned perspectives,
+synthesized) per its own review contract; require-cross-host mode blocks.
 
 You may use same-host read-only subagents or tools to form your review, but you
 must not make any further cross-host call beyond the single assigned consult;

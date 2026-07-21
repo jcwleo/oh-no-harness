@@ -35,19 +35,21 @@ that and continue.
 
 ## Re-Homed Core Pair Rules
 
-9. When a `code-reviewer` was dispatched, record `single-reviewer` for
-   STANDARD, or the named THOROUGH pair trigger plus `cross-host` /
-   `same-host-parallel-fallback`; an inline fallback requires a reason.
-   Missing review topology is a named ledger gap, not a pass.
+9. When a `code-reviewer` was dispatched, record `perspective-pair` plus
+   `same-host-perspective-pair` for intentional STANDARD same-host review, or
+   the fired named THOROUGH trigger plus `cross-host` /
+   `same-host-parallel-fallback`; only the fallback requires a reason. Missing
+   review topology is a named ledger gap, not a pass.
 
 | `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (cross-host merge: merged findings) |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; every dispatched review runs as a perspective-diverse pair, while a named THOROUGH trigger selects cross-host escalation (cross-host merge: merged findings) |
+
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Cross-Host Consult Channel
 
-A named-THOROUGH paired `code-reviewer` starts one Codex reviewer and one
-transport-owner making exactly one foreground Claude call with the
-identical redacted packet. A launch notice, background acknowledgement, or
-empty output is unavailable evidence; on opposite-host unavailability run
-the same-host parallel fallback and record it. The `verifier` is never
-paired.
+A fired named THOROUGH `code-reviewer` trigger starts one Codex reviewer and
+one transport-owner making exactly one foreground Claude call. A launch notice,
+background acknowledgement, or empty output is unavailable evidence; on
+opposite-host unavailability run `same-host-parallel-fallback` and record the
+required fallback reason. The `verifier` is never paired.

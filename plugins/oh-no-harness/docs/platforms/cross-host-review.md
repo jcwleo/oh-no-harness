@@ -6,15 +6,19 @@
 > Codex skill adapter carries its own runtime rules. If this file and a Codex
 > adapter disagree on a skill-owned rule, the adapter wins.
 
-Cross-host review is the Codex-host paired-review implementation used only after
-a calling skill records a named THOROUGH risk. It lets two instances of the SAME
-assigned role run on Codex and Claude in parallel, then has the Codex main agent
-synthesize the two analyses into one result. It does not
-make dependent DIFFERENT roles eligible for the same batch. When a named
-code-reviewer pair runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
-`verifier` starts only after that pair is synthesized and blocking findings are
-resolved or recorded. When the opposite host is unavailable after the pair
-trigger fires, the Same-Host Parallel Fallback supplies two same-host instances.
+Cross-host review is the Codex-host escalated paired-review implementation used
+only after a calling skill records a named THOROUGH risk. Every dispatched review
+pair already carries complementary perspectives; the trigger changes the host
+independence mode, not the pair topology. Cross-host mode lets two instances of
+the SAME assigned role run on Codex and Claude in parallel, then has the Codex
+main agent synthesize the two analyses into one result. It does not make
+dependent DIFFERENT roles eligible for the same batch. When a code-reviewer pair
+runs in `ralph`'s Review Gate or `ultrawork`'s Final Validation, the confirming
+`verifier` starts only after that pair is synthesized and, on blocking findings,
+a single executor-owned fix manifest is captured. The verifier then binds to the
+current reviewed or fixed revision; no reviewer recheck is dispatched. When the
+opposite host is unavailable after the named trigger fires, the Same-Host
+Parallel Fallback supplies two same-host instances.
 This reuses the Fusion Rescue cross-host mechanism; it is not a new channel,
 daemon, background job, weight fusion, or hidden runtime.
 
@@ -26,10 +30,12 @@ or capability names, or permission states here.
 
 ## When It Applies
 
-Cross-host review does not apply merely because a skill dispatches one reviewer.
-STANDARD uses at most one reviewer instance (a compliant not-required record
-under the STANDARD small-task carve-out dispatches none). It applies only when a calling skill
-records a named THOROUGH paired-review trigger for `plan-reviewer`,
+Every dispatched `plan-reviewer` or `code-reviewer` review uses a
+perspective-diverse pair. STANDARD runs that pair on the current host and records
+`same-host-perspective-pair`; this is intentional same-host review, so no
+fallback reason is required (a compliant not-required record under the STANDARD
+small-task carve-out dispatches none). Cross-host escalation applies only when a
+calling skill records a named THOROUGH trigger for `plan-reviewer`,
 `code-reviewer`, or `debugger`, such as security/data/destructive risk, a public
 or release-critical contract, new concurrency semantics, broad migration, or
 multi-system uncertainty:
@@ -43,20 +49,21 @@ multi-system uncertainty:
   repeated-failure trigger selects paired root-cause investigation.
 
 Exception — `ralph`/`ultrawork` review-then-verify order: in `ralph`'s Review
-Gate and `ultrawork`'s Final Validation, run the selected code-review stage
-first: one reviewer for STANDARD when review is selected, or a triggered pair
-for THOROUGH. The
-confirming `verifier` is a dependent later stage. Dispatch it only after the
-reviewer output or pair synthesis is captured and blocking findings have been
-resolved or recorded as blocking. The confirming `verifier` is an unconditionally
-single self-host independent pass — never a cross-host or
-same-host pair — because the verifier is out of cross-host scope (see the
-out-of-scope note below). That single pass still delivers the verifier's own
-acceptance-to-evidence and test-genuineness function, which the code-review pair
-does not redundantly cover; it is simply not doubled. The confirming verifier
-remains an independent dispatch (never the maker). A verifier spawned before the
-selected code-review stage completes is stale evidence for these flows and must
-be discarded and rerun after review findings are resolved or recorded as blocking.
+Gate and `ultrawork`'s Final Validation, run the selected perspective-diverse
+code-reviewer pair first. The confirming `verifier` is a dependent later stage.
+Dispatch it only after the pair synthesis is captured and, when findings block,
+the single executor-owned fix manifest maps every accepted finding.
+Reviewer approval of the fixed revision is NOT required and MUST NOT be requested; no reviewer re-dispatch exists. The confirming `verifier` is an unconditionally
+single self-host independent pass —
+never a cross-host or same-host pair — because the verifier is out of cross-host
+scope (see the out-of-scope note below). That single pass still delivers the
+verifier's own acceptance-to-evidence and test-genuineness function, which the
+code-review pair does not redundantly cover; it is simply not doubled. The
+confirming verifier remains an independent dispatch (never the maker) and binds
+to the reviewed revision when no fix occurred. On the fix path, the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit.
+A verifier spawned before the pair completes, or before the blocking-finding fix
+manifest is captured, is stale evidence for these flows and must be discarded and
+rerun.
 
 It does not apply to `simplify`, which only recommends `code-reviewer` and never
 dispatches it, nor to any other role. The `verifier`, `executor`, `explore`,
@@ -69,9 +76,10 @@ independence-mode enum.
 
 ## Activation
 
-Paired-review default: after the named THOROUGH trigger fires, when the opposite host is available per the active
-platform's `## Cross-Host Consult Channel` rules, run the review on BOTH the
-current host and the opposite host. When the opposite host is unavailable,
+Cross-host escalation default: after the named THOROUGH trigger fires, when the
+opposite host is available per the active platform's
+`## Cross-Host Consult Channel` rules, run the review on BOTH the current host
+and the opposite host. When the opposite host is unavailable,
 unproven, or its response cannot be collected, run the Same-Host Parallel
 Fallback (see below) — two same-host agents in parallel under distinct
 complementary lenses, synthesized by the current-host main agent, and record a
@@ -83,8 +91,9 @@ require-cross-host, the review blocks if the opposite host cannot be reached.
 The blocking output names which host was required, what was attempted, the
 failure class, and the next local fallback the user can approve.
 
-Without a named paired-review trigger, do not load or apply this contract. Host
-availability alone never activates a pair.
+Without a named THOROUGH trigger, do not activate the cross-host channel. Host
+availability alone never selects `cross-host`; the ordinary dispatched review
+still runs its perspective pair as `same-host-perspective-pair`.
 
 ## Full Review Per Host
 
@@ -97,10 +106,25 @@ Each host runs the COMPLETE role review independently — not a split of lenses:
 - `debugger`: the full root-cause investigation (reproduce, form hypotheses,
   identify root cause, recommend the minimal fix) on each host.
 
-Do not assign one lens or one investigation step to the current host and a
-different one to the opposite host; each host produces its full analysis. The
-same "full role per agent" rule applies to the two agents of the Same-Host
-Parallel Fallback.
+The assigned perspective is an EMPHASIS, never a split of role duties: each leg
+produces its full analysis. The same full-role rule applies to cross-host,
+intentional STANDARD same-host, and Same-Host Parallel Fallback pairs.
+
+## Canonical Perspective Pairs
+
+Every review pair uses these complementary perspective emphases while both legs
+run the complete role:
+
+| Role | Lens A | Lens B |
+|---|---|---|
+| `plan-reviewer` | strongest-antithesis / feasibility-risk emphasis ("why this plan fails or is infeasible") | acceptance-coverage / quality-gate completeness emphasis ("which acceptance criteria or gates are unmet") |
+| `code-reviewer` | adversarial correctness + security skeptic ("what breaks or is exploitable") | maintainability + coverage completeness ("what is missing or regresses") |
+| `debugger` | leading-hypothesis-A angle | competing-hypothesis-B angle (feeds the competing-hypotheses synthesis) |
+
+For a cross-host pair, Lens A goes to the current-host leg and Lens B to the
+opposite-host leg. For `same-host-perspective-pair` and
+`same-host-parallel-fallback`, instance 1 receives Lens A and instance 2 receives
+Lens B. The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Role-Owned Review Instances
 
@@ -124,22 +148,15 @@ only for shared cross-host review of Ralplan's `plan-reviewer`, plus
 
 ## Same-Host Parallel Fallback
 
-When the opposite host is unavailable in default mode, the review does not collapse
-to a single pass. The current-host main agent instead dispatches exactly two
-same-host agents of the SAME role in parallel, each running the COMPLETE role, and
-synthesizes their two analyses into one result using the same judge rules as the
-cross-host synthesis below. The two same-host agents differ ONLY by a stance/lens
-EMPHASIS — each still runs every lens, pass, or investigation step its role
-requires (the Full Review Per Host rule applies to each same-host agent). It is
-same-host fan-out, not a cross-host hop (see Recursion Guard).
-
-Stance/lens pairs (emphasis only — both agents always run the full role):
-
-| Role | Lens A (same-host agent 1) | Lens B (same-host agent 2) |
-|---|---|---|
-| `plan-reviewer` | strongest-antithesis / feasibility-risk emphasis ("why this plan fails or is infeasible") | acceptance-coverage / quality-gate completeness emphasis ("which acceptance criteria or gates are unmet") |
-| `code-reviewer` | adversarial correctness + security skeptic ("what breaks or is exploitable") | maintainability + coverage completeness ("what is missing or regresses") |
-| `debugger` | leading-hypothesis-A angle | competing-hypothesis-B angle (feeds the competing-hypotheses synthesis) |
+When a named THOROUGH trigger fires and the opposite host is unavailable in
+default mode, the review does not collapse to a single pass. The current-host
+main agent instead dispatches exactly two same-host agents of the SAME role in
+parallel, each running the COMPLETE role under the canonical perspective pair,
+and synthesizes their two analyses into one result using the same judge rules as
+the cross-host synthesis below. Record `same-host-parallel-fallback` and the
+required fallback reason. It is same-host fan-out, not a cross-host hop (see
+Recursion Guard). The intentional STANDARD `same-host-perspective-pair` uses the
+same lenses but is not this fallback and requires no fallback reason.
 
 ## Parallel Execution And Synthesis
 
@@ -163,10 +180,7 @@ review does not add a new verdict type:
   ITERATE iff at least one blocking finding on a salvageable draft; REJECT only
   for direction-level or unsalvageable failure. Every merged blocking finding
   retains its reviewer-owned severity and `Blocking basis: <AC ID | safety
-  invariant | Direction Contract field | applicable mandatory gate>`. For a
-  blocker first raised in review v2, synthesis also preserves its short `Why
-  first raised now` explanation; a real revision-created defect or material v1
-  miss may still block.
+  invariant | Direction Contract field | applicable mandatory gate>`.
 - `code-reviewer`: return the merged, provenance-tagged findings in the role's
   existing exact result envelope, preserving the shared packet/run/task identity
   and reviewed revision. Re-key each source finding as `<host>:<finding-id>`
@@ -196,8 +210,10 @@ dependency graph is:
 code-reviewer pair
   -> wait/capture both reviewer outputs
   -> synthesize findings
-  -> resolve findings or record a blocker
-  -> confirming verifier pass
+  -> if blocking: apply the single executor-owned fix and capture its mapped manifest
+  -> no reviewer recheck
+  -> confirming verifier binds to the reviewed or fixed revision
+     (fixed path includes a per-finding resolution audit)
 ```
 
 What is new is that the two reviewer INSTANCES of the SAME reviewer role
@@ -255,9 +271,13 @@ A skill records how each dispatched cross-host-eligible review pass
 (`plan-reviewer`, `code-reviewer`, `debugger`) ran using exactly one
 independence-mode value:
 
-- `cross-host`: the synthesized current-host + opposite-host pair.
+- `same-host-perspective-pair`: the intentional STANDARD same-host pair; no
+  fallback reason is required.
+- `cross-host`: the synthesized current-host + opposite-host pair selected after
+  a named THOROUGH trigger fires.
 - `same-host-parallel-fallback`: the two-same-host-agent fallback above,
-  synthesized when the opposite host was unavailable.
+  synthesized only when a named THOROUGH trigger fired and the opposite host was
+  unavailable; a fallback reason is required.
 - `inline-fallback`: a single inline pass — compliant only when the active skill
   allows inline substitution and records an explicit subagent-unavailable or
   unsafe-to-isolate reason. It never satisfies Ralplan's required Plan-Reviewer
@@ -280,16 +300,18 @@ pass:
   the invalidation rule for a missing topology or a non-compliant triggered
   pair (an invalidation rule, not a `<HARD-GATE>` block).
 - `verification-before-completion`: the Required Gate `<HARD-GATE>`.
-- `systematic-debugging`: the Output Gate `<HARD-GATE>` (single STANDARD or
-  named THOROUGH paired `debugger` / post-fix `code-reviewer`).
+- `systematic-debugging`: the Output Gate `<HARD-GATE>` (single STANDARD
+  `debugger`; every dispatched post-fix `code-reviewer` uses a perspective pair;
+  a named THOROUGH trigger selects debugger pairing or cross-host escalation).
 
 ## Fallback Notes
 
-Record a cross-host review fallback note whenever the opposite host is not used:
-state whether it was unavailable, unproven, or returned no valid review, and that
-the review ran via the Same-Host Parallel Fallback (two same-host agents
-synthesized) in default mode rather than as a single current-host pass. In
-require-cross-host mode, block instead of degrading and name the failure class
-plus the next local fallback. Record only the failure class,
-command/plugin/capability name, and path or auth status — never secret values,
-config contents, or environment dumps.
+After a named THOROUGH trigger fires, record a cross-host review fallback note
+when the opposite host is not used: state whether it was unavailable, unproven,
+or returned no valid review, and that the review ran via
+`same-host-parallel-fallback` (two same-host agents synthesized) in default mode
+rather than as a single current-host pass. The intentional STANDARD
+`same-host-perspective-pair` requires no fallback note. In require-cross-host
+mode, block instead of degrading and name the failure class plus the next local
+fallback. Record only the failure class, command/plugin/capability name, and path
+or auth status — never secret values, config contents, or environment dumps.

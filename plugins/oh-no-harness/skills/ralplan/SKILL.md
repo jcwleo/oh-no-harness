@@ -43,19 +43,20 @@ R2. The plan body is Planner-owned. Plan-Reviewer reviews and blocks; it MUST
 R3. Plan-Reviewer reviews the exact Planner draft (id + body), not a recap:
     architecture pass, then quality-gate pass, in one dispatch.
 R4. APPROVE freezes the exact reviewed Planner draft. Non-blocking findings
-    are optional follow-ups and cause no mutation, dispatch, or re-review; a
-    body change required before approval is blocking and yields ITERATE.
+    are optional follow-ups and cause no mutation or dispatch; a body change
+    required before approval is blocking and yields ITERATE.
 R5. On ITERATE, Planner classifies every blocker before mutating the draft or
     assigning a new draft id (disposition-before-mutation).
-R6. Stop after at most 2 loops (Planner vN + Review vN). REJECT escalates
-    immediately and consumes no loop. After loop 2 without APPROVE, pause.
-R7. Re-reviews run only when the previous review returned ITERATE and an
-    accepted body change produced a revision.
+R6. Review runs exactly once (Review v1) per planning run. REJECT escalates
+    immediately. An all-accepted ITERATE yields exactly one final Planner
+    revision v2 with no further review.
 R8. Every blocker names a basis, exact draft pointer, material consequence,
     and smallest sufficient correction. Preference, future-proofing, and
     optional stronger proof are non-blocking.
-R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer. Only a named
-    THOROUGH paired-review trigger runs two reviewer instances.
+R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer.
+    Every dispatched Plan-Reviewer review runs as one perspective-diverse pair;
+    the named THOROUGH trigger selects only the
+    platform's escalated diversity (cross-host on Codex).
 R10. Active semantic risk selects mode and cost; category words and host
      capability alone never escalate.
 R15. The Active plan contract is compiled once before Planner draft v1, and
@@ -88,7 +89,7 @@ Planning run:
 - Mode: LIGHT | STANDARD | THOROUGH
 - Source/Analyst: <path or summary>; <satisfied-by-spec | completed | gap-check | blocked>
 - Draft/plan: v<N>; .oh-no/plans/<slug>.md
-- Review: loop <0|1|2>; <topology>; <verdict>; <blockers + dispositions>
+- Review: not-run | done; <topology>; <verdict>; <blockers + dispositions>
 - Approval: pending approval | approved-direct | approved-ultrawork
 ```
 
@@ -101,13 +102,14 @@ Planning run:
 | ROUTE | plannable request | REQUIREMENTS |
 | REQUIREMENTS | source, Analyst status, Direction Contract, mode, and Active plan contract recorded [R10, R15] | DRAFT |
 | REQUIREMENTS | gap changes product intent, architecture, data, security, or delivery scope [R1] | PAUSED for user decision |
-| DRAFT | Planner draft vN complete against the Active Plan Contract [R2] | REVIEW |
+| DRAFT | Planner draft v1 complete against the Active Plan Contract [R2] | REVIEW |
+| DRAFT | Planner revision v2 complete with finding→fix mapping recorded [R2, R5, R6] | APPROVAL (no further review) |
 | REVIEW | LIGHT no-review reason recorded, or verdict APPROVE [R4] | APPROVAL |
 | REVIEW | a required Plan-Reviewer has no separate context after allowed fallback (`dispatch-unavailable`) | PAUSED |
-| REVIEW | ITERATE with all blockers accepted, loop budget left [R5, R6] | DRAFT |
+| REVIEW | ITERATE with all blockers accepted [R5, R6] | DRAFT (final revision v2) |
 | REVIEW | ITERATE with rejected/deferred/direction-change disposition [R5] | PAUSED for user decision |
 | REVIEW | user resolved every non-accepted disposition as a permitted waiver with no body change: reviewed draft stays frozen [R4, R5] | APPROVAL |
-| REVIEW | REJECT, or loop 2 without APPROVE [R6] | PAUSED |
+| REVIEW | REJECT [R6] | PAUSED |
 | APPROVAL | per `## Next Skill Handoff` (direct) or `### Ultrawork exception` | outcome per that section |
 
 On resume after a disposition PAUSED, apply the `## Planner Revision
@@ -243,19 +245,23 @@ Topology by mode:
 
 ```text
 LIGHT    -> review may be omitted with one concrete risk-based reason.
-STANDARD -> one Plan-Reviewer instance.
-THOROUGH -> one instance, unless a named security/data/destructive,
-            public/release-contract, concurrency, migration, or comparable
-            multi-system trigger selects paired review: two instances of the
-            same reviewer role, identical packet, dispatched in parallel and
-            synthesized into one verdict by the caller. The active platform
-            supplies the diversity leg. If that leg is unavailable, default
-            mode uses two independent same-model instances and records the
-            reason; an explicit caller demand for diversity is strict mode and
-            transitions to PAUSED instead of falling back.
+STANDARD -> one perspective-diverse Plan-Reviewer pair: two instances of the
+            same role, each running the full two-pass review with one distinct
+            assigned perspective (Lens A strongest-antithesis/feasibility-risk;
+            Lens B acceptance-coverage/quality-gate completeness), packets
+            identical except the single `Assigned perspective:` line,
+            dispatched in one parallel batch and synthesized into one verdict
+            by the caller. The active platform supplies the diversity leg;
+            unavailable diversity in default mode falls back to two independent
+            same-model instances with the reason recorded; explicit diversity
+            demand is strict mode and transitions to PAUSED.
+THOROUGH -> the same perspective-diverse pair; a named security/data/
+            destructive, public/release-contract, concurrency, migration, or
+            comparable multi-system trigger additionally selects the platform's
+            escalated diversity (cross-host pair on Codex).
 ```
 
-Worst-case THOROUGH role dispatch chain remains bounded to two review rounds.
+Worst-case THOROUGH role dispatch chain remains bounded to one review round.
 
 Blocker predicate [R8]:
 
@@ -269,7 +275,7 @@ Blocker predicate [R8]:
   correction; a gate blocker also names its owner, trigger, and failed
   obligation.
 - Review v1 returns one consolidated blocker set and MUST NOT knowingly
-  reserve one for v2.
+  reserve any blocker; there is no second review round.
 
 Return shape:
 
@@ -293,35 +299,26 @@ On ITERATE, Planner first classifies every blocker as `accepted`,
 user-decision packet carries the original finding, basis, pointer,
 consequence, smallest correction, and Planner reason. Branch matrix:
 
-- All accepted: create exactly one Planner revision v2, then exactly one delta closure review.
-- Any rejected: return the disposition-only user-decision packet; create no v2 and run no review v2 until the user resolves it.
-- Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2 and run no review v2.
-- Mixed: resolve every non-accepted blocker before exactly one v2; no closure review starts earlier.
-- Permitted waivers with no body change: keep the waivers visible; create no v2 and run no review v2.
+- All accepted: create exactly one final Planner revision v2; run no further review — the Plan Approval Brief surfaces each accepted finding→fix mapping for the user.
+- Any rejected: return the disposition-only user-decision packet; create no v2 until the user resolves it.
+- Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2.
+- Mixed: resolve every non-accepted blocker before exactly one v2.
+- Permitted waivers with no body change: keep the waivers visible; create no v2.
 - Non-waivable gate: keep the plan pending and prohibit execution until its owner-defined obligation passes or direction changes.
-- Direction change: update the requirements source, start a new planning run, and do not run or consume the old run's closure review.
+- Direction change: update the requirements source, start a new planning run.
 
-Accepted changes must appear in the plan body; ledger-only comments are not a
-valid revision.
-
-## Re-Review Rules
-
-Review v2 is a delta closure review of prior dispositions, changed sections,
-and affected dependencies; it still receives the full plan. Full-depth review
-is allowed only for a named material change to direction/scope,
-architecture/ownership, public contract, safety/data semantics, or the
-verification model. A v2 blocker first visible now includes
-`Why first raised now: <short explanation>`.
-A revision-created material defect or material v1 miss may still block.
-Keep the v1 topology [R6, R7].
+For each accepted blocker, the final v2 plan body records the finding id,
+basis, applied change, and body section pointer. Accepted changes must appear
+in the plan body; ledger-only comments are not a valid revision. After v2-final,
+proceed directly to APPROVAL; the Plan Approval Brief carries the per-blocker
+finding→fix mapping and the user judges.
 
 ## Findings Ledger Gate
 
 Record in the snapshot: selected roles and ids in order, topology and named
 trigger, each finding with reviewer-owned `blocking | non-blocking` severity
 and its blocking basis, disposition, accepted section pointer, permitted
-waiver, and `Re-review scope: delta | full` when v2 ran — or
-`Re-review: not required (no blocking findings)`.
+waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`.
 A required Plan-Reviewer cannot be skipped or satisfied inline; missing review
 topology or `Plan-Reviewer: dispatch-unavailable` is a blocker, not a pass. Do
 not advance while a user-pending disposition or non-waivable gate is open, or
@@ -398,9 +395,10 @@ Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance crite
 After consensus, show a decision-critical projection: path/status;
 goal/scope; tasks/key files; AC alignment; smallest approach and rejected
 complexity; active stack/validation/test/rollout decisions; review summary
-with unresolved blockers/waivers; worktree/dispatch handoff; verification;
-risks/open decisions; one compact execution-profile recap. Omit inactive
-sections. Compact LIGHT preserves the same items `## Plan File Requirements`
+with unresolved blockers/waivers; when a v2 exists, per-blocker finding→fix
+mapping with body pointers and any permitted waivers; worktree/dispatch
+handoff; verification; risks/open decisions; one compact execution-profile
+recap. Omit inactive sections. Compact LIGHT preserves the same items `## Plan File Requirements`
 lists for compact LIGHT plans. When dispatch is active, recap only
 roles/scopes passing the dispatch-eligibility test in
 `## Execution Profile`.
@@ -426,8 +424,10 @@ The Plan Approval Brief ends with exactly one combined choice:
   executor ownership without authorizing a concurrent batch.
 - approve-and-run Ultrawork — approve the plan and orchestrate execution,
   QA, and final validation end-to-end
-- request plan changes — revise the plan (the approval freeze is
-  invalidated) and re-present the brief
+- request plan changes — after a v2-final, start a NEW one-round planning run
+  with a fresh run id and fresh Review v1; never create an unreviewed v3 inside
+  the current run. Otherwise revise the plan, invalidate the approval freeze,
+  and re-present the brief
 - leave the plan pending — keep the plan unapproved and invoke no workflow
 
 End the question with `Which approach?`. The plan stays `pending approval`
@@ -446,8 +446,12 @@ set `approved-ultrawork`, and return control (outcome RETURN_ULTRAWORK).
 Pause for the user only on: changed approved scope, a blocking product
 decision or ambiguity, conflict with the approved requirements source,
 missing execution profile, any unresolved rejected/deferred/direction-change
-blocker, a pending non-waivable gate, or an explicit manual-review request.
-Automatic approval replaces only the prompt; it skips no gate.
+blocker, a pending non-waivable gate, an explicit manual-review request, or a
+review verdict of ITERATE: a v2-final revision requires explicit user approval
+of its finding→fix mapping; automatic approval covers only a zero-blocker
+APPROVE path. Automatic approval never accepts a v2-final on the user's behalf,
+because the mapping replaces the deleted closure review. Automatic approval
+replaces only the prompt; it skips no gate.
 
 ## Agent Roles
 
@@ -472,8 +476,8 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 |---|---|
 | `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
 | `analyst` | requirements gaps, unless satisfied by an approved interview spec; one per independent requirement or risk area (up to 5), batched |
-| `planner` | creates `Planner draft v1` and every `Planner revision v2`; owns body and dispositions |
-| `plan-reviewer` | reviews the exact draft per `## Plan Review Contract`; may run paired only under its named THOROUGH trigger |
+| `planner` | creates `Planner draft v1` and the single final `Planner revision v2`; owns body and dispositions |
+| `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` as a perspective-diverse pair |
 
 Only Ralplan dispatches `plan-reviewer`; execution skills own their own
 review roles.
@@ -538,8 +542,8 @@ dependency/return owner.
 ## Lifecycle
 
 Dispatch Analyst, Planner, and Plan-Reviewer only at their core phase and in
-strict sequence. Only a fired paired-review gate permits concurrent
-reviewers; spawn both legs before waiting. Wait through the exposed
+strict sequence. Every dispatched Plan-Reviewer review runs as a concurrent
+perspective pair; spawn both legs before waiting. Wait through the exposed
 lifecycle primitive until final status, capture and use the result, then
 clean up only if an actual cleanup action exists. Timeout, empty/no-update,
 or a queued acknowledgement is not final. Never interrupt a slow dependency,
@@ -548,9 +552,9 @@ redo it inline, or use missing output as evidence.
 ## Cross-Host Consult Channel
 
 On a named THOROUGH paired risk, start one Codex Plan-Reviewer and one
-transport-owner Plan-Reviewer with the identical packet. The transport owner
-makes exactly one foreground Claude call when subprocess permission,
-`${CLAUDE_BIN:-claude}`, and auth are available:
+transport-owner Plan-Reviewer. The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
+The transport owner makes exactly one foreground Claude call when subprocess
+permission, `${CLAUDE_BIN:-claude}`, and auth are available:
 
 ```text
 claude --print --model opus --permission-mode dontAsk
@@ -582,13 +586,17 @@ PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
 no-review carve-out remains unchanged.
 
 ```text
-THOROUGH -> one instance, unless a named security/data/destructive,
+STANDARD -> one perspective-diverse Plan-Reviewer pair on Codex, recorded as
+            same-host-perspective-pair; this is intentional same-host review,
+            so no fallback reason is required.
+THOROUGH -> the same perspective-diverse pair. A named security/data/destructive,
             public/release-contract, concurrency, migration, or comparable
-            multi-system trigger selects paired review: two instances of the
-            same reviewer role, identical packet, synthesized into one
-            verdict by the caller. Same-host parallel fallback is allowed
-            unless `require-cross-host` was selected, which pauses instead.
+            multi-system trigger selects cross-host review when available, or
+            same-host-parallel-fallback when the opposite host is unavailable;
+            record the fallback reason. `require-cross-host` pauses instead.
 ```
+
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent

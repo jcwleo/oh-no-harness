@@ -79,7 +79,7 @@ Options:
   --live                 Run live /skill smoke tests after static checks.
   --deep-live            Run live deep smoke tests that require linked support docs.
   --parallel-live        Run live Ralph parallel-subagent smoke test.
-  --ralplan-live         Run live Ralplan sequential planning-subagent smoke test.
+  --ralplan-live         Run live Ralplan planner-to-reviewer-pair smoke test.
   --fusion-rescue-live   Run live Fusion Rescue three-panel model-diversity smoke test.
   --cross-host-fallback-live
                          Run live Claude same-model fallback proof: no secondary
@@ -855,7 +855,9 @@ for forbidden in (
 ):
     if forbidden in text:
         raise SystemExit(f"Claude SessionStart still routes ordinary implementation to TDD: {forbidden}")
-if len(text) > 4500:
+# Baseline includes the always-on OH_NO_MAIN_AGENT_ORCHESTRATION block; keep
+# headroom modest so unintended bloat still trips this guard.
+if len(text) > 5600:
     raise SystemExit(f"Claude SessionStart default context is too large: {len(text)} chars")
 PY
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
@@ -1558,13 +1560,13 @@ deep_prompt_for_skill() {
       printf '/%s:interview --quick Deep smoke test only. Read the invariants, state machine, snapshot, company-context rules, and Socratic guidance in the wrapper. Do not create artifacts or edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CLAUDE_DEEP_OK interview.' "$PLUGIN_NAME"
       ;;
     ralplan)
-      printf '/%s:ralplan Deep smoke test only. Read the invariants, Direction Contract, planning-run snapshot, state machine, proportional test design, mode selection, and execution profile. Do not create artifacts or edit files. Return the Direction Contract fields and single canonical schema owner, 2-loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, and project-local worktree path. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
+      printf '/%s:ralplan Deep smoke test only. Read the invariants, Direction Contract, planning-run snapshot, state machine, proportional test design, mode selection, and execution profile. Do not create artifacts or edit files. Return the Direction Contract fields and single canonical schema owner, single-review-round rule, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD perspective-diverse Plan-Reviewer pair rule, named THOROUGH escalated-diversity trigger, final-revision-v2 / no-re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, and project-local worktree path. End with OH_NO_CLAUDE_DEEP_OK ralplan.' "$PLUGIN_NAME"
       ;;
     ralph)
-      printf '/%s:ralph Deep smoke test only. Read the wrapper invariants, state machine, snapshot, and gates. Do not create artifacts or edit files. Return the Direction Contract, the four phases and three outcomes, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
+      printf '/%s:ralph Deep smoke test only. Read the wrapper invariants, state machine, snapshot, and gates. Do not create artifacts or edit files. Return the Direction Contract, the four phases and three outcomes, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD perspective-diverse code-reviewer pair rule, named THOROUGH escalated-diversity trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CLAUDE_DEEP_OK ralph.' "$PLUGIN_NAME"
       ;;
     ultrawork)
-      printf '/%s:ultrawork Deep smoke test only. Read the wrapper invariants, heartbeat, state machine, and phase procedures, following the linked phase skills where needed. Do not create artifacts or edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK ultrawork.' "$PLUGIN_NAME"
+      printf '/%s:ultrawork Deep smoke test only. Read the wrapper invariants, heartbeat, state machine, and phase procedures, following the linked phase skills where needed. Do not create artifacts or edit files. Return the spec artifact path from clarification, the single-review-round planning rule, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CLAUDE_DEEP_OK ultrawork.' "$PLUGIN_NAME"
       ;;
     simplify)
       printf '/%s:simplify --review Deep smoke test only. Read the shared simplify core and Claude Code platform docs. Do not create artifacts or edit files. Return the Required Behavior Lock and Phase headings; the LIGHT/STANDARD combined-scan default; the named THOROUGH trigger for four independent Reuse, Simplification, Efficiency, and Altitude passes; batch/fallback behavior only after that trigger; and the false-positive or behavior-changing skip rule. End with OH_NO_CLAUDE_DEEP_OK simplify.' "$PLUGIN_NAME"
@@ -1609,7 +1611,6 @@ expected = {
         "Machine-consumable",
     ],
     "ralplan": [
-        "2 loops",
         "pending approval",
         "Direction Contract",
         "Overall Ralph mode",
@@ -1617,8 +1618,11 @@ expected = {
         "Execution profile",
         "Analyst",
         "Planner",
-        "single-reviewer",
+        "STANDARD",
+        "perspective",
+        "pair",
         "named THOROUGH",
+        "diversity",
         "process budget",
         ".oh-no/worktrees/<task-slug>",
     ],
@@ -1632,8 +1636,9 @@ expected = {
         "THOROUGH",
         "Parallel trigger",
         "Acceptance-to-evidence ledger",
-        "single-reviewer",
-        "paired-review",
+        "perspective",
+        "pair",
+        "diversity",
         "combined scan",
         ".oh-no/worktrees/<task-slug>",
         "test-driven-development",
@@ -1641,7 +1646,6 @@ expected = {
     ],
     "ultrawork": [
         ".oh-no/specs/interview-{slug}.md",
-        "2 loops",
         ".oh-no/worktrees/<task-slug>",
         "auto",
         "approval",
@@ -1681,6 +1685,13 @@ expected = {
 missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
 if missing:
     print(f"{skill} deep smoke missing markers: {missing}; got {text!r}", file=sys.stderr)
+    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
+
+if skill in {"ralplan", "ultrawork"} and not any(
+    marker in text_lower
+    for marker in ("one round", "one review round", "single round", "single review round", "exactly once")
+):
+    print(f"{skill} deep smoke missing single-review-round marker; got {text!r}", file=sys.stderr)
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralph" and not (
@@ -1787,9 +1798,16 @@ if skill == "ralplan" and not (
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 if skill == "ralplan" and not (
-    "blocking" in text_lower and "re-review" in text_lower
+    "blocking" in text_lower
+    and ("v2" in text_lower or "final revision" in text_lower)
+    and (
+        "no re-review" in text_lower
+        or "no further review" in text_lower
+        or "without re-review" in text_lower
+        or "never re-review" in text_lower
+    )
 ):
-    print(f"{skill} deep smoke missing blocking-findings re-review marker; got {text!r}", file=sys.stderr)
+    print(f"{skill} deep smoke missing blocking-findings v2-final/no-re-review marker; got {text!r}", file=sys.stderr)
     raise SystemExit(SEMANTIC_VARIANCE_EXIT)
 
 linked_doc_markers = {
@@ -2270,16 +2288,16 @@ run_natural_session_start_live_tests() {
 
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
-    log "Skipping live Claude ralplan sequential-subagent smoke test"
-    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Plan-Reviewer sequential agent review.\n' >&2
+    log "Skipping live Claude ralplan planner-to-reviewer-pair smoke test"
+    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> perspective-diverse Plan-Reviewer pair dispatch.\n' >&2
     return
   fi
 
-  log "Running live Claude ralplan sequential-subagent smoke test (${LIVE_LOAD_MODE})"
+  log "Running live Claude ralplan planner-to-reviewer-pair smoke test (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
   local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
   local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Natural request under observation: 'Analyze the Ralplan review loop for unnecessary steps.' Treat that sentence as analysis-only; this separate explicit request to use Ralplan is the invocation trigger. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Derive one compact Active plan contract. In both direct Task/Agent messages include exactly one identical serialized contract block between unindented delimiter lines ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END. Use direct Claude Task/Agent subagents exactly two times in this strict order and do not use Workflow in this instrumentation lane: oh-no-harness:planner, wait until that task completes before starting plan-reviewer; oh-no-harness:plan-reviewer, wait until that task completes before final. Never run these planning review agents in parallel. Planner expected output: only one block between unindented delimiter lines PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END; inside include Planner draft id: Planner draft v1, Active plan contract, Goal, Acceptance criteria, Core evidence (cite the docs/skill-core/ralplan.md section grounding each factual claim), Execution profile, Worktree policy, and Verification plan. After Planner completes, copy that exact captured Planner draft block, including its id, into the Plan-Reviewer Task/Agent message between the same PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines; normalize transport whitespace only and do not summarize or reconstruct it. Plan-Reviewer expected output: plain text lines only (no markdown headings, bold, or bullets on the field lines), starting with the line Plan review v1, then exactly one line starting at column 0 reading Reviewed draft: Planner draft v1, then Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision/re-review. After both subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Object-of-analysis boundary: analysis-only, Exact Active contract equality: yes, Exact Planner draft handoff: yes, Role order: planner -> plan-reviewer, Waited between roles: yes, Reviews chained: Planner draft v1 -> Plan review v1, Optional follow-up: NB1, Planner revision: not run."
+  local prompt="Use oh-no-harness:ralplan. Read-only dispatch instrumentation test only: do not create a full plan, do not edit files, and do not create artifacts. Natural request under observation: 'Analyze the Ralplan review loop for unnecessary steps.' Treat that sentence as analysis-only; this separate explicit request to use Ralplan is the invocation trigger. Requirements source is already analyzed inline; do not spawn explore, analyst, executor, verifier, code-reviewer, or any role except oh-no-harness:planner and oh-no-harness:plan-reviewer. Synthetic approved task: document that the host asks the user which execution workflow to run after ralplan plan approval. Derive one compact Active plan contract. In all three direct Task/Agent messages carry the same serialized contract block between unindented delimiter lines ACTIVE_PLAN_CONTRACT_BEGIN and ACTIVE_PLAN_CONTRACT_END. Use direct Claude Task/Agent subagents exactly three times and do not use Workflow in this instrumentation lane: first dispatch oh-no-harness:planner and wait until it completes; then dispatch TWO oh-no-harness:plan-reviewer tasks in one batch, starting both before waiting for either result. Planner expected output: only one block between unindented delimiter lines PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END; inside include Planner draft id: Planner draft v1, Active plan contract, Goal, Acceptance criteria, Core evidence (cite the docs/skill-core/ralplan.md section grounding each factual claim), Execution profile, Worktree policy, and Verification plan. After Planner completes, copy that exact captured Planner draft block, including its id, into BOTH Plan-Reviewer Task/Agent messages between the same PLANNER_DRAFT_BEGIN and PLANNER_DRAFT_END lines; normalize transport whitespace only and do not summarize or reconstruct it. The two reviewer packet bodies must be identical except the single Assigned perspective: line. Reviewer Lens A must contain exactly the line Assigned perspective: Lens A = strongest-antithesis / feasibility-risk. Reviewer Lens B must contain exactly the line Assigned perspective: Lens B = acceptance-coverage / quality-gate completeness. Each Plan-Reviewer expected output: plain text lines only (no markdown headings, bold, or bullets on the field lines), starting with the line Plan review v1, then exactly one line starting at column 0 reading Reviewed draft: Planner draft v1, then Architecture findings: NB1 | severity: non-blocking | suggestion: shorten one explanatory sentence, Quality-gate findings: none blocking, Verdict: APPROVE. APPROVE freezes the exact reviewed Planner draft; NB1 is an optional follow-up and must not mutate it before approval. Do not revise or dispatch Planner again: this smoke test verifies the non-blocking-only v1 approval path and skips revision (v1 approved). After all three subagents finish, reply with exactly OH_NO_CLAUDE_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and summarize Object-of-analysis boundary: analysis-only, Exact Active contract equality: yes, Exact Planner draft handoff: yes, Role order: planner -> plan-reviewer pair, Waited after planner: yes, Reviewer batch: parallel, Reviews chained: Planner draft v1 -> paired Plan review v1, Optional follow-up: NB1, Planner revision: not run."
 
   local cmd=(
     "$CLAUDE_BIN"
@@ -2293,7 +2311,7 @@ run_ralplan_live_test() {
     --permission-mode bypassPermissions
     --tools default
     --no-session-persistence
-    --system-prompt "You are a read-only live smoke test runner. You may use subagents only for the requested sequential ralplan verification. Do not edit files."
+    --system-prompt "You are a read-only live smoke test runner. You may use subagents only for the requested ralplan planner-to-reviewer-pair verification. Do not edit files."
   )
 
   if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
@@ -2309,16 +2327,14 @@ import sys
 from collections import defaultdict
 
 path = sys.argv[1]
-expected_roles = ["planner", "plan-reviewer"]
-expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
+expected_roles = ["planner", "plan-reviewer", "plan-reviewer"]
+expected_agent_names = ["oh-no-harness:planner", "oh-no-harness:plan-reviewer"]
 dependency_prompt_markers = {
-    "plan-reviewer": ["Planner draft v1", "Active plan contract"],
+    "plan-reviewer": ["Planner draft v1", "Active plan contract", "Assigned perspective:"],
 }
 output_markers = {
     "planner": ["Planner draft v1", "Active plan contract"],
-    # A real plan-reviewer legitimately writes its own finding ids instead of
-    # the scripted NB1 label; gate on the structural review chain, not the id.
-    "plan-reviewer": ["Reviewed draft", "Verdict: APPROVE", "Architecture findings", "non-blocking", "Quality-gate findings"],
+    "plan-reviewer": ["Reviewed draft", "Verdict: APPROVE", "Architecture findings", "NB1", "non-blocking", "Quality-gate findings"],
 }
 CONTRACT_START = "ACTIVE_PLAN_CONTRACT_BEGIN"
 CONTRACT_END = "ACTIVE_PLAN_CONTRACT_END"
@@ -2357,10 +2373,11 @@ def extract_delimited_block(value, start, end, label, allow_repeats=False):
 
 init_ok = False
 tool_uses = []
-task_started = {}
 task_role_by_id = {}
 task_completion = {}
+completion_by_tool_id = {}
 role_outputs = defaultdict(list)
+outputs_by_tool_id = defaultdict(list)
 marker = False
 errors = []
 all_task_roles = []
@@ -2387,7 +2404,7 @@ with open(path, "r", encoding="utf-8") as fh:
                         role = subagent_type.split(":", 1)[1]
                         all_task_roles.append((index, role, payload))
                         if role in expected_roles:
-                            tool_uses.append((index, role, payload))
+                            tool_uses.append((index, role, payload, part.get("id")))
                 if part.get("type") == "tool_use" and part.get("name") == "Workflow":
                     script = collect_text(part.get("input", {}).get("script", ""))
                     workflow_scripts.append((index, script))
@@ -2397,13 +2414,21 @@ with open(path, "r", encoding="utf-8") as fh:
                         role = subagent_type.split(":", 1)[1]
                         if role in expected_roles:
                             role_outputs[role].append(part.get("text", ""))
+        if data.get("type") == "user":
+            for part in data.get("message", {}).get("content", []):
+                if not isinstance(part, dict) or not part.get("tool_use_id"):
+                    continue
+                tool_id = part["tool_use_id"]
+                completion_by_tool_id.setdefault(tool_id, index)
+                result_text = collect_text(part)
+                if result_text:
+                    outputs_by_tool_id[tool_id].append(result_text)
         if data.get("type") == "system" and data.get("subtype") == "task_started":
             subagent_type = data.get("subagent_type", "")
             if subagent_type.startswith("oh-no-harness:"):
                 role = subagent_type.split(":", 1)[1]
                 task_id = data.get("task_id")
                 if role in expected_roles and task_id:
-                    task_started[role] = index
                     task_role_by_id[task_id] = role
         if data.get("type") == "system" and data.get("subtype") in {"task_updated", "task_notification"}:
             task_id = data.get("task_id")
@@ -2422,11 +2447,16 @@ with open(path, "r", encoding="utf-8") as fh:
         if agent_type.startswith("oh-no-harness:"):
             role = agent_type.split(":", 1)[1]
             if role in expected_roles:
-                text = collect_text(tool_result.get("content", tool_result))
-                if text:
-                    role_outputs[role].append(text)
+                result_text = collect_text(tool_result.get("content", tool_result))
+                tool_id = tool_result.get("toolUseId")
+                if result_text:
+                    role_outputs[role].append(result_text)
+                    if tool_id:
+                        outputs_by_tool_id[tool_id].append(result_text)
                 if tool_result.get("status") == "completed":
                     task_completion.setdefault(role, index)
+                    if tool_id:
+                        completion_by_tool_id.setdefault(tool_id, index)
         if data.get("type") == "result" and data.get("is_error") is True:
             errors.append((index, str(data.get("result", ""))[:1000]))
 
@@ -2449,16 +2479,16 @@ if workflow_scripts:
     )
 
 if len(tool_uses) != len(expected_roles):
-    raise SystemExit(f"expected exactly two planning task uses, got {len(tool_uses)}: {tool_uses!r}")
+    raise SystemExit(f"expected exactly three planning task uses, got {len(tool_uses)}: {tool_uses!r}")
 
-actual_order = [role for _, role, _ in tool_uses]
+actual_order = [role for _, role, _, _ in tool_uses]
 if actual_order != expected_roles:
-    raise SystemExit(f"expected sequential task order {expected_roles!r}, got {actual_order!r}")
+    raise SystemExit(f"expected planner then one plan-reviewer pair, got {actual_order!r}")
 
-role_payload_text = {}
-for index, role, payload in tool_uses:
-    prompt = collect_text(payload)
-    role_payload_text[role] = prompt
+role_payload_texts = defaultdict(list)
+for index, role, payload, tool_id in tool_uses:
+    prompt = payload.get("prompt") if isinstance(payload.get("prompt"), str) else collect_text(payload)
+    role_payload_texts[role].append(prompt)
     missing_prompt_markers = [
         marker for marker in dependency_prompt_markers.get(role, [])
         if marker.lower() not in prompt.lower()
@@ -2468,27 +2498,30 @@ for index, role, payload in tool_uses:
             f"Claude ralplan task prompt for {role} did not include required review input markers: "
             f"{missing_prompt_markers}; prompt={prompt[:2000]!r}"
         )
+    if not tool_id:
+        raise SystemExit(f"Claude ralplan task prompt for {role} omitted its tool-use id")
 
-for previous, following in zip(tool_uses, tool_uses[1:]):
-    _, previous_role, _ = previous
-    following_index, following_role, _ = following
-    completion_index = task_completion.get(previous_role)
-    if completion_index is None:
-        raise SystemExit(f"no completion event captured for {previous_role}")
-    if completion_index >= following_index:
-        raise SystemExit(
-            f"expected {previous_role} completion before starting {following_role}; "
-            f"completion={completion_index} following_start={following_index}"
-        )
+planner_use = tool_uses[0]
+reviewer_uses = tool_uses[1:]
+planner_completion = completion_by_tool_id.get(planner_use[3])
+if planner_completion is None:
+    raise SystemExit("no completion event captured for planner")
+if planner_completion >= min(index for index, _, _, _ in reviewer_uses):
+    raise SystemExit("expected planner completion before starting the plan-reviewer pair")
+reviewer_completions = [completion_by_tool_id.get(tool_id) for _, _, _, tool_id in reviewer_uses]
+if any(completion is None for completion in reviewer_completions):
+    raise SystemExit("no completion event captured for both plan-reviewer tasks")
+if max(index for index, _, _, _ in reviewer_uses) >= min(reviewer_completions):
+    raise SystemExit("plan-reviewer pair was not dispatched in one batch before either result completed")
 
-role_output_text = {}
-for role, markers in output_markers.items():
-    output_text = "\n".join(role_outputs.get(role, []))
-    role_output_text[role] = output_text
+dispatch_output_text = {}
+for _, role, _, tool_id in tool_uses:
+    output_text = "\n".join(outputs_by_tool_id.get(tool_id, []))
+    dispatch_output_text[tool_id] = output_text
     if not output_text:
-        raise SystemExit(f"no output captured for {role}")
+        raise SystemExit(f"no output captured for {role} tool use {tool_id}")
     missing_output_markers = [
-        marker for marker in markers
+        marker for marker in output_markers[role]
         if marker.lower() not in output_text.lower()
     ]
     if missing_output_markers:
@@ -2497,46 +2530,85 @@ for role, markers in output_markers.items():
             f"{missing_output_markers}; output={output_text[:2000]!r}"
         )
 
+planner_payload = role_payload_texts["planner"][0]
+reviewer_payloads = role_payload_texts["plan-reviewer"]
+if len(reviewer_payloads) != 2:
+    raise SystemExit(f"expected two plan-reviewer packet bodies, got {len(reviewer_payloads)}")
+
+perspective_re = re.compile(r"(?m)^Assigned perspective:[ \t]*(.*?)[ \t]*$")
+raw_perspectives = []
+for reviewer_payload in reviewer_payloads:
+    matches = perspective_re.findall(reviewer_payload)
+    if len(matches) != 1:
+        raise SystemExit("raw packets did not contain two distinct Assigned perspective values")
+    raw_perspectives.append(normalize_transport_whitespace(matches[0]))
+expected_perspectives = {
+    "Lens A = strongest-antithesis / feasibility-risk",
+    "Lens B = acceptance-coverage / quality-gate completeness",
+}
+if len(set(raw_perspectives)) != 2 or set(raw_perspectives) != expected_perspectives:
+    raise SystemExit(
+        "raw packets did not contain two distinct Assigned perspective values: "
+        f"{raw_perspectives!r}"
+    )
+normalized_reviewer_payloads = [
+    perspective_re.sub("Assigned perspective: NORMALIZED", payload)
+    for payload in reviewer_payloads
+]
+if normalized_reviewer_payloads[0] != normalized_reviewer_payloads[1]:
+    raise SystemExit("raw packets differ beyond the Assigned perspective line")
+if reviewer_payloads[0] == reviewer_payloads[1]:
+    raise SystemExit("raw reviewer packets did not differ on the Assigned perspective line")
+
 planner_contract = extract_delimited_block(
-    role_payload_text["planner"], CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
+    planner_payload, CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
 )
 # The copied Planner draft legitimately embeds the same contract block, so
-# the reviewer payload may carry it twice — equality (unique=1) is the gate.
-reviewer_contract = extract_delimited_block(
-    role_payload_text["plan-reviewer"], CONTRACT_START, CONTRACT_END, "Plan-Reviewer Active plan contract", allow_repeats=True
-)
-if planner_contract != reviewer_contract:
-    raise SystemExit("Claude ralplan role payloads did not carry the exact same Active plan contract")
+# each reviewer payload may carry it twice — equality (unique=1) is the gate.
+for reviewer_index, reviewer_payload in enumerate(reviewer_payloads, 1):
+    reviewer_contract = extract_delimited_block(
+        reviewer_payload,
+        CONTRACT_START,
+        CONTRACT_END,
+        f"Plan-Reviewer {reviewer_index} Active plan contract",
+        allow_repeats=True,
+    )
+    if planner_contract != reviewer_contract:
+        raise SystemExit("Claude ralplan role payloads did not carry the exact same Active plan contract")
 
 captured_draft = extract_delimited_block(
-    role_output_text["planner"], DRAFT_START, DRAFT_END, "captured Planner draft", allow_repeats=True
+    dispatch_output_text[planner_use[3]], DRAFT_START, DRAFT_END, "captured Planner draft", allow_repeats=True
 )
-reviewer_draft = extract_delimited_block(
-    role_payload_text["plan-reviewer"], DRAFT_START, DRAFT_END, "Plan-Reviewer input draft"
-)
-if captured_draft != reviewer_draft:
-    raise SystemExit("Claude ralplan Plan-Reviewer payload did not carry the exact captured Planner draft")
+for reviewer_index, reviewer_payload in enumerate(reviewer_payloads, 1):
+    reviewer_draft = extract_delimited_block(
+        reviewer_payload, DRAFT_START, DRAFT_END, f"Plan-Reviewer {reviewer_index} input draft"
+    )
+    if captured_draft != reviewer_draft:
+        raise SystemExit("Claude ralplan Plan-Reviewer payload did not carry the exact captured Planner draft")
 draft_id = re.search(r"(?m)^Planner draft id:\s*(\S.*)$", captured_draft)
 if not draft_id:
     raise SystemExit("Claude ralplan captured Planner draft omitted its draft id")
 captured_draft_id = normalize_transport_whitespace(draft_id.group(1))
-# The stream may carry the reviewer's final text twice (task notification +
-# tool_use_result); require exactly one UNIQUE anchored value.
-reviewed_draft_matches = re.findall(
-    r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$",
-    role_output_text["plan-reviewer"],
-)
-unique_reviewed = {normalize_transport_whitespace(m) for m in reviewed_draft_matches}
-if len(reviewed_draft_matches) < 1 or len(unique_reviewed) != 1:
-    raise SystemExit("Claude ralplan Plan-Reviewer output must contain exactly one anchored Reviewed draft field")
-reviewed_draft_id = next(iter(unique_reviewed))
-if reviewed_draft_id != captured_draft_id:
-    raise SystemExit("Claude ralplan Plan-Reviewer output did not identify the exact captured Planner draft id")
+# The stream may carry each reviewer's final text twice (task notification +
+# tool_use_result); require exactly one UNIQUE anchored value per reviewer.
+for reviewer_index, (_, _, _, tool_id) in enumerate(reviewer_uses, 1):
+    reviewed_draft_matches = re.findall(
+        r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$",
+        dispatch_output_text[tool_id],
+    )
+    unique_reviewed = {normalize_transport_whitespace(m) for m in reviewed_draft_matches}
+    if len(reviewed_draft_matches) < 1 or len(unique_reviewed) != 1:
+        raise SystemExit("Claude ralplan Plan-Reviewer output must contain exactly one anchored Reviewed draft field")
+    reviewed_draft_id = next(iter(unique_reviewed))
+    if reviewed_draft_id != captured_draft_id:
+        raise SystemExit(
+            f"Claude ralplan Plan-Reviewer {reviewer_index} output did not identify the exact captured Planner draft id"
+        )
 
 if not marker:
     raise SystemExit("Claude ralplan sequential smoke did not return success marker")
 
-print("ok - live Claude ralplan planning subagents reviewed sequentially")
+print("ok - live Claude ralplan planner completed before one parallel perspective-diverse review pair")
 PY
 }
 
@@ -3084,12 +3156,25 @@ lifecycle_overlap = True
 if all(ids) and max(index for index, _, _ in dispatches) >= min(completion_index[tool_id] for tool_id in ids):
     lifecycle_overlap = False
     print("WARN: code-reviewer dispatches were serial (non-gating; live-model concurrency compliance is advisory)", file=sys.stderr)
-def normalize(payload):
+ASSIGNED_PERSPECTIVE_RE = re.compile(
+    r"^Assigned perspective:[ \t]*(.*?)[ \t]*$",
+    flags=re.IGNORECASE | re.MULTILINE,
+)
+
+
+def normalize_packet(payload, normalize_assigned_perspective):
     copy = dict(payload)
     copy.pop("model", None)
 
     def normalize_value(value):
         if isinstance(value, str):
+            if normalize_assigned_perspective:
+                value = re.sub(
+                    r"^Assigned perspective:.*",
+                    "Assigned perspective: NORMALIZED",
+                    value,
+                    flags=re.IGNORECASE | re.MULTILINE,
+                )
             value = re.sub(
                 r"^[ \t]*(?:(?:[-*+]|\d+[.)])\s+)?(Platform invocation|Lifecycle|Coordination):[^\r\n]*",
                 lambda match: f"{match.group(1).capitalize()}: NORMALIZED",
@@ -3111,9 +3196,69 @@ def normalize(payload):
 
     return normalize_value(copy)
 
+
+def normalize(payload):
+    return normalize_packet(payload, normalize_assigned_perspective=True)
+
+
+def canonicalize_assigned_perspective(value):
+    if isinstance(value, str):
+        return re.sub(
+            r"^Assigned perspective:.*",
+            "Assigned perspective: NORMALIZED",
+            value,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+    if isinstance(value, dict):
+        return {key: canonicalize_assigned_perspective(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [canonicalize_assigned_perspective(item) for item in value]
+    return value
+
+
+raw_perspectives = []
+for _, _, payload in dispatches:
+    matches = ASSIGNED_PERSPECTIVE_RE.findall(text(payload))
+    if len(matches) != 1:
+        raise SystemExit("raw packets did not contain two distinct Assigned perspective values")
+    raw_perspectives.append(matches[0].strip())
+expected_perspective_markers = {
+    "adversarial correctness + security skeptic",
+    "maintainability + coverage completeness",
+}
+matched_perspectives = []
+for perspective in raw_perspectives:
+    matches = [
+        marker for marker in expected_perspective_markers
+        if marker in perspective.lower()
+    ]
+    if len(matches) != 1:
+        raise SystemExit(
+            "raw packets did not contain two distinct Assigned perspective values: "
+            f"{raw_perspectives!r}"
+        )
+    matched_perspectives.append(matches[0])
+if len(set(raw_perspectives)) != 2 or set(matched_perspectives) != expected_perspective_markers:
+    raise SystemExit(
+        "raw packets did not contain two distinct Assigned perspective values: "
+        f"{raw_perspectives!r}"
+    )
+
+raw_packets = [
+    normalize_packet(payload, normalize_assigned_perspective=False)
+    for _, _, payload in dispatches
+]
+if raw_packets[0] == raw_packets[1]:
+    raise SystemExit("raw packets did not differ on the Assigned perspective line")
+if canonicalize_assigned_perspective(raw_packets[0]) != canonicalize_assigned_perspective(raw_packets[1]):
+    raise SystemExit(
+        "raw packets differ beyond the Assigned perspective line; "
+        "normalized packets differ beyond the model override and assigned perspective"
+    )
+
 normalized = [normalize(payload) for _, _, payload in dispatches]
 if normalized[0] != normalized[1]:
-    raise SystemExit("normalized packets differ beyond the model override")
+    raise SystemExit("normalized packets differ beyond the model override and assigned perspective")
 secondary_legs = [payload for _, _, payload in dispatches if payload.get("model") == secondary]
 unoverridden = [payload for _, _, payload in dispatches if "model" not in payload]
 if len(secondary_legs) != 1:

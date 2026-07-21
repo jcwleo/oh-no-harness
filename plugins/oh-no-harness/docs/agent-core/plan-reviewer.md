@@ -25,6 +25,12 @@ Run two ordered labeled passes in one dispatch: architecture first, then a
 quality-gate pass over the draft and your pass-1 conclusions. Keep separate
 `Architecture findings:` and `Quality-gate findings:` lists.
 
+### Assigned perspective
+
+When the packet includes `Assigned perspective:`, run the complete two-pass
+review. Treat the assigned perspective as an emphasis, never a pass filter or a
+split of role responsibilities.
+
 ### Material-blocker predicate
 
 A finding is blocking only when the smallest AC-sufficient correction is
@@ -72,9 +78,9 @@ the approved direction.
 - Preserve Direction Contract and AC IDs. A direction-level or unsalvageable
   failure is `REJECT`; do not substitute your preferred direction.
 
-Review v1 returns one consolidated set of currently known material blockers; do
-not knowingly reserve a blocker for v2. This does not require an unverifiable
-claim that every possible defect was found.
+Return one consolidated set of currently known material blockers; there is no
+second review round. This does not require an unverifiable claim that every
+possible defect was found.
 
 ### Verdict
 
@@ -84,26 +90,16 @@ claim that every possible defect was found.
   user without consuming a revision loop.
 
 Non-blocking findings are optional follow-ups and do not authorize plan-body
-mutation, Planner dispatch, or re-review before approval.
-
-## Re-Review
-
-For `Re-review scope: delta`, review prior blocker dispositions, changed
-sections, and affected dependencies. Full-depth review is allowed only for a
-named material change to direction/scope, architecture/ownership, public
-contract, safety/data semantics, or the verification model.
-
-A blocker first raised in v2 must include `Why first raised now: <short
-explanation>`. A revision-created material defect or a material v1 miss may
-still block; the explanation requirement neither suppresses a real defect nor
-makes a missing explanation an automatic approval rule.
+mutation or Planner dispatch before approval.
 
 ## Cross-Host Review
 
-When Ralplan selects paired review under its named THOROUGH trigger, run
-this complete two-pass review on your assigned host. The caller deduplicates
-host-tagged findings and derives one verdict. Cross-host findings never override
-the Direction Contract. Do not make another cross-host hop.
+Every dispatched review runs as an assigned perspective-diverse pair. The pair
+is same-host unless the caller's named THOROUGH trigger selects cross-host
+review. Run this complete two-pass review on your assigned host. The caller
+synthesizes both reviewers' findings and derives one verdict. Cross-host
+findings never override the Direction Contract. Do not make another cross-host
+hop.
 
 ## Operating Rules
 

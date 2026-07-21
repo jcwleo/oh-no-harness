@@ -66,21 +66,27 @@ E6. Parallel dispatch only for disjoint write scopes with no inter-dependency
     and clear ownership; create the whole eligible batch before waiting; a
     timeout or empty wait is never a final result.
 E7. Review-then-verify: the selected code-review stage completes before the
-    single independent self-host verifier starts; the verifier is never the
-    maker and never a pair.
-E8. Review topology is mode-gated with a bounded budget: one original review
-    plus one focused re-check; a second unresolved blocking round requires
-    rescope or user direction.
-E9. Mutation invalidates intersecting evidence. A success status without the
-    observable effect is missing evidence. Redact secrets/PII before writing
-    evidence.
+    single independent self-host verifier starts; on blocking findings, the
+    verifier starts only after the single fix manifest is recorded. The
+    verifier is never the maker and never a pair.
+E8. Review topology is mode-gated with a one-round budget: exactly one review
+    round. Accepted blocking findings get one executor-owned focused fix; the
+    independent verifier then audits the fixed revision as the safety net. A
+    blocker unresolved after that goes to rescope or user direction.
+E9. Mutation invalidates intersecting evidence except that the review verdict
+    remains bound to its reviewed revision after the single post-review fix;
+    the verifier owns freshness by binding to the mutated revision. A success
+    status without the observable effect is missing evidence. Redact
+    secrets/PII before writing evidence.
 E10. Budget gates stop for rescope; a budget breach never authorizes
      automatic expansion.
 E11. The run is invalid until every completion criterion is individually
      recorded in the session ledger; a silently omitted step is a named
      ledger gap, not a pass.
-E12. Cleanup is trigger-gated after the behavior lock and required review;
-     rerun relevant verification whenever cleanup changes files.
+E12. Cleanup is trigger-gated after the behavior lock and BEFORE the single
+     review round; rerun relevant verification whenever cleanup changes files;
+     post-review cleanup is read-only (findings become residual risk or
+     follow-ups).
 E13. A direct-Ralph automatic worktree is not complete while work sits in the
      worktree: merge back with post-merge verification, or report the
      branch/PR handoff; on failure leave the worktree intact.
@@ -134,14 +140,15 @@ the Packet ID remains the compact reference to the full issued packet.
 | PREPARE | input too vague, or non-LIGHT spec without plan unconfirmed [E1] | outcome RETURN_TO_PLAN |
 | PREPARE | worktree or environment blocked [E3] | outcome PAUSED |
 | EXECUTE | a ready story remains | EXECUTE (orchestrated story loop below [E4, E5, E10, E17]) |
-| EXECUTE | all stories pass with fresh evidence; Diff-Budget Gate is `passed@<current stabilized fingerprint>` [E9, E10] | REVIEW |
+| EXECUTE | all stories pass with fresh evidence; CLEANUP and RECHECK are recorded; Diff-Budget Gate is `passed@<current stabilized fingerprint>` for the post-cleanup revision [E9, E10, E12] | REVIEW |
 | EXECUTE | plan or AC infeasible as written [E1] | outcome RETURN_TO_PLAN |
 | EXECUTE | debugging ladder exhausted [E15] | outcome PAUSED |
-| REVIEW | bound reviewer verdict is `approve` or compliant `not-required`; bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`; no blocking findings remain [E7, E8, E17] | FINALIZE |
-| REVIEW | bound reviewer verdict is `blocking-findings` or bound verifier verdict is `fail`, and remediation remains within budget [E8, E17] | EXECUTE (executor-owned focused fix + focused re-check only) |
+| REVIEW | reviewer verdict approve (or compliant not-required) and verifier pass / accepted pass-with-residual-risk bound to the reviewed revision; compliant verifier not-required follows the same reviewed-revision path [E7, E8, E17] | FINALIZE |
+| REVIEW | reviewer verdict blocking-findings [E8, E17] | EXECUTE-fix (exactly one executor-owned focused fix; no reviewer re-dispatch) |
+| REVIEW | fix manifest maps every accepted blocking finding ID; verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit [E7, E8, E9, E17] | FINALIZE |
+| REVIEW | verifier fail, or a blocking finding remains unresolved after the one fix + verifier audit, or reviewer or verifier verdict is `blocked` [E8, E10] | PAUSED / `systematic-debugging` / `failed_verification` per budget |
 | REVIEW | a required independent verifier has no separate context (`dispatch-unavailable`) [E7, E11] | outcome PAUSED |
-| REVIEW | reviewer or verifier verdict is `blocked`, or the focused remediation budget is exhausted [E8, E10] | outcome PAUSED |
-| FINALIZE | checkpoints CLEANUP -> RECHECK -> INTEGRATE -> COMPLETION_AUDIT all satisfied and Diff-Budget is `passed@<current stabilized fingerprint>` [E9, E11, E12, E13] | outcome COMPLETE |
+| FINALIZE | checkpoints INTEGRATE -> COMPLETION_AUDIT are satisfied and Diff-Budget is `passed@<current stabilized fingerprint>` [E9, E11, E13] | outcome COMPLETE |
 | FINALIZE | merge or post-merge verification fails [E13] | outcome PAUSED |
 | any | user stop, or a Direction Contract change is required [E1] | outcome PAUSED |
 
@@ -225,8 +232,9 @@ LIGHT    = small, isolated, non-behavioral work with no public,
            release risk (every exclusion must hold); compact artifacts;
            direct-diff review allowed.
 STANDARD = localized behavior/config/prompt work with bounded blast radius
-           and known ownership; session + verification artifacts; one
-           targeted reviewer for behavior-affecting changes.
+           and known ownership; session + verification artifacts; a
+           perspective-diverse code-reviewer pair reviews behavior-affecting
+           changes.
 THOROUGH = active security/data/auth, destructive, public/release-critical,
            migration, changed concurrency/lifecycle, multi-system, or
            unknown-root-cause risk; full PRD session; risk-warranted roles.
@@ -257,9 +265,9 @@ independent verifier, and verification-before-completion are unchanged. The
 step-recheck reclassifies it against the actual diff: any unexpected file or
 surface, bound breach, proof-path failure, test-infrastructure addition, or
 new semantic uncertainty invalidates it — record
-`Review topology: single-reviewer` and run ordinary STANDARD review before
-the verifier. A record still `provisional` at completion-claim time is a
-named ledger gap.
+`Review topology: perspective-pair` and run the ordinary STANDARD
+perspective-diverse pair before the verifier. A record still `provisional` at
+completion-claim time is a named ledger gap.
 
 ## Worktree Isolation Gate
 
@@ -358,7 +366,10 @@ Phase: EXECUTE. Per story:
    one systematic-debugging pass plus one further fix, then `fusion-rescue`
    or record `blocked`/`failed_verification` with the evidence [E15].
 9. After all stories, run the `## Diff-Budget Gate` once for the current
-   stabilized revision, before `## Review Gate`.
+   stabilized revision, before `## Review Gate`. Then complete the CLEANUP and
+   RECHECK checkpoints under `## Cleanup And Final Verification`, rerunning
+   relevant verification and refreshing Diff-Budget when cleanup changes files.
+   The sole review pair inspects the final stabilized post-cleanup diff.
 
 ## Mode-Gated Agent Dispatch
 
@@ -454,7 +465,11 @@ revision/diff-fingerprint echoes; executor results also echo the stable
 reviewer's/verifier's reviewed/verified revision to bind to the current target.
 Reject stale or misrouted results, record the mismatch, and redispatch or
 rebase the packet instead of interpreting the enum. A later mutation
-invalidates intersecting reviewer/verifier results [E9].
+invalidates intersecting reviewer/verifier results [E9], except that the
+single post-review focused fix does not invalidate-and-redispatch review. The
+review verdict remains bound to the reviewed revision as the round record,
+and the verifier is the mandatory freshness owner for the fixed revision. All
+other intersecting-evidence invalidation is unchanged.
 
 Integration, sequential: inspect each accepted result and structured change
 manifest; run the per-executor scope check (owned files only, slice satisfied,
@@ -531,15 +546,17 @@ Budget rules:
 Phase: EXECUTE — this is the cumulative per-story mid-run early-stop check
 (the Diff-Budget Gate owns the final pre-review evaluation). At PREPARE, copy the plan's
 expected changed-file groups, diff size, review topology, cleanup depth,
-broad-suite cap, and review-round cap — or derive conservative values.
+broad-suite cap, and the one-round review budget — or derive conservative
+values.
 
 Stop for rescope, simplify, or user approval when [E10]: the handwritten
 diff exceeds twice the estimate; generated output hides unexpectedly broad
 source changes; supporting test/validation lines grow to roughly three times
 the product change (measure via `git diff --stat` at each story recheck); a
-second blocking review round remains unresolved; or the same invariant is
-being implemented a third time. The ratio is a stop signal, not a license to
-delete required negative, regression, or safety cases.
+blocking review finding remains unresolved after the single post-review
+executor fix and verifier audit; or the same invariant is being implemented a
+third time. The ratio is a stop signal, not a license to delete required
+negative, regression, or safety cases.
 
 ## Diff-Budget Gate
 
@@ -571,32 +588,48 @@ Topology by mode [E8]:
 
 ```text
 LIGHT    -> direct diff inspection unless mode or risk requires independence.
-STANDARD -> one targeted reviewer instance for behavior-affecting or
-            workflow changes, or the compliant carve-out record
-            `not-required (STANDARD small carve-out: <reason>)`.
-THOROUGH -> paired review only for a named security, data, destructive,
-            public-contract, release-critical, new-concurrency, migration,
-            or broad multi-system risk: two same-role reviewer instances with
-            identical packets, dispatched in parallel and synthesized into one
-            verdict; otherwise one targeted reviewer. The active platform
-            supplies the diversity leg. If that leg is unavailable, default
-            mode uses two independent same-model instances and records the
-            reason; an explicit caller demand for diversity is strict mode and
-            transitions to PAUSED instead of falling back.
+STANDARD -> one perspective-diverse code-reviewer pair for behavior-affecting
+            or workflow changes: Lens A = adversarial correctness + security
+            skeptic; Lens B = maintainability + coverage completeness. Each
+            instance runs the full role; packets are identical except the single `Assigned perspective:` line,
+            dispatched in one parallel batch and caller-synthesized into one
+            verdict. The compliant
+            carve-out remains `not-required (STANDARD small carve-out:
+            <reason>)`.
+THOROUGH -> the same perspective-diverse pair; a named security, data,
+            destructive, public-contract, release-critical, new-concurrency,
+            migration, or broad multi-system trigger selects only the active
+            platform's escalated diversity (cross-host on Codex). The active
+            platform supplies the diversity leg. If that leg is unavailable,
+            default mode uses two independent same-model instances and records
+            the reason; an explicit caller demand for diversity is strict mode
+            and transitions to PAUSED instead of falling back.
 ```
 
-Review-then-verify [E7]: run the selected code-review stage first, validate
-its `Overall verdict`, blocking finding IDs, and reviewed revision binding,
-and resolve every blocking finding before starting a required independent
-self-host `verifier` pass (never the maker, never a pair). Validate the
-verifier's `Verification verdict` and verified revision binding before using
-it. Only reviewer `approve` (or compliant `not-required`) plus verifier `pass`
-(or compliant verifier `not-required`) may enter FINALIZE directly.
+Review-then-verify [E7]: run exactly one selected code-review stage first and
+validate its caller-synthesized `Overall verdict`, blocking finding IDs, and
+reviewed revision binding. With no blocking findings, start the required
+independent self-host `verifier` pass (never the maker, never a pair) against
+the reviewed revision. On `blocking-findings`, issue exactly one
+executor-owned focused fix and record its manifest before the verifier starts;
+the verifier packet includes the reviewer findings, fix manifest, and the
+obligation to audit every blocking finding ID against the fixed revision.
+Reviewer approval of the fixed revision is NOT required and MUST NOT be requested.
+Validate the verifier's `Verification verdict`, verified revision binding, and
+per-finding audit before using it.
+
+Completion requires either reviewer verdict `approve` (or compliant
+`not-required`) and verifier `pass` / accepted `pass-with-residual-risk` bound
+to the reviewed revision, or reviewer verdict `blocking-findings` with a fix
+manifest mapping every accepted blocking finding ID, and the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit.
 `pass-with-residual-risk` also requires the caller to record why the named risk
-is non-blocking and every AC remains satisfied. Reviewer `blocking-findings`
-or verifier `fail` returns to an executor-owned focused fix within budget;
-either role's `blocked` verdict pauses. These enums are caller inputs under
-E17, never autonomous transitions.
+is non-blocking and every AC remains satisfied. A compliant LIGHT path where
+the verifier is not required records `verifier bound revision: not-required`
+and follows the reviewed-revision completion path. Verifier `fail`, an
+unresolved blocking finding after the one fix and audit returns to the
+budgeted `systematic-debugging` or `failed_verification` path; either role's
+`blocked` verdict pauses. These enums are caller
+inputs under E17, never autonomous transitions.
 
 The verifier audit is required at STANDARD/THOROUGH when the proving tests or
 implementation were authored or accepted by the same agent. It MUST run in a
@@ -611,22 +644,22 @@ Record the Review Gate dependency graph in the ledger:
 
 ```text
 Review Gate dependency graph:
-- code-reviewer topology: not-required | single-reviewer | paired-thorough
+- code-reviewer topology: not-required | perspective-pair
 - code-reviewer pass: pending | complete | blocked | not-required
-- blocking reviewer findings: resolved | blocking | none | not-reviewed
+- blocking reviewer findings: none | fix-applied (manifest mapped) | blocking
+- verifier bound revision: reviewed | fixed | not-required
 - verifier eligible to start: yes | no
 - verifier started after reviewer completion: yes | no | not-required
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
 `verifier eligible to start` is `yes` only after the selected code-review
-stage completed with `approve` (or a compliant not-required reason is recorded)
-and blocking findings are resolved or absent. A verifier spawned before that
-point is stale
-evidence: record it as discarded and rerun it after the dependency is
-satisfied. When both roles are required, the ledger must show
-`verifier started after reviewer completion: yes` or the verifier pass does
-not count.
+output and pair synthesis are captured and either findings are none / review is
+compliantly not-required, or the single fix manifest is recorded. A verifier
+spawned before that point is stale evidence: record it as discarded and rerun
+it after the dependency is satisfied. When both roles are required, the ledger
+must show `verifier started after reviewer completion: yes` or the verifier
+pass does not count.
 
 Review focus — the reviewer pass must check:
 
@@ -647,32 +680,38 @@ Review focus — the reviewer pass must check:
 Reviewer findings outside the Scope Trace Gate are residual risk or
 follow-ups, not fixes in this run; a regression caused by the current change
 always maps to approved scope and may block. For accepted blocking finding
-IDs, the main agent issues one focused `executor` assignment, then rechecks only
-the bound revision and evidence the fix invalidated; the reviewer never
-applies the fix or advances the FSM. Budget [E8]: one required review cycle
-plus one focused re-check of the blocked scope after a fix. A blocker
-remaining after that budget goes to `systematic-debugging`, `blocked`, or
-`failed_verification`.
+IDs, the main agent issues exactly one focused `executor` assignment and
+records a manifest mapped to every accepted finding ID; the reviewer never
+applies the fix or advances the FSM, and is never re-dispatched. Budget
+[E8]: exactly one review round; after the executor-owned fix the verifier audit
+of the fixed revision is the recheck. A blocker remaining after that budget
+goes to `systematic-debugging`, `blocked`, or `failed_verification`.
 
 ## Cleanup And Final Verification
 
-Phase: FINALIZE — checkpoints in order [E12]:
+Checkpoints remain recorded in snapshot order, with CLEANUP and RECHECK at
+EXECUTE exit before REVIEW [E12]:
 
-1. CLEANUP — after the behavior lock and required review: LIGHT/STANDARD run
-   a caller-owned quick diff scan and invoke `simplify` (one combined scan)
+1. CLEANUP — after the behavior lock and BEFORE the single review round:
+   LIGHT/STANDARD run a caller-owned quick diff scan and invoke `simplify` (one combined scan)
    only when actual candidates or candidate uncertainty remain; a clean scan
-   records cleanup as not needed. THOROUGH expands to four independent
-   viewpoints only for a named safety or broad-diff trigger. Never create
-   cleanup work to satisfy a pass count.
-2. RECHECK — when cleanup changed files: rerun relevant verification, refresh
-   Diff-Budget for the stabilized cleanup revision, and confirm behavior, the
-   behavior lock, and changed-file scope survived; run a focused review when
-   cleanup changed structure, tests, or control flow.
-3. INTEGRATE — carry out the worktree completion responsibility [E13]:
-   merge back into the integration checkout and run post-merge
-   verification, or report the branch/PR handoff.
-4. COMPLETION_AUDIT — read and follow `verification-before-completion`
-   before any completion claim, then write the final report.
+   records cleanup as not needed. THOROUGH expands to four
+   independent viewpoints only for a named safety or broad-diff trigger. Never
+   create cleanup work to satisfy a pass count. Cleanup is mutation-capable
+   here through executor-applied accepted findings; after REVIEW it is
+   read-only and any findings become residual risk or follow-ups.
+2. RECHECK — when cleanup changed files, rerun relevant verification, refresh
+   Diff-Budget for the stabilized cleaned revision, and confirm behavior, the
+   behavior lock, and changed-file scope survived. Then enter REVIEW so the
+   sole perspective-diverse pair inspects the final post-cleanup diff.
+
+Phase: FINALIZE — remaining checkpoints in order:
+
+3. INTEGRATE — carry out the worktree completion responsibility [E13]: merge
+   back into the integration checkout and run post-merge verification, or
+   report the branch/PR handoff.
+4. COMPLETION_AUDIT — read and follow `verification-before-completion` before
+   any completion claim, then write the final report.
 
 ## Resume Protocol
 
@@ -702,12 +741,15 @@ each). A silently omitted step is a named ledger gap, not a pass.
 
 - Evidence status lives in `verification.md`; PRD/progress point to its AC IDs.
 - Every review records its topology using the dependency-graph values
-  (`not-required` with the compliant reason, `single-reviewer`, or
-  `paired-thorough` with the active platform's pair-mode value); an inline
-  fallback requires a reason. Missing review topology is a named ledger gap.
+  (`not-required` with the compliant reason, or `perspective-pair` with the
+  active platform's pair-mode value); an inline fallback requires a reason.
+  Missing review topology is a named ledger gap.
 - When both code-reviewer and verifier are required, the ledger must show
   `verifier started after reviewer completion: yes` or the verifier pass is
   stale and does not count.
+- On the fix path, the verifier pass is bound to the fixed revision with a
+  per-finding resolution audit; the fix manifest maps every accepted blocking
+  finding ID.
 </HARD-GATE>
 
 Completion criteria:
@@ -717,9 +759,14 @@ Completion criteria:
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status
 - required TDD evidence exists, or each exception is documented
-- the mode-required reviewer pass is approved or compliantly not-required
-- the independent verifier pass ran per the review-then-verify order, or a
-  compliant not-required reason is recorded; `dispatch-unavailable` is a blocker
+- the mode-required review is approved or compliantly not-required, or its
+  blocking findings have one accepted fix manifest mapped to every finding ID;
+  Reviewer approval of the fixed revision is NOT required and MUST NOT be
+  requested
+- the independent verifier pass ran per the review-then-verify order and bound
+  to the reviewed revision or, on the fix path, the FIXED revision with a
+  per-finding resolution audit; otherwise a compliant not-required reason is
+  recorded; `dispatch-unavailable` is a blocker
   and cannot satisfy completion
 - the proportional `simplify` scan ran, was disabled, or recorded no
   candidates; post-cleanup verification passed when cleanup changed files
@@ -747,7 +794,7 @@ integration status); delivery (stories, files, cleanup); verification
 validation check, diff budget); residual risk.
 
 Review-phase attribution: when 2+ stages ran, include exactly
-`Review phases: plan=<n>; implementation-code=<n>; focused-recheck=<n>; independent-verifier=<n>`;
+`Review phases: plan=<n>; implementation-code=<n>; independent-verifier=<n>`;
 when fewer than two ran, use ordinary labeled prose and omit that count line.
 
 Process budget outcome: planned versus actual tests/TDD cycles, role
@@ -900,26 +947,34 @@ ownership boundary; read-only reviewers must not edit files.
 
 ## Cross-Host Consult Channel
 
-Paired THOROUGH review on Codex starts one Codex `code-reviewer` and one
-transport-owner reviewer making exactly one foreground Claude call with the
-identical redacted packet. A launch notice, background acknowledgement, or
-empty output is unavailable evidence; on opposite-host unavailability run
-the same-host parallel fallback and record it.
+A fired named THOROUGH review trigger on Codex starts one Codex `code-reviewer`
+and one transport-owner reviewer making exactly one foreground Claude call.
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
+A launch notice, background acknowledgement, or empty output is unavailable
+evidence; on opposite-host unavailability run `same-host-parallel-fallback` and
+record the required fallback reason.
 
 ## Re-Homed Core Pair Rules
 
 ```text
-THOROUGH -> paired review only for a named security, data, destructive,
-            public-contract, release-critical, new-concurrency, migration,
-            or broad multi-system risk (cross-host or
-            same-host-parallel-fallback, with the fallback reason);
-            otherwise one targeted reviewer.
+STANDARD -> one perspective-diverse code-reviewer pair when review is required,
+            recorded as same-host-perspective-pair; this is intentional
+            same-host review, so no fallback reason is required.
+THOROUGH -> the same perspective-diverse pair. A named security, data,
+            destructive, public-contract, release-critical, new-concurrency,
+            migration, or broad multi-system risk selects cross-host review when
+            available, or same-host-parallel-fallback when the opposite host is
+            unavailable; record the fallback reason.
 ```
 
+Both the STANDARD and THOROUGH pairs follow the same packet rule stated in the
+Cross-Host Consult Channel: the two legs differ only by their `Assigned
+perspective:` line.
+
 - Every review records its topology using the dependency-graph values
-  (`not-required` with the compliant reason, `single-reviewer`, or
-  `paired-thorough` with its independence mode); an inline fallback requires
-  a reason. Missing review topology is a named ledger gap.
+  (`not-required` with the compliant reason, or `perspective-pair` with its
+  independence mode); an inline fallback requires a reason. Missing review
+  topology is a named ledger gap.
 
 ## Cleanup
 

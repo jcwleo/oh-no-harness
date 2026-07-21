@@ -122,26 +122,34 @@ ownership boundary; read-only reviewers must not edit files.
 
 ## Cross-Host Consult Channel
 
-Paired THOROUGH review on Codex starts one Codex `code-reviewer` and one
-transport-owner reviewer making exactly one foreground Claude call with the
-identical redacted packet. A launch notice, background acknowledgement, or
-empty output is unavailable evidence; on opposite-host unavailability run
-the same-host parallel fallback and record it.
+A fired named THOROUGH review trigger on Codex starts one Codex `code-reviewer`
+and one transport-owner reviewer making exactly one foreground Claude call.
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
+A launch notice, background acknowledgement, or empty output is unavailable
+evidence; on opposite-host unavailability run `same-host-parallel-fallback` and
+record the required fallback reason.
 
 ## Re-Homed Core Pair Rules
 
 ```text
-THOROUGH -> paired review only for a named security, data, destructive,
-            public-contract, release-critical, new-concurrency, migration,
-            or broad multi-system risk (cross-host or
-            same-host-parallel-fallback, with the fallback reason);
-            otherwise one targeted reviewer.
+STANDARD -> one perspective-diverse code-reviewer pair when review is required,
+            recorded as same-host-perspective-pair; this is intentional
+            same-host review, so no fallback reason is required.
+THOROUGH -> the same perspective-diverse pair. A named security, data,
+            destructive, public-contract, release-critical, new-concurrency,
+            migration, or broad multi-system risk selects cross-host review when
+            available, or same-host-parallel-fallback when the opposite host is
+            unavailable; record the fallback reason.
 ```
 
+Both the STANDARD and THOROUGH pairs follow the same packet rule stated in the
+Cross-Host Consult Channel: the two legs differ only by their `Assigned
+perspective:` line.
+
 - Every review records its topology using the dependency-graph values
-  (`not-required` with the compliant reason, `single-reviewer`, or
-  `paired-thorough` with its independence mode); an inline fallback requires
-  a reason. Missing review topology is a named ledger gap.
+  (`not-required` with the compliant reason, or `perspective-pair` with its
+  independence mode); an inline fallback requires a reason. Missing review
+  topology is a named ledger gap.
 
 ## Cleanup
 

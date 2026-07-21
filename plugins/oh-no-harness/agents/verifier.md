@@ -52,6 +52,11 @@ independence audit may not.
 - Verify that the Direction Contract and AC IDs are unchanged across the input
   artifact, implementation/session, reviewer packet, and completion claim.
 - Run or inspect the exact checks needed for the requested claim.
+- On a fix-path packet, audit each supplied blocking finding ID against the fixed
+  revision. Also run a bounded audit of the fix delta for newly introduced
+  correctness, regression, and security effects, without requesting reviewer
+  approval or expanding into a full re-review; return residual risk or a blocking
+  verdict if the fix delta introduces a new defect.
 - Confirm output, exit codes, and residual risk.
 - Check that Ralph recorded and followed the selected execution mode when verifying Ralph-driven work.
 - Use the LIGHT, STANDARD, or THOROUGH verification tier the caller recorded; when absent, choose the lightest tier that gives credible evidence.
@@ -71,7 +76,9 @@ Run the scenario lens when user-facing behavior changed; otherwise record
 - Report gaps that automated tests may miss.
 
 Not in scope: line-level defects and security-specific risks in changed code
-(see `code-reviewer`) or planning-draft critique (route through Ralplan, whose
+during ordinary verification (see `code-reviewer`), except the bounded fix-path
+fix-delta correctness, regression, and security audit above, which is in scope
+as the D5 safety net; or planning-draft critique (route through Ralplan, whose
 planning phase owns `plan-reviewer`).
 
 ## Single Self-Host Verification

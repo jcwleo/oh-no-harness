@@ -136,7 +136,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating Planner to Plan-Reviewer sequencing and exact handoff from a disposable CODEX_HOME cloned from the active config and agent TOMLs; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
+      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating exact Planner handoff into one single-round perspective-diverse Plan-Reviewer pair from a disposable CODEX_HOME cloned from the active config and agent TOMLs; the instrumented path records `same-host-perspective-pair`, while the natural path permits 1-2 typed Plan-Reviewer sessions only and proves either two parallel typed legs or one typed leg plus opposite-host review evidence, with parent pair synthesis in both branches; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
@@ -380,7 +380,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving Analyst to Planner to Plan-Reviewer sequencing",
+      "evidence_artifact": "Claude stream-json output proving exact Planner handoff into one single-round perspective-diverse Plan-Reviewer pair, parallel review-leg dispatch, and caller synthesis",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
@@ -451,7 +451,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
       "warnings": [
         "live-model concurrency compliance"
       ],
-      "evidence_artifact": "Claude stream-json output proving the real isolated-preferences to canonical resolver to SessionStart model-diversity block to Ralph Review Gate path: exactly two same-role code-reviewer dispatches receive equal packets after normalizing the model override, leg-identity labels, and dispatch-meta lines, the declared stored primary leg is unoverridden, the distinct native secondary leg has an explicit override, both return results, model-diversity-pair is recorded, and the caller emits a substantive synthesized verdict; lifecycle overlap is recorded as an advisory, non-gating live-model concurrency signal",
+      "evidence_artifact": "Claude stream-json output proving the real isolated-preferences to canonical resolver to SessionStart model-diversity block to Ralph Review Gate path: exactly two same-role code-reviewer dispatches receive raw packets with two distinct role-appropriate `Assigned perspective:` values and no divergence beyond that line, then compare equal after normalizing the `Assigned perspective:` line, model override, leg-identity labels, and dispatch-meta lines; the declared stored primary leg is unoverridden, the distinct native secondary leg has an explicit override, both return results, model-diversity-pair is recorded, and the caller emits a substantive synthesized verdict; lifecycle overlap is recorded as an advisory, non-gating live-model concurrency signal",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",

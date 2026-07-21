@@ -47,14 +47,15 @@ acknowledgement is not completion. Do not duplicate pending work inline.
 
 ## Model Diversity Pair
 
-For a named THOROUGH `plan-reviewer` pair, dispatch two same-role instances in
-parallel with identical review packets and synthesize one verdict. Both legs MUST
-be requested in a single batch: issue both subagent tool calls in the same
+For any dispatched `plan-reviewer` pair (every dispatched review), dispatch two
+same-role instances in parallel and synthesize one verdict. Both legs MUST be
+requested in a single batch: issue both subagent tool calls in the same
 assistant turn (or with `Background: yes` for both) BEFORE waiting on either
 result; a serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
-packet bodies MUST be byte-identical; leg identity (`primary` vs `diversity`)
-is carried ONLY by the host dispatch metadata (the description field and the model
-override), never inside the packet text. Read the role's declared stored primary
+packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity (`primary`
+vs `diversity`) is carried ONLY by the host dispatch metadata (the description
+field and the model override), never inside the packet text. Read the role's declared stored primary
 and the validated secondary top-tier model from the session
 `<OH_NO_MODEL_DIVERSITY>` block.
 

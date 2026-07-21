@@ -168,12 +168,12 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "review failure is allowed to enter FINALIZE",
-        "caller-owned FSM transition contract",
+        "fixed revision requests a second reviewer approval",
+        "review-to-executor ownership contract",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralph.md",
-            "bound reviewer verdict is `approve` or compliant `not-required`; bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`; no blocking findings remain",
-            "caller accepted the role outputs; blockers are recorded",
+            "Reviewer approval of the fixed revision is NOT required and MUST NOT be requested",
+            "Reviewer approval of the fixed revision is required before FINALIZE",
         ),
         assertion="assert_orchestration_ownership_contract",
     )
@@ -415,56 +415,56 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "all-accepted branch omits its single closure review",
-        "all-accepted must create exactly one v2 and one closure review",
+        "all-accepted branch reintroduces a closure review",
+        "retains forbidden single-round review marker: 'delta closure review'",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "All accepted: create exactly one Planner revision v2, then exactly one delta closure review.",
-            "All accepted: create one revision v2 without a closure review.",
+            "All accepted: create exactly one final Planner revision v2; run no further review — the Plan Approval Brief surfaces each accepted finding→fix mapping for the user.",
+            "All accepted: create exactly one final Planner revision v2, then exactly one delta closure review; the Plan Approval Brief surfaces each accepted finding→fix mapping for the user.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
         "rejected branch creates v2 before user resolution",
-        "rejected must create no v2 or review before user resolution",
+        "rejected must create no v2 before user resolution",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Any rejected: return the disposition-only user-decision packet; create no v2 and run no review v2 until the user resolves it.",
+            "Any rejected: return the disposition-only user-decision packet; create no v2 until the user resolves it.",
             "Any rejected: create revision v2 before the user resolves it.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
-        "deferred branch continues into review",
-        "deferred must leave the plan pending with no v2 or review",
+        "deferred branch creates a revision while pending",
+        "deferred must leave the plan pending with no v2",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2 and run no review v2.",
-            "Any deferred: create revision v2 and run review v2 while the plan is pending.",
+            "Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2.",
+            "Any deferred: create revision v2 while the plan is pending.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
         "mixed branch revises before resolving non-accepted blockers",
-        "mixed blockers must resolve before one v2 and closure review",
+        "mixed blockers must resolve before one v2",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Mixed: resolve every non-accepted blocker before exactly one v2; no closure review starts earlier.",
+            "Mixed: resolve every non-accepted blocker before exactly one v2.",
             "Mixed: revise accepted blockers before resolving the other dispositions.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
-        "waiver-only branch creates revision and re-review",
-        "permitted waiver with no body change must create no v2 or review",
+        "waiver-only branch creates a revision",
+        "permitted waiver with no body change must create no v2",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Permitted waivers with no body change: keep the waivers visible; create no v2 and run no review v2.",
-            "Permitted waivers with no body change: create v2 and run review v2.",
+            "Permitted waivers with no body change: keep the waivers visible; create no v2.",
+            "Permitted waivers with no body change: create v2.",
         ),
     )
     expect_rejected(
@@ -481,45 +481,56 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "direction-change branch consumes the old closure review",
-        "direction change must start a new run without old closure review",
+        "direction-change branch reuses the old run",
+        "direction change must start a new run",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Direction change: update the requirements source, start a new planning run, and do not run or consume the old run's closure review.",
-            "Direction change: reuse the old run and consume its closure review.",
+            "Direction change: update the requirements source, start a new planning run.",
+            "Direction change: reuse the old planning run.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
-        "reason-free full-depth re-review",
-        "named material change",
-        lambda root: replace_once(
+        "re-review rules section is restored",
+        "retains forbidden single-round review marker: '## Re-Review Rules'",
+        lambda root: append_before_heading(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Full-depth review\nis allowed only for a named material change",
-            "Full-depth review is allowed with a stated reason for a change",
+            "## Findings Ledger Gate",
+            "## Re-Review Rules\n\nFull-depth review is allowed with a stated reason for a change.",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
-        "new v2 blocker omits first-visible explanation",
-        "Why first raised now",
+        "Claude review packets restore byte-identical wording",
+        "missing amended review-packet marker",
         lambda root: replace_once(
-            root / "docs" / "skill-core" / "ralplan.md",
-            "Why first raised now",
-            "Late blocker note",
+            root / "docs" / "platforms" / "claude-code-ralph.md",
+            "packet bodies MUST be identical except the single `Assigned perspective:` line",
+            "packet bodies MUST be byte-identical",
         ),
     )
     expect_rejected(
         validator,
         plugin_root,
-        "late-blocker rule suppresses revision-created defect",
-        "revision-created material defect",
+        "Ralph perspective pair regresses to one targeted reviewer",
+        "missing fixed-revision completion marker: 'one perspective-diverse code-reviewer pair'",
         lambda root: replace_once(
-            root / "docs" / "skill-core" / "ralplan.md",
-            "A revision-created material defect",
-            "A revision-created preference",
+            root / "docs" / "skill-core" / "ralph.md",
+            "one perspective-diverse code-reviewer pair",
+            "one targeted reviewer instance",
+        ),
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Codex review packets restore identical redacted packet wording",
+        "missing perspective-pair marker",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "codex-ralph.md",
+            "The two review legs receive redacted packets identical except the single `Assigned perspective:` line.",
+            "The two review legs receive the identical redacted packet.",
         ),
     )
     expect_rejected(
@@ -562,8 +573,8 @@ def main() -> int:
         "must compare exact normalized Reviewed draft id",
         lambda root: replace_once(
             root.parent.parent / "scripts" / "test-codex-plugin.sh",
-            'if next(iter(unique_reviewed)) != proof["draft_id"]:\n    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the dynamic draft id")',
-            'if not next(iter(unique_reviewed)).startswith(proof["draft_id"]):\n    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the dynamic draft id")',
+            'if next(iter(unique_reviewed)) != proof["draft_id"]:\n    raise SystemExit(\n        "Codex ralplan reviewer pair did not identify the dynamic draft id"\n    )',
+            'if next(iter(unique_reviewed)).startswith(proof["draft_id"]):\n    raise SystemExit(\n        "Codex ralplan reviewer pair did not identify the dynamic draft id"\n    )',
         ),
     )
     expect_rejected(

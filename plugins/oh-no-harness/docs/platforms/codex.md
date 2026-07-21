@@ -140,8 +140,7 @@ Planner and Plan-Reviewer keep sequential role boundaries:
 Planner produces the draft, then Plan-Reviewer reviews that draft. Dispatch them
 as sequential subagents when the active host supports dispatch and independent
 context can improve planning or review; otherwise keep separate inline role
-blocks. A re-review dispatch happens only when blocking findings require a
-Planner revision.
+blocks. No re-review dispatch exists: the single Planner revision v2 is final and goes to the approval brief.
 
 After `wait_agent` returns a final status for any Codex-dispatched role,
 capture the output and any changed-file set before cleanup. A timeout, empty

@@ -36,19 +36,26 @@ exists, closure is host-managed — record that and continue.
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair — required when the proving tests or fix were authored or accepted by the same agent |
 | `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; cross-host merge: merged findings |
 
-STANDARD uses one dispatched reviewer or debugger instance; a pair requires
-a named THOROUGH trigger, with same-host parallel fallback recorded when the
-opposite host is unavailable.
+STANDARD keeps one dispatched `debugger` instance. Every dispatched post-fix
+`code-reviewer` review instead runs as an intentional same-host perspective pair
+recorded `same-host-perspective-pair`, with no fallback reason. A named THOROUGH
+trigger selects a debugger pair or cross-host escalation for either paired role;
+when the opposite host is unavailable, record `same-host-parallel-fallback` and
+the required fallback reason.
 
 Do not emit the Output below until every dispatched review records topology:
-`single-reviewer` for STANDARD, or a named THOROUGH pair with `cross-host` /
-`same-host-parallel-fallback`; an inline fallback requires a reason.
-Missing review topology is a named ledger gap, not a pass.
+`single-reviewer` for a STANDARD debugger, or `perspective-pair` plus
+`same-host-perspective-pair`, `cross-host`, or
+`same-host-parallel-fallback` for a post-fix `code-reviewer` or triggered
+THOROUGH debugger pair; an inline fallback requires a reason. Missing review
+topology is a named ledger gap, not a pass.
+
+The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Cross-Host Consult Channel
 
-A named-THOROUGH paired `debugger` or post-fix `code-reviewer` starts one
-Codex role and one transport-owner making exactly one foreground Claude
-call with the identical redacted packet. A launch notice, background
-acknowledgement, or empty output is unavailable evidence; on opposite-host
-unavailability run the same-host parallel fallback and record it.
+A fired named THOROUGH paired `debugger` or post-fix `code-reviewer` trigger
+starts one Codex role and one transport-owner making exactly one foreground
+Claude call. A launch notice, background acknowledgement, or empty output is
+unavailable evidence; on opposite-host unavailability run
+`same-host-parallel-fallback` and record the required fallback reason.

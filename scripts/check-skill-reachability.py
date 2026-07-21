@@ -49,7 +49,7 @@ CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
 # any divergence before checking phrase reachability.
 SKILL_REFERENCES: dict[str, list[str]] = {
     "ralph": ["simplify"],                       # 'Required Behavior Lock'
-    "ultrawork": ["interview", "ralplan", "ralph"],  # spec path / 2 loops / cleanup heading
+    "ultrawork": ["interview", "ralplan", "ralph"],  # spec path / single round / cleanup heading
 }
 
 SOURCE_HANDOFF_PATTERNS: dict[str, tuple[str, ...]] = {
@@ -92,7 +92,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Provisional Ralph mode: LIGHT | STANDARD | THOROUGH | UNKNOWN", BOTH),
     ],
     "ralplan": [
-        ("Stop after at most 2 loops", BOTH),
+        ("Review runs exactly once", BOTH),
         ("pending approval", BOTH),
         ("Overall Ralph mode", BOTH),
         ("Task sizing", BOTH),
@@ -110,7 +110,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Model Diversity Pair", CLAUDE),
         ("Cross-Host Consult Channel", CODEX),
         ("trigger-loaded", BOTH),
-        ("Re-reviews run only when the previous", BOTH),
+        ("exactly one final Planner revision v2", BOTH),
+        ("finding→fix mapping", BOTH),
+        ("Assigned perspective", BOTH),
         ("APPROVE freezes the exact reviewed Planner draft", BOTH),
         ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),
         ("Non-blocking findings", BOTH),
@@ -122,7 +124,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         # Platform-owned paired-review vocabulary. Claude proves the A1-amended
         # unoverridden-primary/native-secondary shape; Codex keeps cross-host.
         ("model-diversity-pair", CLAUDE),
-        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
         ("primary leg is dispatched without a model override", CLAUDE),
         ("diversity leg uses an explicit NATIVE model override", CLAUDE),
@@ -131,7 +133,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
         ("require-cross-host", CODEX),
-        ("same-host/cross-host fallback", CODEX),
+        ("same-host-perspective-pair", CODEX),
+        ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
         ("Dispatch only after the active skill's trigger fires", CODEX),
     ],
@@ -172,9 +175,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Mark it `final` only after", BOTH),
         ("A frozen `none` remains `none`", BOTH),
         ("`dispatch-unavailable` is a blocker", BOTH),
-        ("reviewer `approve` (or compliant `not-required`) plus verifier `pass`", BOTH),
+        ("verifier bound revision: reviewed | fixed", BOTH),
+        ("Assigned perspective", BOTH),
         ("model-diversity-pair", CLAUDE),
-        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
         ("primary leg is dispatched without a model override", CLAUDE),
         ("diversity leg uses an explicit NATIVE model override", CLAUDE),
@@ -182,13 +186,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
+        ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
         (".oh-no/specs/interview-", BOTH),  # via the interview handoff edge
-        ("at most 2 loops", BOTH),  # via the ralplan handoff edge
+        ("one-round review budget", BOTH),  # via the ralplan handoff edge
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("git worktree add", BOTH),
         ("Worktree decision: ultrawork automatic worktree", BOTH),
@@ -209,14 +214,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("worktree_gate: no source file edit until a", BOTH),  # ultrawork worktree_gate (G2 reference, carries worktree-isolation path token)
         ("requirements_gate: planning must not start until the requirements source is recorded", BOTH),  # ultrawork requirements_gate
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
-        ("Add one targeted", BOTH),
-        ("`code-reviewer` only for additional orchestration risk", BOTH),
+        ("`code-reviewer` dispatched only for additional orchestration risk", BOTH),
         ("Ralph-unavailable fallback", BOTH),
         ("Ultrawork still owns `.oh-no` state", BOTH),
         ("executor ownership", BOTH),
         ("inline evidence cannot satisfy it", BOTH),
+        ("Assigned perspective", BOTH),
         ("model-diversity-pair", CLAUDE),
-        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
         ("primary leg is dispatched without a model override", CLAUDE),
         ("diversity leg uses an explicit NATIVE model override", CLAUDE),
@@ -224,7 +229,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
-        ("same-host parallel fallback", CODEX),
+        ("same-host-perspective-pair", CODEX),
+        ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
     ],
     "test-driven-development": [
@@ -268,8 +274,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor-default minimal fix", BOTH),
         ("Apply the minimal fix through `executor` by default", BOTH),
         ("Mutation fallback: LIGHT-tiny", BOTH),
+        ("Assigned perspective", BOTH),
         ("model-diversity-pair", CLAUDE),
-        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
         ("primary leg is dispatched without a model override", CLAUDE),
         ("diversity leg uses an explicit NATIVE model override", CLAUDE),
@@ -277,6 +284,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
+        ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude", CODEX),
     ],
@@ -292,8 +300,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("redact secrets", BOTH),  # the evidence-redaction rule
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
+        ("Assigned perspective", BOTH),
         ("model-diversity-pair", CLAUDE),
-        ("packet bodies MUST be byte-identical", CLAUDE),
+        ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
         ("primary leg is dispatched without a model override", CLAUDE),
         ("diversity leg uses an explicit NATIVE model override", CLAUDE),
@@ -301,6 +310,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
+        ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
     ],

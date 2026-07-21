@@ -834,13 +834,20 @@ run_future_isolated_live_skill_test() {
         "typed Plan-Reviewer did not echo the exact Planner draft",
         "inspected test-only proof material",
         "transcript_children = {role: [] for role in expected_roles}",
-        "if not 1 <= len(reviewer_sessions) <= 4:",
-        "at most one THOROUGH pair per round",
+        "if not 1 <= len(reviewer_sessions) <= 2:",
+        "exceeded one perspective pair in the single review round",
         '"last_task_timestamp": task_timestamps[-1] if task_timestamps else ""',
         "final_reviewer_evidence",
         "if len(final_reviewer_evidence) not in (1, 2):",
+        "if len(final_reviewer_evidence) == 2:",
         "reviewer_task and reviewer_task <= planner_final_completion",
         "max(final_review_dispatches) >= min(final_review_completions)",
+        "elif len(final_reviewer_evidence) == 1:",
+        "opposite_host_review_evidence",
+        "single typed Plan-Reviewer lacked opposite-host review evidence",
+        "parent_pair_synthesis_evidence",
+        "lacked parent pair-synthesis evidence",
+        "same-host-perspective-pair",
         'acceptance_markers = ("acceptance", "required outcomes", "success criteria")',
         'ac_ids = set(re.findall(r"(?i)\\bAC[- ]?([0-9]+)\\b", planner_output))',
         "Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither",
@@ -868,6 +875,8 @@ run_future_isolated_live_skill_test() {
         "After both subagents finish and both completed planning agents are closed",
         "natural transcript proof found duplicate typed child sessions for",
         "if len(reviewer_sessions) not in (1, 2):",
+        "if not 1 <= len(reviewer_sessions) <= 4:",
+        "at most one THOROUGH pair per round",
         "Plan-Reviewer {reviewer_index} did not identify the final Planner draft id",
         "natural parent did not preserve the Planner payload",
         "natural parent did not preserve the Plan-Reviewer decision payload",
@@ -1339,10 +1348,15 @@ def assert_claude_model_diversity_lane_contract(marketplace_root: Path) -> None:
             "Platform invocation",
             "Lifecycle",
             "Coordination",
-            ": NORMALIZED",
+            "Assigned perspective: NORMALIZED",
+            "raw_perspectives",
+            "raw packets did not contain two distinct Assigned perspective values",
+            "raw packets differ beyond the Assigned perspective line",
+            "adversarial correctness + security skeptic",
+            "maintainability + coverage completeness",
             "re.MULTILINE",
             're.sub(r"\\b(?:primary|diversity)\\b", "LEG"',
-            "normalized packets differ beyond the model override",
+            "normalized packets differ beyond the model override and assigned perspective",
             "expected exactly one native secondary override",
             "expected exactly one unoverridden declared-primary leg",
             "did not complete both code-reviewer results",
@@ -1354,6 +1368,8 @@ def assert_claude_model_diversity_lane_contract(marketplace_root: Path) -> None:
                 issues.append(f"model-diversity lane missing {fragment!r}")
         if 'raise SystemExit("code-reviewer dispatches did not overlap")' in diversity:
             issues.append("model-diversity lifecycle-overlap observation must be warning-only")
+        if "normalized packets differ beyond the model override\")" in diversity:
+            issues.append("model-diversity lane retains the pre-perspective packet-equality error")
         mkdir_at = diversity.find("mkdir -p")
         plugin_data_at = diversity.find("plugins/data/oh-no-harness-live-fixture")
         resolve_at = diversity.find('oh-no-config" path')

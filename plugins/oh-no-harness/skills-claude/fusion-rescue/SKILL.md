@@ -301,14 +301,18 @@ plugin-agent unavailability uses the documented embedded-role fallback.
 
 ## Model Diversity Pair
 
-This mechanism is trigger-loaded, not embedded in every workflow decision. Both legs MUST be requested in a single batch: issue both subagent tool calls
-in the same assistant turn (or with `Background: yes` for both) BEFORE waiting
-on either result; a serial dispatch-wait-dispatch sequence is not a valid pair.
-The two legs' packet bodies MUST be byte-identical; leg identity (`primary` vs
+This mechanism is trigger-loaded, not embedded in every workflow decision. For
+any dispatched `plan-reviewer` or `code-reviewer` pair (every dispatched review),
+or a named THOROUGH `debugger` pair, both legs MUST be requested in a single
+batch: issue both subagent tool calls in the same assistant turn (or with
+`Background: yes` for both) BEFORE waiting on either result; a serial
+dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet bodies
+MUST be identical except the single `Assigned perspective:` line (Lens A on the
+primary leg, Lens B on the diversity leg); leg identity (`primary` vs
 `diversity`) is carried ONLY by the host dispatch metadata (the description field
-and the model override), never inside the packet text. For a named THOROUGH
-pair, read the role's concrete stored primary and validated secondary top-tier
-model from the session `<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
+and the model override), never inside the packet text. Read the role's concrete
+stored primary and validated secondary top-tier model from the session
+`<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
 unoverridden and uses the declared-frontmatter primary; the
 secondary leg carries an explicit NATIVE model override. Claim
 `model-diversity-pair` only when the primary is not `host-default` and the

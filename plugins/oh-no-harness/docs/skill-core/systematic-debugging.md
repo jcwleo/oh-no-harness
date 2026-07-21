@@ -144,24 +144,34 @@ and diagnostic or fix scope. Debugger output itself is not redesigned here.
 | `explore` | gather codebase facts, related call sites, working examples, and commands |
 | `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer or debugger pair — required when the proving tests or fix were authored or accepted by the same agent |
-| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; paired-review synthesis: merged findings |
+| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; when dispatched, runs as the perspective-diverse pair with merged-finding synthesis |
 
-STANDARD uses one dispatched reviewer or debugger instance. A named THOROUGH
+STANDARD uses one dispatched `debugger` instance. A named THOROUGH debugger
 trigger may require two same-role instances with identical packets, dispatched
-in parallel and synthesized into one result. The active platform supplies the
-diversity leg. If that leg is unavailable, default mode uses two independent
-same-model instances and records the reason; an explicit caller demand for
-diversity is strict mode and transitions to PAUSED instead of falling back.
+in parallel and synthesized into one result; the debugger topology is otherwise
+unchanged. A post-fix `code-reviewer`, when dispatched, always runs as the
+perspective-diverse pair: two same-role instances, each running the full role,
+with Lens A = adversarial correctness + security skeptic and Lens B =
+maintainability + coverage completeness. Their packets are
+identical except the single `Assigned perspective:` line; the instances are
+dispatched in parallel and synthesized into one verdict. A named THOROUGH
+code-review trigger selects only escalated platform diversity. The active
+platform supplies the diversity leg. If that leg is unavailable, default mode
+uses two independent same-model instances and records the reason; an explicit
+caller demand for diversity is strict mode and transitions to PAUSED instead of
+falling back.
 
 ## Output Gate
 
 <HARD-GATE>
 Do not emit the Output below until every dispatched review records topology:
-`single-reviewer` for STANDARD, or a named THOROUGH pair with the active
-platform's pair-mode value; an inline fallback requires a reason. Missing review
-topology is a named ledger gap, not a pass. On the direct-invocation path
-this gate owns the completion chokepoint; when invoked mid-loop from
-`ralph`/`ultrawork`, the caller's completion gate is the backstop.
+a single STANDARD debugger records `single-reviewer`, while a named THOROUGH
+debugger pair records the active platform's pair-mode value; a dispatched
+post-fix code-reviewer records `perspective-pair` with the active platform's
+pair-mode value. An inline fallback requires a reason. Missing review topology
+is a named ledger gap, not a pass. On the direct-invocation path this gate owns
+the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the
+caller's completion gate is the backstop.
 </HARD-GATE>
 
 ## Output

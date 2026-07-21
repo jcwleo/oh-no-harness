@@ -46,12 +46,14 @@ the plan body. If every blocker is accepted, the same dispatch may produce the
 single Planner revision v2. If any blocker is rejected, deferred, or changes
 direction, stop with a disposition-only user-decision packet and no v2 draft.
 After the user resolves all such findings, apply accepted findings and permitted
-waivers once. If valid waivers leave no body change, do not create v2 or request
-re-review. A non-waivable mandatory gate remains pending until its owner-defined
-obligation passes or the approved direction changes.
+waivers once. If valid waivers leave no body change, keep the exact reviewed
+draft and create no v2. When produced, v2 is final; no re-review exists; the
+approval brief carries the finding→fix mapping. A non-waivable mandatory gate
+remains pending until its owner-defined obligation passes or the approved
+direction changes.
 
 APPROVE freezes the exact reviewed draft. Non-blocking findings are optional
-follow-ups and never authorize a draft mutation or re-review.
+follow-ups and never authorize a draft mutation or Planner revision.
 
 ## Operating Rules
 

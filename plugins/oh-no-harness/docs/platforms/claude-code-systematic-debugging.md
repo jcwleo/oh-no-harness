@@ -24,14 +24,15 @@ subagent primitive, keep the role boundary inline and record the fallback.
 
 ## Model Diversity Pair
 
-For a named THOROUGH paired `debugger` or post-fix `code-reviewer`, dispatch two
-same-role instances in parallel with identical packets and synthesize one
-result. Both legs MUST be requested in a single batch: issue both subagent tool
-calls in the same assistant turn (or with `Background: yes` for both) BEFORE
-waiting on either result; a serial dispatch-wait-dispatch sequence is not a valid
-pair. The two legs' packet bodies MUST be byte-identical; leg identity
-(`primary` vs `diversity`) is carried ONLY by the host dispatch metadata (the
-description field and the model override), never inside the packet text. Read
+For any dispatched post-fix `code-reviewer` pair (every dispatched review), or a
+named THOROUGH paired `debugger`, dispatch two same-role instances in parallel
+and synthesize one result. Both legs MUST be requested in a single batch: issue
+both subagent tool calls in the same assistant turn (or with `Background: yes`
+for both) BEFORE waiting on either result; a serial dispatch-wait-dispatch
+sequence is not a valid pair. The two legs' packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity (`primary` vs `diversity`) is carried ONLY by
+the host dispatch metadata (the description field and the model override), never
+inside the packet text. Read
 that role's declared stored primary and the validated secondary top-tier model
 from the session `<OH_NO_MODEL_DIVERSITY>` block.
 

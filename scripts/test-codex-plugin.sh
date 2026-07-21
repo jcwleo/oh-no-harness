@@ -1915,10 +1915,10 @@ deep_prompt_for_skill() {
       printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the invariants, state machine, snapshot, company-context rules, and Socratic guidance in the wrapper. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CODEX_DEEP_OK interview.'
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the invariants, Direction Contract, planning-run snapshot, state machine, proportional test design, mode selection, and execution profile. Do not edit files. Return the Direction Contract fields and single canonical schema owner, loop limit, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, blocking-findings-only re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the invariants, Direction Contract, planning-run snapshot, state machine, proportional test design, mode selection, and execution profile. Do not edit files. Return the Direction Contract fields and single canonical schema owner, single-review-round rule, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD perspective-diverse pair rule and same-host-perspective-pair record, named THOROUGH paired-review trigger, final-revision-v2 / no-re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper invariants, state machine, snapshot, and gates. Do not edit files. Return the Direction Contract, the four phases and three outcomes, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single-reviewer rule, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
+      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper invariants, state machine, snapshot, and gates. Do not edit files. Return the Direction Contract, the four phases and three outcomes, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD perspective-diverse code-reviewer pair rule and same-host-perspective-pair record, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
       ;;
     ultrawork)
       printf 'Use the oh-no-harness:ultrawork skill. Deep smoke test only. Read the wrapper invariants, heartbeat, state machine, and phase procedures, following the linked phase skills where needed. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK ultrawork.'
@@ -1972,7 +1972,8 @@ expected = {
         "Execution profile",
         "Analyst",
         "Planner",
-        "single-reviewer",
+        "perspective-diverse",
+        "same-host-perspective-pair",
         "named THOROUGH",
         "process budget",
         ".oh-no/worktrees/<task-slug>",
@@ -1988,8 +1989,8 @@ expected = {
         "THOROUGH",
         "Parallel trigger",
         "Acceptance-to-evidence ledger",
-        "single-reviewer",
-        "paired-review",
+        "perspective-diverse",
+        "same-host-perspective-pair",
         "combined scan",
         ".oh-no/worktrees/<task-slug>",
         "test-driven-development",
@@ -2087,20 +2088,17 @@ if skill == "ralplan" and not (
 
 if skill == "ralplan" and not (
     plan_reviewer_token in text_lower
-    and (
-        "single" in text_lower
-        or "one dispatch" in text_lower
-        or "one review dispatch" in text_lower
-    )
+    and ("perspective" in text_lower or "pair" in text_lower)
     and "blocking" in text_lower
+    and ("v2" in text_lower or "final revision" in text_lower)
     and (
-        "re-review" in text_lower
-        or "re-reviewed" in text_lower
-        or "review again" in text_lower
-        or "second review" in text_lower
+        "no re-review" in text_lower
+        or "no further review" in text_lower
+        or "without re-review" in text_lower
+        or "review runs exactly once" in text_lower
     )
 ):
-    semantic_failure(f"{skill} deep smoke missing Plan-Reviewer single-dispatch/blocking-findings re-review marker; got {text!r}")
+    semantic_failure(f"{skill} deep smoke missing Plan-Reviewer pair/final-v2/no-re-review marker; got {text!r}")
 
 if skill == "ralplan" and not (
     "process budget" in text_lower and "named thorough" in text_lower
@@ -2128,17 +2126,13 @@ if skill == "ralph" and not (
     semantic_failure(f"{skill} deep smoke missing process/diff budget timing marker; got {text!r}")
 
 if skill in ("ralplan", "ultrawork") and not (
-    "2 loops" in text_plain
-    or "two loops" in text_plain
-    or "2 complete loops" in text_plain
-    or "two complete loops" in text_plain
-    or "at most 2" in text_plain
-    or "at most two" in text_plain
-    or "max 2" in text_plain
-    or "maximum of 2" in text_plain
-    or "maximum of two" in text_plain
+    "one review round" in text_plain
+    or "single review round" in text_plain
+    or "single-review-round" in text_plain
+    or "review runs exactly once" in text_plain
+    or "exactly one review round" in text_plain
 ):
-    semantic_failure(f"{skill} deep smoke missing 2-loop planning limit marker; got {text!r}")
+    semantic_failure(f"{skill} deep smoke missing single-review-round marker; got {text!r}")
 
 linked_doc_markers = {
     "ralph": [
@@ -3265,12 +3259,11 @@ PY
   chmod 600 "$proof_file"
   local prompt
   IFS= read -r -d '' prompt <<PROMPT || true
-Use oh-no-harness:ralplan for a read-only typed-role probe. No edits, artifacts, full plan, or roles beyond the two below.
-Task: analyze unnecessary Ralplan review steps and document the host's post-approval execution-workflow choice.
+Use oh-no-harness:ralplan for a read-only typed-role probe. No edits, artifacts, generic roles, retries, or roles beyond Planner and Plan-Reviewer.
 
-Run sequentially, with no generic role, retry, or parallelism:
+Run in two phases:
 1. spawn_agent agent_type "oh-no-planner", fork_turns "none"; wait for its final result.
-2. spawn_agent agent_type "oh-no-plan-reviewer", fork_turns "none"; wait for its final result.
+2. After Planner completes, issue TWO spawn_agent calls with agent_type "oh-no-plan-reviewer" and fork_turns "none" before either wait; then wait for both.
 
 Each role message needs Role, Codex agent type, Scope, Expected output, Verification responsibility, and Lifecycle.
 The Planner message must include this exact request and contract:
@@ -3283,13 +3276,14 @@ Trigger-required: Execution handoff; Planning-role evidence
 Explicitly not applicable: none
 Reviewer entitlement: missing-field blocking is limited to the active fields above
 ACTIVE_PLAN_CONTRACT_END
-Planner output: one PLANNER_DRAFT_BEGIN/PLANNER_DRAFT_END envelope with the exact line Planner draft id: ${draft_id} and fields Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan. Other prose may vary.
+Planner output: one PLANNER_DRAFT_BEGIN/PLANNER_DRAFT_END envelope with exact line Planner draft id: ${draft_id} and fields Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan.
 
-Copy that complete Planner envelope unchanged into the Plan-Reviewer message, which must also include:
-OH_NO_RALPLAN_REVIEW_PROOF_REQUEST ${request_nonce}
-Reviewer output: echo the unchanged Planner envelope inside REVIEWED_PLANNER_DRAFT_BEGIN/REVIEWED_PLANNER_DRAFT_END, then one PLAN_REVIEWER_DECISION_BEGIN/PLAN_REVIEWER_DECISION_END envelope with exact line Reviewed draft: ${draft_id}. Keep NB1 non-blocking; APPROVE with no Planner revision. APPROVE freezes the exact reviewed Planner draft. Optional follow-up: NB1. Planner revision: not run.
+Build two REVIEW_PACKET_BEGIN/REVIEW_PACKET_END Plan-Reviewer messages. They must be identical except the single Assigned perspective: line. Use exactly these two values, one per packet:
+Assigned perspective: strongest-antithesis / feasibility-risk
+Assigned perspective: acceptance-coverage / quality-gate completeness
+Each packet includes the same OH_NO_RALPLAN_REVIEW_PROOF_REQUEST ${request_nonce}, exact Active plan contract, unchanged Planner envelope, and this output contract: echo the unchanged Planner envelope inside REVIEWED_PLANNER_DRAFT_BEGIN/REVIEWED_PLANNER_DRAFT_END, then one PLAN_REVIEWER_DECISION_BEGIN/PLAN_REVIEWER_DECISION_END envelope with exact line Reviewed draft: ${draft_id}. Keep NB1 non-blocking; APPROVE with no Planner revision. APPROVE freezes the exact reviewed Planner draft. Optional follow-up: NB1. Planner revision: not run.
 
-Copy both complete role results unchanged into the parent final response, Planner then Plan-Reviewer. Use cleanup only if exposed; otherwise include exactly: Close/cleanup was not available. End with OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK and report role order, exact handoff, no revision, and cleanup.
+Copy both complete REVIEW_PACKET envelopes unchanged into the parent final response, then copy all three complete role results unchanged, Planner then both Plan-Reviewers. Record Review pair mode: same-host-perspective-pair and Planner skips revision (v1 approved). Use cleanup only if exposed; otherwise include exactly: Close/cleanup was not available. End with OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK after reporting role order, handoff, consensus, contradictions, recommended next action, no revision, and cleanup.
 PROMPT
 
   local cmd=(
@@ -3331,6 +3325,12 @@ proof_path = sys.argv[4]
 proof = json.loads(Path(proof_path).read_text(encoding="utf-8"))
 
 expected_roles = ["planner", "plan-reviewer"]
+expected_role_sequence = ["planner", "plan-reviewer", "plan-reviewer"]
+expected_role_counts = {"planner": 1, "plan-reviewer": 2}
+expected_perspectives = {
+    "strongest-antithesis / feasibility-risk",
+    "acceptance-coverage / quality-gate completeness",
+}
 role_headings = {
     "planner": "# Planner Agent",
     "plan-reviewer": "# Plan Reviewer Agent",
@@ -3374,6 +3374,8 @@ REVIEWED_DRAFT_START = "REVIEWED_PLANNER_DRAFT_BEGIN"
 REVIEWED_DRAFT_END = "REVIEWED_PLANNER_DRAFT_END"
 DECISION_START = "PLAN_REVIEWER_DECISION_BEGIN"
 DECISION_END = "PLAN_REVIEWER_DECISION_END"
+REVIEW_PACKET_START = "REVIEW_PACKET_BEGIN"
+REVIEW_PACKET_END = "REVIEW_PACKET_END"
 
 def collect_text(value):
     if isinstance(value, str):
@@ -3404,6 +3406,33 @@ def extract_delimited_block(value, start, end, label, allow_repeats=False):
             f"matches={len(matches)} unique={len(normalized)}"
         )
     return next(iter(normalized))
+
+
+def review_packet_evidence(value, label):
+    packet = extract_delimited_block(
+        value,
+        REVIEW_PACKET_START,
+        REVIEW_PACKET_END,
+        label,
+        allow_repeats=True,
+    )
+    perspectives = re.findall(
+        r"(?m)^Assigned perspective:[ \t]*(.*?)[ \t]*$",
+        packet,
+    )
+    if len(perspectives) != 1:
+        raise SystemExit(
+            f"Codex ralplan sequential smoke {label} must contain exactly one Assigned perspective line"
+        )
+    perspective = normalize_transport_whitespace(perspectives[0])
+    normalized_lines = []
+    for line in packet.splitlines():
+        if re.match(r"^Assigned perspective:", line):
+            normalized_lines.append("Assigned perspective: NORMALIZED")
+        else:
+            normalized_lines.append(line)
+    return packet, perspective, normalize_transport_whitespace("\n".join(normalized_lines))
+
 
 def roles_in_text(text):
     lower = text.lower()
@@ -3458,10 +3487,9 @@ if (
 
 successful_spawns = []
 failed_spawns = []
-events = []
 command_events = []
 receiver_to_role = {}
-role_outputs = defaultdict(list)
+receiver_outputs = {}
 wait_index_by_receiver = {}
 close_index_by_receiver = {}
 marker = False
@@ -3511,10 +3539,8 @@ with open(path, "r", encoding="utf-8") as fh:
             successful_spawns.append((index, role, tuple(receivers), spawn_text))
             for receiver in receivers:
                 receiver_to_role[receiver] = role
-            events.append((index, "spawn", role))
         if tool in {"wait", "wait_agent", "close_agent"} and status == "completed":
             receivers = set(item.get("receiver_thread_ids") or []) | mentioned_receivers(item)
-            completed_receivers = set()
             if tool in {"wait", "wait_agent"}:
                 for receiver, state in (item.get("agents_states") or {}).items():
                     role = receiver_to_role.get(receiver)
@@ -3522,17 +3548,11 @@ with open(path, "r", encoding="utf-8") as fh:
                         continue
                     message = collect_text(state.get("message"))
                     if state.get("status") == "completed" and message:
-                        completed_receivers.add(receiver)
                         wait_index_by_receiver.setdefault(receiver, index)
-                        role_outputs[role].append(message)
+                        receiver_outputs[receiver] = message
             if tool == "close_agent":
                 for receiver in receivers:
                     close_index_by_receiver.setdefault(receiver, index)
-            event_receivers = completed_receivers if tool in {"wait", "wait_agent"} else receivers
-            roles = {receiver_to_role.get(receiver) for receiver in event_receivers}
-            for role in roles:
-                if role:
-                    events.append((index, tool, role))
 
 if failed_spawns:
     raise SystemExit(f"Codex ralplan sequential smoke saw failed spawn_agent calls: {failed_spawns!r}")
@@ -3553,7 +3573,7 @@ if not successful_spawns:
     transcript_fallback = True
     if not parent_thread_id:
         raise SystemExit("Codex ralplan sequential smoke lacked both collab events and a parent thread id")
-    transcript_children = {}
+    transcript_children = defaultdict(list)
     sessions_root = Path(live_home) / "sessions"
     for transcript_path in sessions_root.rglob("*.jsonl"):
         transcript_rows = []
@@ -3583,8 +3603,6 @@ if not successful_spawns:
         role = agent_role.removeprefix("oh-no-")
         if role not in expected_roles:
             continue
-        if role in transcript_children:
-            raise SystemExit(f"Codex ralplan sequential smoke found duplicate typed child sessions for {role}")
         assistant_messages = []
         task_complete_messages = []
         user_messages = []
@@ -3619,60 +3637,81 @@ if not successful_spawns:
                 user_messages.append(collect_text(payload.get("content")))
         if not completed:
             raise SystemExit(f"Codex ralplan sequential smoke typed child {role} lacked task_complete")
-        transcript_children[role] = {
-            "timestamp": meta.get("timestamp", ""),
-            "completion_timestamp": completion_timestamp,
-            "input": "\n".join(user_messages),
-            "encrypted_task_messages": encrypted_task_messages,
-            "output": (
-                task_complete_messages[-1]
-                if task_complete_messages
-                else "\n".join(dict.fromkeys(assistant_messages))
-            ),
-        }
-    missing_children = sorted(set(expected_roles) - set(transcript_children))
-    if missing_children:
-        raise SystemExit(
-            "Codex ralplan sequential smoke omitted typed child session proof for roles: "
-            f"{missing_children!r}"
+        transcript_children[role].append(
+            {
+                "timestamp": meta.get("timestamp", ""),
+                "completion_timestamp": completion_timestamp,
+                "input": "\n".join(user_messages),
+                "encrypted_task_messages": encrypted_task_messages,
+                "output": (
+                    task_complete_messages[-1]
+                    if task_complete_messages
+                    else "\n".join(dict.fromkeys(assistant_messages))
+                ),
+            }
         )
-    planner_time = transcript_children["planner"]["timestamp"]
-    planner_completion = transcript_children["planner"]["completion_timestamp"]
-    reviewer_time = transcript_children["plan-reviewer"]["timestamp"]
+    child_count_mismatches = {
+        role: len(transcript_children[role])
+        for role, expected_count in expected_role_counts.items()
+        if len(transcript_children[role]) != expected_count
+    }
+    if child_count_mismatches:
+        raise SystemExit(
+            "Codex ralplan sequential smoke typed child session counts did not prove one Planner plus one reviewer pair: "
+            f"{child_count_mismatches!r}"
+        )
+    planner = transcript_children["planner"][0]
+    reviewers = sorted(
+        transcript_children["plan-reviewer"], key=lambda child: child["timestamp"]
+    )
+    planner_time = planner["timestamp"]
+    planner_completion = planner["completion_timestamp"]
+    reviewer_starts = [reviewer["timestamp"] for reviewer in reviewers]
+    reviewer_completions = [reviewer["completion_timestamp"] for reviewer in reviewers]
     if (
         not planner_time
         or not planner_completion
-        or not reviewer_time
-        or planner_time >= reviewer_time
-        or planner_completion >= reviewer_time
+        or not all(reviewer_starts)
+        or planner_time >= min(reviewer_starts)
+        or planner_completion >= min(reviewer_starts)
     ):
         raise SystemExit(
-            "Codex ralplan sequential smoke typed child completion did not precede Plan-Reviewer creation"
+            "Codex ralplan sequential smoke typed Planner completion did not precede the reviewer pair"
         )
-    planner_input = normalize_transport_whitespace(transcript_children["planner"]["input"])
-    reviewer_input = normalize_transport_whitespace(transcript_children["plan-reviewer"]["input"])
-    planner_output = normalize_transport_whitespace(transcript_children["planner"]["output"])
-    reviewer_output = normalize_transport_whitespace(transcript_children["plan-reviewer"]["output"])
+    if (
+        not all(reviewer_completions)
+        or max(reviewer_starts) >= min(reviewer_completions)
+    ):
+        raise SystemExit(
+            "Codex ralplan sequential smoke reviewer pair was not dispatched before either review completed"
+        )
+    planner_input = normalize_transport_whitespace(planner["input"])
+    reviewer_inputs = [normalize_transport_whitespace(reviewer["input"]) for reviewer in reviewers]
+    planner_output = normalize_transport_whitespace(planner["output"])
+    reviewer_outputs = [normalize_transport_whitespace(reviewer["output"]) for reviewer in reviewers]
     parent_output = normalize_transport_whitespace(all_text)
     planner_request = f"OH_NO_RALPLAN_PLANNER_PROOF_REQUEST {proof['request_nonce']}"
     reviewer_request = f"OH_NO_RALPLAN_REVIEW_PROOF_REQUEST {proof['request_nonce']}"
     planner_input_visible = planner_request.lower() in planner_input.lower()
-    reviewer_input_visible = reviewer_request.lower() in reviewer_input.lower()
-    planner_input_encrypted = transcript_children["planner"]["encrypted_task_messages"] == 1
-    reviewer_input_encrypted = transcript_children["plan-reviewer"]["encrypted_task_messages"] == 1
+    planner_input_encrypted = planner["encrypted_task_messages"] == 1
     if not planner_input_visible and not planner_input_encrypted:
         raise SystemExit(
             "Codex ralplan sequential smoke Planner task had neither visible proof request "
             "nor one encrypted inter-agent task message"
         )
-    if not reviewer_input_visible and not reviewer_input_encrypted:
-        raise SystemExit(
-            "Codex ralplan sequential smoke Plan-Reviewer task had neither visible proof request "
-            "nor one encrypted inter-agent task message"
-        )
+    for reviewer_index, (reviewer, reviewer_input) in enumerate(
+        zip(reviewers, reviewer_inputs), start=1
+    ):
+        reviewer_input_visible = reviewer_request.lower() in reviewer_input.lower()
+        reviewer_input_encrypted = reviewer["encrypted_task_messages"] == 1
+        if not reviewer_input_visible and not reviewer_input_encrypted:
+            raise SystemExit(
+                f"Codex ralplan sequential smoke Plan-Reviewer {reviewer_index} task had neither "
+                "visible proof request nor one encrypted inter-agent task message"
+            )
     for role, output_text in (
         ("planner", planner_output),
-        ("plan-reviewer", reviewer_output),
+        *(("plan-reviewer", output) for output in reviewer_outputs),
     ):
         if not output_text:
             raise SystemExit(f"Codex ralplan sequential smoke typed child {role} returned no final output")
@@ -3695,50 +3734,111 @@ if not successful_spawns:
     planner_draft_envelope = normalize_transport_whitespace(
         f"{DRAFT_START}\n{planner_draft}\n{DRAFT_END}"
     )
-    reviewed_planner_draft = extract_delimited_block(
-        reviewer_output,
-        REVIEWED_DRAFT_START,
-        REVIEWED_DRAFT_END,
-        "Plan-Reviewer echoed Planner draft",
-    )
-    if reviewed_planner_draft != planner_draft_envelope:
-        raise SystemExit(
-            "Codex ralplan sequential smoke typed Plan-Reviewer did not echo the exact Planner draft"
-        )
-    reviewer_decision = extract_delimited_block(
-        reviewer_output, DECISION_START, DECISION_END, "Plan-Reviewer decision"
-    )
-    reviewed_draft_ids = [
-        normalize_transport_whitespace(value)
-        for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
+    visible_packet_sources = [
+        reviewer_input
+        for reviewer_input in reviewer_inputs
+        if REVIEW_PACKET_START in reviewer_input and REVIEW_PACKET_END in reviewer_input
     ]
-    unique_reviewed = set(reviewed_draft_ids)
-    if len(reviewed_draft_ids) != 1 or len(unique_reviewed) != 1:
+    parent_packet_blocks = re.findall(
+        rf"(?ms)^\s*{re.escape(REVIEW_PACKET_START)}\s*$\n(.*?)^\s*{re.escape(REVIEW_PACKET_END)}\s*$",
+        parent_output,
+    )
+    if len(visible_packet_sources) == 2:
+        packet_sources = visible_packet_sources
+    elif len(parent_packet_blocks) == 2:
+        packet_sources = [
+            f"{REVIEW_PACKET_START}\n{block}\n{REVIEW_PACKET_END}"
+            for block in parent_packet_blocks
+        ]
+    else:
         raise SystemExit(
-            "Codex ralplan sequential smoke typed Plan-Reviewer did not return one anchored Reviewed draft field"
+            "Codex ralplan sequential smoke could not capture both complete reviewer packets"
+        )
+    packet_evidence = [
+        review_packet_evidence(source, f"Plan-Reviewer packet {index}")
+        for index, source in enumerate(packet_sources, start=1)
+    ]
+    raw_packets = {packet for packet, _, _ in packet_evidence}
+    perspectives = {perspective for _, perspective, _ in packet_evidence}
+    normalized_packets = {packet for _, _, packet in packet_evidence}
+    if len(raw_packets) != 2 or perspectives != expected_perspectives:
+        raise SystemExit(
+            "Codex ralplan sequential smoke reviewer packets lacked two distinct role-appropriate Assigned perspective values"
+        )
+    if len(normalized_packets) != 1:
+        raise SystemExit(
+            "Codex ralplan sequential smoke reviewer packets differed beyond the Assigned perspective line"
+        )
+    expected_contract = extract_delimited_block(
+        proof["active_contract"], CONTRACT_START, CONTRACT_END, "expected Active plan contract"
+    )
+    for packet_index, (packet, _, _) in enumerate(packet_evidence, start=1):
+        if reviewer_request not in packet:
+            raise SystemExit(
+                f"Codex ralplan sequential smoke reviewer packet {packet_index} omitted its dynamic request marker"
+            )
+        packet_contract = extract_delimited_block(
+            packet, CONTRACT_START, CONTRACT_END, f"reviewer packet {packet_index} Active plan contract"
+        )
+        if packet_contract != expected_contract:
+            raise SystemExit(
+                f"Codex ralplan sequential smoke reviewer packet {packet_index} changed the Active plan contract"
+            )
+        packet_draft = extract_delimited_block(
+            packet, DRAFT_START, DRAFT_END, f"reviewer packet {packet_index} Planner draft"
+        )
+        if packet_draft != planner_draft:
+            raise SystemExit(
+                f"Codex ralplan sequential smoke reviewer packet {packet_index} changed the Planner draft"
+            )
+    reviewed_draft_ids = []
+    for reviewer_index, reviewer_output in enumerate(reviewer_outputs, start=1):
+        reviewed_planner_draft = extract_delimited_block(
+            reviewer_output,
+            REVIEWED_DRAFT_START,
+            REVIEWED_DRAFT_END,
+            f"Plan-Reviewer {reviewer_index} echoed Planner draft",
+        )
+        if reviewed_planner_draft != planner_draft_envelope:
+            raise SystemExit(
+                "Codex ralplan sequential smoke typed Plan-Reviewer did not echo the exact Planner draft "
+                f"(reviewer {reviewer_index})"
+            )
+        reviewer_decision = extract_delimited_block(
+            reviewer_output,
+            DECISION_START,
+            DECISION_END,
+            f"Plan-Reviewer {reviewer_index} decision",
+        )
+        leg_reviewed_draft_ids = [
+            normalize_transport_whitespace(value)
+            for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
+        ]
+        if len(leg_reviewed_draft_ids) != 1:
+            raise SystemExit(
+                f"Codex ralplan sequential smoke typed Plan-Reviewer {reviewer_index} did not return one anchored Reviewed draft field"
+            )
+        reviewed_draft_ids.extend(leg_reviewed_draft_ids)
+        reviewer_lower = reviewer_decision.lower()
+        if not (
+            "non-blocking" in reviewer_lower
+            or (
+                "optional follow-up" in reviewer_lower
+                and "required changes for planner: none" in reviewer_lower
+            )
+        ):
+            raise SystemExit(
+                f"Codex ralplan sequential smoke typed Plan-Reviewer {reviewer_index} did not keep NB1 non-blocking"
+            )
+    unique_reviewed = set(reviewed_draft_ids)
+    if len(unique_reviewed) != 1:
+        raise SystemExit(
+            "Codex ralplan sequential smoke reviewer pair did not identify one shared Planner draft"
         )
     if next(iter(unique_reviewed)) != proof["draft_id"]:
         raise SystemExit(
-            "Codex ralplan sequential smoke typed Plan-Reviewer did not identify the dynamic draft id"
+            "Codex ralplan sequential smoke reviewer pair did not identify the dynamic draft id"
         )
-    reviewer_lower = reviewer_decision.lower()
-    reviewer_non_blocking = (
-        "non-blocking" in reviewer_lower
-        or (
-            "optional follow-up" in reviewer_lower
-            and "required changes for planner: none" in reviewer_lower
-        )
-    )
-    if not reviewer_non_blocking:
-        raise SystemExit("Codex ralplan sequential smoke typed child plan-reviewer did not keep NB1 non-blocking")
-    if reviewer_input_visible:
-        reviewer_input_draft = extract_delimited_block(
-            reviewer_input, DRAFT_START, DRAFT_END, "Plan-Reviewer input draft", allow_repeats=True
-        )
-        if planner_draft != reviewer_input_draft:
-            raise SystemExit("Codex ralplan sequential smoke Plan-Reviewer input changed the captured Planner draft")
-    elif not reviewer_input_encrypted:
-        raise SystemExit("Codex ralplan sequential smoke Plan-Reviewer task transport was not auditable")
     parent_draft = extract_delimited_block(
         parent_output, DRAFT_START, DRAFT_END, "parent Planner draft", allow_repeats=True
     )
@@ -3746,45 +3846,35 @@ if not successful_spawns:
         raise SystemExit("Codex ralplan sequential smoke parent changed the captured Planner draft")
     if planner_output not in parent_output:
         raise SystemExit("Codex ralplan sequential smoke parent did not preserve the exact Planner output")
-    if reviewer_output not in parent_output:
-        raise SystemExit("Codex ralplan sequential smoke parent did not preserve the exact Plan-Reviewer output")
-    if parent_output.index(planner_output) >= parent_output.index(reviewer_output):
-        raise SystemExit("Codex ralplan sequential smoke parent reversed the typed child outputs")
-    parent_review_markers = ("Reviewed draft", "APPROVE", "NB1")
-    missing_parent_review = [
-        value for value in parent_review_markers
-        if value.lower() not in parent_output.lower()
+    missing_parent_outputs = [
+        index
+        for index, reviewer_output in enumerate(reviewer_outputs, start=1)
+        if reviewer_output not in parent_output
     ]
-    if missing_parent_review:
+    if missing_parent_outputs:
         raise SystemExit(
-            "Codex ralplan sequential smoke parent omitted Plan-Reviewer decision evidence: "
-            f"{missing_parent_review!r}"
+            "Codex ralplan sequential smoke parent did not preserve both exact Plan-Reviewer outputs: "
+            f"missing={missing_parent_outputs!r}"
         )
+    if any(parent_output.index(planner_output) >= parent_output.index(output) for output in reviewer_outputs):
+        raise SystemExit("Codex ralplan sequential smoke parent reversed the typed child outputs")
     parent_lower = parent_output.lower()
-    parent_non_blocking = (
-        "non-blocking" in parent_lower
-        or (
-            "optional follow-up" in parent_lower
-            and "required changes for planner: none" in parent_lower
-        )
-    )
-    if not parent_non_blocking:
-        raise SystemExit("Codex ralplan sequential smoke parent did not preserve NB1 as non-blocking")
-    parent_draft_end = parent_output.index(DRAFT_END)
-    parent_review_start = parent_output.lower().find("reviewed draft", parent_draft_end)
-    if parent_review_start < 0:
-        raise SystemExit("Codex ralplan sequential smoke parent reversed Planner -> Plan-Reviewer output order")
     for required in (
         "OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK",
         "Close/cleanup was not available",
+        "same-host-perspective-pair",
+        "Planner skips revision (v1 approved)",
+        "consensus",
+        "contradictions",
+        "recommended next action",
     ):
-        if required.lower() not in parent_output.lower():
+        if required.lower() not in parent_lower:
             raise SystemExit(f"Codex ralplan sequential smoke parent omitted {required!r}")
-    print("ok - live Codex ralplan typed child transcripts proved sequential review")
+    print("ok - live Codex ralplan typed child transcripts proved the same-host perspective pair")
     raise SystemExit(0)
-if len(successful_spawns) != len(expected_roles):
+if len(successful_spawns) != len(expected_role_sequence):
     raise SystemExit(
-        f"expected exactly {len(expected_roles)} completed planning spawn_agent calls, "
+        f"expected exactly {len(expected_role_sequence)} completed planning spawn_agent calls, "
         f"got {len(successful_spawns)}: {successful_spawns!r}"
     )
 receiver_ids = {rid for _, _, receivers, _ in successful_spawns for rid in receivers}
@@ -3810,8 +3900,10 @@ if early_closes:
     )
 
 actual_order = [role for _, role, _, _ in successful_spawns]
-if actual_order != expected_roles:
-    raise SystemExit(f"expected sequential spawn order {expected_roles!r}, got {actual_order!r}")
+if actual_order != expected_role_sequence:
+    raise SystemExit(
+        f"expected Planner then reviewer-pair spawn order {expected_role_sequence!r}, got {actual_order!r}"
+    )
 
 for receiver, role in receiver_to_role.items():
     expected_agent_role = f"oh-no-{role}"
@@ -3822,74 +3914,96 @@ for receiver, role in receiver_to_role.items():
             f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
         )
 
-role_payload_text = {}
-for role, payloads in {
+payloads_by_role = {
     role: [spawn for spawn in successful_spawns if spawn[1] == role]
     for role in expected_roles
-}.items():
-    if len(payloads) != 1:
-        raise SystemExit(f"expected exactly one successful spawn_agent payload for {role}, got {len(payloads)}")
-    _, _, _, role_text = payloads[0]
-    role_payload_text[role] = role_text
-    required_role_markers = list(dependency_prompt_markers.get(role, []))
-    if not transcript_fallback:
-        required_role_markers.insert(0, f"Codex agent type: oh-no-{role}")
-    missing_prompt_markers = [
-        marker for marker in required_role_markers
-        if marker.lower() not in role_text.lower()
-    ]
-    if missing_prompt_markers:
+}
+for role, expected_count in expected_role_counts.items():
+    payloads = payloads_by_role[role]
+    if len(payloads) != expected_count:
         raise SystemExit(
-            f"Codex ralplan spawn_agent payload for {role} did not use the required custom-agent prompt/review markers: "
-            f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+            f"expected exactly {expected_count} successful spawn_agent payloads for {role}, got {len(payloads)}"
         )
-    forbidden_frontmatter_markers = [
-        "\n---\n",
-        "\ntools:",
-        "\nmodel:",
-        "\ncolor:",
-        "Agent prompt content:",
-        f"Agent prompt source: docs/agent-core/{role}.md",
-    ]
-    leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
-    if leaked:
-        raise SystemExit(
-            f"Codex ralplan spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
-            f"{leaked}; spawn_text={role_text[:2000]!r}"
-        )
+    for payload_index, (_, _, receivers, role_text) in enumerate(payloads, start=1):
+        if len(receivers) != 1:
+            raise SystemExit(
+                f"Codex ralplan {role} payload {payload_index} expected one receiver, got {receivers!r}"
+            )
+        required_role_markers = list(dependency_prompt_markers.get(role, []))
+        if not transcript_fallback:
+            required_role_markers.insert(0, f"Codex agent type: oh-no-{role}")
+        missing_prompt_markers = [
+            marker for marker in required_role_markers
+            if marker.lower() not in role_text.lower()
+        ]
+        if missing_prompt_markers:
+            raise SystemExit(
+                f"Codex ralplan spawn_agent payload for {role} did not use the required custom-agent prompt/review markers: "
+                f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
+            )
+        forbidden_frontmatter_markers = [
+            "\n---\n",
+            "\ntools:",
+            "\nmodel:",
+            "\ncolor:",
+            "Agent prompt content:",
+            f"Agent prompt source: docs/agent-core/{role}.md",
+        ]
+        leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
+        if leaked:
+            raise SystemExit(
+                f"Codex ralplan spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
+                f"{leaked}; spawn_text={role_text[:2000]!r}"
+            )
 
+planner_payload = payloads_by_role["planner"][0]
+reviewer_payloads = payloads_by_role["plan-reviewer"]
+planner_payload_text = planner_payload[3]
+reviewer_payload_texts = [payload[3] for payload in reviewer_payloads]
 planner_request = f"OH_NO_RALPLAN_PLANNER_PROOF_REQUEST {proof['request_nonce']}"
 reviewer_request = f"OH_NO_RALPLAN_REVIEW_PROOF_REQUEST {proof['request_nonce']}"
-if planner_request not in role_payload_text["planner"]:
+if planner_request not in planner_payload_text:
     raise SystemExit("Codex ralplan Planner payload omitted its dynamic request marker")
-if reviewer_request not in role_payload_text["plan-reviewer"]:
-    raise SystemExit("Codex ralplan Plan-Reviewer payload omitted its dynamic request marker")
-if f"Planner draft id: {proof['draft_id']}" not in role_payload_text["plan-reviewer"]:
-    raise SystemExit("Codex ralplan Plan-Reviewer payload omitted the dynamic Planner draft id")
-
-for previous, following in zip(successful_spawns, successful_spawns[1:]):
-    previous_index, previous_role, _, _ = previous
-    following_index, following_role, _, _ = following
-    has_barrier = any(
-        previous_index < event_index < following_index
-        and event_type in {"wait", "wait_agent"}
-        and role == previous_role
-        for event_index, event_type, role in events
-    )
-    if not has_barrier:
+for reviewer_index, reviewer_payload_text in enumerate(reviewer_payload_texts, start=1):
+    if reviewer_request not in reviewer_payload_text:
         raise SystemExit(
-            f"expected wait/close for {previous_role} between {previous_role} spawn and "
-            f"{following_role} spawn; events={events!r}"
+            f"Codex ralplan Plan-Reviewer payload {reviewer_index} omitted its dynamic request marker"
+        )
+    if f"Planner draft id: {proof['draft_id']}" not in reviewer_payload_text:
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer payload {reviewer_index} omitted the dynamic Planner draft id"
         )
 
-role_output_text = {}
-for role, markers in output_markers.items():
-    output_text = "\n".join(dict.fromkeys(role_outputs.get(role, [])))
-    role_output_text[role] = output_text
-    if not output_text:
-        raise SystemExit(f"no completed wait/close output captured for {role}")
+planner_spawn_index = planner_payload[0]
+reviewer_spawn_indices = [payload[0] for payload in reviewer_payloads]
+planner_receiver = planner_payload[2][0]
+reviewer_receivers = [payload[2][0] for payload in reviewer_payloads]
+planner_wait_index = wait_index_by_receiver[planner_receiver]
+reviewer_wait_indices = [wait_index_by_receiver[receiver] for receiver in reviewer_receivers]
+if not planner_spawn_index < planner_wait_index < min(reviewer_spawn_indices):
+    raise SystemExit(
+        "Codex ralplan sequential smoke did not wait for the Planner before dispatching the reviewer pair"
+    )
+if max(reviewer_spawn_indices) >= min(reviewer_wait_indices):
+    raise SystemExit(
+        "Codex ralplan sequential smoke did not dispatch both Plan-Reviewers before waiting for either"
+    )
+
+planner_outputs = [receiver_outputs[planner_receiver]]
+reviewer_outputs = [receiver_outputs[receiver] for receiver in reviewer_receivers]
+if len(planner_outputs) != 1 or len(reviewer_outputs) != 2:
+    raise SystemExit(
+        "Codex ralplan sequential smoke wait results did not prove one Planner plus two Plan-Reviewers: "
+        f"planner={len(planner_outputs)} reviewers={len(reviewer_outputs)}"
+    )
+planner_output = normalize_transport_whitespace(planner_outputs[0])
+reviewer_outputs = [normalize_transport_whitespace(output) for output in reviewer_outputs]
+for role, output_text in (
+    ("planner", planner_output),
+    *(("plan-reviewer", output) for output in reviewer_outputs),
+):
     missing_output_markers = [
-        marker for marker in markers
+        marker for marker in output_markers[role]
         if marker.lower() not in output_text.lower()
     ]
     if missing_output_markers:
@@ -3897,84 +4011,129 @@ for role, markers in output_markers.items():
             f"Codex ralplan {role} output did not prove the review chain: "
             f"{missing_output_markers}; output={output_text[:2000]!r}"
         )
-planner_draft_ids = re.findall(
-    r"(?m)^Planner draft id:\s*(\S.*)$",
-    role_output_text["planner"],
-)
+planner_draft_ids = re.findall(r"(?m)^Planner draft id:\s*(\S.*)$", planner_output)
 if planner_draft_ids != [proof["draft_id"]]:
     raise SystemExit("Codex ralplan Planner output did not identify the dynamic draft id")
-reviewer_decision = extract_delimited_block(
-    role_output_text["plan-reviewer"],
-    DECISION_START,
-    DECISION_END,
-    "Plan-Reviewer decision",
+captured_draft = extract_delimited_block(
+    planner_output, DRAFT_START, DRAFT_END, "captured Planner draft"
 )
-reviewed_draft_ids = [
-    normalize_transport_whitespace(value)
-    for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
-]
-unique_reviewed = set(reviewed_draft_ids)
-if len(reviewed_draft_ids) != 1 or len(unique_reviewed) != 1:
-    raise SystemExit("Codex ralplan Plan-Reviewer output must contain one anchored Reviewed draft field")
-if next(iter(unique_reviewed)) != proof["draft_id"]:
-    raise SystemExit("Codex ralplan Plan-Reviewer output did not identify the dynamic draft id")
-reviewer_output_lower = reviewer_decision.lower()
-if not (
-    "non-blocking" in reviewer_output_lower
-    or (
-        "optional follow-up" in reviewer_output_lower
-        and "required changes for planner: none" in reviewer_output_lower
-    )
-):
-    raise SystemExit("Codex ralplan Plan-Reviewer output did not keep NB1 non-blocking")
-
+captured_draft_envelope = normalize_transport_whitespace(
+    f"{DRAFT_START}\n{captured_draft}\n{DRAFT_END}"
+)
 planner_contract = extract_delimited_block(
-    role_payload_text["planner"], CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
+    planner_payload_text, CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
 )
-reviewer_contract = extract_delimited_block(
-    role_payload_text["plan-reviewer"], CONTRACT_START, CONTRACT_END, "Plan-Reviewer Active plan contract"
-)
-if planner_contract != reviewer_contract:
-    raise SystemExit("Codex ralplan role payloads did not carry the exact same Active plan contract")
 expected_contract = extract_delimited_block(
     proof["active_contract"], CONTRACT_START, CONTRACT_END, "expected Active plan contract"
 )
 if planner_contract != expected_contract:
-    raise SystemExit("Codex ralplan role payloads changed the expected Active plan contract")
-
-captured_draft = extract_delimited_block(
-    role_output_text["planner"], DRAFT_START, DRAFT_END, "captured Planner draft"
-)
-reviewer_draft = extract_delimited_block(
-    role_payload_text["plan-reviewer"], DRAFT_START, DRAFT_END, "Plan-Reviewer input draft"
-)
-if captured_draft != reviewer_draft:
-    raise SystemExit("Codex ralplan Plan-Reviewer payload did not carry the exact captured Planner draft")
-captured_draft_envelope = normalize_transport_whitespace(
-    f"{DRAFT_START}\n{captured_draft}\n{DRAFT_END}"
-)
-reviewer_echo = extract_delimited_block(
-    role_output_text["plan-reviewer"],
-    REVIEWED_DRAFT_START,
-    REVIEWED_DRAFT_END,
-    "Plan-Reviewer echoed Planner draft",
-)
-if reviewer_echo != captured_draft_envelope:
-    raise SystemExit("Codex ralplan Plan-Reviewer output did not echo the exact captured Planner draft")
+    raise SystemExit("Codex ralplan Planner payload changed the expected Active plan contract")
+packet_evidence = [
+    review_packet_evidence(payload, f"Plan-Reviewer payload {index}")
+    for index, payload in enumerate(reviewer_payload_texts, start=1)
+]
+raw_packets = {packet for packet, _, _ in packet_evidence}
+perspectives = {perspective for _, perspective, _ in packet_evidence}
+normalized_packets = {packet for _, _, packet in packet_evidence}
+if len(raw_packets) != 2 or perspectives != expected_perspectives:
+    raise SystemExit(
+        "Codex ralplan sequential smoke reviewer payloads lacked two distinct role-appropriate Assigned perspective values"
+    )
+if len(normalized_packets) != 1:
+    raise SystemExit(
+        "Codex ralplan sequential smoke reviewer payloads differed beyond the Assigned perspective line"
+    )
+for reviewer_index, (packet, _, _) in enumerate(packet_evidence, start=1):
+    reviewer_contract = extract_delimited_block(
+        packet, CONTRACT_START, CONTRACT_END, f"Plan-Reviewer {reviewer_index} Active plan contract"
+    )
+    if reviewer_contract != expected_contract:
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer payload {reviewer_index} changed the Active plan contract"
+        )
+    reviewer_draft = extract_delimited_block(
+        packet, DRAFT_START, DRAFT_END, f"Plan-Reviewer {reviewer_index} input draft"
+    )
+    if reviewer_draft != captured_draft:
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer payload {reviewer_index} changed the captured Planner draft"
+        )
+reviewed_draft_ids = []
+for reviewer_index, reviewer_output in enumerate(reviewer_outputs, start=1):
+    reviewer_decision = extract_delimited_block(
+        reviewer_output,
+        DECISION_START,
+        DECISION_END,
+        f"Plan-Reviewer {reviewer_index} decision",
+    )
+    leg_reviewed_draft_ids = [
+        normalize_transport_whitespace(value)
+        for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
+    ]
+    if len(leg_reviewed_draft_ids) != 1:
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not contain one anchored Reviewed draft field"
+        )
+    reviewed_draft_ids.extend(leg_reviewed_draft_ids)
+    reviewer_output_lower = reviewer_decision.lower()
+    if not (
+        "non-blocking" in reviewer_output_lower
+        or (
+            "optional follow-up" in reviewer_output_lower
+            and "required changes for planner: none" in reviewer_output_lower
+        )
+    ):
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not keep NB1 non-blocking"
+        )
+    reviewer_echo = extract_delimited_block(
+        reviewer_output,
+        REVIEWED_DRAFT_START,
+        REVIEWED_DRAFT_END,
+        f"Plan-Reviewer {reviewer_index} echoed Planner draft",
+    )
+    if reviewer_echo != captured_draft_envelope:
+        raise SystemExit(
+            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not echo the exact captured Planner draft"
+        )
+unique_reviewed = set(reviewed_draft_ids)
+if len(unique_reviewed) != 1:
+    raise SystemExit(
+        "Codex ralplan reviewer pair did not identify one shared Planner draft"
+    )
+if next(iter(unique_reviewed)) != proof["draft_id"]:
+    raise SystemExit(
+        "Codex ralplan reviewer pair did not identify the dynamic draft id"
+    )
 parent_output = normalize_transport_whitespace(all_text)
-planner_final = normalize_transport_whitespace(role_output_text["planner"])
-reviewer_final = normalize_transport_whitespace(role_output_text["plan-reviewer"])
-if planner_final not in parent_output:
+if planner_output not in parent_output:
     raise SystemExit("Codex ralplan parent did not preserve the exact Planner output")
-if reviewer_final not in parent_output:
-    raise SystemExit("Codex ralplan parent did not preserve the exact Plan-Reviewer output")
-if parent_output.index(planner_final) >= parent_output.index(reviewer_final):
+missing_parent_outputs = [
+    index
+    for index, reviewer_output in enumerate(reviewer_outputs, start=1)
+    if reviewer_output not in parent_output
+]
+if missing_parent_outputs:
+    raise SystemExit(
+        "Codex ralplan parent did not preserve both exact Plan-Reviewer outputs: "
+        f"missing={missing_parent_outputs!r}"
+    )
+if any(parent_output.index(planner_output) >= parent_output.index(output) for output in reviewer_outputs):
     raise SystemExit("Codex ralplan parent reversed Planner -> Plan-Reviewer output order")
-
+parent_lower = parent_output.lower()
+for required in (
+    "same-host-perspective-pair",
+    "Planner skips revision (v1 approved)",
+    "consensus",
+    "contradictions",
+    "recommended next action",
+):
+    if required.lower() not in parent_lower:
+        raise SystemExit(f"Codex ralplan parent omitted {required!r}")
 if not marker:
     raise SystemExit("Codex ralplan sequential smoke did not return success marker")
 
-print("ok - live Codex ralplan planning subagents reviewed sequentially")
+print("ok - live Codex ralplan planning subagents ran one same-host perspective pair")
 PY
 
   log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
@@ -4159,10 +4318,10 @@ if len(planner_sessions) != 1:
         "Codex ralplan natural transcript proof expected one reusable Planner context; "
         f"found {len(planner_sessions)}"
     )
-if not 1 <= len(reviewer_sessions) <= 4:
+if not 1 <= len(reviewer_sessions) <= 2:
     raise SystemExit(
-        "Codex ralplan natural transcript proof exceeded two review rounds with "
-        f"at most one THOROUGH pair per round; found {len(reviewer_sessions)} sessions"
+        "Codex ralplan natural transcript proof exceeded one perspective pair in the single review round; "
+        f"found {len(reviewer_sessions)} sessions"
     )
 planner = planner_sessions[0]
 planner_time = planner["timestamp"]
@@ -4255,8 +4414,7 @@ if len(final_reviewer_evidence) not in (1, 2):
         next(iter(evidence["reviewed_ids"])) for evidence in reviewer_evidence
     )
     raise SystemExit(
-        "Codex ralplan natural final Planner draft lacked one STANDARD review or "
-        "one THOROUGH reviewer pair; "
+        "Codex ralplan natural final Planner draft lacked one complete perspective pair; "
         f"final={sorted(planner_ids)!r} observed={observed_ids!r}"
     )
 planner_final_completion = planner["last_completion_timestamp"]
@@ -4284,25 +4442,15 @@ for evidence in final_reviewer_evidence:
             f"Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither "
             "the visible Planner payload nor an encrypted inter-agent task channel"
         )
-if len(final_reviewer_evidence) == 2:
-    final_review_dispatches = [
-        evidence["reviewer"]["last_task_timestamp"]
-        or evidence["reviewer"]["timestamp"]
-        for evidence in final_reviewer_evidence
-    ]
-    final_review_completions = [
-        evidence["reviewer"]["last_completion_timestamp"]
-        for evidence in final_reviewer_evidence
-    ]
-    if (
-        not all(final_review_dispatches)
-        or not all(final_review_completions)
-        or max(final_review_dispatches) >= min(final_review_completions)
-    ):
-        raise SystemExit(
-            "Codex ralplan natural final THOROUGH reviewer pair was not dispatched "
-            "before either review completed"
-        )
+final_review_dispatches = [
+    evidence["reviewer"]["last_task_timestamp"]
+    or evidence["reviewer"]["timestamp"]
+    for evidence in final_reviewer_evidence
+]
+final_review_completions = [
+    evidence["reviewer"]["last_completion_timestamp"]
+    for evidence in final_reviewer_evidence
+]
 
 def semantic_lines(value):
     lines = set()
@@ -4374,13 +4522,62 @@ if "review" not in parent_review_text.lower() or not any(
     for token in ("approve", "block", "iterate", "reject", "revision")
 ):
     raise SystemExit("Codex ralplan natural parent omitted the synthesized review decision")
-if len(final_reviewer_evidence) == 2 and not any(
-    marker in parent_review_text.lower()
-    for marker in ("paired review", "paired-review", "both reviewers", "two reviewers")
-):
-    raise SystemExit(
-        "Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair"
+parent_review_lower = parent_review_text.lower()
+opposite_host_review_evidence = (
+    parent_reviewed_ids == planner_ids
+    and ("opposite-host" in parent_review_lower or "opposite host" in parent_review_lower)
+    and "claude" in parent_review_lower
+    and any(
+        marker in parent_review_lower
+        for marker in ("architecture findings", "quality-gate findings", "blocking basis", "review findings")
     )
+    and any(
+        token in parent_review_lower
+        for token in ("approve", "block", "iterate", "reject")
+    )
+)
+parent_pair_synthesis_evidence = (
+    parent_reviewed_ids == planner_ids
+    and all(
+        marker in parent_review_lower
+        for marker in ("consensus", "contradictions", "recommended next action")
+    )
+    and any(
+        marker in parent_review_lower
+        for marker in (
+            "same-host-perspective-pair",
+            "cross-host",
+            "same-host-parallel-fallback",
+        )
+    )
+)
+if len(final_reviewer_evidence) == 2:
+    if (
+        not all(final_review_dispatches)
+        or not all(final_review_completions)
+        or max(final_review_dispatches) >= min(final_review_completions)
+    ):
+        raise SystemExit(
+            "Codex ralplan natural final perspective pair was not dispatched before either review completed"
+        )
+    if "same-host-perspective-pair" not in parent_review_lower:
+        raise SystemExit(
+            "Codex ralplan natural parent did not record same-host-perspective-pair for two typed reviewers"
+        )
+    if not parent_pair_synthesis_evidence:
+        raise SystemExit(
+            "Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair; "
+            "two-reviewer branch lacked parent pair-synthesis evidence"
+        )
+elif len(final_reviewer_evidence) == 1:
+    if not opposite_host_review_evidence:
+        raise SystemExit(
+            "Codex ralplan natural single typed Plan-Reviewer lacked opposite-host review evidence"
+        )
+    if not parent_pair_synthesis_evidence:
+        raise SystemExit(
+            "Codex ralplan natural cross-host branch lacked parent pair-synthesis evidence"
+        )
 if not final_parent_output.rstrip().endswith("OH_NO_CODEX_RALPLAN_NATURAL_OK"):
     raise SystemExit("Codex ralplan natural parent did not end with its success marker")
 

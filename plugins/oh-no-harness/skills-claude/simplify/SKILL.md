@@ -32,21 +32,21 @@ through `executor`, with inline mutation only as a recorded LIGHT-tiny or
 dispatch-unavailable fallback.
 
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
-selected mode's required review is satisfied and before final verification;
-the active platform runtime document supplies the matching simplify skill.
-`ralph` owns a preflight quick diff scan and invokes this skill only when that
-scan finds actual candidates or candidate uncertainty remains; a clean quick
-scan records cleanup as not needed without invoking Simplify.
+behavior lock and BEFORE the single review round, so the sole review sees the
+cleaned diff; the active platform runtime document supplies the matching
+simplify skill. `ralph` owns a preflight quick diff scan and invokes this skill
+only when that scan finds actual candidates or candidate uncertainty remains;
+a clean quick scan records cleanup as not needed without invoking Simplify.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.
 
 ## Software Development Stage
 
-Simplify is the post-implementation cleanup stage.
+Simplify is the post-implementation, pre-review cleanup stage.
 
-Use it after behavior is locked and the review required by the caller has passed
-or has been recorded as not needed. It should improve reuse, clarity,
+Use it after behavior is locked and before the caller's single review round, so
+that review sees the cleaned diff. It should improve reuse, clarity,
 maintainability, and efficiency without changing behavior, adding scope, or
 replacing implementation review.
 
@@ -218,8 +218,9 @@ than debating it.
 Run the behavior lock again after cleanup. If the post-cleanup behavior lock
 regresses from the pre-cleanup result, assign a focused executor revert/fix or
 report the blocker; do not let a discovery role mutate the work product. If
-cleanup changed structure, tests, or control flow, return that need to the
-caller so `code-reviewer` or `verifier` can inspect the result.
+cleanup changed structure, tests, or control flow, return that evidence need
+to the caller. When the caller is `ralph`, its upcoming sole review inspects
+the cleaned result; cleanup does not add a later review round.
 
 ## Output
 
@@ -236,7 +237,7 @@ Return:
 
 ## Next Skill Handoff
 
-None - this is a post-implementation mid-loop skill. Return control to the caller (`ralph` or direct invocation). If the cleanup pass changed structure, tests, or control flow, recommend `code-reviewer` or `verifier` to the caller; do not invoke them yourself.
+None - this is a post-implementation mid-loop skill. Return control to the caller (`ralph` or direct invocation). If the cleanup pass changed structure, tests, or control flow, identify the evidence need for the caller; under `ralph`, the upcoming sole review covers the cleaned diff. Do not invoke another role or skill yourself.
 
 ## Source: docs/platforms/claude-code-runtime.md
 
@@ -278,14 +279,18 @@ plugin-agent unavailability uses the documented embedded-role fallback.
 
 ## Model Diversity Pair
 
-This mechanism is trigger-loaded, not embedded in every workflow decision. Both legs MUST be requested in a single batch: issue both subagent tool calls
-in the same assistant turn (or with `Background: yes` for both) BEFORE waiting
-on either result; a serial dispatch-wait-dispatch sequence is not a valid pair.
-The two legs' packet bodies MUST be byte-identical; leg identity (`primary` vs
+This mechanism is trigger-loaded, not embedded in every workflow decision. For
+any dispatched `plan-reviewer` or `code-reviewer` pair (every dispatched review),
+or a named THOROUGH `debugger` pair, both legs MUST be requested in a single
+batch: issue both subagent tool calls in the same assistant turn (or with
+`Background: yes` for both) BEFORE waiting on either result; a serial
+dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet bodies
+MUST be identical except the single `Assigned perspective:` line (Lens A on the
+primary leg, Lens B on the diversity leg); leg identity (`primary` vs
 `diversity`) is carried ONLY by the host dispatch metadata (the description field
-and the model override), never inside the packet text. For a named THOROUGH
-pair, read the role's concrete stored primary and validated secondary top-tier
-model from the session `<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
+and the model override), never inside the packet text. Read the role's concrete
+stored primary and validated secondary top-tier model from the session
+`<OH_NO_MODEL_DIVERSITY>` block. The primary leg is
 unoverridden and uses the declared-frontmatter primary; the
 secondary leg carries an explicit NATIVE model override. Claim
 `model-diversity-pair` only when the primary is not `host-default` and the

@@ -212,7 +212,8 @@ REQUIRED_READING_BLOCKER_MARKER = (
 TRIGGER_CLASS_REQUIRED_SKILLS = ()
 EXPECTED_ALWAYS_READING: dict[str, set[str]] = {}
 # Skills that dispatch review/verify/debug roles and must HARD-GATE the recorded
-# independence mode (cross-host | same-host-parallel-fallback | inline-fallback).
+# independence mode (same-host-perspective-pair | cross-host |
+# same-host-parallel-fallback | inline-fallback).
 # ralplan already carries this via its Findings Ledger Gate and is intentionally
 # excluded here (it is the template, not a target).
 INDEPENDENCE_MODE_GATE_MARKER = (
@@ -402,7 +403,8 @@ PLATFORM_RULE_DOC_MARKERS = {
         "close or clean\nup the completed subagent",
         "record that fallback",
         "## Model Diversity Pair",
-        "packet bodies MUST be byte-identical",
+        "identical except the single `Assigned perspective:` line",
+        "Assigned perspective",
         "serial dispatch-wait-dispatch",
         "<OH_NO_MODEL_DIVERSITY>",
         "model-diversity-pair",
@@ -431,7 +433,8 @@ PLATFORM_RULE_DOC_MARKERS = {
         "embedded-role fallback",
         "trigger-loaded",
         "## Model Diversity Pair",
-        "packet bodies MUST be byte-identical",
+        "identical except the single `Assigned perspective:` line",
+        "Assigned perspective",
         "serial dispatch-wait-dispatch",
         "<OH_NO_MODEL_DIVERSITY>",
         "declared-frontmatter primary",
@@ -858,18 +861,14 @@ RALPLAN_CONSENSUS_MARKERS = (
     "## Planner Draft Contract",
     "## Plan Review Contract",
     "## Planner Revision Contract",
-    "## Re-Review Rules",
     "## Findings Ledger Gate",
     "Planner draft v1",
     "Planner revision v2",
-    "Review v2",
     "Analyst -> Planner -> Plan-Reviewer",
     "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
-    "Re-review scope: delta | full",
-    "Re-review: not required (no blocking findings)",
-    "Worst-case THOROUGH role dispatch chain remains bounded to two review rounds",
-    "STANDARD -> one Plan-Reviewer instance",
+    "bounded to one review round",
+    "STANDARD -> one perspective-diverse Plan-Reviewer pair",
     "required Plan-Reviewer cannot be skipped",
     "accepted blocking feedback is not in the body",
     "accepted section pointer",
@@ -3113,12 +3112,13 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         markdown_section(ralph, "## State Machine"),
         (
-            "bound reviewer verdict is `approve` or compliant `not-required`",
-            "bound verifier verdict is `pass`, caller-accepted `pass-with-residual-risk`, or compliant `not-required`",
-            "bound reviewer verdict is `blocking-findings` or bound verifier verdict is `fail`",
+            "reviewer verdict approve (or compliant not-required) and verifier pass / accepted pass-with-residual-risk bound to the reviewed revision",
+            "reviewer verdict blocking-findings",
+            "EXECUTE-fix (exactly one executor-owned focused fix; no reviewer re-dispatch)",
+            "fix manifest maps every accepted blocking finding ID",
+            "verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision",
             "required independent verifier has no separate context",
             "reviewer or verifier verdict is `blocked`",
-            "executor-owned focused fix",
         ),
         "caller-owned FSM transition contract",
     )
@@ -3207,9 +3207,10 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "reviewed revision binding",
             "Verification verdict",
             "verified revision binding",
-            "reviewer `approve` (or compliant `not-required`) plus verifier `pass`",
-            "pass-with-residual-risk` also requires the caller to record",
-            "Reviewer\n`blocking-findings` or verifier `fail` returns to an executor-owned focused fix",
+            "Reviewer approval of the fixed revision is NOT required and MUST NOT be requested",
+            "the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit",
+            "blocking reviewer findings: none | fix-applied (manifest mapped) | blocking",
+            "verifier bound revision: reviewed | fixed",
             "either role's `blocked` verdict pauses",
             "MUST run in a\nseparate context",
             "Independent\nverifier: dispatch-unavailable",
@@ -3773,12 +3774,12 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     for skill, markers in {
         "ralplan": (
             "single canonical schema",
-            "STANDARD -> one Plan-Reviewer instance",
-            "Only a named",
+            "STANDARD -> one perspective-diverse Plan-Reviewer pair",
+            "Every dispatched Plan-Reviewer review runs as one",
         ),
         "ralph": (
             "`verification.md` is the canonical acceptance-to-evidence",
-            "one targeted reviewer instance",
+            "one perspective-diverse code-reviewer pair",
             "## Process Budget Gate",
         ),
         "simplify": (
@@ -3977,6 +3978,38 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         ):
             if not has_required_marker(adapter, marker):
                 die(f"{adapter_path} is missing required Plan-Reviewer fail-closed marker: {marker!r}")
+
+    review_skills = (
+        "ralplan",
+        "ralph",
+        "ultrawork",
+        "verification-before-completion",
+        "systematic-debugging",
+    )
+    amended_packet_identity = "identical except the single `Assigned perspective:` line"
+    codex_redacted_packet_identity = (
+        "The two review legs receive redacted packets identical except the single "
+        "`Assigned perspective:` line."
+    )
+    for skill in review_skills:
+        claude_path = platforms / f"claude-code-{skill}.md"
+        claude_adapter = read_text(claude_path)
+        for marker in (amended_packet_identity, "Assigned perspective"):
+            if not has_required_marker(claude_adapter, marker):
+                die(f"{claude_path} is missing amended review-packet marker: {marker!r}")
+        if has_required_marker(claude_adapter, "packet bodies MUST be byte-identical"):
+            die(f"{claude_path} retains forbidden byte-identical review-packet wording")
+
+        codex_path = platforms / f"codex-{skill}.md"
+        codex_adapter = read_text(codex_path)
+        for marker in (
+            codex_redacted_packet_identity,
+            "Assigned perspective",
+            "same-host-perspective-pair",
+            "same-host-parallel-fallback",
+        ):
+            if not has_required_marker(codex_adapter, marker):
+                die(f"{codex_path} is missing perspective-pair marker: {marker!r}")
     forbidden_approval_mutations = (
         r"after\s+APPROVE[^\n]{0,120}\b(?:revise|mutate|change|incorporate|apply)\b",
         r"\b(?:incorporate|apply)\b[^\n]{0,80}\bnon-blocking\b[^\n]{0,80}\b(?:Planner draft|plan body)\b",
@@ -4019,29 +4052,31 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
 
     for marker in (
         "disposition-only user-decision packet",
-        "Full-depth review is allowed only for a named material change",
-        "Why first raised now",
-        "A revision-created material defect",
+        "exactly one final Planner revision v2",
+        "finding→fix mapping",
     ):
         if not has_required_marker(ralplan, marker):
-            die(f"ralplan.md is missing bounded-review marker: {marker!r}")
+            die(f"ralplan.md is missing single-round review marker: {marker!r}")
+    for forbidden in ("delta closure review", "## Re-Review Rules"):
+        if has_required_marker(ralplan, forbidden):
+            die(f"ralplan.md retains forbidden single-round review marker: {forbidden!r}")
     if "If a blocker is rejected, create Planner revision v2 before asking the user." in ralplan:
         die("ralplan.md must use a disposition-only user-decision packet before revision")
     branch_rules = {
-        "All accepted: create exactly one Planner revision v2, then exactly one delta closure review.":
-            "all-accepted must create exactly one v2 and one closure review",
-        "Any rejected: return the disposition-only user-decision packet; create no v2 and run no review v2 until the user resolves it.":
-            "rejected must create no v2 or review before user resolution",
-        "Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2 and run no review v2.":
-            "deferred must leave the plan pending with no v2 or review",
-        "Mixed: resolve every non-accepted blocker before exactly one v2; no closure review starts earlier.":
-            "mixed blockers must resolve before one v2 and closure review",
-        "Permitted waivers with no body change: keep the waivers visible; create no v2 and run no review v2.":
-            "permitted waiver with no body change must create no v2 or review",
+        "All accepted: create exactly one final Planner revision v2; run no further review — the Plan Approval Brief surfaces each accepted finding→fix mapping for the user.":
+            "all-accepted must create exactly one final v2 with a finding→fix mapping and no further review",
+        "Any rejected: return the disposition-only user-decision packet; create no v2 until the user resolves it.":
+            "rejected must create no v2 before user resolution",
+        "Any deferred: leave the plan pending in the disposition-only user-decision packet; create no v2.":
+            "deferred must leave the plan pending with no v2",
+        "Mixed: resolve every non-accepted blocker before exactly one v2.":
+            "mixed blockers must resolve before one v2",
+        "Permitted waivers with no body change: keep the waivers visible; create no v2.":
+            "permitted waiver with no body change must create no v2",
         "Non-waivable gate: keep the plan pending and prohibit execution until its owner-defined obligation passes or direction changes.":
             "non-waivable gate must remain pending with no execution",
-        "Direction change: update the requirements source, start a new planning run, and do not run or consume the old run's closure review.":
-            "direction change must start a new run without old closure review",
+        "Direction change: update the requirements source, start a new planning run.":
+            "direction change must start a new run",
     }
     for marker, failure in branch_rules.items():
         if not has_required_marker(revision, marker):
@@ -4080,6 +4115,21 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         die("ultrawork.md Final Validation must not directly dispatch plan-reviewer")
 
     ralph = read_text(skill_core / "ralph.md")
+    for marker in (
+        "one perspective-diverse code-reviewer pair",
+        "Reviewer approval of the fixed revision is NOT required and MUST NOT be requested",
+        "the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit",
+        "verifier bound revision: reviewed | fixed",
+    ):
+        if not has_required_marker(ralph, marker):
+            die(f"ralph.md is missing fixed-revision completion marker: {marker!r}")
+    for forbidden in (
+        "focused re-check",
+        "focused-recheck",
+        "run a focused review when cleanup changed",
+    ):
+        if has_required_marker(ralph, forbidden):
+            die(f"ralph.md retains forbidden second-review marker: {forbidden!r}")
     execution_loop = markdown_section(ralph, "## Execution Loop")
     for marker in (
         "Scope Trace Gate",
@@ -4113,7 +4163,7 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
     ralph_output = markdown_section(ralph, "## Output")
     phase_attribution = (
         "Review phases: plan=<n>; implementation-code=<n>; "
-        "focused-recheck=<n>; independent-verifier=<n>"
+        "independent-verifier=<n>"
     )
     if not has_required_marker(ralph_output, phase_attribution):
         die("ralph.md Output is missing exact compact phase-attribution format")
@@ -4152,6 +4202,23 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         )
         if any(value in host_test for value in prefix_comparisons):
             die(f"{host} explicit Ralplan live parser must compare exact normalized Reviewed draft id")
+
+    codex_test = read_text(repo_root / "scripts" / "test-codex-plugin.sh")
+    for marker in (
+        "if not 1 <= len(reviewer_sessions) <= 2:",
+        "exceeded one perspective pair in the single review round",
+        "if len(final_reviewer_evidence) not in (1, 2):",
+        "if len(final_reviewer_evidence) == 2:",
+        "max(final_review_dispatches) >= min(final_review_completions)",
+        "elif len(final_reviewer_evidence) == 1:",
+        "opposite_host_review_evidence",
+        "single typed Plan-Reviewer lacked opposite-host review evidence",
+        "parent_pair_synthesis_evidence",
+        "lacked parent pair-synthesis evidence",
+        "same-host-perspective-pair",
+    ):
+        if marker not in codex_test:
+            die(f"Codex Ralplan live parser is missing single-round pair proof: {marker!r}")
 
     # docs/shared retired 2026-07-17: the canonical Diff-Budget timing lives
     # in ralph.md and is asserted above; guard only against the conditional
@@ -4217,11 +4284,11 @@ FSM_CONTRACTS = {
             "RETURN_ULTRAWORK",
             "PAUSED",
         ),
-        "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R15", "R16"),
+        "rule_ids": ("R1", "R2", "R3", "R4", "R5", "R6", "R8", "R9", "R10", "R15", "R16"),
         "transition_targets": {
             "ROUTE": ("outcome:ROUTED_INTERVIEW", "outcome:ROUTED_RALPH", "phase:REQUIREMENTS"),
             "REQUIREMENTS": ("outcome:PAUSED", "phase:DRAFT"),
-            "DRAFT": ("phase:REVIEW",),
+            "DRAFT": ("phase:APPROVAL", "phase:REVIEW"),
             "REVIEW": (
                 "outcome:PAUSED", "outcome:PAUSED", "outcome:PAUSED",
                 "phase:APPROVAL", "phase:APPROVAL", "phase:DRAFT",
@@ -4245,7 +4312,8 @@ FSM_CONTRACTS = {
                 "outcome:PAUSED", "outcome:RETURN_TO_PLAN", "phase:EXECUTE", "phase:REVIEW",
             ),
             "REVIEW": (
-                "outcome:PAUSED", "outcome:PAUSED", "phase:EXECUTE", "phase:FINALIZE",
+                "outcome:PAUSED", "outcome:PAUSED", "phase:EXECUTE",
+                "phase:FINALIZE", "phase:FINALIZE",
             ),
             "FINALIZE": ("outcome:COMPLETE", "outcome:PAUSED"),
             "any": ("outcome:PAUSED",),

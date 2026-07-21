@@ -162,7 +162,7 @@ final_validation -> report.
 | QA | a fix from the debugging route changed files | QA (re-run the affected checks) |
 | QA | root cause unknown after the debugging route, or a blocking reason is documented [U9] | outcome blocked or failed_verification |
 | FINAL_VALIDATION | dependency graph satisfied; blocking findings resolved or recorded [U11] | REPORT |
-| FINAL_VALIDATION | a reviewer blocker requires a code fix [U9, U11] | QA (fix via the debugging route, then re-validate) |
+| FINAL_VALIDATION | a reviewer blocker requires a code fix [U9, U11] | QA (fix via the debugging route; the verifier then confirms the fixed revision — no reviewer re-dispatch) |
 | REPORT | ledger HARD-GATE satisfied; report written [U12] | outcome succeeded_merged_verified_reported or succeeded_left_worktree_for_inspection |
 | any | user stop, scope change, or missing authority artifact [U6, U10] | outcome paused_for_user / scope_change_pending_approval / cancelled |
 
@@ -265,15 +265,20 @@ Repeat until checks pass or a blocking reason is documented.
 
 ### FINAL_VALIDATION
 
-Do not repeat Ralph's completed internal gates [U11]. Add one targeted
+Do not repeat Ralph's completed internal gates [U11]. Dispatch
 `code-reviewer` only for additional orchestration risk not already covered
 by Ralph (integration, merge, public-contract, security, or cross-phase),
-with its security lens when security-sensitive behavior was touched.
-Paired review requires a named THOROUGH trigger; the STANDARD small-task
-carve-out is a direct-Ralph path and never applies here; STANDARD records
-`single-reviewer`. A pair uses two same-role instances with identical packets,
-dispatched in parallel and synthesized into one verdict. The active platform
-supplies the diversity leg. If that leg is unavailable, default mode uses two
+with its security lens when security-sensitive behavior was touched. When
+dispatched, it runs as the perspective-diverse pair and records
+`perspective-pair` with the active platform's pair-mode value. The named
+THOROUGH trigger selects only escalated platform diversity; the STANDARD
+small-task carve-out is a direct-Ralph path and never applies here. The pair
+uses two same-role instances, each running the full role, with Lens A =
+adversarial correctness + security skeptic and Lens B = maintainability +
+coverage completeness. The two instances receive packets
+identical except the single `Assigned perspective:` line, are dispatched in
+parallel, and are synthesized into one verdict. The active platform supplies
+the diversity leg. If that leg is unavailable, default mode uses two
 independent same-model instances and records the reason; an explicit caller
 demand for diversity is strict mode and transitions to PAUSED instead of
 falling back.
@@ -290,10 +295,12 @@ dispatching, write the dependency graph into the session ledger:
 
 ```text
 Final Validation dependency graph:
-- code-reviewer topology: not-required | single-reviewer | paired-thorough
+- code-reviewer topology: not-required | perspective-pair
+- code-reviewer pair mode: not-required | <active platform pair-mode value>
 - code-reviewer pass: pending | complete | blocked | not-required
 - code-reviewer synthesis captured: yes | no | not-required
-- blocking reviewer findings: resolved | blocking | none | not-reviewed
+- blocking reviewer findings: none | fix-applied (manifest mapped) | blocking
+- verifier bound revision: reviewed | fixed | not-required
 - verifier eligible to start: yes | no
 - verifier started after reviewer completion: yes | no | not-required
 - early verifier discarded and rerun: yes | no | not-applicable
@@ -301,20 +308,23 @@ Final Validation dependency graph:
 
 `verifier eligible to start` is `yes` only after the selected code-review
 stage completed (or a compliant not-required reason is recorded), its output
-or synthesis is captured, and blocking findings are resolved or absent. A verifier spawned before that point is stale evidence, must be
+or synthesis is captured, and either findings are absent or the single fix
+manifest maps every accepted blocking finding. A verifier spawned before that point is stale evidence, must be
 recorded as discarded, and must be rerun after the dependency is
 satisfied. When both roles are required, the ledger must show
 `verifier started after reviewer completion: yes` or the verifier pass
-does not count.
+does not count. On the fix path, the review remains bound to the reviewed
+revision and the verifier must bind to the fixed revision; no reviewer
+re-dispatch occurs.
 
 If execution ran inline instead of through `ralph`, apply Ralph's
-mode-gated review, cleanup, baseline guard, review-loop budget, and final
+mode-gated review, cleanup, baseline guard, one-round review budget, and final
 evidence requirements here before reporting success.
 
 ### REPORT
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each) [U12]. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `single-reviewer` for STANDARD or a named THOROUGH pair topology; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each) [U12]. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `perspective-pair` with the active platform's pair-mode value; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count. On the fix path, review evidence remains bound to the reviewed revision and the verifier pass must be bound to the fixed revision.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 
@@ -347,10 +357,10 @@ scope.
 | Phase | Agents |
 |---|---|
 | REQUIREMENTS | follow `interview`; it dispatches `explore` for brownfield facts; no planning or review agents here |
-| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; STANDARD uses one reviewer, a pair requires a named THOROUGH risk |
+| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; every dispatched review uses the perspective-diverse pair, while a named THOROUGH risk selects only escalated platform diversity |
 | EXECUTION | follow `ralph`; isolated `explore`, executor-default repository mutation, `verifier`, and review agents per the approved mode and plan; Ralph-unavailable phase fallback preserves executor ownership, with inline mutation only for recorded LIGHT-tiny or dispatch-unavailable cases |
 | QA | `systematic-debugging` owns `debugger`; `verifier` with the scenario lens |
-| FINAL_VALIDATION | one targeted `code-reviewer` for orchestration risk; independent `verifier` under the carve-out |
+| FINAL_VALIDATION | `code-reviewer` dispatched only for additional orchestration risk (runs as the perspective-diverse pair); independent `verifier` under the carve-out |
 
 If the user invoked ultrawork with `parallel`, `subagents`, `spawn`,
 `delegate`, or `one agent per` language outside an approved plan profile,
@@ -410,12 +420,12 @@ prompt into the available subagent mechanism.
 
 ## Model Diversity Pair
 
-For a named THOROUGH Final Validation `code-reviewer` pair, dispatch two
-same-role instances in parallel with identical packets and synthesize one
-verdict. Both legs MUST be requested in a single batch: issue both subagent tool
-calls in the same assistant turn (or with `Background: yes` for both) BEFORE
-waiting on either result; a serial dispatch-wait-dispatch sequence is not a valid
-pair. The two legs' packet bodies MUST be byte-identical; leg identity
+For any dispatched Final Validation `code-reviewer` pair (every dispatched
+review), dispatch two same-role instances in parallel and synthesize one verdict.
+Both legs MUST be requested in a single batch: issue both subagent tool calls in
+the same assistant turn (or with `Background: yes` for both) BEFORE waiting on
+either result; a serial dispatch-wait-dispatch sequence is not a valid pair. The two legs' packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity
 (`primary` vs `diversity`) is carried ONLY by the host dispatch metadata (the
 description field and the model override), never inside the packet text. Read
 the role's declared stored primary and the validated secondary top-tier model

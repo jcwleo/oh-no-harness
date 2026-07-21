@@ -75,9 +75,10 @@ Before making a completion claim, complete every step below; the claim is invali
 6. Complete the Risk Check Before Completion below.
 7. Report skipped checks and residual risk.
 8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
-9. When a `code-reviewer` was dispatched, record `single-reviewer` for
-   STANDARD, or the named THOROUGH pair trigger plus the active platform's
-   pair-mode value; an inline fallback requires a reason. Missing review
+9. When a `code-reviewer` was dispatched, record `perspective-pair` plus the
+   active platform's pair-mode value: it is always a perspective-diverse pair
+   when dispatched, and the named THOROUGH trigger selects only escalated
+   platform diversity. An inline fallback requires a reason. Missing review
    topology is a named ledger gap, not a pass.
 </HARD-GATE>
 
@@ -192,27 +193,47 @@ supplement the record but cannot satisfy the audit.
 | Agent | Use |
 |---|---|
 | `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; one instance for STANDARD, a pair only for a named THOROUGH trigger (paired-review synthesis: merged findings) |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; always a perspective-diverse pair when dispatched, while the named THOROUGH trigger selects only escalated platform diversity (pair synthesis: merged findings) |
 
-A named THOROUGH reviewer pair uses two same-role instances with identical
-packets, dispatched in parallel and synthesized into one verdict. The active
-platform supplies the diversity leg. If that leg is unavailable, default mode
-uses two independent same-model instances and records the reason; an explicit
-caller demand for diversity is strict mode and transitions to PAUSED instead of
-falling back. The `verifier` remains outside this pair contract.
+A dispatched `code-reviewer` uses two same-role instances, each running the
+full role: Lens A = adversarial correctness + security skeptic; Lens B =
+maintainability + coverage completeness. Their packets are
+identical except the single `Assigned perspective:` line; the instances are
+dispatched in parallel and synthesized into one verdict. The named THOROUGH
+trigger selects only escalated platform diversity. The active platform supplies
+the diversity
+leg. If that leg is unavailable, default mode uses two independent same-model
+instances and records the reason; an explicit caller demand for diversity is
+strict mode and transitions to PAUSED instead of falling back. The `verifier`
+remains outside this pair contract.
 
 Confirming-verifier reuse: when this skill runs as the final gate inside
 `ralph` or `ultrawork` and the caller already completed the required
-independent confirming `verifier` pass for the same final claim — a
-compliant pass ran as an independent dispatch (never the maker) after the
-selected code-review stage — and no file, dependency, or evidence changed
-after that pass [V1, V5], do not dispatch a second `verifier` for that
-claim. Record the reused pass as a reference to the caller's ledger entry
-and that it ran after reviewer completion under the carve-out. This reuse
-satisfies only the verifier-dispatch expectation: every Required Gate step
-still executes in full, and this clause never licenses skipping this skill
-itself. Dispatch a fresh `verifier` when evidence changed after the
-caller's pass or when no compliant pass exists.
+independent confirming `verifier` pass for the same final claim, do not
+dispatch a second `verifier` when the pass ran as an independent dispatch
+(never the maker) after the selected code-review stage and no file,
+dependency, or evidence changed after that pass [V1, V5]. On the no-fix
+path, the review and verifier evidence bind to the reviewed revision. On the
+fix path, reuse requires review evidence bound to the reviewed revision plus
+verifier evidence bound to the fixed revision, with the verifier dispatched
+after the fix manifest was recorded. Record the reused pass as a reference
+to the caller's ledger entry and its revision binding under the carve-out.
+This reuse satisfies only the verifier-dispatch expectation: every Required
+Gate step still executes in full, and this clause never licenses skipping
+this skill itself. Dispatch a fresh `verifier` when evidence changed after
+the caller's pass or when no compliant pass exists.
+
+Confirming code-reviewer reuse: when this skill runs as the final gate inside
+`ralph` or `ultrawork` and the caller already completed the required single
+perspective-diverse `code-reviewer` round for the same final claim, do not
+dispatch a second `code-reviewer`. On the no-fix path, reuse requires review
+evidence bound to the reviewed revision with no file, dependency, or evidence
+change since that review. On the fix path, reuse requires that review binding
+plus verifier evidence bound to the fixed revision, with no file, dependency,
+or evidence change after the verifier pass. Record the reused review as a
+reference to the caller's ledger entry and its revision binding. Dispatch a
+fresh `code-reviewer` only when this skill runs standalone (not nested) or no
+compliant code-review exists for the claim.
 
 ## Output
 
@@ -256,14 +277,15 @@ when the core does not require an independent audit; otherwise report the
 
 ## Model Diversity Pair
 
-For a named THOROUGH `code-reviewer` pair, dispatch two same-role instances in
-parallel with identical packets and synthesize one verdict. Both legs MUST be
+For any dispatched `code-reviewer` pair (every dispatched review), dispatch two
+same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same assistant
 turn (or with `Background: yes` for both) BEFORE waiting on either result; a
 serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
-packet bodies MUST be byte-identical; leg identity (`primary` vs `diversity`)
-is carried ONLY by the host dispatch metadata (the description field and the model
-override), never inside the packet text. Read the role's declared stored primary
+packet bodies MUST be identical except the single `Assigned perspective:` line
+(Lens A on the primary leg, Lens B on the diversity leg); leg identity (`primary`
+vs `diversity`) is carried ONLY by the host dispatch metadata (the description
+field and the model override), never inside the packet text. Read the role's declared stored primary
 and the validated secondary top-tier model from the session
 `<OH_NO_MODEL_DIVERSITY>` block.
 
