@@ -122,7 +122,7 @@ the Packet ID remains the compact reference to the full issued packet.
 | PREPARE | input too vague, or non-LIGHT spec without plan unconfirmed [E1] | outcome RETURN_TO_PLAN |
 | PREPARE | worktree or environment blocked [E3] | outcome PAUSED |
 | EXECUTE | a ready story remains | EXECUTE (orchestrated story loop below [E4, E5, E10, E17]) |
-| EXECUTE | all stories pass with fresh evidence; CLEANUP and RECHECK are recorded; Diff-Budget Gate is `passed@<current stabilized fingerprint>` for the post-cleanup revision [E9, E10, E12] | REVIEW |
+| EXECUTE | all stories pass with fresh evidence; CLEANUP and RECHECK are recorded; Diff-Budget Gate is `passed@<current stabilized fingerprint>` for the post-cleanup stabilized revision [E9, E10, E12] | REVIEW |
 | EXECUTE | plan or AC infeasible as written [E1] | outcome RETURN_TO_PLAN |
 | EXECUTE | debugging ladder exhausted [E15] | outcome PAUSED |
 | REVIEW | reviewer verdict approve (or compliant not-required) and verifier pass / accepted pass-with-residual-risk bound to the reviewed revision; compliant verifier not-required follows the same reviewed-revision path [E7, E8, E17] | FINALIZE |
@@ -347,11 +347,9 @@ Phase: EXECUTE. Per story:
    `systematic-debugging` before attempting fixes. Ladder per root cause:
    one systematic-debugging pass plus one further fix, then `fusion-rescue`
    or record `blocked`/`failed_verification` with the evidence [E15].
-9. After all stories, run the `## Diff-Budget Gate` once for the current
-   stabilized revision, before `## Review Gate`. Then complete the CLEANUP and
-   RECHECK checkpoints under `## Cleanup And Final Verification`, rerunning
-   relevant verification and refreshing Diff-Budget when cleanup changes files.
-   The sole review pair inspects the final stabilized post-cleanup diff.
+9. After all stories, complete the CLEANUP and RECHECK checkpoints under
+   `## Cleanup And Final Verification`, then run the `## Diff-Budget Gate`
+   once for the current stabilized revision, before `## Review Gate`.
 
 ## Mode-Gated Agent Dispatch
 
@@ -370,7 +368,7 @@ parallel trigger. Inline mutation is permitted only with one recorded fallback:
 `Mutation fallback: LIGHT-tiny — <reason>` for a tiny LIGHT edit, or
 `Mutation fallback: dispatch-unavailable — <attempt and reason>` after the
 host cannot dispatch. The STANDARD small-task carve-out waives only reviewer
-dispatch, never executor ownership.
+dispatch (see `### STANDARD Small-Task Carve-Out`).
 
 For non-mutating roles, use targeted subagents on subagent-capable hosts when
 the result can change the implementation, review, verification, or ship/block
@@ -476,15 +474,11 @@ out of scope — report such findings as residual risk or follow-ups.
 
 ## Validation Gate
 
-Phase: EXECUTE and FINALIZE — before marking work complete.
-
-When measurable evidence influenced the task, record a validation check
-before completion: evidence used, supported AC or user outcome, proof and
-gap, recurring engineering risk addressed, similar-work expectation, and
-excluded case-specific details. Reject changes justified only by metric
-movement, unseen-check guessing, fixture knowledge, or process inflation
-that would not help a skeptical maintainer on similar work. Metric movement
-never replaces the user, maintainer, operator, or public-contract outcome.
+Phase: EXECUTE and FINALIZE — when measurable evidence influenced the task,
+record a validation check before completion. Apply the canonical
+`Validation Check` defined in `verification-before-completion`; reject
+completion claims supported only by metric movement — metric movement never
+replaces the user, maintainer, operator, or public-contract outcome.
 
 ## Verification Budget Policy
 
@@ -525,11 +519,11 @@ Budget rules:
 
 ## Process Budget Gate
 
-Phase: EXECUTE — this is the cumulative per-story mid-run early-stop check
-(the Diff-Budget Gate owns the final pre-review evaluation). At PREPARE, copy the plan's
-expected changed-file groups, diff size, review topology, cleanup depth,
-broad-suite cap, and the one-round review budget — or derive conservative
-values.
+Phase: EXECUTE (budget baselines are copied at PREPARE) — this is the
+cumulative per-story mid-run early-stop check (the Diff-Budget Gate owns the
+final pre-review evaluation). At PREPARE, copy the plan's expected
+changed-file groups, diff size, review topology, cleanup depth, broad-suite
+cap, and the one-round review budget — or derive conservative values.
 
 Stop for rescope, simplify, or user approval when [E10]: the handwritten
 diff exceeds twice the estimate; generated output hides unexpectedly broad
@@ -542,9 +536,10 @@ negative, regression, or safety cases.
 
 ## Diff-Budget Gate
 
-Phase: EXECUTE exit. Snapshot status is `pending | passed@<fingerprint> |
-stale`. Run this final gate once for the current stabilized revision, after all
-stories and before `## Review Gate`, then record `passed@<fingerprint>` [E10].
+Phase: EXECUTE exit — after CLEANUP and RECHECK. Snapshot status is `pending |
+passed@<fingerprint> | stale`. Run this final gate once for the current
+stabilized revision, after all stories and cleanup, before `## Review Gate`,
+then record `passed@<fingerprint>` [E10].
 Any later material mutation marks the result `stale` and returns the gate to
 `pending`; run it once for the newly stabilized revision before entering REVIEW
 or, after REVIEW/FINALIZE mutation, before INTEGRATE and COMPLETION_AUDIT.
@@ -561,6 +556,27 @@ The expanded scope review answers: why this breadth is necessary for the
 current ACs; which changed files are essential versus collateral; whether a
 narrower patch would satisfy the request; and the maintainer's rollback
 boundary. Unjustified breadth narrows the patch or records a blocker.
+
+## Cleanup And Final Verification
+
+Phase: EXECUTE exit — the CLEANUP and RECHECK checkpoints run at EXECUTE exit
+[E12]; the FINALIZE checkpoints (INTEGRATE, COMPLETION_AUDIT) run after REVIEW
+under `## Finalize Checkpoints`.
+
+1. CLEANUP — after the behavior lock and BEFORE the single review round:
+   LIGHT/STANDARD run a caller-owned quick diff scan and
+   invoke `simplify` (one combined scan) only when actual candidates or
+   candidate uncertainty remain; a clean scan records cleanup as not needed.
+   THOROUGH expands to four independent viewpoints only for a named safety or
+   broad-diff trigger. Never create cleanup work to satisfy a pass count.
+   Cleanup is mutation-capable here through executor-applied accepted findings;
+   after REVIEW it is read-only and any findings become residual risk or
+   follow-ups.
+2. RECHECK — when cleanup changed files, rerun relevant verification and
+   confirm behavior, the behavior lock, and changed-file scope survived. The
+   `## Diff-Budget Gate` then runs once for the stabilized post-cleanup
+   revision, and the sole perspective-diverse pair inspects that final
+   post-cleanup diff in REVIEW.
 
 ## Review Gate
 
@@ -591,7 +607,7 @@ THOROUGH -> the same perspective-diverse pair; a named security, data,
 Review-then-verify [E7]: run exactly one selected code-review stage first and
 validate its caller-synthesized `Overall verdict`, blocking finding IDs, and
 reviewed revision binding. With no blocking findings, start the required
-independent self-host `verifier` pass (never the maker, never a pair) against
+independent self-host `verifier` pass (independence per E7) against
 the reviewed revision. On `blocking-findings`, issue exactly one
 executor-owned focused fix and record its manifest before the verifier starts;
 the verifier packet includes the reviewer findings, fix manifest, and the
@@ -669,25 +685,9 @@ applies the fix or advances the FSM, and is never re-dispatched. Budget
 of the fixed revision is the recheck. A blocker remaining after that budget
 goes to `systematic-debugging`, `blocked`, or `failed_verification`.
 
-## Cleanup And Final Verification
+## Finalize Checkpoints
 
-Checkpoints remain recorded in snapshot order, with CLEANUP and RECHECK at
-EXECUTE exit before REVIEW [E12]:
-
-1. CLEANUP — after the behavior lock and BEFORE the single review round:
-   LIGHT/STANDARD run a caller-owned quick diff scan and invoke `simplify` (one combined scan)
-   only when actual candidates or candidate uncertainty remain; a clean scan
-   records cleanup as not needed. THOROUGH expands to four
-   independent viewpoints only for a named safety or broad-diff trigger. Never
-   create cleanup work to satisfy a pass count. Cleanup is mutation-capable
-   here through executor-applied accepted findings; after REVIEW it is
-   read-only and any findings become residual risk or follow-ups.
-2. RECHECK — when cleanup changed files, rerun relevant verification, refresh
-   Diff-Budget for the stabilized cleaned revision, and confirm behavior, the
-   behavior lock, and changed-file scope survived. Then enter REVIEW so the
-   sole perspective-diverse pair inspects the final post-cleanup diff.
-
-Phase: FINALIZE — remaining checkpoints in order:
+Phase: FINALIZE — the remaining checkpoints run in order, after REVIEW:
 
 3. INTEGRATE — carry out the worktree completion responsibility [E13]: merge
    back into the integration checkout and run post-merge verification, or
@@ -741,10 +741,9 @@ Completion criteria:
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status
 - required TDD evidence exists, or each exception is documented
-- the mode-required review is approved or compliantly not-required, or its
-  blocking findings have one accepted fix manifest mapped to every finding ID;
-  Reviewer approval of the fixed revision is NOT required and MUST NOT be
-  requested
+- the mode-required review is recorded complete in the `## Review Gate`
+  dependency graph — approved or compliantly not-required, or blocking findings
+  with one accepted fix manifest mapped to every finding ID per that section
 - the independent verifier pass ran per the review-then-verify order and bound
   to the reviewed revision or, on the fix path, the FIXED revision with a
   per-finding resolution audit; otherwise a compliant not-required reason is
