@@ -30,7 +30,8 @@ Use this skill as a top-level entry only when:
 - an already-selected workflow (`ralph`, `systematic-debugging`, or
   `ultrawork`) reaches its internal TDD gate
 
-Small concrete edits route through `ralph`, which may apply its STANDARD
+Direct-edit-eligible mutations are inert and never reach this skill;
+other small concrete edits route through `ralph`, which may apply its STANDARD
 small-task carve-out; there is no
 separate direct edit path that reaches this skill outside a workflow or an
 explicit user TDD request.

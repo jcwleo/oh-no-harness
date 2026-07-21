@@ -915,6 +915,8 @@ if "Use native skill loading to read the relevant Oh No Harness skill when it ap
     raise SystemExit("base bootstrap is missing compact native skill-loading guidance")
 required = [
     "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+    "No-route lane",
+    "Direct-edit lane",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
@@ -938,7 +940,7 @@ for forbidden in (
         raise SystemExit(f"Claude SessionStart still routes ordinary implementation to TDD: {forbidden}")
 # Baseline includes the always-on OH_NO_MAIN_AGENT_ORCHESTRATION block; keep
 # headroom modest so unintended bloat still trips this guard.
-if len(text) > 5600:
+if len(text) > 6600:
     raise SystemExit(f"Claude SessionStart default context is too large: {len(text)} chars")
 PY
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
@@ -964,6 +966,7 @@ required = [
     "Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.",
     "Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.",
     "ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work",
+    "The always-injected OH_NO_BOOTSTRAP no-route and direct-edit lanes apply as routing outcomes",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:

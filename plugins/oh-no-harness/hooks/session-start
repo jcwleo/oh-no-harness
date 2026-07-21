@@ -160,6 +160,8 @@ You have Oh No Harness installed. Use native skill loading to read the relevant 
 
 Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; hard stalled problem needing panel rescue -> fusion-rescue; autonomous end-to-end work -> ultrawork; failing commands/regressions/flaky behavior/unknown root cause -> systematic-debugging (a known-cause localized bug fix -> ralph); completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
 
+No-route lane: a request that does not create or change repository work products (code, tests, docs, configs) and does not claim their completion — research, conceptual or codebase questions, status reports, version-control or environment housekeeping over already-written changes — is answered directly without invoking a workflow skill. Direct-edit lane: a trivial mutation may skip ralph and be applied as a direct edit plus a diff check when ALL hold: single obvious file, inert (prose/comment/formatting not consumed by runtime, build, test, CI, or operations), the file is not generated and any generation source includes regeneration and validation in the same action, and no security, permission, or public-contract surface. Executable source, tests, build/CI/hooks, dependency or lockfile metadata, ignore/attribute files, schema or migrations, and operational-command docs always route to ralph. If any condition fails, route to ralph. Lane detail: using-oh-no-harness.
+
 Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork before behavior-changing edits.
 
 Orchestration default: workflow main agents own .oh-no state and gate decisions; STANDARD/THOROUGH repository work-product mutations use executor roles, with inline mutation only for a recorded LIGHT-tiny or dispatch-unavailable fallback.
@@ -175,12 +177,13 @@ Forced routing is enabled for Oh No Harness. Route from the requested deliverabl
 
 Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
 
-No-route lane: when the requested deliverable does not create or change repository work products (code, tests, docs, configs) and does not claim their completion, answer directly WITHOUT invoking a workflow skill. This lane covers research and information gathering, conceptual or codebase questions, status or progress reports, and version-control or environment housekeeping over already-written changes (commit, push, branch, tag, stash, conflict-free rebase or merge, dependency install, tool or editor config). Committing or pushing existing work is housekeeping, not implementation, and does not route to ralph. If housekeeping unexpectedly turns into content changes (for example a conflicted rebase that needs code edits), re-route from the new deliverable at that point.
+The always-injected OH_NO_BOOTSTRAP no-route and direct-edit lanes apply as routing outcomes; do not re-derive them here.
 
 Routing map. Invoke the named skill BEFORE you respond:
 - Vague, broad, ambiguous, or requirement-light request: oh-no-harness:interview.
 - Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.
 - Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.
+- Trivial inert single-file edit meeting the direct-edit lane conditions: apply the direct edit with a diff check; no workflow skill.
 - Autonomous or end-to-end delivery request: oh-no-harness:ultrawork.
 - Failing test, failing command, regression, flaky behavior, or unknown root cause: oh-no-harness:systematic-debugging. A bug with a known cause and a localized fix: oh-no-harness:ralph.
 - Hard stalled problem after ordinary analysis/debugging, or explicit fusion rescue request: oh-no-harness:fusion-rescue.
@@ -190,7 +193,7 @@ Routing map. Invoke the named skill BEFORE you respond:
 
 After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
 
-Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first; routing may legitimately resolve to the no-route lane when its conditions above hold, but do not use these phrases to skip the decision. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work; small concrete edits stay in ralph and may qualify for its STANDARD small-task carve-out.
+Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first; routing may legitimately resolve to the no-route lane when the OH_NO_BOOTSTRAP lane conditions hold, but do not use these phrases to skip the decision. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work; small concrete edits stay in ralph and may qualify for its STANDARD small-task carve-out unless they meet the direct-edit lane.
 
 If an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
 </OH_NO_FORCED_ROUTING>'

@@ -6,10 +6,11 @@ argument-hint: "[on|off|status]"
 
 # Auto Routing
 
-Auto Routing controls whether a supported platform bootstrap hook adds stronger
-skill-selection guidance to `using-oh-no-harness`.
-
-It does not add hidden runtime routing. It only changes persistent user preference for the SessionStart prompt.
+Every platform bootstrap always carries compact native skill-loading guidance
+plus the baseline no-route and direct-edit lanes from `using-oh-no-harness`.
+Auto Routing controls whether Claude Code SessionStart adds the stronger
+forced-routing layer. The toggle only adds or removes that opt-in layer; it does
+not change the baseline lanes on any platform or add hidden runtime routing.
 
 ## Software Development Stage
 

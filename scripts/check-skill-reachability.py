@@ -65,6 +65,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Orchestration Ownership Boundary", BOTH),
         ("repository work-product mutation is", BOTH),
         ("orchestration state, not inline implementation", BOTH),
+        ("Direct-edit lane", BOTH),
     ],
     "auto-routing": [
         # The retired executor-delegation toggle has no replacement in this

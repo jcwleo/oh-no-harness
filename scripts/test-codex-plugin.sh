@@ -950,6 +950,8 @@ if "Use native skill loading to read the relevant Oh No Harness skill when it ap
     raise SystemExit("Codex SessionStart is missing compact native skill-loading guidance")
 required = [
     "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
+    "No-route lane",
+    "Direct-edit lane",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "sub-agents, delegation, and parallel agent work proactively",
     "explicit user request for eligible Oh No Harness workflow",
@@ -988,7 +990,7 @@ for forbidden in (
 ):
     if forbidden in text:
         raise SystemExit(f"Codex SessionStart still routes ordinary implementation to TDD: {forbidden}")
-if len(text) > 4000:
+if len(text) > 5200:
     raise SystemExit(f"Codex SessionStart default context is too large: {len(text)} chars")
 for forbidden in ("CLAUDE_CODE_ONLY", "AskUserQuestion"):
     if forbidden in text:

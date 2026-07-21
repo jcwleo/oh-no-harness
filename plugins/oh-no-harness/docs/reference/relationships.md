@@ -6,7 +6,7 @@
 Claude Code SessionStart
   -> hooks/run-hook.cmd session-start
   -> hooks/session-start
-  -> compact native skill-loading bootstrap
+  -> compact native skill-loading bootstrap with baseline no-route and direct-edit lanes
   -> OH_NO_FORCED_ROUTING only when auto-routing is enabled
   -> <OH_NO_MODEL_DIVERSITY> on every Claude Code session, using validated stored top-tier/secondary settings or the built-in top-tier fallback
   -> scripts/configure-subagents reapply best-effort after plugin-cache updates

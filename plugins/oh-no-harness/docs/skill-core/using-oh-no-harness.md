@@ -14,7 +14,7 @@ skill documents compose this shared core with the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. Small concrete edits route to `ralph`, which may apply its own STANDARD small-task carve-out; there is no separate direct-edit lane that bypasses `ralph`. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. A strictly trivial inert edit may qualify for the router-owned direct-edit lane defined below; every other concrete edit routes to `ralph`, which may apply its own STANDARD small-task carve-out. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -36,6 +36,28 @@ install, tool or editor config). Committing or pushing existing work is
 housekeeping, not implementation, and does not route to `ralph`. If
 housekeeping unexpectedly turns into content changes — for example a conflicted
 rebase that needs code edits — re-route from the new deliverable at that point.
+
+Direct-edit lane eligibility requires ALL of these conditions: one obvious file;
+an inert edit — prose, comments, or formatting whose file is not consumed by
+runtime, build, test, CI, dependency resolution, or an operational procedure;
+the file is not generated and, when it is a generation source, regeneration and
+validation run in the same action; and no security, permission, or public-contract
+surface.
+The lane never covers executable source, tests, build, CI, or hook definitions,
+dependency or lockfile metadata, repository ignore or attribute files, schema or
+migration content, or documents whose text drives destructive or operational
+commands, regardless of size. Renames and behavior-preserving refactors of
+executable source are not inert; they are `ralph` work, and refactors carry TDD
+characterization. Positive examples are a README wording or typo fix and
+non-consumed documentation prose; a one-line `.gitignore` addition, a variable
+rename, or a runbook command tweak routes to `ralph`. The minimum procedure is
+the direct edit plus a diff check, with regeneration and validation in that same
+action when the file is a generation source. This lane is a router outcome, not
+a public skill. It bypasses `ralph` mode, small-task carve-out, and worktree
+machinery precisely because its eligibility excludes the behavior and contract
+surfaces those gates protect. Any standing platform mutation-dispatch policy
+still governs WHO applies the edit. If any condition fails, including a condition
+discovered mid-edit, re-route to `ralph` from that point.
 
 ## Orchestration Ownership Boundary
 
@@ -59,14 +81,14 @@ The available public skills are:
 - `fusion-rescue`: run bounded three-panel rescue analysis with mandatory adversarial critique and fallback-aware synthesis when a hard problem stalls.
 
 This router decides WHERE a request goes; the destination skill owns and
-executes its own rules. The worktree gate, execution modes, and the
-small-task carve-out are `ralph`-owned (its generated document carries the
-decision table and mode definitions); this skill only needs to know those
-routes exist.
+executes its own rules, while the direct-edit lane is this router's own
+outcome. The worktree gate, execution modes, and the small-task carve-out are
+`ralph`-owned (its generated document carries the decision table and mode
+definitions); this skill only needs to know those routes exist.
 
 ## Recommended Development Flow
 
-For LLM software development, prefer this order when the request is not already a small, concrete edit:
+For LLM software development, prefer this order when the request is not already a direct-edit-eligible mutation or another small, concrete edit:
 
 1. `using-oh-no-harness`: route the request and choose the right workflow surface.
 2. `interview`: for vague or requirement-light work.
@@ -83,10 +105,10 @@ For LLM software development, prefer this order when the request is not already 
 loop to the agent; Ultrawork records its internal approvals and only pauses for
 the user when a documented pause condition or unclear requirements require it.
 
-Small concrete tasks may skip `interview` and `ralplan`, but `ralph` still
-must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode before editing and
-must follow the relevant TDD, debugging, cleanup, and verification gates for
-that mode.
+Except for direct-edit-eligible mutations, small concrete tasks may skip
+`interview` and `ralplan`, but still enter `ralph`; `ralph` must set a `LIGHT`,
+`STANDARD`, or `THOROUGH` execution mode before editing and follow the relevant
+TDD, debugging, cleanup, and verification gates for that mode.
 
 A small behavior-changing task that meets `ralph`'s STANDARD small-task
 carve-out is the lightweight path: it waives only reviewer dispatch, not
@@ -110,7 +132,9 @@ Default ordinary implementation requests to `ralph`, not
 and does not explicitly ask for TDD, test-first, RED/GREEN/REFACTOR, or a
 failing test first, select `ralph` for concrete implementation (or
 `systematic-debugging` when failure/root-cause investigation is still needed)
-and let that workflow invoke TDD internally when behavior changes.
+and let that workflow invoke TDD internally when behavior changes. The
+router-owned direct-edit lane is the exception only for eligible non-behavioral
+mutations.
 
 The host agent, not the user, operates the workflow. The active generated
 runtime skill document composes the selected skill core, invokes any allowed
@@ -124,6 +148,8 @@ When describing the staged workflow, call the requirements-discovery stage `inte
 
 For write-capable coding work, the worktree gate applies before source files
 are edited; `ralph` owns the decision table and `ultrawork` owns merge-back.
+The direct-edit lane edits the current checkout directly; its strict eligibility
+conditions are what make bypassing that machinery safe.
 
 `interview` and `ralplan` do not need a worktree by default because they produce
 pre-execution artifacts; the worktree gate starts at execution. Direct `ralph`

@@ -2410,6 +2410,8 @@ def assert_hook_contract(root: Path) -> None:
         "rg --files",
         "Use native skill loading",
         "using-oh-no-harness",
+        "No-route lane",
+        "Direct-edit lane",
         "OH_NO_FORCED_ROUTING",
         "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
         "CODEX_ONLY_OH_NO_READONLY_EXPLORATION_DELEGATION",

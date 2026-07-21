@@ -49,7 +49,7 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Skills are the public workflow stages**; **agents are internal role prompts** the skills (or the host's subagent mechanism) call. Skills own stage selection, artifact creation, approval gates, and next-skill handoffs.
 - **Skill chaining is explicit Markdown only** — no hidden automation. Skill bodies must not contain `Task(...)` / `Skill(...)` calls; the validator rejects them. A skill that hands off presents a `Next Skill Handoff` and the caller decides.
 - **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
-- **One plugin hook entrypoint only:** the `SessionStart` bootstrap provides skill-loading guidance, appends forced-routing when auto-routing is enabled, always injects the Claude-Code model-diversity block, and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
+- **One plugin hook entrypoint only:** the `SessionStart` bootstrap provides skill-loading guidance with baseline no-route/direct-edit routing lanes, appends forced-routing when auto-routing is enabled, always injects the Claude-Code model-diversity block, and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
 
 ## Commands
 
