@@ -12,25 +12,32 @@ The following CLIs must be on `PATH`:
 
 ## Install your local checkout as a plugin
 
-Maintainers do **not** install from GitHub. Instead, register the working tree directly with both runtimes:
+Register the working tree directly with both runtimes — but keep it out of the
+daily-use `oh-no-harness` registration (see the root `CLAUDE.md` warning). The
+Claude script **fails closed** if a local source would be registered into your
+real `~/.claude` config, so isolate the config home with `--isolated-config`:
 
 ```sh
 # Run from the repository root.
 
-# Claude Code: declare local marketplace + install in user scope by default.
-# Refreshes the plugin cache whenever the working tree differs from cache.
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
+# Claude Code: --isolated-config installs into a throwaway config home (created
+# and cleaned up by the script) so the local checkout never overwrites your
+# daily-use GitHub registration. Refreshes the plugin cache whenever the working
+# tree differs from cache.
+scripts/test-claude-plugin.sh --isolated-config
 
 # Codex: exercise the /plugins install path from the root marketplace wrapper.
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
+OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 ```
 
-Install locations:
+Install locations (relative to the config home the script uses):
 
-- Claude Code → `~/.claude/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
-- Codex → `~/.codex/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
+- Claude Code → `$CLAUDE_CONFIG_DIR/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
+- Codex → `$CODEX_HOME/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
 
-After this, both runtimes load skills, agents, and hooks from their installed plugin cache on every session start.
+For a persistent daily-use install, follow the root `CLAUDE.md`: install from the
+GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin
+cache, and use these smoke scripts to verify local changes in isolation.
 
 ## Development cycle
 
@@ -51,16 +58,19 @@ python3 scripts/validate-plugin-files.py .
 Full validation (static + local install/update for both runtimes):
 
 ```sh
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh
+scripts/test-claude-plugin.sh --isolated-config
+OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 ```
 
-Live model smoke tests (cost real budget — opt-in):
+Live model smoke tests (cost real budget — opt-in). Live needs real auth in
+`~/.claude`, so pair `--live` with `--no-install`: the script loads the plugin
+straight from this checkout (`--plugin-dir`) and never adds, removes, or
+overwrites any marketplace registration:
 
 ```sh
-scripts/test-claude-plugin.sh --live              # all 11 public skills, light prompts
-scripts/test-claude-plugin.sh --live-hook-only    # SessionStart + auto-routing only
-scripts/test-claude-plugin.sh --deep-live         # linked support-doc dereferencing
+scripts/test-claude-plugin.sh --no-install --live              # all 11 public skills, light prompts
+scripts/test-claude-plugin.sh --no-install --live-hook-only    # SessionStart + auto-routing only
+scripts/test-claude-plugin.sh --no-install --deep-live         # linked support-doc dereferencing
 scripts/test-codex-plugin.sh --live
 scripts/test-codex-plugin.sh --deep-live
 scripts/test-codex-plugin.sh --named-agents-live # user-scope oh-no-* agent_type dispatch
@@ -72,7 +82,10 @@ Useful overrides:
 - `OH_NO_TEST_MODEL=sonnet` / `OH_NO_MAX_BUDGET_USD=0.50` — tune general live model + budget
 - `OH_NO_FUSION_RESCUE_MODEL=opus` / `OH_NO_FUSION_RESCUE_MAX_BUDGET_USD=10.00` — tune Fusion Rescue model-diversity panel live validation
 - `--codex-home /tmp/codex-test` — isolate Codex test installs to a throwaway home
+- `--isolated-config` — isolate the Claude install into a throwaway config home the script creates and cleans up (required to register a local-source marketplace without touching your real `~/.claude`)
+- `--no-install` — load the plugin from this checkout via `--plugin-dir` without adding, removing, or updating any marketplace registration (pair with `--live` so live tests keep your real `~/.claude` auth)
 - `--marketplace-source jcwleo/oh-no-harness` — test the public GitHub marketplace source instead of the local checkout
+- `OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1` — deliberately register a local-source marketplace into the real `~/.claude` config (bypasses the fail-closed gate; rarely wanted)
 - `plugins/oh-no-harness/scripts/install-codex-agents` — install optional Codex custom agents into user scope by default (`$CODEX_HOME/agents` or `~/.codex/agents`); Codex SessionStart quietly ensures generated files and Ralph preflight repeats that ensure only as fallback
 
 ## Release
@@ -88,11 +101,13 @@ What `--push` does end-to-end:
 1. Validates the version arg (semver: `0.2.2` or `v0.2.2`)
 2. Refuses if tree is dirty, you're not on `main`, or the tag exists locally/remote
 3. Rewrites `version` in `plugins/oh-no-harness/.claude-plugin/plugin.json` and `plugins/oh-no-harness/.codex-plugin/plugin.json`
-4. Runs `validate-plugin-files.py` + Claude/Codex install tests
-5. Creates `chore: release v0.2.2` commit if version files changed
-6. Creates annotated tag `v0.2.2`
-7. Pushes `main` and the tag
-8. Publishes a GitHub Release via `gh release create --latest --generate-notes`
+4. Runs the agent-wrapper `--check` and `validate-plugin-files.py`
+5. Creates a `chore: release v0.2.2` commit if version files changed
+6. With `--push`: pushes `main` to origin **before** the install tests — the Claude marketplace syncs from GitHub, so the tests can only verify content already on `origin/main`
+7. Runs the Codex install test, then the Claude install test when local `HEAD` matches `origin/main`. The Claude test derives a credential-free `owner/repo` slug from `origin` and runs with `--isolated-config` + `OH_NO_INSTALL=1`, so it installs the GitHub-synced marketplace into a throwaway config home and verifies the pushed revision without touching your real `~/.claude`
+8. Creates annotated tag `v0.2.2`
+9. Builds release notes from `git log <prev-tag>..<tag>`, grouped by conventional-commit prefix
+10. With `--push`: pushes the tag, then publishes a GitHub Release via `gh release create` with the generated `--notes-file` (`--prerelease` for `0.x`, `--latest` for `1.x` and later)
 
 Skip flags:
 

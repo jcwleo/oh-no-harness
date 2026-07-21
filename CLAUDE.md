@@ -18,7 +18,7 @@ Do not register this development checkout as a `directory`-source marketplace fo
 - `configure-subagents` refuses to run against a Git checkout (generator-owned agents), so subagent model/effort preferences silently never apply — agents run on the generator defaults committed in `agents/*.md`.
 - Uncommitted working-tree edits leak into live sessions, and debugging "which file is actually loaded" wastes time (cache vs. checkout confusion).
 
-The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin cache, and test local changes with the sandboxed smoke scripts (`scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh`), which register the checkout under a temp scope on their own. Only use a `directory` marketplace registration temporarily, and remove it afterwards.
+The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin cache, and test local changes with the sandboxed smoke scripts (`scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh`). The Claude smoke script **fails closed** rather than register a marketplace from a local source into your real `~/.claude`; run it with `--isolated-config` (a throwaway config home the script creates and cleans up) so the checkout never becomes your daily-use registration. Only use a `directory` marketplace registration temporarily, and remove it afterwards.
 
 ## What this is
 
@@ -73,13 +73,17 @@ python3 scripts/check-skill-reachability.py --platform codex --plugin-root plugi
 python3 scripts/check-skill-reachability.py --platform claude --plugin-root plugins/oh-no-harness
 
 # Local install + offline smoke tests (resyncs the plugin cache when source differs).
-OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-claude-plugin.sh
+# The Claude script fails closed if it would register a local-source marketplace
+# into your real ~/.claude, so isolate the config home (auto-created and cleaned):
+scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 
-# Live model smoke tests — cost real budget, opt-in. Closest thing to a "single test":
-scripts/test-claude-plugin.sh --live-hook-only     # SessionStart + auto-routing only
-scripts/test-claude-plugin.sh --live              # all 11 public skills, light prompts
-scripts/test-claude-plugin.sh --deep-live         # linked support-doc dereferencing
+# Live model smoke tests — cost real budget, opt-in. Closest thing to a "single test".
+# Live needs real auth in ~/.claude, so pair --live with --no-install: it loads the
+# plugin from this checkout (--plugin-dir) and never touches your marketplace registration.
+scripts/test-claude-plugin.sh --no-install --live-hook-only  # SessionStart + auto-routing only
+scripts/test-claude-plugin.sh --no-install --live            # all 11 public skills, light prompts
+scripts/test-claude-plugin.sh --no-install --deep-live       # linked support-doc dereferencing
 scripts/test-codex-plugin.sh --named-agents-live  # user-scope oh-no-* agent_type dispatch
 
 # Release from a clean main (validates, bumps both plugin.json versions, tags, pushes, publishes).
@@ -89,7 +93,7 @@ scripts/release 1.5.2 --push        # omit --push to stop after local commit+tag
 Useful live-test overrides: `OH_NO_TEST_MODEL=sonnet`, `OH_NO_MAX_BUDGET_USD=0.50`, `OH_NO_FUSION_RESCUE_MODEL=opus`, `--scope user`.
 
 **Gotchas:**
-- The install smoke scripts register the marketplace from `OH_NO_MARKETPLACE_SOURCE` (default: this checkout). Use a temp `--codex-home` or a distinct `OH_NO_MARKETPLACE_NAME` when you do not want to disturb an existing local marketplace registration.
+- The install smoke scripts register the marketplace from `OH_NO_MARKETPLACE_SOURCE` (default: this checkout). The Claude script now **fails closed** whenever a local source would be registered into the real default `~/.claude` config (that combo silently overwrote the daily-use GitHub registration during release `1.7.2`); a distinct `OH_NO_MARKETPLACE_NAME` is **not** treated as safe, since it still mutates the real config. Isolate with `--isolated-config`, point at a validated remote `--marketplace-source jcwleo/oh-no-harness`, or (to overwrite the real config on purpose) `OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1`. Codex isolates with a temp `--codex-home`.
 - Live tests can exceed the default ~$1 budget on large diffs — raise `OH_NO_MAX_BUDGET_USD`.
 - Codex live tests need your Codex auth copied into the temp `--codex-home` when you use an isolated Codex home.
 

@@ -14,6 +14,8 @@ PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
 MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 REQUESTED_SCOPE="${OH_NO_PLUGIN_SCOPE:-}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
+ISOLATED_CONFIG="${OH_NO_ISOLATED_CONFIG:-0}"
+ISOLATED_CONFIG_HOME=""
 RUN_LIVE="${OH_NO_LIVE:-0}"
 RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
 RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
@@ -100,6 +102,11 @@ Options:
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
+  --isolated-config      Create a throwaway CLAUDE_CONFIG_DIR for this run and
+                         remove it on EXIT/INT/TERM, so install/marketplace steps
+                         never touch your real ~/.claude. Use for offline/install
+                         runs; live tests need real auth, so pair --live with
+                         --no-install instead.
   --scope <scope>        Install/update scope: local, project, user, managed.
                          Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
@@ -111,6 +118,17 @@ Options:
   --max-budget-usd <n>   Per-command max budget for live tests. Default: 3.00.
   -h, --help             Show this help.
 
+Safety:
+  The install step refuses to register a LOCAL (or unrecognized) marketplace
+  source into your real Claude config, because that can overwrite the daily-use
+  'oh-no-harness' GitHub registration with this checkout. A different
+  OH_NO_MARKETPLACE_NAME is NOT a safe path (it still writes a local registration
+  into the real config). Make it safe with --isolated-config (a throwaway config
+  home; keep it for offline/install runs since it lacks auth) or a validated
+  GitHub source (--marketplace-source jcwleo/oh-no-harness). Live tests need real
+  auth, so pair --live with --no-install (plugin-dir load, no marketplace change).
+  Set OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1 to overwrite it on purpose.
+
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
   OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_TEST_MODEL,
@@ -120,7 +138,8 @@ Environment overrides:
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_TIMEOUT_SECONDS, OH_NO_LIVE_TIMEOUT_GRACE_SECONDS,
-  OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE
+  OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE,
+  OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE, OH_NO_ISOLATED_CONFIG
 USAGE
 }
 
@@ -177,6 +196,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-install)
       INSTALL_MODE=0
+      shift
+      ;;
+    --isolated-config)
+      ISOLATED_CONFIG=1
       shift
       ;;
     --scope)
@@ -244,6 +267,23 @@ ok() {
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+cleanup_isolated_config() {
+  [[ -n "${ISOLATED_CONFIG_HOME:-}" ]] && rm -rf "$ISOLATED_CONFIG_HOME"
+  ISOLATED_CONFIG_HOME=""
+}
+
+# Own a throwaway config home for this run and guarantee its removal on normal
+# exit, failure, and interrupt. Exporting CLAUDE_CONFIG_DIR redirects every
+# `claude` call (and cached_plugin_root) into the temp home.
+setup_isolated_config() {
+  ISOLATED_CONFIG_HOME="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-config.XXXXXX")"
+  export CLAUDE_CONFIG_DIR="$ISOLATED_CONFIG_HOME"
+  trap cleanup_isolated_config EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  log "Using isolated Claude config home: $ISOLATED_CONFIG_HOME"
 }
 
 snapshot_file_manifest() {
@@ -428,6 +468,49 @@ for item in data:
         sys.exit(0)
 sys.exit(1)
 ' "$MARKETPLACE_NAME"
+}
+
+# Shared source classification / config-identity primitive (also used by
+# scripts/release), so the two tools cannot drift on what counts as a local vs.
+# remote source or as the real config home.
+marketplace_source_tool() {
+  "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/marketplace_source.py" "$@"
+}
+
+# Fail-closed safety gate for the install path. Registering a LOCAL source (or an
+# unrecognized/invalid one) into the REAL default Claude config can overwrite the
+# daily-use `oh-no-harness` GitHub registration with a working-tree checkout (see
+# CLAUDE.md). Refuse that regardless of marketplace name — a non-canonical name is
+# not a safe path, it just pollutes the real config with another local
+# registration. Isolation makes it safe:
+#   - an isolated config home (--isolated-config, or a non-default CLAUDE_CONFIG_DIR), or
+#   - a validated GitHub --marketplace-source (e.g. jcwleo/oh-no-harness).
+# The explicit OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1 opt-in overrides a LOCAL
+# source; an invalid source is always refused.
+guard_canonical_local_marketplace() {
+  # Symlink/`.`/`..`/trailing-slash aware; unset/empty => $HOME/.claude.
+  local identity
+  identity="$(marketplace_source_tool config-identity "${CLAUDE_CONFIG_DIR:-}" "$HOME")"
+  [[ "$identity" == "default" ]] || return 0   # isolated config cannot disturb the real one
+
+  local klass redacted
+  klass="$(marketplace_source_tool classify-source "$MARKETPLACE_SOURCE")"
+  redacted="$(marketplace_source_tool redact "$MARKETPLACE_SOURCE")"
+  case "$klass" in
+    remote)
+      return 0   # a validated GitHub source only re-syncs from the remote
+      ;;
+    local)
+      if [[ "${OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE:-0}" == "1" ]]; then
+        log "OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1: registering '${MARKETPLACE_NAME}' from a local source into your real Claude config on purpose (${redacted})"
+        return 0
+      fi
+      fail "refusing to register the '${MARKETPLACE_NAME}' marketplace from a LOCAL source (${redacted}) into your real Claude config: this can overwrite the daily-use GitHub registration with a working-tree checkout. Re-run with an isolated config (--isolated-config) or a validated GitHub --marketplace-source (e.g. jcwleo/oh-no-harness). To do it on purpose, set OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1."
+      ;;
+    *)
+      fail "refusing to register the '${MARKETPLACE_NAME}' marketplace from an unrecognized/invalid source (${redacted}) into your real Claude config. Use a validated GitHub --marketplace-source (e.g. jcwleo/oh-no-harness) or an isolated config (--isolated-config)."
+      ;;
+  esac
 }
 
 installed_scope_for_plugin() {
@@ -1141,6 +1224,8 @@ validate_manifests() {
 install_or_update_plugin() {
   [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping install/update (--no-install)"; return; }
 
+  guard_canonical_local_marketplace
+
   log "Ensuring Claude Code marketplace is registered"
   local target_scope
   local installed_scope=""
@@ -1161,14 +1246,16 @@ install_or_update_plugin() {
     fail "managed scope can only update an existing managed install; choose local, project, or user for a new install"
   fi
 
+  local source_for_log
+  source_for_log="$(marketplace_source_tool redact "$MARKETPLACE_SOURCE")"
   if marketplace_exists; then
-    log "Refreshing marketplace registration from ${MARKETPLACE_SOURCE}"
+    log "Refreshing marketplace registration from ${source_for_log}"
     "$CLAUDE_BIN" plugin marketplace remove "$MARKETPLACE_NAME"
   else
-    log "Adding marketplace from ${MARKETPLACE_SOURCE}"
+    log "Adding marketplace from ${source_for_log}"
   fi
   "$CLAUDE_BIN" plugin marketplace add --scope "$target_scope" "$MARKETPLACE_SOURCE"
-  ok "marketplace registered: ${MARKETPLACE_NAME} -> ${MARKETPLACE_SOURCE} (${target_scope})"
+  ok "marketplace registered: ${MARKETPLACE_NAME} -> ${source_for_log} (${target_scope})"
 
   if "$CLAUDE_BIN" plugin list --json \
       | "$PYTHON_BIN" -c 'import json, sys
@@ -4369,11 +4456,281 @@ run_configure_subagents_offline_test() {
     || fail "configure-subagents offline test suite failed"
 }
 
+# Deterministic regression for the marketplace-isolation safety design. Covers
+# the shared source/config primitive, the production install call-site (real
+# install_or_update_plugin driven by a logging fake CLAUDE_BIN), the release
+# invocation contract, and the --isolated-config cleanup lifecycle. It never runs
+# real `claude`, never touches the developer's real ~/.claude, and never mutates
+# any marketplace registration; a simulated user fixture is checked for
+# invariance.
+run_marketplace_isolation_offline_test() {
+  log "Running offline marketplace-isolation fail-closed regression"
+  local temp_root fake_home fixture helper before after rc out err
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-marketplace-guard.XXXXXX")"
+  fake_home="$temp_root/home"
+  helper="$REPO_ROOT/scripts/marketplace_source.py"
+  fixture="$fake_home/.claude/plugins/marketplaces/oh-no-harness/.git/config"
+  mkdir -p "$(dirname "$fixture")"
+  printf '[remote "origin"]\n\turl = https://github.com/jcwleo/oh-no-harness.git\n' >"$fixture"
+
+  before="$temp_root/before.manifest"
+  after="$temp_root/after.manifest"
+  snapshot_file_manifest "$fake_home" >"$before"
+
+  # ---- shared primitive: source-classification matrix ---------------------
+  local s src expect actual cfg
+  for s in \
+    "$REPO_ROOT=local" \
+    "file:///tmp/x=local" \
+    "/abs/path=local" \
+    "./rel=local" \
+    "../rel=local" \
+    "~/x=local" \
+    "jcwleo/oh-no-harness=remote" \
+    "https://github.com/jcwleo/oh-no-harness.git=remote" \
+    "https://github.com/jcwleo/oh-no-harness=remote" \
+    "git@github.com:jcwleo/oh-no-harness.git=remote" \
+    "ssh://git@github.com/jcwleo/oh-no-harness.git=remote" \
+    "http://github.com/a/b=invalid" \
+    "https://gitlab.com/a/b=invalid" \
+    "https://user:tok@github.com/a/b=invalid" \
+    "https://github.com/a/b?x=1=invalid" \
+    "singleword=invalid" \
+  ; do
+    expect="${s##*=}"; src="${s%=*}"
+    actual="$("$PYTHON_BIN" "$helper" classify-source "$src")"
+    [[ "$actual" == "$expect" ]] \
+      || { rm -rf "$temp_root"; fail "classify-source('$src')='$actual' expected '$expect'"; }
+  done
+
+  # ---- shared primitive: github-slug parse + credential rejection ---------
+  for s in \
+    "https://github.com/jcwleo/oh-no-harness.git" \
+    "https://github.com/jcwleo/oh-no-harness" \
+    "git@github.com:jcwleo/oh-no-harness.git" \
+    "ssh://git@github.com/jcwleo/oh-no-harness.git" \
+  ; do
+    actual="$("$PYTHON_BIN" "$helper" github-slug "$s")"
+    [[ "$actual" == "jcwleo/oh-no-harness" ]] \
+      || { rm -rf "$temp_root"; fail "github-slug('$s')='$actual' expected jcwleo/oh-no-harness"; }
+  done
+  out="$temp_root/slug.out"; err="$temp_root/slug.err"
+  for s in \
+    "http://github.com/a/b" \
+    "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" \
+    "https://gitlab.com/a/b" \
+    "https://github.com:443/a/b" \
+    "ssh://user@github.com/a/b" \
+  ; do
+    rc=0
+    "$PYTHON_BIN" "$helper" github-slug "$s" >"$out" 2>"$err" || rc=$?
+    [[ "$rc" != "0" ]] \
+      || { rm -rf "$temp_root"; fail "github-slug accepted an unsupported origin: $s"; }
+    grep -Fq "s3cr3t" "$out" "$err" \
+      && { rm -rf "$temp_root"; fail "github-slug leaked a credential from '$s'"; } || true
+  done
+
+  # ---- shared primitive: redaction ----------------------------------------
+  [[ "$("$PYTHON_BIN" "$helper" redact "https://x:s3cr3t@github.com/a/b")" == "https://***@github.com/a/b" ]] \
+    || { rm -rf "$temp_root"; fail "redact did not mask URL userinfo"; }
+  [[ "$("$PYTHON_BIN" "$helper" redact "/local/path")" == "/local/path" ]] \
+    || { rm -rf "$temp_root"; fail "redact altered a local path"; }
+
+  # ---- shared primitive: config-home identity (exact/trailing/dot/symlink) -
+  mkdir -p "$fake_home/.claude"
+  ln -s "$fake_home/.claude" "$temp_root/cfglink"
+  for s in \
+    "=default" \
+    "$fake_home/.claude=default" \
+    "$fake_home/.claude/=default" \
+    "$fake_home/.claude/.=default" \
+    "$fake_home/x/../.claude=default" \
+    "$temp_root/cfglink=default" \
+    "$temp_root/other-config=isolated" \
+  ; do
+    expect="${s##*=}"; cfg="${s%=*}"
+    actual="$("$PYTHON_BIN" "$helper" config-identity "$cfg" "$fake_home")"
+    [[ "$actual" == "$expect" ]] \
+      || { rm -rf "$temp_root"; fail "config-identity('$cfg')='$actual' expected '$expect'"; }
+  done
+
+  # ---- guard control flow (name-agnostic; blocker 1a) ----------------------
+  err="$temp_root/danger.err"
+  rc=0
+  (
+    unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE
+    HOME="$fake_home"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"
+    guard_canonical_local_marketplace
+  ) 2>"$err" || rc=$?
+  [[ "$rc" == "1" ]] \
+    || { rm -rf "$temp_root"; fail "guard did not block local source + default config (rc=$rc)"; }
+  grep -Fq "from a LOCAL source" "$err" \
+    || { rm -rf "$temp_root"; fail "guard block message missing the expected diagnostic"; }
+
+  # A non-canonical name is NOT a safe path.
+  rc=0
+  (
+    unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE
+    HOME="$fake_home"; MARKETPLACE_NAME="some-other-marketplace"; MARKETPLACE_SOURCE="$REPO_ROOT"
+    guard_canonical_local_marketplace
+  ) 2>/dev/null || rc=$?
+  [[ "$rc" == "1" ]] \
+    || { rm -rf "$temp_root"; fail "guard treated a non-canonical name + local + default as safe (rc=$rc)"; }
+
+  # An invalid source is always refused.
+  rc=0
+  (
+    unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE
+    HOME="$fake_home"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="http://github.com/a/b"
+    guard_canonical_local_marketplace
+  ) 2>/dev/null || rc=$?
+  [[ "$rc" == "1" ]] \
+    || { rm -rf "$temp_root"; fail "guard allowed an invalid source into the real config (rc=$rc)"; }
+
+  # Safe variants: isolated config, validated GitHub source, explicit opt-in.
+  rc=0
+  ( HOME="$fake_home"; CLAUDE_CONFIG_DIR="$temp_root/iso"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"; guard_canonical_local_marketplace ) 2>/dev/null || rc=$?
+  [[ "$rc" == "0" ]] || { rm -rf "$temp_root"; fail "guard blocked an isolated config (rc=$rc)"; }
+  rc=0
+  ( unset CLAUDE_CONFIG_DIR; HOME="$fake_home"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="jcwleo/oh-no-harness"; guard_canonical_local_marketplace ) 2>/dev/null || rc=$?
+  [[ "$rc" == "0" ]] || { rm -rf "$temp_root"; fail "guard blocked a validated GitHub source (rc=$rc)"; }
+  rc=0
+  ( unset CLAUDE_CONFIG_DIR; HOME="$fake_home"; OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"; guard_canonical_local_marketplace ) 2>/dev/null || rc=$?
+  [[ "$rc" == "0" ]] || { rm -rf "$temp_root"; fail "explicit opt-in did not override the guard (rc=$rc)"; }
+
+  # ---- production install call-site with a logging fake CLAUDE_BIN ---------
+  local fake_claude wire_log
+  fake_claude="$temp_root/fake-claude"
+  wire_log="$temp_root/wire.log"
+  cat >"$fake_claude" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\tCLAUDE_CONFIG_DIR=%s\n' "$*" "${CLAUDE_CONFIG_DIR:-}" >>"$FAKE_CLAUDE_LOG"
+case "$*" in
+  *"marketplace list"*) printf '[]\n' ;;
+  *"plugin list"*) printf '[]\n' ;;
+  *) : ;;
+esac
+exit 0
+FAKE
+  chmod +x "$fake_claude"
+
+  # Blocked case: the guard must fire before ANY CLI command runs.
+  : >"$wire_log"
+  rc=0
+  (
+    unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE
+    HOME="$fake_home"
+    export FAKE_CLAUDE_LOG="$wire_log"
+    CLAUDE_BIN="$fake_claude"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"
+    INSTALL_MODE=1; PLUGIN_ID="oh-no-harness@oh-no-harness"
+    install_or_update_plugin
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "1" ]] \
+    || { rm -rf "$temp_root"; fail "blocked install_or_update_plugin did not fail closed (rc=$rc)"; }
+  [[ ! -s "$wire_log" ]] \
+    || { local leaked; leaked="$(cat "$wire_log")"; rm -rf "$temp_root"; fail "blocked install path executed CLI commands: $leaked"; }
+
+  # Safe synthetic case: expected marketplace command + isolated env recorded.
+  : >"$wire_log"
+  rc=0
+  (
+    unset OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE
+    export FAKE_CLAUDE_LOG="$wire_log"
+    export CLAUDE_CONFIG_DIR="$temp_root/iso-wire"
+    CLAUDE_BIN="$fake_claude"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="jcwleo/oh-no-harness"
+    INSTALL_MODE=1; REQUESTED_SCOPE=""; PLUGIN_ID="oh-no-harness@oh-no-harness"
+    install_or_update_plugin
+  ) >/dev/null 2>&1 || true
+  grep -q "plugin marketplace add" "$wire_log" \
+    || { rm -rf "$temp_root"; fail "safe install path did not run marketplace add"; }
+  grep "plugin marketplace add" "$wire_log" | grep -Fq "CLAUDE_CONFIG_DIR=$temp_root/iso-wire" \
+    || { rm -rf "$temp_root"; fail "marketplace add did not carry the isolated config env"; }
+  grep -q "plugin install" "$wire_log" \
+    || { rm -rf "$temp_root"; fail "safe install path did not run plugin install"; }
+
+  # --no-install / OH_NO_INSTALL=0 must skip install (and the guard) entirely.
+  rc=0
+  (
+    unset CLAUDE_CONFIG_DIR; HOME="$fake_home"
+    CLAUDE_BIN="/bin/false"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"
+    INSTALL_MODE=0
+    install_or_update_plugin
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "0" ]] \
+    || { rm -rf "$temp_root"; fail "--no-install did not skip the install/guard path (rc=$rc)"; }
+
+  # ---- release invocation contract (guard/call-site removal must fail) -----
+  local rel_log="$temp_root/release-invoke.log"
+  : >"$rel_log"
+  (
+    source "$REPO_ROOT/scripts/release"
+    run() { printf 'ARGV=%s\nSRC=%s\nINSTALL=%s\n' "$*" "${OH_NO_MARKETPLACE_SOURCE:-}" "${OH_NO_INSTALL:-}"; }
+    MARKETPLACE_NAME="oh-no-harness"
+    run_claude_install_test "jcwleo/oh-no-harness"
+  ) >"$rel_log" 2>/dev/null || true
+  grep -q 'ARGV=.*scripts/test-claude-plugin.sh.*--isolated-config' "$rel_log" \
+    || { rm -rf "$temp_root"; fail "release Claude invocation missing --isolated-config"; }
+  grep -q '^SRC=jcwleo/oh-no-harness$' "$rel_log" \
+    || { rm -rf "$temp_root"; fail "release Claude invocation did not pass the credential-free slug"; }
+  grep -q '^INSTALL=1$' "$rel_log" \
+    || { rm -rf "$temp_root"; fail "release Claude invocation did not force OH_NO_INSTALL=1"; }
+
+  # A hostile inherited OH_NO_INSTALL=0 must be overridden to 1.
+  : >"$rel_log"
+  (
+    source "$REPO_ROOT/scripts/release"
+    run() { printf 'INSTALL=%s\n' "${OH_NO_INSTALL:-}"; }
+    export OH_NO_INSTALL=0
+    MARKETPLACE_NAME="oh-no-harness"
+    run_claude_install_test "jcwleo/oh-no-harness"
+  ) >"$rel_log" 2>/dev/null || true
+  grep -q '^INSTALL=1$' "$rel_log" \
+    || { rm -rf "$temp_root"; fail "release did not override an inherited OH_NO_INSTALL=0"; }
+
+  # Release derives a credential-free slug and rejects unsupported origins.
+  local slug
+  slug="$( ( source "$REPO_ROOT/scripts/release"; github_slug_from_origin "git@github.com:jcwleo/oh-no-harness.git" ) 2>/dev/null )"
+  [[ "$slug" == "jcwleo/oh-no-harness" ]] \
+    || { rm -rf "$temp_root"; fail "release did not parse a valid origin to a slug (got '$slug')"; }
+  out="$temp_root/rel-slug.out"; err="$temp_root/rel-slug.err"
+  rc=0
+  ( source "$REPO_ROOT/scripts/release"; github_slug_from_origin "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" ) >"$out" 2>"$err" || rc=$?
+  [[ "$rc" != "0" ]] \
+    || { rm -rf "$temp_root"; fail "release accepted a credentialed origin URL"; }
+  grep -Fq "s3cr3t" "$out" "$err" \
+    && { rm -rf "$temp_root"; fail "release leaked a credential from the origin URL"; } || true
+
+  # ---- --isolated-config cleanup lifecycle (success/failure/INT/TERM) ------
+  local iso_home
+  iso_home="$(bash -c 'set -euo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"' 2>/dev/null)"
+  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
+    || { rm -rf "$temp_root"; fail "isolated config not cleaned on success (home=$iso_home)"; }
+  iso_home="$(bash -c 'set -uo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"; exit 1' 2>/dev/null || true)"
+  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
+    || { rm -rf "$temp_root"; fail "isolated config not cleaned on failure (home=$iso_home)"; }
+  iso_home="$(bash -c 'set -uo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"; kill -INT $$; sleep 5' 2>/dev/null || true)"
+  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
+    || { rm -rf "$temp_root"; fail "isolated config not cleaned on INT (home=$iso_home)"; }
+  iso_home="$(bash -c 'set -uo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"; kill -TERM $$; sleep 5' 2>/dev/null || true)"
+  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
+    || { rm -rf "$temp_root"; fail "isolated config not cleaned on TERM (home=$iso_home)"; }
+
+  # The simulated user marketplace fixture is byte-for-byte unchanged.
+  snapshot_file_manifest "$fake_home" >"$after"
+  cmp -s "$before" "$after" \
+    || { rm -rf "$temp_root"; fail "regression mutated the simulated user marketplace fixture"; }
+
+  rm -rf "$temp_root"
+  ok "marketplace-isolation: shared primitive, guarded install call-site, release contract, and isolated-config cleanup all verified"
+}
+
 
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
   require_command "$PYTHON_BIN"
+
+  [[ "$ISOLATED_CONFIG" == "1" ]] && setup_isolated_config
 
   log "Testing ${PLUGIN_ID} from ${PLUGIN_ROOT}"
   validate_manifests
@@ -4383,6 +4740,7 @@ main() {
   run_escape_net_offline_test
   run_active_stale_scan_reader_offline_test
   run_configure_subagents_offline_test
+  run_marketplace_isolation_offline_test
   validate_frontmatter
   install_or_update_plugin
   run_live_tests

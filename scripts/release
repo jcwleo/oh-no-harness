@@ -13,11 +13,17 @@
 #      registered Claude marketplace syncs from GitHub and can only deliver
 #      content that is already on origin/main.
 #   7. Runs the local Codex install test, then the Claude install test only
-#      when HEAD matches origin's main (verified live via ls-remote). In
+#      when HEAD matches origin's main (verified live via ls-remote). The
+#      Claude test derives a credential-free owner/repo slug from origin and
+#      runs with --isolated-config + OH_NO_INSTALL=1, so the child creates and
+#      cleans its own throwaway config home and installs the GitHub-synced
+#      marketplace by slug: it verifies the already-pushed revision and never
+#      mutates the real ~/.claude marketplace or settings. A non-GitHub or
+#      credentialed origin fails closed (or is skipped without --push). In
 #      --push mode a mismatch after the push is treated as a test failure,
 #      never a skip; in no-push mode the Claude test is skipped with an
-#      explanation when local content is not on origin yet. Live model
-#      smoke is skipped.
+#      explanation when local content is not on origin yet. Live model smoke
+#      is skipped.
 #   8. Creates an annotated tag `v{X.Y.Z}` on the release commit.
 #   9. With --push: pushes the tag to origin, then publishes a GitHub
 #      Release via gh CLI if available. 0.x releases are prereleases;
@@ -143,6 +149,51 @@ sys.stdout.write("\n".join(lines).rstrip() + "\n")
 PY
 }
 
+# Temp paths to remove on any exit (normal, failure, or interrupt). Populated as
+# temp dirs/files are created so a single trap cleans up every code path.
+cleanup_paths=()
+
+cleanup() {
+  local path
+  for path in ${cleanup_paths[@]+"${cleanup_paths[@]}"}; do
+    [ -n "$path" ] && rm -rf "$path"
+  done
+}
+
+# Derive a credential-free owner/repo slug from an origin URL via the shared
+# primitive. Exits non-zero with a generic message (never echoing the raw URL)
+# when origin is not a supported credential-free GitHub form, so a non-GitHub or
+# credentialed origin fails closed instead of leaking or registering junk.
+github_slug_from_origin() {
+  "$PYTHON_BIN" "$REPO_ROOT/scripts/marketplace_source.py" github-slug "$1"
+}
+
+# Run the Claude install test against the GitHub-synced marketplace, identified
+# by a credential-free owner/repo slug, inside the child's OWN isolated config
+# home (--isolated-config). OH_NO_INSTALL=1 forces the real install/verify path
+# (never a plugin-dir shortcut), so it actually exercises the pushed revision;
+# the child creates and cleans its temp config, so the developer's real
+# ~/.claude registration is never touched.
+run_claude_install_test() {
+  local slug="$1"
+  OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" \
+    OH_NO_MARKETPLACE_SOURCE="$slug" \
+    OH_NO_INSTALL=1 \
+    OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 \
+    OH_NO_RALPLAN_V2_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CROSS_HOST_FALLBACK_LIVE=0 \
+    OH_NO_CROSS_HOST_REVIEW_LIVE=0 OH_NO_RALPLAN_XHOST_LIVE=0 OH_NO_VBC_XHOST_LIVE=0 \
+    OH_NO_SYSDEBUG_XHOST_LIVE=0 OH_NO_PARALLEL_EXECUTOR_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 \
+    OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_LIVE_HOOK_ONLY=0 \
+    run scripts/test-claude-plugin.sh --isolated-config
+}
+
+# When sourced (e.g. by the offline regression test in
+# scripts/test-claude-plugin.sh) stop before the straight-line release body so
+# callers can exercise individual functions without cutting a real release.
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  return 0 2>/dev/null || true
+fi
+
 version_arg=""
 push="false"
 skip_tests="false"
@@ -232,17 +283,33 @@ if [ "$push" = "true" ]; then
   run git push origin main
 fi
 
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 if [ "$skip_tests" = "true" ]; then
   printf 'release: skipping local install tests (--skip-tests)\n'
 else
   tests_failed="false"
   codex_test_home="$(mktemp -d)"
+  cleanup_paths+=("$codex_test_home")
   OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_RALPLAN_V2_LIVE=0 OH_NO_NAMED_AGENTS_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_WORKTREE_LIVE=0 run scripts/test-codex-plugin.sh --codex-home "$codex_test_home" \
     || tests_failed="true"
   if [ "$tests_failed" = "false" ]; then
     if remote_main_matches_head; then
-      OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_RALPLAN_V2_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_CROSS_HOST_REVIEW_LIVE=0 OH_NO_RALPLAN_XHOST_LIVE=0 OH_NO_VBC_XHOST_LIVE=0 OH_NO_SYSDEBUG_XHOST_LIVE=0 OH_NO_PARALLEL_EXECUTOR_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_LIVE_HOOK_ONLY=0 run scripts/test-claude-plugin.sh \
-        || tests_failed="true"
+      # Verify the GitHub-synced marketplace inside the child's own isolated
+      # config home, so this check never touches the real ~/.claude registration.
+      # Derive a credential-free owner/repo slug from origin; a non-GitHub or
+      # credentialed origin cannot be verified and fails closed here.
+      claude_origin="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
+      if claude_slug="$(github_slug_from_origin "$claude_origin" 2>/dev/null)"; then
+        run_claude_install_test "$claude_slug" || tests_failed="true"
+      elif [ "$push" = "true" ]; then
+        printf 'release: origin is not a supported credential-free GitHub URL; refusing to run the Claude install test against an unverified marketplace source.\n' >&2
+        tests_failed="true"
+      else
+        printf 'release: skipping Claude install test: origin is not a supported credential-free GitHub URL, so the GitHub-synced marketplace cannot be verified.\n'
+      fi
     elif [ "$push" = "true" ]; then
       printf 'release: HEAD does not match main on origin even though main was just pushed (origin unreachable or main moved concurrently); refusing to skip the Claude install test.\n' >&2
       tests_failed="true"
@@ -263,7 +330,7 @@ fi
 run git tag -a "$tag" -m "$tag"
 
 notes_file="$(mktemp)"
-trap 'rm -f "$notes_file"' EXIT
+cleanup_paths+=("$notes_file")
 build_release_notes "$tag" >"$notes_file"
 
 if [ "$push" = "true" ]; then

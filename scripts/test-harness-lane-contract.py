@@ -50,6 +50,7 @@ CONTROL_FLAGS = {
     "claude": {
         "--skip-live",
         "--no-install",
+        "--isolated-config",
         "--scope",
         "--live-load",
         "--marketplace-source",

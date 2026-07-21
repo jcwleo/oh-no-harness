@@ -13,7 +13,10 @@ Use the root scripts for validation and release:
 
 ```sh
 python3 scripts/validate-plugin-files.py .
-scripts/test-claude-plugin.sh
+# The Claude smoke script fails closed unless it is isolated from your real
+# ~/.claude, so run it with --isolated-config (a throwaway config home the
+# script creates and cleans up automatically):
+scripts/test-claude-plugin.sh --isolated-config
 scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 ```
 
