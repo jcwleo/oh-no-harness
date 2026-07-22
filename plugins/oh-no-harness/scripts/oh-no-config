@@ -23,8 +23,27 @@ config_dir() {
     plugins_data="${HOME}/.claude/plugins/data"
   fi
   if [ -d "$plugins_data" ]; then
-    local match
-    match=$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | head -n 1)
+    local self mp match=""
+    # Derive the ACTIVE plugin-data identity from THIS script's own install location
+    # so the writer (configure-subagents' oh-no-config sibling) and the SessionStart
+    # reader always resolve the same dir. A real plugin-cache install lives at
+    # <config-home>/plugins/cache/<marketplace>/oh-no-harness/<version>/scripts/oh-no-config,
+    # whose matching data dir is oh-no-harness-<marketplace>.
+    self="${BASH_SOURCE[0]:-$0}"
+    case "$self" in
+      */plugins/cache/*/oh-no-harness/*/scripts/oh-no-config)
+        mp="${self%/oh-no-harness/*/scripts/oh-no-config}"
+        mp="${mp##*/}"
+        [ -n "$mp" ] && [ -d "${plugins_data}/oh-no-harness-${mp}" ] \
+          && match="${plugins_data}/oh-no-harness-${mp}"
+        ;;
+    esac
+    if [ -z "$match" ]; then
+      # Not a cache install (e.g. a --plugin-dir inline/dev load) or the derived dir is
+      # absent: deterministic, listing-order-independent fallback shared by writer and
+      # reader. head (not tail) preserves the working inline identity.
+      match="$(ls -1d "${plugins_data}"/*oh-no-harness* 2>/dev/null | LC_ALL=C sort | head -n 1)"
+    fi
     if [ -n "$match" ]; then
       printf '%s\n' "$match"
       return

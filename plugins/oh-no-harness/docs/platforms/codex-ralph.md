@@ -46,9 +46,22 @@ host rejection described below.
 Codex SessionStart is the sole automatic custom-agent preparation path: it
 runs `scripts/install-codex-agents --scope user --ensure --quiet`. Installed
 files carry the plugin version marker and pin role models. When a named
-`oh-no-*` agent type is not recognized, run
-`scripts/install-codex-agents --scope user --ensure` manually and retry. Use
-generic prompt-embedded dispatch only after confirmed custom-agent
+`oh-no-*` agent type is not recognized, resolve and run the installed installer,
+then retry:
+
+```bash
+tab="$(printf '\t')"
+cache="${CODEX_HOME:-$HOME/.codex}/plugins/cache"
+# Codex exposes no skill-visible plugin root, so cache-newest is the only reachable
+# path. Sort on the VERSION path component (full path only as tie-break) so a second
+# marketplace identity cannot let an older version win.
+script="$(find "$cache" -path '*/oh-no-harness/*/scripts/install-codex-agents' 2>/dev/null \
+  | awk -F/ '{for(i=NF;i>0;i--) if($i=="scripts"){print $(i-1)"\t"$0; break}}' \
+  | LC_ALL=C sort -t"$tab" -k1,1V -k2,2 | tail -n1 | cut -f2-)"
+"$script" --scope user --ensure
+```
+
+Use generic prompt-embedded dispatch only after confirmed custom-agent
 unavailability, and record the fallback reason.
 
 Dispatch order:

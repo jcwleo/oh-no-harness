@@ -741,17 +741,21 @@ resolver_case "CLAUDE_PLUGIN_DATA ignored" plugin-data-ignored
 resolver_case "CLAUDE_CONFIG_DIR plugins-data glob" claude-glob
 resolver_case "XDG fallback" xdg
 
-# A --plugin-dir session may create a lexically-earlier empty sibling beside the
-# populated fixture. The explicit override preserves writer/reader symmetry.
-echo "== resolver: explicit path avoids lexically-earlier empty plugin-data sibling =="
+# A cache install must select its active marketplace data identity even when a
+# lexically-earlier empty inline sibling coexists. The explicit override remains
+# a separate writer/reader symmetry guard.
+echo "== resolver: cache identity beats lexically-earlier empty plugin-data sibling =="
 setup_fixture
 collision_home="$WORK/claude-home"
-collision_fixture="$collision_home/plugins/data/oh-no-harness-live-fixture"
-mkdir -p "$collision_home/plugins/data/oh-no-harness-inline" "$collision_fixture"
+collision_fixture="$collision_home/plugins/data/oh-no-harness-oh-no-harness"
+cache_target="$collision_home/plugins/cache/oh-no-harness/oh-no-harness/9.9.9"
+mkdir -p "$collision_home/plugins/data/oh-no-harness-inline" "$collision_fixture" "$(dirname "$cache_target")"
+mv "$TARGET" "$cache_target"
+TARGET="$cache_target"
 env OH_NO_CONFIG_DIR="$collision_fixture" "$TARGET/scripts/configure-subagents" apply \
   --proxy no --secondary-top-model fable --top-tier-models "fable opus" $(native_assignments) >/dev/null
 hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
-printf '%s' "$hook_out" | grep -q 'secondary_top_model=' && bad "glob collision unexpectedly found populated fixture" || ok "glob collision resolves empty earlier sibling without explicit override"
+printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "cache identity resolves populated canonical fixture despite earlier sibling" || bad "cache identity did not resolve populated canonical fixture"
 hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" OH_NO_CONFIG_DIR="$collision_fixture" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
 printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "explicit override resolves populated fixture despite earlier sibling" || bad "explicit override did not resolve populated fixture"
 teardown_fixture
@@ -864,7 +868,12 @@ printf '%s' "$bootstrap_block" | grep -q 'configure-subagents' && bad "absent fr
 # overlay/core define the [check] status-only branch and safe argument-array shape
 grep -q 'check' "$SKILL_CORE" && ok "skill core documents the check branch" || bad "skill core check branch"
 grep -Fq '"${CLAUDE_PLUGIN_ROOT}/scripts/configure-subagents" check' "$SKILL_OVERLAY" && ok "overlay shows check invocation" || bad "overlay check invocation"
-grep -Fq 'find "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"' "$SKILL_OVERLAY" && ok "overlay shows located-script fallback" || bad "overlay fallback"
+grep -Fq 'find "$plugins/cache"' "$SKILL_OVERLAY" && ok "overlay fallback scans plugins/cache" || bad "overlay cache-scoped fallback"
+grep -Fq 'sort -t"$tab" -k1,1V -k2,2' "$SKILL_OVERLAY" && ok "overlay fallback sorts by version field" || bad "overlay version-field sort"
+grep -Fq '"oh-no-harness@oh-no-harness"' "$SKILL_OVERLAY" && ok "overlay scopes installPath to exact registry key" || bad "overlay exact registry key"
+direct_line="$(grep -nF '"${CLAUDE_PLUGIN_ROOT}/scripts/configure-subagents" check' "$SKILL_OVERLAY" | head -n1 | cut -d: -f1)"
+resolver_line="$(grep -nF 'plugins="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"' "$SKILL_OVERLAY" | head -n1 | cut -d: -f1)"
+[ -n "$direct_line" ] && [ -n "$resolver_line" ] && [ "$direct_line" -lt "$resolver_line" ] && ok "overlay keeps CLAUDE_PLUGIN_ROOT first" || bad "overlay CLAUDE_PLUGIN_ROOT ordering"
 
 # ---------------------------------------------------------------------------
 echo

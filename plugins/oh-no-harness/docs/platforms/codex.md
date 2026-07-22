@@ -191,15 +191,31 @@ success output to the session context. If installation fails or an unmarked user
 file blocks ensure, SessionStart keeps running and adds only a compact fallback
 warning.
 
+### Resolving the bundled installer path
+
+Codex has no skill-visible plugin root, so resolve the newest installed cache copy:
+
+```bash
+tab="$(printf '\t')"
+cache="${CODEX_HOME:-$HOME/.codex}/plugins/cache"
+# Codex exposes no skill-visible plugin root, so cache-newest is the only reachable
+# path. Sort on the VERSION path component (full path only as tie-break) so a second
+# marketplace identity cannot let an older version win.
+script="$(find "$cache" -path '*/oh-no-harness/*/scripts/install-codex-agents' 2>/dev/null \
+  | awk -F/ '{for(i=NF;i>0;i--) if($i=="scripts"){print $(i-1)"\t"$0; break}}' \
+  | LC_ALL=C sort -t"$tab" -k1,1V -k2,2 | tail -n1 | cut -f2-)"
+"$script" --scope user --ensure
+```
+
 SessionStart is the only automatic custom-agent ensure. Generated files include
 the installed plugin version marker, so a later plugin update can refresh stale
 `oh-no-*` agent definitions during SessionStart without requiring a repeated
 user prompt. If ensure fails or an unmarked user file blocks it, record the
 ensure failure but do not treat that failure alone as permission for generic
 prompt-embedded fallback. Continue with `agent_type = "oh-no-<role>"` if the
-current host recognizes that custom agent. If it does not, run
-`scripts/install-codex-agents --scope user --ensure` manually and retry; use
-generic prompt-embedded fallback only after confirmed custom-agent
+current host recognizes that custom agent. If it does not, run the resolver above
+with `--scope user --ensure` and retry; use generic prompt-embedded fallback only
+after confirmed custom-agent
 unavailability and record that fallback reason.
 
 Files ensured on disk are not the same thing as same-session named-agent
@@ -248,7 +264,7 @@ the selector workaround for every subagent failure.
 |---|---|
 | The model-visible tool has a hidden or unavailable `agent_type` selector | Explain that Multi-Agent v2 routing metadata is hidden. Recommend the selector recovery below, then require a Codex restart and a new task. |
 | A reserved `collaboration.spawn_agent` schema mismatch rejects routing fields | Recommend the selector recovery below. The non-reserved `agents` namespace allows the expanded routing schema. |
-| The host reports an unknown agent type such as `unknown agent_type 'oh-no-explore'` | This is an agent registration or installation failure, not a selector failure. Run `scripts/install-codex-agents --scope user --ensure`, then retry in a fresh task. |
+| The host reports an unknown agent type such as `unknown agent_type 'oh-no-explore'` | This is an agent registration or installation failure, not a selector failure. Run the resolver above with `--scope user --ensure`, then retry in a fresh task. |
 | The host reports `Provide either message or items, but not both` | Retry with one spawn payload shape only. Do not change the user's Codex config. |
 | A custom agent conflicts with a full-history fork | Omit `fork_context` and use `fork_turns = "none"`; put required scope and evidence in the spawn message. |
 | A wait times out, returns empty, or reports no completed agents | The child is not proven complete. Keep waiting or continue only non-overlapping work; never close a running or pending child merely because it is slow. |

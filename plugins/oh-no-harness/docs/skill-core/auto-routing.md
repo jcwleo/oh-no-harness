@@ -81,13 +81,7 @@ When the active platform runtime document exposes the plugin root:
 "<plugin-root>/scripts/oh-no-config" off
 ```
 
-If the plugin root is not exposed, locate the installed script first according
-to the active platform runtime document.
-
-```bash
-script="$(find <platform-plugin-cache> -path '*/oh-no-harness/*/scripts/oh-no-config' -print -quit)"
-"$script" status
-```
+If the plugin root is not exposed, resolve the installed script with the active platform runtime document's script-locator.
 
 ## Response Rules
 

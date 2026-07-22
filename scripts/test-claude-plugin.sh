@@ -4284,6 +4284,12 @@ run_configure_subagents_offline_test() {
     || fail "configure-subagents offline test suite failed"
 }
 
+run_script_resolver_offline_test() {
+  log "Running offline bundled-script resolver behavior + contract test suite"
+  bash "$MARKETPLACE_ROOT/scripts/test-script-resolver.sh" \
+    || fail "bundled-script resolver offline test suite failed"
+}
+
 # Deterministic regression for the marketplace-isolation safety design. Covers
 # the shared source/config primitive, the production install call-site (real
 # install_or_update_plugin driven by a logging fake CLAUDE_BIN), the release
@@ -4568,6 +4574,7 @@ main() {
   run_escape_net_offline_test
   run_active_stale_scan_reader_offline_test
   run_configure_subagents_offline_test
+  run_script_resolver_offline_test
   run_marketplace_isolation_offline_test
   validate_frontmatter
   install_or_update_plugin

@@ -150,6 +150,9 @@ model_diversity_policy() {
   printf '</OH_NO_MODEL_DIVERSITY>'
 }
 
+# CLAUDE_PLUGIN_ROOT only launches the hook from hooks.json; PLUGIN_ROOT (captured
+# as ENV_CODEX_PLUGIN_ROOT) selects the Codex branch. OH_NO_PLUGIN_ROOT is always
+# self-derived from SCRIPT_DIR, so installer and config paths cannot go stale.
 is_claude_code=false
 if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ] && [ -z "$ENV_CODEX_PLUGIN_ROOT" ]; then
   is_claude_code=true
@@ -268,7 +271,7 @@ codex_agent_ensure_warning() {
 
   printf 'Codex custom-agent ensure warning: user-scope oh-no-* agents could not be ensured; %s' "$warning_suffix"
   if [ -n "$ensure_output" ]; then
-    printf ' Run scripts/install-codex-agents --scope user --ensure for details.'
+    printf ' Run %s --scope user --ensure for details.' "$installer_path"
   fi
 }
 
