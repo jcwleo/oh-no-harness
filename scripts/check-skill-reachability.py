@@ -66,6 +66,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("repository work-product mutation is", BOTH),
         ("orchestration state, not inline implementation", BOTH),
         ("Direct-edit lane", BOTH),
+        ("Ralph's canonical LIGHT Eligibility defines the risk-gated middle tier", BOTH),
+        ("Reference Ralph's canonical `LIGHT Eligibility — Risk Gate, Soft Size Screen`", BOTH),
     ],
     "auto-routing": [
         # The retired executor-delegation toggle has no replacement in this
@@ -91,6 +93,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Skill chaining in Oh No Harness is approval-gated, not automatic", BOTH),
         # Self-contained rewrite: the sizing hint resolves in the core, not a shared doc.
         ("Provisional Ralph mode: LIGHT | STANDARD | THOROUGH | UNKNOWN", BOTH),
+        ("Reference Ralph's canonical `LIGHT Eligibility — Risk Gate, Soft Size Screen`", BOTH),
+        ("Risk-gated LIGHT has no hard size cap", BOTH),
+        ("The canonical deterministic exclusion gate (`unknown = excluded`) guards this path", BOTH),
     ],
     "ralplan": [
         ("Review runs exactly once", BOTH),
@@ -122,6 +127,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor ownership survives", BOTH),
         ("no concurrent batch, not inline mutation", BOTH),
         ("Plan-Reviewer: dispatch-unavailable", BOTH),
+        ("work that qualifies under Ralph's canonical `LIGHT Eligibility —", BOTH),
+        ("size may veto, never grant, LIGHT", BOTH),
+        ("apply Ralph's complete canonical LIGHT predicate before defaulting to STANDARD", BOTH),
         # Platform-owned paired-review vocabulary. Claude proves the A1-amended
         # unoverridden-primary/native-secondary shape; Codex keeps cross-host.
         ("model-diversity-pair", CLAUDE),
@@ -142,13 +150,28 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
     "ralph": [
         ("Execution Mode Decision Prompt", BOTH),
         ("LIGHT | STANDARD | THOROUGH", BOTH),
+        ("### LIGHT Eligibility — Risk Gate, Soft Size Screen", BOTH),
+        ("LIGHT is the low-risk localized behavior change tier", BOTH),
+        ("The hard exclusion UNION mirrors the surfaces protected by THOROUGH", BOTH),
+        ("soft screen that can only route OUT of LIGHT, never grant it", BOTH),
+        ("`D ? direct-edit : T ? THOROUGH : L ? LIGHT : STANDARD`", BOTH),
+        ("an exclusion becoming present-or-unknown", BOTH),
+        ("the edit set growing past a cohesive localized scope", BOTH),
         ("Mode-Gated Agent Dispatch", BOTH),
+        ("For every compliant revised-LIGHT run, dispatched `executor` ownership is MANDATORY", BOTH),
+        ("A run RECORDED in LIGHT mode", BOTH),
+        ("a run recorded in LIGHT mode shows dispatched-executor evidence", BOTH),
         ("Parallel trigger", BOTH),
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("parent workspace directory", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
-        ("authored or accepted by the same agent", BOTH),  # STANDARD/THOROUGH verifier-required carve-out (ralph.md Review Gate)
+        ("authored or accepted by the same agent", BOTH),  # verifier-required carve-out (ralph.md Review Gate)
+        ("run also requires that independent verifier audit", BOTH),
+        ("the code-reviewer pair is waived", BOTH),
+        ("E8's `exactly one review round` MUST apply when the selected code-review topology is `perspective-pair`", BOTH),
+        ("post-cleanup perspective-pair inspection", BOTH),
+        ("CLEANUP/RECHECK to its REQUIRED independent verifier", BOTH),
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count

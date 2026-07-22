@@ -141,9 +141,10 @@ Phase: REQUIREMENTS — record the mode before leaving the phase.
 Select the lightest credible mode [R10]:
 
 ```text
-LIGHT    = small, isolated, low-ambiguity, non-behavioral work with no
-           public, security/data, migration, concurrency/lifecycle,
-           destructive, or release risk (every exclusion must hold).
+LIGHT    = work that qualifies under Ralph's canonical `LIGHT Eligibility —
+           Risk Gate, Soft Size Screen`: risk-gated localized behavior or
+           non-behavior work clearing its complete exclusion UNION and bounded-
+           judgment inclusion conditions; size may veto, never grant, LIGHT.
 STANDARD = bounded behavior/config/prompt work with localized blast radius,
            known ownership, and no THOROUGH trigger.
 THOROUGH = active security/data/auth/permission, destructive,
@@ -151,12 +152,14 @@ THOROUGH = active security/data/auth/permission, destructive,
            multi-system, high-uncertainty, or difficult-recovery risk.
 ```
 
-Any THOROUGH trigger wins; otherwise STANDARD; LIGHT only when every
-exclusion holds. Escalate on new semantic risk; de-escalate only when
-evidence removes it. Reusing a verified concurrency owner, or mechanical
-regeneration of validated generated wrappers, is not a THOROUGH signal by
-itself. Note when the task may fit Ralph's STANDARD small-task carve-out so
-Ralph can evaluate it.
+Any THOROUGH trigger wins; otherwise apply Ralph's complete canonical LIGHT
+predicate before defaulting to STANDARD. A localized low-risk behavior change,
+including cohesive multi-file work, may qualify, while a large or sprawling
+change routes out to STANDARD under Ralph's canonical soft screen.
+Escalate on new semantic risk; de-escalate only when evidence removes it.
+Reusing a verified concurrency owner, or mechanical regeneration of validated
+generated wrappers, is not a THOROUGH signal by itself. Note when the task may
+fit Ralph's STANDARD small-task carve-out so Ralph can evaluate it.
 
 ## Active Plan Contract
 

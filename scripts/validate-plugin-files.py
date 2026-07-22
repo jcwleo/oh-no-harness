@@ -3008,6 +3008,68 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
 
     ralph_path = skill_core / "ralph.md"
     ralph = read_text(ralph_path)
+    light_eligibility = markdown_section(
+        ralph, "### LIGHT Eligibility — Risk Gate, Soft Size Screen"
+    )
+    require(
+        ralph_path,
+        light_eligibility,
+        (
+            "`unknown = excluded (fail closed)`",
+            "a new dependency, dependency pin,\nor lockfile",
+            "generated files or generation\ninputs",
+            "materiality of the controlled VALUE",
+        ),
+        "LIGHT hard exclusion contract",
+    )
+    require(
+        ralph_path,
+        light_eligibility,
+        (
+            "behavior-LIGHT gets NO TDD-exception escape",
+            "If RED is infeasible, reclassify\nto STANDARD or THOROUGH",
+        ),
+        "LIGHT behavior RED/GREEN no-exception contract",
+    )
+    require(
+        ralph_path,
+        light_eligibility,
+        (
+            "Size alone\nNEVER grants LIGHT",
+            "`D ? direct-edit : T ? THOROUGH : L ? LIGHT : STANDARD`",
+            "the exclusion gate runs regardless of size",
+        ),
+        "LIGHT size-never-shortcuts-eligibility contract",
+    )
+    require(
+        ralph_path,
+        light_eligibility,
+        (
+            "an exclusion becoming present-or-unknown",
+            "the edit set growing past a cohesive localized scope",
+        ),
+        "LIGHT eligibility escalation contract",
+    )
+    require(
+        ralph_path,
+        light_eligibility,
+        (
+            "There is NO size-bound entry in this hard exclusion UNION",
+            "No hard numeric file-count or line-count bound exists anywhere in this eligibility gate",
+            "There is NO hard file-count or line-count cap",
+        ),
+        "LIGHT no-hard-cap contract",
+    )
+    hard_numeric_light_bound_patterns = (
+        r"\b\d+\s+(?:changed\s+|handwritten\s+)?(?:files?|lines?)\b",
+        r"\b(?:files?|lines?)\s*(?:<=|>=|<|>|=|:)\s*\d+\b",
+    )
+    for pattern in hard_numeric_light_bound_patterns:
+        if re.search(pattern, light_eligibility, flags=re.IGNORECASE):
+            die(
+                f"{ralph_path} violates LIGHT no-hard-cap contract: "
+                f"hard numeric file/line eligibility bound matches {pattern!r}"
+            )
     require(
         ralph_path,
         markdown_section(ralph, "## Invariants"),
@@ -3083,6 +3145,17 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "executor-default orchestration contract",
     )
+    require(
+        ralph_path,
+        mode_dispatch,
+        (
+            "A run RECORDED in LIGHT mode",
+            "MUST show\ndispatched-`executor` evidence to reach completion",
+            "is NOT a completion path for a widened-LIGHT-mode run",
+            "never authorizes inline completion WITHIN LIGHT",
+        ),
+        "LIGHT recorded-mode dispatched-executor completion contract",
+    )
     packet = markdown_section(ralph, "## Parallel Subagent Policy")
     require(
         ralph_path,
@@ -3131,6 +3204,17 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "stale/misrouted result guard",
     )
+    cleanup = markdown_section(ralph, "## Cleanup And Final Verification")
+    require(
+        ralph_path,
+        cleanup,
+        (
+            "post-cleanup perspective-pair inspection",
+            "apply ONLY when the selected review topology is `perspective-pair`",
+            "proceeds directly from\nCLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage",
+        ),
+        "LIGHT cleanup-to-verifier topology contract",
+    )
     review = markdown_section(ralph, "## Review Gate")
     require(
         ralph_path,
@@ -3157,7 +3241,44 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     )
     require(
         ralph_path,
-        markdown_section(ralph, "## Persistence Rule"),
+        review,
+        (
+            "run also requires that independent verifier audit",
+            "it is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH",
+        ),
+        "LIGHT verifier-required contract",
+    )
+    require(
+        ralph_path,
+        review,
+        (
+            "not-required (LIGHT: reviewer pair waived)",
+            "the verifier is NEVER waived in LIGHT",
+        ),
+        "LIGHT reviewer-waived + verifier-never-waived contract",
+    )
+    for forbidden in (
+        "LIGHT verifier audit is optional",
+        "including a compliant LIGHT path",
+    ):
+        if forbidden in review:
+            die(
+                f"{ralph_path} violates LIGHT verifier-required contract: "
+                f"{forbidden!r}"
+            )
+    persistence = markdown_section(ralph, "## Persistence Rule")
+    require(
+        ralph_path,
+        persistence,
+        (
+            "a run recorded in LIGHT mode shows dispatched-executor evidence (the\n"
+            "  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)",
+        ),
+        "LIGHT recorded-mode dispatched-executor completion contract",
+    )
+    require(
+        ralph_path,
+        persistence,
         (
             "compliant not-required reason",
             "`dispatch-unavailable` is a blocker",

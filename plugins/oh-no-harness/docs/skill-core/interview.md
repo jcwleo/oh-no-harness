@@ -395,9 +395,17 @@ Execution sizing hint:
 - Escalation triggers:
 ```
 
-Prefer `UNKNOWN` over a false confident mode. Direct `ralph` is allowed
-only when the request is small, concrete, acceptance criteria are testable,
-and the provisional mode is `LIGHT`.
+Reference Ralph's canonical `LIGHT Eligibility — Risk Gate, Soft Size Screen`
+when writing the hint. Risk-gated LIGHT has no hard size cap, so a localized
+low-risk behavior change, including qualifying cohesive multi-file work, can
+produce `Provisional Ralph mode: LIGHT` and `Direct Ralph allowed: yes`; Ralph's
+soft screen still routes a large or sprawling change to STANDARD. The canonical
+deterministic exclusion gate (`unknown = excluded`) guards this path.
+
+Prefer `UNKNOWN` over a false confident mode. Direct `ralph` is allowed only
+when the provisional mode is `LIGHT` and the request clears Ralph's complete
+canonical LIGHT Eligibility; interview adds no independent `small` size test.
+The request and its acceptance criteria must still be concrete and testable.
 
 ## Spec Artifact
 

@@ -227,10 +227,11 @@ Mode definitions — `LIGHT | STANDARD | THOROUGH` (semantic risk selects;
 category words alone never escalate):
 
 ```text
-LIGHT    = small, isolated, non-behavioral work with no public,
-           security/data, migration, concurrency/lifecycle, destructive, or
-           release risk (every exclusion must hold); compact artifacts;
-           direct-diff review allowed.
+LIGHT    = risk-gated localized work (behavior or non-behavior) that clears
+           the exclusion UNION and all six inclusion conditions; size is a
+           soft screen that can only route OUT of LIGHT, never grant it;
+           compact artifacts; dispatched `executor` -> dispatched independent
+           `verifier`, with the code-reviewer pair waived.
 STANDARD = localized behavior/config/prompt work with bounded blast radius
            and known ownership; session + verification artifacts; a
            perspective-diverse code-reviewer pair reviews behavior-affecting
@@ -240,8 +241,65 @@ THOROUGH = active security/data/auth, destructive, public/release-critical,
            unknown-root-cause risk; full PRD session; risk-warranted roles.
 ```
 
-Escalate on new semantic risk (behavior change, more files than expected,
-security/data/public surface, unexpected verification results); de-escalate
+### LIGHT Eligibility — Risk Gate, Soft Size Screen
+
+LIGHT is the low-risk localized behavior change tier, and may also carry
+non-behavioral work. All six bounded-judgment inclusion conditions MUST hold:
+
+1. The intent is concrete.
+2. The owner is known.
+3. The root cause is known.
+4. The change is localized: a bounded, cohesive edit set in one file or several
+   tightly coupled files, with no cross-component contract. Multi-file
+   COHESIVE changes are explicitly ALLOWED.
+5. The change is trivially revertible.
+6. A real-surface RED/GREEN check is feasible and named before editing, without
+   a new harness and without manual-only or marker-only proof.
+
+The hard exclusion UNION mirrors the surfaces protected by THOROUGH. LIGHT is
+excluded when any of these is present or unknown: security/secrets/auth;
+permission/tenancy; persisted data, storage, serialization, or retention;
+public or external contracts, including CLI surfaces and documented config
+keys or formats; release, build, CI, deploy, rollout, kill-switch, or other
+operational surfaces; migration or backfill; a new dependency, dependency pin,
+or lockfile; shared schema or central routing; generated files or generation
+inputs; concurrency, scheduling, lifecycle, timeout, retry, or worker-count
+semantics; destructive, filesystem, network, or external I/O; multi-system
+scope; unknown root cause, owner, consumer, AC, or proof; difficult recovery;
+or business-rule, financial, pricing, eligibility, compliance, moderation, or
+safety-threshold materiality of the controlled VALUE, independent of technical
+type or range-validity. Config is judged by what the VALUE CONTROLS, not the
+file type. There is NO size-bound entry in this hard exclusion UNION. Loss of
+cohesive localization fails the `localized` inclusion condition; large or
+sprawling breadth is handled SOLELY by the soft screen below. No hard numeric
+file-count or line-count bound exists anywhere in this eligibility gate.
+
+Size — files touched, lines changed, and blast radius — is a SOFT candidate
+screen applied AFTER the exclusion gate and inclusion conditions. A large or
+sprawling change with many files, a broad or diffuse blast radius, or more than
+a cohesive localized edit set routes OUT of LIGHT to STANDARD. Size alone
+NEVER grants LIGHT and NEVER fails a task by itself; only the exclusion gate
+and inclusion conditions decide eligibility, and size only vetoes LIGHT.
+There is NO hard file-count or line-count cap.
+`unknown = excluded (fail closed)` and escalation to STANDARD on any surprise
+mid-run are the PRIMARY
+safety mechanism now that there is no hard size backstop. Ordered selection is
+`D ? direct-edit : T ? THOROUGH : L ? LIGHT : STANDARD`;
+the exclusion gate runs regardless of size. An exclusion hit does not automatically select
+THOROUGH; existing rules then select STANDARD or THOROUGH.
+
+For behavior-changing LIGHT work, condition 6 MUST override and limit E4's
+general compact-exception allowance:
+behavior-LIGHT gets NO TDD-exception escape. If RED is infeasible, reclassify
+to STANDARD or THOROUGH; E4's
+invariant-block text remains byte-identical.
+
+This mechanism is a deterministic exclusion gate plus bounded-judgment
+inclusion conditions, not a fully mechanical predicate.
+
+Escalate on new semantic risk (an exclusion becoming present-or-unknown,
+the edit set growing past a cohesive localized scope, security/data/public
+surface, unexpected verification results); de-escalate
 only when evidence removes the risk and no approved plan pins the mode.
 
 ### STANDARD Small-Task Carve-Out
@@ -304,14 +362,24 @@ worktree (`git -C .oh-no/worktrees/<task-slug> status`); the integration
 checkout's status does not show them.
 
 LIGHT direct-checkout carve-out — ALL must hold: (1) LIGHT mode, (2) one
-obvious file or tightly bounded edit set, (3) non-runtime change, (4) no
-uncommitted changes overlapping the edit set, (5) no approved-plan worktree
-policy applies — Ralph derives and owns the decision. Record the decision
-plus a one-line reason. On mid-run escalation stop editing immediately;
-continue only after the user approves the current checkout (record
-`user declined/current checkout`) or re-record
-`Worktree decision: direct automatic worktree` for all further edits, with
-already-landed edits listed in the final report.
+obvious file or tightly bounded edit set, (3) direct Ralph, never Ultrawork,
+(4) no pre-existing uncommitted changes overlap the edit set or any files the
+planned commands may mutate, (5) no broad-mutating command such as generation,
+dependency installation, lockfile or snapshot update, autofix, or format-all,
+(6) pre-edit status and a non-scope fingerprint are recorded so final status
+can prove the non-scope set unchanged, and (7) no approved-plan worktree policy
+applies — Ralph derives and owns the decision. These safeguards matter more
+because LIGHT permits cohesive multi-file behavior changes and the eligibility
+gate has no hard size backstop. Record `Worktree decision: light direct
+checkout` plus a one-line reason. A compliant LIGHT run is ALWAYS in-place
+light-direct-checkout; LIGHT NEVER pairs with an automatic worktree. Failure or
+uncertainty in any safeguard — including uncommitted overlap, a broad-mutating
+command, an unprovable non-scope set, or any residual doubt — reclassifies the
+run OUT of LIGHT to STANDARD BEFORE any further edit. Only after that
+reclassification may Ralph re-record
+`Worktree decision: direct automatic worktree` and create or select
+`.oh-no/worktrees/<task-slug>` for further edits, with already-landed edits
+listed in the final report.
 
 Artifact handoff: a new worktree does not see the integration checkout's
 untracked `.oh-no` plan/spec. Before editing, copy the artifact into the
@@ -385,7 +453,23 @@ executor-default trigger is sequential-capable and does not require a
 parallel trigger. Inline mutation is permitted only with one recorded fallback:
 `Mutation fallback: LIGHT-tiny — <reason>` for a tiny LIGHT edit, or
 `Mutation fallback: dispatch-unavailable — <attempt and reason>` after the
-host cannot dispatch. The STANDARD small-task carve-out waives only reviewer
+host cannot dispatch. For every compliant revised-LIGHT run, dispatched
+`executor` ownership is MANDATORY: the mutation goes to a dispatched `executor`
+and the audit to a dispatched independent `verifier`; executor dispatch-
+unavailability is FAIL-CLOSED and MUST PAUSE the run or reclassify it OUT of
+LIGHT to STANDARD, never authorize inline completion; the unchanged
+`LIGHT-tiny` inline path does NOT satisfy the revised-LIGHT path and remains a
+narrow, separate escape valve for a trivial edit.
+
+A run RECORDED in LIGHT mode under the widened
+`### LIGHT Eligibility — Risk Gate, Soft Size Screen` tier MUST show
+dispatched-`executor` evidence to reach completion. The `LIGHT-tiny` inline
+fallback is a SEPARATE, narrower path for a tiny edit smaller than LIGHT
+eligibility and is NOT a completion path for a widened-LIGHT-mode run. Executor
+dispatch-unavailability in a LIGHT run PAUSES or reclassifies to STANDARD and
+never authorizes inline completion WITHIN LIGHT.
+
+The STANDARD small-task carve-out waives only reviewer
 dispatch (see `### STANDARD Small-Task Carve-Out`).
 
 For non-mutating roles, use targeted subagents on subagent-capable hosts when
@@ -505,8 +589,12 @@ Phase: EXECUTE — applied per story and cumulatively.
 Tier minimums [E9]:
 
 ```text
-LIGHT    = inspect changed files; run the smallest relevant check; map the
-           change to the inspection or command that proves it.
+LIGHT    = follow the dispatched `executor` -> dispatched independent
+           `verifier` path in Mode-Gated Agent Dispatch and Review Gate, with
+           the code-reviewer pair waived; inspect changed files; run the
+           smallest relevant check; map the change to the inspection or
+           command that proves it. Behavior-changing LIGHT still requires
+           RED/GREEN per E4 and the eligibility gate's no-exception rule.
 STANDARD = LIGHT + focused semantic tests mapped to ACs; RED/GREEN or a
            recorded exception; risk-activated negative/regression cases; a
            relevant baseline or smoke check.
@@ -596,6 +684,11 @@ under `## Finalize Checkpoints`.
    revision, and the sole perspective-diverse pair inspects that final
    post-cleanup diff in REVIEW.
 
+The post-cleanup perspective-pair inspection and the `single review round`
+language apply ONLY when the selected review topology is `perspective-pair`.
+A compliant LIGHT run, with the reviewer pair waived, proceeds directly from
+CLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage.
+
 ## Review Gate
 
 Phase: REVIEW. Completion requires evidence, not confidence.
@@ -603,7 +696,8 @@ Phase: REVIEW. Completion requires evidence, not confidence.
 Topology by mode [E8]:
 
 ```text
-LIGHT    -> direct diff inspection unless mode or risk requires independence.
+LIGHT    -> the code-reviewer pair is waived; the dispatched `executor`'s
+            mutation goes straight to the required independent `verifier`.
 STANDARD -> one perspective-diverse code-reviewer pair for behavior-affecting
             or workflow changes: Lens A = adversarial correctness + security
             skeptic; Lens B = maintainability + coverage completeness. Each
@@ -622,6 +716,15 @@ THOROUGH -> the same perspective-diverse pair; a named security, data,
             and transitions to PAUSED instead of falling back.
 ```
 
+E8's `exactly one review round` MUST apply when the selected code-review
+topology is `perspective-pair`; a compliant LIGHT run and the STANDARD
+small-task carve-out record code-review `not-required` and run ZERO review
+rounds, while their independent verifier remains REQUIRED.
+
+For LIGHT, the code-review stage is waived, so proceed directly from the
+dispatched executor's revision to the required independent verifier, with no
+reviewer stage to complete first and no fix-manifest step.
+
 Review-then-verify [E7]: run exactly one selected code-review stage first and
 validate its caller-synthesized `Overall verdict`, blocking finding IDs, and
 reviewed revision binding. With no blocking findings, start the required
@@ -639,22 +742,27 @@ Completion requires either reviewer verdict `approve` (or compliant
 to the reviewed revision, or reviewer verdict `blocking-findings` with a fix
 manifest mapping every accepted blocking finding ID, and the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit.
 `pass-with-residual-risk` also requires the caller to record why the named risk
-is non-blocking and every AC remains satisfied. A compliant LIGHT path where
-the verifier is not required records `verifier bound revision: not-required`
-and follows the reviewed-revision completion path. Verifier `fail`, an
+is non-blocking and every AC remains satisfied. A compliant LIGHT path records
+code-reviewer topology `not-required (LIGHT: reviewer pair waived)`; the
+dispatched verifier's `pass` (or accepted
+`pass-with-residual-risk`) binds to the `reviewed` revision and follows the same
+reviewed-revision completion path as a compliant STANDARD small-task carve-out;
+the verifier is NEVER waived in LIGHT. Verifier `fail`, an
 unresolved blocking finding after the one fix and audit returns to the
 budgeted `systematic-debugging` or `failed_verification` path; either role's
 `blocked` verdict pauses. These enums are caller
 inputs under E17, never autonomous transitions.
 
 The verifier audit is required at STANDARD/THOROUGH when the proving tests or
-implementation were authored or accepted by the same agent. It MUST run in a
-separate context. If no separate context is available, record `Independent
+implementation were authored or accepted by the same agent. A compliant LIGHT
+run also requires that independent verifier audit; `dispatch-unavailable` for
+it is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH.
+It MUST run in a separate context. If no separate context is available, record `Independent
 verifier: dispatch-unavailable` as a blocker and transition to PAUSED. Inline
 command reruns may still strengthen caller-owned evidence, but they cannot
 count as the required independent audit. When the audit is optional or not
-required, including a compliant LIGHT path, record that reason without turning
-dispatch unavailability into a pass.
+required, record that reason without turning dispatch unavailability into a
+pass.
 
 Record the Review Gate dependency graph in the ledger:
 
@@ -755,6 +863,8 @@ each). A silently omitted step is a named ledger gap, not a pass.
 Completion criteria:
 
 - selected execution mode recorded and followed; every story `passes: true`
+- a run recorded in LIGHT mode shows dispatched-executor evidence (the
+  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)
 - Diff-Budget is `passed@<current stabilized fingerprint>` for the delivered diff
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status

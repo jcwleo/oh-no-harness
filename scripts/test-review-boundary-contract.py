@@ -47,6 +47,137 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(body.replace(old, new, 1), encoding="utf-8")
 
 
+def weaken_light_verifier_requirement(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "A compliant LIGHT\nrun also requires that independent verifier audit; `dispatch-unavailable` for\nit is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH.",
+        "A compliant LIGHT\nrun records that the LIGHT verifier audit is optional; dispatch-unavailable does not block LIGHT.",
+    )
+    replace_once(
+        path,
+        "When the audit is optional or not\nrequired, record that reason",
+        "When the audit is optional or not\nrequired, including a compliant LIGHT path, record that reason",
+    )
+
+
+def allow_light_inline_completion(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "MUST show\ndispatched-`executor` evidence to reach completion",
+        "MAY use inline mutation evidence to reach completion",
+    )
+    replace_once(
+        path,
+        "is NOT a completion path for a widened-LIGHT-mode run",
+        "is a completion path for a widened-LIGHT-mode run",
+    )
+    replace_once(
+        path,
+        "a run recorded in LIGHT mode shows dispatched-executor evidence (the\n  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)",
+        "a run recorded in LIGHT mode may show LIGHT-tiny inline evidence instead of dispatched-executor evidence",
+    )
+
+
+def force_light_cleanup_through_reviewer(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "`single review round`\nlanguage apply ONLY when the selected review topology is `perspective-pair`",
+        "`single review round`\nlanguage apply to every mode, including LIGHT",
+    )
+    replace_once(
+        path,
+        "proceeds directly from\nCLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage",
+        "proceeds from\nCLEANUP/RECHECK through a reviewer stage before its independent verifier",
+    )
+
+
+def blur_light_reviewer_verifier_boundary(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "not-required (LIGHT: reviewer pair waived)",
+        "perspective-pair (LIGHT: reviewer pair equivalent)",
+    )
+    replace_once(
+        path,
+        "the verifier is NEVER waived in LIGHT",
+        "the verifier may be waived in LIGHT",
+    )
+
+
+def weaken_light_hard_exclusions(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "`unknown = excluded (fail closed)`",
+        "`unknown = allowed`",
+    )
+    replace_once(
+        path,
+        "generated files or generation\ninputs",
+        "generated files are eligible without checking generation inputs",
+    )
+    replace_once(
+        path,
+        "materiality of the controlled VALUE",
+        "technical type alone determines whether the controlled value is eligible",
+    )
+
+
+def remove_light_tdd_no_exception_rule(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "behavior-LIGHT gets NO TDD-exception escape",
+        "behavior-LIGHT may record a TDD exception",
+    )
+
+
+def let_size_shortcut_into_light(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "Size alone\nNEVER grants LIGHT",
+        "Size alone\nMAY grant LIGHT",
+    )
+    replace_once(
+        path,
+        "the exclusion gate runs regardless of size",
+        "the exclusion gate runs only after the size shortcut",
+    )
+    append_before_heading(
+        path,
+        "### STANDARD Small-Task Carve-Out",
+        "Changes of 2 files or fewer may enter LIGHT without the exclusion gate.",
+    )
+
+
+def remove_light_escalation_triggers(root: Path) -> None:
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "an exclusion becoming present-or-unknown",
+        "a previously recorded concern becoming severe",
+    )
+    replace_once(
+        path,
+        "the edit set growing past a cohesive localized scope",
+        "the implementation becoming inconvenient",
+    )
+
+
+def add_hard_numeric_light_bounds(root: Path) -> None:
+    append_before_heading(
+        root / "docs" / "skill-core" / "ralph.md",
+        "### STANDARD Small-Task Carve-Out",
+        "LIGHT eligibility is restricted to at most 3 files. "
+        "Changes of 2 files or fewer automatically qualify for LIGHT.",
+    )
+
+
 def move_bootstrap_orchestration_sentence(path: Path) -> None:
     sentence = (
         "Orchestration default: workflow main agents own .oh-no state and gate "
@@ -175,6 +306,78 @@ def main() -> int:
             "Reviewer approval of the fixed revision is NOT required and MUST NOT be requested",
             "Reviewer approval of the fixed revision is required before FINALIZE",
         ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT permits an unknown, generated-surface, or value-materiality exclusion",
+        "LIGHT hard exclusion contract",
+        weaken_light_hard_exclusions,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "behavior-LIGHT regains a TDD exception escape",
+        "LIGHT behavior RED/GREEN no-exception contract",
+        remove_light_tdd_no_exception_rule,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "size or a hard numeric cap shortcuts into LIGHT",
+        "LIGHT size-never-shortcuts-eligibility contract",
+        let_size_shortcut_into_light,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT mode completes through inline fallback without dispatched-executor evidence",
+        "LIGHT recorded-mode dispatched-executor completion contract",
+        allow_light_inline_completion,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT verifier requirement reverts or becomes optional",
+        "LIGHT verifier-required contract",
+        weaken_light_verifier_requirement,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT reviewer waiver is represented as verifier waiver or pair equivalence",
+        "LIGHT reviewer-waived + verifier-never-waived contract",
+        blur_light_reviewer_verifier_boundary,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT post-cleanup flow is forced through a perspective-pair reviewer",
+        "LIGHT cleanup-to-verifier topology contract",
+        force_light_cleanup_through_reviewer,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT loses either mid-run escalation trigger",
+        "LIGHT eligibility escalation contract",
+        remove_light_escalation_triggers,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT regains hard numeric file bounds in grant and restrict polarity",
+        "LIGHT no-hard-cap contract",
+        add_hard_numeric_light_bounds,
         assertion="assert_orchestration_ownership_contract",
     )
     expect_rejected(

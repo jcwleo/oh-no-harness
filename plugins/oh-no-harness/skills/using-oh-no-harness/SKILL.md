@@ -32,7 +32,7 @@ skill documents compose this shared core with the active platform rules from
 
 Using Oh No Harness is the workflow-entry and routing stage.
 
-Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. A strictly trivial inert edit may qualify for the router-owned direct-edit lane defined below; every other concrete edit routes to `ralph`, which may apply its own STANDARD small-task carve-out. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
+Use it before software work starts to decide whether the request needs `interview`, `ralplan`, `ralph`, `fusion-rescue`, debugging, cleanup, or verification. A strictly trivial inert edit may qualify for the router-owned direct-edit lane defined below; every other concrete edit routes to `ralph`, where Ralph's canonical LIGHT Eligibility defines the risk-gated middle tier before STANDARD or THOROUGH. Treat TDD as an internal guardrail discipline unless the user explicitly asks for TDD or test-first work.
 
 ## Core Rule
 
@@ -128,10 +128,21 @@ Except for direct-edit-eligible mutations, small concrete tasks may skip
 `STANDARD`, or `THOROUGH` execution mode before editing and follow the relevant
 TDD, debugging, cleanup, and verification gates for that mode.
 
-A small behavior-changing task that meets `ralph`'s STANDARD small-task
-carve-out is the lightweight path: it waives only reviewer dispatch, not
-executor ownership, with conditional cleanup, TDD, the independent `verifier`
-pass, and worktree isolation unchanged.
+The proportionality ladder is direct-edit (strictly inert, no `ralph`) < LIGHT <
+STANDARD/THOROUGH. Reference Ralph's canonical `LIGHT Eligibility — Risk Gate,
+Soft Size Screen` for the complete LIGHT predicate: qualifying localized
+behavior or non-behavior work runs through dispatched `executor` -> dispatched
+independent `verifier`, waives the code-reviewer pair, and uses the in-place
+`light direct checkout`. Ralph work outside LIGHT keeps the STANDARD/THOROUGH
+automatic-worktree and independent-verifier envelope, including the reviewer
+pair except for the existing STANDARD carve-out below.
+
+LIGHT and Ralph's STANDARD small-task carve-out share the waive-reviewer-keep-
+verifier pattern. LIGHT additionally uses the in-place direct checkout rather
+than an automatic worktree. Within STANDARD, a small behavior-changing task
+that meets the carve-out is a secondary lightweight path: it waives only
+reviewer dispatch, not executor ownership, with conditional cleanup, TDD, the
+independent `verifier` pass, and worktree isolation unchanged.
 
 A concrete change that reuses an existing scheduler, eligibility decision,
 lifecycle owner, or contract surface normally routes to Ralph STANDARD when its
