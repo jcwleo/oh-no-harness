@@ -1884,6 +1884,81 @@ run_natural_prompt_guard_offline_test() {
   ok "Claude natural-prompt guard accepts real outcome-only prompts and rejects dispatch mechanics"
 }
 
+assert_ralplan_object_analysis_stayed_analysis_only() {
+  local out_file="$1"
+  "$PYTHON_BIN" - "$out_file" <<'PY'
+import json
+import sys
+
+marker = False
+for line in open(sys.argv[1], encoding="utf-8"):
+    if not line.strip():
+        continue
+    data = json.loads(line)
+    text = json.dumps(data).lower()
+    marker = marker or "oh_no_claude_ralplan_object_analysis_ok" in text
+    if data.get("type") != "assistant":
+        continue
+    for part in data.get("message", {}).get("content", []):
+        if part.get("type") != "tool_use":
+            continue
+        name = part.get("name", "")
+        if name in {"Agent", "Task"}:
+            subagent_type = str(part.get("input", {}).get("subagent_type", "")).lower()
+            if subagent_type in {"oh-no-harness:planner", "oh-no-harness:plan-reviewer"}:
+                raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
+        if name == "Workflow":
+            winput = part.get("input", {})
+            wf_name = str(winput.get("name", "")).lower()
+            wf_script = (str(winput.get("script", "")) + " " + str(winput.get("scriptPath", ""))).lower()
+            if "ralplan" in wf_name or ("ralplan" in wf_script and "workflow(" in wf_script):
+                raise SystemExit("Ralplan object-analysis smoke invoked the Ralplan workflow")
+if not marker:
+    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
+print("ok - Ralplan object-analysis request stayed analysis-only")
+PY
+}
+
+run_ralplan_object_analysis_dispatch_guard_offline_test() {
+  log "Running offline Ralplan object-analysis dispatch-guard fixtures"
+  local temp_root fixture output rc
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-ralplan-dispatch-guard.XXXXXX")"
+  fixture="$temp_root/transcript.jsonl"
+
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"oh-no-harness:explore","prompt":"Compare oh-no-harness:planner with oh-no-harness:plan-reviewer without dispatching either."}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+JSONL
+  output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" \
+    || { rm -rf "$temp_root"; fail "dispatch guard rejected an explore selector with prompt-only planning-role mentions: $output"; }
+
+  for selector in oh-no-harness:planner oh-no-harness:plan-reviewer; do
+    cat >"$fixture" <<JSONL
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"subagent_type":"$selector","prompt":"Analyze only."}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+JSONL
+    rc=0
+    output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
+    [[ "$rc" != "0" && "$output" == *"Ralplan object-analysis smoke dispatched a planning role"* ]] \
+      || { rm -rf "$temp_root"; fail "dispatch guard accepted planning selector $selector (rc=$rc output=$output)"; }
+  done
+
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"ralplan","script":"return analysisOnly();"}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+JSONL
+  rc=0
+  output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
+  [[ "$rc" != "0" && "$output" == *"Ralplan object-analysis smoke invoked the Ralplan workflow"* ]] \
+    || { rm -rf "$temp_root"; fail "dispatch guard accepted a structured ralplan Workflow invocation (rc=$rc output=$output)"; }
+
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"analysis-only","script":"const note = 'ralplan is out of scope'; return note;"}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+JSONL
+  output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" \
+    || { rm -rf "$temp_root"; fail "dispatch guard rejected a Workflow script that only mentioned ralplan: $output"; }
+
+  rm -rf "$temp_root"
+  ok "Ralplan object-analysis dispatch guard uses structured selectors and ignores prompt-only role/workflow mentions"
+}
+
 assert_claude_natural_role_smoke() {
   local out_file="$1"
   local err_file="$2"
@@ -2136,34 +2211,7 @@ run_ralplan_object_analysis_session_start_live_test() {
     plans_after="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
     [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
 
-    "$PYTHON_BIN" - "$out_file" <<'PY'
-import json
-import sys
-
-marker = False
-for line in open(sys.argv[1], encoding="utf-8"):
-    if not line.strip():
-        continue
-    data = json.loads(line)
-    text = json.dumps(data).lower()
-    marker = marker or "oh_no_claude_ralplan_object_analysis_ok" in text
-    if data.get("type") != "assistant":
-        continue
-    for part in data.get("message", {}).get("content", []):
-        if part.get("type") != "tool_use":
-            continue
-        name = part.get("name", "")
-        payload = json.dumps(part.get("input", {})).lower()
-        if name in {"Agent", "Task"} and (
-            "oh-no-harness:planner" in payload or "oh-no-harness:plan-reviewer" in payload
-        ):
-            raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
-        if name == "Workflow" and "ralplan" in payload:
-            raise SystemExit("Ralplan object-analysis smoke invoked the Ralplan workflow")
-if not marker:
-    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
-print("ok - Ralplan object-analysis request stayed analysis-only")
-PY
+    assert_ralplan_object_analysis_stayed_analysis_only "$out_file"
   )
 }
 
@@ -4571,6 +4619,7 @@ main() {
   validate_hooks
   run_live_timeout_offline_test
   run_natural_prompt_guard_offline_test
+  run_ralplan_object_analysis_dispatch_guard_offline_test
   run_escape_net_offline_test
   run_active_stale_scan_reader_offline_test
   run_configure_subagents_offline_test
