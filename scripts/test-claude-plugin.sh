@@ -4611,7 +4611,7 @@ run_marketplace_isolation_offline_test() {
 
   # ---- shared primitive: source-classification matrix ---------------------
   local s src expect actual cfg
-  for s in "$REPO_ROOT=local" "file:///tmp/x=local" "/abs/path=local" "./rel=local" "../rel=local" "~/x=local" "jcwleo/oh-no-harness=remote" "https://github.com/jcwleo/oh-no-harness.git=remote" "https://github.com/jcwleo/oh-no-harness=remote" "git@github.com:jcwleo/oh-no-harness.git=remote" "ssh://git@github.com:jcwleo/oh-no-harness.git=remote" "http://github.com/a/b=invalid" "https://gitlab.com/a/b=invalid" "https://user:tok@github.com/a/b=invalid" "https://github.com/a/b?x=1=invalid" "singleword=invalid"; do
+  for s in "$REPO_ROOT=local" "file:///tmp/x=local" "/abs/path=local" "./rel=local" "../rel=local" "~/x=local" "jcwleo/oh-no-harness=remote" "https://github.com/jcwleo/oh-no-harness.git=remote" "https://github.com/jcwleo/oh-no-harness=remote" "git@github.com:jcwleo/oh-no-harness.git=remote" "ssh://git@github.com/jcwleo/oh-no-harness.git=remote" "ssh://git@github.com:jcwleo/oh-no-harness.git=invalid" "http://github.com/a/b=invalid" "https://gitlab.com/a/b=invalid" "https://user:tok@github.com/a/b=invalid" "https://github.com/a/b?x=1=invalid" "singleword=invalid"; do
     expect="${s##*=}"; src="${s%=*}"
     actual="$("$PYTHON_BIN" "$helper" classify-source "$src")"
     [[ "$actual" == "$expect" ]] || { rm -rf "$temp_root"; fail "classify-source('$src')='$actual' expected '$expect'"; }
@@ -4623,7 +4623,7 @@ run_marketplace_isolation_offline_test() {
     [[ "$actual" == "jcwleo/oh-no-harness" ]] || { rm -rf "$temp_root"; fail "github-slug('$s')='$actual' expected jcwleo/oh-no-harness"; }
   done
   out="$temp_root/slug.out"; err="$temp_root/slug.err"
-  for s in "http://github.com/a/b" "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" "https://gitlab.com/a/b" "https://github.com:443/a/b" "ssh://user@github.com/a/b"; do
+  for s in "http://github.com/a/b" "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" "https://gitlab.com/a/b" "https://github.com:443/a/b" "ssh://user@github.com/a/b" "ssh://git@github.com:jcwleo/oh-no-harness.git"; do
     rc=0
     "$PYTHON_BIN" "$helper" github-slug "$s" >"$out" 2>"$err" || rc=$?
     [[ "$rc" != "0" ]] || { rm -rf "$temp_root"; fail "github-slug accepted an unsupported origin: $s"; }
