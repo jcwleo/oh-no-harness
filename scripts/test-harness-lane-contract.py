@@ -102,7 +102,7 @@ LIVE_HARD_REQUIREMENTS = {
     "--cross-host-fallback-live": {"lifecycle", "forensic invariant"},
     "--model-diversity-live": {"lifecycle", "containment", "forensic invariant", "hook policy"},
     "--simplify-live": {"lifecycle", "forensic invariant"},
-    "--natural-session-start-live": {"lifecycle", "hook policy", "forensic invariant"},
+    "--natural-session-start-live": {"lifecycle", "hook policy", "containment", "forensic invariant"},
     "--worktree-live": {"lifecycle", "worktree", "containment", "forensic invariant"},
     "--live-hook-only": {"hook policy", "malformed output"},
     "--parallel-executor-live": {"lifecycle", "containment", "forensic invariant"},
@@ -381,57 +381,64 @@ def assert_release_default_live_safe(marketplace_root: Path, lanes: dict[tuple[s
                 die(f"scripts/release default {host} test command must clear live env vars: {missing_env}")
 
 
-def assert_codex_natural_session_role_order_wiring(marketplace_root: Path) -> None:
-    script_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
-    script_text = read_text(script_path)
-    wrapper = re.search(
-        r"run_natural_session_start_live_skill_test\(\) \{(?P<body>.*?)\n\}",
-        script_text,
-        flags=re.S,
+def assert_natural_routing_semantic_wiring(marketplace_root: Path) -> None:
+    case_labels = (
+        "vague requirements", "autonomous end-to-end",
+        "ordinary implementation", "explicit test-first",
+        "unknown-cause failure", "known-cause fix",
+        "plan-only/pending approval", "object analysis",
+        "no-route research", "direct-edit eligible", "direct-edit ineligible",
     )
-    if not wrapper:
-        die(f"{script_path} is missing run_natural_session_start_live_skill_test")
-    body = wrapper.group("body")
-    required_fragments = (
-        'local role_order_mode="${5:-exact}"',
-        '"$role_order_mode"',
+    skill_names = (
+        "interview", "ralplan", "ralph", "ultrawork", "auto-routing",
+        "test-driven-development", "simplify", "verification-before-completion",
+        "systematic-debugging", "fusion-rescue",
     )
-    for fragment in required_fragments:
-        if fragment not in body:
-            die(f"{script_path} natural SessionStart wrapper must preserve role_order_mode: missing {fragment!r}")
-
-    systematic_call = re.search(
-        r"run_natural_session_start_live_skill_test\s+\\\s*\n"
-        r"\s+systematic-debugging\s+\\(?P<body>.*?grouped-fanout)",
-        script_text,
-        flags=re.S,
-    )
-    if not systematic_call:
-        die(f"{script_path} systematic-debugging natural SessionStart lane must opt into grouped-fanout")
-
-    ultrawork_call = re.search(
-        r"run_natural_session_start_live_skill_test\s+\\\s*\n"
-        r"\s+ultrawork\s+\\(?P<body>.*?ordered-optional)",
-        script_text,
-        flags=re.S,
-    )
-    if not ultrawork_call or "explore:,analyst?:,planner:,verifier:" not in ultrawork_call.group("body"):
-        die(
-            f"{script_path} Ultrawork natural SessionStart lane must allow only the "
-            "source-authorized optional Analyst gap check"
+    for host in ("claude", "codex"):
+        script_path = marketplace_root / "scripts" / f"test-{host}-plugin.sh"
+        script_text = read_text(script_path)
+        functions = shell_function_bodies(script_text)
+        runner = functions.get("run_natural_session_start_live_skill_test", "")
+        suite = functions.get("run_natural_session_start_live_tests", "")
+        live_skill = functions.get("run_live_skill_test", "")
+        assertions = "\n".join(
+            body for name, body in functions.items()
+            if name.startswith("assert_") and "natural" in name and "prompt" not in name
         )
-    for fragment in (
-        'if role.endswith("?"):',
-        "optional_roles.add(role)",
-        'elif role_order_mode == "ordered-optional":',
-        "expected_present_order = [role for role in expected_roles if role in ordered_roles]",
-        "expected_present_order = [role for role in expected_roles if role in roles_seen]",
-    ):
-        if fragment not in script_text:
-            die(
-                f"{script_path} natural role parser must preserve ordered optional roles: "
-                f"missing {fragment!r}"
+        issues: list[str] = []
+        if "assert_natural_routing_prompt_shape" not in runner:
+            issues.append("actual natural runner does not call assert_natural_routing_prompt_shape")
+        prompt_source = functions.get("natural_session_start_prompt_for_skill", "")
+        prompt_blocks = re.findall(r"<<?'?PROMPT'?\n(.*?)\n\s*PROMPT", prompt_source, re.S)
+        if not prompt_blocks:
+            issues.append("positive natural prompt block is missing")
+        for prompt in prompt_blocks:
+            lowered = prompt.lower()
+            forbidden = [
+                term for term in ("oh-no-harness", "${plugin_name}", "skills/", "skills-claude/", "commands/", "skill.md")
+                if term in lowered
+            ]
+            forbidden.extend(
+                skill for skill in skill_names
+                if re.search(rf"(?<![\w-]){re.escape(skill)}(?![\w-])", lowered)
             )
+            if "/${" in lowered or re.search(r"(?m)(?:^|\s)/(?:[a-z0-9_-]+:)?[a-z][a-z0-9_-]*(?:\s|$)", lowered):
+                forbidden.append("slash command")
+            if forbidden:
+                issues.append(f"positive natural prompt names routing internals: {sorted(set(forbidden))}")
+        for forbidden in ("role_order_mode", "expected_roles", "role_marker_specs", "has_marker_line"):
+            if forbidden in assertions:
+                issues.append(f"natural assertion retains role-order/marker oracle {forbidden!r}")
+        if "OH_NO_NATURAL_ROUTING_STATE" in script_text:
+            issues.append("natural lane retains OH_NO_NATURAL_ROUTING_STATE")
+        missing_cases = [label for label in case_labels if label not in suite]
+        if missing_cases:
+            issues.append(f"natural lane is missing bounded literal cases: {missing_cases!r}")
+        host_evidence = ("next claude sessionstart",) if host == "claude" else ("routing semantics", "unchanged", "restart", "stronger routing")
+        if missing_evidence := [fragment for fragment in host_evidence if fragment not in live_skill.lower()]:
+            issues.append(f"{host} run_live_skill_test is missing final-response assertion wiring: {missing_evidence!r}")
+        if issues:
+            die(f"{script_path} natural routing semantic wiring failed:\n  - " + "\n  - ".join(issues))
 
 
 CODEX_HOME_ASSIGNMENT_RE = re.compile(
@@ -1813,7 +1820,7 @@ def validate_classification_fixtures(
         die("scripts/release default row must hard-fail release default expansion")
 
     assert_release_default_live_safe(marketplace_root, lanes)
-    assert_codex_natural_session_role_order_wiring(marketplace_root)
+    assert_natural_routing_semantic_wiring(marketplace_root)
     assert_codex_live_isolation_contract(marketplace_root)
     assert_codex_parallel_transcript_fixture(marketplace_root)
     assert_codex_simplify_transcript_fixtures(marketplace_root)

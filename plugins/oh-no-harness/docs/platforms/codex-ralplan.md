@@ -17,14 +17,19 @@ Do not infer unavailability from schema comments, displayed role lists, task
 names, or uncertainty; a task name is never proof that the registered role
 loaded.
 
+Derive each name from the actual Ralplan role and phase or review lens. For the
+planner and its two sibling review legs, use distinct identities such as:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="ralplan_planner_draft_1", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")
+spawn_agent(task_name="ralplan_plan_reviewer_feasibility_1", agent_type="oh-no-plan-reviewer", message=<self-contained packet>, fork_turns="none")
+spawn_agent(task_name="ralplan_plan_reviewer_coverage_1", agent_type="oh-no-plan-reviewer", message=<self-contained packet>, fork_turns="none")
 ```
 
-Roles are `explore`, `analyst`, `planner`, and `plan-reviewer`; use those
-exact `oh-no-*` types. Pass one payload shape (`message` or `items`), never
-both. Do not request `fork_context` or inherited conversation.
+Roles are `explore`, `analyst`, `planner`, and `plan-reviewer`; use those exact
+`oh-no-*` types and derive role-correct equivalents for every other dispatch.
+Pass one payload shape (`message` or `items`), never both. Do not request
+`fork_context` or inherited conversation.
 
 Only an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used. Then record the failure and use an exposed

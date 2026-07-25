@@ -13,7 +13,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "plugins" / "oh-no-harness"
 
 PUBLIC_SKILLS = [
-    "using-oh-no-harness",
     "interview",
     "ralplan",
     "ralph",
@@ -46,6 +45,7 @@ SELF_CONTAINED_ADAPTER_SKILLS = {
     "ultrawork",
     "verification-before-completion",
 }
+CODEX_CHILD_PACKET_FLOOR = "docs/platforms/codex-child-packet-floor.md"
 MODEL_UNINVOCABLE_SKILLS = {"install-statusline", "configure-subagents"}
 
 
@@ -146,6 +146,9 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
     require_frontmatter(core_path, frontmatter, skill)
 
     overlay_paths = optional_overlay_paths(plugin_root, platform, skill)
+    child_packet_paths = (
+        [plugin_root / CODEX_CHILD_PACKET_FLOOR] if platform.key == "codex" else []
+    )
     if skill in SELF_CONTAINED_ADAPTER_SKILLS:
         if not overlay_paths:
             expected = (
@@ -155,9 +158,9 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
                 / f"{platform.source_prefix}-{skill}.md"
             )
             raise SystemExit(f"missing required self-contained adapter: {expected}")
-        source_paths = [core_path, *overlay_paths]
+        source_paths = [core_path, *child_packet_paths, *overlay_paths]
     else:
-        source_paths = [core_path, plugin_root / platform.platform_doc, *overlay_paths]
+        source_paths = [core_path, *child_packet_paths, plugin_root / platform.platform_doc, *overlay_paths]
 
     source_labels = [
         f"../../{path.relative_to(plugin_root).as_posix()}" for path in source_paths

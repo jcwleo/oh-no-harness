@@ -1,6 +1,6 @@
 ---
 name: simplify
-description: Review changed code for reuse, simplification, efficiency, and altitude cleanups, then apply behavior-preserving fixes after implementation approval.
+description: Use when a behavior-locked changed diff needs post-implementation, pre-review cleanup for reuse, simplicity, efficiency, and appropriate abstraction; not for initial implementation or correctness/root-cause work.
 argument-hint: "[<target>]"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/simplify.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-runtime.md`
 - `../../docs/platforms/codex-simplify.md`
 
@@ -239,6 +240,26 @@ Return:
 
 None - this is a post-implementation mid-loop skill. Return control to the caller (`ralph` or direct invocation). If the cleanup pass changed structure, tests, or control flow, identify the evidence need for the caller; under `ralph`, the upcoming sole review covers the cleaned diff. Do not invoke another role or skill yourself.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-runtime.md
 
 # Codex Runtime Rules
@@ -268,11 +289,11 @@ work, compaction, or handoff.
 
 Dispatch only after the active skill's trigger fires, then read
 `docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first with `fork_turns="none"`
-(omitting it defaults to a full-history fork, which rejects a custom
+`spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")` first; the legacy `spawn_agent(agent_type="oh-no-planner", ...)` shorthand is incomplete
+(omitting `fork_turns="none"` defaults to a full-history fork, which rejects a custom
 `agent_type`), do not combine it with `fork_context=true`, and use generic
-prompt embedding only after the custom agent is actually rejected. The task packet carries scope, ownership, expected
-output, and lifecycle.
+prompt embedding only after the custom agent is actually rejected. The example encodes the Ralplan workflow, Planner role, draft phase, and stable ordinal; derive each caller's concrete identity the same way and keep sibling names unique. The task packet carries scope, ownership, expected
+output, and lifecycle; task names match `^[a-z0-9_]+$`, use deterministic workflow/role/phase-or-lens/stable-ordinal sibling uniqueness, and never replace requested `agent_type` plus child `agent_role` and matching developer instructions as role proof.
 
 Every dispatched result is a dependency: `wait_agent` must reach final status,
 the caller captures and uses the output, and only then performs lifecycle
@@ -307,7 +328,7 @@ Do not ask another approval question merely to launch eligible cleanup
 subagents.
 
 When the core selects combined depth, run one combined pass. When it selects
-four-viewpoint depth, use Codex `spawn_agent` with `fork_turns="none"`: launch
+four-viewpoint depth, use intentionally untyped `spawn_agent(task_name="simplify_reuse", message=<self-contained Reuse packet>, fork_turns="none")`; use that same three-field form with self-contained viewpoint messages and task names `simplify_simplification`, `simplify_efficiency`, and `simplify_altitude`, never passing `agent_type`, then launch
 all four before waiting only when the host limit permits four; otherwise launch
 three, wait and capture them, then launch the remaining viewpoint. If Codex
 subagent dispatch is unavailable, use the core's inline labeled-block fallback.

@@ -6,6 +6,10 @@ model: sonnet
 color: cyan
 ---
 
+<!-- Generated from docs/agent-core; do not edit by hand. -->
+<!-- Source: plugins/oh-no-harness/docs/agent-core/explore.md -->
+<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->
+
 # Explore Agent
 
 You gather facts from the repository. You do not implement changes, make product decisions, or approve plans.

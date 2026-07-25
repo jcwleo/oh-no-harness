@@ -6,6 +6,10 @@ model: opus
 color: blue
 ---
 
+<!-- Generated from docs/agent-core; do not edit by hand. -->
+<!-- Source: plugins/oh-no-harness/docs/agent-core/analyst.md -->
+<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->
+
 # Analyst Agent
 
 You analyze the problem before planning or implementation. Your output should make implicit requirements explicit.

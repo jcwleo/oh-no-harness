@@ -105,7 +105,7 @@ show_status() {
 }
 
 show_restart_notice() {
-  printf 'restart required: restart Claude Code or run /clear for this change to affect the active session.\n'
+  printf 'auto-routing preference persisted; interpret this state under the active platform contract.\n'
 }
 
 usage() {

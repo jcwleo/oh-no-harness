@@ -16,7 +16,6 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback.
     tomllib = None
 
 PUBLIC_SKILLS = [
-    "using-oh-no-harness",
     "interview",
     "ralplan",
     "ralph",
@@ -30,6 +29,31 @@ PUBLIC_SKILLS = [
     "install-statusline",
     "configure-subagents",
 ]
+
+WORKFLOW_ROUTING_SKILLS = [
+    "interview",
+    "ralplan",
+    "ralph",
+    "ultrawork",
+    "auto-routing",
+    "test-driven-development",
+    "simplify",
+    "verification-before-completion",
+    "systematic-debugging",
+    "fusion-rescue",
+]
+ROUTING_DESCRIPTION_PATTERNS = {
+    "interview": ((r"vague|broad|ambiguous|requirement-light|missing", r"requirements?|constraints?|acceptance criteria|user intent"), (r"requirements? discovery", r"(before|not).*(implementation planning|planning|execution)"), {"ralplan", "ralph"}),
+    "ralplan": ((r"requirements?.*(known|clear|sufficient)|known-enough|sufficiently known", r"broad|risky|architecture-sensitive|cross-file|multi-step|strategy-unclear"), (r"not .*(still-vague|vague|discovery)", r"not .*execution-ready"), {"interview", "ralph"}),
+    "ralph": ((r"approved plan|prd|spec|ticket|concrete", r"usable acceptance|acceptance criteria|acceptance contract"), (r"explicit .*test-first|explicit tdd|test-first intent", r"unknown root cause|root-cause investigation|debugging"), {"test-driven-development", "systematic-debugging"}),
+    "ultrawork": ((r"explicit|explicitly", r"autonomous|end-to-end"), (r"not .*small.*(execution-ready|task)",), {"interview", "ralplan", "ralph"}),
+    "auto-routing": ((r"enable|disable|status|turn .* on|turn .* off", r"future-session|across sessions|routing-guidance"), (r"configuration only", r"not .*current-turn.*(selection|workflow)"), set()),
+    "test-driven-development": ((r"explicit(?:ly)? .*tdd|explicit(?:ly)? .*test-first|test-first intent", r"red[-/]green[-/]refactor", r"already-selected|internal .*gate"), (r"ordinary implementation", r"ralph"), {"ralph"}),
+    "simplify": ((r"behavior-locked|behavior lock", r"changed diff|diff", r"post-implementation", r"pre-review"), (r"not .*initial implementation", r"correctness|root-cause"), set()),
+    "verification-before-completion": ((r"imminent|about to|final status", r"complete|fixed|passing|ready|safe", r"evidence|gate"), (r"not .*implementation",), set()),
+    "systematic-debugging": ((r"observed|failure|failing|regression|flake|unexpected", r"unknown root cause|investigation"), (r"known-cause", r"ralph|execution-ready fix"), {"ralph"}),
+    "fusion-rescue": ((r"explicit.*(rescue|multi-agent synthesis)|hard problem.*stalled|stalled.*ordinary",), (r"not .*first-pass", r"not .*routine"), {"ralph", "systematic-debugging"}),
+}
 
 ALL_SKILLS = PUBLIC_SKILLS
 
@@ -115,7 +139,7 @@ AGENT_CORE_FORBIDDEN_SURFACE_PATTERNS = (
 # structural: the heading tags the section, "HARD-GATE" tags the negative
 # framing that forbids auto-invocation, and "Ultrawork exception" tags the
 # escape hatch documented for ultrawork orchestration. Keep this contract in
-# lockstep with skills/ultrawork/SKILL.md and skills/using-oh-no-harness/SKILL.md.
+# lockstep with interview.md, ralplan.md, and the Ultrawork exception owners.
 NEXT_SKILL_GATE_REQUIRED = {"interview", "ralplan"}
 NEXT_SKILL_GATE_MARKERS = (
     "## Next Skill Handoff",
@@ -192,7 +216,7 @@ ULTRAWORK_RUNTIME_GUARDRAIL_TERMS = (
 # the parity check. The parity invariant is scoped to the skill-core SOURCE body,
 # NOT the composed wrapper: the platform runtime doc composes
 # docs/shared/cross-host-review.md into every wrapper, so a wrapper-scoped check
-# would false-positive on skills (interview, using-oh-no-harness) whose own body
+# would false-positive on a skill (interview) whose own body
 # does not reference it.
 #
 # Stable strong-contract substring that must appear (whitespace-normalized) in
@@ -234,11 +258,6 @@ ROLE_POLICY_MARKERS = {
     "ultrawork": "## Agent Roles",
 }
 PLATFORM_SUBAGENT_MARKERS = {
-    "using-oh-no-harness": (
-        "This core file does not define platform invocation syntax",
-        "matching platform source files named in its runtime composition metadata",
-        "Agents remain role prompts inside a selected skill",
-    ),
     "ralph": (
         "Parallel trigger",
         "use targeted subagents on subagent-capable hosts",
@@ -375,7 +394,7 @@ PLATFORM_RULE_DOC_MARKERS = {
         "## Role Dispatch",
         "Dispatch only after the active skill's trigger fires",
         "docs/platforms/codex.md",
-        'spawn_agent(agent_type="oh-no-<role>", ...)',
+        'spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner"',
         "fork_context=true",
         "wait_agent",
         "Every dispatched result is a dependency",
@@ -515,20 +534,27 @@ PLATFORM_ADAPTER_FORBIDDEN_MARKERS = {
     ),
     "codex-ralph.md": ("@agent-oh-no-harness:<agent>", "CLAUDE_CODE_ONLY_RALPH_ADAPTER"),
 }
+CODEX_TYPED_SPAWN_SOURCES = (
+    "codex-runtime.md",
+    "codex-interview.md",
+    "codex-ralplan.md",
+    "codex-ralph.md",
+    "codex-systematic-debugging.md",
+    "codex-ultrawork.md",
+    "codex-verification-before-completion.md",
+)
+CODEX_TASK_NAME_POLICY_OWNER = "codex.md"
+CODEX_TASK_NAME_POLICY_MARKERS = (
+    "^[a-z0-9_]+$",
+    "deterministic sibling uniqueness",
+    "The child rollout should record the expected `agent_role`",
+    "A matching task name alone is not role-ownership proof",
+)
 WORKTREE_FORBIDDEN_MARKERS = (
     "git worktree add ../<repo>-<task-slug>",
     "../<repo>-<task-slug>",
 )
 WORKTREE_SKILL_MARKERS = {
-    "using-oh-no-harness": (
-        "## Worktree Isolation Default",
-        "`ralph` owns the decision table",
-        ".oh-no/worktrees/<task-slug>",
-        "parent-directory siblings",
-        "git clone",
-        "Worktree decision: direct automatic worktree",
-        "Worktree decision: ultrawork automatic worktree",
-    ),
     "ralplan": (
         "worktree policy",
         "Execution handoff",
@@ -575,10 +601,6 @@ WORKTREE_AGENT_MARKERS = {
     ),
 }
 EXECUTION_MODE_SKILL_MARKERS = {
-    "using-oh-no-harness": (
-        "required Ralph execution mode",
-        "must set a `LIGHT`, `STANDARD`, or `THOROUGH` execution mode",
-    ),
     "interview": (
         "## Execution Sizing Hint",
         "## Socratic Interview Method",
@@ -612,7 +634,7 @@ EXECUTION_MODE_SKILL_MARKERS = {
     "ralph": (
         "## Required Execution Mode",
         "## Mode-Gated Agent Dispatch",
-        "## Verification Budget Policy",
+        "## Verification Contract and Test Necessity Gate",
         "## Diff-Budget Gate",
         "## Validation Gate",
         "acceptance-to-evidence mapping",
@@ -727,8 +749,8 @@ SIMPLICITY_SCOPE_SKILL_MARKERS = {
         "Simplicity justification",
     ),
     "ralph": (
-        "## Scope Trace Gate",
-        "Every changed file and every meaningful changed line",
+        "## Mutation Manifest and Expansion Gate",
+        "actual changed paths and meaningful changed lines",
         "speculative abstraction",
     ),
     "simplify": (
@@ -949,16 +971,6 @@ RALPLAN_DIRECT_HANDOFF_FORBIDDEN_MARKERS = (
     "Phase 1:",
     "Phase 2:",
 )
-USING_OH_NO_RALPLAN_HANDOFF_MARKERS = (
-    "combined",
-    "approval",
-    "choice",
-    "ralplan",
-    "Do not auto-invoke",
-)
-USING_OH_NO_RALPLAN_HANDOFF_PATTERNS = (
-    (r"approve[- ]and[- ]run", "approve-and-run"),
-)
 MANDATORY_GATE_RALPLAN_HANDOFF_ROW_MARKERS = (
     "combined",
     "approval",
@@ -990,12 +1002,6 @@ RALPLAN_AGENT_CONTRACT_MARKERS = {
         "Quality-gate findings",
     ),
 }
-TDD_SKILL_DESCRIPTION_MARKERS = (
-    "ralph-owned execution",
-    "RED/GREEN/REFACTOR",
-    "explicitly asked for TDD/test-first work",
-    "not a top-level implementation route",
-)
 TDD_COMMAND_DESCRIPTION_MARKERS = (
     "explicit TDD/test-first",
     "RED/GREEN/REFACTOR",
@@ -1012,28 +1018,11 @@ TDD_CORE_ROUTING_MARKERS = (
     "Do not continue as a substitute for `ralph`",
 )
 TDD_ROUTING_DOC_MARKERS = {
-    "docs/skill-core/using-oh-no-harness.md": (
-        "Treat TDD as an internal guardrail discipline",
-        "not a generic implementation entrypoint",
-        "Default ordinary implementation requests to `ralph`, not",
-        "does not explicitly ask for TDD",
-        "let that workflow invoke TDD internally when behavior changes",
-    ),
     "docs/skill-core/ralph.md": (
         "Ralph owns execution mode selection or enforcement",
         "Do not route concrete add/fix/refactor/implement requests directly to `test-driven-development`",
         "Ralph invokes TDD internally",
         "Classify the story's TDD requirement",
-    ),
-    "docs/reference/relationships.md": (
-        "internal mid-loop discipline, not a top-level implementation skill",
-        "ordinary implementation requests route through `ralph`",
-    ),
-    "hooks/session-start": (
-        "ordinary implementation request: oh-no-harness:ralph",
-        "Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development",
-        "ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work",
-        "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
     ),
 }
 TDD_FORBIDDEN_DOC_MARKERS = (
@@ -1091,7 +1080,7 @@ TDD_SCOPE_SECTION_MARKERS = (
     (
         "docs/skill-core/ralph.md",
         "## Output",
-        "Process budget outcome: planned versus actual tests/TDD cycles, role dispatch count and reasons, broad-suite count, and rescope events.",
+        "Process anomaly outcome: planned versus actual tests/TDD cycles, role dispatch reasons, broad-suite runs, and rescope events; no count authorizes or proves work.",
     ),
 )
 TDD_SCOPE_SECTION_FORBIDDEN_MARKERS = (
@@ -1596,12 +1585,15 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
 
     if platform == "codex":
         required = "docs/platforms/codex-runtime.md"
+        child_packet_floor = "docs/platforms/codex-child-packet-floor.md"
         forbidden = (
             "docs/platforms/claude-code-runtime.md",
             "docs/platforms/claude-code.md",
             "docs/platforms/claude-code-ralph.md",
             "CLAUDE_PLUGIN_ROOT",
         )
+        if child_packet_floor not in body:
+            die(f"{path} should reference Codex child-packet floor: {child_packet_floor!r}")
         if skill in SELF_CONTAINED_ADAPTER_SKILLS:
             required = f"docs/platforms/codex-{skill}.md"
             forbidden += ("docs/platforms/codex-runtime.md",)
@@ -1618,6 +1610,7 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
         required = "docs/platforms/claude-code-runtime.md"
         forbidden = (
             "docs/platforms/codex-runtime.md",
+            "docs/platforms/codex-child-packet-floor.md",
             "docs/platforms/codex.md",
             "docs/platforms/codex-ralph.md",
             "spawn_agent",
@@ -1869,8 +1862,14 @@ def assert_agent_core(root: Path, agent: str, claude_agent_body: str) -> None:
     body = read_text(path)
     if body.lstrip().startswith("---"):
         die(f"{path} must not contain Claude Code YAML frontmatter")
-    if body.strip() != claude_agent_body.strip():
-        die(f"{path} body must match agents/{agent}.md without YAML frontmatter")
+    expected_agent_body = (
+        "<!-- Generated from docs/agent-core; do not edit by hand. -->\n"
+        f"<!-- Source: plugins/oh-no-harness/docs/agent-core/{agent}.md -->\n"
+        "<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->\n\n"
+        f"{body}"
+    )
+    if expected_agent_body.strip() != claude_agent_body.strip():
+        die(f"agents/{agent}.md body must compose docs/agent-core/{agent}.md only")
     for marker in AGENT_SKILL_RELATIONSHIP_MARKERS:
         if marker not in body:
             die(f"{path} is missing required agent-core marker: {marker!r}")
@@ -1989,14 +1988,11 @@ def assert_codex_agent_template(root: Path, agent: str) -> None:
     agent_core = read_text(root / AGENT_CORE_ROOT / f"{agent}.md")
     expected_instructions = (
         f"Agent prompt source: docs/agent-core/{agent}.md\n"
-        f"Agent prompt content:\n\n"
+        "Agent prompt content:\n\n"
         f"{agent_core}"
     )
     if data["developer_instructions"] != expected_instructions:
-        die(
-            f"{path} developer_instructions must exactly match "
-            f"docs/agent-core/{agent}.md"
-        )
+        die(f"{path} developer_instructions must compose docs/agent-core/{agent}.md only")
     for marker in (
         "oh-no-harness-generated-codex-agent",
         f'name = "oh-no-{agent}"',
@@ -2072,6 +2068,209 @@ def assert_expected_references(root: Path) -> None:
             die(f"relationships.md does not mention required structure marker `{marker}`")
 
 
+def _spawn_agent_keyword_arguments(text: str) -> list[dict[str, str]]:
+    opening = {"(": ")", "[": "]", "{": "}", "<": ">"}
+    calls: list[dict[str, str]] = []
+    covered_until = 0
+    for match in re.finditer(r"\bspawn_agent\s*\(", text):
+        if match.start() < covered_until:
+            continue
+        stack, quote, escaped, end = [")"], None, False, None
+        for index in range(match.end(), len(text)):
+            character = text[index]
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+                continue
+            if character in {'"', "'", "`"}:
+                quote = character
+            elif character in opening:
+                stack.append(opening[character])
+            elif character == stack[-1]:
+                stack.pop()
+                if not stack:
+                    end = index
+                    break
+        if end is None:
+            break
+        covered_until = end + 1
+
+        body = text[match.end():end]
+        segments, stack = [], []
+        quote, escaped, start = None, False, 0
+        for index, character in enumerate(body):
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+                continue
+            if character in {'"', "'", "`"}:
+                quote = character
+            elif character in opening:
+                stack.append(opening[character])
+            elif stack and character == stack[-1]:
+                stack.pop()
+            elif character == "," and not stack:
+                segments.append(body[start:index])
+                start = index + 1
+        segments.append(body[start:])
+
+        arguments: dict[str, str] = {}
+        for segment in segments:
+            keyword = re.match(r"\s*([A-Za-z_]\w*)\s*=(?!=)(.*)\Z", segment, re.DOTALL)
+            if keyword:
+                arguments[keyword.group(1)] = keyword.group(2).strip()
+        calls.append(arguments)
+    return calls
+
+
+def assert_codex_task_name_contract(root: Path) -> None:
+    platform_root = root / "docs" / "platforms"
+    field_checks = {
+        "task_name": lambda arguments: "task_name" in arguments,
+        "agent_type": lambda arguments: bool(re.fullmatch(r'"oh-no-[^"]+"', arguments.get("agent_type", ""))),
+        "message": lambda arguments: "message" in arguments,
+        'fork_turns="none"': lambda arguments: arguments.get("fork_turns") == '"none"',
+    }
+    problems: list[str] = []
+
+    def validate_task_names(
+        filename: str,
+        calls: list[dict[str, str]],
+        target: list[str] = problems,
+    ) -> None:
+        concrete_names: list[str] = []
+        for arguments in calls:
+            raw_name = arguments.get("task_name")
+            if raw_name is None:
+                continue
+            literal = re.fullmatch(r'(["\'])(.*)\1', raw_name, re.DOTALL)
+            if not literal:
+                target.append(f"codex-task-name-literal: {filename} task_name must be a quoted literal: {raw_name!r}")
+                continue
+            task_name = literal.group(2)
+            concrete_names.append(task_name)
+            if not re.fullmatch(r"[a-z0-9_]+", task_name):
+                target.append(f"codex-task-name-grammar: {filename} has invalid task_name {task_name!r}")
+            placeholders = sorted({part for part in task_name.split("_") if part in {"workflow", "role", "phase", "lens"}})
+            if "<" in task_name or ">" in task_name or placeholders:
+                target.append(f"codex-task-name-placeholder: {filename} task_name {task_name!r} contains placeholders")
+            agent_type = re.fullmatch(r'"oh-no-([a-z0-9-]+)"', arguments.get("agent_type", ""))
+            if "agent_type" in arguments and not task_name.rsplit("_", 1)[-1].isdigit():
+                target.append(f"codex-task-name-ordinal: {filename} task_name {task_name!r} lacks a stable ordinal")
+            if agent_type:
+                role = agent_type.group(1).replace("-", "_")
+                if not re.search(rf"(?:^|_){re.escape(role)}(?:_|$)", task_name):
+                    target.append(f"codex-task-name-role: {filename} task_name {task_name!r} does not encode role {role!r}")
+        duplicates = sorted({name for name in concrete_names if concrete_names.count(name) > 1})
+        if duplicates:
+            target.append(f"codex-task-name-duplicate: {filename} repeats sibling/example identities {duplicates!r}")
+
+    placeholder_fixture = _spawn_agent_keyword_arguments(
+        'spawn_agent(task_name="<deterministic_unique_identifier>", agent_type="oh-no-planner", '
+        'message={"decoy": "spawn_agent(task_name=\'workflow_role_phase\')", "comparison": "a==b"}, '
+        'fork_turns="none")'
+    )
+    fixture_problems: list[str] = []
+    validate_task_names("angle-placeholder-fixture", placeholder_fixture, fixture_problems)
+    if not all(any(marker in problem for problem in fixture_problems) for marker in (
+        "codex-task-name-grammar", "codex-task-name-placeholder", "codex-task-name-ordinal", "codex-task-name-role"
+    )):
+        problems.append(f"codex-task-name-fixture: angle placeholder did not fail closed: {fixture_problems!r}")
+    valid_fixture_problems: list[str] = []
+    validate_task_names(
+        "concrete-nested-decoy-fixture",
+        _spawn_agent_keyword_arguments(
+            'spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", '
+            'message={"decoy": "spawn_agent(task_name=\'<workflow_role_phase>\')", "comparison": "a==b"}, '
+            'fork_turns="none")'
+        ),
+        valid_fixture_problems,
+    )
+    if valid_fixture_problems:
+        problems.append(f"codex-task-name-fixture: concrete nested/quoted/== fixture failed: {valid_fixture_problems!r}")
+
+    expected_typed = set(CODEX_TYPED_SPAWN_SOURCES)
+    actual_typed = {
+        path.name
+        for path in platform_root.glob("codex*.md")
+        if path.name != CODEX_TASK_NAME_POLICY_OWNER
+        and any(field_checks["agent_type"](arguments) for arguments in
+                _spawn_agent_keyword_arguments(read_text(path)))
+    }
+    if actual_typed != expected_typed:
+        problems.append(
+            "codex-spawn-inventory: typed executable source inventory mismatch: "
+            f"expected={sorted(expected_typed)!r} actual={sorted(actual_typed)!r}"
+        )
+
+    for filename in CODEX_TYPED_SPAWN_SOURCES:
+        calls = [
+            arguments for arguments in
+            _spawn_agent_keyword_arguments(read_text(platform_root / filename))
+            if field_checks["agent_type"](arguments)
+        ]
+        if any(all(check(arguments) for check in field_checks.values()) for arguments in calls):
+            continue
+        closest = max(
+            calls or [{}],
+            key=lambda arguments: sum(check(arguments) for check in field_checks.values()),
+        )
+        missing = [
+            field for field, check in field_checks.items()
+            if not check(closest)
+        ]
+        problems.append(
+            f"codex-spawn-pair: {platform_root / filename} must keep task_name, "
+            "agent_type, message, and fork_turns=\"none\" in one custom-role "
+            f"spawn_agent call; closest call missing={missing!r}"
+        )
+
+    simplify_path = platform_root / "codex-simplify.md"
+    simplify_calls = _spawn_agent_keyword_arguments(read_text(simplify_path))
+    untyped_fields = ("task_name", "message", 'fork_turns="none"')
+    if not any(
+        all(field_checks[field](arguments) for field in untyped_fields)
+        and not field_checks["agent_type"](arguments)
+        for arguments in simplify_calls
+    ):
+        problems.append(
+            f"codex-untyped-task-name: {simplify_path} must keep task_name, message, "
+            "and fork_turns=\"none\" in one spawn_agent call while omitting agent_type"
+        )
+
+    owner_path = platform_root / CODEX_TASK_NAME_POLICY_OWNER
+    owner_body = read_text(owner_path)
+    if not any(
+        all(field_checks[field](arguments) for field in ("task_name", "agent_type"))
+        for arguments in _spawn_agent_keyword_arguments(owner_body)
+    ):
+        problems.append(
+            f"codex-maintenance-pair: {owner_path} must show task_name + agent_type "
+            "in one spawn_agent example"
+        )
+    missing_owner = [
+        marker for marker in CODEX_TASK_NAME_POLICY_MARKERS
+        if not has_required_marker(owner_body, marker)
+    ]
+    if missing_owner:
+        problems.append(
+            f"codex-task-name-owner: {owner_path} is missing canonical naming/role-proof "
+            f"markers: {missing_owner!r}"
+        )
+    for filename in (*CODEX_TYPED_SPAWN_SOURCES, "codex-simplify.md", CODEX_TASK_NAME_POLICY_OWNER):
+        validate_task_names(filename, _spawn_agent_keyword_arguments(read_text(platform_root / filename)))
+    if problems:
+        die("Codex V2 task_name contract failures:\n- " + "\n- ".join(problems))
+
+
 def assert_execution_mode_contract(root: Path) -> None:
     # docs/shared/* retired 2026-07-17: the mode/subagent semantics live in the
     # self-contained skill cores, already pinned by their own marker sets.
@@ -2117,16 +2316,6 @@ def assert_required_reading_contract(root: Path) -> None:
         body = read_text(path)
         referenced = set(shared_ref.findall(body))
         section = markdown_section(body, "## Required Reading")
-        if skill == "using-oh-no-harness":
-            # The router carries no runtime shared-doc dependency (2026-07-17):
-            # its shared references are a non-normative maintenance footer, and
-            # a Required Reading section must not come back.
-            if section.strip():
-                problems.append(
-                    f"{path}: the router must not declare a "
-                    f"'## Required Reading' runtime dependency section"
-                )
-            continue
         if skill in SELF_CONTAINED_ADAPTER_SKILLS:
             # Self-contained cores invert this contract: shared docs are
             # rationale-only, never a runtime prerequisite, so a Required
@@ -2285,12 +2474,6 @@ def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
         root / CODEX_SKILL_ROOT / "test-driven-development" / "SKILL.md",
         root / CLAUDE_SKILL_ROOT / "test-driven-development" / "SKILL.md",
     ]
-    for path in description_paths:
-        description = parse_frontmatter(path).get("description", "")
-        for marker in TDD_SKILL_DESCRIPTION_MARKERS:
-            if marker not in description:
-                die(f"{path} description is missing TDD routing marker: {marker!r}")
-
     command_path = root / "commands" / "test-driven-development.md"
     command_description = parse_frontmatter(command_path).get("description", "")
     for marker in TDD_COMMAND_DESCRIPTION_MARKERS:
@@ -2347,9 +2530,6 @@ def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
         description_paths
         + [
             command_path,
-            root / SKILL_CORE_ROOT / "using-oh-no-harness.md",
-            root / CODEX_SKILL_ROOT / "using-oh-no-harness" / "SKILL.md",
-            root / CLAUDE_SKILL_ROOT / "using-oh-no-harness" / "SKILL.md",
             root / SKILL_CORE_ROOT / "ralph.md",
             root / "docs" / "reference" / "relationships.md",
             root / "hooks" / "session-start",
@@ -2409,7 +2589,6 @@ def assert_hook_contract(root: Path) -> None:
         "command -v rg",
         "rg --files",
         "Use native skill loading",
-        "using-oh-no-harness",
         "No-route lane",
         "Direct-edit lane",
         "OH_NO_FORCED_ROUTING",
@@ -2498,7 +2677,7 @@ def assert_hook_contract(root: Path) -> None:
         "using_oh_no_core",
     ):
         if forbidden in session_start_text:
-            die(f"{session_start_path} still embeds full using-oh-no-harness core content: {forbidden!r}")
+            die(f"{session_start_path} still embeds retired router core content: {forbidden!r}")
 
 
 def assert_hook_test_contract(marketplace_root: Path) -> None:
@@ -2526,6 +2705,13 @@ def assert_hook_test_contract(marketplace_root: Path) -> None:
         "same-model-parallel-fallback",
         "require-model-diversity",
         "panel-default",
+        "oh-no-claude-hook-cap",
+        "top_tier_models=fable opus sonnet haiku gpt-5.6-sol gpt-5.6-terra",
+        "assignment=%s,gpt-5.6-terra,max",
+        "matching-max",
+        "reapply-max",
+        "failure-max",
+        "maximum configured matching, reapply, and failure SessionStart branches stay within 6600",
     ):
         if marker not in claude_text:
             die(f"{claude_path} is missing Claude model-diversity live marker: {marker!r}")
@@ -2991,6 +3177,414 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
             die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
 
 
+def assert_direct_dispatch_compatibility_contract(root: Path) -> None:
+    """Keep direct role dispatch proportional without weakening repository safety."""
+    role_contracts = {
+        "executor": (
+            "target role",
+            "exact target revision/diff fingerprint",
+            "scope/permissions/non-goals",
+            "mutation authorization",
+            "contract/AC or direct behavior lock",
+            "expected evidence/output",
+            "stop/escalation",
+        ),
+        "verifier": (
+            "target role",
+            "exact target revision/diff fingerprint",
+            "scope/permissions/non-goals",
+            "contract/AC or verification claim",
+            "expected evidence/output",
+            "stop/escalation",
+        ),
+        "code-reviewer": (
+            "target role",
+            "exact target revision/diff fingerprint",
+            "scope/permissions/non-goals",
+            "contract/AC or review basis",
+            "expected evidence/output",
+            "stop/escalation",
+        ),
+    }
+    for role, required in role_contracts.items():
+        path = root / AGENT_CORE_ROOT / f"{role}.md"
+        body = read_text(path)
+        for marker in required:
+            if not has_required_marker(body, marker):
+                die(f"{path} direct-dispatch safety contract is missing {marker!r}")
+        for marker in (
+            "Workflow-specific IDs are required only when the selected workflow delta requires them",
+            "preserve and echo every supplied ID",
+        ):
+            if not has_required_marker(body, marker):
+                die(f"{path} direct-dispatch compatibility contract is missing {marker!r}")
+        if "require Packet ID, Run/session ID, Story/task ID" in body:
+            die(f"{path} hard-requires workflow IDs for direct dispatch")
+        for output_marker in (
+            "Packet ID: <echo when supplied | not supplied — direct workflow>",
+            "Run/session ID: <echo when supplied | not supplied — direct workflow>",
+            "Story/task ID: <echo when supplied | not supplied — direct workflow>",
+        ):
+            if output_marker not in body:
+                die(f"{path} does not preserve optional workflow identity: {output_marker!r}")
+
+
+def assert_codex_child_packet_floor_contract(root: Path) -> None:
+    """Pin the hook-disabled Codex native-skill caller floor."""
+    floor_path = root / "docs" / "platforms" / "codex-child-packet-floor.md"
+    floor = read_text(floor_path)
+    for marker in (
+        "# Codex Child Packet Floor",
+        "hook-disabled native-skill fallback",
+        "main caller",
+        "proportional self-contained English packet",
+        "target role",
+        "exact target/revision",
+        "result/revision binding",
+        "scope/permissions/non-goals",
+        "contract/acceptance",
+        "expected evidence/output",
+        "stop/escalation",
+        "Workflow-specific IDs and deltas come from the selected skill",
+        "withhold maker conclusions, expected verdicts, sibling outputs, and preferred root-cause hypotheses",
+    ):
+        if not has_required_marker(floor, marker):
+            die(f"{floor_path} is missing Codex child-packet floor marker: {marker!r}")
+    for marker in (
+        "Global Context Capsule",
+        "Receiver Preflight",
+        "Packet ID:",
+        "Run/session ID:",
+        "Story/task ID:",
+    ):
+        if marker in floor:
+            die(f"{floor_path} contains receiver-schema or workflow-ID marker: {marker!r}")
+
+    generator_path = root.parent.parent / "scripts" / "generate-skill-wrappers.py"
+    generator = read_text(generator_path)
+    for marker in (
+        'CODEX_CHILD_PACKET_FLOOR = "docs/platforms/codex-child-packet-floor.md"',
+        "child_packet_paths",
+        "source_paths = [core_path, *child_packet_paths, *overlay_paths]",
+        "source_paths = [core_path, *child_packet_paths, plugin_root / platform.platform_doc, *overlay_paths]",
+    ):
+        if marker not in generator:
+            die(f"{generator_path} is missing Codex child-packet composition marker: {marker!r}")
+
+    for skill in WORKFLOW_ROUTING_SKILLS:
+        wrapper_path = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
+        wrapper = read_text(wrapper_path)
+        for marker in (
+            "../../docs/platforms/codex-child-packet-floor.md",
+            "## Source: docs/platforms/codex-child-packet-floor.md",
+            "# Codex Child Packet Floor",
+        ):
+            if wrapper.count(marker) != 1:
+                die(f"{wrapper_path} must contain one hook-disabled caller floor marker: {marker!r}")
+        runtime_marker = "docs/platforms/codex-runtime.md"
+        if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+            if runtime_marker in wrapper:
+                die(f"{wrapper_path} must keep the common Codex runtime excluded")
+        elif runtime_marker not in wrapper:
+            die(f"{wrapper_path} must retain the common Codex runtime")
+
+    for skill in WORKFLOW_ROUTING_SKILLS:
+        wrapper_path = root / CLAUDE_SKILL_ROOT / skill / "SKILL.md"
+        if "codex-child-packet-floor.md" in read_text(wrapper_path):
+            die(f"{wrapper_path} must not include the Codex-only child-packet floor")
+
+
+def assert_ralph_live_heading_references(root: Path) -> None:
+    """Reject references to Ralph headings retired by the gate consolidation."""
+    paths = (
+        root / "docs" / "skill-core" / "ralph.md",
+        root / "docs" / "specs" / "2026-07-16-ralplan-ralph-fsm-core-rewrite.md",
+        root / CODEX_SKILL_ROOT / "ralph" / "SKILL.md",
+        root / CLAUDE_SKILL_ROOT / "ralph" / "SKILL.md",
+    )
+    for path in paths:
+        body = read_text(path)
+        for marker in ("Scope Trace Gate", "Verification Budget Policy"):
+            if marker in body:
+                die(f"{path} retains retired Ralph heading reference: {marker!r}")
+
+
+def assert_child_packet_ownership_contract(root: Path) -> None:
+    """Pin caller-owned child packets and role-only generated prompts."""
+    common_path = root / AGENT_CORE_ROOT / "_global-context-capsule.md"
+    if common_path.exists():
+        die(f"{common_path} must be absent; child-packet construction is caller-owned")
+
+    generator_path = root.parent.parent / "scripts" / "generate-agent-wrappers.py"
+    generator = read_text(generator_path)
+    for marker in (
+        "COMMON_AGENT_CORE",
+        "read_common_agent_core",
+        "compose_agent_body",
+        "_global-context-capsule.md",
+        "Common source:",
+        "Agent prompt common source:",
+    ):
+        if marker in generator:
+            die(f"{generator_path} retains forbidden common-fragment composition: {marker!r}")
+    for marker in (
+        "body = read_agent_core(plugin_root, meta.role)",
+        "Generated from docs/agent-core; do not edit by hand.",
+        "Source: plugins/oh-no-harness/docs/agent-core/",
+        "Agent prompt source: docs/agent-core/",
+    ):
+        if marker not in generator:
+            die(f"{generator_path} is missing role-only generation marker: {marker!r}")
+
+    hook_path = root / "hooks" / "session-start"
+    hook = read_text(hook_path)
+    bootstrap_start = hook.find("bootstrap_policy='")
+    bootstrap_end = hook.find('\n\nauto_routing_policy=""', bootstrap_start)
+    if bootstrap_start < 0 or bootstrap_end < 0:
+        die("child-packet floor: cannot locate unconditional OH_NO_BOOTSTRAP")
+    bootstrap = hook[bootstrap_start:bootstrap_end]
+    floor_markers = (
+        "Child packet floor",
+        "caller sends a proportional self-contained English packet",
+        "purpose/outcome",
+        "target role",
+        "repo mutation/review/verify",
+        "exact target/revision + result/revision binding",
+        "scope/permissions/non-goals",
+        "contract/acceptance",
+        "evidence/output",
+        "stop/escalation",
+        "Initial independent review/verify/debug",
+        "withholds maker conclusions, expected verdicts, sibling output, preferred causes",
+        "disclose only later for audit/clarification",
+    )
+    for marker in floor_markers:
+        if not has_required_marker(bootstrap, marker):
+            die(f"child-packet floor: unconditional OH_NO_BOOTSTRAP is missing {marker!r}")
+    if hook.count("Child packet floor:") != 1:
+        die("child-packet floor must have exactly one common SessionStart source owner")
+    for marker in (
+        "Global Context Capsule",
+        "Capsule delta",
+        "_global-context-capsule.md",
+        "## Full Capsule",
+        "## Receiver Preflight",
+    ):
+        if marker in hook:
+            die(f"{hook_path} retains former receiver-schema marker: {marker!r}")
+
+    former_prompt_markers = (
+        "# Global Context Capsule",
+        "## Full Capsule",
+        "## Receiver Preflight",
+        "Every new child receives a full Global Context Capsule",
+        "Context status: blocked",
+        "_global-context-capsule.md",
+    )
+    role_headings = {
+        "explore": "# Explore Agent",
+        "analyst": "# Analyst Agent",
+        "planner": "# Planner Agent",
+        "plan-reviewer": "# Plan Reviewer Agent",
+        "executor": "# Executor Agent",
+        "debugger": "# Debugger Agent",
+        "verifier": "# Verifier Agent",
+        "code-reviewer": "# Code Reviewer Agent",
+        "fusion-rescue-analyst": "# Fusion Rescue Analyst Agent",
+    }
+    for agent in AGENTS:
+        core_path = root / AGENT_CORE_ROOT / f"{agent}.md"
+        core = read_text(core_path)
+        claude_path = root / "agents" / f"{agent}.md"
+        claude = read_text(claude_path)
+        codex_path = root / CODEX_AGENT_TEMPLATE_ROOT / f"oh-no-{agent}.toml"
+        codex = read_text(codex_path)
+        for prompt_path, prompt in ((core_path, core), (claude_path, claude), (codex_path, codex)):
+            for marker in former_prompt_markers:
+                if marker in prompt:
+                    die(f"{prompt_path} retains former shared receiver contract: {marker!r}")
+        role_heading = role_headings[agent]
+        if claude.count(role_heading) != 1 or codex.count(role_heading) != 1:
+            die(f"generated prompt for {agent} must contain its role core exactly once")
+        for marker in (
+            "Generated from docs/agent-core; do not edit by hand.",
+            f"Source: plugins/oh-no-harness/docs/agent-core/{agent}.md",
+            "python3 scripts/generate-agent-wrappers.py --write",
+        ):
+            if claude.count(marker) != 1:
+                die(f"{claude_path} role provenance must appear once: {marker!r}")
+        for marker in (
+            "# Generated from docs/agent-core; do not edit by hand.",
+            f"# Source: plugins/oh-no-harness/docs/agent-core/{agent}.md",
+            "# Run: python3 scripts/generate-agent-wrappers.py --write",
+            f"Agent prompt source: docs/agent-core/{agent}.md",
+        ):
+            if codex.count(marker) != 1:
+                die(f"{codex_path} role provenance must appear once: {marker!r}")
+
+    ralph_path = root / "docs" / "skill-core" / "ralph.md"
+    ralph = read_text(ralph_path)
+    for heading, markers in {
+        "## Execution Loop": (
+            "one bounded task and the minimal inseparable AC-ID set",
+            "main caller builds",
+            "self-contained English packet",
+            "adds only Ralph's assignment delta",
+            "role prompts do not reconstruct omitted caller context",
+        ),
+        "## Parallel Subagent Policy": (
+            "main caller owns each complete child packet",
+            "common caller floor",
+            "use English instruction prose",
+            "add only the Ralph delta",
+            "same-child follow-up must explicitly restate every changed target",
+            "initial `code-reviewer` packet",
+            "withhold maker conclusions, expected verdicts, and sibling outputs",
+            "initial `verifier` packet",
+            "independent evidence design",
+            "later audit phase discloses accepted review findings or a fix manifest",
+            "audit obligations, not proof",
+            "Ralph-specific assignment delta",
+            "Packet ID:",
+            "Executor assignment ID:",
+        ),
+        "## Mutation Manifest and Expansion Gate": (
+            "change kind",
+            "semantic obligation",
+            "causal generated outputs",
+            "stops before editing and returns an `Expansion request`",
+            "affected packet fields",
+            "requested-direction-change: yes | no",
+        ),
+        "## Verification Contract and Test Necessity Gate": (
+            "focused RED behavior/command and expected old failure",
+            "GREEN behavior/command and required observation",
+            "Map every new or changed test to an assigned AC ID or change-introduced independent failure mode",
+            "why existing evidence is insufficient",
+            "duplicate variants",
+            "implementation-detail-only assertions",
+            "combination explosion",
+            "unapproved helper/framework/fixture expansion",
+            "stop adding tests",
+        ),
+        "## Executor Assignment Completion Stop": (
+            "Stop the current executor assignment",
+            "manifest is satisfied",
+            "mapped verification is green and fresh",
+            "local to that bounded assignment, not final run completion",
+        ),
+        "## Review Gate": (
+            "Reviewer packets are blind to maker conclusions",
+            "verifier first records its evidence design",
+            "Accepted findings and fix manifests are audit obligations, not proof",
+            "complete manifest fingerprint",
+            "semantic RED/GREEN",
+            "Test Necessity mapping",
+        ),
+        "## Completion Stop": (
+            "Record final run Completion Stop only after mutation-capable cleanup",
+            "independent final verifier",
+            "exact final complete manifest fingerprint",
+            "Any later mutation invalidates this final stop",
+        ),
+    }.items():
+        section = markdown_section(ralph, heading)
+        if not section:
+            die(f"{ralph_path} is missing child-packet ownership section: {heading!r}")
+        for marker in markers:
+            if not has_required_marker(section, marker):
+                die(f"{ralph_path} {heading} is missing child-packet marker: {marker!r}")
+    for marker in ("Global Context Capsule", "Capsule delta", "affected capsule fields"):
+        if marker in ralph:
+            die(f"{ralph_path} retains former receiver-schema marker: {marker!r}")
+
+    ordered_headings = (
+        "## Executor Assignment Completion Stop",
+        "## Cleanup And Final Verification",
+        "## Review Gate",
+        "## Finalize Checkpoints",
+        "## Completion Stop",
+        "## Resume Protocol",
+    )
+    heading_positions = []
+    for heading in ordered_headings:
+        matches = list(re.finditer(rf"^{re.escape(heading)}$", ralph, flags=re.MULTILINE))
+        if len(matches) != 1:
+            die(f"{ralph_path} final run Completion Stop ordering requires exactly one {heading!r}")
+        heading_positions.append(matches[0].start())
+    if heading_positions != sorted(heading_positions):
+        die(f"{ralph_path} final run Completion Stop ordering is invalid")
+
+    debugging_path = root / "docs" / "skill-core" / "systematic-debugging.md"
+    debugging = read_text(debugging_path)
+    for marker in (
+        "initial packet is symptom-first",
+        "raw reproduction, expected and actual behavior, environment",
+        "without a preferred cause or fix",
+        "sibling conclusions",
+        "later clarification",
+        "neutral exact action, state, and raw outcome",
+        "initial debugger packet contains the raw reproduction",
+    ):
+        if not has_required_marker(debugging, marker):
+            die(f"{debugging_path} is missing symptom-first disclosure marker: {marker!r}")
+
+    role_independence = {
+        "plan-reviewer": (
+            "Reach your own verdict from the exact draft",
+            "initial review must not use an expected verdict or sibling review output",
+        ),
+        "code-reviewer": (
+            "Derive findings independently from the exact contract and diff",
+            "initial review must not use an expected verdict or sibling review output",
+        ),
+        "verifier": (
+            "First design the required evidence",
+            "without using maker conclusions or an expected verdict",
+            "obligations to audit, never as proof",
+        ),
+        "debugger": (
+            "Begin independently from the raw reproduction",
+            "Form your own hypotheses before using any preferred cause",
+            "exact action, state, and raw outcome as evidence",
+        ),
+        "executor": (
+            "when any safety-critical field is missing, stale, contradictory, or misrouted",
+            "bounded Ralph assignment",
+            "Mutation Manifest",
+            "Verification Contract",
+            "Test Necessity Gate",
+            "Executor Assignment Completion Stop",
+            "affected packet fields",
+        ),
+    }
+    for agent, markers in role_independence.items():
+        path = root / AGENT_CORE_ROOT / f"{agent}.md"
+        body = read_text(path)
+        for marker in markers:
+            if not has_required_marker(body, marker):
+                die(f"{path} is missing role-specific ownership marker: {marker!r}")
+
+    script_pattern = re.compile(r"[Ѐ-ӿ؀-ۿᄀ-ᇿ぀-ヿ㐀-鿿가-힯]")
+    language_surfaces = (
+        (hook_path, bootstrap),
+        (ralph_path, "\n".join(markdown_section(ralph, heading) for heading in (
+            "## Execution Loop", "## Parallel Subagent Policy",
+            "## Mutation Manifest and Expansion Gate",
+            "## Verification Contract and Test Necessity Gate",
+            "## Executor Assignment Completion Stop", "## Completion Stop",
+        ))),
+        (debugging_path, debugging),
+        *tuple(
+            (root / AGENT_CORE_ROOT / f"{agent}.md", read_text(root / AGENT_CORE_ROOT / f"{agent}.md"))
+            for agent in role_independence
+        ),
+    )
+    for path, surface in language_surfaces:
+        for line in surface.splitlines():
+            if script_pattern.search(line):
+                die(f"{path} contains non-English child instruction prose: {line!r}")
+
 def assert_orchestration_ownership_contract(root: Path) -> None:
     """Source-only guards for orchestration ownership and role envelopes.
 
@@ -3161,46 +3755,40 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         packet,
         (
+            "main caller owns each complete child packet",
+            "common caller floor\nfrom SessionStart when enabled or the native platform wrapper fallback",
+            "add only the Ralph delta",
+            "same-child follow-up must explicitly restate every changed target",
+            "Ralph-specific assignment delta",
             "Packet ID:",
-            "mechanically distinct from run/session and story/task ids",
+            "distinct from run/session and story/task ids",
             "Run/session ID:",
             "Story/task ID:",
             "Executor assignment ID:",
             "stable across one executor assignment or TDD cycle",
             "Execution mode:",
             "Worktree decision and location:",
-            "Direction Contract source:",
-            "Direction Contract binding:",
-            "source pointer alone is an\nincomplete Direction Contract packet",
-            "mechanically reject scope drift",
+            "Direction Contract source and binding:",
             "AC IDs:",
-            "Plan/PRD path:",
-            "Artifacts:",
-            "verification ledger",
+            "Plan/PRD and read-only artifact pointers:",
             ".oh-no state stays main-owned",
-            "Target revision/diff fingerprint:",
-            "Scope:",
-            "Do not touch:",
-            "Expected structured output:",
             "TDD responsibility:",
-            "Verification responsibility:",
-            "Lifecycle:",
-            "host-specific cleanup",
-            "only when the host exposes it",
+            "Platform invocation: {active adapter invocation syntax}",
+            "Lifecycle: caller waits for and captures",
             "Coordination:",
+            "Assigned review perspective:",
         ),
-        "dispatch packet Artifacts/identity contract",
+        "caller-owned child packet and Ralph assignment-delta contract",
     )
     require(
         ralph_path,
         packet,
         (
-            "Result intake is caller-owned",
+            "Result intake remains caller-owned",
+            "Require exact identity and revision echoes",
+            "stable `Executor assignment ID` for executor results",
             "Reject stale or misrouted results",
-            "exact Packet ID, Run/session ID, Story/task ID, role",
-            "target revision/diff-fingerprint echoes",
-            "executor results also echo the stable\n`Executor assignment ID`",
-            "caller gate inputs, not story acceptance or autonomous transitions",
+            "verifier\nthe freshness owner for the fixed revision",
         ),
         "stale/misrouted result guard",
     )
@@ -3302,11 +3890,11 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         (
             "Result: implemented | blocked | failed",
             "Mutation status: none | partial | complete",
-            "Packet ID: <echo>",
-            "Run/session ID: <echo>",
-            "Story/task ID: <echo>",
-            "Executor assignment ID: <echo>",
-            "Keep the assignment ID stable",
+            "Packet ID: <echo when supplied | not supplied — direct workflow>",
+            "Run/session ID: <echo when supplied | not supplied — direct workflow>",
+            "Story/task ID: <echo when supplied | not supplied — direct workflow>",
+            "Executor assignment ID: <echo when supplied | not supplied — direct workflow>",
+            "stable Executor assignment ID across one TDD cycle",
             "Target revision/diff fingerprint received",
             "Result revision/diff fingerprint",
             "Structured change manifest",
@@ -3319,7 +3907,7 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         executor_path,
         executor,
         (
-            "packet is stale, misrouted, or incomplete",
+            "when any safety-critical field is missing, stale, contradictory, or misrouted",
             "`.oh-no` paths as read-only inputs",
             "caller owns all `.oh-no` state updates",
             "direct non-Ralph caller",
@@ -3341,7 +3929,7 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "Overall verdict: approve | blocking-findings | blocked",
             "Reviewed revision/diff fingerprint:",
             "Blocking finding IDs:",
-            "Packet ID: <echo>",
+            "Packet ID: <echo when supplied | not supplied — direct workflow>",
             "verdict is caller input",
             "never collapses, abbreviates",
         ),
@@ -3356,7 +3944,7 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         (
             "Verification verdict: pass | pass-with-residual-risk | fail | blocked",
             "Verified revision/diff fingerprint:",
-            "Packet ID: <echo>",
+            "Packet ID: <echo when supplied | not supplied — direct workflow>",
             "Unconditionally read-only",
             "No assignment or tool availability creates a write exception",
             "mutate any file",
@@ -3454,9 +4042,9 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "Mutation fallback:\n   dispatch-unavailable",
             "executor-default minimal fix",
             "target role's\nrequired identity/result envelope",
-            "failure/reproduction command",
-            "confirmed root cause or active hypothesis",
-            "diagnostic or fix scope",
+            "initial debugger packet contains the raw reproduction",
+            "withholds the caller's\npreferred cause or fix and all sibling conclusions",
+            "Executor fix packets may include the independently\nconfirmed root cause",
         ),
         "systematic-debugging executor-default ownership",
     )
@@ -3516,20 +4104,6 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "verification-before-completion adapter fail-closed contract",
         )
 
-    using_path = skill_core / "using-oh-no-harness.md"
-    using = read_text(using_path)
-    require(
-        using_path,
-        markdown_section(using, "## Orchestration Ownership Boundary"),
-        (
-            "Workflow main agents own `.oh-no` artifacts",
-            "repository work-product mutation is\nexecutor-owned",
-            "orchestration state, not inline implementation",
-            "LIGHT-tiny or dispatch-unavailable fallback",
-        ),
-        "router orchestration ownership boundary",
-    )
-
     for adapter_name in ("claude-code-ralph.md", "codex-ralph.md"):
         adapter_path = platforms / adapter_name
         adapter = read_text(adapter_path)
@@ -3568,10 +4142,9 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     hook_path = root / "hooks" / "session-start"
     hook = read_text(hook_path)
     bootstrap_sentence = (
-        "Orchestration default: workflow main agents own .oh-no state and gate "
-        "decisions; STANDARD/THOROUGH repository work-product mutations use "
-        "executor roles, with inline mutation only for a recorded LIGHT-tiny "
-        "or dispatch-unavailable fallback."
+        "Orchestration default: main agents own .oh-no state/gates; "
+        "STANDARD/THOROUGH repository mutations use executors, except recorded "
+        "LIGHT-tiny or dispatch-unavailable inline fallback."
     )
     bootstrap_start = hook.find("bootstrap_policy='")
     forced_start = hook.find('auto_routing_policy=""')
@@ -3763,24 +4336,6 @@ def assert_ralplan_proportionality_contract(root: Path) -> None:
             die(
                 f"{ralplan_path} `## Next Skill Handoff` still contains "
                 f"retired two-phase wording: {forbidden!r}"
-            )
-
-    using_path = skill_core / "using-oh-no-harness.md"
-    using_core = read_text(using_path)
-    skill_chaining = markdown_section(using_core, "## Skill Chaining")
-    if not skill_chaining:
-        die(f"{using_path} is missing required '## Skill Chaining' section")
-    for marker in USING_OH_NO_RALPLAN_HANDOFF_MARKERS:
-        if not has_required_marker(skill_chaining, marker):
-            die(
-                f"{using_path} `## Skill Chaining` is missing ralplan "
-                f"combined-handoff marker: {marker!r}"
-            )
-    for pattern, label in USING_OH_NO_RALPLAN_HANDOFF_PATTERNS:
-        if not re.search(pattern, skill_chaining, flags=re.IGNORECASE | re.DOTALL):
-            die(
-                f"{using_path} `## Skill Chaining` is missing ralplan "
-                f"combined-handoff marker: {label}"
             )
 
     gate_inventory_path = root / "docs" / "reference" / "mandatory-gate-inventory.md"
@@ -4187,7 +4742,7 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             die(f"ralph.md retains forbidden second-review marker: {forbidden!r}")
     execution_loop = markdown_section(ralph, "## Execution Loop")
     for marker in (
-        "Scope Trace Gate",
+        "Mutation Manifest",
         "cumulative Process Budget Gate",
         "After each story",
         "After all stories",
@@ -4288,25 +4843,254 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             die(f"ralph.md makes final Diff-Budget execution conditional or repeated: {pattern!r}")
 
 
-def assert_workflow_object_routing_contract(root: Path) -> None:
-    """Keep workflow names used as analysis subjects from forcing invocation."""
-    using = read_text(root / "docs" / "skill-core" / "using-oh-no-harness.md")
-    session_start = read_text(root / "hooks" / "session-start")
+def routing_hook_blocks(root: Path) -> tuple[str, str, str, list[str]]:
+    hook_path = root / "hooks" / "session-start"
+    hook = read_text(hook_path)
+    problems: list[str] = []
+
+    bootstrap_start = hook.find("bootstrap_policy='")
+    bootstrap_end = hook.find('\n\nauto_routing_policy=""', bootstrap_start)
+    if bootstrap_start < 0 or bootstrap_end < 0:
+        problems.append("hook-shape: cannot locate unconditional bootstrap_policy")
+        bootstrap = ""
+    else:
+        bootstrap = hook[bootstrap_start + len("bootstrap_policy='") : bootstrap_end]
+        if bootstrap.endswith("'"):
+            bootstrap = bootstrap[:-1]
+
+    forced_match = re.search(
+        r"auto_routing_policy='\s*(<OH_NO_FORCED_ROUTING>.*?</OH_NO_FORCED_ROUTING>)'",
+        hook,
+        flags=re.DOTALL,
+    )
+    if forced_match is None:
+        problems.append("hook-shape: cannot locate Claude OH_NO_FORCED_ROUTING block")
+        forced = ""
+    else:
+        forced = forced_match.group(1)
+    return hook, bootstrap, forced, problems
+
+
+def workflow_object_routing_problems(root: Path) -> list[str]:
+    hook, bootstrap, forced, problems = routing_hook_blocks(root)
     required = (
         "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
         "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
     )
-    for path, body in (
-        ("using-oh-no-harness.md", using),
-        ("hooks/session-start", session_start),
+    for marker in required:
+        if not has_required_marker(bootstrap, marker):
+            problems.append(
+                f"object-owner: unconditional OH_NO_BOOTSTRAP is missing {marker!r}"
+            )
+        if has_required_marker(forced, marker):
+            problems.append(
+                f"object-owner: Claude forced block duplicates unconditional owner {marker!r}"
+            )
+        if hook.count(marker) != 1:
+            problems.append(
+                f"object-owner: {marker!r} must appear exactly once in hooks/session-start"
+            )
+    for marker in (
+        "If there is even a small chance that a local skill applies",
+        "If there is even a 1% chance that a local Oh No Harness skill applies",
     ):
-        for marker in required:
-            if not has_required_marker(body, marker):
-                die(f"{path} is missing object-of-analysis routing boundary: {marker!r}")
-    if "If there is even a small chance that a local skill applies" in using:
-        die("using-oh-no-harness.md retains absolute small-chance routing wording")
-    if "If there is even a 1% chance that a local Oh No Harness skill applies" in session_start:
-        die("hooks/session-start retains absolute 1% routing wording")
+        if marker in hook:
+            problems.append(f"object-owner: hooks/session-start retains absolute routing wording {marker!r}")
+    return problems
+
+
+def assert_routing_layer_contract(marketplace_root: Path, root: Path) -> None:
+    """Accumulate the target description-owned routing contract in one RED report."""
+    problems: list[str] = []
+    workflow_names = set(WORKFLOW_ROUTING_SKILLS)
+
+    for skill in WORKFLOW_ROUTING_SKILLS:
+        source_path = root / SKILL_CORE_ROOT / f"{skill}.md"
+        source_text = read_text(source_path)
+        description_lines = [line for line in source_text.splitlines() if line.startswith("description:")]
+        description = parse_frontmatter(source_path).get("description", "")
+        lowered = description.lower()
+        if len(description_lines) != 1:
+            problems.append(f"description:{skill}: description must be one YAML line")
+        if not description.startswith("Use when "):
+            problems.append(f"description:{skill}: description must begin with 'Use when'")
+        if len(description) > 360:
+            problems.append(f"description:{skill}: description exceeds 360 code points ({len(description)})")
+        positive_patterns, boundary_patterns, adjacent_names = ROUTING_DESCRIPTION_PATTERNS[skill]
+        positive_matches = [re.search(pattern, lowered) for pattern in positive_patterns]
+        boundary_matches = [re.search(pattern, lowered) for pattern in boundary_patterns]
+        missing_positive = [pattern for pattern, match in zip(positive_patterns, positive_matches) if match is None]
+        missing_boundary = [pattern for pattern, match in zip(boundary_patterns, boundary_matches) if match is None]
+        if missing_positive:
+            problems.append(f"description:{skill}: missing positive trigger semantics {missing_positive!r}")
+        if missing_boundary:
+            problems.append(f"description:{skill}: missing adjacent-boundary semantics {missing_boundary!r}")
+        present_positive = [match.start() for match in positive_matches if match is not None]
+        present_boundary = [match.start() for match in boundary_matches if match is not None]
+        if present_positive and present_boundary and min(present_positive) > min(present_boundary):
+            problems.append(f"description:{skill}: positive trigger must precede its exclusion/boundary")
+        mentioned = sorted(name for name in workflow_names - {skill} if name in lowered)
+        if len(mentioned) > 2:
+            problems.append(f"description:{skill}: adjacent boundary names too many workflows {mentioned!r}")
+        non_adjacent = sorted(set(mentioned) - adjacent_names)
+        if non_adjacent:
+            problems.append(f"description:{skill}: names non-adjacent workflows {non_adjacent!r}")
+        for forbidden in ("using-oh-no-harness", "choose the right skill", "hard enforcement", "guarantees invocation"):
+            if forbidden in lowered:
+                problems.append(f"description:{skill}: contains forbidden routing wording {forbidden!r}")
+
+        for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
+            wrapper_path = root / wrapper_root / skill / "SKILL.md"
+            if not wrapper_path.exists():
+                problems.append(f"parity:{skill}: missing generated wrapper {wrapper_path}")
+                continue
+            wrapper_description = parse_frontmatter(wrapper_path).get("description", "")
+            if wrapper_description != description:
+                problems.append(
+                    f"parity:{skill}: {wrapper_root} description differs from source byte-for-byte"
+                )
+
+    retired_paths = (
+        root / SKILL_CORE_ROOT / "using-oh-no-harness.md",
+        root / "commands" / "using-oh-no-harness.md",
+        root / CODEX_SKILL_ROOT / "using-oh-no-harness",
+        root / CLAUDE_SKILL_ROOT / "using-oh-no-harness",
+    )
+    for path in retired_paths:
+        if path.exists():
+            problems.append(f"retired-inventory: retired public router remains present: {path}")
+
+    manifest_path = root / ".claude-plugin" / "plugin.json"
+    try:
+        manifest_skills = json.loads(read_text(manifest_path)).get("skills")
+    except json.JSONDecodeError as exc:
+        problems.append(f"retired-inventory: invalid Claude manifest JSON: {exc}")
+    else:
+        expected_manifest = [f"./{CLAUDE_SKILL_ROOT}/{skill}/" for skill in PUBLIC_SKILLS]
+        if manifest_skills != expected_manifest:
+            problems.append(
+                "retired-inventory: Claude manifest must expose exactly 12 target skills "
+                f"in order; actual={manifest_skills!r}"
+            )
+
+    generator_path = marketplace_root / "scripts" / "generate-skill-wrappers.py"
+    generator_match = re.search(r"PUBLIC_SKILLS\s*=\s*\[(.*?)\n\]", read_text(generator_path), flags=re.DOTALL)
+    generator_skills = re.findall(r'"([a-z0-9-]+)"', generator_match.group(1)) if generator_match else []
+    if generator_skills != PUBLIC_SKILLS:
+        problems.append(
+            f"retired-inventory: generator PUBLIC_SKILLS drifted: {generator_skills!r}"
+        )
+
+    for script_name, expected in (
+        ("test-claude-plugin.sh", PUBLIC_SKILLS),
+        ("test-codex-plugin.sh", WORKFLOW_ROUTING_SKILLS),
+    ):
+        script_path = marketplace_root / "scripts" / script_name
+        match = re.search(
+            r"PUBLIC_SKILLS=\(\n(?P<body>.*?)\n\)",
+            read_text(script_path),
+            flags=re.DOTALL,
+        )
+        actual = [line.strip() for line in match.group("body").splitlines() if line.strip()] if match else []
+        if actual != expected:
+            problems.append(
+                f"retired-inventory: {script_name} PUBLIC_SKILLS expected={expected!r} actual={actual!r}"
+            )
+
+    reachability_path = marketplace_root / "scripts" / "check-skill-reachability.py"
+    reachability = read_text(reachability_path)
+    if re.search(r'^\s*"using-oh-no-harness"\s*:\s*\[', reachability, flags=re.MULTILINE):
+        problems.append("retired-inventory: reachability still declares the retired router")
+
+    hook, bootstrap, forced, hook_problems = routing_hook_blocks(root)
+    problems.extend(hook_problems)
+    for marker in ("No-route lane", "Direct-edit lane", "Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill."):
+        if marker not in bootstrap:
+            problems.append(f"hook-bootstrap: missing retained global lane {marker!r}")
+    bootstrap_lower = bootstrap.lower()
+    for label, pattern in (
+        ("no-route repository-work-product exclusion", r"does not (create|change|create or change).*repository work products"),
+        ("no-route completion-claim exclusion", r"does not claim (their )?completion|no completion claim"),
+        ("direct-edit one-file predicate", r"one obvious file"),
+        ("direct-edit private predicate", r"private"),
+        ("direct-edit inert predicate", r"inert"),
+        ("direct-edit non-consumed predicate", r"not consumed|non-consumed"),
+        ("direct-edit non-generated predicate", r"not generated|non-generated"),
+        ("direct-edit generated-source regeneration/validation predicate", r"generation source(?=[^.]*regenerat)(?=[^.]*validat)"),
+        ("direct-edit non-operational predicate", r"non-operational"),
+        ("direct-edit non-public-contract predicate", r"no .*public-contract|non-public-contract"),
+        ("direct-edit Ralph fallback", r"if any condition (fails|is false|becomes false).*ralph"),
+    ):
+        if not re.search(pattern, bootstrap_lower):
+            problems.append(f"hook-bootstrap: missing/weak {label}")
+    for surface in ("executable", "test", "build", "ci", "hook", "generated", "security", "permission", "public-contract", "dependency", "lockfile", "ignore", "attribute", "schema", "migration", "operational-command"):
+        if surface not in bootstrap_lower:
+            problems.append(f"hook-bootstrap: direct-edit exclusions omit {surface!r}")
+    routed_names = re.findall(r"\b(?:interview|ralplan|ralph|ultrawork|auto-routing|test-driven-development|simplify|verification-before-completion|systematic-debugging|fusion-rescue)\b", bootstrap_lower)
+    if any(name != "ralph" for name in routed_names) or routed_names.count("ralph") != 1:
+        problems.append(f"hook-bootstrap: positive destination catalog detected; only one Ralph fallback is allowed, got {routed_names!r}")
+    for marker in (
+        "Routing reminder:",
+        "using-oh-no-harness",
+        "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route",
+    ):
+        if marker in bootstrap:
+            problems.append(f"hook-bootstrap: unconditional bootstrap retains {marker!r}")
+
+    forced_lower = forced.lower()
+    if "routing map" in forced_lower or forced_lower.count("oh-no-harness:") > 1:
+        problems.append("hook-forced: Claude block retains an exhaustive positive destination catalog")
+    if "installed skill descriptions" not in forced_lower:
+        problems.append("hook-forced: Claude block must consult installed skill descriptions")
+    for marker in (
+        "explicit end-to-end",
+        "active failure",
+        "explicit test-first",
+        "most upstream incomplete prerequisite",
+    ):
+        if marker not in forced_lower:
+            problems.append(f"hook-forced: missing essential precedence marker {marker!r}")
+    before = forced_lower.find("before")
+    for action in ("respond", "explor", "edit", "clarif", "claiming completion"):
+        index = forced_lower.find(action)
+        if before < 0 or index < before:
+            problems.append(
+                f"hook-forced: routing must occur before action marker {action!r}"
+            )
+    for marker in ("instruction priority", "if a user instruction conflicts"):
+        if marker not in forced_lower:
+            problems.append(f"hook-forced: missing instruction/user precedence marker {marker!r}")
+    if (
+        'if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled' not in hook
+        or hook.count("<OH_NO_FORCED_ROUTING>") != 1
+    ):
+        problems.append("asymmetry: forced routing must remain Claude-only and singular")
+
+    claude_auto = read_text(root / "docs/platforms/claude-code-auto-routing.md").lower().replace("`", "")
+    codex_auto = read_text(root / "docs/platforms/codex-auto-routing.md").lower().replace("`", "")
+    if "description" not in claude_auto or not re.search(r"next.{0,40}sessionstart", claude_auto):
+        problems.append("asymmetry: Claude auto-routing guidance must bind descriptions to the next SessionStart")
+    for marker in (
+        "native skill loading remains the primary routing surface",
+        "does not add forced routing",
+        "does not change current routing semantics",
+    ):
+        if marker not in codex_auto:
+            problems.append(f"asymmetry: Codex guidance is missing {marker!r}")
+
+    problems.extend(workflow_object_routing_problems(root))
+    if problems:
+        die(
+            f"routing-layer target contract failed with {len(problems)} issue(s):\n  - "
+            + "\n  - ".join(problems)
+        )
+
+
+def assert_workflow_object_routing_contract(root: Path) -> None:
+    """Keep the unconditional bootstrap as sole object-of-analysis policy owner."""
+    problems = workflow_object_routing_problems(root)
+    if problems:
+        die("workflow object routing contract failed:\n  - " + "\n  - ".join(problems))
 
 
 def assert_review_boundary_mutation_tests(marketplace_root: Path, root: Path) -> None:
@@ -4597,7 +5381,11 @@ def main() -> None:
 
     assert_exact_claude_agent_inventory(root)
     assert_public_docs_contract(marketplace_root, root)
-    assert_workflow_object_routing_contract(root)
+    assert_routing_layer_contract(marketplace_root, root)
+    assert_child_packet_ownership_contract(root)
+    assert_direct_dispatch_compatibility_contract(root)
+    assert_codex_child_packet_floor_contract(root)
+    assert_ralph_live_heading_references(root)
     assert_orchestration_ownership_contract(root)
     assert_ralplan_proportionality_contract(root)
     for fsm_skill in FSM_CONTRACTS:
@@ -4616,6 +5404,7 @@ def main() -> None:
         assert_codex_agent_template(root, agent)
     assert_codex_custom_agent_count(root)
     assert_codex_agent_installer(root)
+    assert_codex_task_name_contract(root)
     assert_execution_mode_contract(root)
     assert_required_reading_contract(root)
     assert_independence_mode_gates(root)

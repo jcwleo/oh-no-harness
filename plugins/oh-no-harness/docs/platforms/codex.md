@@ -1,16 +1,17 @@
 # Codex Platform Rules
 
 This platform document is the longer Codex maintenance reference. Generated
-Codex-facing skill documents embed the compact
-`docs/platforms/codex-runtime.md` section instead.
+Codex-facing workflow documents embed the compact main-caller floor from
+`docs/platforms/codex-child-packet-floor.md`; non-self-contained wrappers also
+embed `docs/platforms/codex-runtime.md`.
 
 ## Skill Loading
 
-Codex-facing public skills live under `skills/`. Files in
-`skills/<skill>/SKILL.md` are generated runtime documents composed from the
-matching `docs/skill-core/<skill>.md` file,
-`docs/platforms/codex-runtime.md`, and any Codex skill-specific overlay such as
-`docs/platforms/codex-<skill>.md`.
+Codex-facing public skills live under `skills/`. Every generated workflow
+wrapper composes its matching `docs/skill-core/<skill>.md` with
+`docs/platforms/codex-child-packet-floor.md`. Self-contained skills then add
+their required `docs/platforms/codex-<skill>.md` adapter; remaining skills add
+`docs/platforms/codex-runtime.md` and any optional skill-specific overlay.
 
 ## User Approval
 
@@ -21,9 +22,11 @@ when the skill handoff expects the host agent to invoke the next skill.
 
 ## Auto Routing
 
-The `auto-routing` skill can explain and preserve the config file shape in
-Codex, but it does not add forced routing to Codex SessionStart. Codex native
-skill loading remains the primary routing surface. If Codex-facing
+Codex native skill loading and descriptions remain the primary routing
+surface. Hooks are opt-in. When hooks are disabled, every native workflow
+wrapper still carries the dedicated main-caller child-packet floor. The
+`auto-routing` skill stores and explains the preference, but enabling it does
+not append forced routing or change current routing semantics. If Codex-facing
 SessionStart hooks run, they must stay compact and must not embed full skill
 core bodies.
 
@@ -61,12 +64,13 @@ independent review or verification responsibility.
 
 When dispatching an Oh No Harness role in any Codex context, including active
 skills, approved plan handoffs, or general user-requested subagent work outside
-a selected skill, use the registered custom agent first. If the host recognizes
-or accepts
-`oh-no-<role>`, call
-`spawn_agent(agent_type="oh-no-<role>", ...)`. Do not choose built-in
-`explorer`, `worker`, `default`, or a prompt-embedded generic subagent for an Oh
-No Harness role while the matching registered custom agent is available.
+a selected skill, use the registered custom agent first. Derive every task name
+from that dispatch's actual workflow or task, actual role, phase or lens, and
+stable ordinal. For example, a maintenance inventory lookup uses
+`spawn_agent(task_name="maintenance_explore_inventory_1", agent_type="oh-no-explore", message=<self-contained packet>, fork_turns="none")`; it is not a
+reusable literal for other roles. Do not choose built-in `explorer`, `worker`,
+`default`, or a prompt-embedded generic subagent for an Oh No Harness role while
+the matching registered custom agent is available.
 Do not infer custom-agent unavailability from rendered schema text, display
 comments, or uncertainty. Generic/default fallback is allowed only inside an
 active Oh No Harness workflow or explicit user-requested subagent task after an
@@ -79,9 +83,16 @@ Spawn custom roles with `fork_turns = "none"`: omitting `fork_turns` defaults
 to a full-history fork, and Codex full-history forks inherit the parent agent
 configuration, so the custom `agent_type` is rejected. Do not combine
 `agent_type = "oh-no-<role>"` with `fork_context = true` (unsupported on
-current hosts) or any full-history fork request. Put the required
-scope, constraints, and evidence context in the spawned-agent message instead.
-Use one spawn payload shape only: prompt/message or items, never both.
+current hosts) or any full-history fork request. Build the spawned-agent
+message from the caller-owned floor embedded in every Codex workflow wrapper;
+SessionStart supplies compatible direct-dispatch guidance when hooks are enabled.
+Use one spawn payload shape only: prompt/message or items, never both. Derive
+every task name from the actual dispatch; names must match `^[a-z0-9_]+$`, encode
+the actual workflow or task, role, phase/lens, and stable ordinal, and preserve
+deterministic sibling uniqueness under the same parent. A task name is routing
+identity, not role proof: the legacy `spawn_agent(agent_type="oh-no-<role>", ...)`
+shorthand is incomplete, and custom loading requires the requested `agent_type`,
+expected child `agent_role`, and matching developer instructions.
 
 Explicit user or plan wording such as `subagent`, `spawn`, `delegate`,
 `parallel agents`, `parallel subagents`, or `one agent per` is sufficient when
@@ -285,7 +296,7 @@ Do not add a separate `multi_agent_v2 = true` feature flag or use
 restart Codex and open a new task because an existing task keeps the tool schema
 created for that session.
 
-After retrying, prove typed custom-agent selection from runtime evidence rather
+After retrying, prove the requested `agent_type` from runtime evidence rather
 than a task label. The child rollout should record the expected `agent_role`,
 and its developer messages should contain the registered role's
 `developer_instructions`. A matching task name alone is not role-ownership
@@ -321,10 +332,13 @@ trigger. On Codex, the opposite host is Claude Code.
 Consult Claude only when the active permission state is exactly
 `danger-full-access`; otherwise treat it as unavailable and apply the calling
 skill's fallback. For shared review, the Codex parent must not run
-`${CLAUDE_BIN:-claude}` inline. Dispatch the matching
-`spawn_agent(agent_type="oh-no-<role>", ...)` owner for `plan-reviewer`,
-`code-reviewer`, or `debugger`; the verifier has no cross-host leg. The parent
-waits for the role-owned result before synthesis.
+`${CLAUDE_BIN:-claude}` inline. Derive the transport-owner identity from the
+actual caller and role: for example,
+`spawn_agent(task_name="ralplan_plan_reviewer_cross_host_1", agent_type="oh-no-plan-reviewer", message=<self-contained redacted packet>, fork_turns="none")`,
+`spawn_agent(task_name="ralph_code_reviewer_cross_host_1", agent_type="oh-no-code-reviewer", message=<self-contained redacted packet>, fork_turns="none")`, or
+`spawn_agent(task_name="systematic_debugging_debugger_cross_host_1", agent_type="oh-no-debugger", message=<self-contained redacted packet>, fork_turns="none")`.
+The verifier has no cross-host leg. The parent waits for the role-owned result
+before synthesis.
 
 The role owner invokes Claude as an argument vector:
 `${CLAUDE_BIN:-claude}`, `--print`, `--model`, `opus`, `--permission-mode`,

@@ -36,8 +36,9 @@ collapse content approval and next-step selection into one hidden step.
 
 ## Auto Routing
 
-The `auto-routing` skill controls whether the Claude Code SessionStart hook adds
-stronger skill-selection guidance to `using-oh-no-harness`.
+Native skill descriptions select the destination. The `auto-routing` skill
+stores whether the Claude Code SessionStart hook adds action-ordering and
+essential-precedence guidance.
 
 Preferred config location:
 
@@ -53,8 +54,9 @@ When `CLAUDE_PLUGIN_ROOT` is set, use:
 "${CLAUDE_PLUGIN_ROOT}/scripts/oh-no-config" off
 ```
 
-Changes take effect on the next Claude Code `SessionStart`, such as a new
-session, app restart, `/clear`, or compaction.
+When enabled, the action-ordering and precedence guidance applies from the next
+Claude Code `SessionStart`, such as a new session, app restart, `/clear`, or
+compaction.
 
 ## Anthropic-Aligned Prompting
 

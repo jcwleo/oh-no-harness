@@ -1,6 +1,6 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, passing, implemented, verified, ready for review, safe to deliver, or when summarizing final status after edits or tests.
+description: Use when an imminent complete, fixed, passing, ready, or safe claim—or final status after edits/tests—needs an evidence gate; not as an implementation substitute.
 argument-hint: "<claim, task, plan, or changed-file scope>"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/verification-before-completion.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-verification-before-completion.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
@@ -250,6 +251,26 @@ None — this is the final evidence gate [V8]. Return the result to the
 caller (`ralph`, `ultrawork`, or direct invocation). Do not chain to
 another workflow skill.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-verification-before-completion.md
 
 # Verification Before Completion Codex Adapter
@@ -267,12 +288,15 @@ documents are optional maintenance context, never a runtime prerequisite.
 Dispatch is trigger-loaded — dispatch only after the core's trigger fires.
 If `spawn_agent` is exposed, make the actual registered-agent call first:
 
+Derive every name from the actual verification role and audit lens; for
+example:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="verification_before_completion_verifier_audit_1", agent_type="oh-no-verifier", message=<self-contained packet>, fork_turns="none")
 ```
 
-Roles are `verifier` and `code-reviewer`. Only an actual
+Roles are `verifier` and `code-reviewer`; use role-correct unique equivalents
+for other or sibling audits. Only an actual
 unknown/unavailable `agent_type` rejection confirms the custom role cannot
 be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One

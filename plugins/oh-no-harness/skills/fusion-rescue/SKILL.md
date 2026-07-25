@@ -1,6 +1,6 @@
 ---
 name: fusion-rescue
-description: Use when a hard problem needs bounded inference-time ensemble analysis, platform-defined diversity when available, adversarial critique, fallback-aware synthesis, or escalation from Ralph/systematic-debugging after ordinary analysis stalls.
+description: Use when the user explicitly requests rescue or multi-agent synthesis, or a hard problem remains stalled after ordinary analysis/debugging; not for first-pass planning/debugging or routine implementation.
 argument-hint: "<problem, failed plan, bug, decision, or blocked workflow>"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/fusion-rescue.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-runtime.md`
 - `../../docs/platforms/codex-fusion-rescue.md`
 
@@ -261,6 +262,26 @@ Return:
 - Expanding from three default slots without a new approved plan.
 - Claiming OpenRouter Fusion equivalence or weight fusion.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-runtime.md
 
 # Codex Runtime Rules
@@ -290,11 +311,11 @@ work, compaction, or handoff.
 
 Dispatch only after the active skill's trigger fires, then read
 `docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first with `fork_turns="none"`
-(omitting it defaults to a full-history fork, which rejects a custom
+`spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")` first; the legacy `spawn_agent(agent_type="oh-no-planner", ...)` shorthand is incomplete
+(omitting `fork_turns="none"` defaults to a full-history fork, which rejects a custom
 `agent_type`), do not combine it with `fork_context=true`, and use generic
-prompt embedding only after the custom agent is actually rejected. The task packet carries scope, ownership, expected
-output, and lifecycle.
+prompt embedding only after the custom agent is actually rejected. The example encodes the Ralplan workflow, Planner role, draft phase, and stable ordinal; derive each caller's concrete identity the same way and keep sibling names unique. The task packet carries scope, ownership, expected
+output, and lifecycle; task names match `^[a-z0-9_]+$`, use deterministic workflow/role/phase-or-lens/stable-ordinal sibling uniqueness, and never replace requested `agent_type` plus child `agent_role` and matching developer instructions as role proof.
 
 Every dispatched result is a dependency: `wait_agent` must reach final status,
 the caller captures and uses the output, and only then performs lifecycle

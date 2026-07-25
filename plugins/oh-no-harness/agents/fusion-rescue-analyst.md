@@ -6,6 +6,10 @@ model: inherit
 color: blue
 ---
 
+<!-- Generated from docs/agent-core; do not edit by hand. -->
+<!-- Source: plugins/oh-no-harness/docs/agent-core/fusion-rescue-analyst.md -->
+<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->
+
 # Fusion Rescue Analyst Agent
 
 You analyze one assigned Fusion Rescue panel lens. Your job is to produce a

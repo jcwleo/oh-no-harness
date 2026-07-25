@@ -37,6 +37,8 @@ ROLES=(
 
 pass=0
 fail=0
+WORK=""
+FIXTURE_STAGE_SURVIVED=0
 ok()  { pass=$((pass + 1)); printf '  ok   %s\n' "$1"; }
 bad() { fail=$((fail + 1)); printf '  FAIL %s\n' "$1"; }
 
@@ -60,6 +62,16 @@ gpt_assignments() {
 
 model_for() { case "$1" in explore|verifier) printf 'sonnet' ;; *) printf 'opus' ;; esac; }
 effort_for() { case "$1" in planner) printf 'max' ;; explore|executor|verifier) printf 'high' ;; *) printf 'xhigh' ;; esac; }
+
+shared_stage_manifest() {
+  local root="${TMPDIR:-/tmp}" d role complete
+  for d in "$root"/*; do
+    [ -d "$d" ] || continue; complete=1
+    for role in "${ROLES[@]}"; do [ -f "$d/$role.md" ] || { complete=0; break; }; done
+    [ "$complete" = 1 ] && printf '%s\n' "$d"
+  done | LC_ALL=C sort
+}
+SHARED_STAGE_BASELINE="$(shared_stage_manifest)"
 
 # Independent byte-exact oracle (Python, NOT the production awk/head/tail). Reads
 # raw bytes, transforms only the frontmatter model/effort lines, and copies the
@@ -92,12 +104,22 @@ open(dest, "wb").write("\n".join(out).encode("utf-8") + body)
 PY
 }
 
+cleanup_fixture() {
+  [ -n "${WORK:-}" ] || return 0
+  local owned_work="$WORK" owned_stage="$STAGE_PARENT"
+  chmod -R u+rwx "$owned_work" 2>/dev/null; rm -rf "$owned_work"
+  [ ! -e "$owned_stage" ] || FIXTURE_STAGE_SURVIVED=1
+  WORK=""
+}
+trap cleanup_fixture EXIT
+
 setup_fixture() {
   WORK="$(cd "$(mktemp -d)" && pwd -P)"   # physical path (logical==physical)
   TARGET="$WORK/plugin-root"
   CFG="$WORK/config"
   EXP="$WORK/expected"
-  mkdir -p "$TARGET/agents" "$TARGET/scripts" "$TARGET/hooks" "$CFG" "$EXP"
+  STAGE_PARENT="$WORK/configure-stage"
+  mkdir -p "$TARGET/agents" "$TARGET/scripts" "$TARGET/hooks" "$CFG" "$EXP" "$STAGE_PARENT"
   cp "$CONFIGURATOR" "$TARGET/scripts/configure-subagents"
   cp "$OH_NO_CONFIG_SRC" "$TARGET/scripts/oh-no-config"
   cp "$SESSION_START" "$TARGET/hooks/session-start"
@@ -107,13 +129,13 @@ setup_fixture() {
     cp "$CANONICAL_AGENTS/$role.md" "$TARGET/agents/$role.md"
   done
 }
-teardown_fixture() { chmod -R u+rwx "$WORK" 2>/dev/null; rm -rf "$WORK"; }
+teardown_fixture() { cleanup_fixture; }
 
 hash_agents() { find "$TARGET/agents" -type f -exec shasum {} \; | sort | shasum; }
 journal_files() { find "$CFG" -name 'subagent-journal*' 2>/dev/null; }
 
 # Run the COPIED configurator (root derives from its physical location).
-run() { OH_NO_CONFIG_DIR="$CFG" "$TARGET/scripts/configure-subagents" "$@"; }
+run() { TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$CFG" "$TARGET/scripts/configure-subagents" "$@"; }
 
 # ---------------------------------------------------------------------------
 echo "== check: read-only + unconfigured =="
@@ -147,6 +169,7 @@ grep -q '^schema_version=2$' "$CFG/subagent-models.conf" && ok "preferences use 
 grep -q 'AUTH_TOKEN\|BASE_URL\|Bearer\|password\|secret' "$CFG/subagent-models.conf" && bad "preferences leaked credentials" || ok "preferences store no proxy credentials"
 status="$(run check | grep '^STATUS:')"
 [ "$status" = "STATUS: matching" ] && ok "check reports matching after apply" || bad "check after apply ($status)"
+[ -z "$(find "$STAGE_PARENT" -mindepth 1 -maxdepth 1 -type d -print -quit)" ] && ok "successful apply removes its private staging directory" || bad "successful apply left a private staging directory"
 teardown_fixture
 
 # ---------------------------------------------------------------------------
@@ -301,7 +324,7 @@ setup_fixture
 mv "$TARGET" "$WORK/real-root"
 ln -s "$WORK/real-root" "$TARGET"
 before_hash="$(find "$WORK/real-root/agents" -type f -exec shasum {} \; | sort | shasum)"
-OH_NO_CONFIG_DIR="$CFG" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null 2>&1; rc=$?
+TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$CFG" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null 2>&1; rc=$?
 [ "$rc" -ne 0 ] && ok "apply refuses a symlinked plugin root" || bad "symlinked root not refused (rc=$rc)"
 [ "$before_hash" = "$(find "$WORK/real-root/agents" -type f -exec shasum {} \; | sort | shasum)" ] && ok "symlinked-root agents byte-unchanged" || bad "symlinked-root agents mutated"
 teardown_fixture
@@ -531,7 +554,7 @@ cp "$CONFIGURATOR" "$ROOTB/scripts/configure-subagents"
 cp "$OH_NO_CONFIG_SRC" "$ROOTB/scripts/oh-no-config"
 chmod +x "$ROOTB/scripts/configure-subagents" "$ROOTB/scripts/oh-no-config"
 for role in "${ROLES[@]}"; do cp "$CANONICAL_AGENTS/$role.md" "$ROOTB/agents/$role.md"; done
-run_b() { OH_NO_CONFIG_DIR="$CFG" "$ROOTB/scripts/configure-subagents" "$@"; }
+run_b() { TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$CFG" "$ROOTB/scripts/configure-subagents" "$@"; }
 # Before mutation, B still sees the recovery-required journal.
 statusb="$(run_b check | grep '^STATUS:')"
 [ "$statusb" = "STATUS: recovery-required" ] && ok "root B check reports recovery-required before mutation" || bad "root B pre-mutation status ($statusb)"
@@ -557,7 +580,7 @@ mkdir -p "$ROOTB/agents" "$ROOTB/scripts"
 cp "$CONFIGURATOR" "$ROOTB/scripts/configure-subagents"; cp "$OH_NO_CONFIG_SRC" "$ROOTB/scripts/oh-no-config"
 chmod +x "$ROOTB/scripts/configure-subagents" "$ROOTB/scripts/oh-no-config"
 for role in "${ROLES[@]}"; do cp "$CANONICAL_AGENTS/$role.md" "$ROOTB/agents/$role.md"; done
-OH_NO_CONFIG_DIR="$CFG" "$ROOTB/scripts/configure-subagents" apply --proxy no $(alt_assignments) >/dev/null 2>&1; rc=$?
+TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$CFG" "$ROOTB/scripts/configure-subagents" apply --proxy no $(alt_assignments) >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "manual apply under distinct root B proceeds past the superseded journal" || bad "manual apply under B blocked (rc=$rc)"
 [ -z "$(journal_files)" ] && ok "manual apply under B leaves no journal" || bad "journal left after apply under B"
 teardown_fixture
@@ -708,11 +731,12 @@ teardown_fixture
 
 # ---------------------------------------------------------------------------
 echo "== SessionStart: no-op / drift-repair / failure path all emit valid JSON =="
-run_hook() { env CLAUDE_PLUGIN_ROOT="$TARGET" OH_NO_CONFIG_DIR="$CFG" "$@" "$TARGET/hooks/session-start"; }
+run_hook() { env TMPDIR="$STAGE_PARENT" CLAUDE_PLUGIN_ROOT="$TARGET" OH_NO_CONFIG_DIR="$CFG" "$@" "$TARGET/hooks/session-start"; }
 valid_json() { printf '%s' "$1" | "$PYTHON" -c 'import json,sys; json.loads(sys.stdin.read())' >/dev/null 2>&1; }
 
 # Canonical resolver order, exercised by both the writer and SessionStart reader.
 echo "== resolver: writer and hook reader share deterministic priority =="
+without_ambient_oh_no_config() { env -u OH_NO_CONFIG_DIR "$@"; }
 resolver_case() {
   local label="$1" mode="$2"
   setup_fixture
@@ -729,10 +753,10 @@ resolver_case() {
     xdg)
       rm -rf "$claude_home/plugins/data"; expected="$xdg/oh-no-harness"; env_args=(CLAUDE_PLUGIN_DATA="$plugin_data" CLAUDE_CONFIG_DIR="$claude_home" XDG_CONFIG_HOME="$xdg" HOME="$home") ;;
   esac
-  env "${env_args[@]}" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null 2>&1; local rc=$?
+  without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" "${env_args[@]}" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null 2>&1; local rc=$?
   [ "$rc" -eq 0 ] && [ -f "$expected/subagent-models.conf" ] && ok "$label writer resolved expected directory" || bad "$label writer resolver (rc=$rc expected=$expected)"
   local out
-  out="$(env "${env_args[@]}" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+  out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" "${env_args[@]}" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
   printf '%s' "$out" | grep -q 'effective_primaries=.*code-reviewer:opus' && ok "$label hook reader found writer preferences" || bad "$label hook reader resolver drifted"
   teardown_fixture
 }
@@ -752,11 +776,11 @@ cache_target="$collision_home/plugins/cache/oh-no-harness/oh-no-harness/9.9.9"
 mkdir -p "$collision_home/plugins/data/oh-no-harness-inline" "$collision_fixture" "$(dirname "$cache_target")"
 mv "$TARGET" "$cache_target"
 TARGET="$cache_target"
-env OH_NO_CONFIG_DIR="$collision_fixture" "$TARGET/scripts/configure-subagents" apply \
+env TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$collision_fixture" "$TARGET/scripts/configure-subagents" apply \
   --proxy no --secondary-top-model fable --top-tier-models "fable opus" $(native_assignments) >/dev/null
-hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+hook_out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$collision_home" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
 printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "cache identity resolves populated canonical fixture despite earlier sibling" || bad "cache identity did not resolve populated canonical fixture"
-hook_out="$(env CLAUDE_CONFIG_DIR="$collision_home" OH_NO_CONFIG_DIR="$collision_fixture" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
+hook_out="$(env TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$collision_home" OH_NO_CONFIG_DIR="$collision_fixture" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
 printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "explicit override resolves populated fixture despite earlier sibling" || bad "explicit override did not resolve populated fixture"
 teardown_fixture
 
@@ -876,6 +900,9 @@ resolver_line="$(grep -nF 'plugins="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"
 [ -n "$direct_line" ] && [ -n "$resolver_line" ] && [ "$direct_line" -lt "$resolver_line" ] && ok "overlay keeps CLAUDE_PLUGIN_ROOT first" || bad "overlay CLAUDE_PLUGIN_ROOT ordering"
 
 # ---------------------------------------------------------------------------
+[ "$(shared_stage_manifest)" = "$SHARED_STAGE_BASELINE" ] && [ "$FIXTURE_STAGE_SURVIVED" = 0 ] && [ -z "$WORK" ] \
+  && ok "success and both SIGKILL seams leave no shared-temp or post-teardown fixture stage" \
+  || bad "success or SIGKILL staging escaped shared-temp/fixture teardown containment"
 echo
 printf 'configure-subagents tests: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1

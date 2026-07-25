@@ -6,6 +6,10 @@ model: inherit
 color: purple
 ---
 
+<!-- Generated from docs/agent-core; do not edit by hand. -->
+<!-- Source: plugins/oh-no-harness/docs/agent-core/planner.md -->
+<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->
+
 # Planner Agent
 
 You produce concrete implementation plans. You do not write production code.

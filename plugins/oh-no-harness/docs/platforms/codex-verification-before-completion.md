@@ -13,12 +13,15 @@ documents are optional maintenance context, never a runtime prerequisite.
 Dispatch is trigger-loaded — dispatch only after the core's trigger fires.
 If `spawn_agent` is exposed, make the actual registered-agent call first:
 
+Derive every name from the actual verification role and audit lens; for
+example:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="verification_before_completion_verifier_audit_1", agent_type="oh-no-verifier", message=<self-contained packet>, fork_turns="none")
 ```
 
-Roles are `verifier` and `code-reviewer`. Only an actual
+Roles are `verifier` and `code-reviewer`; use role-correct unique equivalents
+for other or sibling audits. Only an actual
 unknown/unavailable `agent_type` rejection confirms the custom role cannot
 be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One

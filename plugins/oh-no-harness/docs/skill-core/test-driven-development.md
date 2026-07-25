@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use inside ralph-owned execution to enforce RED/GREEN/REFACTOR before behavior-changing production edits, or when explicitly asked for TDD/test-first work; not a top-level implementation route.
+description: Use when the user explicitly requests TDD, test-first, or RED-GREEN-REFACTOR, or an already-selected workflow enters its internal TDD gate; ordinary implementation remains Ralph.
 argument-hint: "<explicit TDD/test-first change>"
 ---
 

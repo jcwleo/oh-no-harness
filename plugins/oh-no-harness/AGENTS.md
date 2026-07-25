@@ -4,7 +4,6 @@ This repository is a Markdown-first skill harness.
 
 Keep the external skill surface limited to:
 
-- `using-oh-no-harness`
 - `interview`
 - `ralplan`
 - `ralph`
@@ -20,9 +19,8 @@ Keep the external skill surface limited to:
 
 `install-statusline` and `configure-subagents` are Claude-Code-only,
 human-invoke-only setup skills: their frontmatter sets
-`disable-model-invocation: true` (so the model never auto-invokes them), they are
-intentionally left out of the SessionStart routing map, and they ship no Codex
-wrapper. Both are tracked by `CLAUDE_ONLY_SKILLS` (platform) and
+`disable-model-invocation: true` (so the model never auto-invokes them), and they
+ship no Codex wrapper. Both are tracked by `CLAUDE_ONLY_SKILLS` (platform) and
 `MODEL_UNINVOCABLE_SKILLS` (invocation) in the generator and validator.
 
 `configure-subagents` collects a model and reasoning effort for each of the 9
@@ -36,18 +34,25 @@ source checkout, never mutates Codex custom-agent TOMLs, and never stores or
 prints proxy credentials. The SessionStart hook reapplies stored preferences
 best-effort after a plugin-cache update.
 
+The unconditional bootstrap owns compact global no-route, direct-edit,
+object-of-analysis, and caller-owned child-packet boundaries. Claude auto-on
+adds action ordering and essential precedence; Codex gains no forced-routing
+semantics.
+
 Treat `docs/agent-core/*.md`, `agents/*.md`, and
 `docs/platforms/codex-agents/*.toml` as internal role prompts, not additional
-public skills. `docs/agent-core/*.md` contains the platform-neutral role bodies
-and is the source of truth for agent behavior. Do not hand-edit
-`agents/*.md` or `docs/platforms/codex-agents/*.toml`; regenerate them with
-`python3 scripts/generate-agent-wrappers.py --write` from the repository root
-after changing
-`docs/agent-core/*.md` or wrapper metadata in the generator. `agents/*.md` is
+public skills. The nine `docs/agent-core/<role>.md` files contain only their
+platform-neutral role behavior and are the source of truth for agent prompts;
+common child-packet construction belongs to the main caller through the
+SessionStart bootstrap, not to a fragment copied into every role. Do not
+hand-edit `agents/*.md` or `docs/platforms/codex-agents/*.toml`; regenerate them
+with `python3 scripts/generate-agent-wrappers.py --write` from the repository
+root after changing a role core or wrapper metadata. `agents/*.md` is
 the Claude Code-facing subagent wrapper with YAML frontmatter, and
-`docs/platforms/codex-agents/*.toml` is the Codex custom-agent wrapper. Skills
-own workflow stage selection, artifact creation, approval gates, and next-skill
-handoffs. Agents may return findings and recommended next roles or skills to
+`docs/platforms/codex-agents/*.toml` is the Codex custom-agent wrapper. Public
+workflow descriptions own positive selection. Skills own workflow stage
+selection, artifact creation, approval gates, and next-skill handoffs. Agents
+may return findings and recommended next roles or skills to
 the calling skill, but they must not bypass skill-chaining gates or act as
 hidden workflow automation.
 
@@ -56,10 +61,12 @@ the same public skill names above. Each command must delegate to its matching
 `skills-claude/<name>/SKILL.md`, preserve the user's raw arguments, and must not
 add a new workflow, hidden automation, or separate source of truth.
 
-Shared workflow behavior lives in `docs/skill-core/<name>.md`. Generated
-skill documents normally embed compact platform runtime guidance from
-`docs/platforms/codex-runtime.md` and
-`docs/platforms/claude-code-runtime.md`. Longer platform maintenance references
+Shared workflow behavior lives in `docs/skill-core/<name>.md`. Every generated
+Codex workflow document also embeds the compact main-caller floor from
+`docs/platforms/codex-child-packet-floor.md`; other compact platform guidance
+comes from `docs/platforms/codex-runtime.md` and
+`docs/platforms/claude-code-runtime.md` where the composition requires it.
+Longer platform maintenance references
 live in `docs/platforms/codex.md` and `docs/platforms/claude-code.md`.
 Skill-specific platform overlays live in `docs/platforms/codex-<name>.md` or
 `docs/platforms/claude-code-<name>.md` only when needed. Codex-facing runtime
@@ -74,7 +81,9 @@ The self-contained skills (`interview`, `ralplan`, `ralph`,
 `systematic-debugging`, `ultrawork`, `verification-before-completion`)
 compose each self-sufficient core directly with its required
 `codex-<name>.md` or `claude-code-<name>.md` adapter, without either common
-runtime document. The 2026-07 FSM rewrites changed structure, not routing.
+runtime document. Codex wrappers additionally compose the dedicated child-packet
+floor, which contains no other host binding. The 2026-07 FSM rewrites changed
+structure, not routing.
 The `ralplan-v2` preview was retired on 2026-07-17 after its structural
 ideas were absorbed into `ralplan`.
 

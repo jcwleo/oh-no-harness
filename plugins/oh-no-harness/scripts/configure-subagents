@@ -619,7 +619,7 @@ apply_transaction() {
 
   # 3) Stage all rendered results and re-validate them.
   local stage_dir model effort
-  stage_dir="$(mktemp -d)" || die "could not create staging directory" 6
+  stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-configure-stage.XXXXXX")" || die "could not create staging directory" 6
   for a in "${assignments[@]}"; do
     role="${a%%,*}"
     model="${a#*,}"; model="${model%%,*}"

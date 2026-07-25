@@ -1,6 +1,6 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, passing, implemented, verified, ready for review, safe to deliver, or when summarizing final status after edits or tests.
+description: Use when an imminent complete, fixed, passing, ready, or safe claim—or final status after edits/tests—needs an evidence gate; not as an implementation substitute.
 argument-hint: "<claim, task, plan, or changed-file scope>"
 ---
 

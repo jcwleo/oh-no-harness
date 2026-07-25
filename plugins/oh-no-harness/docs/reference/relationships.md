@@ -3,12 +3,22 @@
 ## Bootstrap
 
 ```text
-Claude Code SessionStart
+Native workflow discovery
+  -> each workflow's frontmatter description
+  -> matching destination workflow
+
+SessionStart global boundary layer
   -> hooks/run-hook.cmd session-start
   -> hooks/session-start
-  -> compact native skill-loading bootstrap with baseline no-route and direct-edit lanes
-  -> OH_NO_FORCED_ROUTING only when auto-routing is enabled
-  -> <OH_NO_MODEL_DIVERSITY> on every Claude Code session, using validated stored top-tier/secondary settings or the built-in top-tier fallback
+  -> OH_NO_BOOTSTRAP unconditionally whenever the hook runs
+  -> compact no-route, direct-edit, object-of-analysis, caller-owned child-packet, and approval-gated chaining boundaries; Claude Code runs this layer on every session and Codex when plugin hooks are enabled
+
+Claude Code auto-routing overlay
+  -> the same SessionStart appends OH_NO_FORCED_ROUTING only when auto-routing is enabled
+  -> forced action ordering and essential precedence; installed workflow descriptions still select the destination; no Codex counterpart
+
+Claude Code SessionStart support
+  -> <OH_NO_MODEL_DIVERSITY> on every session, using validated stored top-tier/secondary settings or the built-in top-tier fallback
   -> scripts/configure-subagents reapply best-effort after plugin-cache updates
 
 Claude Code slash command
@@ -26,16 +36,16 @@ Codex
   -> root .agents/plugins/marketplace.json
   -> plugins/oh-no-harness/.codex-plugin/plugin.json
   -> skills/
+  -> native skill discovery loads each workflow's frontmatter description
+  -> matching skills/<skill>/SKILL.md destination. Every workflow composes
+     docs/platforms/codex-child-packet-floor.md. Self-contained skills
+     (interview, ralplan, ralph, systematic-debugging, ultrawork,
+     verification-before-completion) then compose their required
+     docs/platforms/codex-<skill>.md adapter without codex-runtime.md; remaining
+     skills compose docs/platforms/codex-runtime.md and any optional overlay
   -> hooks/run-hook.cmd session-start when plugin hooks are enabled
-  -> hooks/session-start
+  -> hooks/session-start supplies the compatible global direct-dispatch boundary without forced routing
   -> scripts/install-codex-agents --scope user --ensure --quiet as best-effort custom-agent ensure
-  -> using-oh-no-harness through native skill discovery
-  -> skills/<skill>/SKILL.md generated runtime document. Self-contained
-     skills (interview, ralplan, ralph, systematic-debugging,
-     ultrawork, verification-before-completion) compose
-     docs/skill-core/<skill>.md plus the required docs/platforms/codex-<skill>.md
-     adapter only; the remaining skills compose docs/skill-core/<skill>.md,
-     docs/platforms/codex-runtime.md, and optional docs/platforms/codex-<skill>.md
   -> docs/agent-core/<role>.md for spawned role prompt bodies
   -> optional docs/platforms/codex-agents/*.toml installed or refreshed by scripts/install-codex-agents
 ```
@@ -43,24 +53,23 @@ Codex
 ## Skill Graph
 
 ```text
-using-oh-no-harness
-  -> explains local skills and explicit next-skill guidance
-
 auto-routing
-  -> writes persistent user preference for stronger SessionStart skill-selection guidance
-  -> Claude Code hooks/session-start reads the setting and appends OH_NO_FORCED_ROUTING when enabled
+  -> configuration-only; never selects the current-turn destination
+  -> writes a persistent user preference
+  -> Claude Code hooks/session-start reads the setting on the next SessionStart and appends OH_NO_FORCED_ROUTING when enabled
+  -> Codex stores the preference but gains no forced-routing semantics
   -> docs/platforms/claude-code-auto-routing.md on Claude Code
   -> docs/platforms/codex-auto-routing.md on Codex
 
 install-statusline
   -> user-invoked Claude-Code-only setup action; never model-invoked (disable-model-invocation: true on both the skill and the command wrapper)
-  -> kept out of the SessionStart routing map so the model has no auto-invoke path
+  -> disable-model-invocation: true excludes it from native and forced destination candidates
   -> copies scripts/statusline-command to ~/.claude/statusline-command.sh and sets settings.json statusLine via scripts/install-statusline
   -> docs/platforms/claude-code-install-statusline.md on Claude Code (no Codex variant)
 
 configure-subagents
   -> user-invoked Claude-Code-only setup action; never model-invoked (disable-model-invocation: true on both the skill and the command wrapper)
-  -> kept out of the SessionStart routing map so the model has no auto-invoke path
+  -> disable-model-invocation: true excludes it from native and forced destination candidates
   -> collects a model and reasoning effort for each of the 9 subagents and rewrites the installed runtime agents/*.md in one recoverable transaction via scripts/configure-subagents (never the generator-owned canonical agents in a source checkout, never Codex TOMLs)
   -> stores schema-versioned preferences outside the plugin cache, including the top-tier model set and optional native secondary model; never records or prints proxy credentials
   -> Claude Code hooks/session-start runs scripts/configure-subagents reapply best-effort after a plugin-cache update resets the runtime agents
@@ -142,7 +151,8 @@ Provider guidance is a maintenance reference, not an extra runtime layer:
 ```text
 Codex runtime
   -> skills/<skill>/SKILL.md generated from docs/skill-core/<skill>.md
-  -> self-contained skills: required docs/platforms/codex-<skill>.md adapter only
+  -> every workflow: docs/platforms/codex-child-packet-floor.md
+  -> self-contained skills: required docs/platforms/codex-<skill>.md adapter, without codex-runtime.md
   -> remaining skills: docs/platforms/codex-runtime.md and optional docs/platforms/codex-<skill>.md
   -> docs/platforms/codex-auto-routing.md for auto-routing only
   -> docs/platforms/codex-fusion-rescue.md for fusion-rescue only
@@ -167,7 +177,7 @@ regenerate skill runtime documents with
 
 ## Agent Relationship Summary
 
-Skills are public workflow entrypoints. The 9 agents are role prompts selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses the same 9 generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the sole automatic user-scope ensure point before named custom-agent dispatch. Claude-host single-round review pairs combine role-specific perspective diversity with configuration-driven model diversity through `configure-subagents` and the SessionStart diversity block; Fusion Rescue model diversity uses the same configuration, not separate role wrappers. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
+Skills are public workflow entrypoints. The main caller builds each self-contained child packet under the common SessionStart floor; the 9 agents contain only role behavior selected by those skills or by the current platform's subagent mechanism. `docs/agent-core/<role>.md` is the platform-neutral role body and source of truth for agent behavior. `agents/<role>.md` is a generated Claude Code wrapper with YAML frontmatter, while Codex dispatch embeds the frontmatter-free body or uses the same 9 generated TOML templates ensured by `scripts/install-codex-agents`; Codex SessionStart is the sole automatic user-scope ensure point before named custom-agent dispatch. Claude-host single-round review pairs combine role-specific perspective diversity with configuration-driven model diversity through `configure-subagents` and the SessionStart diversity block; Fusion Rescue model diversity uses the same configuration, not separate role wrappers. Regenerate wrappers with `scripts/generate-agent-wrappers.py --write` after changing agent-core content or wrapper metadata. Agent outputs may recommend another role or workflow skill to the caller, but the active skill still owns approval gates, artifact updates, and any `Next Skill Handoff`. Agent arrows below mean "recommend or return evidence for the caller to route," not hidden auto-invocation.
 
 | Agent | Main inbound use | Main outbound recommendations |
 |---|---|---|

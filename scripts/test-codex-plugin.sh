@@ -50,7 +50,6 @@ cleanup_codex_live_temp_roots() {
 trap cleanup_codex_live_temp_roots EXIT
 
 PUBLIC_SKILLS=(
-  using-oh-no-harness
   interview
   ralplan
   ralph
@@ -916,8 +915,67 @@ validate_codex_manifest() {
   ok "Codex manifest identity: ${manifest_name} ${manifest_version}"
 }
 
+validate_routing_hook_source_contract() {
+  "$PYTHON_BIN" - "$PLUGIN_ROOT/hooks/session-start" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+problems = []
+bootstrap_start = source.find("bootstrap_policy='")
+bootstrap_end = source.find('\n\nauto_routing_policy=""', bootstrap_start)
+bootstrap = ""
+if bootstrap_start < 0 or bootstrap_end < 0:
+    problems.append("cannot locate unconditional OH_NO_BOOTSTRAP source")
+else:
+    bootstrap = source[bootstrap_start + len("bootstrap_policy='") : bootstrap_end]
+forced_match = re.search(
+    r"auto_routing_policy='\s*(<OH_NO_FORCED_ROUTING>.*?</OH_NO_FORCED_ROUTING>)'",
+    source,
+    flags=re.DOTALL,
+)
+forced = forced_match.group(1) if forced_match else ""
+if not forced:
+    problems.append("cannot locate Claude OH_NO_FORCED_ROUTING source")
+
+for marker in (
+    "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
+    "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+):
+    if marker not in bootstrap:
+        problems.append(f"unconditional bootstrap missing object-of-analysis owner: {marker}")
+    if marker in forced:
+        problems.append(f"forced block duplicates object-of-analysis owner: {marker}")
+for marker in (
+    "Routing reminder:",
+    "using-oh-no-harness",
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route",
+):
+    if marker in bootstrap:
+        problems.append(f"unconditional bootstrap retains retired routing text: {marker}")
+
+forced_lower = forced.lower()
+if "routing map" in forced_lower or forced_lower.count("oh-no-harness:") > 1:
+    problems.append("Claude forced block retains an exhaustive positive catalog")
+if (
+    'if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled' not in source
+    or source.count("<OH_NO_FORCED_ROUTING>") != 1
+):
+    problems.append("forced routing is not singular and Claude-only")
+
+if problems:
+    raise SystemExit(
+        "Codex routing hook source contract failed:\n  - " + "\n  - ".join(problems)
+    )
+print("ok - Codex routing hook source preserves native-description asymmetry")
+PY
+}
+
 validate_codex_hooks() {
   log "Validating Codex hook separation"
+  validate_routing_hook_source_contract
   assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
   bash -n "$PLUGIN_ROOT/hooks/session-start"
 
@@ -935,23 +993,19 @@ validate_codex_hooks() {
   PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     >"$temp_data/session-start.json"
   "$PYTHON_BIN" - "$temp_data/session-start.json" "$PLUGIN_ROOT" <<'PY'
-import json
-import re
-import sys
+import json, re, sys
 from pathlib import Path
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 output = data.get("hookSpecificOutput", {})
 if output.get("hookEventName") != "SessionStart":
     raise SystemExit("Codex SessionStart emitted the wrong hook event")
 text = output.get("additionalContext", "")
 if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
     raise SystemExit("Codex SessionStart is missing compact native skill-loading guidance")
-required = [
-    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
-    "No-route lane",
-    "Direct-edit lane",
+required = ["No-route lane", "Direct-edit lane",
+    "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
+    "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+    "Child packet floor", "caller sends a proportional self-contained English packet", "purpose/outcome", "target role", "repo mutation/review/verify", "exact target/revision + result/revision binding", "scope/permissions/non-goals", "contract/acceptance", "evidence/output", "stop/escalation", "Initial independent review/verify/debug", "withholds maker conclusions", "expected verdicts", "sibling output", "preferred causes", "disclose only later for audit/clarification",
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "sub-agents, delegation, and parallel agent work proactively",
     "explicit user request for eligible Oh No Harness workflow",
@@ -969,8 +1023,10 @@ required = [
     "before fallback",
 ]
 missing = [needle for needle in required if needle not in text]
-if missing:
-    raise SystemExit(f"Codex SessionStart missing Ralph/TDD routing markers: {missing}")
+if missing or text.count("Child packet floor:") != 1:
+    raise SystemExit(f"Codex SessionStart routing/child-packet drift: missing={missing}, count={text.count('Child packet floor:')}")
+for forbidden in ("Global Context Capsule", "Capsule delta", "_global-context-capsule.md", "Purpose\nAssigned outcome / acceptance criteria"):
+    if forbidden in text: raise SystemExit(f"Codex SessionStart retains former receiver schema: {forbidden}")
 match = re.search(r"read `([^`]+/docs/platforms/codex[.]md)` section", text)
 if match is None:
     raise SystemExit("Codex SessionStart is missing the absolute troubleshooting-doc pointer")
@@ -981,9 +1037,16 @@ if actual_doc != expected_doc or not actual_doc.is_file():
         f"Codex SessionStart troubleshooting pointer does not resolve to the installed doc: "
         f"actual={actual_doc}, expected={expected_doc}"
     )
-for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
+for forbidden in (
+    "OH_NO_SKILL_CORE",
+    "Below is the full content",
+    "docs/skill-core/using-oh-no-harness.md",
+    "Routing reminder:",
+    "using-oh-no-harness",
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route",
+):
     if forbidden in text:
-        raise SystemExit(f"Codex SessionStart embedded full using-oh-no-harness core content: {forbidden}")
+        raise SystemExit(f"Codex SessionStart retains retired routing content: {forbidden}")
 for forbidden in (
     "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
     "behavior-changing edits go through test-driven-development",
@@ -1006,19 +1069,41 @@ PY
   grep -q 'oh-no-harness-installed-plugin-version:' "$CODEX_HOME/agents/oh-no-code-reviewer.toml" \
     || fail "Codex SessionStart did not write installed plugin version marker"
 
-  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
-  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+  local routing_config_dir="$temp_data/config"
+  OH_NO_CONFIG_DIR="$routing_config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" path >"$temp_data/config-path.out"
+  OH_NO_CONFIG_DIR="$routing_config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" on >"$temp_data/config-on.out"
+  PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$routing_config_dir" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
     >"$temp_data/session-start-codex-routing-on.json"
-  "$PYTHON_BIN" - "$temp_data/session-start-codex-routing-on.json" <<'PY'
+  OH_NO_CONFIG_DIR="$routing_config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" off >"$temp_data/config-off.out"
+  "$PYTHON_BIN" - "$temp_data/session-start-codex-routing-on.json" "$routing_config_dir" \
+    "$temp_data/config-path.out" "$temp_data/config-on.out" "$temp_data/config-off.out" \
+    "$PLUGIN_ROOT/skills/auto-routing/SKILL.md" <<'PY'
 import json
+import re
 import sys
+from pathlib import Path
 
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
-output = data.get("hookSpecificOutput", {})
-text = output.get("additionalContext", "")
+hook_path, root_arg, path_out, on_out, off_out, wrapper_path = sys.argv[1:]
+text = json.loads(Path(hook_path).read_text(encoding="utf-8")).get("hookSpecificOutput", {}).get("additionalContext", "")
 if "OH_NO_FORCED_ROUTING" in text:
     raise SystemExit("Codex SessionStart should not add forced routing when auto-routing is enabled")
+root = Path(root_arg).resolve()
+outputs = [Path(path).read_text(encoding="utf-8") for path in (path_out, on_out, off_out)]
+reported = [Path(outputs[0].strip()).resolve()]
+reported += [Path(re.search(r"(?m)^config: (.+)$", output).group(1)).resolve() for output in outputs[1:]]
+if any(path != root / "config.json" for path in reported):
+    raise SystemExit(f"Codex helper config path escaped disposable directory: {reported}")
+state = json.loads((root / "config.json").read_text(encoding="utf-8"))
+if state.get("autoRouting", {}).get("enabled") is not False:
+    raise SystemExit("Codex helper off output did not leave the disposable state disabled")
+forbidden = (r"\brestart\w*\b", r"\b(?:immediate(?:ly)?|current[- ]turn|activat(?:e[sd]?|ion)|takes? effect)\b", r"\bforced[- ]routing\b", r"\b(?:stronger|exhaustive)[- ]routing\b", r"\b(?:change\w* .*routing semantics|routing semantics .*change\w*)\b")
+if any(re.search(pattern, "\n".join(outputs), re.I) for pattern in forbidden):
+    raise SystemExit("Codex helper output overclaims activation or changed routing semantics")
+wrapper = " ".join(Path(wrapper_path).read_text(encoding="utf-8").lower().split())
+required = ("codex native skill loading remains the primary routing surface", "enabling it does not add forced routing", "does not change current routing semantics")
+missing = [phrase for phrase in required if phrase not in wrapper]
+if missing:
+    raise SystemExit(f"generated Codex auto-routing wrapper is missing platform semantics: {missing}")
 PY
 
   local blocked_session_home
@@ -1408,7 +1493,7 @@ err_path = Path(app_err)
 
 
 def read_stdout() -> None:
-    assert proc.stdout is not None
+    if proc.stdout is None: raise RuntimeError("Codex app-server stdout pipe was not created")
     with log_path.open("w", encoding="utf-8") as log:
         for line in proc.stdout:
             log.write(line)
@@ -1418,7 +1503,7 @@ def read_stdout() -> None:
 
 
 def read_stderr() -> None:
-    assert proc.stderr is not None
+    if proc.stderr is None: raise RuntimeError("Codex app-server stderr pipe was not created")
     with err_path.open("w", encoding="utf-8") as err:
         for line in proc.stderr:
             stderr_lines.append(line)
@@ -1593,9 +1678,6 @@ PY
 
 live_prompt_for_skill() {
   case "$1" in
-    using-oh-no-harness)
-      printf 'Use the oh-no-harness:using-oh-no-harness skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK using-oh-no-harness.'
-      ;;
     interview)
       printf 'Use the oh-no-harness:interview skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK interview.'
       ;;
@@ -1609,7 +1691,7 @@ live_prompt_for_skill() {
       printf 'Use the oh-no-harness:ultrawork skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ultrawork.'
       ;;
     auto-routing)
-      printf 'Use the oh-no-harness:auto-routing skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK auto-routing.'
+      printf 'Use the oh-no-harness:auto-routing skill for a read-only Codex platform-semantics smoke. Do not run the config helper or change settings/files. Explain that native skill loading remains primary, the preference is stored state, current Codex routing semantics stay unchanged with no forced routing, and generic restart or stronger routing is not the effect. End with OH_NO_CODEX_SKILL_OK auto-routing.'
       ;;
     test-driven-development)
       printf 'Use the oh-no-harness:test-driven-development skill for an explicit TDD/test-first smoke request. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK test-driven-development.'
@@ -1660,6 +1742,7 @@ run_live_skill_test() {
   run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
 
   "$PYTHON_BIN" - "$out_file" "$skill" <<'PY'
+import re
 import sys
 
 path, skill = sys.argv[1], sys.argv[2]
@@ -1667,6 +1750,10 @@ text = open(path, "r", encoding="utf-8").read()
 expected = f"OH_NO_CODEX_SKILL_OK {skill}"
 if expected not in text:
     raise SystemExit(f"{skill} live smoke did not return marker {expected!r}; got {text!r}")
+# Hard boundary: routing semantics must be unchanged; restart and stronger routing overclaims stay in the raw transcript for main adjudication.
+boundary = re.search(r"\b(?:current\s+)?(?:codex\s+)?routing semantics?\b.{0,80}\b(?:(?:are|stay|stays|remain|remains)\s+unchanged|(?:do|does)\s+not\s+change|no\s+change)\b", text, re.I | re.S) or re.search(r"\b(?:unchanged|(?:do|does)\s+not\s+change|no\s+change)\b.{0,80}\b(?:current\s+)?(?:codex\s+)?routing semantics?\b", text, re.I | re.S)
+if skill == "auto-routing" and not boundary:
+    raise SystemExit("auto-routing final response must say current Codex routing semantics are unchanged")
 print(f"ok - live Codex skill smoke: {skill}")
 PY
 }
@@ -2010,11 +2097,54 @@ assert_natural_prompt_has_no_explicit_subagent_terms() {
   done
 }
 
+assert_natural_routing_prompt_shape() {
+  local label="$1"
+  local prompt="$2"
+  local prompt_lower
+  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  for forbidden in \
+    "oh-no-harness" "using-oh-no-harness" "interview" "ralplan" "ralph" \
+    "ultrawork" "auto-routing" "test-driven-development" "simplify" \
+    "verification-before-completion" "systematic-debugging" "fusion-rescue" \
+    "skills/" "skills-claude/" "commands/" "skill.md"; do
+    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
+      fail "${label} natural routing prompt names an expected skill/plugin/command path: ${forbidden}"
+    fi
+  done
+}
+
 run_natural_prompt_guard_offline_test() {
   log "Running offline Codex natural-prompt causality guard fixtures"
-  local allowed_prompt forbidden
+  local allowed_prompt case_id forbidden object_prompt prompt routing_prompt
+  local routing_prompts=(
+    "I have an idea for making this developer tool easier to adopt, but I have not decided the users, constraints, or acceptance criteria. Help me work out the requirements."
+    "Take this broad goal from unclear requirements through implementation and final evidence autonomously; manage the whole end-to-end delivery without asking me to choose each stage."
+    "Implement the approved timeout change and verify each acceptance criterion without widening the scope."
+    "A regression appears intermittently after startup. Determine the root cause before proposing a fix."
+    "Use a failing test first, then make the smallest production change and rerun the focused checks."
+    "Compare the current planning workflow with the proposed design and return an analysis report only."
+    "The startup regression has a confirmed cause in the request parser and the exact executable source file is identified. Apply the localized fix and verify the supplied acceptance criteria without reopening root-cause investigation."
+    "Fix one typo in a private inert notes file that is not generated or consumed by tooling, then show the diff."
+    "The requirements document is approved. Present the available approval choices before moving to execution."
+  )
   allowed_prompt="Read the repository facts, assess the requested outcome, and summarize the evidence without editing files."
   assert_natural_prompt_has_no_explicit_subagent_terms "allowed-fixture" "$allowed_prompt"
+  assert_natural_routing_prompt_shape "allowed-fixture" "$allowed_prompt"
+  for routing_prompt in "${routing_prompts[@]}"; do
+    assert_natural_prompt_has_no_explicit_subagent_terms "routing-fixture" "$routing_prompt"
+    assert_natural_routing_prompt_shape "routing-fixture" "$routing_prompt"
+  done
+  for case_id in "vague requirements" "autonomous end-to-end" "ordinary implementation" \
+    "explicit test-first" "unknown-cause failure" "known-cause fix" "plan-only/pending approval" \
+    "no-route research" "direct-edit eligible" "direct-edit ineligible"; do
+    prompt="$(natural_session_start_prompt_for_skill "$case_id")"
+    assert_natural_prompt_has_no_explicit_subagent_terms "$case_id" "$prompt"
+    assert_natural_routing_prompt_shape "$case_id" "$prompt"
+  done
+  object_prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "object analysis" "$object_prompt"
+  [[ "$object_prompt" == *"Ralplan"* && "$object_prompt" != *"/"* && "$object_prompt" != *"SKILL.md"* ]] \
+    || fail "object-analysis prompt escaped its bounded workflow-subject exception"
 
   for forbidden in \
     "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
@@ -2030,285 +2160,107 @@ run_natural_prompt_guard_offline_test() {
   ok "Codex natural-prompt guard accepts outcome-only prose and rejects dispatch mechanics"
 }
 
-assert_natural_spawn_smoke() {
-  local out_file="$1"
-  local err_file="$2"
-  local expected_count="$3"
-  local success_marker="$4"
-  local label="$5"
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$expected_count" "$success_marker" "$label" "$CODEX_HOME_DIR" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-out_path, err_path, expected_count, success_marker, label, live_home = sys.argv[1:7]
-expected_count = int(expected_count)
-
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"{label} natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-spawn_receivers = []
-failed_spawns = []
-receiver_ids = set()
-waited_receivers = set()
-wait_result_by_receiver = {}
-closed_receivers = set()
-marker = False
-all_text_parts = []
-parent_thread_id = None
-
-with open(out_path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-        if success_marker in event_text:
-            marker = True
-        if item.get("type") != "collab_tool_call":
-            continue
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            spawn_receivers.append((index, tuple(receivers)))
-            receiver_ids.update(receivers)
-        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
-            text = collect_text(item)
-            mentioned = set(item.get("receiver_thread_ids") or [])
-            mentioned.update(receiver for receiver in receiver_ids if receiver in text)
-            mentioned.update(
-                receiver for receiver in (item.get("agents_states") or {})
-                if receiver in receiver_ids
-            )
-            if tool in {"wait", "wait_agent"}:
-                for receiver in mentioned:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        waited_receivers.add(receiver)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-            if tool == "close_agent":
-                closed_receivers.update(mentioned)
-
-if failed_spawns:
-    raise SystemExit(f"{label} natural smoke saw failed spawn_agent calls: {failed_spawns!r}")
-if len(spawn_receivers) < expected_count:
-    if spawn_receivers:
-        raise SystemExit(
-            f"{label} natural smoke emitted only a partial collab event stream: {spawn_receivers!r}"
-        )
-    if not parent_thread_id:
-        raise SystemExit(f"{label} natural smoke lacked both collab events and a parent thread id")
-    typed_children = []
-    sessions_root = Path(live_home) / "sessions"
-    for transcript_path in sessions_root.rglob("*.jsonl"):
-        meta = None
-        completed = False
-        final_output = ""
-        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not transcript_line.strip():
-                continue
-            candidate = json.loads(transcript_line)
-            payload = candidate.get("payload") or {}
-            if candidate.get("type") == "session_meta":
-                meta = payload
-            elif candidate.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                final_output = collect_text(payload.get("last_agent_message")) or final_output
-            elif (
-                candidate.get("type") == "response_item"
-                and payload.get("type") == "message"
-                and payload.get("role") == "assistant"
-            ):
-                final_output = collect_text(payload.get("content")) or final_output
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = (
-            subagent.get("thread_spawn")
-            if isinstance(subagent.get("thread_spawn"), dict)
-            else {}
-        )
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id or not isinstance(agent_role, str) or not agent_role.startswith("oh-no-"):
-            continue
-        if not completed or not final_output:
-            raise SystemExit(
-                f"{label} natural smoke typed child {agent_role} lacked completed final output"
-            )
-        typed_children.append((agent_role, meta.get("id") or meta.get("session_id")))
-    if len(typed_children) < expected_count:
-        raise SystemExit(
-            f"{label} natural smoke expected at least {expected_count} typed child sessions, "
-            f"got {typed_children!r}"
-        )
-    if not marker:
-        raise SystemExit(f"{label} natural smoke typed children completed but parent omitted {success_marker}")
-    print(f"ok - {label} natural smoke proved by typed child transcripts (collab events unavailable)")
-    raise SystemExit(0)
-if len(receiver_ids) < expected_count:
-    raise SystemExit(f"{label} natural smoke expected at least {expected_count} receiver threads, got {receiver_ids!r}")
-missing_wait_results = sorted(receiver_ids - waited_receivers)
-missing_closes = sorted(receiver_ids - closed_receivers)
-all_text = "\n".join(all_text_parts)
-if missing_wait_results:
-    raise SystemExit(
-        f"{label} natural smoke did not capture final wait_agent results for receivers: {missing_wait_results!r}"
-    )
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        f"{label} natural smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-if not marker:
-    raise SystemExit(f"{label} natural smoke did not return success marker {success_marker}")
-
-print(f"ok - {label} natural smoke spawned via SessionStart standing authorization")
-PY
+natural_source_checkout_fingerprint() {
+  local root="$1"
+  {
+    printf 'UNSTAGED\0'; git -C "$root" diff --binary
+    printf '\0STAGED\0'; git -C "$root" diff --cached --binary
+    printf '\0UNTRACKED\0'
+    git -C "$root" ls-files --others --exclude-standard -z | "$PYTHON_BIN" -c 'import os,sys
+root=os.fsencode(sys.argv[1]); paths=sorted(filter(None,sys.stdin.buffer.read().split(b"\0")))
+for rel in paths:
+ p=os.path.join(root,rel); link=os.path.islink(p)
+ if not link and not os.path.isfile(p): raise SystemExit("unsupported untracked entry: "+os.fsdecode(rel))
+ data=os.fsencode(os.readlink(p)) if link else open(p,"rb").read()
+ sys.stdout.buffer.write(len(rel).to_bytes(8,"big")+rel+(b"L" if link else b"F")+len(data).to_bytes(8,"big")+data)' "$root"
+  } | shasum -a 256
 }
 
+natural_git_fixture() {
+  local root="$1" label="$2" mode="${3:-initialize}" status
+  case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") ;; *) return 0 ;; esac
+  if [[ "$mode" == initialize ]]; then
+    git -C "$root" init -q; git -C "$root" config user.name oh-no-fixture; git -C "$root" config user.email fixture@example.invalid
+    git -C "$root" add .; git -C "$root" commit -qm baseline
+  fi
+  git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label fixture is not an actual Git checkout"
+  status="$(git -C "$root" status --porcelain)"; [[ -z "$status" ]] || fail "$label fixture is dirty before launch: $status"
+}
+natural_payload_changes() { diff -qr -x .git "$1" "$2" || true; }
+run_natural_git_fixture_offline_test() {
+  log "Running offline Codex natural Git-fixture guards"
+  local root label dir direct before changes; root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-git-fixtures.XXXXXX")"; trap 'rm -rf "$root"' RETURN
+  for label in "autonomous end-to-end" "ordinary implementation" "explicit test-first" "unknown-cause failure" "known-cause fix" "direct-edit eligible" "direct-edit ineligible" "vague requirements" "plan-only/pending approval" "no-route research" "object analysis"; do
+    dir="$root/${label//[ \/]/-}"; mkdir -p "$dir"; printf 'fixture\n' >"$dir/fixture.txt"; natural_git_fixture "$dir" "$label"
+    case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") [[ -z "$(git -C "$dir" status --porcelain)" ]] || fail "$label fixture was not clean" ;; *) ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label unexpectedly became a Git fixture" ;; esac
+  done
+  dir="$root/ordinary-implementation"; printf 'dirty\n' >>"$dir/fixture.txt"; if (natural_git_fixture "$dir" "ordinary implementation" verify) >/dev/null 2>&1; then fail "dirty selected Codex fixture passed its pre-launch guard"; fi
+  direct="$root/direct-containment"; before="$root/direct-before"; mkdir -p "$direct/notes" "$before"; printf 'Keep teh private note concise.\n' >"$direct/notes/private-notes.md"; natural_git_fixture "$direct" "direct-edit eligible"; cp -R "$direct/." "$before/"
+  git -C "$direct" config fixture.metadata changed; [[ -z "$(natural_payload_changes "$before" "$direct")" ]] || fail ".git-only Codex metadata counted as payload mutation"
+  printf 'Keep the private note concise.\n' >"$direct/notes/private-notes.md"; changes="$(natural_payload_changes "$before" "$direct")"
+  [[ "$(printf '%s\n' "$changes" | grep -c .)" == 1 && "$changes" == *"notes/private-notes.md"* ]] || fail "Codex direct-edit containment lost its exact one-file payload boundary: $changes"
+  rm -rf "$root"; trap - RETURN; ok "Codex selected natural fixtures are clean Git checkouts and payload diffs exclude .git"
+}
 natural_session_start_prompt_for_skill() {
   case "$1" in
-    interview)
-      cat <<'PROMPT'
-Use the oh-no-harness:interview skill. Read-only natural SessionStart smoke test. Vague request: make Codex live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather the necessary repository facts from ../../scripts/test-codex-plugin.sh. Do not edit files or run the test script. End with OH_NO_CODEX_INTERVIEW_NATURAL_OK and summarize the facts that informed the first question.
+    "vague requirements") cat <<'PROMPT'
+I have an idea for improving the small tool described in README.md, but I have not decided its users, constraints, or acceptance criteria. Inspect the repository facts, then help me work out the requirements without changing files.
 PROMPT
       ;;
-    ultrawork)
-      cat <<'PROMPT'
-Use the oh-no-harness:ultrawork skill. Read-only natural SessionStart smoke test. Approved synthetic low-risk internal goal: assess whether ../../scripts/test-codex-plugin.sh identifies the expected natural smoke coverage surface for a local maintainer note. This message is the complete approved requirements source. Scope only the current natural smoke cases; success is a read-only summary of repository facts, the smallest planning direction, and final evidence status. No product, architecture, public-contract, security, migration, concurrency, or release decision is in scope. Perform a dry run only: do not create artifacts, edit files, or execute changes. End with OH_NO_CODEX_ULTRAWORK_NATURAL_OK and summarize repository facts, planning readiness, and final evidence.
-PROMPT
-      ;;
-    systematic-debugging)
-      cat <<'PROMPT'
-Use the oh-no-harness:systematic-debugging skill. Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-codex-plugin.sh returned no marker even though the output file existed. Diagnose the likely cause and assess what evidence would verify it. Do not edit files or run the test script. End with OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize the diagnosis and evidence status.
-PROMPT
-      ;;
-    verification-before-completion)
-      cat <<'PROMPT'
-Use the oh-no-harness:verification-before-completion skill. Read-only natural SessionStart smoke test. Verify the claim that ../../scripts/test-codex-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that another lane can extend. Do not edit files or run the test script. End with OH_NO_CODEX_VERIFICATION_NATURAL_OK and summarize the evidence and any skipped checks.
-PROMPT
-      ;;
-    *)
-      fail "No natural SessionStart prompt for skill: $1"
-      ;;
+    "autonomous end-to-end") printf '%s\n' 'Approved synthetic low-risk internal goal: take the broad improvement goal in README.md from unclear requirements through implementation and final evidence autonomously. This message is the complete approved requirements source. Manage the whole end-to-end delivery without asking me to choose each stage. No product, architecture, public-contract, security, migration, concurrency, or release decision is in scope.' ;;
+    "ordinary implementation") printf '%s\n' 'Update the runtime-consumed executable src/timeout.sh so TIMEOUT is 10 instead of 5. Acceptance criteria: run.sh prints TIMEOUT=10, existing behavior stays scoped to that value, and focused checks pass.' ;;
+    "explicit test-first") printf '%s\n' 'Change the runtime-consumed executable src/timeout.sh so TIMEOUT is 10. Use RED/GREEN/REFACTOR: add or update the focused failing test first, show its failure, make the smallest production change, and rerun it.' ;;
+    "unknown-cause failure") printf '%s\n' 'Running tests/startup_test.sh currently fails and the root cause is unknown. Reproduce the failure, determine the cause from evidence, apply the smallest justified fix, and rerun the focused check.' ;;
+    "known-cause fix") printf '%s\n' 'The confirmed cause is the misspelled MODE value in runtime-consumed executable src/parser.sh; the exact fix is MODE=fast. Apply that localized change and verify tests/parser_test.sh without reopening root-cause investigation.' ;;
+    "plan-only/pending approval") printf '%s\n' 'Prepare an approval-ready cross-file implementation plan for the concrete two-shell-file contract in README.md covering src/alpha.sh and src/beta.sh. Do not edit source or execute changes. Leave execution pending and present the next approval actions after the plan.' ;;
+    "no-route research") printf '%s\n' 'Read README.md and explain how this disposable example is structured. Return the answer only; do not create files or change the project.' ;;
+    "direct-edit eligible") printf '%s\n' 'Fix the one obvious "teh" typo in notes/private-notes.md and show the diff. This private prose file is inert, non-generated, non-operational, not consumed by build/test/CI, and has no security, permission, migration, or public-contract effect.' ;;
+    "direct-edit ineligible") printf '%s\n' 'Fix the one "teh" typo printed by executable src/status.sh and verify tests/status_test.sh. This file is runtime-consumed source, so do not take a prose-only shortcut.' ;;
+    *) fail "No natural Codex prompt for case: $1" ;;
   esac
 }
-
 assert_natural_role_spawn_smoke() {
-  local out_file="$1"
-  local err_file="$2"
-  local success_marker="$3"
-  local label="$4"
-  local role_marker_specs="$5"
-  local forbidden_markers="${6:-}"
-  local role_order_mode="${7:-exact}"
-  local minimum_role_count="${8:-1}"
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" "$CODEX_HOME_DIR" "$role_order_mode" "$minimum_role_count" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-(
-    out_path,
-    err_path,
-    success_marker,
-    label,
-    role_marker_specs,
-    forbidden_markers,
-    live_home,
-    role_order_mode,
-    minimum_role_count,
-) = sys.argv[1:10]
-minimum_role_count = int(minimum_role_count)
-role_markers = []
-optional_roles = set()
-for spec in role_marker_specs.split(","):
-    if not spec:
-        continue
-    role, marker = spec.split(":", 1)
-    if role.endswith("?"):
-        role = role[:-1]
-        optional_roles.add(role)
-    role_markers.append((role, marker))
-expected_roles = [role for role, _ in role_markers]
-required_roles = [role for role in expected_roles if role not in optional_roles]
-forbidden = [marker for marker in forbidden_markers.split(",") if marker]
-
+  local out_file="$1" err_file="$2" label="$3" live_home="$4"
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$label" "$live_home" <<'PY'
+import json, re, sys; from pathlib import Path
+out_path, err_path, label, live_home = sys.argv[1:5]
 def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-def has_marker_line(text, marker):
-    return re.search(rf"(?im)^\s*Marker:\s*{re.escape(marker)}\s*$", text) is not None
-
-def mentioned_receivers(item, known_receivers):
-    text = collect_text(item)
-    mentioned = set(item.get("receiver_thread_ids") or [])
-    mentioned.update(receiver for receiver in known_receivers if receiver in text)
-    mentioned.update(
-        receiver for receiver in (item.get("agents_states") or {})
-        if receiver in known_receivers
-    )
-    return mentioned
-
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"{label} natural role smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-                subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-                thread_spawn = (
-                    subagent.get("thread_spawn")
-                    if isinstance(subagent.get("thread_spawn"), dict)
-                    else {}
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"{label} natural role smoke transcript for receiver lacked session_meta: {receiver}")
-
+    return value if isinstance(value, str) else "\n".join(map(collect_text, value.values())) if isinstance(value, dict) else "\n".join(map(collect_text, value)) if isinstance(value, list) else ""
+rows = [json.loads(line) for line in Path(out_path).read_text(encoding="utf-8").splitlines() if line.strip()]
+err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
+failure_markers = ("spawn failed", "unknown agent_type", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items")
+failed_events = [collect_text(data) for data in rows if ((data.get("item") or {}).get("type") == "collab_tool_call" and (data.get("item") or {}).get("tool") == "spawn_agent" and (data.get("item") or {}).get("status") == "failed") or data.get("type") in {"error", "turn.failed"}]
+if failed_events or any(marker in err_text.lower() for marker in failure_markers): raise SystemExit(f"{label} natural named-agent transport saw spawn/protocol failure: {(err_text + chr(10).join(failed_events))[:2000]!r}")
+parents = {data.get("thread_id") for data in rows if data.get("type") == "thread.started" and isinstance(data.get("thread_id"), str) and data.get("thread_id")}
+if len(parents) != 1: raise SystemExit(f"{label} natural named-agent transport expected one valid parent thread identity, got {parents!r}")
+parent = next(iter(parents)); parent_outputs = [collect_text((data.get("item") or {}).get("text") or data.get("result")).strip() for data in rows if (data.get("item") or {}).get("type") == "agent_message" or data.get("result")]
+if not any(parent_outputs): raise SystemExit(f"{label} natural named-agent transport lacked a non-empty parent final response")
+children = []
+for path in (Path(live_home) / "sessions").rglob("*.jsonl"):
+    child_rows = [json.loads(line) for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+    meta = next((row.get("payload") or {} for row in child_rows if row.get("type") == "session_meta"), {}); source = meta.get("source") if isinstance(meta.get("source"), dict) else {}; subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}; spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
+    if (meta.get("parent_thread_id") or spawn.get("parent_thread_id")) != parent: continue
+    role = meta.get("agent_role") or spawn.get("agent_role")
+    if not isinstance(role, str) or re.fullmatch(r"oh-no-[a-z0-9][a-z0-9-]*", role) is None: raise SystemExit(f"{label} natural child {path} lacked registered host agent_role metadata: {role!r}")
+    completed = [collect_text((row.get("payload") or {}).get("last_agent_message")).strip() for row in child_rows if row.get("type") == "event_msg" and (row.get("payload") or {}).get("type") == "task_complete"]
+    if not completed or not any(completed): raise SystemExit(f"{label} natural child {path} lacked task_complete with non-empty final output")
+    children.append((str(path), role))
+if not children: raise SystemExit(f"{label} natural named-agent transport found no parent-linked child sessions")
+print(f"ok - {label} mechanical named-agent transport hard facts captured")
+PY
+}
+assert_codex_natural_activation_smoke() {
+  local out_file="$1" err_file="$2" final_file="$3" label="$4" expected_route="$5" project_root="${6:-}"
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" "$label" "$expected_route" "$CODEX_HOME_DIR" "$project_root" <<'PY'
+import json, re, sys
+from pathlib import Path
+out_path, err_path, final_path, label, expected, live_home, project_root = sys.argv[1:8]
+workflows = {"interview", "ralplan", "ralph", "ultrawork", "auto-routing", "test-driven-development", "simplify", "verification-before-completion", "systematic-debugging", "fusion-rescue"}
+wrapper_read_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)\b[^;&|\n]*" r"(?P<path>/[^\s'\";&|<>]*/skills/(?P<route>[a-z0-9-]+)/SKILL[.]md)(?=$|[\s'\";&|<>])")
+read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)(?:\s|$)")
+repo_path_pattern = re.compile(r"(?:^|[\s'\"/])(?:README[.]md|run[.]sh|src/|tests/|notes/)")
+write_pattern = re.compile(r"\b(?:apply_patch|patch|touch|rm|mv|cp|chmod|install)\b|\b(?:sed|perl)\s+-i\b|" r"write_(?:text|bytes)|open\([^)]*,\s*['\"]?[wa]")
+def collect_text(value): return value if isinstance(value, str) else "\n".join(collect_text(item) for item in value.values()) if isinstance(value, dict) else "\n".join(collect_text(item) for item in value) if isinstance(value, list) else ""
 def command_text_from_event(data):
     item = data.get("item") or {}
     payload = data.get("payload") or {}
@@ -2323,400 +2275,330 @@ def command_text_from_event(data):
         if isinstance(arguments_data, dict):
             return str(arguments_data.get("cmd") or "")
     return ""
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"{label} natural role smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-successful_role_spawns = []
-failed_spawns = []
-all_spawn_receivers = set()
-receiver_to_role = {}
-wait_index_by_receiver = {}
-wait_result_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
-all_text_parts = []
-forbidden_hits = []
-pending_receiver_to_role = {}
-overlapping_inline_scope_events = []
-parent_thread_id = None
-delegated_scope_pattern = re.compile(r"(?:\.\./\.\./|/)?scripts/test-codex-plugin\.sh")
-
+def wrapper_reads(command): return [(match.group("route"), match.group("path")) for match in wrapper_read_pattern.finditer(command) if match.group("route") in workflows]
+def mutates(command, path):
+    if path.lower() not in command.lower(): return False
+    return write_pattern.search(command) is not None or re.search(rf"(?:>>?|\btee(?:\s+-a)?)\s+[^\n;&|]*{re.escape(path)}", command, re.I) is not None
+err_text = Path(err_path).read_text(encoding="utf-8")
+if any(marker in err_text.lower() for marker in ("spawn failed", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items")):
+    raise SystemExit(f"{label} natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
+commands, completed, file_changes, file_change_positions, file_change_completions, agent_messages, native_interactions, native_interaction_ids = [], {}, [], {}, {}, [], [], set()
+final_output, final_index, parent_thread_id, turn_completed, turn_failed = "", None, None, False, False
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
+        if not line.strip(): continue
         data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-            if success_marker in event_text:
-                marker = True
-        command_text = command_text_from_event(data)
-        if command_text and pending_receiver_to_role and delegated_scope_pattern.search(command_text):
-            overlapping_inline_scope_events.append(
-                (index, sorted(pending_receiver_to_role.items()), command_text[:1000])
-            )
-        if item.get("type") != "collab_tool_call":
-            continue
-        tool = item.get("tool")
-        status = item.get("status")
-        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
-            receivers = mentioned_receivers(item, all_spawn_receivers)
-            if tool in {"wait", "wait_agent"}:
-                for receiver in receivers:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-                        pending_receiver_to_role.pop(receiver, None)
-            if tool == "close_agent":
-                for receiver in receivers:
-                    close_index_by_receiver.setdefault(receiver, index)
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            spawn_text = collect_text(item)
-            all_spawn_receivers.update(receivers)
-            forbidden_hits.extend(
-                (index, forbidden_marker)
-                for forbidden_marker in forbidden
-                if has_marker_line(spawn_text, forbidden_marker)
-            )
-            matched = [
-                (role, role_marker)
-                for role, role_marker in role_markers
-                if role_marker and has_marker_line(spawn_text, role_marker)
-            ]
-            if not matched and len(receivers) == 1:
-                actual_agent_role = receiver_agent_role(receivers[0])
-                if isinstance(actual_agent_role, str) and actual_agent_role.startswith("oh-no-"):
-                    actual_role = actual_agent_role.removeprefix("oh-no-")
-                    if actual_role in expected_roles:
-                        matched = [(actual_role, dict(role_markers).get(actual_role, ""))]
-            if not matched:
-                raise SystemExit(
-                    f"{label} natural role smoke saw an unexpected successful spawn; "
-                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
-                )
-            if len(matched) != 1:
-                raise SystemExit(
-                    f"{label} natural role smoke expected one role marker per matched spawn; "
-                    f"line={index} matches={matched!r} text={spawn_text[:2000]!r}"
-                )
-            if len(receivers) != 1:
-                raise SystemExit(
-                    f"{label} natural role smoke matched spawn must have exactly one receiver; "
-                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
-                )
-            role, role_marker = matched[0]
-            required_lines = []
-            if role_marker:
-                required_lines = [f"Role: {role}", f"Marker: {role_marker}"]
-            missing_lines = [
-                required for required in required_lines
-                if required.lower() not in spawn_text.lower()
-            ]
-            if missing_lines:
-                raise SystemExit(
-                    f"{label} natural role smoke spawn payload missed required role lines: "
-                    f"{missing_lines}; text={spawn_text[:2000]!r}"
-                )
-            successful_role_spawns.append((index, role, receivers[0], spawn_text))
-            receiver_to_role[receivers[0]] = role
-            pending_receiver_to_role[receivers[0]] = role
-
-if not successful_role_spawns:
-    if not parent_thread_id:
-        raise SystemExit(f"{label} natural role smoke lacked both collab events and a parent thread id")
-    transcript_children = []
+        if data.get("type") == "thread.started": parent_thread_id = data.get("thread_id") or parent_thread_id
+        item = data.get("item") or {}; event_text = collect_text(data)
+        if item.get("type") == "agent_message": agent_messages.append((index, str(item.get("text") or event_text)))
+        change_kinds = {"file_change", "apply_patch", "patch", "edit", "write", "write_file"}
+        payload = data.get("payload") or {}
+        event_kinds = {str(value) for value in (
+            item.get("type"), item.get("tool"), item.get("name"), data.get("type"), data.get("tool"), data.get("name"),
+            payload.get("type"), payload.get("name"),
+        ) if value}
+        if {re.sub(r"[^a-z]", "", kind.lower()) for kind in event_kinds} & {"askuserquestion", "requestuserinput", "structuredchoice"} and (interaction_key := str(item.get("id") or data.get("id") or payload.get("call_id") or event_text)) not in native_interaction_ids: native_interaction_ids.add(interaction_key); native_interactions.append((index, event_text))
+        if event_kinds & change_kinds:
+            fallback = collect_text([source.get(key) for source in (item, data, payload) for key in ("path", "changes", "text")])
+            change_key = str(item.get("id") or data.get("id") or payload.get("call_id") or fallback or json.dumps(item or data, sort_keys=True))
+            position = file_change_positions.get(change_key)
+            if position is None:
+                file_change_positions[change_key] = len(file_changes)
+                file_changes.append([index, event_text])
+            else: file_changes[position][1] += "\n" + event_text
+            status = str(item.get("status") or data.get("status") or payload.get("status") or "").lower()
+            if data.get("type") == "item.completed" and status not in {"failed", "error", "errored", "aborted", "cancelled", "canceled", "incomplete"}: file_change_completions[position] = index
+        if data.get("type") == "item.started" and item.get("type") == "command_execution":
+            command = command_text_from_event(data)
+            commands.append((index, str(item.get("id") or ""), command))
+        elif data.get("type") == "item.completed" and item.get("type") == "command_execution":
+            completed[str(item.get("id") or "")] = (item.get("exit_code"), collect_text(item.get("aggregated_output")), index)
+        elif data.get("type") == "item.completed" and item.get("type") == "agent_message":
+            text = str(item.get("text") or collect_text(item)).strip()
+            if text: final_output, final_index = text, index
+        elif data.get("type") == "turn.completed": turn_completed = True
+        elif data.get("type") == "turn.failed": turn_failed = True
+if final_output: Path(final_path).write_text(final_output + "\n", encoding="utf-8")
+wrapper_attempts = [(index, item_id, route, path, completed.get(item_id)) for index, item_id, command in commands for route, path in wrapper_reads(command)]
+activations = [(index, route, command) for index, item_id, command in commands for route, _ in wrapper_reads(command)
+               if completed.get(item_id) and ((completed[item_id][0] == 0 and completed[item_id][1].strip()) or "oh-no-harness-generated-skill-wrapper" in completed[item_id][1])]
+hidden_activations = []
+if parent_thread_id:
     sessions_root = Path(live_home) / "sessions"
-    duplicate_role_modes = {"grouped-fanout", "unordered-allowed-fanout"}
     for transcript_path in sessions_root.rglob("*.jsonl"):
-        rows = [
-            json.loads(line)
-            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip()
-        ]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
+        meta = None
+        transcript_commands = []
+        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not transcript_line.strip():
+                continue
+            candidate = json.loads(transcript_line)
+            payload = candidate.get("payload") or {}
+            if candidate.get("type") == "session_meta":
+                meta = payload
+            command_text = command_text_from_event(candidate)
+            if command_text:
+                transcript_commands.append(command_text)
         if not isinstance(meta, dict):
             continue
         source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
         subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
+        thread_spawn = (
+            subagent.get("thread_spawn")
+            if isinstance(subagent.get("thread_spawn"), dict)
+            else {}
+        )
         parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id or not isinstance(agent_role, str) or not agent_role.startswith("oh-no-"):
+        if parent != parent_thread_id:
             continue
-        role = agent_role.removeprefix("oh-no-")
-        if role not in expected_roles:
-            raise SystemExit(f"{label} natural role smoke started unexpected typed child role: {role!r}")
-        if (
-            role_order_mode not in duplicate_role_modes
-            and any(child["role"] == role for child in transcript_children)
-        ):
-            raise SystemExit(f"{label} natural role smoke found duplicate typed child sessions for {role}")
-        completed = False
-        completion_timestamp = ""
-        final_output = ""
-        for row in rows:
-            payload = row.get("payload") or {}
-            if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                completion_timestamp = row.get("timestamp", "") or completion_timestamp
-                final_output = collect_text(payload.get("last_agent_message")) or final_output
-            elif (
-                row.get("type") == "response_item"
-                and payload.get("type") == "message"
-                and payload.get("role") == "assistant"
-            ):
-                final_output = collect_text(payload.get("content")) or final_output
-        if not completed or not final_output:
-            raise SystemExit(f"{label} natural role smoke typed child {role} lacked completed final output")
-        transcript_children.append(
-            {
-                "role": role,
-                "started": meta.get("timestamp", ""),
-                "completed": completion_timestamp,
-                "output": final_output,
-            }
-        )
-    ordered_children = sorted(transcript_children, key=lambda child: child["started"])
-    ordered_roles = [child["role"] for child in ordered_children]
-    if len(ordered_roles) < minimum_role_count:
-        raise SystemExit(
-            f"{label} natural role smoke expected at least {minimum_role_count} typed children, "
-            f"got {ordered_roles!r}"
-        )
-    if role_order_mode != "unordered-allowed-fanout":
-        missing_roles = sorted(set(required_roles) - set(ordered_roles))
-        if missing_roles:
-            raise SystemExit(f"{label} natural role smoke omitted required typed child roles: {missing_roles!r}")
-    if role_order_mode == "exact":
-        if ordered_roles != expected_roles:
-            raise SystemExit(
-                f"{label} natural role smoke typed child order differed: "
-                f"expected={expected_roles!r} got={ordered_roles!r}"
+        for command_text in transcript_commands:
+            hidden_activations.extend(
+                (str(transcript_path), route, command_text)
+                for route, _ in wrapper_reads(command_text)
             )
-    elif role_order_mode == "unordered-exact":
-        if sorted(ordered_roles) != sorted(expected_roles) or len(ordered_roles) != len(expected_roles):
-            raise SystemExit(
-                f"{label} natural role smoke typed child roles differed: "
-                f"expected={expected_roles!r} got={ordered_roles!r}"
-            )
-    elif role_order_mode == "ordered-optional":
-        if len(set(ordered_roles)) != len(ordered_roles):
-            raise SystemExit(
-                f"{label} natural role smoke repeated a role in ordered-optional mode: {ordered_roles!r}"
-            )
-        expected_present_order = [role for role in expected_roles if role in ordered_roles]
-        if ordered_roles != expected_present_order:
-            raise SystemExit(
-                f"{label} natural role smoke optional role order differed: "
-                f"allowed={expected_roles!r} got={ordered_roles!r}"
-            )
-    elif role_order_mode == "grouped-fanout":
-        role_groups = []
-        for role in ordered_roles:
-            if not role_groups or role_groups[-1] != role:
-                role_groups.append(role)
-        if role_groups != expected_roles:
-            raise SystemExit(
-                f"{label} natural role smoke typed child groups differed: "
-                f"expected={expected_roles!r} got={role_groups!r}"
-            )
-    elif role_order_mode != "unordered-allowed-fanout":
-        raise SystemExit(f"unsupported role_order_mode for {label}: {role_order_mode!r}")
-    if not marker:
-        raise SystemExit(f"{label} natural role smoke typed children completed but parent omitted {success_marker}")
-    print(f"ok - {label} natural role smoke proved by typed child transcripts")
+missing_completions = sorted(item_id for _, item_id, _ in commands if item_id and item_id not in completed)
+if missing_completions:
+    raise SystemExit(f"{label} command executions lacked completed events: {missing_completions!r}")
+if wrapper_attempts and not activations:
+    raise SystemExit(f"{label} generated wrapper reads never produced loaded content: {wrapper_attempts!r}")
+if turn_failed or not turn_completed:
+    raise SystemExit(f"{label} natural activation smoke did not complete an error-free turn")
+if not final_output:
+    raise SystemExit(f"{label} natural activation smoke returned no final prose")
+if expected == "none":
+    if activations or hidden_activations:
+        raise SystemExit(f"{label} read workflow wrappers: parent={activations!r} child={hidden_activations!r}")
+    if label == "direct-edit eligible":
+        target = "notes/private-notes.md"
+        command_mutations = [(index, command) for index, _, command in commands if mutates(command, target)]
+        change_mutations = [(index, text) for index, text in file_changes if target in text.replace("\\", "/")]
+        mutations = command_mutations or change_mutations
+        if len(mutations) != 1:
+            raise SystemExit(f"{label} lacked exactly one intended notes mutation: {mutations!r}")
+        mutation_index = mutations[0][0]; proofs = []
+        for index, item_id, command in commands:
+            result = completed.get(item_id)
+            if not result or final_index is None or not mutation_index < index or not result[2] < final_index: continue
+            git_scoped = re.search(r"\bgit\s+diff\b[^\n;&|]*--\s+['\"]?(?:[.]/)?notes/private-notes[.]md(?:['\"]|\s|$)", command)
+            plain_scoped = not re.search(r"\bgit\s+diff\b", command) and re.search(r"(?:^|[;&|]\s*)diff\b[^\n;&|]*notes/private-notes[.]md", command)
+            output = result[1]; lines = output.splitlines()
+            evidence = target in output.replace("\\", "/") and ((any(line.startswith("--- ") for line in lines) and any(line.startswith("+++ ") for line in lines) and any(line.startswith("-") and not line.startswith("---") for line in lines) and any(line.startswith("+") and not line.startswith("+++") for line in lines)) or (any(line.startswith("< ") for line in lines) and any(line.startswith("> ") for line in lines)))
+            if (git_scoped or plain_scoped) and result[0] == 0 and evidence: proofs.append((index, command))
+        if not proofs:
+            raise SystemExit(f"{label} lacked a successful scoped runtime diff after mutation and before final")
+    print(f"ok - {label} natural Codex smoke stayed outside workflow activation")
     raise SystemExit(0)
-
-if forbidden_hits:
-    raise SystemExit(f"{label} natural role smoke saw forbidden role markers in spawn payloads: {forbidden_hits!r}")
-if overlapping_inline_scope_events:
-    raise SystemExit(
-        f"{label} natural role smoke saw parent inline commands against worker scope while worker results were pending: "
-        f"{overlapping_inline_scope_events!r}"
-    )
-
-roles_seen = [role for _, role, _, _ in successful_role_spawns]
-if len(roles_seen) < minimum_role_count:
-    raise SystemExit(
-        f"{label} natural role smoke expected at least {minimum_role_count} spawned workers, "
-        f"got {roles_seen!r}"
-    )
-if role_order_mode != "unordered-allowed-fanout":
-    missing_roles = sorted(set(required_roles) - set(roles_seen))
-    if missing_roles:
-        raise SystemExit(
-            f"{label} natural role smoke omitted required spawned roles: {missing_roles!r}"
-        )
-if role_order_mode == "exact":
-    if roles_seen != expected_roles:
-        raise SystemExit(
-            f"{label} natural role smoke expected role order {expected_roles!r}, got {roles_seen!r}; "
-            f"spawns={successful_role_spawns!r}"
-        )
-    for role in expected_roles:
-        if roles_seen.count(role) != 1:
-            raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
-elif role_order_mode == "unordered-exact":
-    if sorted(roles_seen) != sorted(expected_roles) or len(roles_seen) != len(expected_roles):
-        raise SystemExit(
-            f"{label} natural role smoke expected exactly roles {expected_roles!r}, got {roles_seen!r}; "
-            f"spawns={successful_role_spawns!r}"
-        )
-    for role in expected_roles:
-        if roles_seen.count(role) != 1:
-            raise SystemExit(f"{label} natural role smoke expected exactly one spawn for {role}, got {roles_seen!r}")
-elif role_order_mode == "ordered-optional":
-    if len(set(roles_seen)) != len(roles_seen):
-        raise SystemExit(
-            f"{label} natural role smoke repeated a role in ordered-optional mode: {roles_seen!r}"
-        )
-    expected_present_order = [role for role in expected_roles if role in roles_seen]
-    if roles_seen != expected_present_order:
-        raise SystemExit(
-            f"{label} natural role smoke optional role order differed: "
-            f"allowed={expected_roles!r} got={roles_seen!r}; spawns={successful_role_spawns!r}"
-        )
-elif role_order_mode == "unordered-allowed-fanout":
-    pass
-elif role_order_mode == "grouped-fanout":
-    role_groups = []
-    for role in roles_seen:
-        if role not in expected_roles:
-            raise SystemExit(
-                f"{label} natural role smoke saw unexpected role {role!r}; "
-                f"expected grouped fan-out roles {expected_roles!r}; spawns={successful_role_spawns!r}"
-            )
-        if not role_groups or role_groups[-1] != role:
-            role_groups.append(role)
-    if role_groups != expected_roles:
-        raise SystemExit(
-            f"{label} natural role smoke expected grouped role order {expected_roles!r}, got groups {role_groups!r} "
-            f"from roles {roles_seen!r}; spawns={successful_role_spawns!r}"
-        )
-    for role in expected_roles:
-        if roles_seen.count(role) < 1:
-            raise SystemExit(f"{label} natural role smoke expected at least one spawn for {role}, got {roles_seen!r}")
-else:
-    raise SystemExit(f"unsupported role_order_mode for {label}: {role_order_mode!r}")
-
-for receiver, role in receiver_to_role.items():
-    expected_agent_role = f"oh-no-{role}"
-    actual_agent_role = receiver_agent_role(receiver)
-    if actual_agent_role != expected_agent_role:
-        raise SystemExit(
-            f"{label} natural role smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
-            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
-        )
-
-required_receivers = set(receiver_to_role)
-missing_wait_results = sorted(required_receivers - set(wait_index_by_receiver))
-missing_closes = sorted(required_receivers - set(close_index_by_receiver))
-all_text = "\n".join(all_text_parts)
-if missing_wait_results:
-    raise SystemExit(f"{label} natural role smoke did not capture final wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        f"{label} natural role smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in required_receivers
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-}
-if early_closes:
-    raise SystemExit(
-        f"{label} natural role smoke closed workers before wait_agent results were captured: {early_closes!r}"
-    )
-if not marker:
-    raise SystemExit(f"{label} natural role smoke did not return success marker {success_marker}")
-
-print(f"ok - {label} natural SessionStart smoke spawned required role workers")
+if not activations or activations[0][1] != expected:
+    raise SystemExit(f"{label} first generated workflow wrapper read was not {expected}: {activations!r}")
+first_expected = activations[0][0]
+substantive = list(file_changes)
+for index, _, command in commands:
+    routes = [route for route, _ in wrapper_reads(command)]
+    if not routes or repo_path_pattern.search(command) or write_pattern.search(command):
+        substantive.append((index, command))
+if substantive and min(index for index, _ in substantive) <= first_expected:
+    raise SystemExit(f"{label} ran a substantive repository command before {expected}: {substantive!r}")
+routes_seen = [route for _, route, _ in activations]
+routes_seen.extend(route for _, route, _ in hidden_activations)
+if label == "known-cause fix" and "systematic-debugging" in routes_seen:
+    raise SystemExit(f"{label} read the debugging wrapper despite a supplied known cause")
+if label == "plan-only/pending approval":
+    if {"ralph", "ultrawork"} & set(routes_seen): raise SystemExit(f"{label} read an execution wrapper before approval: {activations!r}")
+    successful_plan_events = [(completed[item_id][2], command) for _, item_id, command in commands if item_id in completed and completed[item_id][0] == 0 and mutates(command, ".oh-no/plans")]
+    successful_plan_events.extend((file_change_completions[position], text) for position, (_, text) in enumerate(file_changes) if position in file_change_completions and ".oh-no/plans" in text)
+    plan_root = Path(project_root) / ".oh-no" / "plans" if project_root else None; plan_path_pattern = re.compile(r"(?:/[^\s'\";&|]+)?[.]oh-no/plans/[A-Za-z0-9_.\-/]+")
+    def event_plan_paths(text): return [Path(token) if Path(token).is_absolute() else Path(project_root) / (token[2:] if token.startswith("./") else token) for token in plan_path_pattern.findall(text.replace("\\", "/"))]
+    plan_evidence = [(index, text) for index, text in successful_plan_events for path in event_plan_paths(text) if plan_root and plan_root.resolve() in path.resolve().parents and path.is_file() and path.stat().st_size > 0]
+    if not plan_evidence: raise SystemExit(f"{label} created no successful host-visible nonempty .oh-no/plans artifact")
+    decision_pattern = re.compile(r"\b(?:approv(?:e|al)|review|revis(?:e|ion)|continu(?:e|ation)|proceed|next[- ]?(?:action|step)|choose|select|options?|decision)\b", re.I); request_pattern = re.compile(r"\b(?:please|kindly)\s+(?:approve|review|revise|continue|choose|select|provide|tell|confirm)\b|\b(?:would|could|can|will|may|do)\s+you\b|\b(?:should|may|can)\s+I\b|\b(?:choose|select)\s+(?:an?|the|your|how|whether|which|what)\b|\b(?:tell|let)\s+me\b|\bprovide\s+(?:your|the)\b|\b(?:approve|review|revise|continue|proceed|choose|select)\b[^?\n]*[?]", re.I)
+    interactions = [(index, text, True) for index, text in native_interactions] + ([(final_index, final_output, False)] if final_index is not None else [])
+    if not any(index > max(index for index, _ in plan_evidence) and (native or decision_pattern.search(text) and request_pattern.search(text)) for index, text, native in interactions): raise SystemExit(f"{label} offered no approval/review/revision/continuation/next-action choice after plan evidence")
+    redirect_targets = [(index, target.strip("'\"")) for index, _, command in commands for target in re.findall(r"(?:>>?|\btee(?:\s+-a)?)\s+([^\s;&|]+)", command, re.I)]
+    production = [(index, text) for index, text in file_changes if ".oh-no/plans" not in text.replace("\\", "/")]
+    production.extend((index, target) for index, target in redirect_targets if ".oh-no/plans" not in target.replace("\\", "/")); production.extend((index, command) for index, _, command in commands if write_pattern.search(command) and repo_path_pattern.search(command) and not mutates(command, ".oh-no/plans"))
+    if production: raise SystemExit(f"{label} mutated production before approval: {production!r}")
+if label == "direct-edit ineligible" and any(route != "ralph" for route in routes_seen):
+    raise SystemExit(f"{label} read a non-Ralph workflow wrapper: {activations!r}")
+if label == "vague requirements":
+    reads = [(index, command) for index, _, command in commands
+             if index > first_expected and read_tool_pattern.search(command) and "README.md" in command]
+    mutations = [(index, command) for index, _, command in commands if mutates(command, "README.md")]
+    if not reads or mutations:
+        raise SystemExit(f"{label} missed its post-activation repository read or mutated source")
+elif label == "explicit test-first":
+    test_pattern = re.compile(r"(?:^|[;&|'\"]\s*)(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])|\b(?:bash|sh)\s+(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])" )
+    tests = [(index, item_id) for index, item_id, command in commands if test_pattern.search(command)]
+    production = [(index, command) for index, _, command in commands if mutates(command, "src/timeout.sh")]
+    production.extend((index, text) for index, text in file_changes if "src/timeout.sh" in text)
+    if not tests or not production or min(index for index, _ in tests) >= min(index for index, _ in production):
+        raise SystemExit(f"{label} did not run the focused test before production mutation")
+    if not any(completed.get(item_id, (None, ""))[0] not in {None, 0} for _, item_id in tests):
+        raise SystemExit(f"{label} focused pre-production test did not visibly fail")
+elif label == "known-cause fix":
+    modes = [index for index, text in agent_messages if re.search(r"\b(?:Mode:\s*LIGHT|qualif(?:y|ies|ied) for (?:a )?LIGHT run)\b", text, re.I)]
+    decisions = [index for index, text in agent_messages if re.search(r"\b(?:Worktree decision:\s*light direct checkout|selected (?:the )?in-place LIGHT checkout path)\b", text, re.I)]
+    tests, production = [], [(index, command) for index, _, command in commands if mutates(command, "src/parser.sh")]
+    production.extend((index, text) for index, text in file_changes if "src/parser.sh" in text)
+    for index, item_id, command in commands:
+        result = completed.get(item_id)
+        if not result:
+            continue
+        if "tests/parser_test.sh" in command:
+            marker = re.search(r"parser_test_exit=(\d+)", result[1])
+            tests.append((result[2], int(marker.group(1)) if marker else result[0]))
+        if "src/parser.sh" in command and re.search(r"(?m)^\s*(?:\d+\s+)?MODE=fast\s*$", result[1]):
+            production.append((index, command))
+    if not production:
+        raise SystemExit(f"{label} did not expose its production mutation")
+    mutation = min(index for index, _ in production)
+    if not modes or not decisions or max(modes[0], decisions[0]) >= mutation:
+        raise SystemExit(f"{label} production mutation preceded observable Mode: LIGHT and Worktree decision: light direct checkout authorization")
+    red = [index for index, status in tests if status not in {None, 0}]
+    green = [index for index, status in tests if status == 0]
+    if not red or min(red) >= mutation or not green or max(green) <= mutation:
+        raise SystemExit(f"{label} did not show RED before production mutation and GREEN after it")
+elif label == "unknown-cause failure":
+    fixes = [(index, command) for index, _, command in commands if mutates(command, "src/startup.sh")]
+    fixes.extend((index, text) for index, text in file_changes if "src/startup.sh" in text)
+    evidence = [(index, command) for index, _, command in commands if index > first_expected and (
+        "tests/startup_test.sh" in command or
+        (read_tool_pattern.search(command) and "src/startup.sh" in command)
+    )]
+    if not fixes or not evidence or min(index for index, _ in evidence) >= min(index for index, _ in fixes):
+        raise SystemExit(f"{label} missed reproduction/read evidence before fix mutation")
+print(f"ok - {label} natural Codex smoke observed {expected} wrapper activation before actionable work")
 PY
 }
-
+run_codex_natural_activation_assertion_offline_test() {
+  log "Running offline Codex plan-only hard-fact fixtures"
+  local temp_root fixture err_file final_file project output rc
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-activation.XXXXXX")"; fixture="$temp_root/transcript.jsonl"; err_file="$temp_root/stderr"; final_file="$temp_root/final"; project="$temp_root/project"; mkdir -p "$temp_root/home/sessions" "$project"; : >"$err_file"
+  (
+    CODEX_HOME_DIR="$temp_root/home"
+    local started='{"type":"thread.started","thread_id":"parent"}' wrapper_start='{"type":"item.started","item":{"type":"command_execution","id":"wrapper","command":"cat /tmp/plugin/skills/ralplan/SKILL.md"}}' wrapper_done='{"type":"item.completed","item":{"type":"command_execution","id":"wrapper","exit_code":0,"aggregated_output":"oh-no-harness-generated-skill-wrapper"}}' plan_start='{"type":"item.started","item":{"type":"command_execution","id":"plan","command":"mkdir -p .oh-no/plans && printf plan > .oh-no/plans/approved.md"}}' plan_done='{"type":"item.completed","item":{"type":"command_execution","id":"plan","exit_code":0,"aggregated_output":""}}' change_start='{"type":"item.started","item":{"type":"file_change","id":"change","status":"in_progress","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' change_errored='{"type":"item.completed","item":{"type":"file_change","id":"change","status":"errored","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' change_done='{"type":"item.completed","item":{"type":"file_change","id":"change","status":"completed","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' turn_done='{"type":"turn.completed"}'
+    expect_plan_reject() { local needle="$1" reason="$2"; shift 2; printf '%s\n' "$@" >"$fixture"; rc=0; output="$(assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "plan-only/pending approval" ralplan "$project" 2>&1)" || rc=$?; [[ "$rc" != 0 && "$output" == *"$needle"* ]] || fail "Codex plan-only oracle accepted $reason: $output"; }
+    expect_plan_reject "created no successful host-visible nonempty" "a requirements pause" "$started" "$wrapper_start" "$wrapper_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Please clarify the requirements."}}' "$turn_done"
+    expect_plan_reject "created no successful host-visible nonempty" "a bare approval question" "$started" "$wrapper_start" "$wrapper_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Approve this plan?"}}' "$turn_done"
+    expect_plan_reject "created no successful host-visible nonempty" "failed plan creation" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" '{"type":"item.completed","item":{"type":"command_execution","id":"plan","exit_code":1,"aggregated_output":"write failed"}}' '{"type":"item.completed","item":{"type":"agent_message","text":"Approve or revise?"}}' "$turn_done"
+    mkdir -p "$project/.oh-no/plans"; printf 'plan\n' >"$project/.oh-no/plans/approved.md"
+    expect_plan_reject "created no successful host-visible nonempty" "A: errored file_change completion with a partial plan" "$started" "$wrapper_start" "$wrapper_done" "$change_start" "$change_errored" '{"type":"item.completed","item":{"type":"agent_message","text":"Would you like to approve or revise the plan?"}}' "$turn_done"; expect_plan_reject "offered no approval" "B: choice before successful file_change completion" "$started" "$wrapper_start" "$wrapper_done" "$change_start" '{"type":"item.completed","item":{"type":"agent_message","text":"Would you like to continue with this plan?"}}' "$change_done" "$turn_done"
+    expect_plan_reject "offered no approval" "C: unavailable approval prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"I cannot proceed because approval is unavailable."}}' "$turn_done"; expect_plan_reject "offered no approval" "D: declarative review prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Review complete."}}' "$turn_done"
+    expect_plan_reject "offered no approval" "generic final prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Ready."}}' "$turn_done"
+    expect_plan_reject "mutated production before approval" "production mutation" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.started","item":{"type":"command_execution","id":"prod","command":"printf changed > src/alpha.sh"}}' '{"type":"item.completed","item":{"type":"command_execution","id":"prod","exit_code":0,"aggregated_output":""}}' '{"type":"item.completed","item":{"type":"agent_message","text":"Approve or revise this plan?"}}' "$turn_done"
+    printf '%s\n' "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"How would you like to proceed: approve the plan, request revisions, or choose another next step?"}}' "$turn_done" >"$fixture"; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "plan-only/pending approval" ralplan "$project" >/dev/null || fail "Codex plan-only oracle rejected E: natural broad next-action request"
+    expect_plan_reject "returned no final prose" "an empty final" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" "$turn_done"
+    local started='{"type":"thread.started","thread_id":"parent"}' edit_start='{"type":"item.started","item":{"type":"command_execution","id":"edit","command":"python3 -c '\''from pathlib import Path; p=Path(\"notes/private-notes.md\"); p.write_text(p.read_text().replace(\"teh\", \"the\"))'\''"}}' edit_done='{"type":"item.completed","item":{"type":"command_execution","id":"edit","exit_code":0,"aggregated_output":""}}' final='{"type":"item.completed","item":{"type":"agent_message","text":"done"}}' completed='{"type":"turn.completed"}' diff_output
+    diff_output=$'diff --git a/notes/private-notes.md b/notes/private-notes.md\n--- a/notes/private-notes.md\n+++ b/notes/private-notes.md\n-Keep teh private note concise.\n+Keep the private note concise.'
+    printf '%s\n' "$started" "$edit_start" "$edit_done" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted no runtime diff"
+    printf '%s\n' "$started" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$edit_start" "$edit_done" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted a diff before mutation"
+    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' '{"type":"item.completed","item":{"type":"command_execution","id":"diff","exit_code":1,"aggregated_output":"diff failed"}}' "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted a failed diff"
+    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted an unscoped diff"
+    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null || fail "Codex direct-edit oracle rejected mutation then successful scoped diff then final"
+  ) || { rm -rf "$temp_root"; return 1; }
+  rm -rf "$temp_root"; ok "Codex natural hard facts require plan artifacts and post-mutation scoped direct-edit diffs"
+}
 run_natural_session_start_live_skill_test() {
-  local skill="$1"
-  local success_marker="$2"
-  local role_marker_specs="$3"
-  local forbidden_markers="${4:-}"
-  local role_order_mode="${5:-exact}"
-  local safe_skill="${skill//\//-}"
-  local out_file="$RUN_DIR/natural-session-start-${safe_skill}.jsonl"
-  local err_file="$RUN_DIR/natural-session-start-${safe_skill}.err"
-  local prompt
-  prompt="$(natural_session_start_prompt_for_skill "$skill")"
-  assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+  local label="$1"
+  local expected_route="$2"
+  local routing_state="$3"
+  local prompt="${4:-}"
+  local safe_label="${label//\//-}"
+  local out_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.jsonl"
+  local err_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.err"
+  local final_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.final.txt"
+  [[ -n "$prompt" ]] || prompt="$(natural_session_start_prompt_for_skill "$label")"
+  assert_natural_prompt_has_no_explicit_subagent_terms "$label" "$prompt"
+  [[ "$label" == "object analysis" ]] || assert_natural_routing_prompt_shape "$label" "$prompt"
+  (
+    local temp_project="" config_dir="" before_dir=""
+    trap 'rm -rf "$temp_project" "$config_dir" "$before_dir"' EXIT
+    temp_project="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-project.XXXXXX")"
+    config_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-config.XXXXXX")"
+    before_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-before.XXXXXX")"
+    case "$label" in
+      "vague requirements"|"autonomous end-to-end"|"no-route research"|"object analysis") printf 'Disposable example with an intentionally broad improvement goal.\n' >"$temp_project/README.md" ;;
+      "ordinary implementation"|"explicit test-first") mkdir -p "$temp_project/src" "$temp_project/tests"; printf 'TIMEOUT=5\n' >"$temp_project/src/timeout.sh"; printf '#!/bin/sh\n. ./src/timeout.sh\nprintf "TIMEOUT=%%s\\n" "$TIMEOUT"\n' >"$temp_project/run.sh"; printf '#!/bin/sh\n[ "$(./run.sh)" = "TIMEOUT=10" ]\n' >"$temp_project/tests/timeout_test.sh"; chmod +x "$temp_project/run.sh" "$temp_project/tests/timeout_test.sh" ;;
+      "unknown-cause failure") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "ready\\n"\n' >"$temp_project/src/startup.sh"; printf '#!/bin/sh\n[ "$(./src/startup.sh)" = "started" ]\n' >"$temp_project/tests/startup_test.sh"; chmod +x "$temp_project/src/startup.sh" "$temp_project/tests/startup_test.sh" ;;
+      "known-cause fix") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nMODE=sloww\nprintf "%%s\\n" "$MODE"\n' >"$temp_project/src/parser.sh"; printf '#!/bin/sh\n[ "$(./src/parser.sh)" = "fast" ]\n' >"$temp_project/tests/parser_test.sh"; chmod +x "$temp_project/src/parser.sh" "$temp_project/tests/parser_test.sh" ;;
+      "plan-only/pending approval") mkdir -p "$temp_project/src"; printf 'Plan two POSIX sh scripts with no external dependency. Both accept exactly one LABEL; alpha.sh prints newline-terminated alpha:<LABEL> and beta.sh prints newline-terminated beta:<LABEL>. Invalid arity prints usage to stderr and exits 2. Include focused valid-argument and invalid-arity tests.\n' >"$temp_project/README.md"; printf '#!/bin/sh\nprintf "alpha\\n"\n' >"$temp_project/src/alpha.sh"; printf '#!/bin/sh\nprintf "beta\\n"\n' >"$temp_project/src/beta.sh" ;;
+      "direct-edit eligible") mkdir -p "$temp_project/notes"; printf 'Keep teh private note concise.\n' >"$temp_project/notes/private-notes.md" ;;
+      "direct-edit ineligible") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "teh status\\n"\n' >"$temp_project/src/status.sh"; printf '#!/bin/sh\n[ "$(./src/status.sh)" = "the status" ]\n' >"$temp_project/tests/status_test.sh"; chmod +x "$temp_project/src/status.sh" "$temp_project/tests/status_test.sh" ;;
+    esac
+    natural_git_fixture "$temp_project" "$label" initialize
+    cp -R "$temp_project/." "$before_dir/"
 
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
+    local config_path
+    config_path="$(OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+    case "$config_path" in "$config_dir"/*) ;; *) fail "$label helper config path escaped disposable directory: $config_path" ;; esac
+    case "$routing_state" in
+      off) ;;
+      on) OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null ;;
+      *) fail "Unsupported natural routing state: $routing_state" ;;
+    esac
+
+    local checkout_before checkout_after sandbox live_rc=0
+    checkout_before="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
+    case "$label" in "vague requirements"|"no-route research"|"object analysis") sandbox=read-only ;; *) sandbox=workspace-write ;; esac
+    natural_git_fixture "$temp_project" "$label" verify
+    local cmd=(
+      "$CODEX_BIN"
+      --enable plugin_hooks
+      --ask-for-approval never
+      exec
+      --json
+      --cd "$temp_project"
+      --sandbox "$sandbox"
+      --skip-git-repo-check
+    )
+    if [[ -n "$LIVE_MODEL" ]]; then
+      cmd+=(--model "$LIVE_MODEL")
+    fi
+    run_codex_live_command "$CODEX_HOME_DIR" env OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file" || live_rc=$?
+    checkout_after="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
+    [[ "$checkout_before" == "$checkout_after" ]] || fail "$label live child mutated the source checkout"
+    assert_codex_natural_activation_smoke "$out_file" "$err_file" "$final_file" "$label" "$expected_route" "$temp_project" || return $?
+    [[ "$live_rc" == "0" ]] || fail "$label live command failed with exit $live_rc; raw artifacts remain in $RUN_DIR"
+
+    local changes
+    changes="$(natural_payload_changes "$before_dir" "$temp_project")"
+    case "$label" in
+      "no-route research"|"object analysis")
+        [[ -z "$changes" && ! -e "$temp_project/.oh-no" ]] || fail "$label changed its project or created workflow artifacts: $changes"
+        ;;
+      "vague requirements")
+        [[ -z "$changes" && ! -e "$temp_project/.oh-no" ]] || fail "$label changed its project or created workflow artifacts: $changes"
+        ;;
+      "direct-edit eligible")
+        [[ "$(printf '%s\n' "$changes" | grep -c .)" == "1" && "$changes" == *"notes/private-notes.md"* ]] \
+          || fail "$label did not change exactly its one inert notes file: $changes"
+        [[ "$(<"$temp_project/notes/private-notes.md")" == "Keep the private note concise." ]] \
+          || fail "$label did not make the one requested typo correction"
+        [[ ! -e "$temp_project/.oh-no" ]] || fail "$label created a workflow artifact"
+        ;;
+      "plan-only/pending approval")
+        local non_artifact_changes
+        non_artifact_changes="$(printf '%s\n' "$changes" | grep -Ev '(^|[/ :])[.]oh-no([/: ]|$)' || true)"
+        [[ -z "$non_artifact_changes" ]] || fail "$label changed project files outside planning artifacts: $non_artifact_changes"
+        [[ ! -e "$temp_project/.oh-no/worktrees" ]] || fail "$label created a task worktree before approval"
+        ;;
+    esac
   )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_natural_role_spawn_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers" "$role_order_mode"
 }
 
 run_no_skill_readonly_session_start_live_test() {
-  local out_file="$RUN_DIR/no-skill-readonly-session-start.jsonl"
-  local err_file="$RUN_DIR/no-skill-readonly-session-start.err"
-  local prompt
-  prompt='Read-only repository lookup. In this checkout, find the files that define Codex dispatch policy and summarize each one briefly. Follow AGENTS.md and do not edit files. Finish with the marker OH_NO_CODEX_NOSKILL_READONLY_OK.'
-  assert_natural_prompt_has_no_explicit_subagent_terms "no-skill-readonly" "$prompt"
+  local label="$1" routing_state="$2"
+  local out_file="$RUN_DIR/natural-${routing_state}-${label// /-}.jsonl"
+  local err_file="$RUN_DIR/natural-${routing_state}-${label// /-}.err"
+  local final_file="$RUN_DIR/natural-${routing_state}-${label// /-}.final.txt"
+  run_natural_session_start_live_skill_test "$label" none "$routing_state"
 
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
 
-out_path, err_path, live_home = sys.argv[1:4]
+out_path, err_path, final_path = sys.argv[1:4]
+
 
 def collect_text(value):
     if isinstance(value, str):
@@ -2727,29 +2609,6 @@ def collect_text(value):
         return "\n".join(collect_text(item) for item in value)
     return ""
 
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"no-skill read-only smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-                subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-                thread_spawn = (
-                    subagent.get("thread_spawn")
-                    if isinstance(subagent.get("thread_spawn"), dict)
-                    else {}
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"no-skill read-only smoke transcript lacked session_meta: {receiver}")
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -2761,15 +2620,11 @@ if (
 ):
     raise SystemExit(f"no-skill read-only smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
+read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)(?:\s|$)")
+evidence_reads = []
 failed_spawns = []
-receiver_ids = set()
-wait_index_by_receiver = {}
-wait_result_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
 all_text_parts = []
 parent_thread_id = None
-
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
         if not line.strip():
@@ -2781,135 +2636,50 @@ with open(out_path, "r", encoding="utf-8") as fh:
         event_text = collect_text(data)
         if item.get("type") == "agent_message":
             all_text_parts.append(event_text)
-        if "OH_NO_CODEX_NOSKILL_READONLY_OK" in event_text:
-            marker = True
-        if item.get("type") != "collab_tool_call":
-            continue
         tool = item.get("tool")
         status = item.get("status")
         if tool == "spawn_agent" and status == "failed":
             failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            receiver_ids.update(receivers)
-        if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
-            text = collect_text(item)
-            mentioned = set(item.get("receiver_thread_ids") or [])
-            mentioned.update(receiver for receiver in receiver_ids if receiver in text)
-            mentioned.update(
-                receiver for receiver in (item.get("agents_states") or {})
-                if receiver in receiver_ids
-            )
-            if tool in {"wait", "wait_agent"}:
-                for receiver in mentioned:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-            if tool == "close_agent":
-                for receiver in mentioned:
-                    close_index_by_receiver.setdefault(receiver, index)
+        if (
+            data.get("type") == "item.started"
+            and item.get("type") == "command_execution"
+            and read_tool_pattern.search(str(item.get("command") or ""))
+            and "README.md" in str(item.get("command") or "")
+        ):
+            evidence_reads.append((index, event_text))
 
 if failed_spawns:
     raise SystemExit(f"no-skill read-only smoke saw failed spawn_agent calls: {failed_spawns!r}")
-for receiver in receiver_ids:
-    actual_role = receiver_agent_role(receiver)
-    if actual_role != "oh-no-explore":
-        raise SystemExit(
-            f"no-skill read-only smoke dispatched unexpected agent_role={actual_role!r} for receiver {receiver}"
-        )
-transcript_children = []
-if parent_thread_id:
-    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-        rows = [
-            json.loads(line)
-            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip()
-        ]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id:
-            continue
-        if role != "oh-no-explore":
-            raise SystemExit(f"no-skill read-only smoke started unexpected hidden child role: {role!r}")
-        completed = any(
-            row.get("type") == "event_msg"
-            and (row.get("payload") or {}).get("type") == "task_complete"
-            for row in rows
-        )
-        if not completed:
-            raise SystemExit("no-skill read-only smoke hidden explore child lacked task_complete")
-        transcript_children.append(transcript_path)
-if not marker:
-    raise SystemExit("no-skill read-only smoke did not return success marker OH_NO_CODEX_NOSKILL_READONLY_OK")
 all_text = "\n".join(all_text_parts)
-for receiver in sorted(receiver_ids):
-    wait_idx = wait_index_by_receiver.get(receiver)
-    close_idx = close_index_by_receiver.get(receiver)
-    if wait_idx is None:
-        raise SystemExit(
-            f"no-skill read-only smoke dispatched receiver {receiver!r} but never captured its final result"
-        )
-    if close_idx is not None and close_idx < wait_idx:
-        raise SystemExit(
-            f"no-skill read-only smoke closed receiver {receiver!r} before its waited result"
-        )
-
-observed_children = max(len(receiver_ids), len(transcript_children))
-if observed_children:
-    print(
-        "ok - no-skill read-only SessionStart smoke dispatched "
-        f"{observed_children} typed oh-no-explore receiver(s)"
-    )
-else:
-    print("ok - no-skill read-only SessionStart smoke answered inline (no dispatch)")
+if not parent_thread_id:
+    raise SystemExit("no-route research smoke lacked a host thread")
+if not all_text.strip():
+    raise SystemExit("no-route research smoke returned no host-visible answer")
+if not evidence_reads:
+    raise SystemExit("no-route research smoke returned no repository-read evidence")
+if not Path(final_path).read_text(encoding="utf-8", errors="replace").strip():
+    raise SystemExit("no-route research smoke returned no final answer")
+print("ok - no-route research returned repository evidence without workflow activation")
 PY
 }
 
 run_ralplan_object_analysis_session_start_live_test() {
-  local out_file="$RUN_DIR/ralplan-object-analysis-session-start.jsonl"
-  local err_file="$RUN_DIR/ralplan-object-analysis-session-start.err"
-  local prompt
-  local plans_before
-  local plans_after
-  prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes. End with OH_NO_CODEX_RALPLAN_OBJECT_ANALYSIS_OK.'
-  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan-object-analysis" "$prompt"
-  plans_before="$(snapshot_file_manifest "$MARKETPLACE_ROOT/.oh-no/plans")"
+  local label="$1" routing_state="$2"
+  local prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
+  local out_file="$RUN_DIR/natural-${routing_state}-${label// /-}.jsonl"
+  local final_file="$RUN_DIR/natural-${routing_state}-${label// /-}.final.txt"
+  assert_natural_prompt_has_no_explicit_subagent_terms "$label" "$prompt"
+  [[ "$prompt" == *"Ralplan"* && "$prompt" != *"/"* && "$prompt" != *"SKILL.md"* ]] \
+    || fail "object-analysis prompt escaped its bounded workflow-subject exception"
+  run_natural_session_start_live_skill_test "$label" none "$routing_state" "$prompt"
 
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-
-  plans_after="$(snapshot_file_manifest "$MARKETPLACE_ROOT/.oh-no/plans")"
-  [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
-
-  "$PYTHON_BIN" - "$out_file" "$CODEX_HOME_DIR" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$final_file" "$CODEX_HOME_DIR" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
 
-out_path, live_home = sys.argv[1:3]
-marker = False
+out_path, final_path, live_home = sys.argv[1:4]
 parent_thread_id = None
 for line in open(out_path, encoding="utf-8"):
     if not line.strip():
@@ -2917,73 +2687,70 @@ for line in open(out_path, encoding="utf-8"):
     data = json.loads(line)
     if data.get("type") == "thread.started":
         parent_thread_id = data.get("thread_id") or parent_thread_id
-    text = json.dumps(data).lower()
-    marker = marker or "oh_no_codex_ralplan_object_analysis_ok" in text
-    item = data.get("item") or {}
-    if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent":
-        if "oh-no-planner" in text or "oh-no-plan-reviewer" in text:
-            raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
 if parent_thread_id:
     for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
         meta = None
+        rows = []
         for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
             if not transcript_line.strip():
                 continue
             row = json.loads(transcript_line)
+            rows.append(row)
             if row.get("type") == "session_meta":
                 meta = row.get("payload") or {}
-                break
         if not isinstance(meta, dict):
             continue
         source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
         subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
         thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
         parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent == parent_thread_id and role in {"oh-no-planner", "oh-no-plan-reviewer"}:
-            raise SystemExit(f"Ralplan object-analysis smoke started hidden planning child role: {role}")
-if not marker:
-    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
+        if parent != parent_thread_id:
+            continue
+        for row in rows:
+            item = row.get("item") or {}
+            command = str(item.get("command") or "") if item.get("type") == "command_execution" else ""
+            if re.search(
+                r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)\b[^;&|\n]*"
+                r"/skills/[a-z0-9-]+/SKILL[.]md(?:$|[\s'\";&|<>])",
+                command,
+            ):
+                raise SystemExit("Ralplan object-analysis smoke read a workflow wrapper in a child transcript")
+if not parent_thread_id:
+    raise SystemExit("Ralplan object-analysis smoke lacked a host thread")
+if not Path(final_path).read_text(encoding="utf-8", errors="replace").strip():
+    raise SystemExit("Ralplan object-analysis smoke returned no final analysis")
 print("ok - Ralplan object-analysis request stayed analysis-only")
 PY
 }
 
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
-    log "Skipping live natural SessionStart role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify analysis-only routing, no-skill read-only, and natural role dispatch.\n' >&2
+    log "Skipping live natural Codex routing/activation evidence tests"
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to capture isolated natural routing, activation, and containment evidence.\n' >&2
     return
   fi
 
-  log "Running live natural SessionStart role-worker smoke tests"
+  [[ -f "$CODEX_HOME_DIR/$CODEX_LIVE_CLONE_MARKER" && ! -L "$CODEX_HOME_DIR/$CODEX_LIVE_CLONE_MARKER" ]] \
+    || fail "natural Codex routing tests require the verified physical active-home clone"
+  assert_codex_live_home_provenance "$CODEX_HOME_DIR"
+  log "Running live natural Codex routing/activation evidence tests"
   mkdir -p "$RUN_DIR"
-  run_no_skill_readonly_session_start_live_test
-  run_ralplan_object_analysis_session_start_live_test
-  run_natural_session_start_live_skill_test \
-    interview \
-    OH_NO_CODEX_INTERVIEW_NATURAL_OK \
-    explore: \
-    ""
-  run_natural_session_start_live_skill_test \
-    ultrawork \
-    OH_NO_CODEX_ULTRAWORK_NATURAL_OK \
-    explore:,analyst?:,planner:,verifier: \
-    "" \
-    ordered-optional
-  run_natural_session_start_live_skill_test \
-    systematic-debugging \
-    OH_NO_CODEX_SYSTEMATIC_DEBUGGING_NATURAL_OK \
-    debugger:,verifier: \
-    "" \
-    grouped-fanout
-  run_natural_session_start_live_skill_test \
-    verification-before-completion \
-    OH_NO_CODEX_VERIFICATION_NATURAL_OK \
-    verifier: \
-    ""
-  ok "natural SessionStart live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
-}
+  run_natural_session_start_live_skill_test "vague requirements" interview off
+  run_natural_session_start_live_skill_test "autonomous end-to-end" ultrawork off
+  run_natural_session_start_live_skill_test "ordinary implementation" ralph off
+  run_natural_session_start_live_skill_test "explicit test-first" test-driven-development off
+  run_natural_session_start_live_skill_test "unknown-cause failure" systematic-debugging off
+  run_natural_session_start_live_skill_test "known-cause fix" ralph off
+  run_natural_session_start_live_skill_test "plan-only/pending approval" ralplan off
+  run_no_skill_readonly_session_start_live_test "no-route research" off
+  run_natural_session_start_live_skill_test "direct-edit eligible" none off
+  run_natural_session_start_live_skill_test "direct-edit ineligible" ralph off
+  run_ralplan_object_analysis_session_start_live_test "object analysis" off
 
+  run_natural_session_start_live_skill_test "ordinary implementation" ralph on
+  run_ralplan_object_analysis_session_start_live_test "object analysis" on
+  ok "natural Codex live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+}
 
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
@@ -3038,9 +2805,9 @@ PY
   IFS= read -r -d '' prompt <<PROMPT || true
 Use oh-no-harness:ralplan for a read-only typed-role probe. No edits, artifacts, generic roles, retries, or roles beyond Planner and Plan-Reviewer.
 
-Run in two phases:
-1. spawn_agent agent_type "oh-no-planner", fork_turns "none"; wait for its final result.
-2. After Planner completes, issue TWO spawn_agent calls with agent_type "oh-no-plan-reviewer" and fork_turns "none" before either wait; then wait for both.
+Each spawn_agent: message; fork_turns "none".
+1. task_name "ralplan_planner", agent_type "oh-no-planner"; wait.
+2. Spawn two first: agent_type "oh-no-plan-reviewer"; task_names "ralplan_review_feasibility" (feasibility), "ralplan_review_coverage" (coverage); wait both.
 
 Each role message needs Role, Codex agent type, Scope, Expected output, Verification responsibility, and Lifecycle.
 The Planner message must include this exact request and contract:
@@ -3937,11 +3704,8 @@ import json
 import re
 import sys
 from pathlib import Path
-
 out_path, err_path, live_home = sys.argv[1:4]
 expected_roles = ("planner", "plan-reviewer")
-
-
 def collect_text(value):
     if isinstance(value, str):
         return value
@@ -3950,8 +3714,6 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
-
-
 def normalize(value):
     lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     while lines and not lines[0].strip():
@@ -3959,16 +3721,12 @@ def normalize(value):
     while lines and not lines[-1].strip():
         lines.pop()
     return "\n".join(line.rstrip() for line in lines)
-
-
 def payload_from(value, prefixes):
     lines = normalize(value).split("\n")
     for index, line in enumerate(lines):
         if any(line.strip().lower().startswith(prefix.lower()) for prefix in prefixes):
             return normalize("\n".join(lines[index:]))
     return ""
-
-
 def canonical_draft_id(value):
     draft_id = normalize(value).strip("` *_").rstrip(".").strip("` *_")
     version = re.fullmatch(
@@ -3976,8 +3734,6 @@ def canonical_draft_id(value):
         draft_id,
     )
     return version.group(1).lower() if version else draft_id
-
-
 err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
 for marker in (
     "spawn failed",
@@ -3987,7 +3743,6 @@ for marker in (
 ):
     if marker in err_text.lower():
         raise SystemExit("Codex ralplan natural transcript proof saw a spawn failure; inspect the secret-scanned stderr artifact")
-
 rows = [json.loads(line) for line in Path(out_path).read_text(encoding="utf-8").splitlines() if line.strip()]
 parent_thread_id = next(
     (row.get("thread_id") for row in rows if row.get("type") == "thread.started"),
@@ -4002,7 +3757,6 @@ parent_messages = [
 ]
 parent_output = normalize("\n".join(parent_messages))
 final_parent_output = normalize(parent_messages[-1]) if parent_messages else ""
-
 transcript_children = {role: [] for role in expected_roles}
 for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
     transcript_rows = [
@@ -4028,6 +3782,7 @@ for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
         continue
     assistant_messages = []
     task_complete_messages = []
+    task_completions = []
     user_messages = []
     task_timestamps = []
     encrypted_task_messages = 0
@@ -4043,6 +3798,7 @@ for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
                 first_completion_timestamp = completion_timestamp
             last_completion_timestamp = completion_timestamp or last_completion_timestamp
             final_message = collect_text(payload.get("last_agent_message"))
+            task_completions.append((completion_timestamp, normalize(final_message)))
             if final_message:
                 task_complete_messages.append(final_message)
         if row.get("type") != "response_item":
@@ -4075,6 +3831,8 @@ for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
             "first_completion_timestamp": first_completion_timestamp,
             "last_completion_timestamp": last_completion_timestamp,
             "last_task_timestamp": task_timestamps[-1] if task_timestamps else "",
+            "task_timestamps": task_timestamps,
+            "task_completions": task_completions,
             "input": normalize("\n".join(user_messages)),
             "encrypted_task_messages": encrypted_task_messages,
             "output": normalize(
@@ -4084,7 +3842,6 @@ for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
             ),
         }
     )
-
 missing_roles = sorted(role for role in expected_roles if not transcript_children[role])
 if missing_roles:
     raise SystemExit(f"Codex ralplan natural transcript proof omitted typed child roles: {missing_roles!r}")
@@ -4115,33 +3872,32 @@ if (
         "Codex ralplan natural initial Planner completion did not precede "
         "the first Plan-Reviewer creation"
     )
-
-planner_output = planner["output"]
-if not planner_output:
-    raise SystemExit("Codex ralplan natural typed child planner returned no output")
+def planner_draft_ids(output):
+    return {
+        canonical_draft_id(value)
+        for value in re.findall(
+            r"(?mi)^\s*(?:-\s*)?Planner (?:draft |revision )?id:\s*(.*?)\s*$",
+            output,
+        )
+        if normalize(value).strip("` ")
+    }
+planner_completions = planner["task_completions"]
+planner_versions = [(timestamp, output, planner_draft_ids(output)) for timestamp, output in planner_completions]
+planner_tasks = planner["task_timestamps"]
+if len(planner_versions) not in (1, 2) or len(planner_tasks) != len(planner_versions) or any(not timestamp or not output or len(ids) != 1 for timestamp, output, ids in planner_versions):
+    raise SystemExit("Codex ralplan natural Planner output lacked one stable draft id or task-bound completion")
+planner_initial_completion, planner_initial_output, reviewed_planner_ids = planner_versions[0]
+planner_final_completion, planner_output, planner_ids = planner_versions[-1]
+if len(planner_versions) == 2 and reviewed_planner_ids == planner_ids:
+    raise SystemExit("Codex ralplan natural accepted revision did not change the Planner draft id")
 planner_output_lower = planner_output.lower()
 if "goal" not in planner_output_lower:
     raise SystemExit("Codex ralplan natural typed child planner lacked a goal")
 acceptance_markers = ("acceptance", "required outcomes", "success criteria")
 ac_ids = set(re.findall(r"(?i)\bAC[- ]?([0-9]+)\b", planner_output))
 if not any(marker in planner_output_lower for marker in acceptance_markers) or not ac_ids:
-    raise SystemExit(
-        "Codex ralplan natural typed child planner lacked structured acceptance outcomes"
-    )
-planner_ids = {
-    canonical_draft_id(value)
-    for value in re.findall(
-        r"(?mi)^\s*(?:-\s*)?Planner (?:draft |revision )?id:\s*(.*?)\s*$",
-        planner_output,
-    )
-    if normalize(value).strip("` ")
-}
-if len(planner_ids) != 1:
-    raise SystemExit(
-        f"Codex ralplan natural Planner output lacked one stable draft id: {sorted(planner_ids)!r}"
-    )
-
-reviewer_evidence = []
+    raise SystemExit("Codex ralplan natural typed child planner lacked structured acceptance outcomes")
+final_reviewer_evidence = []
 for reviewer_index, reviewer in enumerate(reviewer_sessions, start=1):
     reviewer_output = reviewer["output"]
     if not reviewer_output:
@@ -4152,13 +3908,10 @@ for reviewer_index, reviewer in enumerate(reviewer_sessions, start=1):
         raise SystemExit(
             f"Codex ralplan natural typed Plan-Reviewer {reviewer_index} lacked review evidence"
         )
-    if not any(
-        token in reviewer_output.lower()
-        for token in ("approve", "block", "iterate", "reject", "revision")
-    ):
-        raise SystemExit(
-            f"Codex ralplan natural Plan-Reviewer {reviewer_index} output omitted its decision"
-        )
+    verdict_fields = re.findall(r"(?mi)^\s*Verdict:\s*(.*?)\s*$", reviewer_output)
+    verdict = verdict_fields[0].strip().upper() if len(verdict_fields) == 1 else ""
+    if verdict not in {"APPROVE", "ITERATE", "REJECT"}:
+        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} output lacked exactly one anchored verdict")
     reviewed_ids = {
         canonical_draft_id(value)
         for value in re.findall(
@@ -4172,63 +3925,47 @@ for reviewer_index, reviewer in enumerate(reviewer_sessions, start=1):
             f"Codex ralplan natural Plan-Reviewer {reviewer_index} output lacked one "
             f"Reviewed draft id: {sorted(reviewed_ids)!r}"
         )
-    reviewer_evidence.append(
+    final_reviewer_evidence.append(
         {
             "index": reviewer_index,
             "reviewer": reviewer,
             "output": reviewer_output,
+            "verdict": verdict,
             "reviewed_ids": reviewed_ids,
         }
     )
-
-final_reviewer_evidence = [
-    evidence
-    for evidence in reviewer_evidence
-    if evidence["reviewed_ids"] == planner_ids
-]
 if len(final_reviewer_evidence) not in (1, 2):
-    observed_ids = sorted(
-        next(iter(evidence["reviewed_ids"])) for evidence in reviewer_evidence
-    )
+    raise SystemExit("Codex ralplan natural review round lacked one complete perspective pair")
+if any(evidence["reviewed_ids"] != reviewed_planner_ids for evidence in final_reviewer_evidence):
     raise SystemExit(
-        "Codex ralplan natural final Planner draft lacked one complete perspective pair; "
-        f"final={sorted(planner_ids)!r} observed={observed_ids!r}"
+        "Codex ralplan natural review round did not bind to the initial Planner draft; "
+        f"initial={sorted(reviewed_planner_ids)!r} observed={sorted(next(iter(evidence['reviewed_ids'])) for evidence in final_reviewer_evidence)!r}"
     )
-planner_final_completion = planner["last_completion_timestamp"]
-if not planner_final_completion:
-    raise SystemExit("Codex ralplan natural final Planner draft lacked task_complete timing")
+if any(len(evidence["reviewer"]["task_completions"]) != 1 or not all(evidence["reviewer"]["task_completions"][0]) for evidence in final_reviewer_evidence):
+    raise SystemExit("Codex ralplan natural exceeded one usable Plan-Reviewer completion per perspective")
+review_verdicts = [evidence["verdict"] for evidence in final_reviewer_evidence]
+if "REJECT" in review_verdicts:
+    raise SystemExit("Codex ralplan natural successful review oracle received REJECT")
+if len(planner_versions) == 1 and any(verdict != "APPROVE" for verdict in review_verdicts):
+    raise SystemExit("Codex ralplan natural no-revision branch lacked an all-APPROVE review round")
+if len(planner_versions) == 2 and len(final_reviewer_evidence) == 2 and "ITERATE" not in review_verdicts:
+    raise SystemExit("Codex ralplan natural revised without an accepted ITERATE verdict")
 for evidence in final_reviewer_evidence:
     reviewer = evidence["reviewer"]
     reviewer_index = evidence["index"]
-    reviewer_completion = reviewer["last_completion_timestamp"]
+    reviewer_completion = reviewer["task_completions"][0][0]
     reviewer_task = reviewer["last_task_timestamp"]
-    if not reviewer_completion or reviewer_completion <= planner_final_completion:
-        raise SystemExit(
-            f"Codex ralplan natural final Plan-Reviewer {reviewer_index} completed "
-            "before the final Planner draft"
-        )
-    if reviewer_task and reviewer_task <= planner_final_completion:
-        raise SystemExit(
-            f"Codex ralplan natural final Plan-Reviewer {reviewer_index} task was "
-            "dispatched before the final Planner draft"
-        )
-    reviewer_input = reviewer["input"]
-    reviewer_input_encrypted = reviewer["encrypted_task_messages"] >= 1
-    if planner_output not in reviewer_input and not reviewer_input_encrypted:
-        raise SystemExit(
-            f"Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither "
-            "the visible Planner payload nor an encrypted inter-agent task channel"
-        )
-final_review_dispatches = [
-    evidence["reviewer"]["last_task_timestamp"]
-    or evidence["reviewer"]["timestamp"]
-    for evidence in final_reviewer_evidence
-]
-final_review_completions = [
-    evidence["reviewer"]["last_completion_timestamp"]
-    for evidence in final_reviewer_evidence
-]
-
+    if len(planner_versions) == 1 and reviewer_task and reviewer_task <= planner_final_completion:
+        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} was dispatched before the initial Planner draft")
+    if not reviewer_task or (len(planner_versions) == 2 and reviewer_task <= planner_initial_completion) or reviewer_task >= reviewer_completion:
+        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} task/completion lifecycle was invalid")
+    if planner_initial_output not in reviewer["input"] and reviewer["encrypted_task_messages"] < 1:
+        raise SystemExit(f"Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither the visible initial Planner payload nor an encrypted inter-agent task channel")
+final_review_completions = [evidence["reviewer"]["task_completions"][0][0] for evidence in final_reviewer_evidence]
+final_review_dispatches = [evidence["reviewer"]["last_task_timestamp"] for evidence in final_reviewer_evidence]
+revision_assignment = planner_tasks[1] if len(planner_versions) == 2 else ""
+if len(planner_versions) == 2 and (not revision_assignment or max(final_review_completions) >= revision_assignment or revision_assignment >= planner_final_completion):
+    raise SystemExit("Codex ralplan natural accepted Planner revision was not assigned after both reviews and completed afterward")
 def semantic_lines(value):
     lines = set()
     for line in normalize(value).splitlines():
@@ -4236,8 +3973,6 @@ def semantic_lines(value):
         if semantic and semantic != "```":
             lines.add(semantic)
     return lines
-
-
 planner_payload = normalize(planner_output)
 planner_lines = semantic_lines(planner_payload)
 parent_lines = semantic_lines(final_parent_output)
@@ -4275,9 +4010,9 @@ parent_reviewed_ids = {
     )
     if normalize(value).strip("` ")
 }
-if parent_reviewed_ids != planner_ids:
+if parent_reviewed_ids != reviewed_planner_ids:
     raise SystemExit(
-        "Codex ralplan natural parent review synthesis did not identify the final Planner draft id"
+        "Codex ralplan natural parent review synthesis did not identify the final Planner draft id".replace("final Planner", "reviewed Planner")
     )
 parent_planner_match = re.search(
     r"(?mi)^\s*(?:#{1,6}\s+Planner draft\b|(?:-\s*)?Planner (?:draft |revision )?id:)",
@@ -4294,58 +4029,57 @@ if (
 ):
     raise SystemExit("Codex ralplan natural parent reversed Planner -> review synthesis order")
 parent_review_text = final_parent_output[parent_review_match.start():]
-if "review" not in parent_review_text.lower() or not any(
-    token in parent_review_text.lower()
-    for token in ("approve", "block", "iterate", "reject", "revision")
-):
-    raise SystemExit("Codex ralplan natural parent omitted the synthesized review decision")
 parent_review_lower = parent_review_text.lower()
-opposite_host_review_evidence = (
-    parent_reviewed_ids == planner_ids
-    and ("opposite-host" in parent_review_lower or "opposite host" in parent_review_lower)
-    and "claude" in parent_review_lower
-    and any(
-        marker in parent_review_lower
-        for marker in ("architecture findings", "quality-gate findings", "blocking basis", "review findings")
-    )
-    and any(
-        token in parent_review_lower
-        for token in ("approve", "block", "iterate", "reject")
-    )
-)
-parent_pair_synthesis_evidence = (
-    parent_reviewed_ids == planner_ids
-    and all(
-        marker in parent_review_lower
-        for marker in ("consensus", "contradictions", "recommended next action")
-    )
-    and any(
-        marker in parent_review_lower
-        for marker in (
-            "same-host-perspective-pair",
-            "cross-host",
-            "same-host-parallel-fallback",
-        )
-    )
-)
+parent_verdict_fields = re.findall(r"(?mi)^\s*Verdict:\s*(.*?)\s*$", parent_review_text)
+parent_verdict = parent_verdict_fields[0].strip().upper() if len(parent_verdict_fields) == 1 else ""
+if parent_verdict not in {"APPROVE", "ITERATE", "REJECT"} or parent_verdict == "REJECT":
+    raise SystemExit("Codex ralplan natural parent review synthesis lacked one successful anchored verdict")
+if (len(planner_versions) == 1 and parent_verdict != "APPROVE") or (len(planner_versions) == 2 and parent_verdict != "ITERATE"):
+    raise SystemExit("Codex ralplan natural parent verdict contradicted the Planner revision branch")
+record_fields = ("Disposition", "Blocking basis", "Draft pointer", "Material consequence", "Smallest correction", "Applied change", "Body section pointer")
+def finding_records(value):
+    matches = list(re.finditer(r"(?mi)^\s*Finding id:\s*(.*?)\s*$", value)); records = {}
+    for index, match in enumerate(matches):
+        finding_id = normalize(match.group(1)).strip("` *_").casefold(); body = value[match.end() : matches[index + 1].start() if index + 1 < len(matches) else len(value)]
+        if not finding_id or finding_id in records: raise SystemExit("Codex ralplan natural finding records contained an empty or duplicate Finding id")
+        records[finding_id] = {field: re.findall(rf"(?mi)^\s*{re.escape(field)}:\s*(.*?)\s*$", body) for field in record_fields}
+    return records
+def blocker_semantics(record):
+    values = [[re.sub(r"\s+", " ", value).strip().casefold() for value in record[field] if value.strip()] for field in ("Blocking basis", "Draft pointer", "Material consequence", "Smallest correction")]
+    if any(len(field_values) != 1 for field_values in values): raise SystemExit("Codex ralplan natural blocker record lacked one complete semantic identity")
+    return tuple(field_values[0] for field_values in values)
+opposite_host_review_evidence = parent_reviewed_ids == reviewed_planner_ids and ("opposite-host" in parent_review_lower or "opposite host" in parent_review_lower) and "claude" in parent_review_lower and any(marker in parent_review_lower for marker in ("architecture findings", "quality-gate findings", "blocking basis", "review findings")) and any(token in parent_review_lower for token in ("approve", "block", "iterate", "reject"))
+parent_pair_synthesis_evidence = parent_reviewed_ids == reviewed_planner_ids and all(marker in parent_review_lower for marker in ("consensus", "contradictions", "recommended next action")) and any(marker in parent_review_lower for marker in ("same-host-perspective-pair", "cross-host", "same-host-parallel-fallback"))
+if len(planner_versions) == 2:
+    mapping_match = re.search(r"(?mi)^\s*(?:Accepted\s+)?Finding(?:→|->|-to-)fix mapping:\s*$", parent_review_text)
+    if not mapping_match: raise SystemExit("Codex ralplan natural parent finding-to-fix mapping section was missing")
+    authoritative = {}
+    def merge_blocker(finding_id, record):
+        semantics = blocker_semantics(record)
+        if finding_id in authoritative and authoritative[finding_id] != semantics: raise SystemExit("Codex ralplan natural reviewers reused a Finding id with conflicting blocker semantics")
+        authoritative[finding_id] = semantics
+    for evidence in final_reviewer_evidence:
+        if evidence["verdict"] == "ITERATE":
+            for finding_id, record in finding_records(evidence["output"]).items(): merge_blocker(finding_id, record)
+    if len(final_reviewer_evidence) == 1:
+        if not opposite_host_review_evidence or not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent ITERATE lacked proven one-reviewer cross-host topology")
+        synthesis_text = parent_review_text[:mapping_match.start()]; opposite_match = re.search(r"(?mis)^\s*Architecture findings:\s*(.*)$", synthesis_text)
+        if not opposite_match: raise SystemExit("Codex ralplan natural cross-host ITERATE lacked retained opposite-host blockers")
+        for finding_id, record in finding_records(opposite_match.group(1)).items(): merge_blocker(finding_id, record)
+    v2_records = finding_records(planner_output); parent_records = finding_records(parent_review_text[mapping_match.end():])
+    if not authoritative: raise SystemExit("Codex ralplan natural ITERATE branch lacked explicit blocker records")
+    for finding_id, semantics in authoritative.items():
+        v2_record = v2_records.get(finding_id); parent_record = parent_records.get(finding_id)
+        if not v2_record or not parent_record: raise SystemExit("Codex ralplan natural ITERATE blocker was not bound through v2 and parent mapping")
+        required = {field: [value.strip() for value in v2_record[field] if value.strip()] for field in ("Disposition", "Blocking basis", "Applied change", "Body section pointer")}
+        if any(len(values) != 1 for values in required.values()) or required["Disposition"][0].casefold() != "accepted": raise SystemExit("Codex ralplan natural v2 blocker record was missing fields or not accepted")
+        if re.sub(r"\s+", " ", required["Blocking basis"][0]).strip().casefold() != semantics[0]: raise SystemExit("Codex ralplan natural v2 Blocking basis did not match reviewer evidence")
+        if any(len([value for value in parent_record[field] if value.strip()]) != 1 for field in ("Applied change", "Body section pointer")): raise SystemExit("Codex ralplan natural parent finding-to-fix mapping was incomplete")
+    if any(any(value.strip().casefold() in {"deferred", "rejected", "direction-change"} for value in record["Disposition"]) for record in v2_records.values()): raise SystemExit("Codex ralplan natural v2 retained a non-accepted blocker disposition")
 if len(final_reviewer_evidence) == 2:
-    if (
-        not all(final_review_dispatches)
-        or not all(final_review_completions)
-        or max(final_review_dispatches) >= min(final_review_completions)
-    ):
-        raise SystemExit(
-            "Codex ralplan natural final perspective pair was not dispatched before either review completed"
-        )
-    if "same-host-perspective-pair" not in parent_review_lower:
-        raise SystemExit(
-            "Codex ralplan natural parent did not record same-host-perspective-pair for two typed reviewers"
-        )
-    if not parent_pair_synthesis_evidence:
-        raise SystemExit(
-            "Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair; "
-            "two-reviewer branch lacked parent pair-synthesis evidence"
-        )
+    if not all(final_review_dispatches) or not all(final_review_completions) or max(final_review_dispatches) >= min(final_review_completions): raise SystemExit("Codex ralplan natural final perspective pair was not dispatched before either review completed")
+    if "same-host-perspective-pair" not in parent_review_lower: raise SystemExit("Codex ralplan natural parent did not record same-host-perspective-pair for two typed reviewers")
+    if not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair; two-reviewer branch lacked parent pair-synthesis evidence")
 elif len(final_reviewer_evidence) == 1:
     if not opposite_host_review_evidence:
         raise SystemExit(
@@ -4357,7 +4091,6 @@ elif len(final_reviewer_evidence) == 1:
         )
 if not final_parent_output.rstrip().endswith("OH_NO_CODEX_RALPLAN_NATURAL_OK"):
     raise SystemExit("Codex ralplan natural parent did not end with its success marker")
-
 print(
     "ok - live Codex ralplan natural typed child transcripts proved "
     "sequential planning and valid review topology"
@@ -4375,7 +4108,7 @@ run_named_agents_live_test() {
   log "Running live Codex named custom-agent smoke test"
   mkdir -p "$RUN_DIR"
 
-  local agent_type safe_agent out_file err_file prompt
+  local agent_type safe_agent expected_task_name out_file err_file prompt
   local expected_agents=(
     oh-no-analyst
     oh-no-code-reviewer
@@ -4402,7 +4135,7 @@ run_named_agents_live_test() {
   rm -rf "$negative_home/agents"
   mkdir -p "$negative_project_root"
 
-  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with agent_type "oh-no-code-reviewer" and fork_turns "none" (never a full-history fork). Do not omit agent_type. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
+  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with task_name "named_agent_negative_code_reviewer", agent_type "oh-no-code-reviewer", fork_turns "none" (never a full-history fork), and message "Do not edit files; report whether the requested custom agent type is available." in the same call. Do not omit task_name, agent_type, or message. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
 
   local negative_cmd=(
     "$CODEX_BIN"
@@ -4526,21 +4259,23 @@ PY
 
   for agent_type in "${expected_agents[@]}"; do
     safe_agent="${agent_type//[^A-Za-z0-9_]/_}"
+    expected_task_name="named_agent_${agent_type#oh-no-}"
+    expected_task_name="${expected_task_name//-/_}"
     out_file="$RUN_DIR/named-agent-${safe_agent}.jsonl"
     err_file="$RUN_DIR/named-agent-${safe_agent}.err"
     proof_request="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $2}' "$proof_map_file")"
     proof_ok="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $3}' "$proof_map_file")"
     [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
-    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Your FIRST tool call must be spawn_agent, called exactly once with agent_type \"${agent_type}\", fork_turns \"none\" (never a full-history fork), and message \"${proof_request}\". Do not omit agent_type. Do not call wait, close, or any other tool before that spawn_agent call succeeds. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver if a close tool exists; if no close/close_agent tool is available in this runtime, skip closing and include exactly: Close/cleanup was not available. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after the wait completed. Do not mention any expected child output."
+    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Your FIRST tool call must be spawn_agent, called exactly once with task_name \"${expected_task_name}\", agent_type \"${agent_type}\", fork_turns \"none\" (never a full-history fork), and message \"${proof_request}\" in the same call. Do not omit task_name or agent_type. Do not call wait, close, or any other tool before that spawn_agent call succeeds. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver if a close tool exists; if no close/close_agent tool is available in this runtime, skip closing and include exactly: Close/cleanup was not available. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after the wait completed. Do not mention any expected child output."
 
     run_in_verified_codex_live_home "$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
-    "$PYTHON_BIN" - "$agent_type" "$proof_request" "$proof_ok" "$live_home" "$out_file" "$err_file" <<'PY'
+    "$PYTHON_BIN" - "$agent_type" "$expected_task_name" "$proof_request" "$proof_ok" "$live_home" "$out_file" "$err_file" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-agent_type, proof_request, proof_ok, live_home, out_path, err_path = sys.argv[1:7]
+agent_type, expected_task_name, proof_request, proof_ok, live_home, out_path, err_path = sys.argv[1:8]
 role = agent_type.removeprefix("oh-no-")
 nonce = proof_request.rsplit(" ", 1)[-1]
 
@@ -4583,6 +4318,8 @@ def parse_child_transcript(path):
     )
     agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
     parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
+    agent_path = meta.get("agent_path") or thread_spawn.get("agent_path")
+    task_name = agent_path.rsplit("/", 1)[-1] if isinstance(agent_path, str) else None
     user_messages = []
     assistant_messages = []
     encrypted_task_messages = 0
@@ -4616,6 +4353,7 @@ def parse_child_transcript(path):
         "text": text,
         "agent_role": agent_role,
         "parent": parent,
+        "task_name": task_name,
         "input": "\n".join(user_messages),
         "encrypted_task_messages": encrypted_task_messages,
         "output": "\n".join(dict.fromkeys(assistant_messages)),
@@ -4727,6 +4465,10 @@ if spawn_events:
         child = receiver_transcript(receiver)
         if not child["completed"]:
             raise SystemExit(f"{agent_type} receiver {receiver} lacked task_complete")
+        if child["task_name"] != expected_task_name:
+            raise SystemExit(
+                f"{agent_type} receiver {receiver} had task_name={child['task_name']!r}, expected {expected_task_name!r}"
+            )
         if proof_request not in child["input"] and child["encrypted_task_messages"] != 1:
             raise SystemExit(
                 f"{agent_type} receiver {receiver} had neither the visible exact proof request "
@@ -4760,6 +4502,10 @@ else:
     child_path, child = children[0]
     if not child["completed"]:
         raise SystemExit(f"{agent_type} child session {child_path} lacked task_complete")
+    if child["task_name"] != expected_task_name:
+        raise SystemExit(
+            f"{agent_type} child session {child_path} had task_name={child['task_name']!r}, expected {expected_task_name!r}"
+        )
     if proof_request not in child["input"] and child["encrypted_task_messages"] != 1:
         raise SystemExit(
             f"{agent_type} child session {child_path} had neither the visible exact proof request "
@@ -4809,11 +4555,11 @@ Before any Claude consult or cross-host panel assignment, inspect the current Co
 
 Build exactly three panel slots and then synthesize as the current Codex main judge.
 
-Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --no-session-persistence. Do not pass a --tools override: Claude Opus may use its own read-only tools to analyze, but the prompt and host permissions must forbid file edits, writes, installs, and mutating commands. Do not require Claude Task/Agent proof. Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue. The Claude prompt must be read-only and must state that Claude Opus must answer the assigned panel directly. It must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: this consult is read-only; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with task_name "fusion_primary_claude" and agent_type "oh-no-fusion-rescue-analyst". This is the cross-host consult panel, and it is allowed only because the Codex main agent has confirmed danger-full-access. Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE; fusion depth: 1; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields and the Claude response marker; Codex permission preflight: danger-full-access confirmed. This subagent must invoke \${CLAUDE_BIN:-claude} exactly once as an argument vector, not a shell-interpolated string, with these controls: --print, --model opus, --max-budget-usd ${FUSION_RESCUE_MAX_BUDGET_USD}, --permission-mode dontAsk, --no-session-persistence. Do not pass a --tools override: Claude Opus may use its own read-only tools to analyze, but the prompt and host permissions must forbid file edits, writes, installs, and mutating commands. Do not require Claude Task/Agent proof. Do not ask Claude Code to run a slash command, public workflow skill, Task, Agent, Workflow, subagent, /codex:rescue, codex:codex-rescue, or Claude-side fusion-rescue. The Claude prompt must be read-only and must state that Claude Opus must answer the assigned panel directly. It must return OH_NO_CLAUDE_FUSION_PANEL_OK plus lens name primary, strongest finding, evidence used, assumption under test, likely failure mode, recommended next action, confidence and why, what would change the conclusion, and fusion depth: 1. The Claude prompt must also state: this consult is read-only; do not edit files, write state, install plugins, run mutating commands, invoke rescue, fusion-rescue, cross-host consult, Codex, or another host from inside this panel. The primary Codex subagent must return OH_NO_FUSION_PANEL_PRIMARY_CLAUDE plus the Claude marker and a substantive summary of the Claude CI integration-test release analysis mentioning at least quarantine, auto-retry, root-cause, and release risk.
 
-Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
+Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with task_name "fusion_adversarial" and agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
 
-Panel 3 pragmatic must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+Panel 3 pragmatic must be a second Codex current-host subagent using spawn_agent with task_name "fusion_pragmatic" and agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
 Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers only when the host exposes close_agent; otherwise include exactly: Close/cleanup was not available. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK and must include: Codex permission preflight: danger-full-access confirmed; panels completed: primary, adversarial, pragmatic; Claude marker: OH_NO_CLAUDE_FUSION_PANEL_OK; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_CLAUDE, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: primary available via Codex cross-host subagent using claude -p --model opus with no Claude tools enabled after danger-full-access preflight, Codex adversarial available, Codex pragmatic available; opposite-host response path: Claude via Codex primary subagent; fusion depth: 1.
 PROMPT
@@ -5623,11 +5369,11 @@ Synthetic smoke-test problem all panels must analyze meaningfully: a CI pipeline
 
 Build exactly three current-host Codex panel slots and then synthesize as the current Codex main judge.
 
-Panel 1 primary must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_SELF; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must provide the strongest constructive diagnosis for quarantine, auto-retry, root-cause, CI signal, and release risk.
+Panel 1 primary must be a Codex current-host subagent using spawn_agent with task_name "fusion_primary_self" and agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: primary; Marker: OH_NO_FUSION_PANEL_PRIMARY_SELF; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must provide the strongest constructive diagnosis for quarantine, auto-retry, root-cause, CI signal, and release risk.
 
-Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
+Panel 2 adversarial must be a Codex current-host subagent using spawn_agent with task_name "fusion_adversarial" and agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: adversarial; Marker: OH_NO_FUSION_PANEL_ADVERSARIAL; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must attack the assumptions behind quarantine, auto-retry, and shipping without root cause.
 
-Panel 3 pragmatic must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
+Panel 3 pragmatic must be a Codex current-host subagent using spawn_agent with task_name "fusion_pragmatic" and agent_type "oh-no-fusion-rescue-analyst". Its message must include exactly these lines: Lens: pragmatic; Marker: OH_NO_FUSION_PANEL_PRAGMATIC; fusion depth: 1; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this panel; Scope: this synthetic CI release-risk problem only; Do not edit files; Expected output: marker line plus assigned lens fields only. It must recommend the simplest reversible next step and verification path for the CI release-risk decision.
 
 Start all three Codex subagents before waiting when possible. Wait for each receiver until completed, capture all three results, then close all three completed receivers only when the host exposes close_agent; otherwise include exactly: Close/cleanup was not available. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After all three panel subagents finish, synthesize rather than concatenate. Final answer must contain exactly the marker OH_NO_CODEX_FUSION_PERMISSION_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; panels completed: primary, adversarial, pragmatic; Codex markers: OH_NO_FUSION_PANEL_PRIMARY_SELF, OH_NO_FUSION_PANEL_ADVERSARIAL, OH_NO_FUSION_PANEL_PRAGMATIC; consensus; contradictions; unique insights; blind spots; recommended next action; confidence and why; panel availability/fallback notes: Claude unavailable because Codex permission state is not danger-full-access, self-host fallback used with Codex primary, Codex adversarial, Codex pragmatic; opposite-host response path: unavailable due to Codex permission state; fusion depth: 1. Do not include OH_NO_CLAUDE_FUSION_PANEL_OK.
 PROMPT
@@ -6215,9 +5961,9 @@ The diff under review (treat as the stable diff):
 +    return user.role == "admin" or user.get("debug", False)
 The reviewed change adds a debug bypass to an admin check. Because the opposite host is unavailable in default mode, dispatch EXACTLY TWO same-host Codex code-reviewer agents in parallel under distinct lenses, each running the COMPLETE code-reviewer role differing only by lens emphasis, then synthesize as the current Codex main judge.
 
-Same-host agent Lens A must be a Codex current-host subagent using spawn_agent with agent_type "oh-no-code-reviewer", an adversarial correctness + security skeptic ("what breaks or is exploitable"). Its message must include exactly these lines: Lens: A adversarial correctness and security; Marker: OH_NO_XHOST_FALLBACK_LENS_A; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+Same-host agent Lens A must be a Codex current-host subagent using spawn_agent with task_name "cross_host_lens_a" and agent_type "oh-no-code-reviewer", an adversarial correctness + security skeptic ("what breaks or is exploitable"). Its message must include exactly these lines: Lens: A adversarial correctness and security; Marker: OH_NO_XHOST_FALLBACK_LENS_A; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
 
-Same-host agent Lens B must be a second Codex current-host subagent using spawn_agent with agent_type "oh-no-code-reviewer", a maintainability + coverage completeness reviewer ("what is missing or regresses"). Its message must include exactly these lines: Lens: B maintainability and coverage; Marker: OH_NO_XHOST_FALLBACK_LENS_B; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+Same-host agent Lens B must be a second Codex current-host subagent using spawn_agent with task_name "cross_host_lens_b" and agent_type "oh-no-code-reviewer", a maintainability + coverage completeness reviewer ("what is missing or regresses"). Its message must include exactly these lines: Lens: B maintainability and coverage; Marker: OH_NO_XHOST_FALLBACK_LENS_B; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
 
 Start both Codex subagents before waiting when possible. Wait for each receiver until completed, capture both results, then close both completed receivers only when the host exposes close_agent; otherwise include exactly: Close/cleanup was not available. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After both same-host agents finish, synthesize immediately as the current Codex main judge rather than concatenate. Final answer must contain exactly the marker OH_NO_XHOST_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; same-host agents: 2; lens markers: OH_NO_XHOST_FALLBACK_LENS_A, OH_NO_XHOST_FALLBACK_LENS_B; a single synthesis block marked OH_NO_XHOST_FALLBACK_SYNTHESIS with consensus, contradictions, and recommended next action; and a fallback note stating the opposite host (Claude Code) was treated as unavailable and the review ran via the Same-Host Parallel Fallback of two same-host agents rather than as a single current-host pass or a cross-host consult. Do NOT emit OH_NO_CLAUDE_FUSION_PANEL_OK or any Claude/opposite-host success marker and do NOT claim a cross-host consult occurred.
 PROMPT
@@ -6840,7 +6586,7 @@ run_parallel_live_test() {
   local out_file="$RUN_DIR/parallel-subagents.jsonl"
   local err_file="$RUN_DIR/parallel-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Ralph-eligible Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave when the host exposes it; otherwise include exactly: Close/cleanup was not available. Do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role, and the separate Ralplan live smoke covers it. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, Lifecycle, and Result marker: OH_NO_PARALLEL_RESULT <role> lines. Each custom agent should report the exact OH_NO_PARALLEL_RESULT <role> marker, its role heading, and whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. Preserve every role-specific result marker in the parent final response. After all eight subagents finish and completed agents are closed when supported, or unavailable cleanup is recorded, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus Used custom agent types: 8; Wait results captured: 8; Lifecycle cleanup: closed | unavailable.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Ralph-eligible Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave when the host exposes it; otherwise include exactly: Close/cleanup was not available. Do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role, and the separate Ralplan live smoke covers it. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. In that same call, use the exact task_name mapping explore=ralph_explore, analyst=ralph_analyst, planner=ralph_planner, executor=ralph_executor, debugger=ralph_debugger, verifier=ralph_verifier, code-reviewer=ralph_code_reviewer, fusion-rescue-analyst=ralph_fusion_rescue_analyst. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, Lifecycle, and Result marker: OH_NO_PARALLEL_RESULT <role> lines. Each custom agent should report the exact OH_NO_PARALLEL_RESULT <role> marker, its role heading, and whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. Preserve every role-specific result marker in the parent final response. After all eight subagents finish and completed agents are closed when supported, or unavailable cleanup is recorded, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus Used custom agent types: 8; Wait results captured: 8; Lifecycle cleanup: closed | unavailable.'
   prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
 
   local cmd=(
@@ -6890,7 +6636,6 @@ close_index_by_receiver = {}
 marker = False
 all_text_parts = []
 parent_thread_id = None
-
 def collect_text(value):
     if isinstance(value, str):
         return value
@@ -6899,7 +6644,6 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
-
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
 if (
@@ -6909,7 +6653,6 @@ if (
     or "provide either message or items" in err_text.lower()
 ):
     raise SystemExit(f"Codex live parallel smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
 expected_roles = [
     "explore",
     "analyst",
@@ -6941,14 +6684,11 @@ required_prompt_markers = [
     "## Operating Rules",
     "## Output",
 ]
-
 def roles_in_text(text):
     return [
         role for role in expected_roles
         if f"Codex agent type: oh-no-{role}".lower() in text.lower()
     ]
-
-
 def has_role_heading(text, role):
     heading = role_headings[role].lstrip("#").strip().lower()
     role_identity = re.sub(r"[-_]+", " ", role).strip().lower()
@@ -6974,8 +6714,6 @@ def has_role_heading(text, role):
         if normalized.startswith(heading) and normalized[len(heading):].strip(" :;-") == "present":
             return True
     return False
-
-
 def mentioned_receivers(item):
     text = collect_text(item)
     mentioned = set(item.get("receiver_thread_ids") or [])
@@ -7009,7 +6747,6 @@ def receiver_agent_role(receiver):
                 )
                 return payload.get("agent_role") or thread_spawn.get("agent_role")
     raise SystemExit(f"Codex live parallel smoke transcript lacked session_meta: {receiver}")
-
 events = []
 with open(path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -7061,7 +6798,6 @@ with open(path, "r", encoding="utf-8") as fh:
             if tool == "close_agent":
                 for receiver in receivers:
                     close_index_by_receiver.setdefault(receiver, index)
-
 if failed_spawns:
     raise SystemExit(f"Codex live parallel smoke saw failed spawn_agent calls: {failed_spawns!r}")
 if len(successful_spawns) < len(expected_roles):
@@ -7072,7 +6808,6 @@ if len(successful_spawns) < len(expected_roles):
         )
     if not parent_thread_id:
         raise SystemExit("Codex live parallel smoke lacked both collab events and a parent thread id")
-
     transcript_children = {}
     sessions_root = Path(live_home) / "sessions"
     for transcript_path in sessions_root.rglob("*.jsonl"):
@@ -7105,20 +6840,13 @@ if len(successful_spawns) < len(expected_roles):
             continue
         if role in transcript_children:
             raise SystemExit(f"Codex live parallel smoke found duplicate child sessions for {role}")
-        completed = False
-        completion_timestamp = ""
-        assistant_messages = []
-        task_complete_messages = []
+        completion_records = []
         user_messages = []
         encrypted_task_messages = 0
         for row in rows:
             payload = row.get("payload") or {}
             if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                completion_timestamp = row.get("timestamp", "") or completion_timestamp
-                final_message = collect_text(payload.get("last_agent_message"))
-                if final_message:
-                    task_complete_messages.append(final_message)
+                completion_records.append((row.get("timestamp", ""), collect_text(payload.get("last_agent_message")).strip()))
             if row.get("type") != "response_item":
                 continue
             if payload.get("type") == "agent_message":
@@ -7133,24 +6861,21 @@ if len(successful_spawns) < len(expected_roles):
                 continue
             if payload.get("type") != "message":
                 continue
-            if payload.get("role") == "assistant":
-                assistant_messages.append(collect_text(payload.get("content")))
-            elif payload.get("role") == "user":
+            if payload.get("role") == "user":
                 user_messages.append(collect_text(payload.get("content")))
-        if not completed:
+        if not completion_records:
             raise SystemExit(f"Codex live parallel typed child {role} lacked task_complete")
+        initial_completion, initial_output = completion_records[0]
+        # task_complete_messages[-1] is not authoritative for initial-assignment evidence.
+        if not initial_completion or not initial_output:
+            raise SystemExit(f"Codex live parallel typed child {role} initial task_complete lacked timestamp or output")
         transcript_children[role] = {
             "started": meta.get("timestamp", ""),
-            "completed": completion_timestamp,
+            "completed": initial_completion,
             "input": "\n".join(user_messages),
             "encrypted_task_messages": encrypted_task_messages,
-            "output": (
-                task_complete_messages[-1]
-                if task_complete_messages
-                else "\n".join(dict.fromkeys(assistant_messages))
-            ),
+            "output": initial_output,
         }
-
     missing_children = sorted(set(expected_roles) - set(transcript_children))
     if missing_children:
         raise SystemExit(
@@ -7364,7 +7089,7 @@ PY
   log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
   out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
   err_file="$RUN_DIR/ralph-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Named THOROUGH request: assess whether this plugin checkout is ready for a release-facing test-harness change. Perform only the normal initial repository assessment and implementation-readiness analysis; do not edit files, execute changes, or continue into verification. End with OH_NO_CODEX_RALPH_NATURAL_OK and summarize the evidence gathered and the proposed implementation direction.'
+  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Named THOROUGH request: assess whether this plugin checkout is ready for a release-facing test-harness change. Perform only the normal initial repository assessment and implementation-readiness analysis; do not edit files, execute changes, or continue into verification. Summarize the evidence gathered and the proposed implementation direction.'
   assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
   run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   if ! assert_no_codex_live_secret_leak \
@@ -7375,15 +7100,7 @@ PY
     rm -f "$out_file" "$err_file"
     fail "Codex Parallel natural live artifacts failed the credential-leak guard and were removed"
   fi
-  assert_natural_role_spawn_smoke \
-    "$out_file" \
-    "$err_file" \
-    "OH_NO_CODEX_RALPH_NATURAL_OK" \
-    "ralph" \
-    "explore:,analyst:,planner:" \
-    "" \
-    unordered-allowed-fanout \
-    2
+  assert_natural_role_spawn_smoke "$out_file" "$err_file" "ralph" "$CODEX_HOME_DIR"
 }
 
 run_simplify_live_test() {
@@ -7398,7 +7115,7 @@ run_simplify_live_test() {
   local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
   local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
   local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in two host-bounded waves. Wave 1: launch Reuse, Simplification, and Efficiency before any wait, wait_agent, or close_agent call; wait and capture all three. Wave 2: launch Altitude, then wait and capture it. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent must return its matching marker and labeled Angle, File, Line, Summary, and Concrete cost fields. For every receiver thread, call wait_agent until that receiver appears in a completed final-status result with its output captured; do not use close_agent as the first result capture for any receiver. After each result is captured, call close_agent only if the host exposes it; otherwise include exactly: Close/cleanup was not available. After all four cleanup subagents finish, include each matching marker in the final response as captured-result evidence. After lifecycle cleanup is closed or recorded unavailable, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Host-bounded waves: 3+1; Wait results captured: 4; Lifecycle cleanup: closed | unavailable.'
+  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in two host-bounded waves. Wave 1: launch Reuse, Simplification, and Efficiency before any wait, wait_agent, or close_agent call; wait and capture all three. Wave 2: launch Altitude, then wait and capture it. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. In each same call, use the exact task_name mapping Reuse=simplify_reuse, Simplification=simplify_simplification, Efficiency=simplify_efficiency, Altitude=simplify_altitude. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent must return its matching marker and labeled Angle, File, Line, Summary, and Concrete cost fields. For every receiver thread, call wait_agent until that receiver appears in a completed final-status result with its output captured; do not use close_agent as the first result capture for any receiver. After each result is captured, call close_agent only if the host exposes it; otherwise include exactly: Close/cleanup was not available. After all four cleanup subagents finish, include each matching marker in the final response as captured-result evidence. After lifecycle cleanup is closed or recorded unavailable, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Host-bounded waves: 3+1; Wait results captured: 4; Lifecycle cleanup: closed | unavailable.'
   prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
 
   local cmd=(
@@ -8384,12 +8101,69 @@ print("ok - live Codex Ralph created project-local task worktree")
 PY
 }
 
+run_codex_live_parser_regression_offline_test() {
+  log "Running offline Codex production-linked live-parser regression fixtures"
+  "$PYTHON_BIN" - "${BASH_SOURCE[0]}" <<'PY'
+import json, re, subprocess, sys, tempfile
+from pathlib import Path
+source = Path(sys.argv[1]).read_text(); blocks = re.findall(r"<<'PY'\n(.*?)\nPY", source, re.S)
+ralplan = next(block for block in blocks if "planner_versions" in block and "Codex ralplan natural transcript proof" in block)
+parallel = next(block for block in blocks if "completion_records" in block and "Codex live parallel smoke saw spawn failure" in block)
+def write(path, rows): path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+def meta(parent, role, timestamp): return {"type":"session_meta","payload":{"timestamp":timestamp,"parent_thread_id":parent,"agent_role":"oh-no-"+role}}
+def task(timestamp): return {"timestamp":timestamp,"type":"response_item","payload":{"type":"agent_message","content":[{"type":"encrypted_content"}]}}
+def done(timestamp, text): return {"timestamp":timestamp,"type":"event_msg","payload":{"type":"task_complete","last_agent_message":text}}
+def run(code, out, err, home): return subprocess.run([sys.executable,"-",str(out),str(err),str(home)],input=code,text=True,capture_output=True)
+def expect(label, result, success, needle=""):
+ if (result.returncode == 0) != success or (not success and needle not in result.stderr): raise SystemExit(f"{label} unexpected result: rc={result.returncode} stderr={result.stderr!r}")
+with tempfile.TemporaryDirectory() as temp:
+ root=Path(temp); home=root/"home"; sessions=home/"sessions"; sessions.mkdir(parents=True); err=root/"err"; err.write_text(""); out=root/"out"
+ roles=["explore","analyst","planner","executor","debugger","verifier","code-reviewer","fusion-rescue-analyst"]; starts=dict(zip(roles,["01","01.1","01.2","06","06.1","09","09.1","09.2"])); finishes=dict(zip(roles,["02","03","04","07","08","10","11","12"]))
+ def role_output(role): return f"Role: {role}\nOH_NO_PARALLEL_RESULT {role}\nSkill Relationship: present\nResponsibilities: present\nOperating Rules: present\nOutput: present"
+ parent="\n".join(["OH_NO_CODEX_PARALLEL_SUBAGENTS_OK"]+[f"OH_NO_PARALLEL_RESULT {role}" for role in roles]); write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
+ def parallel_case(label, first_time, first_output, later, success, needle=""):
+  for role in roles:
+   rows=[meta("parent",role,starts[role]),task(starts[role]+"5"),done(first_time if role=="explore" else finishes[role],first_output if role=="explore" else role_output(role))]
+   if role=="explore" and later: rows.append(done(*later))
+   write(sessions/(role+".jsonl"),rows)
+  expect(label,run(parallel,out,err,home),success,needle)
+ parallel_case("parallel preserves first evidence","02",role_output("explore"),("08","unrelated"),True); parallel_case("parallel rejects empty first output","02","",("08",role_output("explore")),False,"initial task_complete lacked timestamp or output"); parallel_case("parallel rejects late first completion","07",role_output("explore"),None,False,"completion barriers violated")
+with tempfile.TemporaryDirectory() as temp:
+ root=Path(temp); home=root/"home"; sessions=home/"sessions"; sessions.mkdir(parents=True); err=root/"err"; err.write_text(""); out=root/"out"
+ v1="Planner draft id: v1\nGoal: one review round\nAcceptance criteria:\n- AC1 verdict binding\n- AC2 revision ordering\nScope: parser\nConstraint: no model\nWorktree: none\nStep 1: review\nStep 2: repair\nVerification: fixture\nRisk: low\nApproval: pending"; v2_base="Planner revision id: v2-final\nGoal: one review round\nAcceptance criteria:\n- AC1 verdict binding\n- AC2 revision ordering\nScope: parser\nConstraint: no model\nWorktree: none\nStep 1: review\nStep 2: repaired\nVerification: fixture\nRisk: low\nApproval: final"
+ default_blocker=("finding-alpha","accepted","AC2","Plan step 2","Revision could precede review","Move revision after reviews")
+ def review_record(blocker, basis=""):
+  finding_id,_,default_basis,pointer,consequence,correction=blocker; return f"Finding id: {finding_id}\nBlocking basis: {basis or default_basis}\nDraft pointer: {pointer}\nMaterial consequence: {consequence}\nSmallest correction: {correction}"
+ def repair_record(blocker, missing="", basis=""):
+  finding_id,disposition,default_basis,_,_,_=blocker; fields=[("Disposition",disposition),("Blocking basis",basis or default_basis),("Applied change","revision follows reviews"),("Body section pointer","Step 2")]; return "Finding id: "+finding_id+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name != missing)
+ def ralplan_case(label, verdicts, revision, revision_task="07", reviewed=("v1","v1"), parent_verdict=None, blockers=(default_blocker,), missing="", second_basis="", v2_basis="", cross_host=False, retain_opposite=True, mapping=True, success=True, needle=""):
+  review_outputs=[]
+  for index, verdict in enumerate(verdicts):
+   blocker_text="\n".join(review_record(blocker,second_basis if index==1 else "") for blocker in blockers); finding=blocker_text if verdict=="ITERATE" else "none"; incidental="R5 NB1 HTTP2; ITERATE was discussed but not selected." if verdict=="APPROVE" else "APPROVE wording is incidental."
+   review_outputs.append(f"Reviewed draft: {reviewed[index]}\nVerdict: {verdict}\nArchitecture findings:\n{finding}\nQuality-gate findings: none\nDirection preservation: preserved\nRequired changes for Planner: see blocking finding records\nReview note: {incidental}")
+  v2=v2_base+"\n"+"\n".join(repair_record(blocker,missing if index==0 else "",v2_basis if index==0 else "") for index,blocker in enumerate(blockers)); final_plan=v2 if revision else v1; parent_verdict=parent_verdict or ("ITERATE" if "ITERATE" in verdicts or cross_host else verdicts[0])
+  opposite=("Opposite-host: Claude\nArchitecture findings:\n"+("\n".join(review_record(blocker) for blocker in blockers) if retain_opposite else "none")) if cross_host else ""; mapped="\n".join(f"Finding id: {blocker[0]}\nApplied change: mapped repair\nBody section pointer: Step 2" for blocker in blockers); mapping_text=("Finding-to-fix mapping:\n"+mapped) if revision and mapping else ""
+  topology="cross-host" if cross_host else "same-host-perspective-pair"; parent=final_plan+f"\nReviewed draft: v1\nVerdict: {parent_verdict}\n{opposite}\n{mapping_text}\nMapping note: accepted wording is unrelated.\n{topology}\nConsensus: decision recorded\nContradictions: none\nRecommended next action: approve\nOH_NO_CODEX_RALPLAN_NATURAL_OK"; write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
+  planner_rows=[meta("parent","planner","01"),task("01.5"),done("02",v1)]; planner_rows += [task(revision_task),done("08",v2)] if revision else []; write(sessions/"planner.jsonl",planner_rows)
+  for path in sessions.glob("review*.jsonl"): path.unlink()
+  for index,output in enumerate(review_outputs): write(sessions/f"review{index+1}.jsonl",[meta("parent","plan-reviewer","03" if index==0 else "03.1"),task("03.5" if index==0 else "03.6"),done("05" if index==0 else "06",output)])
+  expect(label,run(ralplan,out,err,home),success,needle)
+ ralplan_case("parent APPROVE no revision",("APPROVE","APPROVE"),False); ralplan_case("parent ITERATE contradicts no revision",("APPROVE","APPROVE"),False,parent_verdict="ITERATE",success=False,needle="parent verdict contradicted"); ralplan_case("anchored REJECT overrides incidental APPROVE",("REJECT","APPROVE"),False,success=False,needle="received REJECT"); ralplan_case("APPROVE cannot revise",("APPROVE","APPROVE"),True,success=False,needle="revised without an accepted ITERATE")
+ ralplan_case("equivalent consensus duplicate",("ITERATE","ITERATE"),True); ralplan_case("conflicting consensus duplicate",("ITERATE","ITERATE"),True,second_basis="AC9",success=False,needle="conflicting blocker semantics"); ralplan_case("v2 basis mismatch",("APPROVE","ITERATE"),True,v2_basis="AC9",success=False,needle="Blocking basis did not match"); ralplan_case("cross-host APPROVE plus parent ITERATE",("APPROVE",),True,cross_host=True)
+ ralplan_case("cross-host missing retained blocker",("APPROVE",),True,cross_host=True,retain_opposite=False,success=False,needle="explicit blocker records"); ralplan_case("parent APPROVE contradicts v2",("APPROVE","ITERATE"),True,parent_verdict="APPROVE",success=False,needle="parent verdict contradicted"); ralplan_case("revision assigned before review completion",("APPROVE","ITERATE"),True,revision_task="05.5",success=False,needle="not assigned after both reviews"); ralplan_case("mismatched reviewed draft",("APPROVE","ITERATE"),True,reviewed=("v1","v2-final"),success=False,needle="did not bind to the initial Planner draft")
+ ralplan_case("partial blocker disposition rejects",("APPROVE","ITERATE"),True,blockers=(default_blocker,("finding-beta","deferred","AC3","Plan step 3","Second issue remains","Repair second issue")),success=False,needle="not accepted"); ralplan_case("missing blocker field rejects",("APPROVE","ITERATE"),True,missing="Applied change",success=False,needle="missing fields")
+print(f"ok - production-linked Codex parser fixtures passed with optimize={sys.flags.optimize}")
+PY
+}
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CODEX_BIN"
   require_command "$PYTHON_BIN"
   run_live_timeout_offline_test
+  run_codex_live_parser_regression_offline_test
   run_natural_prompt_guard_offline_test
+  run_natural_git_fixture_offline_test
+  run_codex_natural_activation_assertion_offline_test
   validate_codex_live_secret_scanner
   validate_codex_live_clone_safety
   validate_ralplan_live_option_compatibility

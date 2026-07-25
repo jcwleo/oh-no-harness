@@ -1,6 +1,6 @@
 ---
 name: interview
-description: Use when an idea, product request, feature request, design prompt, or engineering task is vague, broad, ambiguous, missing requirements, constraints, acceptance criteria, or user intent, or would otherwise need clarification before planning or implementation.
+description: Use when the requested deliverable is vague, broad, ambiguous, requirement-light, or missing users, constraints, or acceptance criteria and needs requirements discovery before implementation planning or execution.
 argument-hint: "[--quick|--standard|--deep] <idea or vague request>"
 ---
 

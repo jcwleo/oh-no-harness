@@ -4,9 +4,10 @@ This platform overlay is source content for the generated Codex-facing
 `auto-routing` runtime document, after the shared core and
 `docs/platforms/codex-runtime.md`.
 
-Codex native skill loading remains the primary routing surface. The
-`auto-routing` skill can preserve the config file shape and explain the
-preference, but it does not add forced routing to Codex SessionStart.
+Codex native skill loading remains the primary routing surface, with skill
+descriptions providing destination discovery. Hooks are opt-in, and the
+`auto-routing` skill stores and explains the preference, but enabling it
+does not add forced routing and does not change current routing semantics.
 
 If a Codex-facing SessionStart hook runs, it must stay compact and must not
 embed full skill core bodies.

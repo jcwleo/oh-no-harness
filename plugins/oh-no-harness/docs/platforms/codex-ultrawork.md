@@ -24,12 +24,14 @@ session-level authorization for eligible phase-owned roles; do not ask for
 per-run subagent approval to satisfy it. If `spawn_agent` is exposed, make
 the actual registered-agent call first:
 
+Derive every name from the actual Ultrawork role and phase; for example:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="ultrawork_planner_planning_1", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")
 ```
 
-Only an actual unknown/unavailable `agent_type` rejection confirms the
+Use role-correct unique equivalents for other or sibling phase dispatches. Only
+an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One
 payload shape per spawn; no `fork_context`. Pass the core-defined role envelope

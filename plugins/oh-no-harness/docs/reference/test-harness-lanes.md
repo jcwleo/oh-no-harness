@@ -243,17 +243,19 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "tool/permission",
         "lifecycle",
         "hook policy",
+        "containment",
         "malformed output",
         "forensic invariant"
       ],
       "warnings": [
         "auto-routing model echo"
       ],
-      "evidence_artifact": "Codex JSON event stream with SessionStart role-worker dispatch and lifecycle evidence",
+      "evidence_artifact": "Codex wrapper activation/read, workflow-specific first gate, adjacent-route negatives, and mutation/approval boundaries",
       "non_proofs": [
         "marker-only output",
         "SessionStart text echo alone",
-        "model self-report alone"
+        "model self-report alone",
+        "exact worker sequence alone"
       ]
     },
     {
@@ -513,17 +515,19 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "tool/permission",
         "lifecycle",
         "hook policy",
+        "containment",
         "malformed output",
         "forensic invariant"
       ],
       "warnings": [
         "auto-routing model echo"
       ],
-      "evidence_artifact": "Claude stream-json output with SessionStart natural role-worker dispatch and lifecycle evidence",
+      "evidence_artifact": "Claude wrapper activation/read, workflow-specific first gate, adjacent-route negatives, and mutation/approval boundaries",
       "non_proofs": [
         "marker-only output",
         "SessionStart text echo alone",
-        "model self-report alone"
+        "model self-report alone",
+        "exact worker sequence alone"
       ]
     },
     {

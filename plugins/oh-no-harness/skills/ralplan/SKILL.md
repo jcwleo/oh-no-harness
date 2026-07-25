@@ -1,6 +1,6 @@
 ---
 name: ralplan
-description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs consensus implementation planning before coding.
+description: Use when requirements are sufficiently known but implementation is broad, risky, architecture-sensitive, cross-file, multi-step, or strategy-unclear and needs a plan; not for still-vague discovery or an execution-ready task.
 argument-hint: "<task, spec path, or plan request>"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/ralplan.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-ralplan.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
@@ -491,6 +492,26 @@ Return: plan path; role and review-topology summary; findings ledger;
 execution profile; plan approval brief; approval status; recommended next
 skill or pause reason.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-ralplan.md
 
 # Ralplan Codex Adapter
@@ -512,14 +533,19 @@ Do not infer unavailability from schema comments, displayed role lists, task
 names, or uncertainty; a task name is never proof that the registered role
 loaded.
 
+Derive each name from the actual Ralplan role and phase or review lens. For the
+planner and its two sibling review legs, use distinct identities such as:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="ralplan_planner_draft_1", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")
+spawn_agent(task_name="ralplan_plan_reviewer_feasibility_1", agent_type="oh-no-plan-reviewer", message=<self-contained packet>, fork_turns="none")
+spawn_agent(task_name="ralplan_plan_reviewer_coverage_1", agent_type="oh-no-plan-reviewer", message=<self-contained packet>, fork_turns="none")
 ```
 
-Roles are `explore`, `analyst`, `planner`, and `plan-reviewer`; use those
-exact `oh-no-*` types. Pass one payload shape (`message` or `items`), never
-both. Do not request `fork_context` or inherited conversation.
+Roles are `explore`, `analyst`, `planner`, and `plan-reviewer`; use those exact
+`oh-no-*` types and derive role-correct equivalents for every other dispatch.
+Pass one payload shape (`message` or `items`), never both. Do not request
+`fork_context` or inherited conversation.
 
 Only an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used. Then record the failure and use an exposed

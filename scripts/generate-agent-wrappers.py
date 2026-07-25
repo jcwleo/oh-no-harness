@@ -187,6 +187,10 @@ def render_claude_agent(plugin_root: Path, meta: AgentMetadata) -> str:
         f"color: {meta.claude_color}\n"
         "---\n"
         "\n"
+        "<!-- Generated from docs/agent-core; do not edit by hand. -->\n"
+        f"<!-- Source: plugins/oh-no-harness/docs/agent-core/{meta.role}.md -->\n"
+        "<!-- Run: python3 scripts/generate-agent-wrappers.py --write -->\n"
+        "\n"
         f"{body}"
     )
 

@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Use when a bug, failing test, failing command, regression, flaky behavior, build failure, install failure, hook failure, unexpected output, or unknown root cause needs investigation before fixes.
+description: Use when an observed failure, regression, flake, unexpected output, or unknown root cause needs investigation; a known-cause execution-ready fix remains Ralph.
 argument-hint: "<failure, command, bug report, or unexpected behavior>"
 ---
 
@@ -82,14 +82,19 @@ D9. Mid-loop skill: after verification, return the result to the caller
 
 Parallel hypothesis testing (steps 4-5): when reproduction is established
 and two or more plausible hypotheses are independently testable, dispatch
-one `debugger` per hypothesis in a single batch — at most 3 by default, extending toward 5 only when 3+ genuinely independent hypotheses are testable. Each parallel
-debugger receives exactly one hypothesis, its confirming/refuting evidence
-targets, and a read-only diagnostic scope; each runs only non-mutating
-diagnostics in disjoint scopes and returns evidence, confidence movement,
-and rejected-hypothesis rationale. If diagnostics would mutate state or
-scopes overlap, keep the sequential flow. The main thread synthesizes the
-evidence, selects the confirmed root cause, and a single `executor` applies
-the fix.
+one `debugger` per hypothesis in a single batch — at most 3 by default,
+extending toward 5 only when 3+ genuinely independent hypotheses are testable.
+Each debugger's initial packet is symptom-first: raw reproduction, expected and
+actual behavior, environment, and a read-only diagnostic scope, without a
+preferred cause or fix, confidence ranking, or sibling conclusions. After each
+records its own initial hypotheses, a later clarification may assign exactly one
+hypothesis and its confirming/refuting evidence targets. Prior attempts, when
+needed later, are disclosed only as neutral exact action, state, and raw outcome.
+Each runs only non-mutating diagnostics in disjoint scopes and returns evidence,
+confidence movement, and rejected-hypothesis rationale. If diagnostics would
+mutate state or scopes overlap, keep the sequential flow. The main thread
+synthesizes the evidence, selects the confirmed root cause, and a single
+`executor` applies the fix.
 
 ## Stop Conditions
 
@@ -134,9 +139,13 @@ with an isolated scope.
 The normal flow is diagnostic first (`debugger`, plus `explore` when
 context is missing), then the executor-default minimal fix (`executor`), then
 evidence (`verifier`). Every direct role dispatch reuses the target role's
-required identity/result envelope and adds only the debugging workflow delta:
-the failure/reproduction command, confirmed root cause or active hypothesis,
-and diagnostic or fix scope. Debugger output itself is not redesigned here.
+required identity/result envelope and adds only the debugging workflow delta.
+An initial debugger packet contains the raw reproduction, expected behavior,
+actual behavior, environment, and diagnostic scope; it withholds the caller's
+preferred cause or fix and all sibling conclusions. A later clarification may
+supply an active hypothesis or prior attempts only as neutral exact action,
+state, and raw outcome. Executor fix packets may include the independently
+confirmed root cause. Debugger output itself is not redesigned here.
 
 | Agent | Dispatch (when) |
 |---|---|

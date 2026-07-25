@@ -180,10 +180,9 @@ def add_hard_numeric_light_bounds(root: Path) -> None:
 
 def move_bootstrap_orchestration_sentence(path: Path) -> None:
     sentence = (
-        "Orchestration default: workflow main agents own .oh-no state and gate "
-        "decisions; STANDARD/THOROUGH repository work-product mutations use "
-        "executor roles, with inline mutation only for a recorded LIGHT-tiny "
-        "or dispatch-unavailable fallback."
+        "Orchestration default: main agents own .oh-no state/gates; "
+        "STANDARD/THOROUGH repository mutations use executors, except recorded "
+        "LIGHT-tiny or dispatch-unavailable inline fallback."
     )
     body = path.read_text(encoding="utf-8")
     if body.count(sentence) != 1:
@@ -198,6 +197,24 @@ def move_bootstrap_orchestration_sentence(path: Path) -> None:
     )
 
 
+def copy_contract_fixture(plugin_root: Path, temp_dir: str) -> Path:
+    repo_copy = Path(temp_dir) / "repo"
+    copy = repo_copy / "plugins" / plugin_root.name
+    copy.parent.mkdir(parents=True)
+    shutil.copytree(plugin_root, copy)
+    scripts_copy = repo_copy / "scripts"
+    scripts_copy.mkdir()
+    source_scripts = plugin_root.parent.parent / "scripts"
+    for name in (
+        "test-codex-plugin.sh",
+        "test-claude-plugin.sh",
+        "generate-agent-wrappers.py",
+        "generate-skill-wrappers.py",
+    ):
+        shutil.copy2(source_scripts / name, scripts_copy / name)
+    return copy
+
+
 def expect_rejected(
     validator,
     plugin_root: Path,
@@ -207,19 +224,7 @@ def expect_rejected(
     assertion="assert_ralplan_review_boundary_contract",
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="oh-no-review-boundary-") as temp_dir:
-        repo_copy = Path(temp_dir) / "repo"
-        copy = repo_copy / "plugins" / plugin_root.name
-        copy.parent.mkdir(parents=True)
-        shutil.copytree(plugin_root, copy)
-        scripts_copy = repo_copy / "scripts"
-        scripts_copy.mkdir()
-        source_scripts = plugin_root.parent.parent / "scripts"
-        for name in (
-            "test-codex-plugin.sh",
-            "test-claude-plugin.sh",
-            "generate-agent-wrappers.py",
-        ):
-            shutil.copy2(source_scripts / name, scripts_copy / name)
+        copy = copy_contract_fixture(plugin_root, temp_dir)
         mutate(copy)
         stderr = io.StringIO()
         try:
@@ -236,6 +241,16 @@ def expect_rejected(
         raise AssertionError(f"mutation unexpectedly passed: {label}")
 
 
+def append_text(path: Path, text: str) -> None:
+    path.write_text(path.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+
+def reintroduce_common_fragment(root: Path) -> None:
+    (root / "docs/agent-core/_global-context-capsule.md").write_text(
+        "# Global Context Capsule\n", encoding="utf-8"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plugin-root", required=True, type=Path)
@@ -244,14 +259,152 @@ def main() -> int:
     repo_root = plugin_root.parent.parent
     validator = load_validator(repo_root)
     validator.assert_workflow_object_routing_contract(plugin_root)
+    validator.assert_child_packet_ownership_contract(plugin_root)
+    validator.assert_direct_dispatch_compatibility_contract(plugin_root)
+    validator.assert_codex_child_packet_floor_contract(plugin_root)
+    validator.assert_ralph_live_heading_references(plugin_root)
     validator.assert_orchestration_ownership_contract(plugin_root)
     validator.assert_ralplan_review_boundary_contract(plugin_root)
+
+    packet_assertion = "assert_child_packet_ownership_contract"
+    expect_rejected(
+        validator, plugin_root, "common agent-core fragment is reintroduced",
+        "must be absent", reintroduce_common_fragment, packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "SessionStart child packet loses proportional purpose",
+        "purpose/outcome", lambda root: replace_once(
+            root / "hooks/session-start", "purpose/outcome", "task summary"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "SessionStart loses selective disclosure",
+        "withholds maker conclusions", lambda root: replace_once(
+            root / "hooks/session-start",
+            "withholds maker conclusions, expected verdicts, sibling output, preferred causes",
+            "includes every available conclusion"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "generator restores common-fragment scaffolding",
+        "forbidden common-fragment composition", lambda root: append_text(
+            root.parent.parent / "scripts/generate-agent-wrappers.py",
+            "\nCOMMON_AGENT_CORE = '_global-context-capsule.md'\n"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "role core copies the former capsule header",
+        "former shared receiver contract", lambda root: append_before_heading(
+            root / "docs/agent-core/explore.md", "## Operating Rules",
+            "# Global Context Capsule"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "generated role prompt copies the former capsule header",
+        "former shared receiver contract", lambda root: append_text(
+            root / "agents/explore.md", "\n# Global Context Capsule\n"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "Ralph reviewer packet is no longer blind",
+        "Reviewer packets are blind to maker conclusions", lambda root: replace_once(
+            root / "docs/skill-core/ralph.md",
+            "Reviewer packets are blind to maker conclusions",
+            "Reviewer packets include maker conclusions"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "verifier skips evidence design before audit",
+        "First design the required evidence", lambda root: replace_once(
+            root / "docs/agent-core/verifier.md",
+            "First design the required evidence",
+            "First accept the supplied proof"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "debugging packet exposes a preferred cause initially",
+        "initial packet is symptom-first", lambda root: replace_once(
+            root / "docs/skill-core/systematic-debugging.md",
+            "initial packet is symptom-first",
+            "initial packet includes the preferred cause"), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "child instruction prose is not English",
+        "non-English child instruction prose", lambda root: append_before_heading(
+            root / "docs/agent-core/debugger.md", "## Operating Rules",
+            "원인을 먼저 추측하세요."), packet_assertion,
+    )
+
+    direct_assertion = "assert_direct_dispatch_compatibility_contract"
+    expect_rejected(
+        validator, plugin_root, "direct executor packet loses exact revision safety",
+        "direct-dispatch safety contract", lambda root: replace_once(
+            root / "docs/agent-core/executor.md",
+            "require the target role, exact\n  target revision/diff fingerprint",
+            "require the target role and descriptive target summary"), direct_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "direct verifier restores mandatory workflow IDs",
+        "hard-requires workflow IDs", lambda root: append_before_heading(
+            root / "docs/agent-core/verifier.md", "## Output",
+            "Before verification, require Packet ID, Run/session ID, Story/task ID."),
+        direct_assertion,
+    )
+
+    codex_floor_assertion = "assert_codex_child_packet_floor_contract"
+    expect_rejected(
+        validator, plugin_root, "Codex hook-disabled floor loses selective disclosure",
+        "Codex child-packet floor marker", lambda root: replace_once(
+            root / "docs/platforms/codex-child-packet-floor.md",
+            "withhold maker\nconclusions, expected verdicts, sibling outputs, and preferred root-cause\nhypotheses",
+            "include every available conclusion"), codex_floor_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "self-contained Codex wrapper loses shared caller floor",
+        "hook-disabled caller floor marker", lambda root: replace_once(
+            root / "skills/ralph/SKILL.md",
+            "../../docs/platforms/codex-child-packet-floor.md",
+            "../../docs/platforms/codex-ralph.md"), codex_floor_assertion,
+    )
+
+    expect_rejected(
+        validator, plugin_root, "retired Ralph heading reference returns",
+        "retired Ralph heading reference", lambda root: append_before_heading(
+            root / "docs/skill-core/ralph.md", "## Output",
+            "See the retired Scope Trace Gate for scope decisions."),
+        assertion="assert_ralph_live_heading_references",
+    )
+
+    expect_rejected(
+        validator, plugin_root, "Ralph permits out-of-manifest mutation",
+        "Expansion request", lambda root: replace_once(
+            root / "docs/skill-core/ralph.md", "stops before editing and\nreturns an `Expansion request`",
+            "continues editing and records the expansion later"), packet_assertion,
+    )
+    for label, marker, replacement in (
+        ("unmapped test is admitted", "Map every new or changed test", "admit tests without an AC or failure-mode map"),
+        ("duplicate test variant is admitted", "duplicate variants", "repeated inputs are encouraged"),
+        ("implementation-detail-only test is admitted", "implementation-detail-only assertions", "private helper checks are accepted"),
+        ("defensive combination explosion is admitted", "combination explosion", "cross-product expansion is accepted"),
+        ("new helper framework is admitted", "unapproved helper/framework/fixture expansion", "new test infrastructure is accepted"),
+    ):
+        expect_rejected(
+            validator, plugin_root, label, marker,
+            lambda root, marker=marker, replacement=replacement: replace_once(
+                root / "docs/skill-core/ralph.md", marker, replacement), packet_assertion,
+        )
+    expect_rejected(
+        validator, plugin_root, "final run Completion Stop precedes mutation-capable cleanup",
+        "final run Completion Stop ordering requires exactly one '## Completion Stop'",
+        lambda root: append_before_heading(
+            root / "docs/skill-core/ralph.md", "## Cleanup And Final Verification",
+            "## Completion Stop\n\nRecord final run Completion Stop only after mutation-capable cleanup, the sole review round and any one focused review fix, the independent final verifier, and the exact final complete manifest fingerprint. Any later mutation invalidates this final stop and requires reevaluation and reverification on the new revision."), packet_assertion,
+    )
+    expect_rejected(
+        validator, plugin_root, "independent verifier audit loses necessity mapping",
+        "Test Necessity mapping", lambda root: replace_once(
+            root / "docs/skill-core/ralph.md", "Test Necessity mapping",
+            "test count"), packet_assertion,
+    )
 
     expect_rejected(
         validator,
         plugin_root,
-        "forced routing overrides workflow object-of-analysis boundary",
-        "object-of-analysis routing boundary",
+        "unconditional bootstrap loses canonical workflow object boundary",
+        "object-owner: unconditional OH_NO_BOOTSTRAP is missing 'A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.'",
         lambda root: replace_once(
             root / "hooks" / "session-start",
             "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
@@ -275,11 +428,11 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "Ralph dispatch packet drops Artifacts",
-        "dispatch packet Artifacts/identity contract",
+        "Ralph assignment delta drops read-only artifact pointers",
+        "caller-owned child packet and Ralph assignment-delta contract",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralph.md",
-            "Artifacts: {verification ledger and read-only inputs; .oh-no state stays main-owned}",
+            "Plan/PRD and read-only artifact pointers: {authoritative inputs; .oh-no state stays main-owned}",
             "Inputs: {selected context}",
         ),
         assertion="assert_orchestration_ownership_contract",
@@ -288,7 +441,7 @@ def main() -> int:
         validator,
         plugin_root,
         "Ralph packet drops persistent executor assignment identity",
-        "dispatch packet Artifacts/identity contract",
+        "caller-owned child packet and Ralph assignment-delta contract",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralph.md",
             "Executor assignment ID: {stable across one executor assignment or TDD cycle; not applicable for non-executor roles}",
@@ -399,7 +552,7 @@ def main() -> int:
         "executor result envelope",
         lambda root: replace_once(
             root / "docs" / "agent-core" / "executor.md",
-            "Executor assignment ID: <echo>",
+            "Executor assignment ID: <echo when supplied | not supplied — direct workflow>",
             "Executor context: <summary>",
         ),
         assertion="assert_orchestration_ownership_contract",
@@ -567,7 +720,7 @@ def main() -> int:
         "must not directly dispatch plan-reviewer outside Ralplan",
         lambda root: append_before_heading(
             root / "docs" / "skill-core" / "ralph.md",
-            "## Scope Trace Gate",
+            "## Mutation Manifest and Expansion Gate",
             "Dispatch `plan-reviewer` for Ralph completion review.",
         ),
     )

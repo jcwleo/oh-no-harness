@@ -65,5 +65,7 @@ fi
 "$script" status
 ```
 
-On Claude Code, the shared core's bootstrap/session-start timing applies as the
-`SessionStart` event, and the clear/reset command is `/clear`.
+On Claude Code, native skill descriptions select the destination. When the
+stored preference is enabled, Claude-only action ordering and essential
+precedence guidance applies from the next `SessionStart`; the clear/reset
+command is `/clear`.

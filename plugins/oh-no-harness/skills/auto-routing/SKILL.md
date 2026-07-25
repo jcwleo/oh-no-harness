@@ -1,6 +1,6 @@
 ---
 name: auto-routing
-description: Use when the user wants to turn Oh No Harness automatic skill-selection guidance on or off, check routing status, or make the bootstrap prompt more or less assertive across sessions.
+description: Use when the user asks to enable, disable, or inspect future-session routing guidance; configuration only, not current-turn workflow selection.
 argument-hint: "[on|off|status]"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/auto-routing.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-runtime.md`
 - `../../docs/platforms/codex-auto-routing.md`
 
@@ -26,7 +27,7 @@ The sections below are already composed for this platform. Do not ask the runtim
 # Auto Routing
 
 Every platform bootstrap always carries compact native skill-loading guidance
-plus the baseline no-route and direct-edit lanes from `using-oh-no-harness`.
+plus the always-on SessionStart no-route and direct-edit boundary; native skill descriptions own positive destination selection.
 Auto Routing controls whether Claude Code SessionStart adds the stronger
 forced-routing layer. The toggle only adds or removes that opt-in layer; it does
 not change the baseline lanes on any platform or add hidden runtime routing.
@@ -35,7 +36,7 @@ not change the baseline lanes on any platform or add hidden runtime routing.
 
 Auto Routing is a workflow-entry configuration stage, not a software development stage.
 
-Use it to make future sessions more likely to choose the right skill before work starts. It should not gather requirements, plan, edit code, debug failures, clean code, or verify completion.
+Use it to configure future-session routing guidance. It should not gather requirements, plan, edit code, debug failures, clean code, or verify completion.
 
 ## When To Use
 
@@ -46,7 +47,7 @@ Use when the user asks to:
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
 
-Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
+Do not use as a substitute for skill selection inside the current session — apply the always-on SessionStart boundary and native workflow skill descriptions for current-turn workflow selection.
 
 ## Platform Behavior
 
@@ -54,10 +55,6 @@ Apply the active platform runtime document before changing settings. Some
 platforms support persistent bootstrap routing; others can only explain the
 setting and leave runtime behavior unchanged.
 
-When the active platform supports persistent bootstrap routing, changes take
-effect on the next bootstrap or session-start event, such as a new session, app
-restart, clear/reset command, or compaction. Existing session context is not
-rewritten.
 
 ## Configuration
 
@@ -104,13 +101,30 @@ If the plugin root is not exposed, resolve the installed script with the active 
 
 ## Response Rules
 
-- For `on`, enable the setting, report the config path, and tell the user to
-  restart or clear the active platform session before expecting the new behavior.
-- For `off`, disable the setting, report the config path, and tell the user to
-  restart or clear the active platform session before expecting the new behavior.
+- For `on` or `off`, persist the preference, report the config path, and report its semantics according to the active platform adapter.
 - For `status`, report whether auto-routing is on or off and where the setting is stored.
 - If Bash is unavailable, explain the config file shape without claiming the setting changed.
 - Do not invoke workflow skills from this configuration skill.
+
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
 
 ## Source: docs/platforms/codex-runtime.md
 
@@ -141,11 +155,11 @@ work, compaction, or handoff.
 
 Dispatch only after the active skill's trigger fires, then read
 `docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(agent_type="oh-no-<role>", ...)` first with `fork_turns="none"`
-(omitting it defaults to a full-history fork, which rejects a custom
+`spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")` first; the legacy `spawn_agent(agent_type="oh-no-planner", ...)` shorthand is incomplete
+(omitting `fork_turns="none"` defaults to a full-history fork, which rejects a custom
 `agent_type`), do not combine it with `fork_context=true`, and use generic
-prompt embedding only after the custom agent is actually rejected. The task packet carries scope, ownership, expected
-output, and lifecycle.
+prompt embedding only after the custom agent is actually rejected. The example encodes the Ralplan workflow, Planner role, draft phase, and stable ordinal; derive each caller's concrete identity the same way and keep sibling names unique. The task packet carries scope, ownership, expected
+output, and lifecycle; task names match `^[a-z0-9_]+$`, use deterministic workflow/role/phase-or-lens/stable-ordinal sibling uniqueness, and never replace requested `agent_type` plus child `agent_role` and matching developer instructions as role proof.
 
 Every dispatched result is a dependency: `wait_agent` must reach final status,
 the caller captures and uses the output, and only then performs lifecycle
@@ -172,9 +186,10 @@ This platform overlay is source content for the generated Codex-facing
 `auto-routing` runtime document, after the shared core and
 `docs/platforms/codex-runtime.md`.
 
-Codex native skill loading remains the primary routing surface. The
-`auto-routing` skill can preserve the config file shape and explain the
-preference, but it does not add forced routing to Codex SessionStart.
+Codex native skill loading remains the primary routing surface, with skill
+descriptions providing destination discovery. Hooks are opt-in, and the
+`auto-routing` skill stores and explains the preference, but enabling it
+does not add forced routing and does not change current routing semantics.
 
 If a Codex-facing SessionStart hook runs, it must stay compact and must not
 embed full skill core bodies.

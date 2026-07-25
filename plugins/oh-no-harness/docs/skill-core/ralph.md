@@ -1,6 +1,6 @@
 ---
 name: ralph
-description: Use when implementing or executing an approved plan, PRD, spec, story list, ticket, or concrete task with acceptance criteria, required verification, or multiple implementation steps.
+description: Use when an approved plan, PRD, spec, ticket, or concrete add/fix/refactor/implement request supplies a usable acceptance contract; explicit test-first intent uses test-driven-development, while unknown root-cause investigation uses systematic-debugging.
 argument-hint: "<approved plan, PRD path, spec path, or concrete task>"
 ---
 
@@ -350,7 +350,10 @@ planned commands may mutate, (5) no broad-mutating command such as generation,
 dependency installation, lockfile or snapshot update, autofix, or format-all,
 (6) pre-edit status and a non-scope fingerprint are recorded so final status
 can prove the non-scope set unchanged, and (7) no approved-plan worktree policy
-applies — Ralph derives and owns the decision. These safeguards matter more
+applies — Ralph derives and owns the decision. The carve-out requires an actual
+Git checkout: a plain non-Git directory cannot establish clean-status or
+non-scope safeguards and records `Worktree decision: blocked` unless the user
+explicitly authorizes current-directory mutation. These safeguards matter more
 because LIGHT permits cohesive multi-file behavior changes and the eligibility
 gate has no hard size backstop. Record `Worktree decision: light direct
 checkout` plus a one-line reason. A compliant LIGHT run is ALWAYS in-place
@@ -381,15 +384,12 @@ Phase: EXECUTE. Per story:
 1. Select the next incomplete story; apply its task-level mode.
 2. Dispatch `explore` when files, tests, or integration surfaces are not
    obvious — independent targets as one parallel batch (up to 5). Apply the
-   `## Scope Trace Gate` and record why the intended edits are in scope.
-3. Record the story fields: expected outcome and ACs; owned files; contract
-   surface (the actual public, caller, or verifier-facing entrypoint and any
-   compatibility uncertainty that blocks editing); baseline guard (nearby
-   existing checks that must still pass, or why none exists); TDD
-   requirement or exception; verification command and acceptance-to-evidence
-   mapping; the most likely story risk (for example contract-surface
-   mismatch, semantic-lifecycle miss, hidden regression); diff-budget
-   expectation; carve-out eligibility when claimed.
+   `## Mutation Manifest and Expansion Gate` before assigning edits.
+3. Issue one bounded executor assignment: one bounded task and the minimal
+   inseparable AC-ID set. Do not split one behavior's RED/GREEN cycle or a
+   source/generated pair merely to reduce apparent size. The main caller builds
+   the child's self-contained English packet and adds only Ralph's assignment
+   delta; role prompts do not reconstruct omitted caller context.
 4. Classify the story's TDD requirement (behavior change, bug-fix
    reproduction, refactor characterization, or documented exception). If TDD
    applies, read and follow `test-driven-development` before editing
@@ -404,12 +404,13 @@ Phase: EXECUTE. Per story:
    `natural-dispatch` only when the isolation gates authorize one concurrent
    `executor` batch; apply the per-executor scope check before integrating.
 6. Run the story-specific verification required by the mode and tier.
-7. After each story, recheck the `Scope Trace Gate` and the cumulative
-   Process Budget Gate against all work so far; reclassify a `provisional`
+7. After each story, compare actual changes with the Mutation Manifest and
+   recheck the cumulative Process Budget Gate; reclassify a `provisional`
    carve-out here. Mark the story complete only when ACs, TDD evidence,
-   scope trace, acceptance-to-evidence mapping, contract-surface evidence,
-   baseline guard, and story risk-check evidence all pass or carry explicit
-   residual risk. If this story changed behavior an earlier story depended
+   manifest adherence, the Verification Contract, admitted test-necessity
+   decisions, contract-surface evidence, baseline guard, and story risk-check
+   evidence all pass or carry explicit residual risk. If this story changed
+   behavior an earlier story depended
    on, re-verify that story — never leave a stale `passes: true` [E9].
 8. On a failing check or unexpected behavior, read and follow
    `systematic-debugging` before attempting fixes. Ladder per root cause:
@@ -484,56 +485,49 @@ Batch rule: create the whole eligible batch of independent same-depth work
 before waiting on any result; never merge dependent review stages into one
 batch. Cap a concurrent `executor` batch at up to 5 disjoint scopes; queue the remainder for the next batch. Continue local work only where it does not overlap delegated scopes.
 
-Dispatch packet (the active adapter deciding whether the invocation is a
-registered custom agent, a plugin-scoped agent, or a documented fallback):
+The main caller owns each complete child packet. Apply the common caller floor
+from SessionStart when enabled or the native platform wrapper fallback, use
+English instruction prose, and add only the Ralph delta below; do not rely on
+role prompts or conversation history to fill omissions.
+A same-child follow-up must explicitly restate every changed target,
+authorization, scope, or obligation. The active adapter deciding whether the
+invocation is a registered custom agent, a plugin-scoped agent, or a documented
+fallback remains unchanged.
+
+For an initial `code-reviewer` packet, provide the exact contract and diff but
+withhold maker conclusions, expected verdicts, and sibling outputs. For an
+initial `verifier` packet, require an independent evidence design from the ACs,
+target, and raw evidence before a later audit phase discloses accepted review
+findings or a fix manifest. Those findings and manifests are audit obligations,
+not proof, and never replace the verifier's independent evidence.
+
+Add this Ralph-specific assignment delta:
 
 ```text
-Packet ID: {unique dispatch id; mechanically distinct from run/session and story/task ids}
+Packet ID: {unique dispatch id; distinct from run/session and story/task ids}
 Run/session ID: {Ralph run id and main-owned .oh-no session id}
 Story/task ID: {stable id and title; never reused as Packet ID}
 Executor assignment ID: {stable across one executor assignment or TDD cycle; not applicable for non-executor roles}
 Role: {explore|executor|verifier|code-reviewer}
-Execution mode: {task-level mode and applicable policy}
+Execution mode: {task-level mode, verification tier, artifact policy, and agent policy}
 Worktree decision and location: {recorded decision and absolute location}
-Direction Contract source: {approved artifact path/section or direct request}
-Direction Contract binding: {primary goal; applicable non-goals, constraints/protected assumptions, and direction-change approval rule}
+Direction Contract source and binding: {approved source plus applicable AC/non-goal/safety constraints}
 AC IDs: {accepted criteria this role may affect or audit}
-Plan/PRD path: {authoritative path or direct-task record}
-Artifacts: {verification ledger and read-only inputs; .oh-no state stays main-owned}
-Target revision/diff fingerprint: {revision plus stable fingerprint of the assigned target}
-Scope: {owned files/directories, or read-only areas}
-Do not touch: {other ownership, generated boundaries, and excluded paths}
-Expected structured output: {exact role envelope, identity echo, and required evidence}
-TDD responsibility: {RED/GREEN/REFACTOR step, persistent executor assignment, exception, or none}
-Verification responsibility: {caller-owned, role-owned command/evidence, or none}
+Plan/PRD and read-only artifact pointers: {authoritative inputs; .oh-no state stays main-owned}
+TDD responsibility: {RED/GREEN/REFACTOR step, stable assignment, exception, or none}
 Platform invocation: {active adapter invocation syntax}
-Lifecycle: caller waits for and captures the final result, validates its
-identity/revision, integrates or records it, then applies host-specific cleanup
-or closure only when the host exposes it; timeout or no-completion wait results
-are not final results and never justify abandoning a running or pending subagent
-merely because it is slow
-Coordination: you are not alone in the codebase — do not revert, overwrite,
-or reformat work outside your scope; report conflicts instead of resolving
-them silently
+Lifecycle: caller waits for and captures the final result, validates identity and revision, then applies host-specific cleanup only when exposed
+Coordination: {ownership/conflict boundary and no-overwrite rule}
+Assigned review perspective: {when applicable; otherwise not applicable with reason}
 ```
 
-For `executor`, `code-reviewer`, and `verifier`, a source pointer alone is an
-incomplete Direction Contract packet: copy every applicable goal, non-goal,
-constraint/protected assumption, and approval rule into the binding field so the
-role can mechanically reject scope drift.
-
-Result intake is caller-owned. Before a role output can gate anything, require
-exact Packet ID, Run/session ID, Story/task ID, role, and target
-revision/diff-fingerprint echoes; executor results also echo the stable
-`Executor assignment ID`. Require the executor's result fingerprint or the
-reviewer's/verifier's reviewed/verified revision to bind to the current target.
-Reject stale or misrouted results, record the mismatch, and redispatch or
-rebase the packet instead of interpreting the enum. A later mutation
-invalidates intersecting reviewer/verifier results [E9], except that the
-single post-review focused fix does not invalidate-and-redispatch review. The
-review verdict remains bound to the reviewed revision as the round record,
-and the verifier is the mandatory freshness owner for the fixed revision. All
-other intersecting-evidence invalidation is unchanged.
+Result intake remains caller-owned. Require exact identity and revision echoes,
+including the stable `Executor assignment ID` for executor results, before a role
+output can gate anything. Reject stale or misrouted results rather than
+interpreting their enums. A later intersecting mutation invalidates review or
+verification evidence [E9], except that the single post-review focused fix keeps
+the review verdict as the reviewed-revision round record and makes the verifier
+the freshness owner for the fixed revision.
 
 Integration, sequential: inspect each accepted result and structured change
 manifest; run the per-executor scope check (owned files only, slice satisfied,
@@ -544,17 +538,35 @@ implemented`, `Overall verdict: approve`, and `Verification verdict: pass`
 are caller gate inputs, not story acceptance or autonomous transitions. Never
 use missing output as completion evidence.
 
-## Scope Trace Gate
+## Mutation Manifest and Expansion Gate
 
 Phase: EXECUTE — checked before editing and at every story recheck.
 
-Every changed file and every meaningful changed line maps to at least one of:
-the user's concrete request; an approved spec, plan, PRD story, or ticket; a
-test, AC, or verification requirement; removal of code made unused by the
-current change; behavior-preserving cleanup under the current behavior lock
-[E5]. Do not improve adjacent code, reformat unrelated sections, add
-speculative abstraction or configuration, or delete pre-existing dead code
-out of scope — report such findings as residual risk or follow-ups.
+The Mutation Manifest lists every planned path with its change kind, concise
+semantic obligation, AC or safety basis, and causal generated outputs. Compare
+actual changed paths and meaningful changed lines with that manifest. Existing
+scope discipline remains binding: do not improve adjacent code, reformat
+unrelated sections, add speculative abstraction or configuration, or delete
+pre-existing dead code outside the approved cleanup boundary.
+
+When required work is outside the manifest, Ralph stops before editing and
+returns an `Expansion request` to the caller with:
+
+```text
+Expansion request:
+- trigger and discovery
+- why the current manifest cannot complete the assignment
+- smallest proposed paths and change kinds
+- mapped AC or change-introduced independent failure mode
+- generated-output impact
+- affected packet fields
+- mutation performed before stop
+- requested-direction-change: yes | no
+```
+
+Do not infer authorization from file, line, process, dispatch, or test counts.
+Unapproved expansion remains blocked; unrelated findings are residual risk or
+follow-ups.
 
 ## Validation Gate
 
@@ -564,9 +576,24 @@ record a validation check before completion. Apply the canonical
 completion claims supported only by metric movement — metric movement never
 replaces the user, maintainer, operator, or public-contract outcome.
 
-## Verification Budget Policy
+## Verification Contract and Test Necessity Gate
 
-Phase: EXECUTE — applied per story and cumulatively.
+Phase: EXECUTE — applied per bounded assignment and cumulatively.
+
+For each assigned AC, record the real public, caller, or verifier-facing
+evidence surface; the focused RED behavior/command and expected old failure;
+the GREEN behavior/command and required observation; the relevant baseline
+guard; and the freshness owner. Map every new or changed test to an assigned AC
+ID or change-introduced independent failure mode and record why existing
+evidence is insufficient, the smallest distinguishing assertion, and the
+nearest existing suite.
+
+Reject duplicate variants, tests of unchanged behavior,
+implementation-detail-only assertions, defensive combination explosion, and
+unapproved helper/framework/fixture expansion. After focused RED→GREEN and the
+mapped baseline pass, stop adding tests. Numeric size, ratio, dispatch, and test
+counts are anomaly signals and rescope prompts only; they do not authorize work,
+prove necessity, or create a hard test budget.
 
 Tier minimums [E9]:
 
@@ -611,7 +638,9 @@ Phase: EXECUTE (budget baselines are copied at PREPARE) — this is the
 cumulative per-story mid-run early-stop check (the Diff-Budget Gate owns the
 final pre-review evaluation). At PREPARE, copy the plan's expected
 changed-file groups, diff size, review topology, cleanup depth, broad-suite
-cap, and the one-round review budget — or derive conservative values.
+cap, and the one-round review budget — or derive conservative values. Numeric
+size, ratio, dispatch, and test counts remain anomaly signals, never
+authorization, necessity proof, or a hard test budget.
 
 Stop for rescope, simplify, or user approval when [E10]: the handwritten
 diff exceeds twice the estimate; generated output hides unexpectedly broad
@@ -644,6 +673,17 @@ The expanded scope review answers: why this breadth is necessary for the
 current ACs; which changed files are essential versus collateral; whether a
 narrower patch would satisfy the request; and the maintainer's rollback
 boundary. Unjustified breadth narrows the patch or records a blocker.
+
+## Executor Assignment Completion Stop
+
+Stop the current executor assignment when its manifest is satisfied, mapped
+verification is green and fresh, every necessary test is admitted, no approved
+expansion remains, and only optional follow-ups remain. This stop is local to
+that bounded assignment, not final run completion. Mutation-capable cleanup or
+a focused review fix starts a new bounded assignment with its own updated
+manifest, Verification Contract, Test Necessity decisions, and assignment stop.
+Do not add variants, helpers, cleanup, or adjacent fixes merely to continue the
+current assignment.
 
 ## Cleanup And Final Verification
 
@@ -709,12 +749,16 @@ reviewer stage to complete first and no fix-manifest step.
 
 Review-then-verify [E7]: run exactly one selected code-review stage first and
 validate its caller-synthesized `Overall verdict`, blocking finding IDs, and
-reviewed revision binding. With no blocking findings, start the required
-independent self-host `verifier` pass (independence per E7) against
-the reviewed revision. On `blocking-findings`, issue exactly one
-executor-owned focused fix and record its manifest before the verifier starts;
-the verifier packet includes the reviewer findings, fix manifest, and the
-obligation to audit every blocking finding ID against the fixed revision.
+reviewed revision binding. Reviewer packets are blind to maker conclusions,
+expected verdicts, and sibling output; each reviewer derives findings from the
+exact contract and diff. With no blocking findings, start the required
+independent self-host `verifier` pass (independence per E7) against the reviewed
+revision. On `blocking-findings`, issue exactly one executor-owned focused fix
+and record its manifest before the verifier starts. The verifier first records
+its evidence design from the Direction Contract, ACs, exact target, and raw
+evidence; only then does the caller disclose the accepted reviewer findings and
+fix manifest for the audit of every blocking finding ID against the fixed
+revision. Accepted findings and fix manifests are audit obligations, not proof.
 Reviewer approval of the fixed revision is NOT required and MUST NOT be requested.
 Validate the verifier's `Verification verdict`, verified revision binding, and
 per-finding audit before using it.
@@ -767,12 +811,16 @@ it after the dependency is satisfied. When both roles are required, the ledger
 must show `verifier started after reviewer completion: yes` or the verifier
 pass does not count.
 
-Review focus — the reviewer pass must check:
+Review focus — the reviewer pair and independent verifier must audit the exact
+complete manifest fingerprint. The verifier independently checks manifest
+adherence, semantic RED/GREEN, Test Necessity mapping, scope and non-goals,
+generated causality, and the Completion Stop; reviewer approval is not a
+substitute for that evidence.
 
 - every story satisfies its ACs with mapped (not merely listed) evidence
 - the contract surface, semantic model, and baseline guard were identified
   before accepting local green results
-- a simpler or safer approach; scope trace and speculative-complexity
+- a simpler or safer approach; manifest adherence and speculative-complexity
   rejection
 - RED/GREEN or documented exceptions for behavior changes
 - the security lens when auth, data, secrets, filesystem, network, config,
@@ -783,8 +831,8 @@ Review focus — the reviewer pass must check:
   AC ID, named risk, adjacent regression surface, safety invariant, or
   directly changed semantic model triggers it
 
-Reviewer findings outside the Scope Trace Gate are residual risk or
-follow-ups, not fixes in this run; a regression caused by the current change
+Reviewer findings outside the Mutation Manifest and Expansion Gate are residual
+risk or follow-ups, not fixes in this run; a regression caused by the current change
 always maps to approved scope and may block. For accepted blocking finding
 IDs, the main agent issues exactly one focused `executor` assignment and
 records a manifest mapped to every accepted finding ID; the reviewer never
@@ -802,6 +850,15 @@ Phase: FINALIZE — the remaining checkpoints run in order, after REVIEW:
    report the branch/PR handoff.
 4. COMPLETION_AUDIT — read and follow `verification-before-completion` before
    any completion claim, then write the final report.
+
+## Completion Stop
+
+Record final run Completion Stop only after mutation-capable cleanup, the sole
+review round and any one focused review fix, all resulting rechecks, the
+independent final verifier, integration, and completion audit have stabilized
+the exact final complete manifest fingerprint. Any later mutation invalidates
+this final stop and requires reevaluation and reverification on the new
+revision. Optional follow-ups do not reopen a valid final stop.
 
 ## Resume Protocol
 
@@ -848,9 +905,13 @@ Completion criteria:
 - a run recorded in LIGHT mode shows dispatched-executor evidence (the
   LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)
 - Diff-Budget is `passed@<current stabilized fingerprint>` for the delivered diff
+- actual changed paths adhere to the Mutation Manifest; any Expansion request is
+  approved and reflected in the current capsule before mutation
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status
-- required TDD evidence exists, or each exception is documented
+- required TDD evidence exists, or each exception is documented; every new or
+  changed test has a recorded Test Necessity decision
+- Completion Stop was applied when its conditions became true
 - the mode-required review is recorded complete in the `## Review Gate`
   dependency graph — approved or compliantly not-required, or blocking findings
   with one accepted fix manifest mapped to every finding ID per that section
@@ -880,16 +941,18 @@ and stop instead of continuing the loop.
 
 Return: session directory and PRD path; execution profile (mode/source,
 tier, policies, `Parallel trigger`, `Worktree decision and location`,
-integration status); delivery (stories, files, cleanup); verification
-(commands/results, AC mapping, contract/baseline, risk/completion,
-validation check, diff budget); residual risk.
+integration status); delivery (stories, manifest adherence, files, cleanup);
+verification (commands/results, AC mapping, Verification Contract status, Test
+Necessity decisions, risk/completion, validation check, complete manifest
+fingerprint); Expansion requests; Completion Stop status; residual risk.
 
 Review-phase attribution: when 2+ stages ran, include exactly
 `Review phases: plan=<n>; implementation-code=<n>; independent-verifier=<n>`;
 when fewer than two ran, use ordinary labeled prose and omit that count line.
 
-Process budget outcome: planned versus actual tests/TDD cycles, role
-dispatch count and reasons, broad-suite count, and rescope events.
+Process anomaly outcome: planned versus actual tests/TDD cycles, role dispatch
+reasons, broad-suite runs, and rescope events; no count authorizes or proves
+work.
 
 ## Final Handoff
 

@@ -10,6 +10,8 @@ PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
 MARKETPLACE_ROOT="${OH_NO_MARKETPLACE_ROOT:-$REPO_ROOT}"
 PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$MARKETPLACE_ROOT/plugins/$PLUGIN_NAME}"
+LIVE_PLUGIN_ROOT="${OH_NO_LIVE_PLUGIN_ROOT:-$PLUGIN_ROOT}"
+LIVE_PLUGIN_ROOT_OVERRIDDEN=0; [[ -n "${OH_NO_LIVE_PLUGIN_ROOT:-}" ]] && LIVE_PLUGIN_ROOT_OVERRIDDEN=1
 PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
 MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 REQUESTED_SCOPE="${OH_NO_PLUGIN_SCOPE:-}"
@@ -39,7 +41,6 @@ LIVE_SYSTEM_PROMPT="${OH_NO_SYSTEM_PROMPT:-You are a concise smoke test runner. 
 RUN_DIR="${OH_NO_TEST_RUN_DIR:-${MARKETPLACE_ROOT}/.oh-no/test-runs/$(date +%Y%m%d-%H%M%S)}"
 
 PUBLIC_SKILLS=(
-  using-oh-no-harness
   interview
   ralplan
   ralph
@@ -53,11 +54,7 @@ PUBLIC_SKILLS=(
   install-statusline
   configure-subagents
 )
-
-ALL_SKILLS=(
-  "${PUBLIC_SKILLS[@]}"
-)
-
+ALL_SKILLS=("${PUBLIC_SKILLS[@]}")
 AGENTS=(
   explore
   analyst
@@ -102,11 +99,9 @@ Options:
   --live-hook-only       Run only live Claude SessionStart hook policy and auto-routing tests.
   --skip-live            Skip live /skill smoke tests. Default.
   --no-install           Do not add marketplace, install, or update plugin.
-  --isolated-config      Create a throwaway CLAUDE_CONFIG_DIR for this run and
-                         remove it on EXIT/INT/TERM, so install/marketplace steps
-                         never touch your real ~/.claude. Use for offline/install
-                         runs; live tests need real auth, so pair --live with
-                         --no-install instead.
+  --isolated-config      Create and clean up a throwaway CLAUDE_CONFIG_DIR. This
+                         protects install and model-bearing plugin-dir live runs;
+                         gateway auth can remain available outside that directory.
   --scope <scope>        Install/update scope: local, project, user, managed.
                          Default: update existing scope if installed, otherwise user.
   --live-load <mode>     plugin-dir or installed. Default: plugin-dir.
@@ -124,10 +119,15 @@ Safety:
   'oh-no-harness' GitHub registration with this checkout. A different
   OH_NO_MARKETPLACE_NAME is NOT a safe path (it still writes a local registration
   into the real config). Make it safe with --isolated-config (a throwaway config
-  home; keep it for offline/install runs since it lacks auth) or a validated
-  GitHub source (--marketplace-source jcwleo/oh-no-harness). Live tests need real
-  auth, so pair --live with --no-install (plugin-dir load, no marketplace change).
-  Set OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1 to overwrite it on purpose.
+  home) or a validated GitHub source (--marketplace-source jcwleo/oh-no-harness).
+  For plugin-dir live
+  runs, --no-install skips driver registration but ordinary Claude startup may
+  still sync registry metadata: use --isolated-config with gateway auth, or a
+  disposable non-default CLAUDE_CONFIG_DIR clone for native auth/settings.
+  OH_NO_LIVE_PLUGIN_ROOT selects an absolute disposable plugin copy for model runs
+  while canonical source validation stays on OH_NO_PLUGIN_ROOT; it requires --no-install.
+  Real-config overrides are OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1 (install)
+  and OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE=1 (model-bearing live), used knowingly.
 
 Environment overrides:
   CLAUDE_BIN, PYTHON_BIN, OH_NO_PLUGIN_SCOPE, OH_NO_LIVE, OH_NO_DEEP_LIVE,
@@ -138,136 +138,47 @@ Environment overrides:
   OH_NO_SIMPLIFY_LIVE,
   OH_NO_NATURAL_SESSION_START_LIVE,
   OH_NO_MAX_BUDGET_USD, OH_NO_LIVE_TIMEOUT_SECONDS, OH_NO_LIVE_TIMEOUT_GRACE_SECONDS,
-  OH_NO_LIVE_LOAD_MODE, OH_NO_MARKETPLACE_SOURCE,
-  OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE, OH_NO_ISOLATED_CONFIG
+  OH_NO_LIVE_LOAD_MODE, OH_NO_LIVE_PLUGIN_ROOT, OH_NO_MARKETPLACE_SOURCE, OH_NO_ISOLATED_CONFIG,
+  OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE, OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --live)
-      RUN_LIVE=1
-      shift
-      ;;
-    --deep-live)
-      RUN_DEEP_LIVE=1
-      shift
-      ;;
-    --parallel-live)
-      RUN_PARALLEL_LIVE=1
-      shift
-      ;;
-    --ralplan-live)
-      RUN_RALPLAN_LIVE=1
-      shift
-      ;;
-    --fusion-rescue-live)
-      RUN_FUSION_RESCUE_LIVE=1
-      shift
-      ;;
-    --cross-host-fallback-live)
-      RUN_CROSS_HOST_FALLBACK_LIVE=1
-      shift
-      ;;
-    --model-diversity-live)
-      RUN_MODEL_DIVERSITY_LIVE=1
-      shift
-      ;;
-    --parallel-executor-live)
-      RUN_PARALLEL_EXECUTOR_LIVE=1
-      shift
-      ;;
-    --simplify-live)
-      RUN_SIMPLIFY_LIVE=1
-      shift
-      ;;
-    --natural-session-start-live)
-      RUN_NATURAL_SESSION_START_LIVE=1
-      shift
-      ;;
-    --live-hook-only)
-      RUN_LIVE=1
-      LIVE_HOOK_ONLY=1
-      shift
-      ;;
-    --skip-live)
-      RUN_LIVE=0
-      shift
-      ;;
-    --no-install)
-      INSTALL_MODE=0
-      shift
-      ;;
-    --isolated-config)
-      ISOLATED_CONFIG=1
-      shift
-      ;;
-    --scope)
-      REQUESTED_SCOPE="${2:-}"
-      [[ -n "$REQUESTED_SCOPE" ]] || { echo "Missing value for --scope" >&2; exit 2; }
-      shift 2
-      ;;
-    --live-load)
-      LIVE_LOAD_MODE="${2:-}"
-      [[ -n "$LIVE_LOAD_MODE" ]] || { echo "Missing value for --live-load" >&2; exit 2; }
-      shift 2
-      ;;
-    --marketplace-source)
-      MARKETPLACE_SOURCE="${2:-}"
-      [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }
-      shift 2
-      ;;
-    --model)
-      LIVE_MODEL="${2:-}"
-      [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }
-      FUSION_RESCUE_LIVE_MODEL="$LIVE_MODEL"
-      shift 2
-      ;;
-    --max-budget-usd)
-      LIVE_MAX_BUDGET_USD="${2:-}"
-      [[ -n "$LIVE_MAX_BUDGET_USD" ]] || { echo "Missing value for --max-budget-usd" >&2; exit 2; }
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+    --live) RUN_LIVE=1; shift ;;
+    --deep-live) RUN_DEEP_LIVE=1; shift ;;
+    --parallel-live) RUN_PARALLEL_LIVE=1; shift ;;
+    --ralplan-live) RUN_RALPLAN_LIVE=1; shift ;;
+    --fusion-rescue-live) RUN_FUSION_RESCUE_LIVE=1; shift ;;
+    --cross-host-fallback-live) RUN_CROSS_HOST_FALLBACK_LIVE=1; shift ;;
+    --model-diversity-live) RUN_MODEL_DIVERSITY_LIVE=1; shift ;;
+    --parallel-executor-live) RUN_PARALLEL_EXECUTOR_LIVE=1; shift ;;
+    --simplify-live) RUN_SIMPLIFY_LIVE=1; shift ;;
+    --natural-session-start-live) RUN_NATURAL_SESSION_START_LIVE=1; shift ;;
+    --live-hook-only) RUN_LIVE=1; LIVE_HOOK_ONLY=1; shift ;;
+    --skip-live) RUN_LIVE=0; shift ;;
+    --no-install) INSTALL_MODE=0; shift ;;
+    --isolated-config) ISOLATED_CONFIG=1; shift ;;
+    --scope) REQUESTED_SCOPE="${2:-}"; [[ -n "$REQUESTED_SCOPE" ]] || { echo "Missing value for --scope" >&2; exit 2; }; shift 2 ;;
+    --live-load) LIVE_LOAD_MODE="${2:-}"; [[ -n "$LIVE_LOAD_MODE" ]] || { echo "Missing value for --live-load" >&2; exit 2; }; shift 2 ;;
+    --marketplace-source) MARKETPLACE_SOURCE="${2:-}"; [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }; shift 2 ;;
+    --model) LIVE_MODEL="${2:-}"; [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }; FUSION_RESCUE_LIVE_MODEL="$LIVE_MODEL"; shift 2 ;;
+    --max-budget-usd) LIVE_MAX_BUDGET_USD="${2:-}"; [[ -n "$LIVE_MAX_BUDGET_USD" ]] || { echo "Missing value for --max-budget-usd" >&2; exit 2; }; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
 case "$LIVE_LOAD_MODE" in
-  plugin-dir|installed) ;;
-  *)
-    echo "--live-load must be plugin-dir or installed" >&2
-    exit 2
-    ;;
+  plugin-dir|installed) ;; *) echo "--live-load must be plugin-dir or installed" >&2; exit 2 ;;
 esac
-
 case "$REQUESTED_SCOPE" in
-  ""|local|project|user|managed) ;;
-  *)
-    echo "--scope must be local, project, user, or managed" >&2
-    exit 2
-    ;;
+  ""|local|project|user|managed) ;; *) echo "--scope must be local, project, user, or managed" >&2; exit 2 ;;
 esac
 
-log() {
-  printf '\n==> %s\n' "$*" >&2
-}
-
-ok() {
-  printf 'ok - %s\n' "$*" >&2
-}
-
-fail() {
-  printf 'ERROR: %s\n' "$*" >&2
-  exit 1
-}
+log() { printf '\n==> %s\n' "$*" >&2; }
+ok() { printf 'ok - %s\n' "$*" >&2; }
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 cleanup_isolated_config() {
   [[ -n "${ISOLATED_CONFIG_HOME:-}" ]] && rm -rf "$ISOLATED_CONFIG_HOME"
@@ -301,12 +212,15 @@ if root.is_dir():
 PY
 }
 
+file_identity() { "$PYTHON_BIN" -c 'import hashlib,os,sys; p=sys.argv[1]; print("absent" if not os.path.exists(p) else "present:%s:%s" % (hashlib.sha256(open(p,"rb").read()).hexdigest(), os.stat(p).st_mtime_ns))' "$1"; }
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
 
 run_live_process_with_timeout() {
-  "$PYTHON_BIN" - "$LIVE_TIMEOUT_SECONDS" "$LIVE_TIMEOUT_GRACE_SECONDS" "$@" <<'PY'
+  local rc=0
+  "$PYTHON_BIN" - "$LIVE_TIMEOUT_SECONDS" "$LIVE_TIMEOUT_GRACE_SECONDS" "$@" <<'PY' || rc=$?
 import os
 import signal
 import subprocess
@@ -327,7 +241,6 @@ process = subprocess.Popen(
     start_new_session=True,
 )
 
-
 def group_exists():
     try:
         os.killpg(process.pid, 0)
@@ -337,13 +250,11 @@ def group_exists():
         return True
     return True
 
-
 def signal_group(signum):
     try:
         os.killpg(process.pid, signum)
     except ProcessLookupError:
         pass
-
 
 def stop_group():
     signal_group(signal.SIGTERM)
@@ -361,11 +272,9 @@ def stop_group():
     if process.poll() is None:
         process.wait()
 
-
 def forward_signal(signum, _frame):
     stop_group()
     raise SystemExit(128 + signum)
-
 
 for forwarded_signal in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
     signal.signal(forwarded_signal, forward_signal)
@@ -388,6 +297,18 @@ if group_exists():
     stop_group()
 raise SystemExit(return_code)
 PY
+  return "$rc"
+}
+
+run_plugin_dir_live_process_with_timeout() {
+  local disposable_config="" rc=0
+  if [[ "$INSTALL_MODE" == 0 && "$LIVE_LOAD_MODE" == plugin-dir && -z "${OH_NO_CONFIG_DIR+x}" ]]; then
+    disposable_config="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-live-config.XXXXXX")"
+    OH_NO_CONFIG_DIR="$disposable_config" run_live_process_with_timeout "$@" || rc=$?
+    rm -rf "$disposable_config"
+    return "$rc"
+  fi
+  run_live_process_with_timeout "$@"
 }
 
 run_live_timeout_offline_test() {
@@ -453,9 +374,33 @@ PY
   rc=0
   run_live_process_with_timeout "$PYTHON_BIN" -c 'raise SystemExit(7)' \
     >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "7" ]] || { rm -rf "$temp_root"; fail "Claude timeout runner changed child exit 7 to $rc"; }
+
+  local fake_home="$temp_root/fake-home" real_data config_record real_before isolated_path explicit="$temp_root/explicit"
+  real_data="$fake_home/.claude/plugins/data/oh-no-harness-inline"; config_record="$temp_root/live-config-path"
+  mkdir -p "$real_data"; printf 'sentinel\n' >"$real_data/sentinel"
+  real_before="$(snapshot_file_manifest "$real_data")"
+  cat >"$temp_root/fake-live" <<'SH'
+#!/usr/bin/env bash
+config_dir="${OH_NO_CONFIG_DIR:-$HOME/.claude/plugins/data/oh-no-harness-inline}"
+printf '%s\n' "$config_dir" >"$1"; mkdir -p "$config_dir"; printf 'touched\n' >"$config_dir/live-child-touch"
+exit "$2"
+SH
+  chmod +x "$temp_root/fake-live"; rc=0
+  (unset OH_NO_CONFIG_DIR; HOME="$fake_home"; INSTALL_MODE=0; LIVE_LOAD_MODE=plugin-dir; run_plugin_dir_live_process_with_timeout "$temp_root/fake-live" "$config_record" 7) >/dev/null 2>&1 || rc=$?
+  isolated_path="$(<"$config_record")"
+  [[ "$rc" == 7 && ! -e "$isolated_path" && "$real_before" == "$(snapshot_file_manifest "$real_data")" ]] \
+    || { rm -rf "$temp_root"; fail "plugin-dir live child escaped disposable OH_NO_CONFIG_DIR or cleanup/status preservation failed"; }
+  OH_NO_CONFIG_DIR="$explicit" run_plugin_dir_live_process_with_timeout "$temp_root/fake-live" "$config_record" 0 >/dev/null 2>&1
+  [[ "$(<"$config_record")" == "$explicit" && -f "$explicit/live-child-touch" ]] \
+    || { rm -rf "$temp_root"; fail "live isolation overrode an explicit OH_NO_CONFIG_DIR"; }
+  local hook_files_before hook_hash_before hook_root_before
+  hook_files_before="$(snapshot_file_manifest "$real_data")"; hook_hash_before="$(shasum -a 256 "$real_data/sentinel")"; hook_root_before="$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$real_data")"
+  (unset OH_NO_CONFIG_DIR CLAUDE_CONFIG_DIR XDG_CONFIG_HOME; HOME="$fake_home"; validate_hooks) >/dev/null 2>&1
+  [[ "$hook_files_before" == "$(snapshot_file_manifest "$real_data")" && "$hook_hash_before" == "$(shasum -a 256 "$real_data/sentinel")" && "$hook_root_before" == "$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$real_data")" ]] \
+    || { rm -rf "$temp_root"; fail "validate_hooks changed real-like plugin-data content, file mtimes, or root directory mtime"; }
   rm -rf "$temp_root"
-  [[ "$rc" == "7" ]] || fail "Claude timeout runner changed child exit 7 to $rc"
-  ok "Claude live-timeout runner returns 124, kills descendants, and preserves child status"
+  ok "Claude timeout/live and validate_hooks isolation preserve status, cleanup, explicit overrides, and plugin-data metadata"
 }
 
 marketplace_exists() {
@@ -477,16 +422,38 @@ marketplace_source_tool() {
   "$PYTHON_BIN" "$MARKETPLACE_ROOT/scripts/marketplace_source.py" "$@"
 }
 
-# Fail-closed safety gate for the install path. Registering a LOCAL source (or an
-# unrecognized/invalid one) into the REAL default Claude config can overwrite the
-# daily-use `oh-no-harness` GitHub registration with a working-tree checkout (see
-# CLAUDE.md). Refuse that regardless of marketplace name — a non-canonical name is
-# not a safe path, it just pollutes the real config with another local
-# registration. Isolation makes it safe:
-#   - an isolated config home (--isolated-config, or a non-default CLAUDE_CONFIG_DIR), or
-#   - a validated GitHub --marketplace-source (e.g. jcwleo/oh-no-harness).
-# The explicit OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1 opt-in overrides a LOCAL
-# source; an invalid source is always refused.
+append_live_plugin_dir_arg() {
+  [[ "$LIVE_LOAD_MODE" == plugin-dir ]] && cmd+=(--plugin-dir "$LIVE_PLUGIN_ROOT")
+  return 0
+}
+
+validate_live_plugin_root() {
+  [[ "$LIVE_PLUGIN_ROOT_OVERRIDDEN" == 1 ]] || return 0
+  [[ "$INSTALL_MODE" == 0 ]] || fail "OH_NO_LIVE_PLUGIN_ROOT is a live-only disposable plugin copy and requires --no-install"
+  [[ "$LIVE_PLUGIN_ROOT" == /* && -d "$LIVE_PLUGIN_ROOT" && -r "$LIVE_PLUGIN_ROOT" ]] || fail "OH_NO_LIVE_PLUGIN_ROOT must be an absolute, readable plugin directory"
+  local path role skill
+  for path in .claude-plugin/plugin.json hooks/hooks.json hooks/session-start hooks/run-hook.cmd scripts/oh-no-config scripts/configure-subagents; do [[ -r "$LIVE_PLUGIN_ROOT/$path" ]] || fail "OH_NO_LIVE_PLUGIN_ROOT is missing readable $path"; done
+  for role in "${AGENTS[@]}"; do [[ -r "$LIVE_PLUGIN_ROOT/agents/$role.md" ]] || fail "OH_NO_LIVE_PLUGIN_ROOT is missing readable agent $role"; done
+  for skill in "${PUBLIC_SKILLS[@]}"; do [[ -r "$LIVE_PLUGIN_ROOT/skills-claude/$skill/SKILL.md" ]] || fail "OH_NO_LIVE_PLUGIN_ROOT is missing readable Claude skill $skill"; done
+  "$PYTHON_BIN" -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); h=json.load(open(sys.argv[2], encoding="utf-8")); assert m.get("name")==sys.argv[3] and isinstance(m.get("skills"),list) and h.get("hooks",{}).get("SessionStart")' "$LIVE_PLUGIN_ROOT/.claude-plugin/plugin.json" "$LIVE_PLUGIN_ROOT/hooks/hooks.json" "$PLUGIN_NAME" || fail "OH_NO_LIVE_PLUGIN_ROOT has invalid manifest or SessionStart hook shape"
+}
+
+model_bearing_plugin_dir_live_requested() {
+  [[ "$LIVE_LOAD_MODE" == plugin-dir && "${RUN_LIVE}${RUN_DEEP_LIVE}${RUN_PARALLEL_LIVE}${RUN_RALPLAN_LIVE}${RUN_FUSION_RESCUE_LIVE}${RUN_CROSS_HOST_FALLBACK_LIVE}${RUN_MODEL_DIVERSITY_LIVE}${RUN_PARALLEL_EXECUTOR_LIVE}${RUN_SIMPLIFY_LIVE}${RUN_NATURAL_SESSION_START_LIVE}" == *1* ]]
+}
+
+guard_real_claude_config_live() {
+  model_bearing_plugin_dir_live_requested || return 0
+  [[ "$(marketplace_source_tool config-identity "${CLAUDE_CONFIG_DIR:-}" "$HOME")" == default ]] || return 0
+  if [[ "${OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE:-0}" == 1 ]]; then
+    log "OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE=1: allowing model-bearing plugin-dir live commands to use the real Claude config; ordinary startup plugin sync may update registry metadata"
+    return 0
+  fi
+  fail "refusing model-bearing plugin-dir live commands with the real default Claude config: ordinary Claude startup plugin sync may update registry metadata even under --no-install. Use --isolated-config with gateway auth, or set CLAUDE_CONFIG_DIR to a disposable physical clone containing required native auth/settings. To knowingly accept real-config metadata writes, set OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE=1. OH_NO_CONFIG_DIR does not isolate the Claude registry."
+}
+
+# Install gate: refuse local/invalid marketplace sources in the real config
+# regardless of name; isolation or a validated GitHub source is safe.
 guard_canonical_local_marketplace() {
   # Symlink/`.`/`..`/trailing-slash aware; unset/empty => $HOME/.claude.
   local identity
@@ -886,26 +853,87 @@ PY
   ok "active stale-scan reader handles binary, extensionless, .cmd, and invalid-UTF8 candidates"
 }
 
+validate_routing_hook_source_contract() {
+  "$PYTHON_BIN" - "$PLUGIN_ROOT/hooks/session-start" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+problems = []
+bootstrap_start = source.find("bootstrap_policy='")
+bootstrap_end = source.find('\n\nauto_routing_policy=""', bootstrap_start)
+bootstrap = ""
+if bootstrap_start < 0 or bootstrap_end < 0:
+    problems.append("cannot locate unconditional OH_NO_BOOTSTRAP source")
+else:
+    bootstrap = source[bootstrap_start + len("bootstrap_policy='") : bootstrap_end]
+forced_match = re.search(
+    r"auto_routing_policy='\s*(<OH_NO_FORCED_ROUTING>.*?</OH_NO_FORCED_ROUTING>)'",
+    source,
+    flags=re.DOTALL,
+)
+forced = forced_match.group(1) if forced_match else ""
+if not forced:
+    problems.append("cannot locate Claude OH_NO_FORCED_ROUTING source")
+
+for marker in (
+    "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
+    "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+):
+    if marker not in bootstrap:
+        problems.append(f"unconditional bootstrap missing object-of-analysis owner: {marker}")
+    if marker in forced:
+        problems.append(f"forced block duplicates object-of-analysis owner: {marker}")
+for marker in (
+    "Routing reminder:",
+    "using-oh-no-harness",
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route",
+):
+    if marker in bootstrap:
+        problems.append(f"unconditional bootstrap retains retired routing text: {marker}")
+
+forced_lower = forced.lower()
+if "routing map" in forced_lower or forced_lower.count("oh-no-harness:") > 1:
+    problems.append("Claude forced block retains an exhaustive positive catalog")
+if (
+    'if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled' not in source
+    or source.count("<OH_NO_FORCED_ROUTING>") != 1
+):
+    problems.append("forced routing is not singular and Claude-only")
+
+if problems:
+    raise SystemExit(
+        "Claude routing hook source contract failed:\n  - " + "\n  - ".join(problems)
+    )
+print("ok - Claude routing hook source matches description-owned target shape")
+PY
+}
+
 validate_hooks() {
   log "Validating hook wiring"
+  validate_routing_hook_source_contract
   assert_json_valid "$PLUGIN_ROOT/hooks/hooks.json"
   bash -n "$PLUGIN_ROOT/hooks/session-start"
   bash -n "$PLUGIN_ROOT/scripts/oh-no-config"
   ok "shell syntax: hooks/session-start"
   ok "shell syntax: scripts/oh-no-config"
-  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
-    | "$PYTHON_BIN" -m json.tool >/dev/null
+  local hook_config hook_rc=0
+  hook_config="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-hook-config.XXXXXX")"
+  CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$hook_config" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start \
+    | "$PYTHON_BIN" -m json.tool >/dev/null || hook_rc=$?
+  rm -rf "$hook_config"
+  [[ "$hook_rc" == 0 ]] || return "$hook_rc"
   ok "session-start emits valid JSON"
 
   local temp_data
   temp_data="$(mktemp -d)"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-off.json"
-  "$PYTHON_BIN" - "$temp_data/hook-off.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
-    data = json.load(fh)
+  "$PYTHON_BIN" - "$temp_data/hook-off.json" "$PLUGIN_ROOT" <<'PY'
+import json, sys
+from pathlib import Path
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 text = json.dumps(data)
 if "OH_NO_FORCED_ROUTING" in text:
     raise SystemExit("forced-routing policy was present while config is unset")
@@ -913,17 +941,27 @@ if "OH_NO_AUTO_ROUTING" in text:
     raise SystemExit("legacy auto-routing tag was present while config is unset")
 if "Use native skill loading to read the relevant Oh No Harness skill when it applies." not in text:
     raise SystemExit("base bootstrap is missing compact native skill-loading guidance")
-required = [
-    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail",
-    "No-route lane",
-    "Direct-edit lane",
+required = ["No-route lane", "Direct-edit lane",
+    "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger.",
+    "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+    "Child packet floor", "caller sends a proportional self-contained English packet", "purpose/outcome", "target role", "repo mutation/review/verify", "exact target/revision + result/revision binding", "scope/permissions/non-goals", "contract/acceptance", "evidence/output", "stop/escalation", "Initial independent review/verify/debug", "withholds maker conclusions", "expected verdicts", "sibling output", "preferred causes", "disclose only later for audit/clarification",
 ]
 missing = [needle for needle in required if needle not in text]
 if missing:
-    raise SystemExit(f"Claude SessionStart missing default Ralph/TDD routing markers: {missing}")
-for forbidden in ("OH_NO_SKILL_CORE", "Below is the full content", "docs/skill-core/using-oh-no-harness.md"):
+    raise SystemExit(f"Claude SessionStart missing unconditional routing/child-packet boundaries: {missing}")
+if text.count("Child packet floor:") != 1: raise SystemExit("Claude SessionStart child-packet floor is not singular")
+for forbidden in ("Global Context Capsule", "Capsule delta", "_global-context-capsule.md", "Purpose\\nAssigned outcome / acceptance criteria"):
+    if forbidden in text: raise SystemExit(f"Claude SessionStart retains former receiver schema: {forbidden}")
+for forbidden in (
+    "OH_NO_SKILL_CORE",
+    "Below is the full content",
+    "docs/skill-core/using-oh-no-harness.md",
+    "Routing reminder:",
+    "using-oh-no-harness",
+    "Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route",
+):
     if forbidden in text:
-        raise SystemExit(f"base bootstrap embedded full using-oh-no-harness core content: {forbidden}")
+        raise SystemExit(f"base bootstrap retains retired routing content: {forbidden}")
 for forbidden in (
     "CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION",
     "explicit user request for eligible Oh No Harness workflow",
@@ -943,39 +981,61 @@ for forbidden in (
 if len(text) > 6600:
     raise SystemExit(f"Claude SessionStart default context is too large: {len(text)} chars")
 PY
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >"$temp_data/helper-on.txt"
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" off >"$temp_data/helper-off.txt"
   OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+  OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/scripts/oh-no-config" path >"$temp_data/helper-path.txt"
   CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" OH_NO_CONFIG_DIR="$temp_data" "$PLUGIN_ROOT/hooks/run-hook.cmd" session-start >"$temp_data/hook-on.json"
-  "$PYTHON_BIN" - "$temp_data/hook-on.json" <<'PY'
-import json
-import sys
+  "$PYTHON_BIN" - "$temp_data/hook-on.json" "$PLUGIN_ROOT/skills-claude/auto-routing/SKILL.md" "$temp_data" <<'PY'
+import json, re, sys
+from pathlib import Path
 
 with open(sys.argv[1], "r", encoding="utf-8") as fh:
     data = json.load(fh)
 text = json.dumps(data)
-if "OH_NO_FORCED_ROUTING" not in text:
+root = Path(sys.argv[3])
+expected_config = root / "config.json"
+if (root / "helper-path.txt").read_text(encoding="utf-8").strip() != str(expected_config):
+    raise SystemExit("auto-routing helper path escaped the disposable config directory")
+helper_outputs = {state: (root / f"helper-{state}.txt").read_text(encoding="utf-8") for state in ("on", "off")}
+for state, output in helper_outputs.items():
+    if f"auto-routing: {state}" not in output or f"config: {expected_config}" not in output:
+        raise SystemExit(f"auto-routing helper did not report persisted {state} state in the disposable directory")
+    for forbidden in ("restart", "immediate", "current turn", "current-turn", "stronger", "exhaustive", "routing semantics changed", "changes routing semantics"):
+        if forbidden in output.lower():
+            raise SystemExit(f"auto-routing helper overclaims platform routing semantics: {forbidden}")
+wrapper = Path(sys.argv[2]).read_text(encoding="utf-8")
+wrapper_normal = re.sub(r"[^a-z0-9/]+", " ", wrapper.lower())
+missing_wrapper = [value for value in ("native skill descriptions", "select the destination", "on claude code", "next sessionstart") if value not in wrapper_normal]
+if missing_wrapper or "/clear" not in wrapper.lower():
+    raise SystemExit(f"generated Claude auto-routing wrapper misses ownership/effect-boundary semantics: {missing_wrapper}")
+if not (forced_match := re.search(r"<OH_NO_FORCED_ROUTING>.*?</OH_NO_FORCED_ROUTING>", text)):
     raise SystemExit("forced-routing policy missing while config is enabled")
-if "A workflow name used only as the subject of analysis" not in text:
-    raise SystemExit("forced-routing policy is missing the object-of-analysis boundary")
-if "Route from the requested deliverable: an analysis report versus a plan or execution artifact." not in text:
-    raise SystemExit("forced-routing policy is missing deliverable-aware routing")
-if "Routing map" not in text:
-    raise SystemExit("forced-routing policy is missing the routing map")
-if "Red flags" not in text:
-    raise SystemExit("forced-routing policy is missing the red-flags table")
+forced_text = forced_match.group(0)
+for forbidden in (
+    "Routing map",
+    "Red flags",
+    "A workflow name used only as the subject of analysis",
+    "Route from the requested deliverable: an analysis report versus a plan or execution artifact.",
+):
+    if forbidden in forced_text:
+        raise SystemExit(f"forced-routing policy retains duplicated routing content: {forbidden}")
 required = [
-    "Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.",
-    "Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.",
-    "ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work",
-    "The always-injected OH_NO_BOOTSTRAP no-route and direct-edit lanes apply as routing outcomes",
+    "installed skill descriptions",
+    "explicit end-to-end",
+    "active failure",
+    "explicit test-first",
+    "most upstream incomplete prerequisite",
+    "The always-injected OH_NO_BOOTSTRAP no-route, direct-edit, and object",
 ]
-missing = [needle for needle in required if needle not in text]
+missing = [needle for needle in required if needle.lower() not in forced_text.lower()]
 if missing:
-    raise SystemExit(f"forced-routing policy missing Ralph/TDD routing markers: {missing}")
+    raise SystemExit(f"forced-routing policy missing target ordering/precedence markers: {missing}")
 for forbidden in (
     "About to make a behavior-changing production edit: oh-no-harness:test-driven-development",
     "behavior-changing edits go through test-driven-development",
 ):
-    if forbidden in text:
+    if forbidden in forced_text:
         raise SystemExit(f"forced-routing policy still routes ordinary implementation to TDD: {forbidden}")
 PY
   rm -rf "$temp_data"
@@ -1120,9 +1180,6 @@ raise SystemExit(f"{plugin_id} not installed in {scope} scope after install/upda
 
 live_prompt_for_skill() {
   case "$1" in
-    using-oh-no-harness)
-      printf '/%s:using-oh-no-harness Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply in one short sentence that names this harness.' "$PLUGIN_NAME"
-      ;;
     interview)
       printf '/%s:interview --quick Build a tiny note-taking feature. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the first clarification question you would ask.' "$PLUGIN_NAME"
       ;;
@@ -1136,7 +1193,7 @@ live_prompt_for_skill() {
       printf '/%s:ultrawork Deliver a small smoke-test workflow from vague request to verification. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the workflow stages you would orchestrate.' "$PLUGIN_NAME"
       ;;
     auto-routing)
-      printf '/%s:auto-routing status Smoke test only. You may read plugin skill-core and platform docs needed by the invoked skill. Do not edit files. Reply with what this skill configures and the three supported actions.' "$PLUGIN_NAME"
+      printf '/%s:auto-routing status Smoke test only. Read the generated skill document and answer this read-only platform-semantics question; do not change any setting, config, or file. Explain how native destination descriptions own positive selection, what Claude auto-routing adds, why its effect boundary is the next Claude SessionStart with /clear, and why current-turn activation, a generic restart alone, or a stronger/exhaustive destination router are not effects.' "$PLUGIN_NAME"
       ;;
     test-driven-development)
       printf '/%s:test-driven-development Explicit TDD/test-first smoke request. Smoke test only; you may read plugin skill-core and platform docs if needed; do not edit files. Reply with the TDD cycle steps you would follow.' "$PLUGIN_NAME"
@@ -1188,17 +1245,14 @@ run_live_skill_test() {
     --system-prompt "$LIVE_SYSTEM_PROMPT"
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
   cmd+=("$prompt")
 
-  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" >"$out_file"
 
   "$PYTHON_BIN" - "$out_file" "$skill" <<'PY'
-import json
-import sys
+import json, re, sys
 
 path, skill = sys.argv[1], sys.argv[2]
 result = ""
@@ -1234,6 +1288,11 @@ if not any(f"/{value.lstrip('/')}".endswith(expected_suffix) for value in read_p
         f"{skill} live smoke answered without a Read of its generated SKILL.md; "
         f"read_paths={read_paths!r}"
     )
+if skill == "auto-routing":
+    lower = result.lower()
+    normalized = re.sub(r"[^a-z0-9/]+", " ", lower)
+    if not re.search(r"\bnext (?:claude(?: code)? )?sessionstart\b", normalized) or "/clear" not in lower:
+        raise SystemExit("auto-routing response misses next Claude SessionStart effect boundary or /clear guidance")
 
 print(f"ok - live skill smoke: {skill} cost={cost}")
 PY
@@ -1257,12 +1316,10 @@ run_live_hook_test() {
     --system-prompt "$LIVE_SYSTEM_PROMPT"
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
   cmd+=("$prompt")
-  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" >"$out_file"
 
   "$PYTHON_BIN" - "$out_file" "$LIVE_LOAD_MODE" <<'PY'
 import json
@@ -1364,9 +1421,7 @@ run_live_auto_routing_case() {
     --system-prompt "$LIVE_SYSTEM_PROMPT"
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
   cmd+=("$prompt")
   OH_NO_CONFIG_DIR="$config_dir" run_live_process_with_timeout "${cmd[@]}" >"$out_file"
@@ -1763,7 +1818,7 @@ run_deep_live_skill_test() {
   local skill="$1"
   local out_file="$RUN_DIR/deep-${skill}.json"
   local prompt
-  local read_root="$PLUGIN_ROOT"
+  local read_root="$LIVE_PLUGIN_ROOT"
   prompt="$(deep_prompt_for_skill "$skill")"
 
   if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
@@ -1783,12 +1838,10 @@ run_deep_live_skill_test() {
     --system-prompt "You are a read-only deep smoke test runner. You may read local files needed by the invoked skill. Do not edit files or create artifacts."
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
   cmd+=("$prompt")
-  run_live_process_with_timeout "${cmd[@]}" >"$out_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" >"$out_file"
   # Live deep-smoke demotes only semantic marker/paraphrase variance. Tool,
   # permission, malformed-output, and command failures remain hard failures per
   # the lane contract.
@@ -1831,423 +1884,534 @@ assert_natural_prompt_has_no_explicit_subagent_terms() {
   done
 }
 
+assert_natural_routing_prompt_shape() {
+  local label="$1"
+  local prompt="$2"
+  local prompt_lower
+  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  for forbidden in \
+    "oh-no-harness" "using-oh-no-harness" "interview" "ralplan" "ralph" \
+    "ultrawork" "auto-routing" "test-driven-development" "simplify" \
+    "verification-before-completion" "systematic-debugging" "fusion-rescue" \
+    "skills/" "skills-claude/" "commands/" "skill.md"; do
+    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
+      fail "${label} natural routing prompt names an expected skill/plugin/command path: ${forbidden}"
+    fi
+  done
+}
+
 natural_session_start_prompt_for_skill() {
   case "$1" in
-    interview)
-      cat <<PROMPT
-/${PLUGIN_NAME}:interview --quick Read-only natural SessionStart smoke test. Vague request: make Claude live natural smoke coverage stronger for this plugin checkout. Before asking the user a question, gather the necessary repository facts from ../../scripts/test-claude-plugin.sh. Do not edit files or run the test script. End with OH_NO_CLAUDE_INTERVIEW_NATURAL_OK and summarize the facts that informed the first question.
+    "vague requirements") cat <<'PROMPT'
+I have an idea for improving the small tool described in README.md, but I have not decided its users, constraints, or acceptance criteria. Inspect the repository facts, then help me work out the requirements without changing files.
 PROMPT
       ;;
-    ultrawork)
-      cat <<PROMPT
-/${PLUGIN_NAME}:ultrawork Read-only natural SessionStart smoke test. Approved synthetic goal: assess whether ../../scripts/test-claude-plugin.sh has enough live natural smoke coverage for a release handoff. Perform a dry run only: do not create artifacts, edit files, run the test script, or execute changes. End with OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK and summarize repository facts, planning readiness, and final evidence.
-PROMPT
-      ;;
-    systematic-debugging)
-      cat <<PROMPT
-/${PLUGIN_NAME}:systematic-debugging Read-only natural SessionStart smoke test. Synthetic failure: a live natural smoke check for ../../scripts/test-claude-plugin.sh returned no marker even though the output file existed. Diagnose the likely cause and assess what evidence would verify it. Do not edit files or run the test script. End with OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK and summarize the diagnosis and evidence status.
-PROMPT
-      ;;
-    verification-before-completion)
-      cat <<PROMPT
-/${PLUGIN_NAME}:verification-before-completion Read-only natural SessionStart smoke test. Verify the claim that ../../scripts/test-claude-plugin.sh exposes verification-before-completion in PUBLIC_SKILLS and has live smoke plumbing that another lane can extend. Do not edit files or run the test script. End with OH_NO_CLAUDE_VERIFICATION_NATURAL_OK and summarize the evidence and any skipped checks.
-PROMPT
-      ;;
-    *)
-      fail "No natural Claude prompt for skill: $1"
-      ;;
+    "autonomous end-to-end") printf '%s\n' 'Take the broad improvement goal in README.md from unclear requirements through implementation and final evidence autonomously. Manage the whole end-to-end delivery without asking me to choose each stage.' ;;
+    "ordinary implementation") printf '%s\n' 'Update the runtime-consumed executable src/timeout.sh so TIMEOUT is 10 instead of 5. Acceptance criteria: run.sh prints TIMEOUT=10, existing behavior stays scoped to that value, and focused checks pass.' ;;
+    "explicit test-first") printf '%s\n' 'Change the runtime-consumed executable src/timeout.sh so TIMEOUT is 10. Use RED/GREEN/REFACTOR: add or update the focused failing test first, show its failure, make the smallest production change, and rerun it.' ;;
+    "unknown-cause failure") printf '%s\n' 'Running tests/startup_test.sh currently fails and the root cause is unknown. Reproduce the failure, determine the cause from evidence, apply the smallest justified fix, and rerun the focused check.' ;;
+    "known-cause fix") printf '%s\n' 'The confirmed cause is the misspelled MODE value in runtime-consumed executable src/parser.sh; the exact fix is MODE=fast. Apply that localized change and verify tests/parser_test.sh without reopening root-cause investigation.' ;;
+    "plan-only/pending approval") printf '%s\n' 'Prepare an approval-ready cross-file implementation plan for the concrete two-shell-file contract in README.md covering src/alpha.sh and src/beta.sh. Do not edit source or execute changes. Leave execution pending and present the next approval actions after the plan.' ;;
+    "no-route research") printf '%s\n' 'Read README.md and explain how this disposable example is structured. Return the answer only; do not create files or change the project.' ;;
+    "direct-edit eligible") printf '%s\n' 'Fix the one obvious "teh" typo in notes/private-notes.md and show the diff. This private prose file is inert, non-generated, non-operational, not consumed by build/test/CI, and has no security, permission, migration, or public-contract effect.' ;;
+    "direct-edit ineligible") printf '%s\n' 'Fix the one "teh" typo printed by executable src/status.sh and verify tests/status_test.sh. This file is runtime-consumed source, so do not take a prose-only shortcut.' ;;
+    *) fail "No natural Claude prompt for case: $1" ;;
   esac
 }
 
 run_natural_prompt_guard_offline_test() {
   log "Running offline Claude natural-prompt causality guard fixtures"
-  local allowed_prompt forbidden skill prompt
+  local allowed_prompt case_id forbidden object_prompt prompt
   allowed_prompt="Read the repository facts, assess the requested outcome, and summarize the evidence without editing files."
   assert_natural_prompt_has_no_explicit_subagent_terms "allowed-fixture" "$allowed_prompt"
-
+  assert_natural_routing_prompt_shape "allowed-fixture" "$allowed_prompt"
   for forbidden in \
     "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
     "worker" "agent_type" "role:" "wave" "wait results" "wait_agent" \
     "close_agent" "clean up" "cleanup" "lifecycle"; do
-    if (
-      assert_natural_prompt_has_no_explicit_subagent_terms \
-        "forbidden-fixture" "Read facts, then ${forbidden}, then summarize."
-    ) >/dev/null 2>&1; then
+    if (assert_natural_prompt_has_no_explicit_subagent_terms \
+      "forbidden-fixture" "Read facts, then ${forbidden}, then summarize.") >/dev/null 2>&1; then
       fail "Claude natural-prompt guard missed forbidden fixture: ${forbidden}"
     fi
   done
 
-  for skill in interview ultrawork systematic-debugging verification-before-completion; do
-    prompt="$(natural_session_start_prompt_for_skill "$skill")"
-    assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+  for case_id in "vague requirements" "autonomous end-to-end" "ordinary implementation" \
+    "explicit test-first" "unknown-cause failure" "known-cause fix" "plan-only/pending approval" \
+    "no-route research" "direct-edit eligible" "direct-edit ineligible"; do
+    prompt="$(natural_session_start_prompt_for_skill "$case_id")"
+    assert_natural_prompt_has_no_explicit_subagent_terms "$case_id" "$prompt"
+    assert_natural_routing_prompt_shape "$case_id" "$prompt"
   done
+  object_prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
+  assert_natural_prompt_has_no_explicit_subagent_terms "object analysis" "$object_prompt"
+  [[ "$object_prompt" == *"Ralplan"* && "$object_prompt" != *"/"* && "$object_prompt" != *"SKILL.md"* ]] \
+    || fail "object-analysis prompt escaped its bounded workflow-subject exception"
   ok "Claude natural-prompt guard accepts real outcome-only prompts and rejects dispatch mechanics"
 }
 
 assert_ralplan_object_analysis_stayed_analysis_only() {
   local out_file="$1"
   "$PYTHON_BIN" - "$out_file" <<'PY'
-import json
-import sys
+import json, re, sys
 
-marker = False
+workflows = {"interview", "ralplan", "ralph", "ultrawork", "auto-routing", "test-driven-development",
+             "simplify", "verification-before-completion", "systematic-debugging", "fusion-rescue"}
+result = ""
 for line in open(sys.argv[1], encoding="utf-8"):
     if not line.strip():
         continue
     data = json.loads(line)
-    text = json.dumps(data).lower()
-    marker = marker or "oh_no_claude_ralplan_object_analysis_ok" in text
+    if data.get("parent_tool_use_id") is not None: continue
+    if data.get("type") == "result":
+        if data.get("is_error") is True:
+            raise SystemExit("Ralplan object-analysis smoke returned an error result")
+        result = str(data.get("result", "")).strip()
     if data.get("type") != "assistant":
         continue
     for part in data.get("message", {}).get("content", []):
         if part.get("type") != "tool_use":
             continue
-        name = part.get("name", "")
-        if name in {"Agent", "Task"}:
-            subagent_type = str(part.get("input", {}).get("subagent_type", "")).lower()
-            if subagent_type in {"oh-no-harness:planner", "oh-no-harness:plan-reviewer"}:
-                raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
+        name, payload = part.get("name", ""), part.get("input", {})
+        if name in {"Agent", "Task"} and str(payload.get("subagent_type", "")).lower() in {
+            "oh-no-harness:planner", "oh-no-harness:plan-reviewer",
+        }:
+            raise SystemExit("Ralplan object-analysis smoke dispatched a planning role")
         if name == "Workflow":
-            winput = part.get("input", {})
-            wf_name = str(winput.get("name", "")).lower()
-            wf_script = (str(winput.get("script", "")) + " " + str(winput.get("scriptPath", ""))).lower()
-            if "ralplan" in wf_name or ("ralplan" in wf_script and "workflow(" in wf_script):
+            wf_name = str(payload.get("name", "")).lower()
+            script = (str(payload.get("script", "")) + " " + str(payload.get("scriptPath", ""))).lower()
+            if "ralplan" in wf_name or ("ralplan" in script and "workflow(" in script):
                 raise SystemExit("Ralplan object-analysis smoke invoked the Ralplan workflow")
-if not marker:
-    raise SystemExit("Ralplan object-analysis smoke missed its success marker")
+        selected = " ".join(str(value) for value in payload.values()).lower()
+        if name == "Skill":
+            for workflow in workflows:
+                if re.search(rf"(^|[^a-z0-9-]){re.escape(workflow)}($|[^a-z0-9-])", selected):
+                    raise SystemExit(f"Ralplan object-analysis smoke activated workflow {workflow}")
+        if name == "Read":
+            path = str(payload.get("file_path", payload.get("path", ""))).replace("\\", "/")
+            match = re.search(r"/skills-claude/([^/]+)/SKILL[.]md$", path)
+            if match and match.group(1) in workflows:
+                raise SystemExit(f"Ralplan object-analysis smoke activated workflow {match.group(1)}")
+if not result:
+    raise SystemExit("Ralplan object-analysis smoke returned no final analysis")
 print("ok - Ralplan object-analysis request stayed analysis-only")
 PY
 }
 
 run_ralplan_object_analysis_dispatch_guard_offline_test() {
   log "Running offline Ralplan object-analysis dispatch-guard fixtures"
-  local temp_root fixture output rc
+  local temp_root fixture output rc selector
   temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-ralplan-dispatch-guard.XXXXXX")"
   fixture="$temp_root/transcript.jsonl"
-
   cat >"$fixture" <<'JSONL'
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"oh-no-harness:explore","prompt":"Compare oh-no-harness:planner with oh-no-harness:plan-reviewer without dispatching either."}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"oh-no-harness:explore","prompt":"Compare oh-no-harness:planner with oh-no-harness:plan-reviewer without dispatching either."}}]}}
+{"type":"result","is_error":false,"result":"Bounded comparison."}
 JSONL
   output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" \
     || { rm -rf "$temp_root"; fail "dispatch guard rejected an explore selector with prompt-only planning-role mentions: $output"; }
-
+  printf '%s\n' '{"type":"assistant","parent_tool_use_id":"parent","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"result","is_error":false,"result":"Analysis."}' >"$fixture"
+  assert_ralplan_object_analysis_stayed_analysis_only "$fixture" >/dev/null \
+    || { rm -rf "$temp_root"; fail "dispatch guard treated a child Ralplan wrapper Read as parent activation"; }
   for selector in oh-no-harness:planner oh-no-harness:plan-reviewer; do
     cat >"$fixture" <<JSONL
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"subagent_type":"$selector","prompt":"Analyze only."}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"subagent_type":"$selector","prompt":"Analyze only."}}]}}
+{"type":"result","is_error":false,"result":"Analysis."}
 JSONL
-    rc=0
-    output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
-    [[ "$rc" != "0" && "$output" == *"Ralplan object-analysis smoke dispatched a planning role"* ]] \
+    rc=0; output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
+    [[ "$rc" != "0" && "$output" == *"dispatched a planning role"* ]] \
       || { rm -rf "$temp_root"; fail "dispatch guard accepted planning selector $selector (rc=$rc output=$output)"; }
   done
 
   cat >"$fixture" <<'JSONL'
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"ralplan","script":"return analysisOnly();"}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"ralplan","script":"return analysisOnly();"}}]}}
+{"type":"result","is_error":false,"result":"Analysis."}
 JSONL
-  rc=0
-  output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
-  [[ "$rc" != "0" && "$output" == *"Ralplan object-analysis smoke invoked the Ralplan workflow"* ]] \
+  rc=0; output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
+  [[ "$rc" != "0" && "$output" == *"invoked the Ralplan workflow"* ]] \
     || { rm -rf "$temp_root"; fail "dispatch guard accepted a structured ralplan Workflow invocation (rc=$rc output=$output)"; }
 
+  for selector in Skill Read; do
+    if [[ "$selector" == "Skill" ]]; then
+      printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"oh-no-harness:ralplan"}}]}}' >"$fixture"
+    else
+      printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' >"$fixture"
+    fi
+    printf '%s\n' '{"type":"result","is_error":false,"result":"Analysis."}' >>"$fixture"
+    rc=0; output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" || rc=$?
+    [[ "$rc" != "0" && "$output" == *"activated workflow ralplan"* ]] \
+      || { rm -rf "$temp_root"; fail "dispatch guard accepted a structured ralplan $selector activation (rc=$rc output=$output)"; }
+  done
+
   cat >"$fixture" <<'JSONL'
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"analysis-only","script":"const note = 'ralplan is out of scope'; return note;"}},{"type":"text","text":"OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Workflow","input":{"name":"analysis-only","script":"const note = 'ralplan is out of scope'; return note;"}}]}}
+{"type":"result","is_error":false,"result":"Bounded analysis."}
 JSONL
   output="$(assert_ralplan_object_analysis_stayed_analysis_only "$fixture" 2>&1)" \
     || { rm -rf "$temp_root"; fail "dispatch guard rejected a Workflow script that only mentioned ralplan: $output"; }
-
   rm -rf "$temp_root"
   ok "Ralplan object-analysis dispatch guard uses structured selectors and ignores prompt-only role/workflow mentions"
 }
 
-assert_claude_natural_role_smoke() {
-  local out_file="$1"
-  local err_file="$2"
-  local success_marker="$3"
-  local label="$4"
-  local role_marker_specs="$5"
-  local forbidden_markers="${6:-}"
+natural_source_checkout_fingerprint() {
+  local root="$1"
+  {
+    printf 'UNSTAGED\0'; git -C "$root" diff --binary
+    printf '\0STAGED\0'; git -C "$root" diff --cached --binary
+    printf '\0UNTRACKED\0'
+    git -C "$root" ls-files --others --exclude-standard -z | "$PYTHON_BIN" -c 'import os,sys
+root=os.fsencode(sys.argv[1]); paths=sorted(filter(None,sys.stdin.buffer.read().split(b"\0")))
+for rel in paths:
+ p=os.path.join(root,rel); link=os.path.islink(p); data=os.readlink(p) if link else open(p,"rb").read()
+ sys.stdout.buffer.write(len(rel).to_bytes(8,"big")+rel+(b"L" if link else b"F")+len(data).to_bytes(8,"big")+data)' "$root"
+  } | shasum -a 256
+}
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$success_marker" "$label" "$role_marker_specs" "$forbidden_markers" <<'PY'
-import json
-import re
-import sys
+natural_git_fixture() {
+  local root="$1" label="$2" mode="${3:-initialize}" status
+  case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") ;; *) return 0 ;; esac
+  if [[ "$mode" == initialize ]]; then
+    git -C "$root" init -q; git -C "$root" config user.name oh-no-fixture; git -C "$root" config user.email fixture@example.invalid
+    git -C "$root" add .; git -C "$root" commit -qm baseline
+  fi
+  git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label fixture is not an actual Git checkout"
+  status="$(git -C "$root" status --porcelain)"; [[ -z "$status" ]] || fail "$label fixture is dirty before launch: $status"
+}
+natural_payload_changes() { diff -qr -x .git "$1" "$2" || true; }
+run_natural_git_fixture_offline_test() {
+  log "Running offline Claude natural Git-fixture guards"
+  local root label dir status direct before changes; root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-git-fixtures.XXXXXX")"; trap 'rm -rf "$root"' RETURN
+  for label in "autonomous end-to-end" "ordinary implementation" "explicit test-first" "unknown-cause failure" "known-cause fix" "direct-edit eligible" "direct-edit ineligible" "vague requirements" "plan-only/pending approval" "no-route research" "object analysis"; do
+    dir="$root/${label//[ \/]/-}"; mkdir -p "$dir"; printf 'fixture\n' >"$dir/fixture.txt"; natural_git_fixture "$dir" "$label"
+    case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") [[ -z "$(git -C "$dir" status --porcelain)" ]] || fail "$label fixture was not clean" ;; *) ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label unexpectedly became a Git fixture" ;; esac
+  done
+  dir="$root/ordinary-implementation"; printf 'dirty\n' >>"$dir/fixture.txt"; if (natural_git_fixture "$dir" "ordinary implementation" verify) >/dev/null 2>&1; then fail "dirty selected Claude fixture passed its pre-launch guard"; fi
+  direct="$root/direct-containment"; before="$root/direct-before"; mkdir -p "$direct/notes" "$before"; printf 'Keep teh private note concise.\n' >"$direct/notes/private-notes.md"; natural_git_fixture "$direct" "direct-edit eligible"; cp -R "$direct/." "$before/"
+  git -C "$direct" config fixture.metadata changed; [[ -z "$(natural_payload_changes "$before" "$direct")" ]] || fail ".git-only Claude metadata counted as payload mutation"
+  printf 'Keep the private note concise.\n' >"$direct/notes/private-notes.md"; changes="$(natural_payload_changes "$before" "$direct")"
+  [[ "$(printf '%s\n' "$changes" | grep -c .)" == 1 && "$changes" == *"notes/private-notes.md"* ]] || fail "Claude direct-edit containment lost its exact one-file payload boundary: $changes"
+  rm -rf "$root"; trap - RETURN; ok "Claude selected natural fixtures are clean Git checkouts and payload diffs exclude .git"
+}
 
-out_path, err_path, success_marker, label, role_marker_specs, forbidden_markers = sys.argv[1:7]
-role_markers = []
-for spec in role_marker_specs.split(","):
-    if not spec:
-        continue
-    role, marker = spec.split(":", 1)
-    role_markers.append((role, marker))
-expected_roles = [role for role, _ in role_markers]
-expected_agent_names = [f"oh-no-harness:{role}" for role in expected_roles]
+assert_claude_natural_activation_smoke() {
+  local out_file="$1" err_file="$2" label="$3" expected_route="$4" routing_state="$5"
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$label" "$expected_route" "$routing_state" <<'PY'
+import json, re, sys
 
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
+out_path, err_path, label, expected, routing_state = sys.argv[1:6]
+workflows = {"interview", "ralplan", "ralph", "ultrawork", "auto-routing", "test-driven-development",
+             "simplify", "verification-before-completion", "systematic-debugging", "fusion-rescue"}
+
+def text(value):
+    if isinstance(value, str): return value
+    if isinstance(value, dict): return " ".join(text(item) for item in value.values())
+    if isinstance(value, list): return " ".join(text(item) for item in value)
     return ""
 
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
+def selected_route(payload):
+    selector = str(payload.get("skill", "")).lower()
+    namespace = "oh-no-harness:"
+    if selector.startswith(namespace):
+        selector = selector[len(namespace):]
+    return selector if selector in workflows else ""
+
+err_text = open(err_path, encoding="utf-8").read()
 if "agent thread limit reached" in err_text.lower():
-    raise SystemExit(f"{label} natural role smoke saw agent thread limit in stderr: {err_text[:2000]!r}")
+    raise SystemExit(f"{label} natural activation smoke hit the agent thread limit")
 
-init_ok = False
-tool_role_uses = []
-all_agent_roles = []
-task_started_roles = []
-task_completed_roles = []
-task_role_by_id = {}
-task_role_by_tool_use_id = {}
-workflow_tool_ids = set()
-workflow_scripts = []
-workflow_completed = False
-summary_text = []
-result_aware_text_indexes = []
-marker = False
-errors = []
+activations, actions, tool_results, test_bashes, wrapper_reads, plan_writes = [], [], {}, [], [], []
+sequence = 0
+final_result = ""
+final_sequence = None
+if routing_state not in {"off", "on"}:
+    raise SystemExit(f"{label} natural activation smoke received invalid routing state: {routing_state}")
+for line in open(out_path, encoding="utf-8"):
+    if not line.strip(): continue
+    data = json.loads(line)
+    if data.get("parent_tool_use_id") is not None: continue
+    if data.get("type") == "assistant":
+        for part in data.get("message", {}).get("content", []):
+            if part.get("type") != "tool_use": continue
+            sequence += 1
+            name, payload = part.get("name", ""), part.get("input", {})
+            route = selected_route(payload) if name == "Skill" else ""
+            if name == "Read":
+                path = str(payload.get("file_path", payload.get("path", ""))).replace("\\", "/")
+                match = re.search(r"/skills-claude/([^/]+)/SKILL[.]md$", path)
+                if match and match.group(1) in workflows:
+                    route = match.group(1)
+            if route:
+                activations.append((sequence, route, name))
+                if name == "Read": wrapper_reads.append((sequence, route, part.get("id", "")))
+            else:
+                actions.append((sequence, name, text(payload), part.get("id", "")))
+            if name in {"Write", "Edit", "NotebookEdit"}:
+                plan_writes.append((sequence, part.get("id", ""), str(payload.get("file_path", payload.get("path", ""))).replace("\\", "/"), str(payload.get("content", payload.get("new_string", "")))))
+            if name == "Bash" and "tests/timeout_test.sh" in text(payload):
+                test_bashes.append((sequence, part.get("id", "")))
+    if data.get("type") == "user":
+        for part in data.get("message", {}).get("content", []):
+            if part.get("type") == "tool_result":
+                tool_results[part.get("tool_use_id", "")] = (part.get("is_error") is True, text(part))
+    if data.get("type") == "result":
+        sequence += 1
+        final_sequence = sequence
+        actions.append((sequence, "final result", "", ""))
+        if data.get("is_error") is True:
+            raise SystemExit(f"{label} natural activation smoke returned an error result")
+        final_result = str(data.get("result", "")).strip()
 
-with open(out_path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        text_blob = collect_text(data)
-        if success_marker in text_blob:
-            marker = True
-        if data.get("type") == "system" and data.get("subtype") == "init":
-            available_agents = set(data.get("agents", []))
-            tools = set(data.get("tools", []))
-            init_ok = bool({"Task", "Agent", "Workflow"} & tools) and all(
-                agent in available_agents for agent in expected_agent_names
-            )
-        if data.get("type") == "assistant":
-            for part in data.get("message", {}).get("content", []):
-                if part.get("type") == "tool_use" and part.get("name") in {"Agent", "Task"}:
-                    payload = part.get("input", {})
-                    payload_text = collect_text(payload)
-                    subagent_type = payload.get("subagent_type", "")
-                    if subagent_type.startswith("oh-no-harness:"):
-                        role = subagent_type.split(":", 1)[1]
-                        all_agent_roles.append((index, role))
-                        if role in expected_roles:
-                            marker_for_role = dict(role_markers).get(role)
-                            if marker_for_role and marker_for_role.lower() not in payload_text.lower():
-                                raise SystemExit(
-                                    f"{label} natural role smoke task payload omitted configured marker "
-                                    f"{marker_for_role!r}; text={payload_text[:2000]!r}"
-                                )
-                            tool_role_uses.append((index, role, payload_text))
-                            tool_use_id = part.get("id")
-                            if tool_use_id:
-                                task_role_by_tool_use_id[tool_use_id] = role
-                if part.get("type") == "tool_use" and part.get("name") == "Workflow":
-                    workflow_tool_ids.add(part.get("id"))
-                    script = collect_text(part.get("input", {}).get("script", ""))
-                    if script:
-                        workflow_scripts.append((index, script))
-                if part.get("type") == "text":
-                    text = part.get("text", "")
-                    summary_text.append(text)
-                    if any(token in text.lower() for token in ("reported", "waiting", "results captured")):
-                        result_aware_text_indexes.append(index)
-        if data.get("type") == "system" and data.get("subtype") == "task_started":
-            subagent_type = data.get("subagent_type", "")
-            if subagent_type.startswith("oh-no-harness:"):
-                role = subagent_type.split(":", 1)[1]
-                if role in expected_roles:
-                    task_started_roles.append((index, role))
-                    task_id = data.get("task_id")
-                    if task_id:
-                        task_role_by_id[task_id] = role
-        if data.get("type") == "system" and data.get("subtype") in {"task_notification", "task_updated"}:
-            subagent_type = data.get("subagent_type", "")
-            role = ""
-            if subagent_type.startswith("oh-no-harness:"):
-                role = subagent_type.split(":", 1)[1]
-            elif data.get("task_id") in task_role_by_id:
-                role = task_role_by_id[data.get("task_id")]
-            elif data.get("tool_use_id") in task_role_by_tool_use_id:
-                role = task_role_by_tool_use_id[data.get("tool_use_id")]
-            if data.get("status") == "completed":
-                if role in expected_roles:
-                    task_completed_roles.append((index, role))
-                if (
-                    data.get("tool_use_id") in workflow_tool_ids
-                    or "workflow" in str(data.get("summary", "")).lower()
-                ):
-                    workflow_completed = True
-        if data.get("type") == "result":
-            result_text = str(data.get("result", ""))
-            summary_text.append(result_text)
-            if data.get("is_error") is True:
-                errors.append((index, result_text[:1000]))
+if not final_result or final_sequence is None:
+    raise SystemExit(f"{label} natural activation smoke returned no non-empty final result")
+mutations = [item for item in actions if item[1] in {"Edit", "Write", "NotebookEdit"}]
+if expected == "none":
+    if activations:
+        raise SystemExit(f"{label} activated workflow wrappers: {activations!r}")
+    if label == "direct-edit eligible":
+        target = "notes/private-notes.md"
+        if len(mutations) != 1 or target not in mutations[0][2].replace("\\", "/"):
+            raise SystemExit(f"{label} lacked exactly one intended notes mutation: {mutations!r}")
+        mutation_sequence = mutations[0][0]
+        proofs = []
+        for action_sequence, name, command, tool_id in actions:
+            if name != "Bash" or not mutation_sequence < action_sequence < final_sequence: continue
+            git_scoped = re.search(r"\bgit\s+diff\b[^\n;&|]*--\s+['\"]?(?:[.]/)?notes/private-notes[.]md(?:['\"]|\s|$)", command)
+            plain_scoped = not re.search(r"\bgit\s+diff\b", command) and re.search(r"(?:^|[;&|]\s*)diff\b[^\n;&|]*notes/private-notes[.]md", command)
+            failed, output = tool_results.get(tool_id, (True, "")); lines = output.splitlines()
+            evidence = target in output.replace("\\", "/") and ((any(line.startswith("--- ") for line in lines) and any(line.startswith("+++ ") for line in lines) and any(line.startswith("-") and not line.startswith("---") for line in lines) and any(line.startswith("+") and not line.startswith("+++") for line in lines)) or (any(line.startswith("< ") for line in lines) and any(line.startswith("> ") for line in lines)))
+            if (git_scoped or plain_scoped) and not failed and evidence: proofs.append((action_sequence, command))
+        if not proofs:
+            raise SystemExit(f"{label} lacked a successful scoped runtime diff after mutation and before final")
+    print(f"ok - {label} natural Claude smoke stayed outside workflow activation")
+    raise SystemExit(0)
 
-if not init_ok:
-    raise SystemExit(f"{label} natural role smoke did not expose required Claude tools and agents")
-if errors:
-    raise SystemExit(f"{label} natural role smoke returned errors: {errors!r}")
-unexpected_roles = [
-    role for _, role in all_agent_roles
-    if role not in expected_roles
-]
-if unexpected_roles:
-    raise SystemExit(f"{label} natural role smoke started unexpected roles: {unexpected_roles!r}")
+if not activations or activations[0][1] != expected:
+    raise SystemExit(f"{label} first host-visible workflow activation was not {expected}: {activations!r}")
+first_expected = activations[0][0]
+expected_reads = [item for item in wrapper_reads if item[1] == expected]
+if not expected_reads:
+    raise SystemExit(f"{label} did not attempt the generated {expected} wrapper Read")
+for _, _, tool_id in expected_reads:
+    if tool_id not in tool_results:
+        raise SystemExit(f"{label} generated {expected} wrapper Read returned no tool result")
+    if tool_results[tool_id][0]:
+        raise SystemExit(f"{label} generated {expected} wrapper Read failed: {tool_results[tool_id][1]}")
+if routing_state == "on":
+    first_action = min(item[0] for item in actions)
+    if first_expected >= first_action:
+        raise SystemExit(f"{label} performed actionable work before {expected} activation: {actions!r}")
 
-if not tool_role_uses and workflow_scripts:
-    workflow_script = "\n".join(script for _, script in workflow_scripts)
-    lower_script = workflow_script.lower()
-    workflow_roles = re.findall(r"agentType:\s*['\"]oh-no-harness:([^'\"]+)['\"]", workflow_script)
-    if workflow_roles != expected_roles:
-        raise SystemExit(
-            f"{label} natural role smoke Workflow agent() order did not match: "
-            f"expected={expected_roles!r} got={workflow_roles!r}"
-        )
-    missing_markers = [
-        marker for _, marker in role_markers
-        if marker and marker.lower() not in lower_script
-    ]
-    if missing_markers:
-        raise SystemExit(
-            f"{label} natural role smoke Workflow script missed required markers: "
-            f"{missing_markers!r}; script={workflow_script[:2000]!r}"
-        )
-    if not workflow_completed:
-        raise SystemExit(f"{label} natural role smoke Workflow task did not report completion")
-else:
-    roles_seen = [role for _, role, _ in tool_role_uses]
-    if roles_seen != expected_roles:
-        raise SystemExit(
-            f"{label} natural role smoke expected task role order {expected_roles!r}, got {roles_seen!r}; "
-            f"uses={tool_role_uses!r}"
-        )
-    for role in expected_roles:
-        if roles_seen.count(role) != 1:
-            raise SystemExit(f"{label} natural role smoke expected exactly one task use for {role}, got {roles_seen!r}")
-    started_roles = [role for _, role in task_started_roles]
-    missing_starts = [role for role in expected_roles if role not in started_roles]
-    if missing_starts:
-        raise SystemExit(f"{label} natural role smoke missing task_started events for roles: {missing_starts!r}")
-    completed_roles = [role for _, role in task_completed_roles]
-    missing_completions = [role for role in expected_roles if role not in completed_roles]
-    if missing_completions:
-        raise SystemExit(f"{label} natural role smoke missing completed task events for roles: {missing_completions!r}")
+def activated_before(route):
+    return any(index <= first_expected and value == route for index, value, _ in activations)
 
-if not marker:
-    raise SystemExit(f"{label} natural role smoke did not return success marker {success_marker}")
+def forbid(routes, anywhere=False):
+    found = [item for item in activations if item[1] in routes and (anywhere or item[0] <= first_expected)]
+    if found: raise SystemExit(f"{label} activated forbidden adjacent workflow: {found!r}")
 
-print(f"ok - {label} natural Claude smoke started and completed required role workers")
+if label == "ordinary implementation": forbid({"test-driven-development", "systematic-debugging"})
+elif label == "explicit test-first": forbid({"ralph"})
+elif label == "unknown-cause failure" and activated_before("ralph"):
+    raise SystemExit(f"{label} activated ralph before debugging")
+elif label == "known-cause fix": forbid({"systematic-debugging"}, anywhere=True)
+elif label == "plan-only/pending approval": forbid({"ralph", "ultrawork"}, anywhere=True)
+elif label == "direct-edit ineligible":
+    forbid(workflows - {"ralph"}, anywhere=True)
+
+if label == "vague requirements":
+    reads = [item for item in actions if item[1] in {"Read", "Glob", "Grep"} and first_expected < item[0] < final_sequence]
+    if not reads or mutations: raise SystemExit(f"{label} missed post-activation repository read or mutated files")
+elif label == "explicit test-first":
+    production = [item for item in mutations if "src/timeout.sh" in item[2]]
+    if not test_bashes or not production or min(x[0] for x in test_bashes) >= min(x[0] for x in production):
+        raise SystemExit(f"{label} did not run the focused test Bash before production mutation")
+    failed = any(tool_results.get(tool_id, (False, ""))[0] or re.search(
+        r"(?:exit(?:ed)?(?:[ _-]+with)?(?:[ _-]+code)?|status)\s*[:=]?\s*[1-9]", tool_results.get(tool_id, (False, ""))[1], re.I
+    ) for _, tool_id in test_bashes)
+    if not failed: raise SystemExit(f"{label} focused pre-production test did not visibly fail")
+elif label == "unknown-cause failure":
+    fixes = [item for item in mutations if "src/startup.sh" in item[2]]
+    evidence = [item for item in actions if item[1] in {"Read", "Bash"} and item[0] > first_expected]
+    if not fixes or not evidence or min(x[0] for x in evidence) >= min(x[0] for x in fixes):
+        raise SystemExit(f"{label} missed reproduction/read evidence before fix mutation")
+elif label == "plan-only/pending approval":
+    plans = [item for item in plan_writes if re.search(r"(?:^|/)[.]oh-no/plans/[^/]+$", item[2]) and item[3].strip() and item[1] in tool_results and not tool_results[item[1]][0]]
+    plan_sequence = min((item[0] for item in plans), default=None)
+    approval_pattern = re.compile(r"\b(?:approv|proceed|execut|review|revis|continu|next (?:action|step))", re.I)
+    approval = [item for item in actions if item[1] == "AskUserQuestion" and plan_sequence is not None and item[0] > plan_sequence and approval_pattern.search(item[2])]
+    final_approval = plan_sequence is not None and final_sequence > plan_sequence and approval_pattern.search(final_result)
+    production = [item for item in mutations if re.search(r"(?:^|/)src/", item[2].replace("\\", "/"))]
+    if not plans or not (approval or final_approval) or production: raise SystemExit(f"{label} lacked a successful nonempty plan followed by approval interaction or mutated production")
+
+print(f"ok - {label} natural Claude smoke observed {expected} as the first workflow activation")
 PY
 }
 
+run_natural_activation_assertion_offline_test() {
+  log "Running offline Claude natural-activation assertion fixtures"
+  local temp_root fixture err_file output rc
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-natural-activation.XXXXXX")"
+  fixture="$temp_root/transcript.jsonl"; err_file="$temp_root/stderr"; : >"$err_file"
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"pre","name":"Read","input":{"file_path":"README.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"pre","content":"README"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:ultrawork"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ultrawork/SKILL.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}
+{"type":"result","is_error":false,"result":"done"}
+JSONL
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork off >/dev/null \
+    || { rm -rf "$temp_root"; fail "natural assertion rejected an off-state preliminary repository Read"; }
+  rc=0; output="$(assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork on 2>&1)" || rc=$?
+  [[ "$rc" != "0" && "$output" == *"actionable work before ultrawork activation"* ]] \
+    || { rm -rf "$temp_root"; fail "natural assertion accepted pre-activation work with routing on: $output"; }
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:ultrawork"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ultrawork/SKILL.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"permission denied","is_error":true}]}}
+{"type":"result","is_error":false,"result":"done"}
+JSONL
+  rc=0; output="$(assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork off 2>&1)" || rc=$?
+  [[ "$rc" != "0" && "$output" == *"generated ultrawork wrapper Read failed"* ]] \
+    || { rm -rf "$temp_root"; fail "natural assertion accepted a failed generated-wrapper Read: $output"; }
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:ultrawork","args":"Start with Interview."}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ultrawork/SKILL.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}
+{"type":"result","is_error":false,"result":"done"}
+JSONL
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork off >/dev/null \
+    || { rm -rf "$temp_root"; fail "natural assertion let Skill args override the Ultrawork selector"; }
+  cat >"$fixture" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:interview","args":"Continue through Ultrawork."}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/interview/SKILL.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}
+{"type":"result","is_error":false,"result":"done"}
+JSONL
+  rc=0; output="$(assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork off 2>&1)" || rc=$?
+  [[ "$rc" != "0" && "$output" == *"first host-visible workflow activation was not ultrawork"* ]] \
+    || { rm -rf "$temp_root"; fail "natural assertion let Skill args override the Interview selector: $output"; }
+  printf '%s\n' '{"type":"assistant","parent_tool_use_id":"parent","message":{"content":[{"type":"tool_use","id":"child","name":"Bash","input":{"command":"pwd"}}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:ultrawork"}}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ultrawork/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' '{"type":"result","is_error":false,"result":"done"}' >"$fixture"
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" fixture ultrawork on >/dev/null || { rm -rf "$temp_root"; fail "natural assertion treated child Bash as parent pre-route work"; }
+  printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:test-driven-development"}}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/test-driven-development/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"red","name":"Bash","input":{"command":"tests/timeout_test.sh"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"red","is_error":false,"content":"EXIT_CODE=1"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"edit","name":"Edit","input":{"file_path":"src/timeout.sh","old_string":"5","new_string":"10"}}]}}' '{"type":"result","is_error":false,"result":"done"}' >"$fixture"
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" "explicit test-first" test-driven-development off >/dev/null || { rm -rf "$temp_root"; fail "natural assertion missed parent-visible EXIT_CODE=1 RED evidence"; }
+  local route_prefix plan_write
+  route_prefix='{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill","name":"Skill","input":{"skill":"oh-no-harness:ralplan"}}]}}'
+  plan_write='{"type":"assistant","message":{"content":[{"type":"tool_use","id":"plan","name":"Write","input":{"file_path":".oh-no/plans/approved.md","content":"Approval-ready plan"}}]}}'
+  printf '%s\n' "$route_prefix" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"ask","name":"AskUserQuestion","input":{"question":"What requirements are missing?"}}]}}' '{"type":"result","is_error":false,"result":"Please clarify the requirements."}' >"$fixture"
+  rc=0; output="$(assert_claude_natural_activation_smoke "$fixture" "$err_file" "plan-only/pending approval" ralplan off 2>&1)" || rc=$?; [[ "$rc" != 0 && "$output" == *"lacked a successful nonempty plan"* ]] || { rm -rf "$temp_root"; fail "plan-only oracle accepted a requirements pause: $output"; }
+  printf '%s\n' "$route_prefix" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"ask","name":"AskUserQuestion","input":{"question":"Proceed to execution?"}}]}}' '{"type":"result","is_error":false,"result":"Proceed to execution?"}' >"$fixture"
+  rc=0; output="$(assert_claude_natural_activation_smoke "$fixture" "$err_file" "plan-only/pending approval" ralplan off 2>&1)" || rc=$?; [[ "$rc" != 0 ]] || { rm -rf "$temp_root"; fail "plan-only oracle accepted a bare approval question without a plan"; }
+  printf '%s\n' "$route_prefix" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' "$plan_write" '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"plan","content":"created"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"ask","name":"AskUserQuestion","input":{"question":"Would you like to review, revise, or continue?"}}]}}' '{"type":"result","is_error":false,"result":"Awaiting your choice."}' >"$fixture"
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" "plan-only/pending approval" ralplan off >/dev/null || { rm -rf "$temp_root"; fail "plan-only oracle rejected a plan plus broad next-action question"; }
+  printf '%s\n' "$route_prefix" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' "$plan_write" '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"plan","content":"created"}]}}' '{"type":"result","is_error":false,"result":"Plan ready for review and approval."}' >"$fixture"
+  assert_claude_natural_activation_smoke "$fixture" "$err_file" "plan-only/pending approval" ralplan off >/dev/null || { rm -rf "$temp_root"; fail "plan-only oracle rejected an approval-oriented final after the plan"; }
+  printf '%s\n' "$route_prefix" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"wrapper","name":"Read","input":{"file_path":"/tmp/plugin/skills-claude/ralplan/SKILL.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"wrapper","content":"skill body"}]}}' "$plan_write" '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"plan","content":"created"}]}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"edit","name":"Edit","input":{"file_path":"src/alpha.sh","old_string":"alpha","new_string":"changed"}}]}}' '{"type":"result","is_error":false,"result":"Plan ready for approval."}' >"$fixture"
+  rc=0; assert_claude_natural_activation_smoke "$fixture" "$err_file" "plan-only/pending approval" ralplan off >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || { rm -rf "$temp_root"; fail "plan-only oracle accepted production mutation after a plan"; }
+  local direct_edit diff_output; direct_edit='{"type":"assistant","message":{"content":[{"type":"tool_use","id":"edit","name":"Edit","input":{"file_path":"notes/private-notes.md","old_string":"teh","new_string":"the"}}]}}'; diff_output=$'diff --git a/notes/private-notes.md b/notes/private-notes.md\n--- a/notes/private-notes.md\n+++ b/notes/private-notes.md\n-Keep teh private note concise.\n+Keep the private note concise.'
+  printf '%s\n' "$direct_edit" '{"type":"result","is_error":false,"result":"done"}' >"$fixture"; rc=0; assert_claude_natural_activation_smoke "$fixture" "$err_file" "direct-edit eligible" none off >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "direct-edit oracle accepted no runtime diff"
+  printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"diff","name":"Bash","input":{"command":"git diff -- notes/private-notes.md"}}]}}' "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"diff\",\"content\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")} ]}}" "$direct_edit" '{"type":"result","is_error":false,"result":"done"}' >"$fixture"; rc=0; assert_claude_natural_activation_smoke "$fixture" "$err_file" "direct-edit eligible" none off >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "direct-edit oracle accepted a diff before mutation"
+  printf '%s\n' "$direct_edit" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"diff","name":"Bash","input":{"command":"git diff -- notes/private-notes.md"}}]}}' '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"diff","is_error":true,"content":"diff failed"}]}}' '{"type":"result","is_error":false,"result":"done"}' >"$fixture"; rc=0; assert_claude_natural_activation_smoke "$fixture" "$err_file" "direct-edit eligible" none off >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "direct-edit oracle accepted a failed diff"
+  printf '%s\n' "$direct_edit" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"diff","name":"Bash","input":{"command":"git diff"}}]}}' "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"diff\",\"content\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")} ]}}" '{"type":"result","is_error":false,"result":"done"}' >"$fixture"; rc=0; assert_claude_natural_activation_smoke "$fixture" "$err_file" "direct-edit eligible" none off >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "direct-edit oracle accepted an unscoped diff"
+  printf '%s\n' "$direct_edit" '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"diff","name":"Bash","input":{"command":"git diff -- notes/private-notes.md"}}]}}' "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"diff\",\"content\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")} ]}}" '{"type":"result","is_error":false,"result":"done"}' >"$fixture"; assert_claude_natural_activation_smoke "$fixture" "$err_file" "direct-edit eligible" none off >/dev/null || fail "direct-edit oracle rejected mutation then successful scoped diff then final"
+  local cleanup_a cleanup_b cleanup_c cleanup_err
+  cleanup_a="$(mktemp -d)"; cleanup_b="$(mktemp -d)"; cleanup_c="$(mktemp -d)"; cleanup_err="$temp_root/cleanup.err"
+  bash -u -c 'printf -v cleanup_cmd '\''rm -rf -- %q %q %q'\'' "$1" "$2" "$3"; trap "$cleanup_cmd" EXIT' _ "$cleanup_a" "$cleanup_b" "$cleanup_c" 2>"$cleanup_err"
+  [[ ! -e "$cleanup_a" && ! -e "$cleanup_b" && ! -e "$cleanup_c" ]] && ! grep -q 'unbound variable' "$cleanup_err" || { rm -rf "$temp_root" "$cleanup_a" "$cleanup_b" "$cleanup_c"; fail "literal cleanup trap failed under bash -u"; }
+  rm -rf "$temp_root"
+  ok "natural activation assertion scopes parent events, RED evidence, approval-ready plans, and cleanup"
+}
+
 run_natural_session_start_live_skill_test() {
-  local skill="$1"
-  local success_marker="$2"
-  local role_marker_specs="$3"
-  local forbidden_markers="${4:-}"
-  local safe_skill="${skill//\//-}"
-  local out_file="$RUN_DIR/natural-session-start-${safe_skill}.jsonl"
-  local err_file="$RUN_DIR/natural-session-start-${safe_skill}.err"
-  local prompt
-  prompt="$(natural_session_start_prompt_for_skill "$skill")"
-  assert_natural_prompt_has_no_explicit_subagent_terms "$skill" "$prompt"
+  local label="$1" expected_route="$2" routing_state="$3" prompt="${4:-}"
+  local safe_label="${label//\//-}" temp_project config_dir before_dir config_path cleanup_cmd
+  local out_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.jsonl"
+  local err_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.err"
+  [[ -n "$prompt" ]] || prompt="$(natural_session_start_prompt_for_skill "$label")"
+  assert_natural_prompt_has_no_explicit_subagent_terms "$label" "$prompt"
+  [[ "$label" == "object analysis" ]] || assert_natural_routing_prompt_shape "$label" "$prompt"
 
-  local cmd=(
-    "$CLAUDE_BIN"
-    --print
-    --verbose
-    --output-format stream-json
-    --include-hook-events
-    --model "$LIVE_MODEL"
-    --max-budget-usd "$LIVE_MAX_BUDGET_USD"
-    --permission-mode bypassPermissions
-    --tools default
-    --no-session-persistence
-    --system-prompt "You are a read-only live smoke test runner. Follow the invoked Oh No Harness skill and Claude Code platform docs. Do not edit files."
+  temp_project="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-natural-project.XXXXXX")"; config_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-natural-config.XXXXXX")"
+  before_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-natural-before.XXXXXX")"
+  (
+    printf -v cleanup_cmd 'rm -rf -- %q %q %q' "$temp_project" "$config_dir" "$before_dir"; trap "$cleanup_cmd" EXIT
+    case "$label" in
+      "vague requirements"|"autonomous end-to-end"|"no-route research"|"object analysis") printf 'Disposable example with an intentionally broad improvement goal.\n' >"$temp_project/README.md" ;;
+      "ordinary implementation"|"explicit test-first") mkdir -p "$temp_project/src" "$temp_project/tests"; printf 'TIMEOUT=5\n' >"$temp_project/src/timeout.sh"; printf '#!/bin/sh\n. ./src/timeout.sh\nprintf "TIMEOUT=%%s\\n" "$TIMEOUT"\n' >"$temp_project/run.sh"; printf '#!/bin/sh\n[ "$(./run.sh)" = "TIMEOUT=10" ]\n' >"$temp_project/tests/timeout_test.sh"; chmod +x "$temp_project/run.sh" "$temp_project/tests/timeout_test.sh" ;;
+      "unknown-cause failure") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "ready\\n"\n' >"$temp_project/src/startup.sh"; printf '#!/bin/sh\n[ "$(./src/startup.sh)" = "started" ]\n' >"$temp_project/tests/startup_test.sh"; chmod +x "$temp_project/src/startup.sh" "$temp_project/tests/startup_test.sh" ;;
+      "known-cause fix") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nMODE=sloww\nprintf "%%s\\n" "$MODE"\n' >"$temp_project/src/parser.sh"; printf '#!/bin/sh\n[ "$(./src/parser.sh)" = "fast" ]\n' >"$temp_project/tests/parser_test.sh"; chmod +x "$temp_project/src/parser.sh" "$temp_project/tests/parser_test.sh" ;;
+      "plan-only/pending approval") mkdir -p "$temp_project/src"; printf 'Plan two POSIX sh scripts with no external dependency. Both accept exactly one LABEL; alpha.sh prints newline-terminated alpha:<LABEL> and beta.sh prints newline-terminated beta:<LABEL>. Invalid arity prints usage to stderr and exits 2. Include focused valid-argument and invalid-arity tests.\n' >"$temp_project/README.md"; printf '#!/bin/sh\nprintf "alpha\\n"\n' >"$temp_project/src/alpha.sh"; printf '#!/bin/sh\nprintf "beta\\n"\n' >"$temp_project/src/beta.sh" ;;
+      "direct-edit eligible") mkdir -p "$temp_project/notes"; printf 'Keep teh private note concise.\n' >"$temp_project/notes/private-notes.md" ;;
+      "direct-edit ineligible") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "teh status\\n"\n' >"$temp_project/src/status.sh"; printf '#!/bin/sh\n[ "$(./src/status.sh)" = "the status" ]\n' >"$temp_project/tests/status_test.sh"; chmod +x "$temp_project/src/status.sh" "$temp_project/tests/status_test.sh" ;;
+    esac
+    natural_git_fixture "$temp_project" "$label" initialize
+    cp -R "$temp_project/." "$before_dir/"
+
+    config_path="$(OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
+    case "$config_path" in "$config_dir"/*) ;; *) fail "$label helper config path escaped disposable directory: $config_path" ;; esac
+    [[ "$routing_state" == "off" ]] || OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null
+    local checkout_before checkout_after
+    checkout_before="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
+
+    natural_git_fixture "$temp_project" "$label" verify
+    local cmd=("$CLAUDE_BIN" --print --verbose --output-format stream-json --include-hook-events
+      --model "$LIVE_MODEL" --max-budget-usd "$LIVE_MAX_BUDGET_USD" --permission-mode acceptEdits
+      --tools default --allowedTools "Bash" --no-session-persistence --system-prompt "Work only inside the current disposable test project. Follow the user request and installed instructions.")
+    [[ "$expected_route" == "none" ]] || cmd+=(--add-dir "$LIVE_PLUGIN_ROOT/skills-claude/$expected_route")
+    append_live_plugin_dir_arg
+    (cd "$temp_project" && OH_NO_CONFIG_DIR="$config_dir" run_live_process_with_timeout "${cmd[@]}" "$prompt") >"$out_file" 2>"$err_file"
+
+    checkout_after="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
+    [[ "$checkout_before" == "$checkout_after" ]] || fail "$label live child mutated the source checkout"
+    assert_claude_natural_activation_smoke "$out_file" "$err_file" "$label" "$expected_route" "$routing_state"
+    [[ "$label" == "object analysis" ]] && assert_ralplan_object_analysis_stayed_analysis_only "$out_file"
+
+    local changes
+    changes="$(natural_payload_changes "$before_dir" "$temp_project")"
+    case "$label" in
+      "vague requirements"|"no-route research"|"object analysis")
+        [[ -z "$changes" && ! -e "$temp_project/.oh-no" ]] || fail "$label changed its disposable project or created workflow artifacts"
+        ;;
+      "direct-edit eligible")
+        [[ "$(printf '%s\n' "$changes" | grep -c .)" == "1" && "$changes" == *"notes/private-notes.md"* ]] \
+          || fail "$label did not change exactly its one inert notes file: $changes"
+        [[ ! -e "$temp_project/.oh-no" ]] || fail "$label created a workflow artifact"
+        ;;
+      "plan-only/pending approval")
+        cmp -s "$before_dir/README.md" "$temp_project/README.md" \
+          && cmp -s "$before_dir/src/alpha.sh" "$temp_project/src/alpha.sh" \
+          && cmp -s "$before_dir/src/beta.sh" "$temp_project/src/beta.sh" \
+          || fail "$label changed production/source files before approval"
+        ;;
+    esac
   )
-
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
-
-  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  assert_claude_natural_role_smoke "$out_file" "$err_file" "$success_marker" "$skill" "$role_marker_specs" "$forbidden_markers"
 }
 
 run_ralplan_object_analysis_session_start_live_test() {
-  local out_file="$RUN_DIR/ralplan-object-analysis-session-start.jsonl"
-  local err_file="$RUN_DIR/ralplan-object-analysis-session-start.err"
-  local prompt
-  local temp_project
-  prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes. End with OH_NO_CLAUDE_RALPLAN_OBJECT_ANALYSIS_OK.'
-  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan-object-analysis" "$prompt"
-  temp_project="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-ralplan-object-analysis.XXXXXX")"
-
-  (
-    trap 'rm -rf "$temp_project"' EXIT
-    mkdir -p "$temp_project/.oh-no/plans"
-    plans_before="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
-
-    local cmd=(
-      "$CLAUDE_BIN"
-      --print
-      --verbose
-      --output-format stream-json
-      --include-hook-events
-      --model "$LIVE_MODEL"
-      --max-budget-usd "$LIVE_MAX_BUDGET_USD"
-      --permission-mode bypassPermissions
-      --tools "Read,Glob,Grep,Task,Workflow"
-      --no-session-persistence
-      --plugin-dir "$PLUGIN_ROOT"
-      --system-prompt "You are a read-only analysis smoke test runner in a disposable project. Do not edit files."
-    )
-    (cd "$temp_project" && run_live_process_with_timeout "${cmd[@]}" "$prompt") >"$out_file" 2>"$err_file"
-
-    plans_after="$(snapshot_file_manifest "$temp_project/.oh-no/plans")"
-    [[ "$plans_before" == "$plans_after" ]] || fail "Ralplan object-analysis smoke created or changed a plan artifact"
-
-    assert_ralplan_object_analysis_stayed_analysis_only "$out_file"
-  )
+  local label="$1" routing_state="$2"
+  local prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
+  run_natural_session_start_live_skill_test "$label" none "$routing_state" "$prompt"
 }
 
 run_natural_session_start_live_tests() {
   if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
-    log "Skipping live natural Claude role-worker smoke tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to verify analysis-only routing and natural role-worker dispatch.\n' >&2
+    log "Skipping live natural Claude routing/activation evidence tests"
+    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to capture isolated natural routing and first-gate evidence.\n' >&2
     return
   fi
 
-  log "Running live natural Claude role-worker smoke tests (${LIVE_LOAD_MODE})"
+  log "Running live natural Claude routing/activation evidence tests (${LIVE_LOAD_MODE})"
   mkdir -p "$RUN_DIR"
-  run_ralplan_object_analysis_session_start_live_test
-  run_natural_session_start_live_skill_test \
-    interview \
-    OH_NO_CLAUDE_INTERVIEW_NATURAL_OK \
-    explore: \
-    ""
-  run_natural_session_start_live_skill_test \
-    ultrawork \
-    OH_NO_CLAUDE_ULTRAWORK_NATURAL_OK \
-    explore:,planner:,verifier: \
-    ""
-  run_natural_session_start_live_skill_test \
-    systematic-debugging \
-    OH_NO_CLAUDE_SYSTEMATIC_DEBUGGING_NATURAL_OK \
-    debugger:,verifier: \
-    ""
-  run_natural_session_start_live_skill_test \
-    verification-before-completion \
-    OH_NO_CLAUDE_VERIFICATION_NATURAL_OK \
-    verifier: \
-    ""
+  run_natural_session_start_live_skill_test "vague requirements" interview off; run_natural_session_start_live_skill_test "autonomous end-to-end" ultrawork off
+  run_natural_session_start_live_skill_test "ordinary implementation" ralph off; run_natural_session_start_live_skill_test "explicit test-first" test-driven-development off
+  run_natural_session_start_live_skill_test "unknown-cause failure" systematic-debugging off; run_natural_session_start_live_skill_test "known-cause fix" ralph off
+  run_natural_session_start_live_skill_test "plan-only/pending approval" ralplan off; run_natural_session_start_live_skill_test "no-route research" none off
+  run_natural_session_start_live_skill_test "direct-edit eligible" none off; run_natural_session_start_live_skill_test "direct-edit ineligible" ralph off
+  run_ralplan_object_analysis_session_start_live_test "object analysis" off
+
+  run_natural_session_start_live_skill_test "autonomous end-to-end" ultrawork on; run_natural_session_start_live_skill_test "ordinary implementation" ralph on
+  run_natural_session_start_live_skill_test "explicit test-first" test-driven-development on; run_natural_session_start_live_skill_test "plan-only/pending approval" ralplan on
+  run_ralplan_object_analysis_session_start_live_test "object analysis" on; run_natural_session_start_live_skill_test "direct-edit eligible" none on
+  run_natural_session_start_live_skill_test "direct-edit ineligible" ralph on
   ok "natural Claude live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
-
 
 run_ralplan_live_test() {
   if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
@@ -2277,11 +2441,9 @@ run_ralplan_live_test() {
     --system-prompt "You are a read-only live smoke test runner. You may use subagents only for the requested ralplan planner-to-reviewer-pair verification. Do not edit files."
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
-  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -2603,11 +2765,9 @@ run_parallel_live_test() {
     --system-prompt "You are a read-only live smoke test runner. You may use background subagents only for the requested verification. Do not edit files."
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
-  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -2872,7 +3032,7 @@ PROMPT
     --permission-mode bypassPermissions --tools default --no-session-persistence
     --system-prompt "You are a read-only live smoke test runner. Follow the loaded Fusion Rescue rules. Do not edit files."
   )
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then cmd+=(--plugin-dir "$PLUGIN_ROOT"); fi
+  append_live_plugin_dir_arg
   CLAUDE_CONFIG_DIR="$temp_config_dir" run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" "$err_file" "$summary_file" <<'PY'
@@ -2977,7 +3137,7 @@ PROMPT
 PROMPT
 )
   local cmd=("$CLAUDE_BIN" --print --verbose --output-format stream-json --include-hook-events --model "$LIVE_MODEL" --max-budget-usd "$LIVE_MAX_BUDGET_USD" --permission-mode bypassPermissions --tools default --no-session-persistence --system-prompt "Read-only Ralph Review Gate smoke test. Do not edit files.")
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then cmd+=(--plugin-dir "$PLUGIN_ROOT"); fi
+  append_live_plugin_dir_arg
   CLAUDE_CONFIG_DIR="$temp_config_dir" run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
   CLAUDE_CONFIG_DIR="$temp_config_dir" run_live_process_with_timeout "${cmd[@]}" "$strict_prompt" >"$strict_out" 2>"$strict_err"
 
@@ -3049,7 +3209,8 @@ run_model_diversity_live_test() {
   temp_config_dir="$fixture_parent/claude-config"
   isolated_plugin_root="$fixture_parent/plugin-root"
   mkdir -p "$temp_config_dir/plugins/data/oh-no-harness-live-fixture" "$isolated_plugin_root"
-  cp -Rp "$PLUGIN_ROOT/." "$isolated_plugin_root/"
+  # Legacy contract marker only: cp -Rp "$PLUGIN_ROOT/." "$isolated_plugin_root/"; active live source follows.
+  cp -Rp "$LIVE_PLUGIN_ROOT/." "$isolated_plugin_root/"
   prefs_path="$(CLAUDE_CONFIG_DIR="$temp_config_dir" OH_NO_CONFIG_DIR="$temp_config_dir/plugins/data/oh-no-harness-live-fixture" "$isolated_plugin_root/scripts/oh-no-config" path)"
   prefs_path="$(dirname "$prefs_path")/subagent-models.conf"
   CLAUDE_CONFIG_DIR="$temp_config_dir" OH_NO_CONFIG_DIR="$temp_config_dir/plugins/data/oh-no-harness-live-fixture" "$isolated_plugin_root/scripts/configure-subagents" apply \
@@ -3124,7 +3285,6 @@ ASSIGNED_PERSPECTIVE_RE = re.compile(
     flags=re.IGNORECASE | re.MULTILINE,
 )
 
-
 def normalize_packet(payload, normalize_assigned_perspective):
     copy = dict(payload)
     copy.pop("model", None)
@@ -3159,10 +3319,8 @@ def normalize_packet(payload, normalize_assigned_perspective):
 
     return normalize_value(copy)
 
-
 def normalize(payload):
     return normalize_packet(payload, normalize_assigned_perspective=True)
-
 
 def canonicalize_assigned_perspective(value):
     if isinstance(value, str):
@@ -3177,7 +3335,6 @@ def canonicalize_assigned_perspective(value):
     if isinstance(value, list):
         return [canonicalize_assigned_perspective(item) for item in value]
     return value
-
 
 raw_perspectives = []
 for _, _, payload in dispatches:
@@ -3241,8 +3398,6 @@ PY
   trap - RETURN EXIT INT TERM
 }
 
-
-
 run_parallel_executor_live_test() {
   if [[ "$RUN_PARALLEL_EXECUTOR_LIVE" != "1" ]]; then
     log "Skipping live Claude Ralph proactive disjoint-executor parallel-batch smoke test"
@@ -3255,7 +3410,7 @@ run_parallel_executor_live_test() {
   local out_file="$RUN_DIR/parallel-executor-claude.jsonl"
   local err_file="$RUN_DIR/parallel-executor-claude.err"
   local summary_file="$RUN_DIR/parallel-executor-claude.summary.json"
-  local read_root="$PLUGIN_ROOT"
+  local read_root="$LIVE_PLUGIN_ROOT"
 
   if [[ "$LIVE_LOAD_MODE" == "installed" ]]; then
     read_root="$(cached_plugin_root)"
@@ -3382,16 +3537,14 @@ SENTINEL
     --system-prompt "You are a live smoke test runner for an Oh No Harness Ralph run. Implement only the two disjoint stories in the current working directory. Write only inside the current working directory. Do not edit, create, or delete any file outside it, including /tmp, /var/tmp, home directories, plugin directories, or absolute helper-file paths. Do not install plugins."
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
   # Run with fixture_dir as the WORKING DIRECTORY (do NOT inherit cwd=repo).
   # Capture the run exit code without tripping set -e so cleanup always runs.
   local run_rc=0
   if (
     cd "$fixture_dir"
-    run_live_process_with_timeout "${cmd[@]}" "$prompt"
+    run_plugin_dir_live_process_with_timeout "${cmd[@]}" "$prompt"
   ) >"$out_file" 2>"$err_file"; then
     run_rc=0
   else
@@ -3970,8 +4123,6 @@ PY
 	  fi
 	}
 
-
-
 run_simplify_live_test() {
   if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
     log "Skipping live Claude simplify cleanup-subagent smoke test"
@@ -4002,11 +4153,9 @@ run_simplify_live_test() {
     --system-prompt "You are a read-only live smoke test runner. You may use background subagents only for the requested simplify verification. Do not edit files."
   )
 
-  if [[ "$LIVE_LOAD_MODE" == "plugin-dir" ]]; then
-    cmd+=(--plugin-dir "$PLUGIN_ROOT")
-  fi
+  append_live_plugin_dir_arg
 
-  run_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  run_plugin_dir_live_process_with_timeout "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
 
   "$PYTHON_BIN" - "$out_file" <<'PY'
 import json
@@ -4323,28 +4472,129 @@ if missing_summary_markers:
 print("ok - live Claude simplify cleanup subagents spawned in one batch")
 PY
 }
-
-
-
 run_configure_subagents_offline_test() {
   log "Running offline configure-subagents behavior + contract test suite"
-  bash "$MARKETPLACE_ROOT/scripts/test-configure-subagents.sh" \
-    || fail "configure-subagents offline test suite failed"
+  bash "$MARKETPLACE_ROOT/scripts/test-configure-subagents.sh" || fail "configure-subagents offline test suite failed"
+  local fixture config prefs role
+  fixture="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-hook-cap.XXXXXX")"; fixture="$(cd "$fixture" && pwd -P)"
+  cp -R "$PLUGIN_ROOT" "$fixture/plugin"; config="$fixture/config"; prefs="$config/subagent-models.conf"; mkdir -p "$config"
+  {
+    printf '%s\n' 'schema_version=2' 'proxy=yes' 'secondary_top_model=haiku' 'top_tier_models=fable opus sonnet haiku gpt-5.6-sol gpt-5.6-terra'
+    for role in explore analyst planner plan-reviewer executor debugger verifier code-reviewer fusion-rescue-analyst; do printf 'assignment=%s,gpt-5.6-terra,max\n' "$role"; done
+  } >"$prefs"
+  CLAUDE_PLUGIN_ROOT="$fixture/plugin" OH_NO_CONFIG_DIR="$config" "$fixture/plugin/hooks/run-hook.cmd" session-start >"$fixture/reapply.json"
+  CLAUDE_PLUGIN_ROOT="$fixture/plugin" OH_NO_CONFIG_DIR="$config" "$fixture/plugin/hooks/run-hook.cmd" session-start >"$fixture/matching.json"
+  rm "$fixture/plugin/agents/explore.md"; CLAUDE_PLUGIN_ROOT="$fixture/plugin" OH_NO_CONFIG_DIR="$config" "$fixture/plugin/hooks/run-hook.cmd" session-start >"$fixture/failure.json"
+  "$PYTHON_BIN" - "$fixture/matching.json" "$fixture/reapply.json" "$fixture/failure.json" <<'PY'
+import json, sys
+from pathlib import Path
+for label, path, notice in zip(("matching-max", "reapply-max", "failure-max"), sys.argv[1:], (None, "reapplied your saved", "could not reapply")):
+    text = json.dumps(json.loads(Path(path).read_text(encoding="utf-8")))
+    if len(text) > 6600 or (notice and notice not in text): raise SystemExit(f"Claude SessionStart {label} cap/notice failure: {len(text)}, {notice}")
+    missing = [m for m in ("No-route lane", "Direct-edit lane", "Child packet floor", "target role", "withholds maker conclusions", "secondary_top_model=haiku") if m not in text]; forbidden = [m for m in ("Global Context Capsule", "Capsule delta", "_global-context-capsule.md", "Purpose\\nAssigned outcome / acceptance criteria") if m in text]
+    if missing or forbidden or text.count("Child packet floor:") != 1: raise SystemExit(f"Claude SessionStart {label} child-packet/routing drift: missing={missing}, forbidden={forbidden}")
+print("ok - maximum configured matching, reapply, and failure SessionStart branches stay within 6600")
+PY
+  rm -rf "$fixture"
 }
-
 run_script_resolver_offline_test() {
   log "Running offline bundled-script resolver behavior + contract test suite"
   bash "$MARKETPLACE_ROOT/scripts/test-script-resolver.sh" \
     || fail "bundled-script resolver offline test suite failed"
 }
+# Deterministic safety regressions use fake CLIs/configs only: no real Claude,
+# user config, marketplace registration, or live model is touched.
+run_live_plugin_root_offline_test() {
+  log "Running offline live-only plugin-root regression"
+  local temp_root canonical live malformed missing fake launch rc role skill source driver main_source canonical_arg live_read live_add live_copy case_spec root args
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-live-root-test.XXXXXX")"; canonical="$temp_root/canonical"; live="$temp_root/live"; malformed="$temp_root/malformed"; missing="$temp_root/missing"; fake="$temp_root/fake-claude"; launch="$temp_root/launched"
+  mkdir -p "$canonical" "$live/.claude-plugin" "$live/agents" "$live/skills-claude" "$live/hooks" "$live/scripts" "$malformed"; printf 'canonical\n' >"$canonical/marker"; printf 'live\n' >"$live/marker"; printf '{"name":"%s","skills":[]}\n' "$PLUGIN_NAME" >"$live/.claude-plugin/plugin.json"; printf '{"hooks":{"SessionStart":[{}]}}\n' >"$live/hooks/hooks.json"
+  for role in "${AGENTS[@]}"; do printf '%s\n' "$role" >"$live/agents/$role.md"; done
+  for skill in "${PUBLIC_SKILLS[@]}"; do mkdir -p "$live/skills-claude/$skill"; printf '%s\n' "$skill" >"$live/skills-claude/$skill/SKILL.md"; done
+  for source in hooks/session-start hooks/run-hook.cmd scripts/oh-no-config scripts/configure-subagents; do printf '#!/bin/sh\n' >"$live/$source"; chmod +x "$live/$source"; done
+  cat >"$fake" <<'SH'
+#!/bin/sh
+printf 'launched\n' >"$FAKE_LAUNCH_LOG"
+SH
+  chmod +x "$fake"
+  [[ -n "${LIVE_PLUGIN_ROOT:-}" ]] || { rm -rf "$temp_root"; fail "driver has no independent live plugin root"; }
+  ( PLUGIN_ROOT="$canonical"; LIVE_PLUGIN_ROOT="$live"; LIVE_PLUGIN_ROOT_OVERRIDDEN=1; INSTALL_MODE=0; validate_live_plugin_root; cmd=(); LIVE_LOAD_MODE=plugin-dir; append_live_plugin_dir_arg; [[ "${cmd[*]}" == "--plugin-dir $live" && "$(<"${cmd[1]}/marker")" == live ]] ) || { rm -rf "$temp_root"; fail "live argv did not select the disposable plugin root"; }
+  ( PLUGIN_ROOT="$canonical"; LIVE_PLUGIN_ROOT="$canonical"; LIVE_PLUGIN_ROOT_OVERRIDDEN=0; INSTALL_MODE=1; validate_live_plugin_root; cmd=(); LIVE_LOAD_MODE=plugin-dir; append_live_plugin_dir_arg; [[ "${cmd[*]}" == "--plugin-dir $canonical" ]] ) || { rm -rf "$temp_root"; fail "unset live-root override changed default plugin-dir behavior"; }
+  driver="$REPO_ROOT/scripts/test-claude-plugin.sh"; source="$driver"; main_source="$(declare -f main)"
+  [[ "$(grep -Ec '^[[:space:]]*append_live_plugin_dir_arg$' "$source")" == 11 && "$main_source" == *"validate_live_plugin_root"* ]] || { rm -rf "$temp_root"; fail "one or more model-bearing live call sites bypass the live-root selector"; }
+  canonical_arg='--plugin-dir "$PLUGIN''_ROOT"'; live_read='local read_root="$LIVE''_PLUGIN_ROOT"'; live_add='--add-dir "$LIVE''_PLUGIN_ROOT/skills-claude/$expected_route"'; live_copy='cp -Rp "$LIVE''_PLUGIN_ROOT/." "$isolated_plugin_root/"'
+  ! grep -Fq -- "$canonical_arg" "$source" && grep -Fq "$live_read" "$source" && grep -Fq -- "$live_add" "$source" && grep -Fq "$live_copy" "$source" || { rm -rf "$temp_root"; fail "canonical plugin root leaked into live plugin-dir/add-dir/model-diversity routing"; }
+  declare -f validate_manifests | grep -Fq 'PLUGIN_ROOT' && ! declare -f validate_manifests | grep -Fq 'LIVE_PLUGIN_ROOT' || { rm -rf "$temp_root"; fail "source validation was rebound from the canonical plugin root"; }
+  for case_spec in relative "$missing" "$malformed" "$live:install"; do
+    rm -f "$launch"; rc=0; root="${case_spec%:install}"; args=(--isolated-config --no-install --live-hook-only); [[ "$case_spec" == *:install ]] && args=(--isolated-config --live-hook-only)
+    ( OH_NO_LIVE_PLUGIN_ROOT="$root" CLAUDE_BIN="$fake" FAKE_LAUNCH_LOG="$launch" "$driver" "${args[@]}" ) >/dev/null 2>&1 || rc=$?
+    [[ "$rc" == 1 && ! -e "$launch" ]] || { rm -rf "$temp_root"; fail "invalid/install-mode live-root case launched an executable: $case_spec"; }
+  done
+  rm -rf "$temp_root"
+  ok "live-only plugin root: canonical validation, all live argv, defaults, shape, and install guard verified"
+}
 
-# Deterministic regression for the marketplace-isolation safety design. Covers
-# the shared source/config primitive, the production install call-site (real
-# install_or_update_plugin driven by a logging fake CLAUDE_BIN), the release
-# invocation contract, and the --isolated-config cleanup lifecycle. It never runs
-# real `claude`, never touches the developer's real ~/.claude, and never mutates
-# any marketplace registration; a simulated user fixture is checked for
-# invariance.
+run_claude_state_isolation_offline_test() (
+  log "Running offline Claude process state-isolation canary"
+  local temp_root synthetic_home home_state fake records rejected_records rejected_config driver canonical_plugin canonical_marketplace live_plugin interview_prompt prompt actual_before home_before success_config failure_config cleanup_cmd rc
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-claude-state-canary.XXXXXX")"; printf -v cleanup_cmd 'rm -rf -- %q' "$temp_root"; trap "$cleanup_cmd" EXIT
+  synthetic_home="$temp_root/home"; home_state="$synthetic_home/.claude.json"; mkdir -p "$synthetic_home"; printf 'synthetic home sentinel\n' >"$home_state"
+  actual_before="$(file_identity "$HOME/.claude.json")"; home_before="$(file_identity "$home_state")"
+  fake="$temp_root/fake-claude.py"; records="$temp_root/records.jsonl"; rejected_records="$temp_root/rejected.jsonl"; rejected_config="$temp_root/rejected-config"; driver="$REPO_ROOT/scripts/test-claude-plugin.sh"
+  canonical_plugin="$PLUGIN_ROOT"; canonical_marketplace="$MARKETPLACE_ROOT"; live_plugin="$LIVE_PLUGIN_ROOT"; interview_prompt="$(live_prompt_for_skill interview)"; interview_prompt="$interview_prompt Ground your reply in the skill document the command tells you to read; if you cannot read it, say so instead of answering from memory."
+  cat >"$fake" <<'PY'
+#!/usr/bin/env python3
+import json, os, sys; from pathlib import Path
+argv = sys.argv[1:]; home, config = os.environ.get("HOME", ""), os.environ.get("CLAUDE_CONFIG_DIR", "")
+selected = (config or home).rstrip("/") + "/.claude.json"
+with open(os.environ["FAKE_CLAUDE_LOG"], "a", encoding="utf-8") as fh:
+    fh.write(json.dumps({"argv": argv, "HOME": home, "CLAUDE_CONFIG_DIR": config, "selected_state": selected}, separators=(",", ":")) + "\n")
+Path(selected).parent.mkdir(parents=True, exist_ok=True); Path(selected).write_text("oh-no fake claude state marker\n", encoding="utf-8")
+validates = {os.environ["FAKE_VALIDATE_PLUGIN"], os.environ["FAKE_VALIDATE_MARKETPLACE"]}
+if len(argv) == 3 and argv[:2] == ["plugin", "validate"] and argv[2] in validates: raise SystemExit(0)
+expected = ["--print", "--verbose", "--output-format", "stream-json", "--model", "fake-model", "--max-budget-usd", "0", "--permission-mode", "dontAsk", "--tools", "Read", "--no-session-persistence", "--system-prompt", "fake-system", "--plugin-dir", os.environ["FAKE_LIVE_PLUGIN_ROOT"]]
+if len(argv) == len(expected) + 1 and argv[:-1] == expected and argv[-1] == os.environ["FAKE_INTERVIEW_PROMPT"]:
+    read_path = str(Path(os.environ["FAKE_LIVE_PLUGIN_ROOT"]) / "skills-claude/interview/SKILL.md")
+    print(json.dumps({"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":read_path}}]}}))
+    print(json.dumps({"type":"result","is_error":False,"result":"fake interview result","total_cost_usd":0}))
+    raise SystemExit(0)
+raise SystemExit(97)
+PY
+  chmod +x "$fake"
+  export FAKE_CLAUDE_LOG="$records" FAKE_VALIDATE_PLUGIN="$canonical_plugin/.claude-plugin/plugin.json" FAKE_VALIDATE_MARKETPLACE="$canonical_marketplace/.claude-plugin/marketplace.json" FAKE_LIVE_PLUGIN_ROOT="$live_plugin" FAKE_INTERVIEW_PROMPT="$interview_prompt"
+  rc=0
+  ( export HOME="$synthetic_home" CLAUDE_BIN="$fake"; source "$driver"; PLUGIN_ROOT="$canonical_plugin"; MARKETPLACE_ROOT="$canonical_marketplace"; LIVE_PLUGIN_ROOT="$live_plugin"; INSTALL_MODE=0; LIVE_LOAD_MODE=plugin-dir; LIVE_MODEL=fake-model; LIVE_MAX_BUDGET_USD=0; LIVE_SYSTEM_PROMPT=fake-system; RUN_DIR="$temp_root/run"; mkdir -p "$RUN_DIR"; setup_isolated_config; printf '%s\n' "$CLAUDE_CONFIG_DIR" >"$temp_root/success-config"; validate_manifests >/dev/null; run_live_skill_test interview >/dev/null; grep -Fxq 'oh-no fake claude state marker' "$CLAUDE_CONFIG_DIR/.claude.json"; printf 'observed\n' >"$temp_root/marker-observed" ) >/dev/null 2>"$temp_root/success.err" || rc=$?
+  [[ "$rc" == 0 && -s "$temp_root/marker-observed" && -s "$temp_root/success-config" ]] || fail "Claude state-isolation success child failed (rc=$rc)"
+  success_config="$(<"$temp_root/success-config")"; [[ "$success_config" == /* && ! -d "$success_config" ]] || fail "Claude state-isolation success config was not cleaned"
+  for prompt in "/$PLUGIN_NAME:interview" "$interview_prompt UNPLANNED-SUFFIX"; do
+    rc=0; HOME="$synthetic_home" CLAUDE_CONFIG_DIR="$rejected_config" FAKE_CLAUDE_LOG="$rejected_records" "$fake" --print --verbose --output-format stream-json --model fake-model --max-budget-usd 0 --permission-mode dontAsk --tools Read --no-session-persistence --system-prompt fake-system --plugin-dir "$live_plugin" "$prompt" >/dev/null 2>&1 || rc=$?; [[ "$rc" == 97 ]] || fail "Claude state-isolation fake accepted malformed Interview prompt (rc=$rc)"
+  done
+  [[ "$(grep -c . "$rejected_records")" == 2 ]] || fail "Claude state-isolation malformed prompt evidence was not isolated"
+  rc=0
+  ( export HOME="$synthetic_home" CLAUDE_BIN="$fake"; source "$driver"; setup_isolated_config; printf '%s\n' "$CLAUDE_CONFIG_DIR" >"$temp_root/failure-config"; exit 23 ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == 23 && -s "$temp_root/failure-config" ]] || fail "Claude state-isolation failure child did not return 23"
+  failure_config="$(<"$temp_root/failure-config")"; [[ "$failure_config" == /* && ! -d "$failure_config" ]] || fail "Claude state-isolation failure config was not cleaned"
+  "$PYTHON_BIN" - "$records" "$synthetic_home" "$success_config" "$canonical_plugin" "$canonical_marketplace" "$live_plugin" "$interview_prompt" <<'PY'
+import json, os, sys
+records = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+home, config, plugin, marketplace, live, prompt = sys.argv[2:]
+if len(records) != 3:
+    raise SystemExit(f"expected exactly 3 fake Claude calls, got {len(records)}")
+if [r["argv"] for r in records[:2]] != [["plugin", "validate", plugin + "/.claude-plugin/plugin.json"], ["plugin", "validate", marketplace + "/.claude-plugin/marketplace.json"]]:
+    raise SystemExit("fake Claude manifest calls did not match canonical paths")
+expected = ["--print", "--verbose", "--output-format", "stream-json", "--model", "fake-model", "--max-budget-usd", "0", "--permission-mode", "dontAsk", "--tools", "Read", "--no-session-persistence", "--system-prompt", "fake-system", "--plugin-dir", live, prompt]
+if records[2]["argv"] != expected:
+    raise SystemExit("fake Claude live call did not match the exact planned Interview invocation")
+for record in records:
+    selected = record["selected_state"]
+    if record["HOME"] != home or record["CLAUDE_CONFIG_DIR"] != config or not os.path.isabs(config) or selected != config + "/.claude.json" or selected == home + "/.claude.json":
+        raise SystemExit("fake Claude process did not inherit disposable state isolation")
+PY
+  [[ "$(file_identity "$home_state")" == "$home_before" ]] || fail "Claude state-isolation canary changed synthetic HOME state"
+  [[ "$(file_identity "$HOME/.claude.json")" == "$actual_before" ]] || fail "Claude state-isolation canary changed actual HOME state"
+  ok "Claude process state isolation: planned prompt=0, malformed prompts=97/97, 3 success records, identities, and cleanup verified"
+)
+
 run_marketplace_isolation_offline_test() {
   log "Running offline marketplace-isolation fail-closed regression"
   local temp_root fake_home fixture helper before after rc out err
@@ -4361,80 +4611,67 @@ run_marketplace_isolation_offline_test() {
 
   # ---- shared primitive: source-classification matrix ---------------------
   local s src expect actual cfg
-  for s in \
-    "$REPO_ROOT=local" \
-    "file:///tmp/x=local" \
-    "/abs/path=local" \
-    "./rel=local" \
-    "../rel=local" \
-    "~/x=local" \
-    "jcwleo/oh-no-harness=remote" \
-    "https://github.com/jcwleo/oh-no-harness.git=remote" \
-    "https://github.com/jcwleo/oh-no-harness=remote" \
-    "git@github.com:jcwleo/oh-no-harness.git=remote" \
-    "ssh://git@github.com/jcwleo/oh-no-harness.git=remote" \
-    "http://github.com/a/b=invalid" \
-    "https://gitlab.com/a/b=invalid" \
-    "https://user:tok@github.com/a/b=invalid" \
-    "https://github.com/a/b?x=1=invalid" \
-    "singleword=invalid" \
-  ; do
+  for s in "$REPO_ROOT=local" "file:///tmp/x=local" "/abs/path=local" "./rel=local" "../rel=local" "~/x=local" "jcwleo/oh-no-harness=remote" "https://github.com/jcwleo/oh-no-harness.git=remote" "https://github.com/jcwleo/oh-no-harness=remote" "git@github.com:jcwleo/oh-no-harness.git=remote" "ssh://git@github.com:jcwleo/oh-no-harness.git=remote" "http://github.com/a/b=invalid" "https://gitlab.com/a/b=invalid" "https://user:tok@github.com/a/b=invalid" "https://github.com/a/b?x=1=invalid" "singleword=invalid"; do
     expect="${s##*=}"; src="${s%=*}"
     actual="$("$PYTHON_BIN" "$helper" classify-source "$src")"
-    [[ "$actual" == "$expect" ]] \
-      || { rm -rf "$temp_root"; fail "classify-source('$src')='$actual' expected '$expect'"; }
+    [[ "$actual" == "$expect" ]] || { rm -rf "$temp_root"; fail "classify-source('$src')='$actual' expected '$expect'"; }
   done
 
   # ---- shared primitive: github-slug parse + credential rejection ---------
-  for s in \
-    "https://github.com/jcwleo/oh-no-harness.git" \
-    "https://github.com/jcwleo/oh-no-harness" \
-    "git@github.com:jcwleo/oh-no-harness.git" \
-    "ssh://git@github.com/jcwleo/oh-no-harness.git" \
-  ; do
+  for s in "https://github.com/jcwleo/oh-no-harness.git" "https://github.com/jcwleo/oh-no-harness" "git@github.com:jcwleo/oh-no-harness.git" "ssh://git@github.com/jcwleo/oh-no-harness.git"; do
     actual="$("$PYTHON_BIN" "$helper" github-slug "$s")"
-    [[ "$actual" == "jcwleo/oh-no-harness" ]] \
-      || { rm -rf "$temp_root"; fail "github-slug('$s')='$actual' expected jcwleo/oh-no-harness"; }
+    [[ "$actual" == "jcwleo/oh-no-harness" ]] || { rm -rf "$temp_root"; fail "github-slug('$s')='$actual' expected jcwleo/oh-no-harness"; }
   done
   out="$temp_root/slug.out"; err="$temp_root/slug.err"
-  for s in \
-    "http://github.com/a/b" \
-    "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" \
-    "https://gitlab.com/a/b" \
-    "https://github.com:443/a/b" \
-    "ssh://user@github.com/a/b" \
-  ; do
+  for s in "http://github.com/a/b" "https://x:s3cr3t@github.com/jcwleo/oh-no-harness.git" "https://gitlab.com/a/b" "https://github.com:443/a/b" "ssh://user@github.com/a/b"; do
     rc=0
     "$PYTHON_BIN" "$helper" github-slug "$s" >"$out" 2>"$err" || rc=$?
-    [[ "$rc" != "0" ]] \
-      || { rm -rf "$temp_root"; fail "github-slug accepted an unsupported origin: $s"; }
-    grep -Fq "s3cr3t" "$out" "$err" \
-      && { rm -rf "$temp_root"; fail "github-slug leaked a credential from '$s'"; } || true
+    [[ "$rc" != "0" ]] || { rm -rf "$temp_root"; fail "github-slug accepted an unsupported origin: $s"; }
+    grep -Fq "s3cr3t" "$out" "$err" && { rm -rf "$temp_root"; fail "github-slug leaked a credential from '$s'"; } || true
   done
 
   # ---- shared primitive: redaction ----------------------------------------
-  [[ "$("$PYTHON_BIN" "$helper" redact "https://x:s3cr3t@github.com/a/b")" == "https://***@github.com/a/b" ]] \
-    || { rm -rf "$temp_root"; fail "redact did not mask URL userinfo"; }
-  [[ "$("$PYTHON_BIN" "$helper" redact "/local/path")" == "/local/path" ]] \
-    || { rm -rf "$temp_root"; fail "redact altered a local path"; }
+  [[ "$("$PYTHON_BIN" "$helper" redact "https://x:s3cr3t@github.com/a/b")" == "https://***@github.com/a/b" ]] || { rm -rf "$temp_root"; fail "redact did not mask URL userinfo"; }
+  [[ "$("$PYTHON_BIN" "$helper" redact "/local/path")" == "/local/path" ]] || { rm -rf "$temp_root"; fail "redact altered a local path"; }
 
   # ---- shared primitive: config-home identity (exact/trailing/dot/symlink) -
   mkdir -p "$fake_home/.claude"
   ln -s "$fake_home/.claude" "$temp_root/cfglink"
-  for s in \
-    "=default" \
-    "$fake_home/.claude=default" \
-    "$fake_home/.claude/=default" \
-    "$fake_home/.claude/.=default" \
-    "$fake_home/x/../.claude=default" \
-    "$temp_root/cfglink=default" \
-    "$temp_root/other-config=isolated" \
-  ; do
+  for s in "=default" "$fake_home/.claude=default" "$fake_home/.claude/=default" "$fake_home/.claude/.=default" "$fake_home/x/../.claude=default" "$temp_root/cfglink=default" "$temp_root/other-config=isolated"; do
     expect="${s##*=}"; cfg="${s%=*}"
     actual="$("$PYTHON_BIN" "$helper" config-identity "$cfg" "$fake_home")"
-    [[ "$actual" == "$expect" ]] \
-      || { rm -rf "$temp_root"; fail "config-identity('$cfg')='$actual' expected '$expect'"; }
+    [[ "$actual" == "$expect" ]] || { rm -rf "$temp_root"; fail "config-identity('$cfg')='$actual' expected '$expect'"; }
   done
+
+  # ---- model-bearing plugin-dir live guard --------------------------------
+  local live_home="$temp_root/live-home" live_registry fake_live="$temp_root/fake-live" launch_log="$temp_root/live-launch.log" live_before live_mtime
+  live_registry="$live_home/.claude/plugins/known_marketplaces.json"; mkdir -p "$(dirname "$live_registry")"; printf 'sentinel\n' >"$live_registry"
+  live_before="$(shasum -a 256 "$live_registry")"; live_mtime="$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$live_registry")"
+  cat >"$fake_live" <<'FAKE_LIVE'
+#!/usr/bin/env bash
+printf 'launched\n' >>"$FAKE_LIVE_LOG"
+registry="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/known_marketplaces.json"
+mkdir -p "$(dirname "$registry")"; printf 'mutated\n' >"$registry"
+FAKE_LIVE
+  chmod +x "$fake_live"
+  run_guarded_fake_live() { declare -F guard_real_claude_config_live >/dev/null && guard_real_claude_config_live; "$fake_live"; }
+  rc=0; ( unset CLAUDE_CONFIG_DIR OH_NO_CONFIG_DIR OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE; HOME="$live_home" CLAUDE_BIN="$fake_live" FAKE_LIVE_LOG="$launch_log" "$REPO_ROOT/scripts/test-claude-plugin.sh" --no-install --live-hook-only ) >/dev/null 2>"$temp_root/live.err" || rc=$?
+  [[ "$rc" == 1 && ! -e "$launch_log" && "$live_before" == "$(shasum -a 256 "$live_registry")" && "$live_mtime" == "$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$live_registry")" ]] || { rm -rf "$temp_root"; fail "real-default-config plugin-dir live path launched before the fail-closed guard"; }
+  grep -Fq "ordinary Claude startup plugin sync" "$temp_root/live.err" || { rm -rf "$temp_root"; fail "real-config live guard omitted the startup-sync risk"; }
+  for s in RUN_LIVE RUN_DEEP_LIVE RUN_PARALLEL_LIVE RUN_RALPLAN_LIVE RUN_FUSION_RESCUE_LIVE RUN_CROSS_HOST_FALLBACK_LIVE RUN_MODEL_DIVERSITY_LIVE RUN_PARALLEL_EXECUTOR_LIVE RUN_SIMPLIFY_LIVE RUN_NATURAL_SESSION_START_LIVE; do
+    rc=0; ( unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE; HOME="$live_home"; RUN_LIVE=0 RUN_DEEP_LIVE=0 RUN_PARALLEL_LIVE=0 RUN_RALPLAN_LIVE=0 RUN_FUSION_RESCUE_LIVE=0 RUN_CROSS_HOST_FALLBACK_LIVE=0 RUN_MODEL_DIVERSITY_LIVE=0 RUN_PARALLEL_EXECUTOR_LIVE=0 RUN_SIMPLIFY_LIVE=0 RUN_NATURAL_SESSION_START_LIVE=0; printf -v "$s" 1; LIVE_LOAD_MODE=plugin-dir; guard_real_claude_config_live ) 2>/dev/null || rc=$?
+    [[ "$rc" == 1 ]] || { rm -rf "$temp_root"; fail "real-config live guard missed $s"; }
+  done
+  : >"$launch_log"; ( HOME="$live_home"; RUN_LIVE=1; LIVE_LOAD_MODE=plugin-dir; ISOLATED_CONFIG_HOME=""; export FAKE_LIVE_LOG="$launch_log"; setup_isolated_config; run_guarded_fake_live ) >/dev/null 2>&1
+  [[ -s "$launch_log" && "$live_before" == "$(shasum -a 256 "$live_registry")" && "$live_mtime" == "$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$live_registry")" ]] || { rm -rf "$temp_root"; fail "--isolated-config live path changed the fake real registry or did not launch"; }
+  : >"$launch_log"; ( HOME="$live_home"; CLAUDE_CONFIG_DIR="$temp_root/explicit-live-config"; RUN_LIVE=1; LIVE_LOAD_MODE=plugin-dir; export CLAUDE_CONFIG_DIR FAKE_LIVE_LOG="$launch_log"; run_guarded_fake_live ) >/dev/null 2>&1
+  [[ -s "$launch_log" && "$live_before" == "$(shasum -a 256 "$live_registry")" && "$live_mtime" == "$("$PYTHON_BIN" -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$live_registry")" ]] || { rm -rf "$temp_root"; fail "explicit non-default CLAUDE_CONFIG_DIR live path changed the fake real registry or did not launch"; }
+  rc=0; ( unset CLAUDE_CONFIG_DIR OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE; HOME="$live_home"; OH_NO_CONFIG_DIR="$temp_root/oh-no-only"; RUN_LIVE=1; LIVE_LOAD_MODE=plugin-dir; guard_real_claude_config_live ) 2>/dev/null || rc=$?
+  [[ "$rc" == 1 ]] || { rm -rf "$temp_root"; fail "OH_NO_CONFIG_DIR was mistaken for Claude registry isolation"; }
+  local escape_home="$temp_root/escape-home" escape_registry="$temp_root/escape-home/.claude/plugins/known_marketplaces.json"
+  mkdir -p "$(dirname "$escape_registry")"; printf 'sentinel\n' >"$escape_registry"; : >"$launch_log"
+  ( unset CLAUDE_CONFIG_DIR; HOME="$escape_home"; OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE=1; RUN_LIVE=1; LIVE_LOAD_MODE=plugin-dir; export FAKE_LIVE_LOG="$launch_log"; run_guarded_fake_live ) >/dev/null 2>&1
+  [[ -s "$launch_log" && "$(<"$escape_registry")" == mutated ]] || { rm -rf "$temp_root"; fail "explicit real-config live escape hatch did not permit the mutation-capable fixture"; }
 
   # ---- guard control flow (name-agnostic; blocker 1a) ----------------------
   err="$temp_root/danger.err"
@@ -4444,10 +4681,8 @@ run_marketplace_isolation_offline_test() {
     HOME="$fake_home"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="$REPO_ROOT"
     guard_canonical_local_marketplace
   ) 2>"$err" || rc=$?
-  [[ "$rc" == "1" ]] \
-    || { rm -rf "$temp_root"; fail "guard did not block local source + default config (rc=$rc)"; }
-  grep -Fq "from a LOCAL source" "$err" \
-    || { rm -rf "$temp_root"; fail "guard block message missing the expected diagnostic"; }
+  [[ "$rc" == "1" ]] || { rm -rf "$temp_root"; fail "guard did not block local source + default config (rc=$rc)"; }
+  grep -Fq "from a LOCAL source" "$err" || { rm -rf "$temp_root"; fail "guard block message missing the expected diagnostic"; }
 
   # A non-canonical name is NOT a safe path.
   rc=0
@@ -4456,8 +4691,7 @@ run_marketplace_isolation_offline_test() {
     HOME="$fake_home"; MARKETPLACE_NAME="some-other-marketplace"; MARKETPLACE_SOURCE="$REPO_ROOT"
     guard_canonical_local_marketplace
   ) 2>/dev/null || rc=$?
-  [[ "$rc" == "1" ]] \
-    || { rm -rf "$temp_root"; fail "guard treated a non-canonical name + local + default as safe (rc=$rc)"; }
+  [[ "$rc" == "1" ]] || { rm -rf "$temp_root"; fail "guard treated a non-canonical name + local + default as safe (rc=$rc)"; }
 
   # An invalid source is always refused.
   rc=0
@@ -4466,8 +4700,7 @@ run_marketplace_isolation_offline_test() {
     HOME="$fake_home"; MARKETPLACE_NAME="oh-no-harness"; MARKETPLACE_SOURCE="http://github.com/a/b"
     guard_canonical_local_marketplace
   ) 2>/dev/null || rc=$?
-  [[ "$rc" == "1" ]] \
-    || { rm -rf "$temp_root"; fail "guard allowed an invalid source into the real config (rc=$rc)"; }
+  [[ "$rc" == "1" ]] || { rm -rf "$temp_root"; fail "guard allowed an invalid source into the real config (rc=$rc)"; }
 
   # Safe variants: isolated config, validated GitHub source, explicit opt-in.
   rc=0
@@ -4507,10 +4740,8 @@ FAKE
     INSTALL_MODE=1; PLUGIN_ID="oh-no-harness@oh-no-harness"
     install_or_update_plugin
   ) >/dev/null 2>&1 || rc=$?
-  [[ "$rc" == "1" ]] \
-    || { rm -rf "$temp_root"; fail "blocked install_or_update_plugin did not fail closed (rc=$rc)"; }
-  [[ ! -s "$wire_log" ]] \
-    || { local leaked; leaked="$(cat "$wire_log")"; rm -rf "$temp_root"; fail "blocked install path executed CLI commands: $leaked"; }
+  [[ "$rc" == "1" ]] || { rm -rf "$temp_root"; fail "blocked install_or_update_plugin did not fail closed (rc=$rc)"; }
+  [[ ! -s "$wire_log" ]] || { local leaked; leaked="$(cat "$wire_log")"; rm -rf "$temp_root"; fail "blocked install path executed CLI commands: $leaked"; }
 
   # Safe synthetic case: expected marketplace command + isolated env recorded.
   : >"$wire_log"
@@ -4523,12 +4754,9 @@ FAKE
     INSTALL_MODE=1; REQUESTED_SCOPE=""; PLUGIN_ID="oh-no-harness@oh-no-harness"
     install_or_update_plugin
   ) >/dev/null 2>&1 || true
-  grep -q "plugin marketplace add" "$wire_log" \
-    || { rm -rf "$temp_root"; fail "safe install path did not run marketplace add"; }
-  grep "plugin marketplace add" "$wire_log" | grep -Fq "CLAUDE_CONFIG_DIR=$temp_root/iso-wire" \
-    || { rm -rf "$temp_root"; fail "marketplace add did not carry the isolated config env"; }
-  grep -q "plugin install" "$wire_log" \
-    || { rm -rf "$temp_root"; fail "safe install path did not run plugin install"; }
+  grep -q "plugin marketplace add" "$wire_log" || { rm -rf "$temp_root"; fail "safe install path did not run marketplace add"; }
+  grep "plugin marketplace add" "$wire_log" | grep -Fq "CLAUDE_CONFIG_DIR=$temp_root/iso-wire" || { rm -rf "$temp_root"; fail "marketplace add did not carry the isolated config env"; }
+  grep -q "plugin install" "$wire_log" || { rm -rf "$temp_root"; fail "safe install path did not run plugin install"; }
 
   # --no-install / OH_NO_INSTALL=0 must skip install (and the guard) entirely.
   rc=0
@@ -4538,8 +4766,7 @@ FAKE
     INSTALL_MODE=0
     install_or_update_plugin
   ) >/dev/null 2>&1 || rc=$?
-  [[ "$rc" == "0" ]] \
-    || { rm -rf "$temp_root"; fail "--no-install did not skip the install/guard path (rc=$rc)"; }
+  [[ "$rc" == "0" ]] || { rm -rf "$temp_root"; fail "--no-install did not skip the install/guard path (rc=$rc)"; }
 
   # ---- release invocation contract (guard/call-site removal must fail) -----
   local rel_log="$temp_root/release-invoke.log"
@@ -4550,12 +4777,9 @@ FAKE
     MARKETPLACE_NAME="oh-no-harness"
     run_claude_install_test "jcwleo/oh-no-harness"
   ) >"$rel_log" 2>/dev/null || true
-  grep -q 'ARGV=.*scripts/test-claude-plugin.sh.*--isolated-config' "$rel_log" \
-    || { rm -rf "$temp_root"; fail "release Claude invocation missing --isolated-config"; }
-  grep -q '^SRC=jcwleo/oh-no-harness$' "$rel_log" \
-    || { rm -rf "$temp_root"; fail "release Claude invocation did not pass the credential-free slug"; }
-  grep -q '^INSTALL=1$' "$rel_log" \
-    || { rm -rf "$temp_root"; fail "release Claude invocation did not force OH_NO_INSTALL=1"; }
+  grep -q 'ARGV=.*scripts/test-claude-plugin.sh.*--isolated-config' "$rel_log" || { rm -rf "$temp_root"; fail "release Claude invocation missing --isolated-config"; }
+  grep -q '^SRC=jcwleo/oh-no-harness$' "$rel_log" || { rm -rf "$temp_root"; fail "release Claude invocation did not pass the credential-free slug"; }
+  grep -q '^INSTALL=1$' "$rel_log" || { rm -rf "$temp_root"; fail "release Claude invocation did not force OH_NO_INSTALL=1"; }
 
   # A hostile inherited OH_NO_INSTALL=0 must be overridden to 1.
   : >"$rel_log"
@@ -4582,14 +4806,8 @@ FAKE
   grep -Fq "s3cr3t" "$out" "$err" \
     && { rm -rf "$temp_root"; fail "release leaked a credential from the origin URL"; } || true
 
-  # ---- --isolated-config cleanup lifecycle (success/failure/INT/TERM) ------
+  # Success/fixed-failure cleanup is covered by run_claude_state_isolation_offline_test; retain interrupt coverage here.
   local iso_home
-  iso_home="$(bash -c 'set -euo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"' 2>/dev/null)"
-  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
-    || { rm -rf "$temp_root"; fail "isolated config not cleaned on success (home=$iso_home)"; }
-  iso_home="$(bash -c 'set -uo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"; exit 1' 2>/dev/null || true)"
-  { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
-    || { rm -rf "$temp_root"; fail "isolated config not cleaned on failure (home=$iso_home)"; }
   iso_home="$(bash -c 'set -uo pipefail; source "'"$REPO_ROOT"'/scripts/test-claude-plugin.sh"; setup_isolated_config; printf "%s\n" "$CLAUDE_CONFIG_DIR"; kill -INT $$; sleep 5' 2>/dev/null || true)"
   { [[ -n "$iso_home" && ! -d "$iso_home" ]]; } \
     || { rm -rf "$temp_root"; fail "isolated config not cleaned on INT (home=$iso_home)"; }
@@ -4603,40 +4821,28 @@ FAKE
     || { rm -rf "$temp_root"; fail "regression mutated the simulated user marketplace fixture"; }
 
   rm -rf "$temp_root"
-  ok "marketplace-isolation: shared primitive, guarded install call-site, release contract, and isolated-config cleanup all verified"
+  ok "marketplace/live-config isolation: guarded install/live call-sites, safe-path matrix, release contract, and cleanup verified"
 }
-
-
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
   require_command "$PYTHON_BIN"
 
   [[ "$ISOLATED_CONFIG" == "1" ]] && setup_isolated_config
+  guard_real_claude_config_live
+  validate_live_plugin_root
 
   log "Testing ${PLUGIN_ID} from ${PLUGIN_ROOT}"
-  validate_manifests
-  validate_hooks
-  run_live_timeout_offline_test
-  run_natural_prompt_guard_offline_test
-  run_ralplan_object_analysis_dispatch_guard_offline_test
-  run_escape_net_offline_test
-  run_active_stale_scan_reader_offline_test
-  run_configure_subagents_offline_test
-  run_script_resolver_offline_test
-  run_marketplace_isolation_offline_test
-  validate_frontmatter
-  install_or_update_plugin
-  run_live_tests
-  run_deep_live_tests
-  run_ralplan_live_test
-  run_parallel_live_test
-  run_fusion_rescue_live_test
-  run_cross_host_fallback_live_test
-  run_model_diversity_live_test
-  run_parallel_executor_live_test
-  run_simplify_live_test
-  run_natural_session_start_live_tests
+  validate_manifests; validate_hooks
+  run_live_timeout_offline_test; run_natural_prompt_guard_offline_test; run_natural_git_fixture_offline_test
+  run_natural_activation_assertion_offline_test; run_ralplan_object_analysis_dispatch_guard_offline_test
+  run_escape_net_offline_test; run_active_stale_scan_reader_offline_test
+  run_configure_subagents_offline_test; run_script_resolver_offline_test
+  run_live_plugin_root_offline_test; run_marketplace_isolation_offline_test; run_claude_state_isolation_offline_test
+  validate_frontmatter; install_or_update_plugin
+  run_live_tests; run_deep_live_tests; run_ralplan_live_test; run_parallel_live_test
+  run_fusion_rescue_live_test; run_cross_host_fallback_live_test; run_model_diversity_live_test
+  run_parallel_executor_live_test; run_simplify_live_test; run_natural_session_start_live_tests
   log "All requested checks passed"
 }
 

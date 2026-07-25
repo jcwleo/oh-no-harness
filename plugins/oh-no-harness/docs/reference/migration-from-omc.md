@@ -44,4 +44,4 @@ Tier-specific OMC agent names become base agent names with task scope and scruti
 
 ## Runtime Policy
 
-The bootstrap hook injects a compact native skill-loading reminder at session start. It does not embed the full `using-oh-no-harness` core body. No other hook participates in skill selection or workflow persistence.
+Positive workflow selection comes from native loading of each workflow's frontmatter description. SessionStart supplies the global no-route, direct-edit, object-of-analysis, and approval-gated chaining boundaries, with optional Claude-only ordering and precedence while Codex gains no forced-routing semantics. The retired `using-oh-no-harness` has no alias, compatibility surface, or migration destination.

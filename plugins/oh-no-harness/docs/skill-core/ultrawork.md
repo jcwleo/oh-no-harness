@@ -1,6 +1,6 @@
 ---
 name: ultrawork
-description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span interview, planning, execution, QA, cleanup, and validation.
+description: Use when the user explicitly delegates autonomous end-to-end delivery across discovery, planning, implementation, and verification; not for a small execution-ready task.
 argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 ---
 

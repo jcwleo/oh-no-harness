@@ -1,6 +1,6 @@
 ---
 name: ralplan
-description: Use when broad, risky, architecture-sensitive, cross-file, multi-step, or unclear work needs consensus implementation planning before coding.
+description: Use when requirements are sufficiently known but implementation is broad, risky, architecture-sensitive, cross-file, multi-step, or strategy-unclear and needs a plan; not for still-vague discovery or an execution-ready task.
 argument-hint: "<task, spec path, or plan request>"
 ---
 

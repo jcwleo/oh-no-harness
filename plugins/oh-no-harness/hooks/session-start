@@ -161,13 +161,15 @@ fi
 bootstrap_policy='<OH_NO_BOOTSTRAP>
 You have Oh No Harness installed. Use native skill loading to read the relevant Oh No Harness skill when it applies.
 
-Routing reminder: unclear workflow -> using-oh-no-harness; vague requirements -> interview; planning/risky/cross-file work -> ralplan; approved plan/PRD/concrete task -> ralph; hard stalled problem needing panel rescue -> fusion-rescue; autonomous end-to-end work -> ultrawork; failing commands/regressions/flaky behavior/unknown root cause -> systematic-debugging (a known-cause localized bug fix -> ralph); completion claims -> verification-before-completion; cleanup after behavior lock -> simplify.
+A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger. Route from the requested deliverable: an analysis report versus a plan or execution artifact.
 
-No-route lane: a request that does not create or change repository work products (code, tests, docs, configs) and does not claim their completion — research, conceptual or codebase questions, status reports, version-control or environment housekeeping over already-written changes — is answered directly without invoking a workflow skill. Direct-edit lane: a trivial mutation may skip ralph and be applied as a direct edit plus a diff check when ALL hold: single obvious file, inert (prose/comment/formatting not consumed by runtime, build, test, CI, or operations), the file is not generated and any generation source includes regeneration and validation in the same action, and no security, permission, or public-contract surface. Executable source, tests, build/CI/hooks, dependency or lockfile metadata, ignore/attribute files, schema or migrations, and operational-command docs always route to ralph. If any condition fails, route to ralph. Lane detail: using-oh-no-harness.
+No-route lane: a request that does not create or change repository work products (code, tests, docs, configs) and does not claim their completion — research, conceptual or codebase questions, status reports, version-control or environment housekeeping over already-written changes — is answered directly without invoking a workflow skill.
 
-Use oh-no-harness:test-driven-development only as an explicit TDD/test-first route or an internal guardrail inside ralph/systematic-debugging/ultrawork before behavior-changing edits.
+Direct-edit lane: a trivial mutation may use a direct edit plus diff check only when ALL hold: one obvious file; the change is private, inert, non-consumed, non-operational prose/comment/formatting; the file is non-generated, and editing a generation source includes regeneration and validation in the same action; and the change is non-public-contract with no security or permission surface. Excluded surfaces are executable source, test, build, CI, hook, generated output, security, permission, public-contract, dependency or lockfile metadata, ignore or attribute files, schema or migration, and operational-command docs. If any condition is false or becomes false, route to ralph.
 
-Orchestration default: workflow main agents own .oh-no state and gate decisions; STANDARD/THOROUGH repository work-product mutations use executor roles, with inline mutation only for a recorded LIGHT-tiny or dispatch-unavailable fallback.
+Orchestration default: main agents own .oh-no state/gates; STANDARD/THOROUGH repository mutations use executors, except recorded LIGHT-tiny or dispatch-unavailable inline fallback.
+
+Child packet floor: caller sends a proportional self-contained English packet with purpose/outcome; target role; for repo mutation/review/verify, exact target/revision + result/revision binding; scope/permissions/non-goals; contract/acceptance; evidence/output; stop/escalation. Initial independent review/verify/debug withholds maker conclusions, expected verdicts, sibling output, preferred causes; disclose only later for audit/clarification.
 
 Selected skill file is source of truth. Skill chaining remains explicit: if a skill presents Next Skill Handoff, ask before invoking the next workflow skill.
 </OH_NO_BOOTSTRAP>'
@@ -176,29 +178,17 @@ auto_routing_policy=""
 if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
   auto_routing_policy='
 <OH_NO_FORCED_ROUTING>
-Forced routing is enabled for Oh No Harness. Route from the requested deliverable and invoke an applicable local skill with the Skill tool BEFORE responding, exploring, editing, asking a clarifying question, or claiming completion. A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger. Route from the requested deliverable: an analysis report versus a plan or execution artifact. Explicit planning, implementation, execution, or workflow-invocation requests still route normally.
+Forced routing is enabled for Oh No Harness. Select and invoke an applicable local skill with the Skill tool BEFORE responding, exploring, reading, editing, asking a clarifying question, or claiming completion. Use installed skill descriptions to choose the destination.
 
 Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
 
-The always-injected OH_NO_BOOTSTRAP no-route and direct-edit lanes apply as routing outcomes; do not re-derive them here.
+The always-injected OH_NO_BOOTSTRAP no-route, direct-edit, and object boundaries are closed routing outcomes; do not re-derive them here.
 
-Routing map. Invoke the named skill BEFORE you respond:
-- Vague, broad, ambiguous, or requirement-light request: oh-no-harness:interview.
-- Clear spec or approved requirements but no implementation plan yet: oh-no-harness:ralplan.
-- Approved plan, PRD, concrete task with acceptance criteria, or ordinary implementation request: oh-no-harness:ralph.
-- Trivial inert single-file edit meeting the direct-edit lane conditions: apply the direct edit with a diff check; no workflow skill.
-- Autonomous or end-to-end delivery request: oh-no-harness:ultrawork.
-- Failing test, failing command, regression, flaky behavior, or unknown root cause: oh-no-harness:systematic-debugging. A bug with a known cause and a localized fix: oh-no-harness:ralph.
-- Hard stalled problem after ordinary analysis/debugging, or explicit fusion rescue request: oh-no-harness:fusion-rescue.
-- Explicit TDD/test-first request, or an internal TDD gate inside an already-selected execution path: oh-no-harness:test-driven-development.
-- About to claim done, fixed, passing, ready, verified, or safe to deliver: oh-no-harness:verification-before-completion.
-- Changed diff needs behavior-preserving quality cleanup before delivery: oh-no-harness:simplify.
+Essential precedence: explicit end-to-end delegation beats inferred stage selection; active failure or root-cause investigation beats implementation; explicit test-first intent beats ordinary implementation; otherwise the most upstream incomplete prerequisite wins.
 
 After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
 
-Red flags: "quick answer", "explore first", "ask clarification first", "one small edit", "obvious bug", or "about to claim fixed/ready" still require routing first; routing may legitimately resolve to the no-route lane when the OH_NO_BOOTSTRAP lane conditions hold, but do not use these phrases to skip the decision. ordinary implementation uses ralph unless the user explicitly requested TDD/test-first work; small concrete edits stay in ralph and may qualify for its STANDARD small-task carve-out unless they meet the direct-edit lane.
-
-If an invoked skill turns out not to apply, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
+If the selected skill proves inapplicable, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
 </OH_NO_FORCED_ROUTING>'
 fi
 
@@ -217,11 +207,7 @@ ${bootstrap_policy}
 </EXTREMELY_IMPORTANT>"
 
 claude_code_question_policy='<CLAUDE_CODE_ONLY>
-This platform is Claude Code. When asking the user a clarification, preference, scope, or approval question, use AskUserQuestion when that tool is available.
-
-Prefer one focused question at a time. Use 2-4 mutually exclusive choices when options fit; otherwise ask plain text.
-
-This instruction is Claude Code-only. Do not apply it on Codex or other platforms.
+Claude Code only: use AskUserQuestion when available for clarification, preference, scope, or approval. Ask one focused question; use 2-4 mutually exclusive choices when suitable, otherwise plain text.
 </CLAUDE_CODE_ONLY>'
 
 claude_code_subagent_role_label_policy='<OH_NO_SUBAGENT_ROLE_LABEL>

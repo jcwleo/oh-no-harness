@@ -1,6 +1,6 @@
 ---
 name: interview
-description: Use when an idea, product request, feature request, design prompt, or engineering task is vague, broad, ambiguous, missing requirements, constraints, acceptance criteria, or user intent, or would otherwise need clarification before planning or implementation.
+description: Use when the requested deliverable is vague, broad, ambiguous, requirement-light, or missing users, constraints, or acceptance criteria and needs requirements discovery before implementation planning or execution.
 argument-hint: "[--quick|--standard|--deep] <idea or vague request>"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/interview.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-interview.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
@@ -527,6 +528,26 @@ Return: spec path; ambiguity score summary; key decisions; open questions;
 execution sizing hint; approval status; next-skill question asked
 (yes / no — skipped under ultrawork); selected next skill, if approved.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-interview.md
 
 # Interview Codex Adapter
@@ -546,8 +567,7 @@ trigger fires. If `spawn_agent` is exposed, first make the actual
 registered-agent call:
 
 ```text
-spawn_agent(agent_type="oh-no-explore", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="interview_explore_discovery_1", agent_type="oh-no-explore", message=<self-contained packet>, fork_turns="none")
 ```
 
 Do not infer unavailability from schema comments, displayed role lists, or

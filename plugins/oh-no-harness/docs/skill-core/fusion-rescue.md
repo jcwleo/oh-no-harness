@@ -1,6 +1,6 @@
 ---
 name: fusion-rescue
-description: Use when a hard problem needs bounded inference-time ensemble analysis, platform-defined diversity when available, adversarial critique, fallback-aware synthesis, or escalation from Ralph/systematic-debugging after ordinary analysis stalls.
+description: Use when the user explicitly requests rescue or multi-agent synthesis, or a hard problem remains stalled after ordinary analysis/debugging; not for first-pass planning/debugging or routine implementation.
 argument-hint: "<problem, failed plan, bug, decision, or blocked workflow>"
 ---
 

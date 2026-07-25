@@ -31,22 +31,19 @@ Rewrite `docs/skill-core/ralplan.md` and `docs/skill-core/ralph.md` so that:
    working memory.
 4. Generated wrappers compose as **core + exactly one host adapter** using the
    existing `SELF_CONTAINED_ADAPTER_SKILLS` mechanism in
-   `scripts/generate-skill-wrappers.py` (currently `{"ralplan-v2"}`).
+   `scripts/generate-skill-wrappers.py`.
 5. Every load-bearing rule carries a **stable rule ID** (`[R4]`, `[E7]`)
    inline, and validators grep rule IDs plus short canonical stems instead of
    full prose sentences, so future wording edits do not break validation.
 
 ## 2. Non-Goals
 
-- No public skill rename. `/ralplan` and `/ralph` keep their names, command
-  wrappers, manifests, and SessionStart routing entries.
-- No routing change. Automatic routing and Ultrawork chaining are untouched.
-- No hook architecture change. `hooks/ralph-platform-adapter` keeps its
-  matcher; only injected wording is updated to the new core vocabulary.
+- At the time of this rewrite, routing and hook redesign were out of scope;
+  later routing-layer changes preserve this FSM contract.
 - No new public skill and no `ralph-v2` registration.
-- No deletion of `docs/shared/*` in this effort. Other skills (`interview`,
-  `ultrawork`, `using-oh-no-harness`, agent cores) still reference them.
-  Retirement is a separate follow-up once no runtime consumer remains.
+- No deletion of `docs/shared/*` in this effort. Other consumers (`interview`,
+  `ultrawork`, and agent cores) still referenced them. Retirement was a
+  separate follow-up once no runtime consumer remained.
 - No hidden state ledger, daemon, or keyword automation. Snapshots are
   visible Markdown the model reads and writes, consistent with AGENTS.md.
 - No workflow-semantics change. Every gate below is the current shipped
@@ -90,11 +87,11 @@ ID marker in the rewritten cores and a validator check (section 8).
 | E2 | An execution mode is recorded before any file change, from the source priority: approved ralplan profile > explicit user instruction > interview LIGHT hint > Ralph-derived (decision prompt). Do not de-escalate below an approved plan's mode without user approval. | ralph.md `## Required Execution Mode`; execution-modes.md |
 | E3 | HARD-GATE: no source edit until a `Worktree decision` is recorded, one of the allowed enum values. Direct Ralph defaults to a registered git worktree under `.oh-no/worktrees/<task-slug>` (never clone/cp/plain dir); the LIGHT direct-checkout carve-out requires all five named conditions; mid-run escalation stops edits until re-decided. Artifact access (`.oh-no` plan/spec) is preserved when moving into a worktree. | ralph.md `## Worktree Isolation Gate`; worktree-isolation.md |
 | E4 | TDD: behavior-changing work requires RED (fails against old behavior) before implementation and GREEN before story completion; bug fixes need a reproduction; refactors need characterization; exceptions are documented compactly. Ralph invokes TDD internally — concrete implement requests are not routed to the TDD skill. | ralph.md loop step 6, `## TDD Task Shape` (via ralplan), tdd routing contract |
-| E5 | Scope trace: every changed file and meaningful line maps to the concrete request, approved spec/plan/story, a test/AC/verification requirement, now-unused code removal, or locked behavior-preserving cleanup. Out-of-scope findings become residual risk/follow-ups, not diff growth. | ralph.md `## Scope Trace Gate` |
+| E5 | Scope trace: every changed file and meaningful line maps to the concrete request, approved spec/plan/story, a test/AC/verification requirement, now-unused code removal, or locked behavior-preserving cleanup. Out-of-scope findings become residual risk/follow-ups, not diff growth. | ralph.md `## Mutation Manifest and Expansion Gate` |
 | E6 | Parallel dispatch only for disjoint write scopes with no inter-dependency, no split RED/GREEN order, clear ownership, and integration owner; full eligible batch created before waiting; per-executor scope check before integration; caller owns lifecycle (timeout/empty wait is never a final result; never close a slow pending subagent). | ralph.md `## Parallel Subagent Policy`; ralph-subagent-policy.md |
 | E7 | Review-then-verify: the mode-gated code-review stage completes (or a compliant `not-required` is recorded) before the single independent self-host verifier starts; a verifier spawned early is stale, recorded as discarded, and rerun. The verifier is never the maker and never a pair. Review Gate dependency graph fields are recorded. | ralph.md `## Review Gate` |
 | E8 | Review topology is mode-gated: LIGHT direct-diff allowed; STANDARD one reviewer, or `not-required (STANDARD small carve-out: <reason>)` when all carve-out conditions hold (provisional until the actual-diff recheck; invalidation restores single-reviewer review); THOROUGH paired review only for a named risk. One original review + one focused re-check is the cap; a second unresolved blocking round requires rescope or user direction. | ralph.md `## Review Gate`; execution-modes.md carve-out |
-| E9 | Evidence freshness: mutation invalidates intersecting evidence — stories whose acceptance depended on changed files are re-verified; cleanup that changes files reruns relevant verification; a success status (exit 0, HTTP 2xx, "done" log) without the observable effect is missing evidence; broad suites run once after stabilization with recorded rerun reasons; real-surface direct evidence for STANDARD/THOROUGH behavior changes; secrets/PII redacted before evidence is written. | ralph.md `## Verification Budget Policy`, loop step 8 |
+| E9 | Evidence freshness: mutation invalidates intersecting evidence — stories whose acceptance depended on changed files are re-verified; cleanup that changes files reruns relevant verification; a success status (exit 0, HTTP 2xx, "done" log) without the observable effect is missing evidence; broad suites run once after stabilization with recorded rerun reasons; real-surface direct evidence for STANDARD/THOROUGH behavior changes; secrets/PII redacted before evidence is written. | ralph.md `## Verification Contract and Test Necessity Gate`, loop step 8 |
 | E10 | Budget gates: the cumulative Process Budget Gate stops for rescope on 2x handwritten diff, ~3x supporting-test ratio, a second unresolved blocking review round, or a third reimplementation of the same invariant; the Diff-Budget Gate runs exactly once after all stories and before review, expanding into the scope review only past thresholds. A budget breach never authorizes automatic expansion. | ralph.md `## Process Budget Gate`, `## Diff-Budget Gate` |
 | E11 | Completion ledger (HARD-GATE): the run is invalid unless the reviewer pass, independent verifier pass, simplify, and verification-before-completion are each individually recorded as satisfied or compliant not-required; `verification.md` is the canonical AC-to-evidence ledger; per-story evidence (AC mapping, contract surface, baseline guard, story risk check) is recorded or a missing-evidence blocker named; missing review topology is a named ledger gap; LIGHT/carve-out compaction rules apply as written. | ralph.md `## Persistence Rule`, `## Input Hardening` |
 | E12 | Cleanup is trigger-gated after the behavior lock and required review: LIGHT/STANDARD quick scan first, `simplify` only on candidates or uncertainty; THOROUGH four viewpoints only for a named trigger; post-cleanup verification and focused review when structure changed. | ralph.md `## Cleanup And Final Verification` |
@@ -280,7 +277,7 @@ silently deriving a lighter mode.
 
 | Shared doc | ralplan core absorbs | ralph core absorbs | Doc fate (this effort) |
 |---|---|---|---|
-| execution-modes.md | Direction Contract schema; mode definitions + selection rules [R10]; execution profile schema [R14]; STANDARD small-carve-out declaration rules | mode behaviors; carve-out eligibility + invalidation [E8]; process budgets [E10]; escalation/de-escalation [E2] | kept (interview/ultrawork/using- still read it) |
+| execution-modes.md | Direction Contract schema; mode definitions + selection rules [R10]; execution profile schema [R14]; STANDARD small-carve-out declaration rules | mode behaviors; carve-out eligibility + invalidation [E8]; process budgets [E10]; escalation/de-escalation [E2] | kept (interview/ultrawork still read it) |
 | worktree-isolation.md | profile policy values only [R14] | full decision enum + defaults + LIGHT carve-out + merge-back + artifact handoff [E3, E13] | kept (ultrawork, executor agent-core still read it) |
 | ralph-subagent-policy.md | dispatch-eligibility summary for planning roles [R9] | dispatch decision; batch rule; lifecycle; isolation contract; safe/forbidden parallel; integration; delegated Codex boundary [E6, E7, E16] | kept (ultrawork, simplify, VBC, systematic-debugging, hook still read it) |
 | verification-tiers.md | — | tier minimums; verification budget; evidence redaction [E9] | kept (VBC, verifier agent-core still read it) |
@@ -417,9 +414,8 @@ The rewrite is done when all of the following hold:
    same mode selection, review topology, approval-gate shape, and handoff
    profile as the pre-rewrite baseline, with reduced prompt tokens and no
    increase in dispatch count.
-9. Public surface unchanged: skill names, command wrappers, manifests,
-   SessionStart routing map, and hook matcher are byte-identical except for
-   documented wording updates inside the hook's injected text.
+9. For this FSM rewrite, public-surface and routing changes were out of scope;
+   later routing-layer changes do not alter these acceptance criteria.
 
 ## 10. Relationship To Ralplan-v2 / Ralph-v2
 
@@ -623,8 +619,9 @@ ralplan (U4).
 Live tests: interview/ultrawork deep-live prompts re-anchored to the FSM
 vocabulary in the same PR (same pattern as the ralplan/ralph prompt updates).
 
-Hook: `hooks/session-start` routing lines reference only skill names — no
-change. `docs/reference/relationships.md` gains the two new adapter pairs.
+Routing ownership was out of scope for Phase 2;
+`docs/reference/relationships.md` only gained the two new adapter pairs, and
+later routing-layer retirement was handled as a separate update.
 
 ## 15. Risks And Mitigations
 

@@ -48,7 +48,8 @@ This file records the source material used to build Oh No Harness.
 | `docs/platforms/claude-code-simplify.md` | Claude Code-specific Simplify cleanup dispatch overlay included only in the generated Claude Code Simplify runtime document |
 | `docs/platforms/codex-simplify.md` | Codex-specific Simplify cleanup dispatch overlay included only in the generated Codex Simplify runtime document |
 | `docs/platforms/claude-code-runtime.md` | compact Claude Code-specific runtime rules included in generated Claude Code skill documents |
-| `docs/platforms/codex-runtime.md` | compact Codex-specific runtime rules included in generated Codex skill documents |
+| `docs/platforms/codex-child-packet-floor.md` | compact Codex main-caller child-packet floor included in every generated Codex workflow document, including hook-disabled native-skill execution |
+| `docs/platforms/codex-runtime.md` | compact Codex-specific runtime rules included in non-self-contained generated Codex skill documents |
 | `docs/platforms/claude-code.md` | longer Claude Code platform maintenance reference summarized into `docs/platforms/claude-code-runtime.md` |
 | `docs/platforms/codex.md` | longer Codex platform maintenance reference summarized into `docs/platforms/codex-runtime.md` |
 | `docs/platforms/codex-agents/*.toml` | Generated optional Codex custom-agent templates installable through `plugins/oh-no-harness/scripts/install-codex-agents`; generated from `docs/agent-core/*.md` by repository-root `scripts/generate-agent-wrappers.py`, include explicit model defaults to avoid user-specific inheritance, and set read-only sandbox for read-only roles such as `oh-no-explore`, `oh-no-verifier`, `oh-no-code-reviewer`, and `oh-no-fusion-rescue-analyst` |
@@ -66,7 +67,7 @@ This file records the source material used to build Oh No Harness.
 |---|---|
 | `hooks/hooks.json` | `superpowers/raw/runtime/hooks/hooks.json` adapted for Oh No Harness |
 | `hooks/run-hook.cmd` | `superpowers/raw/runtime/hooks/run-hook.cmd` copied as the cross-platform wrapper |
-| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject a compact native skill-loading bootstrap; on Claude Code it always adds the configuration-derived model-diversity block and best-effort subagent preference reapply, while on Codex it adds standing subagent authorization, the no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
+| `hooks/session-start` | `superpowers/raw/runtime/hooks/session-start` adapted to inject compact native skill-loading and caller-owned child-packet guidance; on Claude Code it always adds the configuration-derived model-diversity block and best-effort subagent preference reapply, while on Codex it adds standing subagent authorization, the no-skill read-only inline boundary, and quiet user-scope custom-agent ensure |
 | `plugins/oh-no-harness/.claude-plugin/plugin.json` | `superpowers/raw/runtime/.claude-plugin/plugin.json` structure adapted |
 | root `.claude-plugin/marketplace.json` | `superpowers/raw/runtime/.claude-plugin/marketplace.json` structure adapted |
 | `plugins/oh-no-harness/.codex-plugin/plugin.json` | `superpowers/raw/runtime/.codex-plugin/plugin.json` structure adapted |
@@ -84,7 +85,7 @@ This file records the source material used to build Oh No Harness.
 | Oh No Harness file | Purpose |
 |---|---|
 | `commands/*.md` | local Claude Code slash-command wrappers that mirror public skills and delegate to generated `skills-claude/<name>/SKILL.md` runtime documents |
-| `skills/<name>/SKILL.md` | generated Codex-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/codex-runtime.md`, and optional `docs/platforms/codex-<name>.md` |
+| `skills/<name>/SKILL.md` | generated Codex-facing runtime skill document composed from `docs/skill-core/<name>.md`, the common `docs/platforms/codex-child-packet-floor.md`, and either the required self-contained `docs/platforms/codex-<name>.md` adapter or `docs/platforms/codex-runtime.md` plus an optional overlay |
 | `skills-claude/<name>/SKILL.md` | generated Claude Code-facing runtime skill document composed from `docs/skill-core/<name>.md`, `docs/platforms/claude-code-runtime.md`, and optional `docs/platforms/claude-code-<name>.md` |
 | `docs/skill-core/auto-routing.md` | local configuration skill core for optional stronger bootstrap routing guidance |
 | `docs/skill-core/install-statusline.md` | local Claude-Code-only, human-invoke-only setup skill core (`disable-model-invocation: true`) for installing the developer statusline |

@@ -1,6 +1,6 @@
 ---
 name: ultrawork
-description: Use when the user asks for autonomous or end-to-end delivery of a broad goal, feature, fix, project task, or vague request that may span interview, planning, execution, QA, cleanup, and validation.
+description: Use when the user explicitly delegates autonomous end-to-end delivery across discovery, planning, implementation, and verification; not for a small execution-ready task.
 argument-hint: "<goal, spec path, plan path, or broad delivery request>"
 ---
 
@@ -16,6 +16,7 @@ This generated file is the Codex-facing runtime skill document. Codex should rea
 Source order:
 
 - `../../docs/skill-core/ultrawork.md`
+- `../../docs/platforms/codex-child-packet-floor.md`
 - `../../docs/platforms/codex-ultrawork.md`
 
 The sections below are already composed for this platform. Do not ask the runtime model to load another platform's runtime document or invocation syntax.
@@ -385,6 +386,26 @@ is required.
 Return: active artifact paths; phase status; skills used in order;
 verification evidence; final result or blocker.
 
+## Source: docs/platforms/codex-child-packet-floor.md
+
+# Codex Child Packet Floor
+
+This compact main-session source is the hook-disabled native-skill fallback for
+caller-owned child packets. When SessionStart is enabled, its compatible global
+floor remains the normal direct-dispatch owner.
+
+The main caller sends each child a proportional self-contained English packet
+with purpose/outcome; target role; exact target/revision and result/revision
+binding for repository mutation, review, or verification;
+scope/permissions/non-goals; contract/acceptance; expected evidence/output; and
+stop/escalation. Keep simple read-only packets proportional. Workflow-specific
+IDs and deltas come from the selected skill; role prompts do not reconstruct
+omitted caller context.
+
+For initial independent review, verification, or debugging, withhold maker
+conclusions, expected verdicts, sibling outputs, and preferred root-cause
+hypotheses. Disclose them only later when needed for audit or clarification.
+
 ## Source: docs/platforms/codex-ultrawork.md
 
 # Ultrawork Codex Adapter
@@ -413,12 +434,14 @@ session-level authorization for eligible phase-owned roles; do not ask for
 per-run subagent approval to satisfy it. If `spawn_agent` is exposed, make
 the actual registered-agent call first:
 
+Derive every name from the actual Ultrawork role and phase; for example:
+
 ```text
-spawn_agent(agent_type="oh-no-<role>", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="ultrawork_planner_planning_1", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")
 ```
 
-Only an actual unknown/unavailable `agent_type` rejection confirms the
+Use role-correct unique equivalents for other or sibling phase dispatches. Only
+an actual unknown/unavailable `agent_type` rejection confirms the
 custom role cannot be used; then use a generic agent with the matching
 `docs/agent-core/<role>.md` prompt embedded and record the fallback. One
 payload shape per spawn; no `fork_context`. Pass the core-defined role envelope

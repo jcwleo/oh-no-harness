@@ -13,14 +13,12 @@ The first version should support Claude Code and Codex, avoid OMC's runtime-heav
 
 ## Design Summary
 
-`oh-no-harness` is a small skill library with one bootstrap hook and a focused OMC-derived workflow set.
+`oh-no-harness` is a small skill library with one SessionStart entrypoint and a focused OMC-derived workflow set. Native loading of each workflow's frontmatter description owns positive selection; the unconditional SessionStart bootstrap owns global no-route, direct-edit, object-of-analysis, and approval-gated chaining boundaries; and Claude auto-on may append a forced ordering and precedence overlay.
 
-The project will not port OMC's keyword detector, persistent mode hooks, PreToolUse/PostToolUse bridge, Stop hook continuation, or `.omc/state` runtime authority. Instead, it will use a Superpowers-style bootstrap skill that tells the agent to load relevant skills and follow explicit handoff instructions.
+The project does not port OMC's keyword detector, persistent mode hooks, PreToolUse/PostToolUse bridge, Stop hook continuation, or `.omc/state` runtime authority.
 
-The external skill surface is intentionally small. The initial v1 surface was
-later extended with `fusion-rescue` as a public, bounded escalation skill:
+The current external workflow surface is exactly 10 cross-platform skills:
 
-- `using-oh-no-harness`
 - `interview`
 - `ralplan`
 - `ralph`
@@ -31,6 +29,8 @@ later extended with `fusion-rescue` as a public, bounded escalation skill:
 - `verification-before-completion`
 - `systematic-debugging`
 - `fusion-rescue`
+
+Claude Code additionally exposes the human-invoked setup skills `install-statusline` and `configure-subagents`, yielding 12 Claude-visible skills and 12 matching command wrappers.
 
 The support surface includes only the Markdown needed for those skills to operate coherently:
 
@@ -73,15 +73,14 @@ hooks/
   hooks.json
   run-hook.cmd
   session-start
-  ralph-platform-adapter
 ```
 
-`hooks/hooks.json` registers a `SessionStart` hook and a narrow
-`UserPromptSubmit` Ralph adapter hook. The SessionStart hook invokes
-`hooks/session-start`, which injects a compact native skill-loading reminder
-instead of the full `using-oh-no-harness` body. The Ralph adapter hook invokes
-`hooks/ralph-platform-adapter`, detects Ralph prompts, and injects only the
-active platform's subagent-dispatch adapter.
+`hooks/hooks.json` registers one `SessionStart` entrypoint. It invokes
+`hooks/session-start`, which always injects the compact global no-route,
+direct-edit, object-of-analysis, and approval-gated chaining boundaries.
+Workflow descriptions own positive destination selection; when Claude
+auto-routing is enabled, the same SessionStart may additionally append the
+Claude-only forced ordering and precedence overlay.
 
 No skill-to-skill runtime enforcement hook will be installed.
 
@@ -95,12 +94,9 @@ plugins/oh-no-harness/.codex-plugin/
   plugin.json
 ```
 
-The manifest will point to `./skills/`. Codex will rely on native skill discovery and the `using-oh-no-harness` bootstrap skill. No Codex-specific hook runtime is required for the first version.
+The manifest points to `./skills/`. Codex relies on native discovery of each destination workflow's frontmatter description. When plugin hooks are enabled, SessionStart may supply the same unconditional global boundary layer; Codex has no forced-routing overlay.
 
-Implementation note: the current plugin also declares compact Codex hooks for
-SessionStart bootstrap and the narrow Ralph platform adapter. Treat
-`docs/reference/relationships.md` as the current runtime graph when it differs
-from this historical design snapshot.
+Treat `docs/reference/relationships.md` as the current runtime graph when it differs from this historical design snapshot.
 
 ### Shared Project Root
 
@@ -140,8 +136,6 @@ oh-no-harness/
         session-start
 
       skills/
-        using-oh-no-harness/
-          SKILL.md
         interview/
           SKILL.md
         ralplan/
@@ -184,48 +178,27 @@ oh-no-harness/
 ## Core Workflow
 
 ```text
+Native workflow discovery
+  -> each workflow's frontmatter description
+  -> matching destination workflow
+
 SessionStart
-  -> using-oh-no-harness
+  -> unconditional OH_NO_BOOTSTRAP
+  -> global no-route, direct-edit, object-of-analysis, and approval-gated chaining boundaries
 
-interview
-  -> ralplan
-  -> ralph
-  -> ultrawork
-
-ralplan
-  -> embedded consensus planning workflow
-  -> planner / architect / critic
-  -> user approval
-  -> ralph or ultrawork
-
-ultrawork
-  -> interview when requirements are vague
-  -> ralplan for planning
-  -> ralph for execution and verification
-  -> inline QA loop
-  -> final report
-
-ralph
-  -> PRD/story loop
-  -> executor agents
-  -> verifier/reviewer agents
-  -> simplify
-  -> final verification report
+Claude Code auto-routing enabled
+  -> next SessionStart appends OH_NO_FORCED_ROUTING
+  -> forced action ordering and essential precedence
+  -> destination selection remains description-owned
 ```
 
 The workflow should remain explicit. If a skill hands off to another skill, the handoff must be written in the skill body and should not depend on hidden hook behavior.
 
 ## Skill Design
 
-### `using-oh-no-harness`
+### Historical: retired `using-oh-no-harness`
 
-Bootstrap skill. It establishes:
-
-- Use relevant skills before acting.
-- Follow explicit handoff instructions.
-- User instructions override skill defaults.
-- OMC-derived skill names in this project are local `oh-no-harness` skills, not `/oh-my-claudecode:*` commands.
-- There is no runtime persistent mode safety net; if a skill says to continue, the agent must continue by following the Markdown workflow.
+The initial design centralized skill-loading and handoff guidance in a bootstrap skill. That public router was later retired: positive selection now belongs to destination descriptions, global lanes belong to SessionStart, and approval-gated handoffs remain owned by the selected workflows.
 
 ### `interview`
 
@@ -403,21 +376,21 @@ Durable specs and plans should use `.oh-no/specs/` and `.oh-no/plans/`. Transien
 
 ## Hook Design
 
-Two hook classes are included:
+One hook class is included:
 
 ```text
-SessionStart -> compact native skill-loading bootstrap
-UserPromptSubmit -> Ralph platform adapter injection
+SessionStart -> unconditional OH_NO_BOOTSTRAP global boundaries
+             -> conditional Claude-only OH_NO_FORCED_ROUTING when auto-routing is enabled
 ```
 
 No hook should:
 
-- inspect user prompts except for the narrow Ralph adapter trigger
+- inspect submitted prompts
+- redirect prompts
 - activate skill state
 - prevent Stop
 - persist workflow mode authority
 - mutate skill ledger state
-- redirect vague prompts
 
 If a future version adds enforcement hooks, they should be opt-in and documented as a separate runtime layer.
 
@@ -440,7 +413,7 @@ When copying OMC files, apply these rules:
 3. Replace unsupported runtime mechanisms.
    - `state_write/state_read/state_clear` -> explicit artifact files
    - persistent-mode continuation -> skill body instruction
-   - keyword detector -> bootstrap skill selection
+   - keyword detector -> native description discovery plus unconditional global boundaries and the optional Claude-only ordering/precedence overlay
 
 4. Normalize artifacts.
    - `.omc/` -> `.oh-no/` for transient state
@@ -463,7 +436,7 @@ Direct copy could preserve references to removed skills or `.omc/state`. Mitigat
 
 ### Risk: Codex and Claude use different skill invocation semantics
 
-Mitigation: `using-oh-no-harness` should include short platform adaptation notes and avoid over-specializing to Claude Code-only tool names.
+Mitigation: keep positive selection in shared workflow descriptions, and isolate host behavior in platform overlays plus the SessionStart host branch; Codex receives no forced-routing overlay.
 
 ### Risk: Too much OMC content leaks back in
 
@@ -473,11 +446,10 @@ validators, and move only required support docs.
 ## Acceptance Criteria
 
 - `plugins/oh-no-harness/` has Claude Code and Codex plugin metadata.
-- A single bootstrap hook exists for Claude Code.
+- One SessionStart entrypoint exists for Claude Code.
 - Codex manifest points to `./skills/`.
 - No keyword detector, persistent-mode hook, bridge hook, or Stop hook exists.
-- External skills are now limited to:
-  - `using-oh-no-harness`
+- The 10 cross-platform workflow skills are exactly:
   - `interview`
   - `ralplan`
   - `ralph`
@@ -488,6 +460,7 @@ validators, and move only required support docs.
   - `verification-before-completion`
   - `systematic-debugging`
   - `fusion-rescue`
+- Claude Code additionally exposes `install-statusline` and `configure-subagents`, for 12 Claude-visible skills and 12 command wrappers.
 - The plan consensus workflow is fully embedded into `ralplan`.
 - Required agent prompts exist.
 - Shared docs exist:
@@ -499,12 +472,12 @@ validators, and move only required support docs.
 - No retained skill writes `.omc/` paths.
 - Relationship and migration docs explain what was removed and why.
 
-## Implementation Notes
+## Historical Implementation Notes
 
-The implementation should proceed in small stages:
+The original implementation proceeded in small stages:
 
 1. Create skeleton and plugin metadata.
-2. Create bootstrap hook and bootstrap skill.
+2. Create bootstrap hook and original, now-retired bootstrap skill.
 3. Copy/adapt shared docs.
 4. Copy/adapt agents.
 5. Copy/adapt skills in dependency order:

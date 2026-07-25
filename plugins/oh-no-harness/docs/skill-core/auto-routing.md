@@ -1,13 +1,13 @@
 ---
 name: auto-routing
-description: Use when the user wants to turn Oh No Harness automatic skill-selection guidance on or off, check routing status, or make the bootstrap prompt more or less assertive across sessions.
+description: Use when the user asks to enable, disable, or inspect future-session routing guidance; configuration only, not current-turn workflow selection.
 argument-hint: "[on|off|status]"
 ---
 
 # Auto Routing
 
 Every platform bootstrap always carries compact native skill-loading guidance
-plus the baseline no-route and direct-edit lanes from `using-oh-no-harness`.
+plus the always-on SessionStart no-route and direct-edit boundary; native skill descriptions own positive destination selection.
 Auto Routing controls whether Claude Code SessionStart adds the stronger
 forced-routing layer. The toggle only adds or removes that opt-in layer; it does
 not change the baseline lanes on any platform or add hidden runtime routing.
@@ -16,7 +16,7 @@ not change the baseline lanes on any platform or add hidden runtime routing.
 
 Auto Routing is a workflow-entry configuration stage, not a software development stage.
 
-Use it to make future sessions more likely to choose the right skill before work starts. It should not gather requirements, plan, edit code, debug failures, clean code, or verify completion.
+Use it to configure future-session routing guidance. It should not gather requirements, plan, edit code, debug failures, clean code, or verify completion.
 
 ## When To Use
 
@@ -27,7 +27,7 @@ Use when the user asks to:
 - check current auto-routing status
 - preserve stronger or weaker routing behavior across plugin updates
 
-Do not use as a substitute for skill selection inside the current session — for choosing a workflow skill in the current turn, read and follow `using-oh-no-harness`.
+Do not use as a substitute for skill selection inside the current session — apply the always-on SessionStart boundary and native workflow skill descriptions for current-turn workflow selection.
 
 ## Platform Behavior
 
@@ -35,10 +35,6 @@ Apply the active platform runtime document before changing settings. Some
 platforms support persistent bootstrap routing; others can only explain the
 setting and leave runtime behavior unchanged.
 
-When the active platform supports persistent bootstrap routing, changes take
-effect on the next bootstrap or session-start event, such as a new session, app
-restart, clear/reset command, or compaction. Existing session context is not
-rewritten.
 
 ## Configuration
 
@@ -85,10 +81,7 @@ If the plugin root is not exposed, resolve the installed script with the active 
 
 ## Response Rules
 
-- For `on`, enable the setting, report the config path, and tell the user to
-  restart or clear the active platform session before expecting the new behavior.
-- For `off`, disable the setting, report the config path, and tell the user to
-  restart or clear the active platform session before expecting the new behavior.
+- For `on` or `off`, persist the preference, report the config path, and report its semantics according to the active platform adapter.
 - For `status`, report whether auto-routing is on or off and where the setting is stored.
 - If Bash is unavailable, explain the config file shape without claiming the setting changed.
 - Do not invoke workflow skills from this configuration skill.

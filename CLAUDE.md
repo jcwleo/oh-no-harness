@@ -22,7 +22,7 @@ The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`
 
 ## What this is
 
-Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 11 cross-platform workflow skills (`using-oh-no-harness`, `interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 9 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 13 Claude-visible skills in total.
+Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 10 cross-platform workflow skills (`interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 9 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 12 Claude-visible skills in total.
 
 ## The single most important rule: source vs. generated
 
@@ -49,7 +49,7 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Skills are the public workflow stages**; **agents are internal role prompts** the skills (or the host's subagent mechanism) call. Skills own stage selection, artifact creation, approval gates, and next-skill handoffs.
 - **Skill chaining is explicit Markdown only** — no hidden automation. Skill bodies must not contain `Task(...)` / `Skill(...)` calls; the validator rejects them. A skill that hands off presents a `Next Skill Handoff` and the caller decides.
 - **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
-- **One plugin hook entrypoint only:** the `SessionStart` bootstrap provides skill-loading guidance with baseline no-route/direct-edit routing lanes, appends forced-routing when auto-routing is enabled, always injects the Claude-Code model-diversity block, and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
+- **One plugin hook entrypoint only:** the unconditional `SessionStart` bootstrap carries only compact global no-route/direct-edit/object-of-analysis boundaries; positive workflow selection comes from destination skill descriptions. On Claude Code, auto-routing adds before-action ordering and essential precedence; Codex gains no forced-routing semantics. The hook always injects the Claude-Code model-diversity block and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
 
 ## Commands
 
@@ -79,11 +79,12 @@ scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 
 # Live model smoke tests — cost real budget, opt-in. Closest thing to a "single test".
-# Live needs real auth in ~/.claude, so pair --live with --no-install: it loads the
-# plugin from this checkout (--plugin-dir) and never touches your marketplace registration.
-scripts/test-claude-plugin.sh --no-install --live-hook-only  # SessionStart + auto-routing only
-scripts/test-claude-plugin.sh --no-install --live            # all 11 public skills, light prompts
-scripts/test-claude-plugin.sh --no-install --deep-live       # linked support-doc dereferencing
+# With claudex/gateway auth, isolate both Claude registry sync and explicit driver actions:
+scripts/test-claude-plugin.sh --isolated-config --no-install --live-hook-only  # SessionStart + auto-routing
+scripts/test-claude-plugin.sh --isolated-config --no-install --live            # all 10 workflow skills
+scripts/test-claude-plugin.sh --isolated-config --no-install --deep-live       # linked support docs
+# Load models only from a disposable GPT-only plugin copy; canonical worktree validation is unchanged:
+OH_NO_LIVE_PLUGIN_ROOT=/absolute/path/to/disposable-gpt-plugin scripts/test-claude-plugin.sh --isolated-config --no-install --live --model 'gpt-5.6-sol'
 scripts/test-codex-plugin.sh --named-agents-live  # user-scope oh-no-* agent_type dispatch
 
 # Release from a clean main (validates, bumps both plugin.json versions, tags, pushes, publishes).
@@ -94,6 +95,8 @@ Useful live-test overrides: `OH_NO_TEST_MODEL=sonnet`, `OH_NO_MAX_BUDGET_USD=0.5
 
 **Gotchas:**
 - The install smoke scripts register the marketplace from `OH_NO_MARKETPLACE_SOURCE` (default: this checkout). The Claude script now **fails closed** whenever a local source would be registered into the real default `~/.claude` config (that combo silently overwrote the daily-use GitHub registration during release `1.7.2`); a distinct `OH_NO_MARKETPLACE_NAME` is **not** treated as safe, since it still mutates the real config. Isolate with `--isolated-config`, point at a validated remote `--marketplace-source jcwleo/oh-no-harness`, or (to overwrite the real config on purpose) `OH_NO_ALLOW_CANONICAL_LOCAL_MARKETPLACE=1`. Codex isolates with a temp `--codex-home`.
+- `--no-install` skips the driver's explicit marketplace/install/update commands; it does **not** stop ordinary Claude Code startup plugin sync from updating registry metadata in the effective `CLAUDE_CONFIG_DIR`. Model-bearing `--plugin-dir` lanes therefore fail closed on the real default config. With claudex/gateway auth, use `--isolated-config --no-install --live ...`. If native auth/settings must live inside the config directory, make a disposable physical clone and set `CLAUDE_CONFIG_DIR` to that non-default path. `OH_NO_CONFIG_DIR` isolates only Oh No Harness data, not the Claude registry. `OH_NO_ALLOW_REAL_CLAUDE_CONFIG_LIVE=1` is an acknowledged last resort that permits real-config metadata writes.
+- `OH_NO_LIVE_PLUGIN_ROOT=/absolute/path/to/disposable-plugin-copy` changes only what model-bearing plugin-dir processes load. Static checks, manifests, inventories, generator freshness, and offline source validation remain bound to the canonical worktree `OH_NO_PLUGIN_ROOT`. The override requires `--no-install`; use it with `--isolated-config --no-install`, never the real-config escape hatch. A disposable GPT-only copy may contain test-only agent `model` frontmatter or model-diversity edits, but it must never be installed, committed, or treated as generated-source truth.
 - Live tests can exceed the default ~$1 budget on large diffs — raise `OH_NO_MAX_BUDGET_USD`.
 - Codex live tests need your Codex auth copied into the temp `--codex-home` when you use an isolated Codex home.
 

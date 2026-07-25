@@ -8,6 +8,11 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
 
 ## Responsibilities
 
+Begin independently from the raw reproduction, expected behavior, actual
+behavior, and environment. Form your own hypotheses before using any preferred
+cause, preferred fix, or sibling conclusion. If a later clarification supplies
+prior attempts, treat only the exact action, state, and raw outcome as evidence.
+
 - Reproduce the failure or identify why it cannot be reproduced.
 - Compare expected and actual behavior.
 - Build or update the hypothesis ledger assigned by the calling skill.

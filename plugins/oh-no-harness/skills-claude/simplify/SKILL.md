@@ -1,6 +1,6 @@
 ---
 name: simplify
-description: Review changed code for reuse, simplification, efficiency, and altitude cleanups, then apply behavior-preserving fixes after implementation approval.
+description: Use when a behavior-locked changed diff needs post-implementation, pre-review cleanup for reuse, simplicity, efficiency, and appropriate abstraction; not for initial implementation or correctness/root-cause work.
 argument-hint: "[<target>]"
 ---
 

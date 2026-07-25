@@ -9,7 +9,7 @@
 
 Your coding agent does not need another runtime. It needs a workflow it can actually read and follow.
 
-**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **11 stage skills** plus **9 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, with `fusion-rescue` for hard stalled problems, without npm, tmux, MCP, or a terminal-only control plane.
+**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 workflow skills** plus **9 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, with `fusion-rescue` for hard stalled problems, without npm, tmux, MCP, or a terminal-only control plane.
 
 It sits between two extremes:
 
@@ -29,14 +29,17 @@ The runtime is deliberately boring: **text files your agent can read** —
 platform skill wrappers in `skills/` and `skills-claude/`, shared workflow core
 in `docs/skill-core/`, maintenance-only company prompt references in
 `docs/providers/`, `agents/`, thin `commands/`, plugin manifests, and one
-optional Claude Code `SessionStart` hook.
+compact `SessionStart` hook entrypoint.
 
 > [!NOTE]
 > If you can read Markdown, you can audit the harness. If you can follow a handoff, you can understand the workflow.
 
-Eleven focused workflows help clarify vague work, plan, execute with verification, rescue hard stalled problems, debug, and clean up — without a daemon, background service, or hidden state.
+Ten focused workflows help clarify vague work, plan, execute with verification, rescue hard stalled problems, debug, and clean up — without a daemon, background service, or hidden state.
 
 Oh No Harness follows semantic versioning from `1.0.0`.
+
+> [!IMPORTANT]
+> The former `using-oh-no-harness` public skill and command have been removed. This breaking change is implemented but unreleased; both plugin manifests remain at `1.7.2`, and release is blocked pending an explicit major-version decision.
 
 ## Highlights
 
@@ -45,8 +48,8 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
-- **Skills + agents.** 11 cross-platform workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`), plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) for one-time environment setup — 13 Claude-visible commands in total.
-- **Slash ↔ skill parity.** In Claude Code, `commands/*.md` mirrors all 13 command names (11 workflow + 2 setup) with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md` for the 11 workflow skills only (the 2 setup skills are Claude-Code-only).
+- **Skills + agents.** 10 cross-platform workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`), plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) for one-time environment setup — 12 Claude-visible commands in total.
+- **Slash ↔ skill parity.** In Claude Code, `commands/*.md` mirrors all 12 command names (10 workflow + 2 setup) with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md` for the 10 workflow skills only (the 2 setup skills are Claude-Code-only).
 
 | Too much | Too little | Oh No Harness |
 |---|---|---|
@@ -60,7 +63,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 - **Socratic interview.** `/oh-no-harness:interview` routes code facts, research facts, and judgment calls separately — capturing decisions, constraints, and non-goals before any spec.
 - **Mode-gated execution.** Specs and plans size work as `LIGHT` / `STANDARD` / `THOROUGH`; Ralph follows the recorded mode instead of always running the heaviest loop.
 - **Fusion rescue.** `/oh-no-harness:fusion-rescue` runs exactly three panel lenses, applies configured model diversity on Claude Code, preserves the bounded Claude consult from the Codex host when available, then lets the current host synthesize the next action.
-- **Auto-routing.** `/oh-no-harness:auto-routing on` nudges Claude to consult the right skill before clarifying or editing — no hidden state, no skipped approval gates.
+- **Auto-routing.** Destination skill descriptions own positive selection. On Claude Code, `/oh-no-harness:auto-routing on` adds before-action ordering and essential precedence rather than a central selector — no hidden state, no skipped approval gates.
 
 **✨ Experience**
 - **Plain-language input.** Just describe the task; the harness keeps handoffs explicit.
@@ -74,7 +77,7 @@ The repository root is the marketplace. The plugin source lives under
 There is no `npm install`, `npx`, tmux bootstrap, standalone `oh-no` binary, MCP server, setup daemon, or runtime doctor to run. The terminal commands below are just install paths; the workflow itself lives inside the host, including GUI/plugin surfaces such as Codex App.
 
 > [!TIP]
-> Install the plugin where your agent already looks, turn on auto-routing in Claude Code if you want stronger guidance, then work inside the host.
+> Install the plugin where your agent already looks, describe the task so native discovery can use the skill descriptions, and turn on auto-routing in Claude Code only if you want stronger action-ordering guidance.
 
 ### Claude Code
 
@@ -83,7 +86,7 @@ claude plugin marketplace add jcwleo/oh-no-harness
 claude plugin install oh-no-harness@oh-no-harness
 ```
 
-After install, run `/oh-no-harness:auto-routing on` once. Then just describe the work — Claude Code is reminded to pick the right skill before clarifying, planning, editing, or claiming completion.
+After install, just describe the work — native discovery uses the destination skill descriptions. Optionally run `/oh-no-harness:auto-routing on` to add before-action ordering and essential precedence on the next Claude Code `SessionStart`.
 
 **Optional — model diversity.** On Claude Code, THOROUGH review pairs and Fusion Rescue panels gain model diversity when you configure a secondary top-tier model with `/oh-no-harness:configure-subagents`. Without a valid secondary, workflows use the `same-model-parallel-fallback`; an explicit `require-model-diversity` request blocks instead of falling back.
 
@@ -143,10 +146,9 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
 | `/oh-no-harness:simplify` | Post-implementation quality cleanup for reuse, simplification, efficiency, and altitude. |
-| `/oh-no-harness:auto-routing on\|off\|status` | Toggle stronger skill-selection guidance (Claude Code only). |
-| `/oh-no-harness:using-oh-no-harness` | Top-level index — start here if you forget the others. |
+| `/oh-no-harness:auto-routing on\|off\|status` | Configure Claude-only action-ordering and essential-precedence guidance; positive selection remains description-owned. |
 
-Not sure which to pick? Just describe the task — the harness routes by request shape. Use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
+Not sure which to pick? Just describe the task — native host discovery selects from the destination skill descriptions. Use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
 
 ### Setup commands (Claude Code only)
 
@@ -166,7 +168,7 @@ Typical staged flow:
 
 ## Auto Routing (Claude Code)
 
-Off by default. Turn it on once and the `SessionStart` hook tells Claude to always consult these skills before responding, asking clarifications, or editing files:
+The compact `SessionStart` bootstrap always carries global no-route, direct-edit, and object-of-analysis boundaries. Positive workflow selection comes from skill descriptions. On Claude Code, auto-routing is off by default; enabling it adds action ordering and essential precedence. Codex receives no forced-routing semantics.
 
 ```text
 /oh-no-harness:auto-routing on

@@ -5,9 +5,10 @@ CODEX_ONLY_RALPH_ADAPTER
 <ADAPTER_CONTRACT>
 This adapter binds the Ralph core to Codex. The core owns every semantic
 decision; this file owns only host invocation and lifecycle mechanics. If
-they conflict, the core wins. The generated core plus this adapter is
-sufficient: longer platform, shared, and agent documents are optional
-maintenance context, never a runtime prerequisite. Do not apply it on Claude
+they conflict, the core wins. The generated core, dedicated Codex child-packet
+floor, and this adapter are sufficient even when SessionStart hooks are disabled:
+longer platform, shared, and agent documents are optional maintenance context,
+never a runtime prerequisite. Do not apply it on Claude
 Code or other platforms.
 </ADAPTER_CONTRACT>
 
@@ -73,17 +74,20 @@ Dispatch order:
   ONLY when the host rejects `oh-no-<role>` as unknown or unavailable, or
   the work is not an Oh No Harness role. Record the fallback reason.
 
-Do not claim custom agents are unavailable without a failed
-`spawn_agent(agent_type="oh-no-<role>", ...)` attempt or an equivalent
-current host rejection; do not infer unavailability from rendered schema
-text, display comments, or missing shown parameters.
+A failed `spawn_agent(agent_type="oh-no-<role>", ...)` attempt using that legacy shorthand is not a valid V2 attempt because it omits `task_name`.
+Do not claim custom agents are unavailable until the full four-field call below
+is rejected or the current host gives an equivalent rejection; do not infer
+unavailability from rendered schema text, display comments, or missing shown parameters.
 
-Spawn with `fork_turns="none"` — omitting `fork_turns` defaults to a
-full-history fork, and forked agents inherit the parent agent type, so the
-custom `agent_type` is rejected. Do not use `fork_context` (unsupported) or
-any full-history fork with `agent_type = "oh-no-<role>"`. Send the relevant
-plan, scope, ownership, and evidence context in the spawn message, one
-payload shape only (prompt/message or items, never both). The generated
+Spawn with `fork_turns="none"` and derive every name from the actual Ralph role
+and phase; for example, use `spawn_agent(task_name="ralph_executor_implementation_1", agent_type="oh-no-executor", message=<self-contained packet>, fork_turns="none")`
+for the first implementation executor and role-correct unique equivalents for
+other or sibling dispatches. Omitting `fork_turns` defaults to a full-history
+fork, and forked agents inherit the parent agent type, so the custom `agent_type`
+is rejected. Do not use `fork_context` (unsupported) or any full-history fork
+with `agent_type = "oh-no-<role>"`. Send the relevant plan, scope, ownership,
+and evidence context in the spawn message, one payload shape only
+(prompt/message or items, never both). The generated
 `oh-no-explore`, `oh-no-verifier`, and `oh-no-code-reviewer` templates set
 `sandbox_mode = "read-only"`; other Ralph role templates inherit the host
 sandbox and stay scoped by the core dispatch packet.

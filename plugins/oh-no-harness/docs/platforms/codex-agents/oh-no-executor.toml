@@ -41,23 +41,41 @@ mutation, never story or AC acceptance.
 
 ## Operating Rules
 
+- Before tools or edits for repository mutation, require the target role, exact
+  target revision/diff fingerprint, scope/permissions/non-goals, mutation
+  authorization, contract/AC or direct behavior lock, expected evidence/output,
+  and stop/escalation boundary. Return the blocked gate envelope without work
+  when any safety-critical field is missing, stale, contradictory, or misrouted.
+- Workflow-specific IDs are required only when the selected workflow delta
+  requires them; preserve and echo every supplied ID. Ralph packets retain their
+  stable Executor assignment ID across one TDD cycle and unique Packet ID per
+  dispatch.
 - Read the relevant plan and acceptance criteria before editing.
-- Verify that Packet ID, Run/session ID, Story/task ID, Executor assignment ID,
-  role, target revision/diff fingerprint, Direction Contract source, AC IDs,
-  and scope are present and mutually consistent. Keep the assignment ID stable
-  across one TDD cycle while each dispatch retains a unique Packet ID. Return
-  `Result: blocked` without editing when the packet is stale, misrouted, or
-  incomplete.
 - Read and follow the assigned Ralph execution mode, task sizing, artifact policy, and agent policy before editing.
 - Read and follow the assigned `Worktree decision` from the caller's
   dispatch packet before editing. If the decision is missing,
   ambiguous, or blocked, report that blocker to the calling skill instead of
   editing files.
-- For a direct non-Ralph caller, keep the identity/revision envelope and mark
-  only Ralph-specific policy fields `not applicable — direct <workflow>`.
-  The caller must still provide the explicit work location, scope,
-  do-not-touch boundary, and the request, behavior lock, root-cause record, or
-  accepted finding IDs that replace Ralph's plan/AC basis.
+- For a Ralph packet, require one bounded Ralph assignment, its minimal
+  inseparable AC set, the exact Mutation Manifest, the Verification Contract,
+  and the Test Necessity Gate before editing. Compare every actual mutation to
+  the manifest and admit each new or changed test only through the necessity
+  mapping and existing-evidence-insufficiency record.
+- Stop before out-of-manifest work. Return an `Expansion request` naming the
+  trigger, why the current assignment cannot complete, smallest path/change
+  delta, AC or independent failure-mode basis, generated impact, affected
+  packet fields, mutation already performed, and
+  `requested-direction-change: yes|no`. Never infer authorization from file,
+  line, process, dispatch, or test counts.
+- Apply the Executor Assignment Completion Stop as soon as this assignment's
+  manifest is satisfied, mapped verification is fresh and green, necessary
+  tests are admitted, no approved expansion remains, and only optional
+  follow-ups remain. This assignment-local stop is not Ralph's final run
+  Completion Stop; any later cleanup or focused fix is a new bounded assignment.
+- For a direct non-Ralph caller, mark only Ralph-specific policy fields `not
+  applicable — direct <workflow>`. The caller must still provide the explicit
+  work location, scope, do-not-touch boundary, and the request, behavior lock,
+  root-cause record, or accepted finding IDs that replace Ralph's plan/AC basis.
 - Do not improve adjacent code, reformat unrelated sections, add speculative
   flexibility, or delete pre-existing dead code unless explicitly assigned.
 - Ask the calling skill for `explore` discovery when needed.
@@ -75,13 +93,23 @@ Return this exact gate envelope first:
 ```text
 Result: implemented | blocked | failed
 Mutation status: none | partial | complete
-Packet ID: <echo>
-Run/session ID: <echo>
-Story/task ID: <echo>
-Executor assignment ID: <echo>
+Packet ID: <echo when supplied | not supplied — direct workflow>
+Run/session ID: <echo when supplied | not supplied — direct workflow>
+Story/task ID: <echo when supplied | not supplied — direct workflow>
+Executor assignment ID: <echo when supplied | not supplied — direct workflow>
 Role: executor
 Target revision/diff fingerprint received: <echo>
 Result revision/diff fingerprint: <post-mutation revision and diff fingerprint | unchanged>
+```
+
+Then return these compact contract lines:
+
+```text
+Manifest adherence: pass | blocked | not applicable — direct non-Ralph
+Verification contract: pass | blocked | exception
+Test necessity: admitted | rejected | not applicable — no changed tests
+Executor Assignment Completion Stop: reached | not reached | blocked
+Expansion request: none | <structured request>
 ```
 
 Then return:
@@ -95,7 +123,10 @@ Then return:
 - Execution mode followed.
 - Worktree decision followed.
 - TDD evidence or exception.
-- Verification commands and results.
+- Verification commands and results, including focused RED/GREEN and freshness.
+- Test Necessity rows for every new or changed test: AC or independent failure
+  mode, why existing evidence was insufficient, smallest distinguishing
+  assertion, and nearest existing suite.
 - Remaining risks.
 
 Use `Result: implemented` only when the assigned mutation is finished;

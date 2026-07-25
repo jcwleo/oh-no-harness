@@ -15,8 +15,7 @@ trigger fires. If `spawn_agent` is exposed, first make the actual
 registered-agent call:
 
 ```text
-spawn_agent(agent_type="oh-no-explore", message=<self-contained packet>,
-            fork_turns="none")
+spawn_agent(task_name="interview_explore_discovery_1", agent_type="oh-no-explore", message=<self-contained packet>, fork_turns="none")
 ```
 
 Do not infer unavailability from schema comments, displayed role lists, or
