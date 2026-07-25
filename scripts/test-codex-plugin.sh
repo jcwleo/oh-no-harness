@@ -8103,7 +8103,7 @@ PY
 
 run_codex_live_parser_regression_offline_test() {
   log "Running offline Codex production-linked live-parser regression fixtures"
-  "$PYTHON_BIN" - "${BASH_SOURCE[0]}" <<'PY'
+  "$PYTHON_BIN" - "${SCRIPT_DIR}/test-codex-plugin.sh" <<'PY'
 import json, re, subprocess, sys, tempfile
 from pathlib import Path
 source = Path(sys.argv[1]).read_text(); blocks = re.findall(r"<<'PY'\n(.*?)\nPY", source, re.S)
