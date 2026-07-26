@@ -19,9 +19,10 @@ Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 D1. Reproduce (or explain why reproduction is blocked) before changing any
     code; never fix from a stack-trace line when the bad value originated
     elsewhere.
-D2. A hypothesis ledger precedes deep investigation: one recorded
-    hypothesis for an obvious localized failure; 2-3 competing hypotheses
-    for unknown, nontrivial, flaky, repeated, or cross-boundary failures.
+D2. A hypothesis ledger precedes diagnostic dispatch and deep investigation:
+    one recorded hypothesis for an obvious localized failure; 2-3 competing
+    hypotheses for unknown, nontrivial, flaky, repeated, or cross-boundary
+    failures.
 D3. A root cause is confirmed falsifiably by a causal toggle — toggling the
     suspected cause makes the failure appear and reverting makes it
     disappear; when a clean toggle is not feasible, state why and name the
@@ -57,9 +58,11 @@ D9. Mid-loop skill: after verification, return the result to the caller
 4. Build the hypothesis ledger [D2]: for each entry name the expected
    confirming evidence, expected refuting evidence, current confidence, and
    the smallest diagnostic step.
-5. Select one active hypothesis; test it with the smallest diagnostic
-   step; update the ledger and reject or replace the hypothesis when
-   evidence contradicts it.
+5. After building the ledger, when two or more active hypotheses are
+   independently testable, dispatch exactly one `debugger` per hypothesis
+   under `Parallel hypothesis testing`. Otherwise select one active hypothesis
+   and test it sequentially with the smallest diagnostic step. Update the
+   ledger and reject or replace hypotheses when evidence contradicts them.
 6. Trace the causal chain from the observed symptom back to the source that
    made the symptom possible — do not accept a fix plan that only removes
    the visible trigger while leaving the failure mode latent. Confirm the
@@ -80,21 +83,24 @@ D9. Mid-loop skill: after verification, return the result to the caller
     `verification-before-completion` before claiming the failure is fixed
     [D8].
 
-Parallel hypothesis testing (steps 4-5): when reproduction is established
-and two or more plausible hypotheses are independently testable, dispatch
-one `debugger` per hypothesis in a single batch — at most 3 by default,
-extending toward 5 only when 3+ genuinely independent hypotheses are testable.
-Each debugger's initial packet is symptom-first: raw reproduction, expected and
-actual behavior, environment, and a read-only diagnostic scope, without a
-preferred cause or fix, confidence ranking, or sibling conclusions. After each
-records its own initial hypotheses, a later clarification may assign exactly one
-hypothesis and its confirming/refuting evidence targets. Prior attempts, when
-needed later, are disclosed only as neutral exact action, state, and raw outcome.
-Each runs only non-mutating diagnostics in disjoint scopes and returns evidence,
-confidence movement, and rejected-hypothesis rationale. If diagnostics would
-mutate state or scopes overlap, keep the sequential flow. The main thread
-synthesizes the evidence, selects the confirmed root cause, and a single
-`executor` applies the fix.
+Parallel hypothesis testing (steps 4-5):
+After building the ledger, when two or more active hypotheses are independently testable,
+dispatch exactly one `debugger` per hypothesis in one batch — at most 3 by
+default, extending toward 5 only when 3+ genuinely independent hypotheses are
+testable. Dispatch the complete eligible batch before waiting for any result.
+Each initial fan-out packet names exactly one assigned hypothesis and its confirming/refuting evidence targets.
+Every other hypothesis and the rest of the hypothesis ledger are withheld.
+Each debugger's initial packet is symptom-first with the raw reproduction,
+expected and actual behavior, environment, and a read-only diagnostic scope,
+without a preferred cause or fix, expected verdict, confidence ranking, or
+sibling conclusions. A debugger MUST NOT receive multiple eligible hypotheses
+or investigate the full ledger. A later clarification may disclose prior
+actions only as neutral exact action, state, and raw outcome. Each debugger
+runs only non-mutating diagnostics in a disjoint scope and returns evidence,
+confidence movement, and rejected-hypothesis rationale. Keep investigation sequential for
+one hypothesis, dependent hypotheses, overlapping scopes, or state-mutating
+diagnostics. The main thread synthesizes the evidence, selects the confirmed
+root cause, and a single `executor` applies the fix.
 
 ## Stop Conditions
 
@@ -141,24 +147,30 @@ context is missing), then the executor-default minimal fix (`executor`), then
 evidence (`verifier`). Every direct role dispatch reuses the target role's
 required identity/result envelope and adds only the debugging workflow delta.
 An initial debugger packet contains the raw reproduction, expected behavior,
-actual behavior, environment, and diagnostic scope; it withholds the caller's
-preferred cause or fix and all sibling conclusions. A later clarification may
-supply an active hypothesis or prior attempts only as neutral exact action,
-state, and raw outcome. Executor fix packets may include the independently
-confirmed root cause. Debugger output itself is not redesigned here.
+actual behavior, environment, and diagnostic scope. In eligible fan-out it also
+names exactly one assigned hypothesis and its confirming/refuting evidence
+targets. Every other hypothesis and the rest of the hypothesis ledger are
+withheld. The packet withholds the caller's
+preferred cause or fix and all sibling conclusions, plus the expected verdict
+and confidence ranking. Later disclosures of prior actions use only neutral
+exact action, state, and raw outcome. Executor fix packets may include the
+independently confirmed root cause. Debugger output itself is not redesigned
+here.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `debugger` | one instance to reproduce, identify root cause, and recommend the minimal fix; a paired investigation ONLY for a named THOROUGH uncertainty or repeated-failure trigger |
+| `debugger` | exactly one instance per independently testable active hypothesis in one complete batch; one sequential instance when fan-out is ineligible; a paired investigation ONLY for one named THOROUGH uncertainty when fan-out is not active |
 | `explore` | gather codebase facts, related call sites, working examples, and commands |
 | `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer or debugger pair — required when the proving tests or fix were authored or accepted by the same agent |
 | `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; when dispatched, runs as the perspective-diverse pair with merged-finding synthesis |
 
-STANDARD uses one dispatched `debugger` instance. A named THOROUGH debugger
-trigger may require two same-role instances with identical packets, dispatched
-in parallel and synthesized into one result; the debugger topology is otherwise
-unchanged. A post-fix `code-reviewer`, when dispatched, always runs as the
+STANDARD uses one dispatched `debugger` per eligible hypothesis in the complete
+fan-out batch, or one sequential instance when fan-out is ineligible. Only when
+hypothesis fan-out is not active may a named THOROUGH trigger use two same-role
+instances with identical packets for one named uncertainty, dispatched in
+parallel and synthesized into one result; never multiply that pair across
+hypotheses. A post-fix `code-reviewer`, when dispatched, always runs as the
 perspective-diverse pair: two same-role instances, each running the full role,
 with Lens A = adversarial correctness + security skeptic and Lens B =
 maintainability + coverage completeness. Their packets are
@@ -174,11 +186,12 @@ falling back.
 
 <HARD-GATE>
 Do not emit the Output below until every dispatched review records topology:
-a single STANDARD debugger records `single-reviewer`, while a named THOROUGH
-debugger pair records the active platform's pair-mode value; a dispatched
-post-fix code-reviewer records `perspective-pair` with the active platform's
-pair-mode value. An inline fallback requires a reason. Missing review topology
-is a named ledger gap, not a pass. On the direct-invocation path this gate owns
+an eligible debugger batch records `hypothesis-fanout:<count>`, a sequential
+STANDARD debugger records `single-reviewer`, and a named THOROUGH debugger pair
+records the active platform's pair-mode value. A dispatched post-fix
+code-reviewer records `perspective-pair` with the active platform's pair-mode
+value. An inline fallback requires a reason. Missing review topology is a named
+ledger gap, not a pass. On the direct-invocation path this gate owns
 the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the
 caller's completion gate is the backstop.
 </HARD-GATE>

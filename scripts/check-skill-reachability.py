@@ -301,6 +301,15 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("initial packet is symptom-first", BOTH),
         ("without a preferred cause or fix", BOTH),
         ("neutral exact action, state, and raw outcome", BOTH),
+        ("Dispatch the complete eligible batch before waiting for any result", BOTH),
+        ("Each initial fan-out packet names exactly one assigned hypothesis and its confirming/refuting evidence targets", BOTH),
+        ("Every other hypothesis and the rest of the hypothesis ledger are withheld", BOTH),
+        ("A debugger MUST NOT receive multiple eligible hypotheses", BOTH),
+        ("at most 3 by default, extending toward 5 only when 3+ genuinely independent hypotheses are testable", BOTH),
+        ("Keep investigation sequential for one hypothesis, dependent hypotheses, overlapping scopes, or state-mutating diagnostics", BOTH),
+        ("Only when hypothesis fan-out is not active may a named THOROUGH trigger use two same-role", BOTH),
+        ("hypothesis-fanout:<count>", BOTH),
+        ("STANDARD dispatches one `debugger` per independently testable eligible hypothesis in the complete batch", CODEX),
         ("Apply the minimal fix through `executor` by default", BOTH),
         ("Mutation fallback: LIGHT-tiny", BOTH),
         ("Assigned perspective", BOTH),
@@ -377,6 +386,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("all 9 agents and the diversity settings change in one", CLAUDE),  # one transaction
         ("reapplies stored preferences best-effort", CLAUDE),  # SessionStart drift repair
         ("No proxy URL or token value is ever stored or printed", CLAUDE),  # credential safety
+    ],
+}
+
+# Skill-specific stale clauses that would contradict reachable canonical rules.
+FORBIDDEN: dict[str, list[tuple[str, str]]] = {
+    "systematic-debugging": [
+        ("STANDARD keeps one dispatched `debugger` instance", CODEX),
+        ("`single-reviewer` for a STANDARD debugger", CODEX),
     ],
 }
 
@@ -468,11 +485,12 @@ def main() -> int:
     assert_reference_graph_matches_source(root)
 
     # Fail on a typo'd platform tag rather than silently skipping a check.
-    for skill, reqs in REQUIRED.items():
-        for phrase, platform in reqs:
-            if platform not in VALID_PLATFORMS:
-                print(f"FAIL - invalid platform tag {platform!r} for {skill}: {phrase!r}")
-                return 1
+    for rules in (REQUIRED, FORBIDDEN):
+        for skill, reqs in rules.items():
+            for phrase, platform in reqs:
+                if platform not in VALID_PLATFORMS:
+                    print(f"FAIL - invalid platform tag {platform!r} for {skill}: {phrase!r}")
+                    return 1
 
     failures: list[str] = []
     warnings: list[str] = []
@@ -495,6 +513,13 @@ def main() -> int:
             normalized_phrase = " ".join(phrase.lower().split())
             if normalized_phrase not in bag:
                 failures.append(f"{skill} [{args.platform}]: rule not reachable -> {phrase!r}")
+        for phrase, platform in FORBIDDEN.get(skill, []):
+            if platform not in (BOTH, args.platform):
+                continue
+            checked += 1
+            normalized_phrase = " ".join(phrase.lower().split())
+            if normalized_phrase in bag:
+                failures.append(f"{skill} [{args.platform}]: stale conflicting rule reachable -> {phrase!r}")
 
     # Platform vocabulary is mutually exclusive. Check every generated wrapper,
     # not only REQUIRED entries, so a future skill cannot leak the other host's
