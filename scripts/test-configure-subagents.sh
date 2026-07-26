@@ -129,6 +129,17 @@ setup_fixture() {
     cp "$CANONICAL_AGENTS/$role.md" "$TARGET/agents/$role.md"
   done
 }
+
+setup_cache_identity_fixture() {
+  setup_fixture
+  CACHE_HOME="$WORK/claude-home"
+  CANONICAL_DATA_ROOT="$CACHE_HOME/plugins/data/oh-no-harness-oh-no-harness"
+  LEGACY_DATA_ROOT="$CACHE_HOME/plugins/data/oh-no-harness-inline"
+  CACHE_TARGET="$CACHE_HOME/plugins/cache/oh-no-harness/oh-no-harness/9.9.9"
+  mkdir -p "$CANONICAL_DATA_ROOT" "$LEGACY_DATA_ROOT" "$(dirname "$CACHE_TARGET")"
+  mv "$TARGET" "$CACHE_TARGET"
+  TARGET="$CACHE_TARGET"
+}
 teardown_fixture() { cleanup_fixture; }
 
 hash_agents() { find "$TARGET/agents" -type f -exec shasum {} \; | sort | shasum; }
@@ -769,13 +780,9 @@ resolver_case "XDG fallback" xdg
 # lexically-earlier empty inline sibling coexists. The explicit override remains
 # a separate writer/reader symmetry guard.
 echo "== resolver: cache identity beats lexically-earlier empty plugin-data sibling =="
-setup_fixture
-collision_home="$WORK/claude-home"
-collision_fixture="$collision_home/plugins/data/oh-no-harness-oh-no-harness"
-cache_target="$collision_home/plugins/cache/oh-no-harness/oh-no-harness/9.9.9"
-mkdir -p "$collision_home/plugins/data/oh-no-harness-inline" "$collision_fixture" "$(dirname "$cache_target")"
-mv "$TARGET" "$cache_target"
-TARGET="$cache_target"
+setup_cache_identity_fixture
+collision_home="$CACHE_HOME"
+collision_fixture="$CANONICAL_DATA_ROOT"
 env TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$collision_fixture" "$TARGET/scripts/configure-subagents" apply \
   --proxy no --secondary-top-model fable --top-tier-models "fable opus" $(native_assignments) >/dev/null
 hook_out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$collision_home" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
@@ -783,6 +790,520 @@ printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "cache ident
 hook_out="$(env TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$collision_home" OH_NO_CONFIG_DIR="$collision_fixture" CLAUDE_PLUGIN_ROOT="$TARGET" "$TARGET/hooks/session-start")"
 printf '%s' "$hook_out" | grep -q 'secondary_top_model=fable' && ok "explicit override resolves populated fixture despite earlier sibling" || bad "explicit override did not resolve populated fixture"
 teardown_fixture
+
+# Read-only config state may fall back to the legacy inline identity, but the
+# canonical path remains the storage locator and always wins when populated.
+echo "== oh-no-config: legacy read continuity with canonical path and precedence =="
+setup_cache_identity_fixture
+config_home="$CACHE_HOME"
+canonical_config_root="$CANONICAL_DATA_ROOT"
+legacy_config_root="$LEGACY_DATA_ROOT"
+cat >"$legacy_config_root/config.json" <<'JSON'
+{
+  "autoRouting": {
+    "enabled": true
+  }
+}
+JSON
+canonical_before="$(find "$canonical_config_root" -mindepth 1 -print | LC_ALL=C sort | shasum)"
+legacy_before="$(shasum "$legacy_config_root/config.json")"
+status_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" status)"; status_rc=$?
+enabled_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" is-enabled)"; enabled_rc=$?
+path_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" path)"; path_rc=$?
+{ [ "$status_rc" -eq 0 ] && printf '%s\n' "$status_out" | grep -q '^auto-routing: on$' && printf '%s\n' "$status_out" | grep -Fq "config: $legacy_config_root/config.json"; } && ok "legacy-only status reads enabled state and reports effective legacy path" || bad "legacy-only status missed legacy config ($status_out)"
+[ "$enabled_rc" -eq 0 ] && [ -z "$enabled_out" ] && ok "legacy-only is-enabled reads enabled state silently" || bad "legacy-only is-enabled missed legacy config (rc=$enabled_rc)"
+[ "$path_rc" -eq 0 ] && [ "$path_out" = "$canonical_config_root/config.json" ] && ok "path remains the canonical storage locator during legacy read-through" || bad "path did not remain canonical ($path_out)"
+[ "$canonical_before" = "$(find "$canonical_config_root" -mindepth 1 -print | LC_ALL=C sort | shasum)" ] && [ ! -e "$canonical_config_root/config.json" ] && [ "$legacy_before" = "$(shasum "$legacy_config_root/config.json")" ] && ok "legacy read-through mutates neither canonical nor legacy config state" || bad "legacy read-through mutated config state"
+
+cat >"$canonical_config_root/config.json" <<'JSON'
+{
+  "autoRouting": {
+    "enabled": false
+  }
+}
+JSON
+canonical_before="$(shasum "$canonical_config_root/config.json")"
+legacy_before="$(shasum "$legacy_config_root/config.json")"
+status_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" status)"; status_rc=$?
+enabled_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" is-enabled)"; enabled_rc=$?
+path_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" path)"; path_rc=$?
+{ [ "$status_rc" -eq 0 ] && printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $canonical_config_root/config.json"; } && ok "canonical disabled config wins over enabled legacy config" || bad "canonical precedence status changed ($status_out)"
+[ "$enabled_rc" -eq 1 ] && [ -z "$enabled_out" ] && ok "canonical disabled config makes is-enabled exit 1 silently" || bad "canonical precedence is-enabled changed (rc=$enabled_rc)"
+[ "$path_rc" -eq 0 ] && [ "$path_out" = "$canonical_config_root/config.json" ] && ok "path remains canonical when both config identities exist" || bad "coexisting config path changed ($path_out)"
+[ "$canonical_before" = "$(shasum "$canonical_config_root/config.json")" ] && [ "$legacy_before" = "$(shasum "$legacy_config_root/config.json")" ] && ok "canonical precedence reads mutate neither config file" || bad "canonical precedence read mutated config state"
+teardown_fixture
+
+# Only the supported canonical cache-data identity may read through to the
+# inline sibling. Unrelated identities and arbitrary override/XDG roots must not.
+echo "== CR-2 oh-no-config: legacy read-through is exact-identity only =="
+setup_fixture
+identity_data="$WORK/plugins/data"
+unrelated_root="$identity_data/oh-no-harness-unrelated"
+inline_root="$identity_data/oh-no-harness-inline"
+mkdir -p "$unrelated_root" "$inline_root"
+cat >"$inline_root/config.json" <<'JSON'
+{
+  "autoRouting": {
+    "enabled": true
+  }
+}
+JSON
+status_out="$(OH_NO_CONFIG_DIR="$unrelated_root" "$TARGET/scripts/oh-no-config" status)"; status_rc=$?
+enabled_out="$(OH_NO_CONFIG_DIR="$unrelated_root" "$TARGET/scripts/oh-no-config" is-enabled)"; enabled_rc=$?
+{ [ "$status_rc" -eq 0 ] && printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $unrelated_root/config.json"; } && ok "unrelated marketplace-like identity does not read inline config" || bad "unrelated identity read inline config ($status_out)"
+[ "$enabled_rc" -eq 1 ] && [ -z "$enabled_out" ] && ok "unrelated identity is-enabled stays safely off" || bad "unrelated identity is-enabled read inline state (rc=$enabled_rc)"
+
+arbitrary_root="$WORK/arbitrary/oh-no-harness-oh-no-harness"
+arbitrary_inline="$WORK/arbitrary/oh-no-harness-inline"
+mkdir -p "$arbitrary_root" "$arbitrary_inline"
+cp "$inline_root/config.json" "$arbitrary_inline/config.json"
+status_out="$(OH_NO_CONFIG_DIR="$arbitrary_root" "$TARGET/scripts/oh-no-config" status)"
+printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $arbitrary_root/config.json" && ok "arbitrary OH_NO_CONFIG_DIR does not gain inline sibling read-through" || bad "arbitrary OH_NO_CONFIG_DIR read inline sibling ($status_out)"
+
+xdg_root="$WORK/xdg"
+mkdir -p "$xdg_root/oh-no-harness-inline"
+cp "$inline_root/config.json" "$xdg_root/oh-no-harness-inline/config.json"
+status_out="$(without_ambient_oh_no_config HOME="$WORK/no-claude-home" XDG_CONFIG_HOME="$xdg_root" "$TARGET/scripts/oh-no-config" status)"
+printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $xdg_root/oh-no-harness/config.json" && ok "XDG fallback root does not read an inline-named sibling" || bad "XDG root read inline sibling ($status_out)"
+teardown_fixture
+
+# A present canonical pathname is authoritative even when it is not a regular
+# file. Status/is-enabled stay safely off instead of consulting stale legacy data.
+echo "== CR-3 oh-no-config: non-regular canonical path blocks legacy fallback =="
+setup_cache_identity_fixture
+config_home="$CACHE_HOME"
+canonical_config="$CANONICAL_DATA_ROOT/config.json"
+legacy_config="$LEGACY_DATA_ROOT/config.json"
+cat >"$legacy_config" <<'JSON'
+{
+  "autoRouting": {
+    "enabled": true
+  }
+}
+JSON
+mkdir "$canonical_config"
+status_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" status)"; status_rc=$?
+enabled_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" is-enabled)"; enabled_rc=$?
+{ [ "$status_rc" -eq 0 ] && printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $canonical_config"; } && ok "canonical config directory is authoritative and safely off" || bad "canonical directory fell through to legacy ($status_out)"
+[ "$enabled_rc" -eq 1 ] && [ -z "$enabled_out" ] && ok "canonical config directory makes is-enabled fail safely" || bad "canonical directory is-enabled read legacy (rc=$enabled_rc)"
+rmdir "$canonical_config"
+ln -s "$WORK/missing-config-target" "$canonical_config"
+status_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" status)"; status_rc=$?
+enabled_out="$(without_ambient_oh_no_config CLAUDE_CONFIG_DIR="$config_home" "$TARGET/scripts/oh-no-config" is-enabled)"; enabled_rc=$?
+{ [ "$status_rc" -eq 0 ] && printf '%s\n' "$status_out" | grep -q '^auto-routing: off$' && printf '%s\n' "$status_out" | grep -Fq "config: $canonical_config"; } && ok "dangling canonical config symlink is authoritative and safely off" || bad "dangling canonical symlink fell through to legacy ($status_out)"
+[ "$enabled_rc" -eq 1 ] && [ -z "$enabled_out" ] && ok "dangling canonical symlink makes is-enabled fail safely" || bad "dangling canonical symlink is-enabled read legacy (rc=$enabled_rc)"
+[ -L "$canonical_config" ] && [ "$(readlink "$canonical_config")" = "$WORK/missing-config-target" ] && ok "non-regular precedence checks do not mutate canonical path" || bad "non-regular precedence mutated canonical path"
+teardown_fixture
+
+# A valid legacy schema-2 preference must be visible to read-only check when the
+# canonical cache identity has no preferences. Check must not populate canonical state.
+echo "== check: valid legacy preferences report legacy-unmigrated without canonical writes =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+cat >"$legacy_fixture/subagent-models.conf" <<'PREFS'
+schema_version=2
+proxy=yes
+secondary_top_model=fable
+top_tier_models=fable opus gpt-5.6-sol
+assignment=explore,gpt-5.6-sol,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+canonical_before="$(find "$canonical_fixture" -mindepth 1 -print | LC_ALL=C sort | shasum)"
+legacy_before="$(shasum "$legacy_fixture/subagent-models.conf")"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: legacy-unmigrated" ] && ok "check reports legacy-unmigrated when only valid legacy preferences exist" || bad "legacy-only check status ($status)"
+[ "$canonical_before" = "$(find "$canonical_fixture" -mindepth 1 -print | LC_ALL=C sort | shasum)" ] && [ ! -e "$canonical_fixture/subagent-models.conf" ] && ok "legacy-only check leaves canonical state absent and unchanged" || bad "legacy-only check mutated canonical state"
+[ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && ok "legacy-only check leaves legacy preferences unchanged" || bad "legacy-only check mutated legacy preferences"
+teardown_fixture
+
+# Legacy preference discovery is limited to the one supported canonical cache
+# identity. Marketplace-like siblings and arbitrary override roots stay isolated.
+echo "== CR-2 configure-subagents: legacy import is exact-identity only =="
+setup_fixture
+identity_data="$WORK/plugins/data"
+unrelated_fixture="$identity_data/oh-no-harness-unrelated"
+legacy_fixture="$identity_data/oh-no-harness-inline"
+mkdir -p "$unrelated_fixture" "$legacy_fixture"
+cat >"$legacy_fixture/subagent-models.conf" <<'PREFS'
+schema_version=2
+proxy=no
+secondary_top_model=
+top_tier_models=fable opus
+assignment=explore,sonnet,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+legacy_before="$(shasum "$legacy_fixture/subagent-models.conf")"
+agents_before="$(hash_agents)"
+status="$(TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$unrelated_fixture" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: unconfigured" ] && ok "unrelated marketplace-like identity does not discover inline preferences" || bad "unrelated identity discovered inline preferences ($status)"
+out="$(TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$unrelated_fixture" "$TARGET/scripts/configure-subagents" reapply --quiet 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ -z "$out" ] && ok "unrelated identity reapply remains a silent no-op" || bad "unrelated identity imported inline preferences (rc=$rc out=$out)"
+[ ! -e "$unrelated_fixture/subagent-models.conf" ] && [ "$agents_before" = "$(hash_agents)" ] && [ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && ok "unrelated identity leaves canonical, runtime, and inline source unchanged" || bad "unrelated identity mutated preference state"
+
+arbitrary_fixture="$WORK/arbitrary/oh-no-harness-oh-no-harness"
+arbitrary_legacy="$WORK/arbitrary/oh-no-harness-inline"
+mkdir -p "$arbitrary_fixture" "$arbitrary_legacy"
+cp "$legacy_fixture/subagent-models.conf" "$arbitrary_legacy/subagent-models.conf"
+status="$(TMPDIR="$STAGE_PARENT" OH_NO_CONFIG_DIR="$arbitrary_fixture" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: unconfigured" ] && ok "arbitrary OH_NO_CONFIG_DIR does not gain inline preference discovery" || bad "arbitrary OH_NO_CONFIG_DIR discovered inline preferences ($status)"
+teardown_fixture
+
+# A supported reapply imports valid legacy preferences once, applies them, and
+# preserves the legacy source. A second reapply must be a matching no-op.
+echo "== reapply: imports valid legacy preferences once and preserves source =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+cat >"$legacy_fixture/subagent-models.conf" <<'PREFS'
+schema_version=2
+proxy=yes
+secondary_top_model=fable
+top_tier_models=fable opus gpt-5.6-sol
+assignment=explore,gpt-5.6-sol,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+legacy_before="$(shasum "$legacy_fixture/subagent-models.conf")"
+[ ! -e "$canonical_fixture/subagent-models.conf" ] && ok "legacy import starts without canonical preferences" || bad "legacy import fixture unexpectedly has canonical preferences"
+out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet)"; rc=$?
+[ "$rc" -eq 0 ] && ok "legacy import reapply exits 0" || bad "legacy import reapply exit (rc=$rc)"
+{ [ -f "$canonical_fixture/subagent-models.conf" ] && grep -q '^schema_version=2$' "$canonical_fixture/subagent-models.conf" && grep -q '^assignment=explore,gpt-5.6-sol,high$' "$canonical_fixture/subagent-models.conf"; } && ok "reapply imports valid legacy preferences into canonical storage" || bad "reapply did not import valid legacy preferences"
+{ grep -q '^model: gpt-5.6-sol$' "$TARGET/agents/explore.md" && grep -q '^effort: high$' "$TARGET/agents/explore.md"; } && ok "legacy import applies explore=gpt-5.6-sol,high to runtime" || bad "legacy import did not apply explore model and effort"
+[ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && ok "legacy import leaves source preferences present and byte-identical" || bad "legacy import changed legacy source preferences"
+[ ! -e "$canonical_fixture/subagent-journal.conf" ] && [ ! -e "$canonical_fixture/subagent-lock.d" ] && ok "legacy import leaves no journal or lock" || bad "legacy import left partial transaction state"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: matching" ] && ok "legacy import converges to matching canonical state" || bad "legacy import post-check status ($status)"
+agents_after_first="$(hash_agents)"
+if [ -f "$canonical_fixture/subagent-models.conf" ]; then canonical_after_first="$(shasum "$canonical_fixture/subagent-models.conf")"; else canonical_after_first=absent; fi
+backups_after_first="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet)"; rc=$?
+[ "$rc" -eq 0 ] && [ -z "$out" ] && ok "repeated legacy import reapply is a silent matching no-op" || bad "repeated legacy import reapply was not a silent no-op (rc=$rc)"
+if [ -f "$canonical_fixture/subagent-models.conf" ]; then canonical_after_second="$(shasum "$canonical_fixture/subagent-models.conf")"; else canonical_after_second=absent; fi
+backups_after_second="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: matching" ] && ok "repeated legacy import remains matching" || bad "repeated legacy import status ($status)"
+[ "$agents_after_first" = "$(hash_agents)" ] && [ "$canonical_after_first" = "$canonical_after_second" ] && ok "repeated legacy import changes neither runtime nor canonical preferences" || bad "repeated legacy import mutated matching state"
+[ "$backups_after_first" = "$backups_after_second" ] && ok "repeated legacy import creates no unnecessary backup" || bad "repeated legacy import created another backup"
+[ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && ok "repeated legacy import still preserves legacy source" || bad "repeated legacy import changed legacy source"
+teardown_fixture
+
+# Once import has captured legacy A under the canonical lock, an atomic pathname
+# replacement with valid B during the runtime transaction must not split runtime
+# and canonical publication. The replacement remains untouched and is reported
+# through the existing coexistence-conflict status.
+echo "== CR-1 legacy import: runtime and canonical publish one locked snapshot =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+legacy_path="$legacy_fixture/subagent-models.conf"
+cat >"$legacy_path" <<'PREFS_A'
+schema_version=2
+proxy=yes
+secondary_top_model=fable
+top_tier_models=fable opus gpt-5.6-sol
+assignment=explore,gpt-5.6-sol,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS_A
+cp "$legacy_path" "$WORK/legacy-a.conf"
+cat >"$WORK/legacy-b.conf" <<'PREFS_B'
+schema_version=2
+proxy=no
+secondary_top_model=
+top_tier_models=fable opus
+assignment=explore,opus,max
+assignment=analyst,sonnet,high
+assignment=planner,sonnet,high
+assignment=plan-reviewer,sonnet,high
+assignment=executor,sonnet,high
+assignment=debugger,sonnet,high
+assignment=verifier,opus,max
+assignment=code-reviewer,sonnet,high
+assignment=fusion-rescue-analyst,sonnet,high
+PREFS_B
+cp "$WORK/legacy-b.conf" "$WORK/legacy-b.expected"
+# Keep the process inside the journaled transaction long enough for the test to
+# observe that boundary without a production timing hook.
+"$PYTHON" - "$TARGET/agents/analyst.md" <<'PY'
+import sys
+with open(sys.argv[1], "ab") as f:
+    chunk = (b"snapshot-race-padding-" * 128) + b"\n"
+    for _ in range(32768):
+        f.write(chunk)
+PY
+reapply_out="$WORK/reapply.out"
+reapply_err="$WORK/reapply.err"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet >"$reapply_out" 2>"$reapply_err" & import_pid=$!
+swapped=0
+while kill -0 "$import_pid" 2>/dev/null; do
+  if [ -f "$canonical_fixture/subagent-journal.conf" ]; then
+    mv "$WORK/legacy-b.conf" "$legacy_path"
+    swapped=1
+    break
+  fi
+done
+wait "$import_pid"; import_rc=$?
+[ "$swapped" -eq 1 ] && ok "legacy pathname replaced after the journaled transaction began" || bad "did not observe the transaction boundary before import completed"
+[ "$import_rc" -eq 0 ] && ok "snapshot import completes after concurrent legacy replacement" || bad "snapshot import failed (rc=$import_rc err=$(cat "$reapply_err"))"
+{ [ -f "$canonical_fixture/subagent-models.conf" ] && cmp -s "$canonical_fixture/subagent-models.conf" "$WORK/legacy-a.conf"; } && ok "canonical publication preserves exact snapshot-A bytes" || bad "canonical preferences did not publish snapshot A"
+cmp -s "$legacy_path" "$WORK/legacy-b.expected" && ok "legacy replacement B remains byte-identical at the live source pathname" || bad "legacy replacement B was changed or removed"
+{ grep -q '^model: gpt-5.6-sol$' "$TARGET/agents/explore.md" && grep -q '^effort: high$' "$TARGET/agents/explore.md"; } && ok "runtime converges from snapshot A" || bad "runtime did not converge from snapshot A"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: preference-conflict" ] && ok "post-import status coherently reports untouched replacement B conflict" || bad "post-import status is inconsistent ($status)"
+[ ! -e "$canonical_fixture/subagent-journal.conf" ] && [ ! -e "$canonical_fixture/subagent-lock.d" ] && [ -z "$(find "$canonical_fixture" -maxdepth 1 -name '.subagent-legacy-snapshot.*' -print -quit)" ] && ok "snapshot import leaves no journal, lock, or private snapshot residue" || bad "snapshot import left transaction residue"
+teardown_fixture
+
+# A hard crash after journal publication must keep the immutable import snapshot
+# inside the owned lock lifecycle. Supported recovery reclaims that exact stale
+# lock, converges from the still-live legacy source, and leaves no import residue.
+echo "== V-1 legacy import: hard-crash recovery reclaims lock-owned snapshot =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+legacy_path="$legacy_fixture/subagent-models.conf"
+cat >"$legacy_path" <<'PREFS'
+schema_version=2
+proxy=yes
+secondary_top_model=fable
+top_tier_models=fable opus gpt-5.6-sol
+assignment=explore,gpt-5.6-sol,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+legacy_before="$(shasum "$legacy_path")"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" OH_NO_CONFIGURE_CRASH_AFTER=3 "$TARGET/scripts/configure-subagents" reapply --quiet >/dev/null 2>&1
+crash_rc=$?
+[ "$crash_rc" -ne 0 ] && ok "legacy import hard crash exits nonzero" || bad "legacy import hard crash unexpectedly completed"
+lock_snapshot="$canonical_fixture/subagent-lock.d/legacy-prefs.snapshot"
+lock_hold="$canonical_fixture/subagent-lock.d/legacy-prefs.hold"
+{ [ -f "$canonical_fixture/subagent-lock.d/owner" ] && [ -f "$lock_snapshot" ] && [ ! -e "$lock_hold" ]; } && ok "post-journal crash retains only the exact lock-owned snapshot beside owner metadata" || bad "post-journal crash did not retain the exact lock-owned snapshot lifecycle"
+[ -f "$canonical_fixture/subagent-journal.conf" ] && ok "legacy import hard crash retains its recovery journal" || bad "legacy import hard crash lost its recovery journal"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet >/dev/null; recovery_rc=$?
+[ "$recovery_rc" -eq 0 ] && ok "supported reapply recovers and completes legacy import" || bad "supported legacy-import recovery failed (rc=$recovery_rc)"
+{ [ -f "$canonical_fixture/subagent-models.conf" ] && cmp -s "$canonical_fixture/subagent-models.conf" "$legacy_path"; } && ok "hard-crash recovery publishes exact live legacy bytes canonically" || bad "hard-crash recovery did not publish exact legacy bytes"
+{ grep -q '^model: gpt-5.6-sol$' "$TARGET/agents/explore.md" && grep -q '^effort: high$' "$TARGET/agents/explore.md"; } && ok "hard-crash recovery converges runtime from legacy preferences" || bad "hard-crash recovery did not converge runtime"
+[ "$legacy_before" = "$(shasum "$legacy_path")" ] && [ -f "$legacy_path" ] && [ ! -L "$legacy_path" ] && ok "hard-crash recovery preserves the live legacy source path and bytes" || bad "hard-crash recovery changed the live legacy source"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: matching" ] && ok "hard-crash recovery reaches matching state" || bad "hard-crash recovery status ($status)"
+import_residue="$(find "$canonical_fixture" -maxdepth 2 \( -name '.subagent-legacy-hold.*' -o -name '.subagent-legacy-snapshot.*' -o -name 'legacy-prefs.hold' -o -name 'legacy-prefs.snapshot' \) -print -quit)"
+[ ! -e "$canonical_fixture/subagent-journal.conf" ] && [ ! -e "$canonical_fixture/subagent-lock.d" ] && [ -z "$import_residue" ] && ok "supported recovery leaves no journal, lock, or legacy-import transient residue" || bad "supported recovery left legacy-import transaction residue"
+teardown_fixture
+
+# Canonical preferences retain precedence when a valid legacy source coexists:
+# identical bytes are benign, while different valid preferences fail closed.
+echo "== coexistence: identical legacy is benign; different valid legacy conflicts =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null
+cp "$canonical_fixture/subagent-models.conf" "$legacy_fixture/subagent-models.conf"
+canonical_before="$(shasum "$canonical_fixture/subagent-models.conf")"
+legacy_before="$(shasum "$legacy_fixture/subagent-models.conf")"
+agents_before="$(hash_agents)"
+backups_before="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: matching" ] && ok "byte-identical canonical and legacy preferences remain matching" || bad "identical coexistence check status ($status)"
+out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet)"; rc=$?
+[ "$rc" -eq 0 ] && [ -z "$out" ] && ok "identical coexistence reapply is a silent canonical no-op" || bad "identical coexistence reapply changed behavior (rc=$rc)"
+backups_after="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+[ "$canonical_before" = "$(shasum "$canonical_fixture/subagent-models.conf")" ] && [ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && [ "$agents_before" = "$(hash_agents)" ] && [ "$backups_before" = "$backups_after" ] && ok "identical coexistence mutates no canonical, legacy, runtime, or backup state" || bad "identical coexistence mutated state"
+[ ! -e "$canonical_fixture/subagent-journal.conf" ] && [ ! -e "$canonical_fixture/subagent-lock.d" ] && ok "identical coexistence leaves no journal or lock" || bad "identical coexistence left transaction state"
+teardown_fixture
+
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" apply --proxy no $(native_assignments) >/dev/null
+cat >"$legacy_fixture/subagent-models.conf" <<'PREFS'
+schema_version=2
+proxy=no
+secondary_top_model=
+top_tier_models=fable opus
+assignment=explore,opus,max
+assignment=analyst,sonnet,high
+assignment=planner,sonnet,high
+assignment=plan-reviewer,sonnet,high
+assignment=executor,sonnet,high
+assignment=debugger,sonnet,high
+assignment=verifier,opus,max
+assignment=code-reviewer,sonnet,high
+assignment=fusion-rescue-analyst,sonnet,high
+PREFS
+canonical_before="$(shasum "$canonical_fixture/subagent-models.conf")"
+legacy_before="$(shasum "$legacy_fixture/subagent-models.conf")"
+agents_before="$(hash_agents)"
+backups_before="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: preference-conflict" ] && ok "different valid canonical and legacy preferences report conflict" || bad "different-valid coexistence check status ($status)"
+[ "$canonical_before" = "$(shasum "$canonical_fixture/subagent-models.conf")" ] && [ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && [ "$agents_before" = "$(hash_agents)" ] && ok "conflict check is read-only for canonical, legacy, and runtime state" || bad "conflict check mutated state"
+conflict_out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet 2>&1)"; rc=$?
+[ "$rc" -ne 0 ] && [ "$conflict_out" = "configure-subagents: canonical and legacy subagent preferences conflict; reapply skipped." ] && ok "conflicting reapply fails with a fixed value-free diagnostic" || bad "conflicting reapply did not fail closed (rc=$rc)"
+backups_after="$(find "$canonical_fixture/subagent-backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+[ "$canonical_before" = "$(shasum "$canonical_fixture/subagent-models.conf")" ] && [ "$legacy_before" = "$(shasum "$legacy_fixture/subagent-models.conf")" ] && [ "$agents_before" = "$(hash_agents)" ] && [ "$backups_before" = "$backups_after" ] && ok "conflicting reapply preserves canonical, legacy, runtime, and backup state" || bad "conflicting reapply mutated state"
+[ ! -e "$canonical_fixture/subagent-journal.conf" ] && [ ! -e "$canonical_fixture/subagent-lock.d" ] && ok "conflicting reapply leaves no journal or lock" || bad "conflicting reapply left transaction state"
+teardown_fixture
+
+# Present invalid or unsafe legacy sources are distinct from true absence. Keep
+# the five required classes compact while checking the same public behavior.
+echo "== legacy validation: invalid and unsafe sources fail closed; absence stays unconfigured =="
+write_complete_legacy_prefs() {
+  local path="$1" schema="$2" proxy="$3" explore_assignment="${4:-explore,sonnet,high}"
+  cat >"$path" <<PREFS
+schema_version=$schema
+proxy=$proxy
+secondary_top_model=
+top_tier_models=fable opus
+assignment=$explore_assignment
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+PREFS
+}
+
+# Complete records may be separated by blank lines and comments whose first
+# non-whitespace character is '#'; valid import preserves every source byte.
+echo "== V-2 legacy grammar: comments and blank lines remain byte-exact =="
+setup_cache_identity_fixture
+migration_home="$CACHE_HOME"
+canonical_fixture="$CANONICAL_DATA_ROOT"
+legacy_fixture="$LEGACY_DATA_ROOT"
+legacy_path="$legacy_fixture/subagent-models.conf"
+cat >"$legacy_path" <<'PREFS'
+# supported leading comment
+
+schema_version=2
+  # supported indented comment
+proxy=no
+secondary_top_model=
+top_tier_models=fable opus
+
+assignment=explore,sonnet,high
+assignment=analyst,opus,xhigh
+assignment=planner,opus,max
+assignment=plan-reviewer,opus,xhigh
+assignment=executor,opus,high
+assignment=debugger,opus,xhigh
+assignment=verifier,sonnet,high
+assignment=code-reviewer,opus,xhigh
+assignment=fusion-rescue-analyst,opus,xhigh
+
+PREFS
+cp "$legacy_path" "$WORK/comments-blanks.expected"
+status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+[ "$status" = "STATUS: legacy-unmigrated" ] && ok "comments/blanks legacy fixture is recognized as valid" || bad "comments/blanks legacy status ($status)"
+without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && [ -f "$canonical_fixture/subagent-models.conf" ] && cmp -s "$canonical_fixture/subagent-models.conf" "$WORK/comments-blanks.expected" && ok "comments/blanks import remains byte-identical canonically" || bad "comments/blanks import changed source bytes"
+teardown_fixture
+
+invalid_legacy_case() {
+  local label="$1" mode="$2"
+  setup_cache_identity_fixture
+  local migration_home="$CACHE_HOME"
+  local canonical_fixture="$CANONICAL_DATA_ROOT"
+  local legacy_fixture="$LEGACY_DATA_ROOT"
+  local legacy_path="$legacy_fixture/subagent-models.conf"
+  local target_path="$WORK/symlink-target.conf"
+  local synthetic_value="synthetic-credential-value-v2"
+  case "$mode" in
+    invalid) write_complete_legacy_prefs "$legacy_path" 2 maybe ;;
+    incomplete) printf 'schema_version=2\nproxy=no\n' >"$legacy_path" ;;
+    unsupported) write_complete_legacy_prefs "$legacy_path" 1 no ;;
+    unknown-record) write_complete_legacy_prefs "$legacy_path" 2 no; printf 'SYNTHETIC_AUTH_TOKEN=%s\n' "$synthetic_value" >>"$legacy_path" ;;
+    extra-equals) write_complete_legacy_prefs "$legacy_path" "2=$synthetic_value" no ;;
+    assignment-two) write_complete_legacy_prefs "$legacy_path" 2 no 'explore,high' ;;
+    assignment-four) write_complete_legacy_prefs "$legacy_path" 2 no "explore,sonnet,$synthetic_value,high" ;;
+    symlink) write_complete_legacy_prefs "$target_path" 2 no; ln -s "$target_path" "$legacy_path" ;;
+    non-regular) mkdir "$legacy_path" ;;
+    absent) ;;
+  esac
+
+  local canonical_before agents_before legacy_before="" target_before=""
+  canonical_before="$(find "$canonical_fixture" -mindepth 1 -print | LC_ALL=C sort | shasum)"
+  agents_before="$(hash_agents)"
+  case "$mode" in
+    invalid|incomplete|unsupported|unknown-record|extra-equals|assignment-two|assignment-four) legacy_before="$(shasum "$legacy_path")" ;;
+    symlink) legacy_before="$(readlink "$legacy_path")"; target_before="$(shasum "$target_path")" ;;
+  esac
+
+  local status out rc
+  status="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" check | grep '^STATUS:')"
+  if [ "$mode" = absent ]; then
+    [ "$status" = "STATUS: unconfigured" ] && ok "$label: absent legacy remains unconfigured" || bad "$label: absent legacy check status ($status)"
+  else
+    [ "$status" = "STATUS: invalid-legacy-preferences" ] && ok "$label: check reports invalid-legacy-preferences" || bad "$label: check status ($status)"
+  fi
+  out="$(without_ambient_oh_no_config TMPDIR="$STAGE_PARENT" CLAUDE_CONFIG_DIR="$migration_home" "$TARGET/scripts/configure-subagents" reapply --quiet 2>&1)"; rc=$?
+  if [ "$mode" = absent ]; then
+    [ "$rc" -eq 0 ] && [ -z "$out" ] && ok "$label: absent legacy reapply stays silent" || bad "$label: absent legacy reapply changed (rc=$rc)"
+  else
+    [ "$rc" -ne 0 ] && [ "$out" = "configure-subagents: legacy subagent preferences are invalid or unsafe; reapply skipped." ] && ok "$label: reapply fails with fixed invalid-legacy diagnostic" || bad "$label: reapply did not fail closed (rc=$rc)"
+    { ! printf '%s' "$out" | grep -Fq "$legacy_path" && ! printf '%s' "$out" | grep -Fq "$synthetic_value"; } && ok "$label: diagnostic is path-free and synthetic-value-free" || bad "$label: diagnostic leaked a path or synthetic value"
+  fi
+
+  local legacy_unchanged=0
+  case "$mode" in
+    invalid|incomplete|unsupported|unknown-record|extra-equals|assignment-two|assignment-four) [ -f "$legacy_path" ] && [ ! -L "$legacy_path" ] && [ "$legacy_before" = "$(shasum "$legacy_path")" ] && legacy_unchanged=1 ;;
+    symlink) [ -L "$legacy_path" ] && [ "$legacy_before" = "$(readlink "$legacy_path")" ] && [ "$target_before" = "$(shasum "$target_path")" ] && legacy_unchanged=1 ;;
+    non-regular) [ -d "$legacy_path" ] && [ -z "$(find "$legacy_path" -mindepth 1 -print -quit)" ] && legacy_unchanged=1 ;;
+    absent) [ ! -e "$legacy_path" ] && [ ! -L "$legacy_path" ] && legacy_unchanged=1 ;;
+  esac
+  [ "$canonical_before" = "$(find "$canonical_fixture" -mindepth 1 -print | LC_ALL=C sort | shasum)" ] && [ "$agents_before" = "$(hash_agents)" ] && [ "$legacy_unchanged" = 1 ] && ok "$label: canonical, runtime, backup, transaction, and legacy state unchanged" || bad "$label: invalid legacy handling mutated state"
+  teardown_fixture
+}
+invalid_legacy_case "invalid current schema" invalid
+invalid_legacy_case "incomplete current schema" incomplete
+invalid_legacy_case "unsupported schema" unsupported
+invalid_legacy_case "unknown credential-shaped record" unknown-record
+invalid_legacy_case "known record with extra equals suffix" extra-equals
+invalid_legacy_case "assignment with two fields" assignment-two
+invalid_legacy_case "assignment with four fields" assignment-four
+invalid_legacy_case "symlinked preference path" symlink
+invalid_legacy_case "non-regular preference path" non-regular
+invalid_legacy_case "absent preference path guard" absent
 
 # Always-injected model-diversity block branches.
 echo "== SessionStart model-diversity injection branches (no secondary, no preferences, degenerate) =="

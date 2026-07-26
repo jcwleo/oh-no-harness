@@ -61,11 +61,29 @@ config_path() {
   printf '%s/config.json\n' "$(config_dir)"
 }
 
-is_enabled() {
-  local path
-  path="$(config_path)"
+effective_config_path() {
+  local canonical dir identity parent legacy
+  canonical="$(config_path)"
+  if [ -e "$canonical" ] || [ -L "$canonical" ]; then printf '%s\n' "$canonical"; return; fi
+
+  dir="$(dirname "$canonical")"
+  identity="$(basename "$dir")"
+  [ "$identity" = "oh-no-harness-oh-no-harness" ] || { printf '%s\n' "$canonical"; return; }
+  parent="$(dirname "$dir")"
+  [ "$(basename "$parent")" = data ] || { printf '%s\n' "$canonical"; return; }
+  [ "$(basename "$(dirname "$parent")")" = plugins ] || { printf '%s\n' "$canonical"; return; }
+  legacy="${parent}/oh-no-harness-inline/config.json"
+  if [ ! -L "$legacy" ] && [ -f "$legacy" ]; then printf '%s\n' "$legacy"; else printf '%s\n' "$canonical"; fi
+}
+
+config_is_enabled() {
+  local path="$1"
   [ -f "$path" ] || return 1
   tr -d '\n\r\t ' <"$path" | grep -q '"autoRouting":{"enabled":true'
+}
+
+is_enabled() {
+  config_is_enabled "$(effective_config_path)"
 }
 
 write_config() {
@@ -95,8 +113,8 @@ JSON
 
 show_status() {
   local path state
-  path="$(config_path)"
-  if is_enabled; then
+  path="$(effective_config_path)"
+  if config_is_enabled "$path"; then
     state="on"
   else
     state="off"
