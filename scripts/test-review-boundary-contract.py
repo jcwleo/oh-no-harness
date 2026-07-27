@@ -753,7 +753,7 @@ def main() -> int:
         "unsupported false rejection",
         lambda root: replace_once(
             root / "docs" / "agent-core" / "plan-reviewer.md",
-            "an\nunsupported false rejection is also a contract failure",
+            "an unsupported false rejection is also a contract failure",
             "a false approval is worse than a false rejection",
         ),
     )

@@ -30,8 +30,6 @@ reviewed plan and Ralph execution profile. It never implements production
 code and writes only under `.oh-no/`. Plan-Reviewer depth and instance count
 are selected by the execution risk, not applied as an unconditional tax.
 
-Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
-
 ## Invariants
 
 ```text
@@ -125,13 +123,13 @@ it. A direction change in any phase follows R1.
 Source priority: approved `interview` spec > approved PRD/issue/ticket >
 current user request plus repository evidence.
 
-Dispatch `explore` first when repository facts are needed — one subagent per
-independent subsystem (up to 5), batched. Exploration replaces no role.
+Dispatch `explore` first when repository facts are needed. Exploration
+replaces no role.
 
 If an approved spec covers goal, scope, non-goals, constraints, risks, and
 acceptance criteria, record `Analyst: satisfied by approved interview spec`
 with `Gap check: none blocking`; otherwise run `analyst` (or a limited gap
-check) before Planner — one `analyst` per independent requirement or risk area (up to 5), batched, when gaps span independent areas. Analyst output feeds the Planner draft; it never
+check) before Planner. Analyst output feeds the Planner draft; it never
 replaces it.
 
 Copy or derive the Direction Contract without changing its meaning:
@@ -218,8 +216,7 @@ Canonical activation table:
 | Paired review | named THOROUGH paired-review trigger | trigger, platform-defined diversity mode, and synthesis evidence | never required in STANDARD or without trigger |
 
 Audited deduplicated baseline caps: LIGHT=11; STANDARD=24; THOROUGH=26.
-Inactive rows are omitted — do not emit `not applicable` ceremony. The
-validator derives fixture counts from active projections and rejects growth.
+Inactive rows are omitted — do not emit `not applicable` ceremony.
 
 When `Recommendation requested` is `yes`, present 2-3 viable technology
 stacks, their tradeoffs and one recommended default; the recommendation
@@ -238,11 +235,10 @@ reviewer starts before the complete draft exists.
 
 Plan-Reviewer receives the exact Active plan contract, draft id, and full
 draft or path, then runs the architecture pass and the quality-gate pass in
-one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
-context. If the named role is unavailable, use a generic separate subagent or
-the active platform's default pair fallback. If no separate context exists,
-record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
-PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
+one dispatch [R3]. A required Plan-Reviewer cannot be skipped: each required
+pass needs its own context, and when none exists, record
+`Plan-Reviewer: dispatch-unavailable` as a blocker and transition to PAUSED —
+an inline review cannot satisfy the required pass. The compliant LIGHT
 no-review carve-out remains unchanged.
 
 Topology by mode:
@@ -265,14 +261,12 @@ THOROUGH -> the same perspective-diverse pair; a named security/data/
             escalated diversity (cross-host pair on Codex).
 ```
 
-Worst-case THOROUGH role dispatch chain remains bounded to one review round.
-
 Blocker predicate [R8]:
 
 - A finding is BLOCKING only when its smallest sufficient correction
   prevents material failure of an active AC, approved constraint, safety
   invariant, Direction Contract field, public contract, or fired mandatory
-  gate. Unsupported false rejection is a contract failure.
+  gate.
 - Every blocker names one
   `Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>`,
   the exact draft pointer, material consequence, and smallest sufficient
@@ -291,7 +285,7 @@ Direction preservation: preserved | requested-direction-change: yes
 Required changes for Planner: <list | none>
 ```
 
-Verdict consequences are R4 verbatim: APPROVE freezes the exact reviewed
+Verdict consequences restate R4: APPROVE freezes the exact reviewed
 Planner draft; Non-blocking findings are optional follow-ups; Any plan-body
 change that must be incorporated before approval is blocking and yields
 ITERATE.
@@ -322,17 +316,16 @@ finding→fix mapping and the user judges.
 Record in the snapshot: selected roles and ids in order, topology and named
 trigger, each finding with reviewer-owned `blocking | non-blocking` severity
 and its blocking basis, disposition, accepted section pointer, permitted
-waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`.
-A required Plan-Reviewer cannot be skipped or satisfied inline; missing review
-topology or `Plan-Reviewer: dispatch-unavailable` is a blocker, not a pass. Do
-not advance while a user-pending disposition or non-waivable gate is open, or
+waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`. Do not
+advance while a user-pending disposition or non-waivable gate is open, or
 accepted blocking feedback is not in the body.
 
 ## Test Case Design Quality
 
-For a behavior change, start with one must-fail-before-implementation case
-and one must-pass-after-implementation case; the RED case must fail against
-the old broken behavior. Add a negative or forbidden-behavior case,
+For a behavior change, start with one case observed in two states, not two
+separate tests: a must-fail-before-implementation case that becomes the
+must-pass-after-implementation case for the same assertion; the RED case must
+fail against the old broken behavior. Add a negative or forbidden-behavior case,
 semantic/adversarial case, or edge, boundary, or regression case only when an
 AC or named risk activates it. Reject tests that would pass old or
 wrong-surface behavior, only check marker strings, snapshot broad output, or
@@ -392,7 +385,11 @@ Plan identity:
 - Approval source: user approve-and-run | ultrawork automatic approval | none
 ```
 
-Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance criteria, tasks, key files, verification, compact execution profile, and approval status; they may omit inactive review, process, dispatch, risk, and rollout ceremony. Dispatch detail appears only for roles passing the dispatch-eligibility test in `## Execution Profile`.
+Compact LIGHT plans must still preserve goal, scope, non-goals, acceptance
+criteria, tasks, key files, verification, compact execution profile, and
+approval status; they may omit inactive review, process, dispatch, risk, and
+rollout ceremony. Dispatch detail appears only for roles passing the
+dispatch-eligibility test in `## Execution Profile`.
 
 ## Plan Approval Brief
 
@@ -479,7 +476,7 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 | Agent | Dispatch (when) |
 |---|---|
 | `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
-| `analyst` | requirements gaps, unless satisfied by an approved interview spec; one per independent requirement or risk area (up to 5), batched |
+| `analyst` | requirements gaps, unless satisfied by an approved interview spec; when gaps span independent areas, one per independent requirement or risk area (up to 5), batched |
 | `planner` | creates `Planner draft v1` and the single final `Planner revision v2`; owns body and dispositions |
 | `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` as a perspective-diverse pair |
 
@@ -603,17 +600,6 @@ opposite-host unavailable + require-cross-host -> PAUSED
 
 ## Re-Homed Core Pair Rules
 
-| Cross-host review | named THOROUGH paired-review trigger | trigger and topology; synthesis evidence | never required in STANDARD or without trigger |
-
-Plan-Reviewer receives the exact Active plan contract, draft id, and full
-draft or path, then runs the architecture pass and the quality-gate pass in
-one dispatch [R3]. Every required Plan-Reviewer pass runs in a separate
-context. If the named role is unavailable, use a generic separate subagent or
-the existing same-host/cross-host fallback. If no separate context exists,
-record `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to
-PAUSED; an inline review cannot satisfy the required pass. The compliant LIGHT
-no-review carve-out remains unchanged.
-
 ```text
 STANDARD -> one perspective-diverse Plan-Reviewer pair on Codex, recorded as
             same-host-perspective-pair; this is intentional same-host review,
@@ -624,8 +610,6 @@ THOROUGH -> the same perspective-diverse pair. A named security/data/destructive
             same-host-parallel-fallback when the opposite host is unavailable;
             record the fallback reason. `require-cross-host` pauses instead.
 ```
-
-The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent

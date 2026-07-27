@@ -889,7 +889,6 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Analyst -> Planner -> Plan-Reviewer",
     "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
-    "bounded to one review round",
     "STANDARD -> one perspective-diverse Plan-Reviewer pair",
     "required Plan-Reviewer cannot be skipped",
     "accepted blocking feedback is not in the body",
@@ -4555,12 +4554,14 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             "APPROVE freezes the exact reviewed Planner draft",
             "Non-blocking findings are optional follow-ups",
             "Any plan-body change that must be incorporated before approval is blocking",
-            "Every required Plan-Reviewer pass runs in a separate\ncontext",
-            "generic separate subagent",
             "Plan-Reviewer: dispatch-unavailable",
             "transition to\nPAUSED",
             "inline review cannot satisfy the required pass",
             "LIGHT\nno-review carve-out remains unchanged",
+            "each required\npass needs its own context",
+        ),
+        "## Agent Roles": (
+            "generic separate subagent",
         ),
         "## Findings Ledger Gate": (
             # Stem: the ledger row must reference the blocker's basis; the full
