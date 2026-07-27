@@ -49,7 +49,7 @@ instead runs as an intentional same-host perspective pair recorded
 unavailable for a triggered pair, record `same-host-parallel-fallback` and the
 required fallback reason.
 
-Do not emit the Output below until every dispatched review records topology:
+Report every result, but do not classify it as passing until every dispatched review records topology:
 an eligible debugger batch records `hypothesis-fanout:<count>`; use
 `single-reviewer` only for a sequential STANDARD debugger; use
 `perspective-pair` plus `same-host-perspective-pair`, `cross-host`, or

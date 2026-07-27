@@ -32,7 +32,6 @@ selector. Do not use it for a small concrete fix whose contract surface,
 baseline evidence, and verification command are already clear; use direct
 implementation or `ralph`.
 
-Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
 
 ## Invariants
 
@@ -90,10 +89,8 @@ U14. Maker roles do not self-approve; inline checker fallback is still
      checker output. At STANDARD/THOROUGH on subagent-capable hosts, an
      inline check by the maker or accepting agent never satisfies the
      independent verifier audit.
-U16. Never pause ultrawork only to ask whether subagents may be used: the
-     active platform's standing authorization covers eligible phase-owned
-     roles; phase agents dispatch by default, inline only as a recorded
-     fallback.
+U16. Phase-agent authorization, eligibility, and fallback follow
+     `## Agent Roles`.
 U17. A discovered plan admitted through U2 but lacking an execution
      profile gets the profile set before execution (schema is
      ralplan-owned); execution never starts profile-less.
@@ -104,8 +101,7 @@ evidence, and unblock condition, then report — never a silent exit.
 
 ## Heartbeat
 
-Markdown state at `.oh-no/sessions/{sessionId}/ultrawork.md` is
-authoritative [U7]. Ultrawork establishes the chain session directory at
+Ultrawork establishes the chain session directory at
 START_OR_RESUME; downstream skills in the same run reuse it. Write a
 heartbeat at phase boundaries, long waits, compaction/handoff, scope
 changes, and before the final report.
@@ -138,7 +134,7 @@ evidence is unaffected.
 
 Checker outputs [U14]: record role, reviewed artifact or diff, findings,
 evidence status, follow-up, verdict when applicable, dispatch/fallback
-mode, and lifecycle status. Maker roles do not self-approve.
+mode, and lifecycle status.
 
 ## State Machine
 
@@ -284,10 +280,11 @@ independent same-model instances and records the reason; an explicit caller
 demand for diversity is strict mode and transitions to PAUSED instead of
 falling back.
 
-At STANDARD/THOROUGH, dispatch the independent `verifier` when execution
-produced or changed proving tests or the implementation/tests were authored or
-accepted by the same agent [U14]. The verifier remains one self-host pass. When
-that audit is required but no separate context exists, record the
+At STANDARD/THOROUGH, reuse Ralph's independent `verifier` pass when it covers
+the final orchestrated revision. Otherwise, dispatch one self-host `verifier`
+pass when execution produced or changed proving tests or the
+implementation/tests were authored or accepted by the same agent [U11, U14].
+When that audit is required but no separate context exists, record the
 `dispatch-unavailable` blocker and pause; inline evidence cannot satisfy it.
 
 Review-then-verify order: run the selected code-review stage first, then
@@ -334,10 +331,11 @@ it for the same final claim and no integration, merge, or
 orchestration-level evidence changed after that point; otherwise run it
 against the final orchestrated result.
 
-The final report contains: spec or plan path; session directory; execution
-mode and mode source; Worktree decision, integration checkout, post-merge
-verification, and cleanup status; phases completed; files changed;
-commands run; review and cleanup status; residual risk.
+The final report contains: active artifact paths (spec or plan and session
+directory); phase status and skills used in order; execution mode and mode
+source; Worktree decision, integration checkout, post-merge verification, and
+cleanup status; files changed; commands run; review status; verification
+evidence; residual risk; final result or blocker.
 
 ## Agent Roles
 
@@ -380,11 +378,6 @@ satisfied (PLANNING's automatic approval per U4 — ralplan's
 If the user invokes `interview`, `ralplan`, or `ralph` directly without
 going through ultrawork, the per-step Next Skill Handoff in those skills
 is required.
-
-## Output
-
-Return: active artifact paths; phase status; skills used in order;
-verification evidence; final result or blocker.
 
 ## Source: docs/platforms/codex-child-packet-floor.md
 

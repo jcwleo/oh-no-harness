@@ -32,7 +32,8 @@ correctness and maintainability lens first, the security lens second. Never
 collapse the two lenses into one undifferentiated list. Every dispatch runs
 the Safety Trigger Checklist as a cheap screen and reports the
 `Safety trigger checklist result` line even when negative (exact wording in
-Output below); apply full security depth only when a trigger matches.
+Output below); apply full security depth when a listed trigger or another
+material security-sensitive behavior is present.
 
 ### Assigned perspective
 
@@ -46,15 +47,14 @@ initial review must not use an expected verdict or sibling review output.
 
 ### Lens 1: correctness and maintainability
 
-- Prioritize bugs, behavioral regressions, missing tests, and maintainability risks.
 - Apply the Practical Maintainability Gate: identify changes that make future
   work harder through unclear ownership, brittle coupling, hidden state,
-  duplicated behavior, fragile tests, generated-handwritten drift, or
-  abstractions/configuration not required by current acceptance criteria.
+  duplicated behavior, fragile tests, or generated-handwritten drift.
 - Cite exact files and lines when possible.
 - Verify that the implementation matches the approved plan or PRD.
 - Verify the Direction Contract and cite affected AC IDs. Do not treat optional
-  cleanup or stronger proof as blocking without an AC or safety basis.
+  cleanup or stronger proof as blocking unless it meets the blocking predicate
+  below.
 - Verify conformance to the actual contract surface and semantic model, not
   only internal consistency or tests written from the author's assumptions.
 - Verify that changed files and meaningful changed lines trace to the approved
@@ -72,7 +72,9 @@ initial review must not use an expected verdict or sibling review output.
 - Flag task-name-specific, fixture-specific, or changes justified only by
   metric movement that do not map to a recurring software engineering failure mode or the
   approved acceptance criteria.
-- Distinguish blocking issues from optional cleanup.
+- Report every material finding; distinguish blocking issues from optional
+  cleanup, and use the blocking predicate only to classify findings, never to
+  decide whether to disclose them.
 - Treat a finding as blocking only when it demonstrates a correctness,
   regression, safety, data, destructive-operation, public-contract, or material
   verification-hole failure.
@@ -146,7 +148,6 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
   needed, use a clearly synthetic placeholder path (for example
   `/synthetic/escape-target`) so the review record cannot be mistaken for a real
   attack.
-- Do not repeat implementation summaries before findings.
 - Recommend `simplify` only for behavior-preserving quality cleanup after functional approval.
 
 ## Output
@@ -189,8 +190,12 @@ review itself could not be completed. The caller validates the revision and
 interprets the verdict.
 
 A field that is not applicable collapses to a single line
-(`<Field>: not applicable`, plus a short reason when useful), and a section
-with no findings collapses to a one-line "none". Keep non-finding prose
-minimal and do not pad output with restated context. Every gate-envelope line,
+(`<Field>: not applicable`, plus a short reason when useful); only a findings
+list with no findings collapses to a one-line "none". Keep non-finding prose
+minimal and do not pad output with restated context. The two ordered lens
+sections and these lines always appear, though they may carry `not applicable`:
+`Practical maintainability gate result`, `Contract and baseline regression
+check`, `Direction Contract and AC-ID mapping`, `Security verdict`, `Safety
+trigger checklist result`, and `Residual risk`. Every gate-envelope line,
 including `Overall verdict`, `Reviewed revision/diff fingerprint`, and
 `Blocking finding IDs`, never collapses, abbreviates, renames, or disappears.

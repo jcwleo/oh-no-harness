@@ -30,8 +30,6 @@ entry point for failures that do not need the full `ralph` execution loop;
 do not use it for greenfield feature work — use `ralplan` or `ralph` when
 the task is broader than a bounded failure.
 
-Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
-
 ## Invariants
 
 ```text
@@ -49,10 +47,11 @@ D3. A root cause is confirmed falsifiably by a causal toggle — toggling the
 D4. The minimal fix is applied only after root cause and reproduction
     evidence exist; behavior fixes create a failing reproduction test
     first (read and follow `test-driven-development`).
-D5. Stop and route back to the user or `ralplan` after three failed fix
-    attempts, on architecture-level coupling, or when the apparent fix
-    would change broad APIs, product behavior, data handling, security, or
-    delivery scope; do not directly dispatch
+D5. Respect the active caller's stricter failed-fix budget and escalation
+    route; without one, stop and route back to the user or `ralplan` after
+    three failed fix attempts. Also route back on architecture-level coupling
+    or a fix that would change broad APIs, product behavior, data handling,
+    security, or delivery scope; do not directly dispatch
     `plan-reviewer` — planning review is Ralplan-owned.
 D6. `fusion-rescue` is a bounded internal escalation when diagnostics
     stall; it returns control here before any fix is applied.
@@ -97,7 +96,8 @@ D9. Mid-loop skill: after verification, return the result to the caller
    mutation is allowed only with `Mutation fallback: LIGHT-tiny` or after a
    failed dispatch attempt recorded as `Mutation fallback:
    dispatch-unavailable` [D4, D7].
-10. Dispatch warranted post-fix review roles per `## Agent Roles`.
+10. Dispatch warranted post-fix review roles per `## Agent Roles` only when
+    permitted by any caller-owned review budget.
 11. Run the reproduction check, relevant regression checks, and
     `verification-before-completion` before claiming the failure is fixed
     [D8].
@@ -112,7 +112,7 @@ Every other hypothesis and the rest of the hypothesis ledger are withheld.
 Each debugger's initial packet is symptom-first with the raw reproduction,
 expected and actual behavior, environment, and a read-only diagnostic scope,
 without a preferred cause or fix, expected verdict, confidence ranking, or
-sibling conclusions. A debugger MUST NOT receive multiple eligible hypotheses
+sibling conclusions. A debugger must not receive multiple eligible hypotheses
 or investigate the full ledger. A later clarification may disclose prior
 actions only as neutral exact action, state, and raw outcome. Each debugger
 runs only non-mutating diagnostics in a disjoint scope and returns evidence,
@@ -135,16 +135,10 @@ Stop and ask or route back to the user or `ralplan` when [D5]:
 
 ## Anti-Patterns
 
-- Changing code before reproducing or locating the failure.
-- Fixing the stack-trace line when the bad value originated elsewhere.
 - Bundling cleanup or refactors with a bug fix.
 - Adding broad retries, catch-all handlers, or sleeps without evidence.
 - Treating a later passing test as TDD evidence when no failing
   reproduction was observed first.
-- Treating a passing trigger check as proof when the causal chain was not
-  closed.
-- Skipping competing hypotheses for an unknown or repeated failure because
-  one log line looks familiar.
 
 ## Agent Roles
 
@@ -178,7 +172,7 @@ here.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `debugger` | exactly one instance per independently testable active hypothesis in one complete batch; one sequential instance when fan-out is ineligible; a paired investigation ONLY for one named THOROUGH uncertainty when fan-out is not active |
+| `debugger` | exactly one instance per independently testable active hypothesis in one complete batch; one sequential instance when fan-out is ineligible; a paired investigation only for one named THOROUGH uncertainty when fan-out is not active |
 | `explore` | gather codebase facts, related call sites, working examples, and commands |
 | `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer or debugger pair — required when the proving tests or fix were authored or accepted by the same agent |
@@ -204,7 +198,7 @@ falling back.
 ## Output Gate
 
 <HARD-GATE>
-Do not emit the Output below until every dispatched review records topology:
+Report every result, but do not classify it as passing until every dispatched review records topology:
 an eligible debugger batch records `hypothesis-fanout:<count>`, a sequential
 STANDARD debugger records `single-reviewer`, and a named THOROUGH debugger pair
 records the active platform's pair-mode value. A dispatched post-fix
@@ -226,10 +220,8 @@ summary; verification commands and results; residual risk.
 
 ## Next Skill Handoff
 
-None — this is a failure-investigation mid-loop skill [D9]. It may use
-`fusion-rescue` as a bounded internal escalation, then return to this flow.
-After verification, return the result to the caller. Do not chain to
-another workflow skill.
+None — after any bounded `fusion-rescue` escalation, return the result to the
+caller; do not chain to another workflow skill [D9].
 
 ## Source: docs/platforms/codex-child-packet-floor.md
 
@@ -304,7 +296,7 @@ instead runs as an intentional same-host perspective pair recorded
 unavailable for a triggered pair, record `same-host-parallel-fallback` and the
 required fallback reason.
 
-Do not emit the Output below until every dispatched review records topology:
+Report every result, but do not classify it as passing until every dispatched review records topology:
 an eligible debugger batch records `hypothesis-fanout:<count>`; use
 `single-reviewer` only for a sequential STANDARD debugger; use
 `perspective-pair` plus `same-host-perspective-pair`, `cross-host`, or
