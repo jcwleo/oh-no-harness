@@ -13,8 +13,6 @@ the final claim without weakening their PRD, review, cleanup, or QA
 requirements. Do not use it as a substitute for `ralph` when the work needs
 PRD tracking, cleanup, and review loops.
 
-Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
-
 ## Invariants
 
 ```text
@@ -51,13 +49,12 @@ Before making a completion claim, complete every step below; the claim is invali
 1. State the exact claim to verify.
 2. Identify the command, artifact, diff inspection, or checklist that can prove it.
 3. Run or inspect the evidence fresh in the current work pass.
-4. Read the output and exit status [V2].
-5. Compare evidence to the canonical AC-ID ledger, mark changed or stale rows,
+4. Compare evidence to the canonical AC-ID ledger, mark changed or stale rows,
    and record the delta since the last independent audit [V6].
-6. Complete the Risk Check Before Completion below.
-7. Report skipped checks and residual risk.
-8. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
-9. When a `code-reviewer` was dispatched, record `perspective-pair` plus the
+5. Complete the Risk Check Before Completion below.
+6. Report skipped checks and residual risk.
+7. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
+8. When a `code-reviewer` was dispatched, record `perspective-pair` plus the
    active platform's pair-mode value: it is always a perspective-diverse pair
    when dispatched, and the named THOROUGH trigger selects only escalated
    platform diversity. An inline fallback requires a reason. Missing review
@@ -96,20 +93,8 @@ smoke check could catch regressions.
 
 ## Evidence Rules
 
-- Freshness is V1 verbatim: "no file or dependency changed since that run"
-  is the only reading of "nothing it depends on changed".
-- A passing lint check does not prove tests pass; a passing unit test does
-  not prove a user-facing flow; a broad-suite pass does not prove a new
-  semantic contract unless the new behavior is directly represented in it.
-- A local test that would pass against the wrong public, caller, or
-  verifier-facing surface does not prove the real contract.
-- A tautological test is not valid evidence: a test that only asserts a
-  mock was called, pins a constant, or cannot fail under any plausible
-  regression confirms itself, not the behavior.
 - For behavior-changing work, verify RED/GREEN/REFACTOR evidence or a
   documented TDD exception.
-- When an agent reports success, inspect the changed files or artifacts
-  before repeating the claim [V2].
 - Redact secrets and PII before recording any evidence, keeping only the
   non-sensitive shape (status line, lengths, hashes, short non-secret
   prefixes) [V7].
@@ -138,10 +123,12 @@ documentation. Do not implement it or use it to block completion unless it maps
 to an unmet AC ID or an approved named risk; otherwise record it as `not
 relevant` with the reason.
 
-The completion claim distinguishes: complete with direct evidence, baseline
-guard satisfied or unavailable with reason, and no blocking review
+The completion claim classifies the result as: complete with direct evidence,
+baseline guard satisfied or unavailable with reason, and no blocking review
 findings; locally verified with explicit residual risk; or blocked / failed
-verification because evidence or review blockers remain.
+verification because evidence or review blockers remain. Report every material
+finding regardless of class: the blocking predicate determines the completion
+result, not disclosure; non-blocking findings remain visible as residual risk.
 
 ## Validation Check
 

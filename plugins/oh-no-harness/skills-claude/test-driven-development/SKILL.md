@@ -103,7 +103,9 @@ the caller's execution policy.
 
 ## Required Cycle
 
-For each behavior:
+For each behavior change (behavior-preserving refactors follow
+`## Refactor Integration` instead, and its required characterization tests are
+not optional extra cases):
 
 For this cycle, one behavior means one observable contract change from the
 approved Direction Contract, not each internal branch, helper, or condition.
@@ -137,13 +139,9 @@ may not demand an exhaustive matrix merely because stronger proof is imaginable.
 If no approved admission source exists, record the proposed extra case as `not
 relevant` with the reason and do not implement it.
 
-Tests remain evidence under the AC-bearing product story. Do not turn test
-infrastructure into a separate product story unless the user requested it as an
-outcome. Do not build a product-like state machine, scheduler, protocol
-simulator, Git oracle, duplicate parser, fixture factory, or full runtime model
-solely to verify the implementation. When the smallest credible test would need
-that machinery, prefer an existing real-surface lane or record a bounded manual
-or residual-risk check.
+Do not build a product-like state machine, scheduler, protocol simulator, Git
+oracle, duplicate parser, fixture factory, or full runtime model solely to verify
+the implementation; apply the approval and fallback rule in `## When To Use`.
 
 ## RED Requirements
 
@@ -175,23 +173,10 @@ If another check fails, fix it before moving on.
 
 ## Refactor Rule
 
-Refactor only after GREEN.
-
-Allowed refactors:
-
-- remove duplication
-- improve names
-- extract helpers
-- align with nearby patterns
-
-Not allowed during refactor:
-
-- new behavior
-- new scope
-- unrelated cleanup
-- speculative abstraction
-
-After refactoring, rerun the relevant GREEN check.
+After GREEN, limit refactoring to the existing behavior and scope: remove
+duplication, improve names, extract helpers, and align with nearby patterns.
+Do not add behavior, scope, unrelated cleanup, or speculative abstraction.
+Then rerun the relevant GREEN check.
 
 ## Bug Fix Integration
 
@@ -226,28 +211,6 @@ Record:
 - GREEN command and pass summary
 - post-refactor command and pass summary
 - any approved exception and reason
-
-## Common Rationalizations
-
-| Rationalization | Response |
-|---|---|
-| "I will test after." | Tests after code do not prove the test would have caught the missing behavior. |
-| "This is too small." | Small behavior still needs a guard if it can regress. |
-| "Manual testing is faster." | Manual checks are not repeatable evidence. |
-| "The existing code has no tests." | Add the smallest useful test around the changed surface. |
-| "The test is hard to write." | Hard to test often means unclear interface or excess coupling. Simplify the design or ask for help. |
-| "I already wrote the code." | Later tests are not RED evidence. Restart or document explicit user approval. |
-
-## Completion Checklist
-
-Before claiming the behavior is complete:
-
-- RED was observed for each new or changed behavior.
-- Each RED failure matched the expected missing behavior.
-- GREEN was observed after the minimal implementation.
-- Refactor happened only after GREEN.
-- Relevant checks were rerun after refactor.
-- Exceptions were explicitly approved or documented.
 
 ## Next Skill Handoff
 
