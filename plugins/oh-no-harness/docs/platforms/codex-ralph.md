@@ -164,11 +164,6 @@ Both the STANDARD and THOROUGH pairs follow the same packet rule stated in the
 Cross-Host Consult Channel: the two legs differ only by their `Assigned
 perspective:` line.
 
-- Every review records its topology using the dependency-graph values
-  (`not-required` with the compliant reason, or `perspective-pair` with its
-  independence mode); an inline fallback requires a reason. Missing review
-  topology is a named ledger gap.
-
 ## Cleanup
 
 When Ralph reaches the CLEANUP checkpoint on Codex, use the Oh No Harness

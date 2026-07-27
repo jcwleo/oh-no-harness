@@ -144,6 +144,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("executor roles own default repository work-product mutation", BOTH),
         ("inline mutation is only a recorded LIGHT-tiny or dispatch-unavailable fallback", BOTH),
         ("Execution Mode Decision Prompt", BOTH),
+        ("product-like simulator, oracle, or fixture factory", BOTH),
+        ("needs separate user approval for that scope", BOTH),
         ("LIGHT | STANDARD | THOROUGH", BOTH),
         ("### LIGHT Eligibility — Risk Gate, Soft Size Screen", BOTH),
         ("LIGHT is the low-risk localized behavior change tier", BOTH),

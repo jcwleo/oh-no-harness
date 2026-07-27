@@ -21,8 +21,6 @@ first. Entering directly from `interview`, accept the path only if the spec's
 provisional Ralph mode is `LIGHT`; a non-LIGHT spec without a `ralplan` plan
 needs user re-confirmation before editing.
 
-Interpret `MUST`, `MUST NOT`, `ONLY`, and `STOP` literally.
-
 ## Invariants
 
 ```text
@@ -273,8 +271,7 @@ THOROUGH; existing rules then select STANDARD or THOROUGH.
 For behavior-changing LIGHT work, condition 6 MUST override and limit E4's
 general compact-exception allowance:
 behavior-LIGHT gets NO TDD-exception escape. If RED is infeasible, reclassify
-to STANDARD or THOROUGH; E4's
-invariant-block text remains byte-identical.
+to STANDARD or THOROUGH.
 
 This mechanism is a deterministic exclusion gate plus bounded-judgment
 inclusion conditions, not a fully mechanical predicate.
@@ -483,7 +480,9 @@ Dispatch conditions [E6]:
 
 Batch rule: create the whole eligible batch of independent same-depth work
 before waiting on any result; never merge dependent review stages into one
-batch. Cap a concurrent `executor` batch at up to 5 disjoint scopes; queue the remainder for the next batch. Continue local work only where it does not overlap delegated scopes.
+batch. Cap a concurrent `executor` batch at up to 5 disjoint scopes; queue the
+remainder for the next batch. Continue local work only where it does not
+overlap delegated scopes.
 
 The main caller owns each complete child packet. Apply the common caller floor
 from SessionStart when enabled or the native platform wrapper fallback, use
@@ -516,7 +515,8 @@ AC IDs: {accepted criteria this role may affect or audit}
 Plan/PRD and read-only artifact pointers: {authoritative inputs; .oh-no state stays main-owned}
 TDD responsibility: {RED/GREEN/REFACTOR step, stable assignment, exception, or none}
 Platform invocation: {active adapter invocation syntax}
-Lifecycle: caller waits for and captures the final result, validates identity and revision, then applies host-specific cleanup only when exposed
+Lifecycle: caller waits for and captures the final result, validates identity
+  and revision, then applies host-specific cleanup only when exposed
 Coordination: {ownership/conflict boundary and no-overwrite rule}
 Assigned review perspective: {when applicable; otherwise not applicable with reason}
 ```
@@ -588,28 +588,43 @@ ID or change-introduced independent failure mode and record why existing
 evidence is insufficient, the smallest distinguishing assertion, and the
 nearest existing suite.
 
-Reject duplicate variants, tests of unchanged behavior,
+A `change-introduced independent failure mode` is admissible only when the
+current change causes it and it is observably distinct from every
+already-admitted case rather than another input combination of one; branches,
+input classes, and error results within a single semantic outcome share one
+mode.
+
+Reject duplicate variants, tests of behavior the change does not touch,
 implementation-detail-only assertions, defensive combination explosion, and
-unapproved helper/framework/fixture expansion. After focused RED→GREEN and the
-mapped baseline pass, stop adding tests. Numeric size, ratio, dispatch, and test
+unapproved helper/framework/fixture expansion; a new durable test harness,
+production test seam, or product-like simulator, oracle, or fixture factory
+needs separate user approval for that scope. After focused RED→GREEN and the
+mapped baseline pass, stop adding tests except a tier-required or
+Review-Gate-required case whose risk is named later and admitted through the
+same necessity mapping. Numeric size, ratio, dispatch, and test
 counts are anomaly signals and rescope prompts only; they do not authorize work,
 prove necessity, or create a hard test budget.
 
 Tier minimums [E9]:
 
 ```text
-LIGHT    = follow the dispatched `executor` -> dispatched independent
-           `verifier` path in Mode-Gated Agent Dispatch and Review Gate, with
-           the code-reviewer pair waived; inspect changed files; run the
-           smallest relevant check; map the change to the inspection or
-           command that proves it. Behavior-changing LIGHT still requires
-           RED/GREEN per E4 and the eligibility gate's no-exception rule.
+LIGHT    = evidence per `## Mode-Gated Agent Dispatch` and `## Review Gate`;
+           inspect changed files; run the smallest relevant check; map the
+           change to the inspection or command that proves it.
+           Behavior-changing LIGHT still requires RED/GREEN per E4 and the
+           eligibility gate's no-exception rule.
 STANDARD = LIGHT + focused semantic tests mapped to ACs; RED/GREEN or a
            recorded exception; risk-activated negative/regression cases; a
            relevant baseline or smoke check.
 THOROUGH = STANDARD + the integration, migration, smoke, end-to-end, or
            recovery evidence each named risk requires; record residual risk.
 ```
+
+One case may satisfy several of these evidence categories: a single minimal
+real-surface RED/GREEN case can also serve as the focused semantic evidence for
+its AC, and a baseline or smoke requirement should reuse the recorded nearest
+existing suite when it covers the changed surface. Credit a case for a category
+only when its own recorded inputs and observations satisfy that category.
 
 Budget rules:
 
@@ -766,7 +781,9 @@ per-finding audit before using it.
 Completion requires either reviewer verdict `approve` (or compliant
 `not-required`) and verifier `pass` / accepted `pass-with-residual-risk` bound
 to the reviewed revision, or reviewer verdict `blocking-findings` with a fix
-manifest mapping every accepted blocking finding ID, and the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit.
+manifest mapping every accepted blocking finding ID, and the verifier pass (or
+accepted pass-with-residual-risk) binds to the FIXED revision with a
+per-finding resolution audit.
 `pass-with-residual-risk` also requires the caller to record why the named risk
 is non-blocking and every AC remains satisfied. A compliant LIGHT path records
 code-reviewer topology `not-required (LIGHT: reviewer pair waived)`; the
@@ -817,14 +834,6 @@ adherence, semantic RED/GREEN, Test Necessity mapping, scope and non-goals,
 generated causality, and the Completion Stop; reviewer approval is not a
 substitute for that evidence.
 
-- every story satisfies its ACs with mapped (not merely listed) evidence
-- the contract surface, semantic model, and baseline guard were identified
-  before accepting local green results
-- a simpler or safer approach; manifest adherence and speculative-complexity
-  rejection
-- RED/GREEN or documented exceptions for behavior changes
-- the security lens when auth, data, secrets, filesystem, network, config,
-  or destructive operations were touched
 - the applicable negative-path scenarios — malformed or boundary input,
   stale state, cancel/resume or concurrency — probed when their triggers
   hold, or each ruled out with a one-line reason that names why no approved
@@ -881,7 +890,8 @@ changed files; resume the loop at the first incomplete story.
 Phase: FINALIZE — COMPLETION_AUDIT checkpoint.
 
 <HARD-GATE>
-The run is invalid if the session does not show each required completion criterion below satisfied [E11] — including, named individually,
+The run is invalid if the session does not show each required completion
+criterion below satisfied [E11] — including, named individually,
 the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion
 (or an explicit missing-evidence blocker / not-required reason recorded for
 each). A silently omitted step is a named ledger gap, not a pass.
