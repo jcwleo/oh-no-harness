@@ -103,9 +103,10 @@ the caller's execution policy.
 
 ## Required Cycle
 
-For each behavior change (behavior-preserving refactors follow
-`## Refactor Integration` instead, and its required characterization tests are
-not optional extra cases):
+For each behavior-changing task, use the cycle below; step 5 is its in-cycle
+REFACTOR step and follows `## Refactor Rule`. A standalone behavior-preserving
+refactor uses `## Refactor Integration` instead, and its characterization tests
+are required evidence, not optional extra cases.
 
 For this cycle, one behavior means one observable contract change from the
 approved Direction Contract, not each internal branch, helper, or condition.
@@ -139,9 +140,12 @@ may not demand an exhaustive matrix merely because stronger proof is imaginable.
 If no approved admission source exists, record the proposed extra case as `not
 relevant` with the reason and do not implement it.
 
-Do not build a product-like state machine, scheduler, protocol simulator, Git
-oracle, duplicate parser, fixture factory, or full runtime model solely to verify
-the implementation; apply the approval and fallback rule in `## When To Use`.
+Tests stay evidence under the AC-bearing product story; do not turn test
+infrastructure into a separate product story unless the user requested it as an
+outcome. Do not build a product-like state machine, scheduler, protocol
+simulator, Git oracle, duplicate parser, fixture factory, or full runtime model
+solely to verify the implementation; apply the approval and fallback rule in
+`## When To Use`.
 
 ## RED Requirements
 

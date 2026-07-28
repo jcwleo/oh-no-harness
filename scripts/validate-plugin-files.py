@@ -238,8 +238,8 @@ EXPECTED_ALWAYS_READING: dict[str, set[str]] = {}
 # Skills that dispatch review/verify/debug roles and must HARD-GATE the recorded
 # independence mode (same-host-perspective-pair | cross-host |
 # same-host-parallel-fallback | inline-fallback).
-# ralplan already carries this via its Findings Ledger Gate and is intentionally
-# excluded here (it is the template, not a target).
+# ralplan carries its own equivalent in the Findings Ledger Gate, pinned under
+# that heading in REVIEW_BOUNDARY_SECTION_MARKERS, and is excluded here.
 INDEPENDENCE_MODE_GATE_MARKER = (
     "Missing review topology is a named ledger gap"
 )
@@ -4558,12 +4558,13 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             "transition to\nPAUSED",
             "inline review cannot satisfy the required pass",
             "LIGHT\nno-review carve-out remains unchanged",
-            "each required\npass needs its own context",
+            "each required\nreviewer instance runs the complete two-pass role",
         ),
         "## Agent Roles": (
             "generic separate subagent",
         ),
         "## Findings Ledger Gate": (
+            "Missing review topology, or topology that\ndoes not satisfy the selected mode and fired trigger, is a blocker rather than\na pass",
             # Stem: the ledger row must reference the blocker's basis; the full
             # canonical enum lives once in ## Plan Review Contract above.
             "blocking basis",

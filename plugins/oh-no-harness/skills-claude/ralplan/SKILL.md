@@ -235,7 +235,8 @@ reviewer starts before the complete draft exists.
 Plan-Reviewer receives the exact Active plan contract, draft id, and full
 draft or path, then runs the architecture pass and the quality-gate pass in
 one dispatch [R3]. A required Plan-Reviewer cannot be skipped: each required
-pass needs its own context, and when none exists, record
+reviewer instance runs the complete two-pass role and needs its own context,
+and when none exists, record
 `Plan-Reviewer: dispatch-unavailable` as a blocker and transition to PAUSED —
 an inline review cannot satisfy the required pass. The compliant LIGHT
 no-review carve-out remains unchanged.
@@ -315,9 +316,12 @@ finding→fix mapping and the user judges.
 Record in the snapshot: selected roles and ids in order, topology and named
 trigger, each finding with reviewer-owned `blocking | non-blocking` severity
 and its blocking basis, disposition, accepted section pointer, permitted
-waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`. Do not
-advance while a user-pending disposition or non-waivable gate is open, or
-accepted blocking feedback is not in the body.
+waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`. An
+inline fallback requires a reason. Missing review topology, or topology that
+does not satisfy the selected mode and fired trigger, is a blocker rather than
+a pass and cannot advance to APPROVAL. Do not advance while a user-pending
+disposition or non-waivable gate is open, or accepted blocking feedback is not
+in the body.
 
 ## Test Case Design Quality
 
