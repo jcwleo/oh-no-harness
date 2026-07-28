@@ -235,6 +235,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
+        ("ran after the selected Final Validation code-review stage completed", BOTH),  # Ralph verifier reuse is order-bound, not order-free
+        ("otherwise dispatch one fresh self-host `verifier` pass", BOTH),  # reuse and fresh dispatch are mutually exclusive, not sequential commands
+        ("Ralph's prior verifier is early/stale by construction, so reuse is unavailable", BOTH),  # a self-dispatched reviewer voids reuse
+        ("verifier source: fresh | reused@<ralph ledger entry + revision binding>", BOTH),  # reuse must name its Ralph ledger entry + revision binding
         ("trigger-loaded", BOTH),
         ("Run `verification-before-completion` before any completion claim or final report", BOTH),  # G1 thin VBC reference (ultrawork Phase 5)
         ("The run is invalid if the session ledger does not show each required phase gate satisfied", BOTH),  # ultrawork Phase 5 ledger-invalidation chokepoint

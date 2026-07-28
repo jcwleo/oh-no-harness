@@ -416,6 +416,133 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
+        "Claude orchestration drops the no-nested-host-plan boundary",
+        "host-plan: Claude OH_NO_MAIN_AGENT_ORCHESTRATION is missing 'Host-plan boundary:'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "Host-plan boundary: never auto-wrap",
+            "Host planning is fine: freely auto-wrap",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+    # Polarity-only flips: every original token survives, so a substring or
+    # keyword check would pass. Only verbatim clause pinning rejects these.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "host-plan no-auto-wrap clause flips to a permitted host planning wrapper",
+        "host-plan: canonical clause altered or missing (no automatic host planning wrapper)",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "never auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode",
+            "always auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "host-plan routes a usable execution contract away from Ralph",
+        "host-plan: canonical clause altered or missing "
+        "(usable approved/concrete execution contract runs Ralph directly)",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "Usable approved/concrete execution contract goes straight to Ralph",
+            "Usable approved/concrete execution contract goes straight to host plan mode",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "host-plan suppresses the upstream planning route for vague work",
+        "host-plan: canonical clause altered or missing (vague or plan-only work routes upstream)",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "vague or plan-only work routes upstream to Oh No Harness planning",
+            "vague or plan-only work routes to host plan mode",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "host-plan suppresses no-route housekeeping directness",
+        "host-plan: canonical clause altered or missing (no-route housekeeping stays direct)",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "no-route housekeeping stays direct",
+            "no-route housekeeping enters host plan mode",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "host-plan drops the explicit-user-request carve-out for host plan mode",
+        "host-plan: canonical clause altered or missing "
+        "(host plan mode requires explicit user request)",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "host plan mode needs explicit user request",
+            "host plan mode needs no user request",
+        ),
+        assertion="assert_workflow_object_routing_contract",
+    )
+
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork reverts to order-free Ralph verifier reuse",
+        "retains order-free Ralph verifier reuse wording",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "Reuse Ralph's independent `verifier` pass only when\nall hold: it covers the same final claim and revision",
+            "Reuse Ralph's independent `verifier` pass when it covers\nthe final orchestrated revision",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # Token-preserving flips of the mutually exclusive decision.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork allows Ralph verifier reuse even when no reuse condition holds",
+        "Ultrawork mutually exclusive verifier reuse contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "pass only when\nall hold:",
+            "pass even when\nnone hold:",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork drops the otherwise-fresh-dispatch alternative",
+        "Ultrawork mutually exclusive verifier reuse contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "changed since that pass; otherwise dispatch one fresh self-host `verifier` pass.",
+            "changed since that pass.",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "reused Ralph verifier remains valid after an Ultrawork-dispatched code-reviewer",
+        "Ultrawork mutually exclusive verifier reuse contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "Ralph's prior verifier is\nearly/stale by construction, so reuse is unavailable and the fresh self-host",
+            "Ralph's prior verifier\nremains valid, so reuse is still available and no fresh self-host",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+
+    expect_rejected(
+        validator,
+        plugin_root,
         "Ralph executor-default mandate becomes optional",
         "executor-default orchestration contract",
         lambda root: replace_once(

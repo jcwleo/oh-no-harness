@@ -279,12 +279,20 @@ independent same-model instances and records the reason; an explicit caller
 demand for diversity is strict mode and transitions to PAUSED instead of
 falling back.
 
-At STANDARD/THOROUGH, reuse Ralph's independent `verifier` pass when it covers
-the final orchestrated revision. Otherwise, dispatch one self-host `verifier`
-pass when execution produced or changed proving tests or the
-implementation/tests were authored or accepted by the same agent [U11, U14].
-When that audit is required but no separate context exists, record the
-`dispatch-unavailable` blocker and pause; inline evidence cannot satisfy it.
+At STANDARD/THOROUGH, an independent `verifier` audit is required when execution
+produced or changed proving tests or the implementation/tests were authored or
+accepted by the same agent [U11, U14]. Satisfy it through exactly one of two
+mutually exclusive paths. Reuse Ralph's independent `verifier` pass only when
+all hold: it covers the same final claim and revision, it was an independent
+dispatch, it ran after the selected Final Validation code-review stage completed
+or that review is compliantly not-required, and no file, dependency, or evidence
+changed since that pass; otherwise dispatch one fresh self-host `verifier` pass.
+If Ultrawork dispatches its own `code-reviewer`, Ralph's prior verifier is
+early/stale by construction, so reuse is unavailable and the fresh self-host
+`verifier` pass runs after reviewer synthesis and any fix manifest, bound to the
+reviewed/fixed revision. When that audit is required but no separate context
+exists, record the `dispatch-unavailable` blocker and pause; inline evidence
+cannot satisfy it.
 
 Review-then-verify order: run the selected code-review stage first, then
 the confirming independent `verifier` pass (never the maker). Before
@@ -297,6 +305,7 @@ Final Validation dependency graph:
 - code-reviewer pass: pending | complete | blocked | not-required
 - code-reviewer synthesis captured: yes | no | not-required
 - blocking reviewer findings: none | fix-applied (manifest mapped) | blocking
+- verifier source: fresh | reused@<ralph ledger entry + revision binding>
 - verifier bound revision: reviewed | fixed | not-required
 - verifier eligible to start: yes | no
 - verifier started after reviewer completion: yes | no | not-required

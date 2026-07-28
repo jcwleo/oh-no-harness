@@ -976,6 +976,21 @@ for forbidden in (
 ):
     if forbidden in text:
         raise SystemExit(f"Claude SessionStart still routes ordinary implementation to TDD: {forbidden}")
+# The always-on Claude orchestration block must carry the no-nested-host-plan
+# boundary exactly once in the emitted (not just source) SessionStart output.
+host_plan = [
+    "Host-plan boundary:",
+    "never auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode or a host planning pass",
+    "host plan mode needs explicit user request",
+    "Usable approved/concrete execution contract goes straight to Ralph",
+    "vague or plan-only work routes upstream to Oh No Harness planning",
+    "no-route housekeeping stays direct",
+]
+missing_host_plan = [needle for needle in host_plan if needle not in text]
+if missing_host_plan:
+    raise SystemExit(f"Claude SessionStart is missing host-plan boundary semantics: {missing_host_plan}")
+if text.count("Host-plan boundary:") != 1 or text.count("EnterPlanMode") != 1:
+    raise SystemExit("Claude SessionStart host-plan boundary is not singular")
 # Baseline includes the always-on OH_NO_MAIN_AGENT_ORCHESTRATION block; keep
 # headroom modest so unintended bloat still trips this guard.
 if len(text) > 6600:

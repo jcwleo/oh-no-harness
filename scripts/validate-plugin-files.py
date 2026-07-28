@@ -4068,6 +4068,30 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "Ultrawork Ralph-unavailable executor ownership",
     )
+    ultrawork_final_validation = markdown_section(ultrawork, "### FINAL_VALIDATION")
+    # Check the retired order-free phrasing first so a revert reports the exact
+    # regression instead of a generic missing-marker message.
+    forbidden = r"independent `verifier` pass when it covers\s+the final orchestrated revision"
+    if re.search(forbidden, ultrawork, flags=re.IGNORECASE):
+        die(
+            f"{ultrawork_path} retains order-free Ralph verifier reuse wording: {forbidden!r}"
+        )
+    # Pin the whole mutually exclusive decision verbatim, not its keywords: the
+    # `only when all hold ... ; otherwise dispatch one fresh` shape is what stops
+    # the paragraph from reading as an unconditional fresh dispatch plus an
+    # optional reuse offer, and the full early/stale sentence is what stops a
+    # token-preserving flip ("remains valid", "even when none hold").
+    require(
+        ultrawork_path,
+        ultrawork_final_validation,
+        (
+            "Satisfy it through exactly one of two\nmutually exclusive paths.",
+            "Reuse Ralph's independent `verifier` pass only when\nall hold: it covers the same final claim and revision, it was an independent\ndispatch, it ran after the selected Final Validation code-review stage completed\nor that review is compliantly not-required, and no file, dependency, or evidence\nchanged since that pass; otherwise dispatch one fresh self-host `verifier` pass.",
+            "If Ultrawork dispatches its own `code-reviewer`, Ralph's prior verifier is\nearly/stale by construction, so reuse is unavailable and the fresh self-host\n`verifier` pass runs after reviewer synthesis and any fix manifest, bound to the\nreviewed/fixed revision.",
+            "verifier source: fresh | reused@<ralph ledger entry + revision binding>",
+        ),
+        "Ultrawork mutually exclusive verifier reuse contract",
+    )
 
     vbc_path = skill_core / "verification-before-completion.md"
     vbc = read_text(vbc_path)
@@ -4873,6 +4897,99 @@ def routing_hook_blocks(root: Path) -> tuple[str, str, str, list[str]]:
     return hook, bootstrap, forced, problems
 
 
+def claude_orchestration_block(hook: str) -> tuple[str, list[str]]:
+    """Return the always-on Claude OH_NO_MAIN_AGENT_ORCHESTRATION block body."""
+    match = re.search(
+        r"claude_code_orchestration_policy='\s*"
+        r"(<OH_NO_MAIN_AGENT_ORCHESTRATION>.*?</OH_NO_MAIN_AGENT_ORCHESTRATION>)'",
+        hook,
+        flags=re.DOTALL,
+    )
+    if match is None:
+        return "", ["hook-shape: cannot locate Claude OH_NO_MAIN_AGENT_ORCHESTRATION block"]
+    return match.group(1), []
+
+
+# Exact canonical clauses of the Claude-only host-plan boundary. These are
+# pinned verbatim (whitespace-normalized) rather than matched by keyword, so a
+# polarity flip such as "never auto-wrap" -> "always wrap" fails even though it
+# reuses every original token. Each clause carries one load-bearing decision.
+HOST_PLAN_CANONICAL_CLAUSES = (
+    (
+        "no automatic host planning wrapper",
+        "never auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode "
+        "or a host planning pass",
+    ),
+    (
+        "host plan mode requires explicit user request",
+        "host plan mode needs explicit user request",
+    ),
+    (
+        "usable approved/concrete execution contract runs Ralph directly",
+        "Usable approved/concrete execution contract goes straight to Ralph",
+    ),
+    (
+        "vague or plan-only work routes upstream",
+        "vague or plan-only work routes upstream to Oh No Harness planning",
+    ),
+    (
+        "no-route housekeeping stays direct",
+        "no-route housekeeping stays direct",
+    ),
+)
+
+
+def host_plan_boundary_problems(root: Path) -> list[str]:
+    """Pin the host-plan boundary clauses to the Claude orchestration block only.
+
+    This is exact canonical contract pinning, not semantic parsing: each clause
+    of HOST_PLAN_CANONICAL_CLAUSES must appear verbatim (whitespace-normalized)
+    inside the always-on Claude orchestration block, the boundary label and
+    EnterPlanMode must each appear exactly once in the hook, and neither may
+    leak into the cross-platform bootstrap, the optional forced-routing block,
+    or any Codex-only block. Verbatim pinning is what makes a token-preserving
+    polarity flip fail.
+    """
+    hook, bootstrap, forced, problems = routing_hook_blocks(root)
+    orchestration, block_problems = claude_orchestration_block(hook)
+    problems.extend(block_problems)
+
+    label = "Host-plan boundary:"
+    if orchestration and not has_required_marker(orchestration, label):
+        problems.append(
+            f"host-plan: Claude OH_NO_MAIN_AGENT_ORCHESTRATION is missing {label!r}"
+        )
+    if hook.count(label) != 1:
+        problems.append(
+            f"host-plan: {label!r} must appear exactly once in hooks/session-start "
+            f"(found {hook.count(label)})"
+        )
+    if hook.count("EnterPlanMode") != 1:
+        problems.append(
+            "host-plan: 'EnterPlanMode' must appear exactly once in hooks/session-start "
+            f"(found {hook.count('EnterPlanMode')})"
+        )
+
+    codex_blocks = re.findall(
+        r"<CODEX_ONLY_[A-Z_]+>.*?</CODEX_ONLY_[A-Z_]+>", hook, flags=re.DOTALL
+    )
+    for name, block in (
+        ("unconditional OH_NO_BOOTSTRAP", bootstrap),
+        ("Claude OH_NO_FORCED_ROUTING", forced),
+        *(("Codex-only block", block) for block in codex_blocks),
+    ):
+        for token in (label, "EnterPlanMode"):
+            if token in block:
+                problems.append(f"host-plan: {name} must not carry {token!r}")
+
+    for name, clause in HOST_PLAN_CANONICAL_CLAUSES:
+        if not has_required_marker(orchestration, clause):
+            problems.append(
+                f"host-plan: canonical clause altered or missing ({name}): {clause!r}"
+            )
+    return problems
+
+
 def workflow_object_routing_problems(root: Path) -> list[str]:
     hook, bootstrap, forced, problems = routing_hook_blocks(root)
     required = (
@@ -5081,6 +5198,7 @@ def assert_routing_layer_contract(marketplace_root: Path, root: Path) -> None:
             problems.append(f"asymmetry: Codex guidance is missing {marker!r}")
 
     problems.extend(workflow_object_routing_problems(root))
+    problems.extend(host_plan_boundary_problems(root))
     if problems:
         die(
             f"routing-layer target contract failed with {len(problems)} issue(s):\n  - "
@@ -5091,6 +5209,7 @@ def assert_routing_layer_contract(marketplace_root: Path, root: Path) -> None:
 def assert_workflow_object_routing_contract(root: Path) -> None:
     """Keep the unconditional bootstrap as sole object-of-analysis policy owner."""
     problems = workflow_object_routing_problems(root)
+    problems.extend(host_plan_boundary_problems(root))
     if problems:
         die("workflow object routing contract failed:\n  - " + "\n  - ".join(problems))
 
