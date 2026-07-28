@@ -55,8 +55,9 @@ dependency/return owner.
 ## Lifecycle
 
 Dispatch Analyst, Planner, and Plan-Reviewer only at their core phase and in
-strict sequence. Every dispatched Plan-Reviewer review runs as a concurrent
-perspective pair; spawn both legs before waiting. Wait through the exposed
+strict sequence. Every dispatched Plan-Reviewer review at the pair-bearing
+topology runs as a concurrent perspective pair; spawn both legs before waiting.
+The single-reviewer topology spawns exactly one leg. Wait through the exposed
 lifecycle primitive until final status, capture and use the result, then
 clean up only if an actual cleanup action exists. Timeout, empty/no-update,
 or a queued acknowledgement is not final. Never interrupt a slow dependency,
@@ -88,12 +89,15 @@ opposite-host unavailable + require-cross-host -> PAUSED
 ## Re-Homed Core Pair Rules
 
 ```text
-STANDARD -> one perspective-diverse Plan-Reviewer pair on Codex, recorded as
-            same-host-perspective-pair; this is intentional same-host review,
-            so no fallback reason is required.
-THOROUGH -> the same perspective-diverse pair. A named security/data/destructive,
-            public/release-contract, concurrency, migration, or comparable
-            multi-system trigger selects cross-host review when available, or
+STANDARD -> one required Plan-Reviewer instance on Codex, recorded as
+            single-reviewer; this is intentional single review, so no fallback
+            reason is required.
+THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally, run on
+            Codex and recorded as same-host-perspective-pair; this is
+            intentional same-host review, so no fallback reason is required. A
+            named security/data/destructive, public/release-contract,
+            concurrency, migration, or comparable multi-system trigger selects
+            cross-host review when available, or
             same-host-parallel-fallback when the opposite host is unavailable;
             record the fallback reason. `require-cross-host` pauses instead.
 ```
@@ -113,6 +117,5 @@ not ask the user to type a command. Under Ultrawork, return control and the
 approved artifact to the caller without another approval prompt.
 
 Before every phase transition, verify: actual custom-agent attempt or
-recorded fallback; correct role identity; exact contract and draft; final
-dependency result captured; paired topology valid; no premature next-skill
-invocation.
+recorded fallback; final dependency result captured; and at the pair-bearing
+topology, paired topology valid.

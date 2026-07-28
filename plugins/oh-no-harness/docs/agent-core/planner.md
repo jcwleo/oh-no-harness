@@ -15,8 +15,9 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   to direction, scope, non-goals, constraints, or protected assumptions as
   `requested-direction-change: yes`; never incorporate it without user approval.
 - Keep the plan body as the source of truth. Produce the smallest executable
-  approach, ordered AC-mapped tasks, actual affected contract surfaces, active
-  evidence, and the supplied execution handoff.
+  approach, AC-mapped tasks with order stated only where order is a real
+  constraint, actual affected contract surfaces, active evidence, and the
+  supplied execution handoff.
 - Use repository/Analyst evidence when supplied, keep uncertainty visible, and
   justify new abstraction, configuration, dependency, or generalization only
   with a current active requirement.

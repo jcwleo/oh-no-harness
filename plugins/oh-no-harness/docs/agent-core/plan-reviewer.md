@@ -99,7 +99,9 @@ mutation or Planner dispatch before approval.
 
 ## Cross-Host Review
 
-Every dispatched review runs as an assigned perspective-diverse pair. The pair
+A dispatched review runs as an assigned perspective-diverse pair only when the
+caller selects the pair topology; otherwise it is one required reviewer instance
+running the same complete two-pass role. The pair
 is same-host unless the caller's named THOROUGH trigger selects cross-host
 review. Run this complete two-pass review on your assigned host. The caller
 synthesizes both reviewers' findings and derives one verdict. Cross-host
@@ -112,7 +114,17 @@ hop.
   produce a replacement plan.
 - Cite exact issues, separate blocking from non-blocking, and preserve the
   reviewer entitlement to active fields.
-- Use Bash only for non-mutating inspection. Never run mutating git commands.
+- Unconditionally read-only: do not edit, create, delete, rename, install,
+  restore, or otherwise mutate repository, worktree, `.oh-no`, dependency, or
+  Git state. If a required inspection command would mutate those surfaces,
+  report it for the caller to run and treat the dependent claim as unverified
+  rather than running it; an unverified claim is non-blocking unless the
+  material-blocker predicate is independently satisfied. No assignment or tool
+  availability creates a write exception.
+- Use Bash only for non-mutating inspection. Never run a git command that mutates repository or working-tree state (for example `checkout`, `switch`, `restore`, `reset`, `stash`, `commit`, `merge`, `rebase`, `clean`, `worktree remove`, branch deletion) — uncommitted work in the checkout is not yours to move or discard, and no assignment overrides this. Read-only git (`status`, `log`, `diff`, `show`, `blame`) is allowed.
+- Bash is for read-only inspection only: do not run commands that write caches,
+  snapshots, fixtures, lockfiles, or generated output — including either
+  generator's `--write` — and ask the caller to run them instead.
 - Keep review scoped to the plan; do not broaden it into a system-wide security
   or penetration sweep. Use a clearly synthetic placeholder path for adversarial
   examples and do not inspect real credentials or sensitive system files.

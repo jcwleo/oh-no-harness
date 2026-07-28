@@ -889,7 +889,10 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Analyst -> Planner -> Plan-Reviewer",
     "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
-    "STANDARD -> one perspective-diverse Plan-Reviewer pair",
+    # Review topology is mode-selected: STANDARD keeps a required single
+    # reviewer, THOROUGH keeps the perspective-diverse pair unconditionally.
+    "STANDARD -> one required Plan-Reviewer",
+    "THOROUGH -> one perspective-diverse Plan-Reviewer pair",
     "required Plan-Reviewer cannot be skipped",
     "accepted blocking feedback is not in the body",
     "accepted section pointer",
@@ -3961,6 +3964,27 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     if "verifier" not in READ_ONLY_CODEX_AGENT_ROLES:
         die("verifier read-only contract is not host-enforced in Codex metadata")
 
+    plan_reviewer_path = agent_core / "plan-reviewer.md"
+    plan_reviewer = read_text(plan_reviewer_path)
+    require(
+        plan_reviewer_path,
+        plan_reviewer,
+        (
+            "Unconditionally read-only",
+            "No assignment or tool availability creates a write exception",
+            "generator's `--write`",
+        ),
+        "plan-reviewer read-only review envelope",
+    )
+    for forbidden in (
+        "unless explicitly assigned by the current skill",
+        "may run the generator",
+    ):
+        if forbidden in plan_reviewer:
+            die(
+                f"{plan_reviewer_path} contains plan-reviewer read-only loophole: {forbidden!r}"
+            )
+
     ralplan_path = skill_core / "ralplan.md"
     ralplan = read_text(ralplan_path)
     require(
@@ -4407,8 +4431,12 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     for skill, markers in {
         "ralplan": (
             "single canonical schema",
-            "STANDARD -> one perspective-diverse Plan-Reviewer pair",
-            "Every dispatched Plan-Reviewer review runs as one",
+            # Mode-selected topology: STANDARD's required reviewer is single and
+            # THOROUGH keeps the perspective-diverse pair unconditionally. Both
+            # halves are pinned so neither can be dropped as "reduction".
+            "STANDARD -> one required Plan-Reviewer",
+            "THOROUGH -> one perspective-diverse Plan-Reviewer pair",
+            "Every dispatched THOROUGH Plan-Reviewer review runs as one",
         ),
         "ralph": (
             "`verification.md` is the canonical acceptance-to-evidence",

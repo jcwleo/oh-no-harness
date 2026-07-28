@@ -30,11 +30,14 @@ or capability names, or permission states here.
 
 ## When It Applies
 
-Every dispatched `plan-reviewer` or `code-reviewer` review uses a
+Every dispatched `code-reviewer` review, and every dispatched THOROUGH
+`plan-reviewer` review, uses a
 perspective-diverse pair. STANDARD runs that pair on the current host and records
 `same-host-perspective-pair`; this is intentional same-host review, so no
 fallback reason is required (a compliant not-required record under the STANDARD
-small-task carve-out dispatches none). Cross-host escalation applies only when a
+small-task carve-out dispatches none). A STANDARD `plan-reviewer` review instead
+runs one required reviewer instance and records `single-reviewer`.
+Cross-host escalation applies only when a
 calling skill records a named THOROUGH trigger for `plan-reviewer`,
 `code-reviewer`, or `debugger`, such as security/data/destructive risk, a public
 or release-critical contract, new concurrency semantics, broad migration, or
@@ -124,7 +127,9 @@ run the complete role:
 For a cross-host pair, Lens A goes to the current-host leg and Lens B to the
 opposite-host leg. For `same-host-perspective-pair` and
 `same-host-parallel-fallback`, instance 1 receives Lens A and instance 2 receives
-Lens B. The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
+Lens B. The `plan-reviewer` row above assigns lenses only at the pair-bearing
+topology; a `single-reviewer` STANDARD plan review assigns no lens split and
+runs the complete role in one instance. The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Role-Owned Review Instances
 

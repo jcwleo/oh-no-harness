@@ -4050,6 +4050,7 @@ def blocker_semantics(record):
     return tuple(field_values[0] for field_values in values)
 opposite_host_review_evidence = parent_reviewed_ids == reviewed_planner_ids and ("opposite-host" in parent_review_lower or "opposite host" in parent_review_lower) and "claude" in parent_review_lower and any(marker in parent_review_lower for marker in ("architecture findings", "quality-gate findings", "blocking basis", "review findings")) and any(token in parent_review_lower for token in ("approve", "block", "iterate", "reject"))
 parent_pair_synthesis_evidence = parent_reviewed_ids == reviewed_planner_ids and all(marker in parent_review_lower for marker in ("consensus", "contradictions", "recommended next action")) and any(marker in parent_review_lower for marker in ("same-host-perspective-pair", "cross-host", "same-host-parallel-fallback"))
+single_reviewer_topology_evidence = parent_reviewed_ids == reviewed_planner_ids and "single-reviewer" in parent_review_lower
 if len(planner_versions) == 2:
     mapping_match = re.search(r"(?mi)^\s*(?:Accepted\s+)?Finding(?:→|->|-to-)fix mapping:\s*$", parent_review_text)
     if not mapping_match: raise SystemExit("Codex ralplan natural parent finding-to-fix mapping section was missing")
@@ -4061,17 +4062,24 @@ if len(planner_versions) == 2:
     for evidence in final_reviewer_evidence:
         if evidence["verdict"] == "ITERATE":
             for finding_id, record in finding_records(evidence["output"]).items(): merge_blocker(finding_id, record)
-    if len(final_reviewer_evidence) == 1:
+    if len(final_reviewer_evidence) == 1 and not single_reviewer_topology_evidence:
         if not opposite_host_review_evidence or not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent ITERATE lacked proven one-reviewer cross-host topology")
         synthesis_text = parent_review_text[:mapping_match.start()]; opposite_match = re.search(r"(?mis)^\s*Architecture findings:\s*(.*)$", synthesis_text)
         if not opposite_match: raise SystemExit("Codex ralplan natural cross-host ITERATE lacked retained opposite-host blockers")
         for finding_id, record in finding_records(opposite_match.group(1)).items(): merge_blocker(finding_id, record)
     v2_records = finding_records(planner_output); parent_records = finding_records(parent_review_text[mapping_match.end():])
+    relocated_fields = ("Applied change", "Body section pointer")
+    def bound_record(v2_record, parent_record):
+        merged = dict(v2_record)
+        for field in relocated_fields:
+            if not [value for value in merged.get(field, []) if value.strip()]: merged[field] = parent_record.get(field, [])
+        return merged
     if not authoritative: raise SystemExit("Codex ralplan natural ITERATE branch lacked explicit blocker records")
     for finding_id, semantics in authoritative.items():
         v2_record = v2_records.get(finding_id); parent_record = parent_records.get(finding_id)
         if not v2_record or not parent_record: raise SystemExit("Codex ralplan natural ITERATE blocker was not bound through v2 and parent mapping")
-        required = {field: [value.strip() for value in v2_record[field] if value.strip()] for field in ("Disposition", "Blocking basis", "Applied change", "Body section pointer")}
+        merged_record = bound_record(v2_record, parent_record)
+        required = {field: [value.strip() for value in merged_record[field] if value.strip()] for field in ("Disposition", "Blocking basis", "Applied change", "Body section pointer")}
         if any(len(values) != 1 for values in required.values()) or required["Disposition"][0].casefold() != "accepted": raise SystemExit("Codex ralplan natural v2 blocker record was missing fields or not accepted")
         if re.sub(r"\s+", " ", required["Blocking basis"][0]).strip().casefold() != semantics[0]: raise SystemExit("Codex ralplan natural v2 Blocking basis did not match reviewer evidence")
         if any(len([value for value in parent_record[field] if value.strip()]) != 1 for field in ("Applied change", "Body section pointer")): raise SystemExit("Codex ralplan natural parent finding-to-fix mapping was incomplete")
@@ -4081,14 +4089,15 @@ if len(final_reviewer_evidence) == 2:
     if "same-host-perspective-pair" not in parent_review_lower: raise SystemExit("Codex ralplan natural parent did not record same-host-perspective-pair for two typed reviewers")
     if not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair; two-reviewer branch lacked parent pair-synthesis evidence")
 elif len(final_reviewer_evidence) == 1:
-    if not opposite_host_review_evidence:
-        raise SystemExit(
-            "Codex ralplan natural single typed Plan-Reviewer lacked opposite-host review evidence"
-        )
-    if not parent_pair_synthesis_evidence:
-        raise SystemExit(
-            "Codex ralplan natural cross-host branch lacked parent pair-synthesis evidence"
-        )
+    if not single_reviewer_topology_evidence:
+        if not opposite_host_review_evidence:
+            raise SystemExit(
+                "Codex ralplan natural single typed Plan-Reviewer lacked opposite-host review evidence"
+            )
+        if not parent_pair_synthesis_evidence:
+            raise SystemExit(
+                "Codex ralplan natural cross-host branch lacked parent pair-synthesis evidence"
+            )
 if not final_parent_output.rstrip().endswith("OH_NO_CODEX_RALPLAN_NATURAL_OK"):
     raise SystemExit("Codex ralplan natural parent did not end with its success marker")
 print(
@@ -8135,15 +8144,17 @@ with tempfile.TemporaryDirectory() as temp:
  def review_record(blocker, basis=""):
   finding_id,_,default_basis,pointer,consequence,correction=blocker; return f"Finding id: {finding_id}\nBlocking basis: {basis or default_basis}\nDraft pointer: {pointer}\nMaterial consequence: {consequence}\nSmallest correction: {correction}"
  def repair_record(blocker, missing="", basis=""):
-  finding_id,disposition,default_basis,_,_,_=blocker; fields=[("Disposition",disposition),("Blocking basis",basis or default_basis),("Applied change","revision follows reviews"),("Body section pointer","Step 2")]; return "Finding id: "+finding_id+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name != missing)
- def ralplan_case(label, verdicts, revision, revision_task="07", reviewed=("v1","v1"), parent_verdict=None, blockers=(default_blocker,), missing="", second_basis="", v2_basis="", cross_host=False, retain_opposite=True, mapping=True, success=True, needle=""):
+  finding_id,disposition,default_basis,_,_,_=blocker; fields=[("Disposition",disposition),("Blocking basis",basis or default_basis),("Applied change","revision follows reviews"),("Body section pointer","Step 2")]; dropped=missing if isinstance(missing,tuple) else (missing,); return "Finding id: "+finding_id+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name not in dropped)
+ def mapped_record(blocker, mapping_missing="", mapping_extra=()):
+  fields=[("Applied change","mapped repair"),("Body section pointer","Step 2")]+list(mapping_extra); return "Finding id: "+blocker[0]+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name != mapping_missing)
+ def ralplan_case(label, verdicts, revision, revision_task="07", reviewed=("v1","v1"), parent_verdict=None, blockers=(default_blocker,), missing="", mapping_missing="", mapping_extra=(), topology=None, second_basis="", v2_basis="", cross_host=False, retain_opposite=True, mapping=True, success=True, needle=""):
   review_outputs=[]
   for index, verdict in enumerate(verdicts):
    blocker_text="\n".join(review_record(blocker,second_basis if index==1 else "") for blocker in blockers); finding=blocker_text if verdict=="ITERATE" else "none"; incidental="R5 NB1 HTTP2; ITERATE was discussed but not selected." if verdict=="APPROVE" else "APPROVE wording is incidental."
    review_outputs.append(f"Reviewed draft: {reviewed[index]}\nVerdict: {verdict}\nArchitecture findings:\n{finding}\nQuality-gate findings: none\nDirection preservation: preserved\nRequired changes for Planner: see blocking finding records\nReview note: {incidental}")
   v2=v2_base+"\n"+"\n".join(repair_record(blocker,missing if index==0 else "",v2_basis if index==0 else "") for index,blocker in enumerate(blockers)); final_plan=v2 if revision else v1; parent_verdict=parent_verdict or ("ITERATE" if "ITERATE" in verdicts or cross_host else verdicts[0])
-  opposite=("Opposite-host: Claude\nArchitecture findings:\n"+("\n".join(review_record(blocker) for blocker in blockers) if retain_opposite else "none")) if cross_host else ""; mapped="\n".join(f"Finding id: {blocker[0]}\nApplied change: mapped repair\nBody section pointer: Step 2" for blocker in blockers); mapping_text=("Finding-to-fix mapping:\n"+mapped) if revision and mapping else ""
-  topology="cross-host" if cross_host else "same-host-perspective-pair"; parent=final_plan+f"\nReviewed draft: v1\nVerdict: {parent_verdict}\n{opposite}\n{mapping_text}\nMapping note: accepted wording is unrelated.\n{topology}\nConsensus: decision recorded\nContradictions: none\nRecommended next action: approve\nOH_NO_CODEX_RALPLAN_NATURAL_OK"; write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
+  opposite=("Opposite-host: Claude\nArchitecture findings:\n"+("\n".join(review_record(blocker) for blocker in blockers) if retain_opposite else "none")) if cross_host else ""; mapped="\n".join(mapped_record(blocker,mapping_missing,mapping_extra) for blocker in blockers); mapping_text=("Finding-to-fix mapping:\n"+mapped) if revision and mapping else ""
+  topology=topology or ("cross-host" if cross_host else "same-host-perspective-pair"); parent=final_plan+f"\nReviewed draft: v1\nVerdict: {parent_verdict}\n{opposite}\n{mapping_text}\nMapping note: accepted wording is unrelated.\n{topology}\nConsensus: decision recorded\nContradictions: none\nRecommended next action: approve\nOH_NO_CODEX_RALPLAN_NATURAL_OK"; write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
   planner_rows=[meta("parent","planner","01"),task("01.5"),done("02",v1)]; planner_rows += [task(revision_task),done("08",v2)] if revision else []; write(sessions/"planner.jsonl",planner_rows)
   for path in sessions.glob("review*.jsonl"): path.unlink()
   for index,output in enumerate(review_outputs): write(sessions/f"review{index+1}.jsonl",[meta("parent","plan-reviewer","03" if index==0 else "03.1"),task("03.5" if index==0 else "03.6"),done("05" if index==0 else "06",output)])
@@ -8151,7 +8162,9 @@ with tempfile.TemporaryDirectory() as temp:
  ralplan_case("parent APPROVE no revision",("APPROVE","APPROVE"),False); ralplan_case("parent ITERATE contradicts no revision",("APPROVE","APPROVE"),False,parent_verdict="ITERATE",success=False,needle="parent verdict contradicted"); ralplan_case("anchored REJECT overrides incidental APPROVE",("REJECT","APPROVE"),False,success=False,needle="received REJECT"); ralplan_case("APPROVE cannot revise",("APPROVE","APPROVE"),True,success=False,needle="revised without an accepted ITERATE")
  ralplan_case("equivalent consensus duplicate",("ITERATE","ITERATE"),True); ralplan_case("conflicting consensus duplicate",("ITERATE","ITERATE"),True,second_basis="AC9",success=False,needle="conflicting blocker semantics"); ralplan_case("v2 basis mismatch",("APPROVE","ITERATE"),True,v2_basis="AC9",success=False,needle="Blocking basis did not match"); ralplan_case("cross-host APPROVE plus parent ITERATE",("APPROVE",),True,cross_host=True)
  ralplan_case("cross-host missing retained blocker",("APPROVE",),True,cross_host=True,retain_opposite=False,success=False,needle="explicit blocker records"); ralplan_case("parent APPROVE contradicts v2",("APPROVE","ITERATE"),True,parent_verdict="APPROVE",success=False,needle="parent verdict contradicted"); ralplan_case("revision assigned before review completion",("APPROVE","ITERATE"),True,revision_task="05.5",success=False,needle="not assigned after both reviews"); ralplan_case("mismatched reviewed draft",("APPROVE","ITERATE"),True,reviewed=("v1","v2-final"),success=False,needle="did not bind to the initial Planner draft")
- ralplan_case("partial blocker disposition rejects",("APPROVE","ITERATE"),True,blockers=(default_blocker,("finding-beta","deferred","AC3","Plan step 3","Second issue remains","Repair second issue")),success=False,needle="not accepted"); ralplan_case("missing blocker field rejects",("APPROVE","ITERATE"),True,missing="Applied change",success=False,needle="missing fields")
+ ralplan_case("partial blocker disposition rejects",("APPROVE","ITERATE"),True,blockers=(default_blocker,("finding-beta","deferred","AC3","Plan step 3","Second issue remains","Repair second issue")),success=False,needle="not accepted"); ralplan_case("missing blocker field rejects",("APPROVE","ITERATE"),True,missing="Disposition",success=False,needle="missing fields")
+ ralplan_case("relocated mapping fields resolve from parent brief",("APPROVE","ITERATE"),True,missing=("Applied change","Body section pointer")); ralplan_case("relocated mapping fields missing everywhere rejects",("APPROVE","ITERATE"),True,missing=("Applied change","Body section pointer"),mapping_missing="Applied change",success=False,needle="missing fields"); ralplan_case("non-relocated v2 fields never fall back to parent",("APPROVE","ITERATE"),True,missing=("Disposition","Blocking basis"),mapping_extra=(("Disposition","accepted"),("Blocking basis","AC2")),success=False,needle="missing fields")
+ ralplan_case("recorded single-reviewer STANDARD approves",("APPROVE",),False,topology="single-reviewer"); ralplan_case("recorded single-reviewer STANDARD iterates",("ITERATE",),True,topology="single-reviewer"); ralplan_case("unrecorded lone reviewer rejects",("APPROVE",),False,topology="Reviewer count: one",success=False,needle="lacked opposite-host review evidence")
 print(f"ok - production-linked Codex parser fixtures passed with optimize={sys.flags.optimize}")
 PY
 }

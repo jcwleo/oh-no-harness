@@ -110,6 +110,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("trigger-loaded", BOTH),
         ("exactly one final Planner revision v2", BOTH),
         ("finding→fix mapping", BOTH),
+        # Plan length is a draft-contract rule, so its omission must fail a gate.
+        ("calibrated to decision content, not to mode", BOTH),
         ("Assigned perspective", BOTH),
         ("APPROVE freezes the exact reviewed Planner draft", BOTH),
         ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),

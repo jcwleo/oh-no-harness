@@ -136,7 +136,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating exact Planner handoff into one single-round perspective-diverse Plan-Reviewer pair from a disposable CODEX_HOME cloned from the active config and agent TOMLs; the instrumented path records `same-host-perspective-pair`, while the natural path permits 1-2 typed Plan-Reviewer sessions only and proves either two parallel typed legs or one typed leg plus opposite-host review evidence, with parent pair synthesis in both branches; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
+      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating exact Planner handoff into one single-round mode-selected Plan-Reviewer topology from a disposable CODEX_HOME cloned from the active config and agent TOMLs; the instrumented path records `same-host-perspective-pair`, while the natural path permits 1-2 typed Plan-Reviewer sessions only and proves two parallel typed legs with parent pair synthesis, one typed leg plus opposite-host review evidence with parent pair synthesis, or one typed leg under a recorded STANDARD `single-reviewer` topology; an unrecorded lone reviewer still fails, and on ITERATE the per-blocker finding→fix mapping is read from the parent Plan Approval Brief mapping section for the relocated `Applied change` and `Body section pointer` fields while `Disposition` and `Blocking basis` remain bound to the v2 plan body; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",
@@ -382,7 +382,7 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "forensic invariant"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving exact Planner handoff into one single-round perspective-diverse Plan-Reviewer pair, parallel review-leg dispatch, and caller synthesis",
+      "evidence_artifact": "Claude stream-json output proving exact Planner handoff into one single-round THOROUGH perspective-diverse Plan-Reviewer pair: the planner leg completes before both typed `plan-reviewer` legs are dispatched in one parallel batch ahead of either result, all three role payloads carry the same Active plan contract block, both reviewer packets carry the exact captured Planner draft and differ only on their two distinct `Assigned perspective` lens lines, each reviewer output anchors one reviewed draft id back to that captured draft, and the caller closes with the single-round success marker; the lane hard-fails on anything other than exactly two Plan-Reviewer packet bodies, so it does not cover the STANDARD `single-reviewer` topology, and it exercises only the non-blocking-only v1 approval path with no Planner revision, so it proves no per-blocker finding→fix mapping",
       "non_proofs": [
         "marker-only output",
         "model self-report alone",

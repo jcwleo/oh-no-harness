@@ -33,9 +33,10 @@ R6. Review runs exactly once (Review v1) per planning run. REJECT escalates
 R8. Every blocker names a basis, exact draft pointer, material consequence,
     and smallest sufficient correction. Preference, future-proofing, and
     optional stronger proof are non-blocking.
-R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer.
-    Every dispatched Plan-Reviewer review runs as one perspective-diverse pair;
-    the named THOROUGH trigger selects only the
+R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer. Review
+    topology is mode-selected: STANDARD dispatches one required Plan-Reviewer.
+    Every dispatched THOROUGH Plan-Reviewer review runs as one
+    perspective-diverse pair; the named THOROUGH trigger selects only the
     platform's escalated diversity (cross-host on Codex).
 R10. Active semantic risk selects mode and cost; category words and host
      capability alone never escalate.
@@ -181,20 +182,20 @@ Canonical activation table:
 
 | Row | Activation | Plan projection | Reviewer entitlement |
 |---|---|---|---|
-| Direction and acceptance core | always | Direction Contract; success ownership/signals; confidence | contradiction, missing observable success, or unresolved direction-changing inference |
-| Minimal scope trace | always | smallest approach; affected files and contract-surface uncertainty; ordered AC-mapped tasks | infeasible order, wrong surface, unmapped work, or scope beyond the smallest AC-sufficient change |
-| Core evidence | always | smallest verification and TDD applicability; AC-to-evidence mapping | material proof hole only; stronger optional proof is non-blocking |
-| Execution handoff | implementation plan | next skill with compact profile and worktree policy; risks/open decisions | unsafe or inconsistent handoff; LIGHT stays compact |
-| Simplicity justification | STANDARD or THOROUGH | rejected speculative complexity; justification for new abstraction or dependency | current-scope speculative complexity only |
-| Detailed test design | behavior change or named regression/safety risk | must-fail/must-pass; relevant negative or adversarial cases only | missing relevant case; inactive categories omitted |
-| Process and diff budget | STANDARD or THOROUGH | expected handwritten scope; broad-suite cap and rescope threshold | concrete budget violation, not an unfired larger process |
-| Planning-role evidence | selected roles/review, or LIGHT no-review | role/review order, ids, topology, dispositions, or one compact LIGHT no-review reason | evidence for roles that ran only |
-| Rollout/recovery | THOROUGH or operational/migration/public-contract risk | smallest safe rollout; rollback boundary | only when named risk makes recovery material |
-| Stack options | greenfield + open stack + recommendation requested | 2-3 options, tradeoffs, default, decision-changing assumption | never required without the trigger |
-| Validation check | measurable evidence influenced request | evidence source, supported AC, proof and gap | never required without the trigger |
-| Parallel dispatch | agent policy not `inline-only` | eligible roles/scopes and dependencies; integration owner | inline-only needs only its profile value |
-| Risk semantics | migration, data/security/destructive, concurrency/lifecycle, or public/release trigger | semantics/evidence for the fired trigger | depth/gates limited to named trigger and owner |
-| Paired review | named THOROUGH paired-review trigger | trigger, platform-defined diversity mode, and synthesis evidence | never required in STANDARD or without trigger |
+| Direction and acceptance core | always | the confirmed Direction Contract; who owns success and the observable signal; confidence and what would lower it | a contradiction, an unobservable success claim, or an unresolved direction-changing inference |
+| Minimal scope trace | always | the smallest approach chosen and what it rules out; the files and contract surfaces it touches, with residual uncertainty; AC-mapped tasks, with order stated only where order is a real constraint | an infeasible stated order, a wrong surface, unmapped work, or scope beyond the smallest AC-sufficient change |
+| Core evidence | always | the smallest verification that settles each AC, and whether TDD applies; the AC-to-evidence mapping | a material proof hole only; a stronger optional proof is a non-blocking suggestion |
+| Execution handoff | implementation plan | the next skill, its compact profile, and the recorded worktree policy; the risks and open decisions the next skill inherits | a handoff that is unsafe or inconsistent with the profile; LIGHT stays compact |
+| Simplicity justification | STANDARD or THOROUGH | which speculative complexity was rejected; why any new abstraction or dependency is required now | speculative complexity inside current scope only |
+| Test design decisions | behavior change or named regression/safety risk | the must-fail and must-pass cases; which negative or adversarial cases are relevant, and which are omitted | a missing relevant case, never an omitted inactive category |
+| Process and diff budget | STANDARD or THOROUGH | the expected handwritten scope; the broad-suite cap and the rescope threshold | a concrete budget violation, not an unfired larger process |
+| Planning-role evidence | selected roles/review, or LIGHT no-review | role/review order, ids, topology, and dispositions — or one compact LIGHT no-review reason | evidence for roles that actually ran |
+| Rollout and recovery | THOROUGH or operational/migration/public-contract risk | the smallest safe rollout; the rollback boundary | only when the named risk makes recovery material |
+| Stack decision | greenfield + open stack + recommendation requested | 2-3 options with tradeoffs, the recommended default, and the assumption that would change it | never required without the trigger |
+| Validation check | measurable evidence influenced request | the evidence source, the AC it supports, and what it proves versus leaves open | never required without the trigger |
+| Parallel dispatch | agent policy not `inline-only` | which roles are eligible, their scopes, and their dependencies; who owns integration | inline-only needs only its profile value |
+| Risk semantics | migration, data/security/destructive, concurrency/lifecycle, or public/release trigger | the semantics and evidence for the fired trigger | depth and gates limited to the named trigger and its owner |
+| Paired review | named THOROUGH paired-review trigger | the fired trigger, the platform-defined diversity mode, and the synthesis evidence | never required in STANDARD or without the trigger |
 
 Audited deduplicated baseline caps: LIGHT=11; STANDARD=24; THOROUGH=26.
 Inactive rows are omitted — do not emit `not applicable` ceremony.
@@ -209,8 +210,10 @@ Planner owns `Planner draft v1` and the plan body. Send it the requirements
 source, Analyst status, repository evidence, and the exact Active plan
 contract. Planner returns role metadata plus the plan body with active fields
 only. The plan body is the single canonical schema; ledger and brief
-reference it. Plan-Reviewer reviews that exact draft, not a recap [R3]. No
-reviewer starts before the complete draft exists.
+reference it. Plan length is calibrated to decision content, not to mode —
+THOROUGH governs review depth and evidence, never plan verbosity; record each
+decision once at its canonical section. Plan-Reviewer reviews that exact
+draft, not a recap [R3]. No reviewer starts before the complete draft exists.
 
 ## Plan Review Contract
 
@@ -227,19 +230,21 @@ Topology by mode:
 
 ```text
 LIGHT    -> review may be omitted with one concrete risk-based reason.
-STANDARD -> one perspective-diverse Plan-Reviewer pair: two instances of the
-            same role, each running the full two-pass review with one distinct
-            assigned perspective (Lens A strongest-antithesis/feasibility-risk;
-            Lens B acceptance-coverage/quality-gate completeness), packets
-            identical except the single `Assigned perspective:` line,
-            dispatched in one parallel batch and synthesized into one verdict
-            by the caller. The active platform supplies the diversity leg;
-            unavailable diversity in default mode falls back to two independent
-            same-model instances with the reason recorded; explicit diversity
-            demand is strict mode and transitions to PAUSED.
-THOROUGH -> the same perspective-diverse pair; a named security/data/
-            destructive, public/release-contract, concurrency, migration, or
-            comparable multi-system trigger additionally selects the platform's
+STANDARD -> one required Plan-Reviewer instance running the complete two-pass
+            role in its own context, recorded as `single-reviewer`.
+THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally: two
+            instances of the same role, each running the full two-pass review
+            with one distinct assigned perspective (Lens A
+            strongest-antithesis/feasibility-risk; Lens B
+            acceptance-coverage/quality-gate completeness), packets identical
+            except the single `Assigned perspective:` line, dispatched in one
+            parallel batch and synthesized into one verdict by the caller. The
+            active platform supplies the diversity leg; unavailable diversity
+            in default mode falls back to two independent same-model instances
+            with the reason recorded; explicit diversity demand is strict mode
+            and transitions to PAUSED. A named security/data/destructive,
+            public/release-contract, concurrency, migration, or comparable
+            multi-system trigger additionally selects only the platform's
             escalated diversity (cross-host pair on Codex).
 ```
 
@@ -255,7 +260,7 @@ Blocker predicate [R8]:
   correction; a gate blocker also names its owner, trigger, and failed
   obligation.
 - Review v1 returns one consolidated blocker set and MUST NOT knowingly
-  reserve any blocker; there is no second review round.
+  reserve any blocker.
 
 Return shape:
 
@@ -267,10 +272,10 @@ Direction preservation: preserved | requested-direction-change: yes
 Required changes for Planner: <list | none>
 ```
 
-Verdict consequences restate R4: APPROVE freezes the exact reviewed
-Planner draft; Non-blocking findings are optional follow-ups; Any plan-body
-change that must be incorporated before approval is blocking and yields
-ITERATE.
+APPROVE freezes the exact reviewed Planner draft.
+Non-blocking findings are optional follow-ups.
+Any plan-body change that must be incorporated before approval is blocking
+and yields ITERATE.
 
 ## Planner Revision Contract
 
@@ -287,18 +292,21 @@ consequence, smallest correction, and Planner reason. Branch matrix:
 - Non-waivable gate: keep the plan pending and prohibit execution until its owner-defined obligation passes or direction changes.
 - Direction change: update the requirements source, start a new planning run.
 
-For each accepted blocker, the final v2 plan body records the finding id,
-basis, applied change, and body section pointer. Accepted changes must appear
-in the plan body; ledger-only comments are not a valid revision. After v2-final,
-proceed directly to APPROVAL; the Plan Approval Brief carries the per-blocker
-finding→fix mapping and the user judges.
+Every accepted blocker's correction must appear in the final v2 plan body; a
+ledger entry without the corresponding body change is not a valid revision.
+The finding id / basis / applied change / body section pointer record belongs
+to the snapshot ledger and the Plan Approval Brief, not to the plan body.
+After v2-final, proceed directly to APPROVAL; the Plan Approval Brief carries
+the per-blocker finding→fix mapping and the user judges.
 
 ## Findings Ledger Gate
 
-Record in the snapshot: selected roles and ids in order, topology and named
-trigger, each finding with reviewer-owned `blocking | non-blocking` severity
-and its blocking basis, disposition, accepted section pointer, permitted
-waiver, and `Revision: none | v2-final (finding→fix mapping in brief)`. An
+This ledger, with the Plan Approval Brief, is where the per-blocker finding→fix
+mapping lives. Record in the snapshot: selected roles and ids in order,
+topology and named trigger, each finding with reviewer-owned
+`blocking | non-blocking` severity and its blocking basis, disposition, applied
+change, accepted section pointer, permitted waiver, and
+`Revision: none | v2-final (finding→fix mapping in brief)`. An
 inline fallback requires a reason. Missing review topology, or topology that
 does not satisfy the selected mode and fired trigger, is a blocker rather than
 a pass and cannot advance to APPROVAL. Do not advance while a user-pending
@@ -453,8 +461,9 @@ subagents, host policy does not authorize dispatch, or the role lacks a concrete
 input artifact, isolated responsibility, or expected output — keep a visibly
 separate inline role block and record the reason. A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent
-or the active platform's default pair fallback when the named role is
-unavailable; if none exists, record the blocker and transition PAUSED instead
+when the named role is unavailable — one such instance for the single-reviewer
+topology, or the active platform's default pair fallback for the pair-bearing
+topology; if none exists, record the blocker and transition PAUSED instead
 of reviewing inline. Record the trigger as `Planning dispatch:
 natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 
@@ -463,7 +472,7 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 | `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
 | `analyst` | requirements gaps, unless satisfied by an approved interview spec; when gaps span independent areas, one per independent requirement or risk area (up to 5), batched |
 | `planner` | creates `Planner draft v1` and the single final `Planner revision v2`; owns body and dispositions |
-| `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` as a perspective-diverse pair |
+| `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` at the mode-selected topology |
 
 Only Ralplan dispatches `plan-reviewer`; execution skills own their own
 review roles.

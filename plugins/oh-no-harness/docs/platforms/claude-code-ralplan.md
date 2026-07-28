@@ -39,16 +39,17 @@ inline pass.
 ## Lifecycle
 
 Dispatch Analyst, Planner, and Plan-Reviewer only at their core phase and in
-strict sequence. For a fired paired-review gate only, request both reviewer
-legs before waiting. A dispatched result is a dependency: wait for final
+strict sequence. For a fired paired-review gate at the pair-bearing topology
+only, request both reviewer legs before waiting; the single-reviewer topology
+requests exactly one leg. A dispatched result is a dependency: wait for final
 status, capture and use the result, then clean up when the host exposes
 cleanup. A notification, timeout, empty result, or queued/background
 acknowledgement is not completion. Do not duplicate pending work inline.
 
 ## Model Diversity Pair
 
-For any dispatched `plan-reviewer` pair (every dispatched review), dispatch two
-same-role instances in parallel and synthesize one verdict. Both legs MUST be
+For the THOROUGH `plan-reviewer` pair (every dispatched THOROUGH review),
+dispatch two same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same
 assistant turn (or with `Background: yes` for both) BEFORE waiting on either
 result; a serial dispatch-wait-dispatch sequence is not a valid pair. The two legs'
@@ -80,6 +81,5 @@ skill yourself with the exact frozen plan and execution profile. Under
 Ultrawork, return the approved artifact and control to the caller instead of
 opening a second prompt.
 
-Before every phase transition, verify: correct role identity; exact contract
-and draft; final dependency result captured; paired topology valid; no
-premature next-skill invocation.
+Before every phase transition, verify: final dependency result captured; and
+at the pair-bearing topology, paired topology valid.

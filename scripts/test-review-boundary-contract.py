@@ -723,6 +723,18 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
+        "plan-reviewer regains a write loophole",
+        "plan-reviewer read-only review envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "plan-reviewer.md",
+            "Unconditionally read-only",
+            "Read-only unless the caller assigns a write",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
         "Ralplan overwrites a frozen none parallel trigger",
         "Ralplan frozen parallel-trigger handoff contract",
         lambda root: replace_once(
@@ -858,8 +870,10 @@ def main() -> int:
         "derived active obligation count exceeds audited baseline",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "Direction Contract; success ownership/signals; confidence",
-            "Direction Contract; success ownership/signals; confidence; rollout telemetry",
+            "the confirmed Direction Contract; who owns success and the observable "
+            "signal; confidence and what would lower it",
+            "the confirmed Direction Contract; who owns success and the observable "
+            "signal; confidence and what would lower it; rollout telemetry",
         ),
     )
     expect_rejected(
@@ -1004,6 +1018,26 @@ def main() -> int:
             "one perspective-diverse code-reviewer pair",
             "one targeted reviewer instance",
         ),
+    )
+    # Compensating control for the STANDARD Plan-Reviewer pin that was scoped
+    # down to a single required reviewer: THOROUGH must keep the
+    # perspective-diverse pair unconditionally. The THOROUGH-pair marker lives in
+    # RALPLAN_CONSENSUS_MARKERS and in assert_proportional_workflow_contract's
+    # ralplan entry, so this case MUST name that assertion explicitly — the
+    # default assert_ralplan_review_boundary_contract never reads it and would
+    # report `mutation unexpectedly passed`.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "ralplan THOROUGH pair regresses to one reviewer",
+        "ralplan.md is missing proportional-workflow marker: "
+        "'THOROUGH -> one perspective-diverse Plan-Reviewer pair'",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            "THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally",
+            "THOROUGH -> one required Plan-Reviewer instance, optionally paired",
+        ),
+        assertion="assert_proportional_workflow_contract",
     )
     expect_rejected(
         validator,

@@ -346,7 +346,7 @@ scope.
 | Phase | Agents |
 |---|---|
 | REQUIREMENTS | follow `interview`; it dispatches `explore` for brownfield facts; no planning or review agents here |
-| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; every dispatched review uses the perspective-diverse pair, while a named THOROUGH risk selects only escalated platform diversity |
+| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; the Plan-Reviewer follows ralplan's mode-selected topology, while a named THOROUGH risk selects only escalated platform diversity |
 | EXECUTION | follow `ralph`; isolated `explore`, executor-default repository mutation, `verifier`, and review agents per the approved mode and plan; Ralph-unavailable phase fallback preserves executor ownership, with inline mutation only for recorded LIGHT-tiny or dispatch-unavailable cases |
 | QA | `systematic-debugging` owns `debugger`; `verifier` with the scenario lens |
 | FINAL_VALIDATION | `code-reviewer` dispatched only for additional orchestration risk (runs as the perspective-diverse pair); independent `verifier` under the carve-out |
