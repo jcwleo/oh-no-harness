@@ -4264,6 +4264,38 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "one-when-one-suffices planning-role floor",
     )
+    # 2026-07-30: the floor lives in the `explore` ROLE ROW of every core that
+    # dispatches it, not only in surrounding prose. Ralph's execution loop and
+    # systematic-debugging's prose already carried it, so the row was the one
+    # place a reader could consult and see no bound at all.
+    debugging_explore_path = skill_core / "systematic-debugging.md"
+    require(
+        debugging_explore_path,
+        markdown_section(read_text(debugging_explore_path), "## Agent Roles"),
+        (
+            "one instance when one covers the question",
+            "one per genuinely independent subsystem (up to 5), batched",
+        ),
+        "one-when-one-suffices explore-row floor",
+    )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Agent Roles"),
+        (
+            "one instance when one covers the question",
+            "genuinely independent read-only targets as one parallel batch (up to 5)",
+        ),
+        "one-when-one-suffices explore-row floor",
+    )
+    # Ralplan's optional-role inline fallback must admit the need-based reason,
+    # not only host-unavailability and structural ineligibility. Without it a
+    # small bounded planning lookup had no compliant inline path.
+    require(
+        ralplan_path,
+        read_text(ralplan_path),
+        ("the work is too\nsmall to benefit from context separation",),
+        "planning-role need-based inline reason",
+    )
 
     # V-2 / V-3: topology is risk-selected, never mode-selected, and a named
     # trigger decides whether the pair exists (not merely its diversity).

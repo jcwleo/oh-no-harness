@@ -690,6 +690,50 @@ def main() -> int:
         ),
         assertion="assert_orchestration_ownership_contract",
     )
+    # 2026-07-30: the floor must stay in the `explore` ROLE ROW too. A reader
+    # consulting only the role table previously saw `up to 5` with no lower
+    # bound, so a single bounded question could fan out to five subagents.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "systematic-debugging explore row drops the one-when-one-suffices floor",
+        "one-when-one-suffices explore-row floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "systematic-debugging.md",
+            "one instance when one covers the question, fanning out to one per "
+            "genuinely independent subsystem (up to 5), batched",
+            "one per candidate subsystem (up to 5), batched",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph explore row drops the one-when-one-suffices floor",
+        "one-when-one-suffices explore-row floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "one instance when one covers the question, fanning out to genuinely "
+            "independent read-only targets as one parallel batch (up to 5)",
+            "independent read-only targets as one parallel batch (up to 5)",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # Ralplan optional roles must keep the need-based inline reason; without it
+    # only host-unavailability and structural ineligibility justify inline, so a
+    # small bounded planning lookup is forced into a subagent.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralplan optional roles drop the need-based inline reason",
+        "planning-role need-based inline reason",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            ", or the work is too\nsmall to benefit from context separation",
+            "",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
 
     expect_rejected(
         validator,

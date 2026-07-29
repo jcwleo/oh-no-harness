@@ -492,9 +492,10 @@ the main context, and Plan-Reviewer independence requires a separate context
 boundaries [R9].
 
 Optional roles retain recorded inline fallback when the host cannot dispatch
-subagents, host policy does not authorize dispatch, or the role lacks a concrete
-input artifact, isolated responsibility, or expected output — keep a visibly
-separate inline role block and record the reason. A required Plan-Reviewer is
+subagents, host policy does not authorize dispatch, the role lacks a concrete
+input artifact, isolated responsibility, or expected output, or the work is too
+small to benefit from context separation — keep a visibly separate inline role
+block and record the reason. A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent
 when the named role is unavailable — one such instance for the single-reviewer
 topology, or the active platform's default pair fallback for the pair-bearing

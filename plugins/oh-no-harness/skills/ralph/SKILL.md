@@ -1130,7 +1130,7 @@ invoking Ralph.
 
 | Agent | Use |
 |---|---|
-| `explore` | find relevant files, tests, commands, and integration surfaces; independent read-only targets as one parallel batch (up to 5) |
+| `explore` | find relevant files, tests, commands, and integration surfaces; one instance when one covers the question, fanning out to genuinely independent read-only targets as one parallel batch (up to 5) |
 | `executor` | implement scoped story work with an explicit ownership boundary |
 | `verifier` | independently map evidence to ACs and audit test genuineness; one self-host pass after review, never the maker; dispatched ONLY when `## Review Gate`'s trigger predicate fires |
 | `code-reviewer` | review correctness, maintainability, regressions, scope trace, and overcomplication; applies the security lens when triggered; ONE full-role instance unless a named trigger selects the pair |

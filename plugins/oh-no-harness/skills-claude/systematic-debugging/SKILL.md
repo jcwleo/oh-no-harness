@@ -176,7 +176,7 @@ here.
 | Agent | Dispatch (when) |
 |---|---|
 | `debugger` | exactly one instance per independently testable active hypothesis in one complete batch; one sequential instance when fan-out is ineligible; a paired investigation only for one named THOROUGH uncertainty when fan-out is not active |
-| `explore` | gather codebase facts, related call sites, working examples, and commands |
+| `explore` | gather codebase facts, related call sites, working examples, and commands; one instance when one covers the question, fanning out to one per genuinely independent subsystem (up to 5), batched |
 | `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
 | `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; dispatched only when a named trigger in `### Independent Verifier Trigger Predicate` fires, and then a single self-host independent pass, never part of a reviewer or debugger pair |
 | `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; ONE full-role instance by default, escalating to a perspective-diverse pair only on the named high-risk trigger (pair synthesis: merged findings) |
