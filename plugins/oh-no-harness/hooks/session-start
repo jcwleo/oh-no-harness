@@ -163,9 +163,9 @@ You have Oh No Harness installed. Use native skill loading to read the relevant 
 
 A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger. Route from the requested deliverable: an analysis report versus a plan or execution artifact.
 
-No-route lane: a request that does not create or change repository work products (code, tests, docs, configs) and does not claim their completion — research, conceptual or codebase questions, status reports, version-control or environment housekeeping over already-written changes — is answered directly without invoking a workflow skill.
+No-route lane: a request that does not create or change repository work products (code, tests, docs, configs) and does not claim their completion — research, conceptual or codebase questions, status reports, version-control or environment housekeeping over already-written changes — is answered directly, with no workflow skill.
 
-Direct-edit lane: a trivial mutation may use a direct edit plus diff check only when ALL hold: one obvious file; the change is private, inert, non-consumed, non-operational prose/comment/formatting; the file is non-generated, and editing a generation source includes regeneration and validation in the same action; and the change is non-public-contract with no security or permission surface. Excluded surfaces are executable source, test, build, CI, hook, generated output, security, permission, public-contract, dependency or lockfile metadata, ignore or attribute files, schema or migration, and operational-command docs. If any condition is false or becomes false, route to ralph.
+Direct-edit lane: a trivial mutation may use a direct edit plus diff check only when ALL hold: one obvious file; private, inert, non-consumed, non-operational prose/comment/formatting; non-generated, and editing a generation source adds regeneration and validation in the same action; non-public-contract with no security or permission surface. Excluded surfaces: executable source, test, build, CI, hook, generated output, security, permission, public-contract, dependency or lockfile metadata, ignore or attribute files, schema or migration, operational-command docs. If any condition is false or becomes false, route to ralph.
 
 Orchestration default: main agents own .oh-no state/gates; STANDARD/THOROUGH repository mutations use executors, except recorded LIGHT-tiny or dispatch-unavailable inline fallback.
 
@@ -178,17 +178,15 @@ auto_routing_policy=""
 if [ "$is_claude_code" = true ] && "${OH_NO_PLUGIN_ROOT}/scripts/oh-no-config" is-enabled >/dev/null 2>&1; then
   auto_routing_policy='
 <OH_NO_FORCED_ROUTING>
-Forced routing is enabled for Oh No Harness. Select and invoke an applicable local skill with the Skill tool BEFORE responding, exploring, reading, editing, asking a clarifying question, or claiming completion. Use installed skill descriptions to choose the destination.
+Forced routing is enabled. Select and invoke an applicable local skill with the Skill tool BEFORE responding, exploring, reading, editing, asking a clarifying question, or claiming completion; use installed skill descriptions to choose the destination.
 
-Instruction priority (highest first): (1) explicit instructions in CLAUDE.md, AGENTS.md, or the current user message; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
+Instruction priority (highest first): (1) explicit CLAUDE.md, AGENTS.md, or current-message instructions; (2) Oh No Harness skills; (3) default behavior. If a user instruction conflicts with this block, follow the user.
 
 The always-injected OH_NO_BOOTSTRAP no-route, direct-edit, and object boundaries are closed routing outcomes; do not re-derive them here.
 
 Essential precedence: explicit end-to-end delegation beats inferred stage selection; active failure or root-cause investigation beats implementation; explicit test-first intent beats ordinary implementation; otherwise the most upstream incomplete prerequisite wins.
 
-After invoking a skill, announce in one line before continuing: Using oh-no-harness:<skill> to <one-line purpose>.
-
-If the selected skill proves inapplicable, say so briefly in one line and continue with the next best path. User instructions and repository constraints still take priority.
+After invoking, announce in one line: Using oh-no-harness:<skill> to <one-line purpose>. If it proves inapplicable, say so in one line and take the next best path; user instructions and repository constraints still take priority.
 </OH_NO_FORCED_ROUTING>'
 fi
 
@@ -227,13 +225,13 @@ Standing preference every turn, not only inside a workflow skill: the main agent
 
 Review independence is exempt from the need test: a fired trigger for code-reviewer, plan-reviewer, verifier, or a fusion-rescue-analyst panel always runs in a separate context, never inline and never folded into the turn that produced the work. Convenience, a small diff, or time pressure never collapses it; only confirmed dispatch-unavailability does, recorded as a blocker.
 
-Delegation map (role names are selector values, see OH_NO_SUBAGENT_ROLE_LABEL): explore for read-only lookup and tracing, analyst for requirements/risk, executor for default work-product mutation, debugger for root cause, code-reviewer for changed-code review, verifier for evidence audits. Planner, plan-reviewer, fusion roles stay workflow-internal; workflow skills keep stricter rules. Never select general-purpose, claude, Explore, or Plan while the matching role exists; default unmatched read-only work to explore and mutation to executor. Generic types need confirmed role unavailability under the active skill.
+Delegation map (role names are selector values, see OH_NO_SUBAGENT_ROLE_LABEL): explore for read-only lookup and tracing, analyst for requirements/risk, executor for default work-product mutation, debugger for root cause, code-reviewer for changed-code review, verifier for evidence audits. Planner, plan-reviewer, and fusion roles stay workflow-internal; workflow skills keep stricter rules. Never select general-purpose, claude, Explore, or Plan while the matching role exists; default unmatched read-only work to explore, mutation to executor. Generic types need confirmed role unavailability under the active skill.
 
 Host-plan boundary: never auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode or a host planning pass; host plan mode needs explicit user request. Usable approved/concrete execution contract goes straight to Ralph; vague or plan-only work routes upstream to Oh No Harness planning; no-route housekeeping stays direct.
 
 Model fidelity: every role dispatch runs on its configured model and carries no per-call model value; the sole exception is a prescribed model-diversity leg or panel, which MUST carry the explicit NATIVE override.
 
-Concurrency: up to 5 Oh No Harness subagents run in parallel. Batch independent dispatches in one request; wait for and use every started result, and never redo delegated work inline.
+Concurrency: up to 5 subagents run in parallel. Batch independent dispatches in one request; wait for and use every started result, and never redo delegated work inline.
 </OH_NO_MAIN_AGENT_ORCHESTRATION>'
 
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>
