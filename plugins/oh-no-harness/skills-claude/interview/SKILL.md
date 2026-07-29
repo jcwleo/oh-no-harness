@@ -517,7 +517,7 @@ small to benefit from context separation — record the fallback reason.
 
 | Agent | Use |
 |---|---|
-| `explore` | gather brownfield repository facts before codebase questions; one per independent subsystem (up to 5), batched |
+| `explore` | gather brownfield repository facts before codebase questions; one instance when one covers the question, fanning out to one per genuinely independent subsystem (up to 5), batched |
 
 Do not use execution, review, or planning agents inside this skill [I1].
 

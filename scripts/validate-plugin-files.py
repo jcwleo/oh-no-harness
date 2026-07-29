@@ -2596,6 +2596,19 @@ def assert_hook_contract(root: Path) -> None:
 
     session_start_path = root / "hooks" / "session-start"
     session_start_text = read_text(session_start_path)
+    # Negative guard first: the retired absolute rule delegated every read-only
+    # lookup, however small. It must not come back under the proportional
+    # contract, and it would otherwise surface only as a missing-marker error.
+    for forbidden in (
+        "never performs exploration, investigation, analysis, or repository "
+        "work-product mutation inline when a role subagent can do it",
+        "never performs exploration, investigation, or analysis inline",
+    ):
+        if forbidden in session_start_text:
+            die(
+                f"{session_start_path} restores the retired absolute never-inline "
+                f"read-only rule: {forbidden!r}"
+            )
     for marker in (
         "OH_NO_RG_SEARCH_TOOLING",
         "command -v rg",
@@ -2661,6 +2674,15 @@ def assert_hook_contract(root: Path) -> None:
         "carries no per-call model value",
         "the sole exception is a prescribed model-diversity leg or panel",
         "MUST carry the explicit NATIVE override",
+        # 2026-07-29: read-only delegation is proportional while repository
+        # work-product mutation dispatch stays absolute. Pinned verbatim because
+        # both halves regress by reusing the same tokens: an absolute never-inline
+        # read-only rule over-delegates trivial lookups, and dropping the
+        # mutation clause would silently license inline maker work.
+        "it never performs repository work-product mutation inline",
+        "dispatches a role subagent when sizeable, genuinely independent, or parallelizable",
+        "a bounded lookup finishable in a handful of tool calls may run inline",
+        "Use one subagent where one suffices, not several; keep spawn counts low",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
@@ -3764,6 +3786,17 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "executor-default execution-loop contract",
     )
+    # 2026-07-29: the cap-5 ceiling needs a matching floor, or a small bounded
+    # lookup gets fanned out across several redundant subagents.
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Execution Loop"),
+        (
+            "one `explore` when one covers the question",
+            "never split a small\n   bounded lookup into multiple dispatches",
+        ),
+        "one-when-one-suffices explore floor",
+    )
     mode_dispatch = markdown_section(ralph, "## Mode-Gated Agent Dispatch")
     require(
         ralph_path,
@@ -3793,6 +3826,19 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         "LIGHT recorded-mode dispatched-executor completion contract",
     )
     packet = markdown_section(ralph, "## Parallel Subagent Policy")
+    require(
+        ralph_path,
+        packet,
+        (
+            "Dispatch a single agent when one covers the work",
+            "scale out only\nacross genuinely independent targets",
+            "a small bounded lookup is never split\ninto multiple dispatches",
+            # The cap-5 ceiling and batch-before-wait rules stay intact alongside
+            # the new floor.
+            "Cap a concurrent `executor` batch at up to 5 disjoint",
+        ),
+        "one-when-one-suffices batch floor",
+    )
     require(
         ralph_path,
         packet,
@@ -4160,6 +4206,34 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
                 f"{codex_ultrawork_path} violates codex ultrawork single-reviewer "
                 f"default contract (retired pair-by-default wording): {forbidden!r}"
             )
+
+    # 2026-07-29: the planning read-only roles carry the same one-when-one-suffices
+    # floor as Ralph, so a single question does not fan out to five subagents. The
+    # separate-context Plan-Reviewer rationale is unaffected.
+    ralplan_path = skill_core / "ralplan.md"
+    require(
+        ralplan_path,
+        markdown_section(read_text(ralplan_path), "## Agent Roles"),
+        (
+            "one instance when one covers the question",
+            "one instance when one covers the gaps",
+            "one per genuinely independent subsystem (up to 5), batched",
+            "one per genuinely independent requirement or risk area (up to 5), batched",
+        ),
+        "one-when-one-suffices planning-role floor",
+    )
+    # Interview's brownfield `explore` row carries the same floor; its inline
+    # too-small-to-separate carve-out is unaffected.
+    interview_path = skill_core / "interview.md"
+    require(
+        interview_path,
+        markdown_section(read_text(interview_path), "## Agent Roles"),
+        (
+            "one instance when one covers the question",
+            "one per genuinely independent subsystem (up to 5), batched",
+        ),
+        "one-when-one-suffices planning-role floor",
+    )
 
     # V-2 / V-3: topology is risk-selected, never mode-selected, and a named
     # trigger decides whether the pair exists (not merely its diversity).

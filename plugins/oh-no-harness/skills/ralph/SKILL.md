@@ -408,7 +408,9 @@ Phase: EXECUTE. Per story:
 
 1. Select the next incomplete story; apply its task-level mode.
 2. Dispatch `explore` when files, tests, or integration surfaces are not
-   obvious — independent targets as one parallel batch (up to 5). Apply the
+   obvious — one `explore` when one covers the question, scaling to genuinely
+   independent targets as one parallel batch (up to 5); never split a small
+   bounded lookup into multiple dispatches. Apply the
    `## Mutation Manifest and Expansion Gate` before assigning edits.
 3. Issue one bounded executor assignment: one bounded task and the minimal
    inseparable AC-ID set. Do not split one behavior's RED/GREEN cycle or a
@@ -509,9 +511,11 @@ Dispatch conditions [E6]:
 
 Batch rule: create the whole eligible batch of independent same-depth work
 before waiting on any result; never merge dependent review stages into one
-batch. Cap a concurrent `executor` batch at up to 5 disjoint scopes; queue the
-remainder for the next batch. Continue local work only where it does not
-overlap delegated scopes.
+batch. Dispatch a single agent when one covers the work, and scale out only
+across genuinely independent targets; a small bounded lookup is never split
+into multiple dispatches. Cap a concurrent `executor` batch at up to 5 disjoint
+scopes; queue the remainder for the next batch. Continue local work only where
+it does not overlap delegated scopes.
 
 The main caller owns each complete child packet. Apply the common caller floor
 from SessionStart when enabled or the native platform wrapper fallback, use

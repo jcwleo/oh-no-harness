@@ -551,6 +551,108 @@ def main() -> int:
         assertion="assert_hook_contract",
     )
 
+    # 2026-07-29 proportional read-only delegation: mutation dispatch stays
+    # absolute, but restoring the retired absolute never-inline read-only rule
+    # over-delegates trivial lookups, and dropping the one-suffices floor lets a
+    # single bounded question fan out across redundant subagents.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "SessionStart restores the absolute never-inline read-only rule",
+        "restores the retired absolute never-inline read-only rule",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "it never performs repository work-product mutation inline. Read-only "
+            "exploration/analysis dispatches a role subagent when sizeable, "
+            "genuinely independent, or parallelizable; a bounded lookup finishable "
+            "in a handful of tool calls may run inline. Use one subagent where one "
+            "suffices, not several; keep spawn counts low.",
+            "it never performs exploration, investigation, analysis, or repository "
+            "work-product mutation inline when a role subagent can do it.",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "SessionStart drops the one-suffices spawn-count floor",
+        "missing required session-start marker: "
+        "'Use one subagent where one suffices, not several; keep spawn counts low'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            " Use one subagent where one suffices, not several; keep spawn counts low.",
+            "",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "SessionStart drops absolute inline-mutation prohibition",
+        "missing required session-start marker: "
+        "'it never performs repository work-product mutation inline'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "it never performs repository work-product mutation inline.",
+            "it may perform repository work-product mutation inline.",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph explore step drops the one-when-one-suffices floor",
+        "one-when-one-suffices explore floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "one `explore` when one covers the question, scaling to genuinely\n"
+            "   independent targets as one parallel batch (up to 5); never split a small\n"
+            "   bounded lookup into multiple dispatches",
+            "one `explore` per candidate target as one parallel batch (up to 5)",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph batch rule drops the single-agent floor",
+        "one-when-one-suffices batch floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Dispatch a single agent when one covers the work, and scale out only\n"
+            "across genuinely independent targets; a small bounded lookup is never split\n"
+            "into multiple dispatches.",
+            "Fan out across every candidate target.",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralplan planning roles drop the one-when-one-suffices floor",
+        "one-when-one-suffices planning-role floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            "one instance when one covers the question, fanning out to one per "
+            "genuinely independent subsystem (up to 5), batched",
+            "one per candidate subsystem (up to 5), batched",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Interview brownfield explore drops the one-when-one-suffices floor",
+        "one-when-one-suffices planning-role floor",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "interview.md",
+            "one instance when one covers the question, fanning out to one per "
+            "genuinely independent subsystem (up to 5), batched",
+            "one per candidate subsystem (up to 5), batched",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+
     expect_rejected(
         validator,
         plugin_root,

@@ -497,8 +497,8 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 
 | Agent | Dispatch (when) |
 |---|---|
-| `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
-| `analyst` | requirements gaps, unless satisfied by an approved interview spec; when gaps span independent areas, one per independent requirement or risk area (up to 5), batched |
+| `explore` | repository facts needed; one instance when one covers the question, fanning out to one per genuinely independent subsystem (up to 5), batched |
+| `analyst` | requirements gaps, unless satisfied by an approved interview spec; one instance when one covers the gaps, fanning out to one per genuinely independent requirement or risk area (up to 5), batched |
 | `planner` | creates `Planner draft v1` and the single final `Planner revision v2`; owns body and dispositions |
 | `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` at the risk-selected topology: one full-role reviewer by default, a perspective-diverse pair only when the named paired-review trigger fired |
 
