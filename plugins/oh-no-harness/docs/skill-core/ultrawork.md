@@ -22,8 +22,9 @@ U1. Ultrawork orchestrates the retained chain and never replaces it: the
     When Ralph is unavailable, Ultrawork may inline the phase procedure but
     remains an orchestrator: repository mutation still dispatches `executor` by
     default under Ralph's need test; inline writes require a recorded LIGHT-tiny
-    or dispatch-unavailable fallback, and a fired review or audit trigger is
-    exempt from the need test and never runs inline.
+    or dispatch-unavailable fallback and carry the unchanged executor contract
+    per Ralph's `## Mode-Gated Agent Dispatch`, and a fired review or audit
+    trigger is exempt from the need test and never runs inline.
 U2. Approved existing specs or plans may skip earlier phases only when the
     skip reason and source artifact are recorded; a merely relevant plan
     without approval evidence or with mismatched scope goes through the
@@ -223,7 +224,8 @@ that fallback, Ultrawork still owns `.oh-no` state and gate decisions, sets the
 required execution mode first, and applies Ralph's mode-gated loop. Dispatch
 `executor` for repository work-product mutation under Ralph's need test and keep
 one executor identity across the TDD cycle; inline mutation is only a recorded
-LIGHT-tiny or dispatch-unavailable fallback. Read and follow
+LIGHT-tiny or dispatch-unavailable fallback and owes the unchanged executor
+contract per Ralph's `## Mode-Gated Agent Dispatch`. Read and follow
 `test-driven-development` before behavior-changing production edits and record
 RED/GREEN/REFACTOR evidence or the approved exception.
 

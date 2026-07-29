@@ -71,6 +71,10 @@ mutation, never story or AC acceptance.
   tests are admitted, no approved expansion remains, and only optional
   follow-ups remain. This assignment-local stop is not Ralph's final run
   Completion Stop; any later cleanup or focused fix is a new bounded assignment.
+- These rules define the maker contract, not a dispatch privilege: a caller that
+  runs a permitted inline mutation instead of dispatching this role owes the same
+  contract, with only packet-shaped fields folded inward. A smaller edit never
+  buys a weaker contract.
 - For a direct non-Ralph caller, mark only Ralph-specific policy fields `not
   applicable — direct <workflow>`. The caller must still provide the explicit
   work location, scope, do-not-touch boundary, and the request, behavior lock,

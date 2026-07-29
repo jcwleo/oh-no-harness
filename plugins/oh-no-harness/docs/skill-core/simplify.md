@@ -190,7 +190,9 @@ status: complete` is not cleanup acceptance.
 Inline application is allowed with `Mutation fallback: LIGHT-tiny` when the
 cleanup is too small to benefit from context separation, or
 `Mutation fallback: dispatch-unavailable` after a failed dispatch attempt.
-Record the reason; an unrecorded inline application is non-compliant. `.oh-no` state and finding dispositions
+Record the reason; an unrecorded inline application is non-compliant. Inline
+application owes the unchanged executor contract per Ralph's
+`## Mode-Gated Agent Dispatch`. `.oh-no` state and finding dispositions
 remain caller-owned.
 
 Skip any finding whose fix would change intended behavior, require changes well

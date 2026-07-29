@@ -486,6 +486,23 @@ host cannot dispatch. An unrecorded inline mutation is non-compliant in every
 mode. Escalate to a dispatched `executor` the moment an inline edit stops being
 tiny — a growing edit set, a surfacing exclusion, or any residual doubt.
 
+Inline mutation changes WHO edits, never WHAT the edit owes. The `executor`
+contract in `docs/agent-core/executor.md` applies UNCHANGED to an inline edit:
+compare every actual mutation against the Mutation Manifest, follow the recorded
+`Worktree decision`, admit each new or changed test only through the Test
+Necessity Gate, produce TDD evidence or a recorded exception, treat `.oh-no`
+paths as read-only inputs, and touch nothing outside the assigned scope. Only
+the packet-shaped fields fold inward: with no child to address, `Packet ID` and
+`Executor assignment ID` are `not supplied — inline`, and the caller-facing
+report becomes the caller's own recorded evidence — the change manifest, scope
+trace, and verification results are recorded in full either way. After the edit,
+confirm it with a diff scoped to the intended paths. Leaving the Mutation
+Manifest ENDS inline eligibility rather than raising an `Expansion request` to a
+nonexistent child: reclassify to a dispatched `executor` BEFORE any further
+edit, and carry the already-landed edits into that assignment. An inline edit
+that skips this contract is non-compliant even with its fallback reason
+recorded, because a smaller edit never buys a weaker contract.
+
 Review independence is the one exemption from the need test. When the Review
 Gate predicate or another named trigger fires for `code-reviewer`,
 `plan-reviewer`, or the independent `verifier`, that role ALWAYS runs in a

@@ -100,7 +100,8 @@ The caller remains the orchestrator: it observes and records RED/GREEN results,
 updates `.oh-no` evidence, validates the executor envelope, and decides every
 gate. `Mutation status: complete` is not TDD or AC acceptance. Inline writes
 are only a recorded LIGHT-tiny or dispatch-unavailable fallback inherited from
-the caller's execution policy.
+the caller's execution policy, and they owe the unchanged executor contract per
+Ralph's `## Mode-Gated Agent Dispatch`.
 
 ## Required Cycle
 

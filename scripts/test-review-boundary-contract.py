@@ -719,6 +719,38 @@ def main() -> int:
         ),
         assertion="assert_orchestration_ownership_contract",
     )
+    # 2026-07-30: inline mutation must owe the same maker contract as a dispatched
+    # executor. Without the inheritance clause, "this edit is small" becomes a way
+    # to opt out of the manifest, scope, and test-necessity gates entirely.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "inline mutation stops owing the executor contract",
+        "inline-mutation executor-contract inheritance",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Inline mutation changes WHO edits, never WHAT the edit owes. The "
+            "`executor`\ncontract in `docs/agent-core/executor.md` applies UNCHANGED "
+            "to an inline edit:",
+            "Inline mutation is exempt from the executor contract:",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # The manifest-exit rule has no Expansion-request substitute inline, because
+    # there is no child to address. Letting an inline edit continue past the
+    # manifest would silently widen scope with no authorization step at all.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "inline mutation continues past the Mutation Manifest",
+        "inline-mutation executor-contract inheritance",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Leaving the Mutation\nManifest ENDS inline eligibility",
+            "Leaving the Mutation\nManifest keeps inline eligibility",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
     # Ralplan optional roles must keep the need-based inline reason; without it
     # only host-unavailability and structural ineligibility justify inline, so a
     # small bounded planning lookup is forced into a subagent.

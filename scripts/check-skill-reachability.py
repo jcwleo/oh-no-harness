@@ -179,6 +179,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Mode-Gated Agent Dispatch", BOTH),
         ("One need test governs every non-review role in every mode", BOTH),
         ("Mode never decides the need test by itself", BOTH),
+        ("Inline mutation changes WHO edits, never WHAT the edit owes", BOTH),
+        ("Leaving the Mutation", BOTH),
         ("Review independence is the one exemption from the need test", BOTH),
         ("every repository work-product mutation shows dispatched-executor evidence", BOTH),
         ("Parallel trigger", BOTH),

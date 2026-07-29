@@ -95,7 +95,8 @@ D9. Mid-loop skill: after verification, return the result to the caller
    reproduction RED, GREEN, and REFACTOR writes when TDD applies. Inline
    mutation is allowed only with `Mutation fallback: LIGHT-tiny` or after a
    failed dispatch attempt recorded as `Mutation fallback:
-   dispatch-unavailable` [D4, D7].
+   dispatch-unavailable` [D4, D7], and it owes the unchanged executor contract
+   per Ralph's `## Mode-Gated Agent Dispatch`.
 10. Dispatch warranted post-fix review roles per `## Agent Roles` only when
     permitted by any caller-owned review budget.
 11. Run the reproduction check, relevant regression checks, and

@@ -3839,6 +3839,27 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         mode_dispatch,
         (
+            # 2026-07-30: permitting inline mutation opened a maker path with no
+            # stated obligations, which would have made "this edit is small" a
+            # way to opt out of the manifest, scope, and test-necessity gates.
+            # Pinned verbatim: the contract clause, the packet-fold carve-out,
+            # the diff confirmation, and the manifest-exit promotion each regress
+            # independently, and the last one has no Expansion-request substitute
+            # because an inline edit has no child to address.
+            "Inline mutation changes WHO edits, never WHAT the edit owes",
+            "applies UNCHANGED to an inline edit",
+            "Only\nthe packet-shaped fields fold inward",
+            "confirm it with a diff scoped to the intended paths",
+            "Leaving the Mutation\nManifest ENDS inline eligibility",
+            "reclassify to a dispatched `executor` BEFORE any further\nedit",
+            "a smaller edit never buys a weaker contract",
+        ),
+        "inline-mutation executor-contract inheritance",
+    )
+    require(
+        ralph_path,
+        mode_dispatch,
+        (
             # Review independence is the ONE exemption from the need test. It is
             # pinned separately so relaxing maker dispatch can never leak into
             # collapsing a fired review or audit trigger inline.
