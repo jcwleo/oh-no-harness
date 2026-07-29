@@ -57,6 +57,10 @@ mechanical, or already-isolated work.
 
 ## Role Dispatch
 
+Codex exposes no per-call model parameter: `spawn_agent` takes no model
+argument, and each role's model is fixed at install time in its generated
+agent TOML. Model fidelity is therefore structural here, not an instruction.
+
 Codex role dispatch is host-policy controlled. Use `spawn_agent` only when the
 current host tool definition exposes it, the active skill permits dispatch, and
 the role has an isolated read-only scope, disjoint write ownership, or an

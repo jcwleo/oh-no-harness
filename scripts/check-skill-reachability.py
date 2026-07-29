@@ -140,6 +140,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
         ("Dispatch only after the active skill's trigger fires", CODEX),
+        ("not to the plan body", BOTH),
+        ("recorded as `single-reviewer`", BOTH),
+        ("paired topology valid", BOTH),
+        ("with no further review", BOTH),
     ],
     "ralph": [
         ("Ralph's main agent is the orchestrator", BOTH),
@@ -169,6 +173,8 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("run also requires that independent verifier audit", BOTH),
         ("the code-reviewer pair is waived", BOTH),
         ("E8's `exactly one review round` MUST apply when the selected code-review topology is `perspective-pair`", BOTH),
+        ("no fix-manifest step", BOTH),
+        ("Delta fields are role-scoped", BOTH),
         ("post-cleanup perspective-pair inspection", BOTH),
         ("CLEANUP/RECHECK to its REQUIRED independent verifier", BOTH),
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized

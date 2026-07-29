@@ -229,7 +229,7 @@ LIGHT    = risk-gated localized work (behavior or non-behavior) that clears
            the exclusion UNION and all six inclusion conditions; size is a
            soft screen that can only route OUT of LIGHT, never grant it;
            compact artifacts; dispatched `executor` -> dispatched independent
-           `verifier`, with the code-reviewer pair waived.
+           `verifier`; `## Review Gate` owns code-review topology.
 STANDARD = localized behavior/config/prompt work with bounded blast radius
            and known ownership; session + verification artifacts; a
            perspective-diverse code-reviewer pair reviews behavior-affecting
@@ -539,6 +539,15 @@ Coordination: {ownership/conflict boundary and no-overwrite rule}
 Assigned review perspective: {when applicable; otherwise not applicable with reason}
 ```
 
+Delta fields are role-scoped. `Executor assignment ID` and `TDD
+responsibility` bind the executor lane, and `Platform invocation`,
+`Lifecycle`, and `Coordination` are caller-side dispatch mechanics: send each
+as `not applicable` with a one-clause reason in a `code-reviewer` packet. A
+`verifier` packet keeps `TDD responsibility` populated for behavior-changing
+work, because the verifier audits RED/GREEN evidence. `Worktree decision and
+location` is always populated for both: it is the only field carrying the
+target tree, and review and verification run from inside it.
+
 Result intake remains caller-owned. Require exact identity and revision echoes,
 including the stable `Executor assignment ID` for executor results, before a role
 output can gate anything. Reject stale or misrouted results rather than
@@ -774,11 +783,8 @@ THOROUGH -> the same perspective-diverse pair; a named security, data,
 E8's `exactly one review round` MUST apply when the selected code-review
 topology is `perspective-pair`; a compliant LIGHT run and the STANDARD
 small-task carve-out record code-review `not-required` and run ZERO review
-rounds, while their independent verifier remains REQUIRED.
-
-For LIGHT, the code-review stage is waived, so proceed directly from the
-dispatched executor's revision to the required independent verifier, with no
-reviewer stage to complete first and no fix-manifest step.
+rounds and no fix-manifest step, while their independent verifier remains
+REQUIRED.
 
 Review-then-verify [E7]: run exactly one selected code-review stage first and
 validate its caller-synthesized `Overall verdict`, blocking finding IDs, and

@@ -493,6 +493,44 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
+        "model fidelity narrows from every role back to executor-only",
+        "missing required session-start marker: 'Model fidelity: every role dispatch'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "Model fidelity: every role dispatch",
+            "Model fidelity: every executor dispatch",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "model fidelity permits an arbitrary per-call model value",
+        "missing required session-start marker: 'carries no per-call model value'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "carries no per-call model value",
+            "may carry any per-call model value",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "model fidelity narrows the carve-out to review pairs only",
+        "missing required session-start marker: "
+        "'the sole exception is a prescribed model-diversity leg or panel'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "the sole exception is a prescribed model-diversity leg or panel",
+            "the sole exception is the diversity leg of a review pair",
+        ),
+        assertion="assert_hook_contract",
+    )
+
+    expect_rejected(
+        validator,
+        plugin_root,
         "Ultrawork reverts to order-free Ralph verifier reuse",
         "retains order-free Ralph verifier reuse wording",
         lambda root: replace_once(

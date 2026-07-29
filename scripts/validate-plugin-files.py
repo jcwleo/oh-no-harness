@@ -2643,6 +2643,14 @@ def assert_hook_contract(root: Path) -> None:
         "OH_NO_SUBAGENT_CONFIG_NOTICE",
         "subagent_reapply_rc=$?",
         "could not reapply your saved subagent model configuration",
+        # Model-fidelity rule (Claude-branch orchestration block only): every role
+        # dispatch runs on its configured model, with a lane-general carve-out for
+        # prescribed model-diversity legs and panels. Pinned verbatim because the
+        # regressions here are polarity/scope flips that reuse the same tokens.
+        "Model fidelity: every role dispatch",
+        "carries no per-call model value",
+        "the sole exception is a prescribed model-diversity leg or panel",
+        "MUST carry the explicit NATIVE override",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
