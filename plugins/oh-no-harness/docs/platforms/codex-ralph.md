@@ -140,7 +140,9 @@ ownership boundary; read-only reviewers must not edit files.
 
 ## Cross-Host Consult Channel
 
-A fired named THOROUGH review trigger on Codex starts one Codex `code-reviewer`
+This channel opens ONLY after a named THOROUGH review trigger actually fires;
+absent that trigger there is no second leg to consult. A fired trigger on Codex
+starts one Codex `code-reviewer`
 and one transport-owner reviewer making exactly one foreground Claude call.
 The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 A launch notice, background acknowledgement, or empty output is unavailable
@@ -150,19 +152,26 @@ record the required fallback reason.
 ## Re-Homed Core Pair Rules
 
 ```text
-STANDARD -> one perspective-diverse code-reviewer pair when review is required,
-            recorded as same-host-perspective-pair; this is intentional
-            same-host review, so no fallback reason is required.
-THOROUGH -> the same perspective-diverse pair. A named security, data,
+STANDARD -> ONE full-role code-reviewer on Codex when review is required,
+            recorded as single-reviewer; this is intentional single review, so
+            no fallback reason is required.
+THOROUGH -> ONE full-role code-reviewer by default, exactly as STANDARD. ONLY a
+            named security, data,
             destructive, public-contract, release-critical, new-concurrency,
-            migration, or broad multi-system risk selects cross-host review when
+            migration, or broad multi-system risk escalates to the
+            perspective-diverse pair, recorded as same-host-perspective-pair,
+            and that same fired trigger selects cross-host review when
             available, or same-host-parallel-fallback when the opposite host is
             unavailable; record the fallback reason.
 ```
 
-Both the STANDARD and THOROUGH pairs follow the same packet rule stated in the
-Cross-Host Consult Channel: the two legs differ only by their `Assigned
-perspective:` line.
+Pair-specific mechanics apply ONLY when that named pair trigger actually fired:
+with no fired trigger, spawn exactly one full-role reviewer and record
+`single-reviewer`. When the trigger did fire, the two legs follow the packet
+rule stated in the
+Cross-Host Consult Channel and differ only by their `Assigned
+perspective:` line. An explicitly selected pair keeps strict fallback
+semantics: `require-cross-host` pauses instead of degrading.
 
 ## Cleanup
 

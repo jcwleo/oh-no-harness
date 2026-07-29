@@ -25,7 +25,14 @@ when the core does not require an independent audit; otherwise report the
 
 ## Model Diversity Pair
 
-For any dispatched `code-reviewer` pair (every dispatched review), dispatch two
+This section applies ONLY when the core selected `perspective-pair` after a
+named trigger fired, or the caller explicitly demanded strict diversity. It
+never applies to every dispatched review. For the default `single-reviewer`,
+dispatch exactly ONE full-role `code-reviewer` using the declared stored
+primary, with NO diversity leg, NO model override, and no
+`Assigned perspective:` line.
+
+Once a pair is actually selected, dispatch two
 same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same assistant
 turn (or with `Background: yes` for both) BEFORE waiting on either result; a

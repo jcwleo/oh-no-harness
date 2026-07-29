@@ -63,18 +63,25 @@ E5. Every changed file and meaningful changed line traces to approved work;
 E6. Parallel dispatch only for disjoint write scopes with no inter-dependency
     and clear ownership; create the whole eligible batch before waiting; a
     timeout or empty wait is never a final result.
-E7. Review-then-verify: the selected code-review stage completes before the
-    single independent self-host verifier starts; on blocking findings, the
-    verifier starts only after the single fix manifest is recorded. The
-    verifier is never the maker and never a pair.
-E8. Review topology is mode-gated with a one-round budget: exactly one review
-    round. Accepted blocking findings get one executor-owned focused fix; the
-    independent verifier then audits the fixed revision as the safety net. A
-    blocker unresolved after that goes to rescope or user direction.
+E7. Review-then-verify: when a verifier trigger fires, the selected code-review
+    stage completes before the single independent self-host verifier starts; on
+    blocking findings, the verifier starts only after the single fix manifest is
+    recorded. The verifier is never the maker and never a pair. The canonical
+    `### Independent Verifier Trigger Predicate` alone selects it; mode, size,
+    same authorship, reviewer presence, and imminent completion are non-triggers.
+E8. Review topology is risk-gated with a one-round budget: exactly one review
+    round. STANDARD and ordinary THOROUGH dispatch ONE full-role code-reviewer;
+    only a named high-risk or diversity trigger selects the perspective-diverse
+    pair. Accepted blocking findings get one executor-owned focused fix; the
+    triggered independent verifier then audits the fixed revision as the safety
+    net. A blocker unresolved after that goes to rescope or user direction.
 E9. Mutation invalidates intersecting evidence except that the review verdict
     remains bound to its reviewed revision after the single post-review fix;
-    the verifier owns freshness by binding to the mutated revision. A success
-    status without the observable effect is missing evidence. Redact
+    the verifier owns freshness by binding to the mutated revision, and the
+    caller owns it when no verifier trigger fires. Fresh revision-bound
+    reviewer, verifier, and command evidence is REUSED as-is: imminent
+    completion alone never justifies a rerun, a new test, or a fresh dispatch. A
+    success status without the observable effect is missing evidence. Redact
     secrets/PII before writing evidence.
 E10. Budget gates stop for rescope; a budget breach never authorizes
      automatic expansion.
@@ -119,7 +126,8 @@ Execution run:
 - Mode: <LIGHT|STANDARD|THOROUGH>; <source>; <tier>; <policies>; <Parallel trigger>
 - Worktree decision and location: <decision>; <location>
 - Stories: <id: status/passes — detail stays in prd.json>
-- Review: <topology>; <verdict>; verifier-after-reviewer <yes|no|not-required>
+- Review: <topology>; <pair trigger or not-applicable>; <verdict>; verifier <trigger or not-required>; verifier-after-reviewer <yes|no|not-required>
+- Expansion: none | requested | approved@<revision id> | rejected; approval owner <none|caller-ralph|user|ralplan>; manifest revision <id|none>; packet reissued <yes|no|not-applicable>
 - Budgets: <process-budget status>; diff-budget <pending | passed@<fingerprint> | stale>
 - Freshness: <evidence invalidated by the last mutation>
 - Active dispatches: <Packet ID; host handle; role; scope; pending|final|abandoned>
@@ -141,11 +149,11 @@ the Packet ID remains the compact reference to the full issued packet.
 | EXECUTE | all stories pass with fresh evidence; CLEANUP and RECHECK are recorded; Diff-Budget Gate is `passed@<current stabilized fingerprint>` for the post-cleanup stabilized revision [E9, E10, E12] | REVIEW |
 | EXECUTE | plan or AC infeasible as written [E1] | outcome RETURN_TO_PLAN |
 | EXECUTE | debugging ladder exhausted [E15] | outcome PAUSED |
-| REVIEW | reviewer verdict approve (or compliant not-required) and verifier pass / accepted pass-with-residual-risk bound to the reviewed revision; compliant verifier not-required follows the same reviewed-revision path [E7, E8, E17] | FINALIZE |
+| REVIEW | reviewer verdict approve (or compliant not-required) and either no verifier trigger fired (compliant not-required) or verifier pass / accepted pass-with-residual-risk bound to the reviewed revision [E7, E8, E17] | FINALIZE |
 | REVIEW | reviewer verdict blocking-findings [E8, E17] | EXECUTE-fix (exactly one executor-owned focused fix; no reviewer re-dispatch) |
 | REVIEW | fix manifest maps every accepted blocking finding ID; verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit [E7, E8, E9, E17] | FINALIZE |
 | REVIEW | verifier fail, or a blocking finding remains unresolved after the one fix + verifier audit, or reviewer or verifier verdict is `blocked` [E8, E10] | PAUSED / `systematic-debugging` / `failed_verification` per budget |
-| REVIEW | a required independent verifier has no separate context (`dispatch-unavailable`) [E7, E11] | outcome PAUSED |
+| REVIEW | a TRIGGERED independent verifier has no separate context (`dispatch-unavailable`) [E7, E11] | outcome PAUSED |
 | FINALIZE | checkpoints INTEGRATE -> COMPLETION_AUDIT are satisfied and Diff-Budget is `passed@<current stabilized fingerprint>` [E9, E11, E13] | outcome COMPLETE |
 | FINALIZE | merge or post-merge verification fails [E13] | outcome PAUSED |
 | any | user stop, or a Direction Contract change is required [E1] | outcome PAUSED |
@@ -228,12 +236,12 @@ category words alone never escalate):
 LIGHT    = risk-gated localized work (behavior or non-behavior) that clears
            the exclusion UNION and all six inclusion conditions; size is a
            soft screen that can only route OUT of LIGHT, never grant it;
-           compact artifacts; dispatched `executor` -> dispatched independent
-           `verifier`; `## Review Gate` owns code-review topology.
+           compact artifacts; dispatched `executor`, then a verifier only when
+           `## Review Gate`'s predicate fires; `## Review Gate` owns
+           code-review topology.
 STANDARD = localized behavior/config/prompt work with bounded blast radius
-           and known ownership; session + verification artifacts; a
-           perspective-diverse code-reviewer pair reviews behavior-affecting
-           changes.
+           and known ownership; session + verification artifacts; ONE
+           full-role code-reviewer reviews behavior-affecting changes.
 THOROUGH = active security/data/auth, destructive, public/release-critical,
            migration, changed concurrency/lifecycle, multi-system, or
            unknown-root-cause risk; full PRD session; risk-warranted roles.
@@ -316,12 +324,13 @@ Record the eligibility block before editing with
 `Review topology: not-required (STANDARD small carve-out: <reason>)` and
 `Status: provisional`. This waives only reviewer dispatch; STANDARD executor
 ownership is unchanged. TDD, worktree isolation, session evidence, the
-independent verifier, and verification-before-completion are unchanged. The
+trigger-gated independent verifier, and verification-before-completion are
+unchanged. The
 step-recheck reclassifies it against the actual diff: any unexpected file or
 surface, bound breach, proof-path failure, test-infrastructure addition, or
 new semantic uncertainty invalidates it — record
-`Review topology: perspective-pair` and run the ordinary STANDARD
-perspective-diverse pair before the verifier. A record still `provisional` at
+`Review topology: single-reviewer` and run the ordinary STANDARD full-role
+code-reviewer. A record still `provisional` at
 completion-claim time is a named ledger gap.
 
 ## Worktree Isolation Gate
@@ -452,8 +461,9 @@ parallel trigger. Inline mutation is permitted only with one recorded fallback:
 `Mutation fallback: LIGHT-tiny — <reason>` for a tiny LIGHT edit, or
 `Mutation fallback: dispatch-unavailable — <attempt and reason>` after the
 host cannot dispatch. For every compliant revised-LIGHT run, dispatched
-`executor` ownership is MANDATORY: the mutation goes to a dispatched `executor`
-and the audit to a dispatched independent `verifier`; executor dispatch-
+`executor` ownership is MANDATORY: the mutation goes to a dispatched `executor`,
+and any audit goes to a dispatched independent `verifier` only when the Review
+Gate predicate fires; executor dispatch-
 unavailability is FAIL-CLOSED and MUST PAUSE the run or reclassify it OUT of
 LIGHT to STANDARD, never authorize inline completion; the unchanged
 `LIGHT-tiny` inline path does NOT satisfy the revised-LIGHT path and remains a
@@ -532,6 +542,12 @@ Direction Contract source and binding: {approved source plus applicable AC/non-g
 AC IDs: {accepted criteria this role may affect or audit}
 Plan/PRD and read-only artifact pointers: {authoritative inputs; .oh-no state stays main-owned}
 TDD responsibility: {RED/GREEN/REFACTOR step, stable assignment, exception, or none}
+Mutation Manifest: {every authorized path with change kind, semantic obligation, AC/safety basis, and causal generated outputs}
+Verification Contract: {per-AC evidence surface, focused RED behavior/command and expected old failure, GREEN observation, baseline guard, freshness owner}
+Test Necessity Decisions: {admitted new/changed tests with AC or independent failure mode, why existing evidence is insufficient, smallest distinguishing assertion, nearest existing suite — or none}
+Assignment completion contract: {exact conditions that satisfy this bounded assignment and the Executor Assignment Completion Stop}
+Expansion authority: none-beyond-manifest | approved@<revision id>; {generated outputs caused by listed source edits are pre-authorized}
+Expansion status: none | requested | approved@<revision id> -> incorporated before mutation | rejected
 Platform invocation: {active adapter invocation syntax}
 Lifecycle: caller waits for and captures the final result, validates identity
   and revision, then applies host-specific cleanup only when exposed
@@ -539,8 +555,10 @@ Coordination: {ownership/conflict boundary and no-overwrite rule}
 Assigned review perspective: {when applicable; otherwise not applicable with reason}
 ```
 
-Delta fields are role-scoped. `Executor assignment ID` and `TDD
-responsibility` bind the executor lane, and `Platform invocation`,
+Delta fields are role-scoped. `Executor assignment ID`, `TDD
+responsibility`, `Mutation Manifest`, `Verification Contract`, `Test Necessity
+Decisions`, `Assignment completion contract`, `Expansion authority`, and
+`Expansion status` bind the executor lane, and `Platform invocation`,
 `Lifecycle`, and `Coordination` are caller-side dispatch mechanics: send each
 as `not applicable` with a one-clause reason in a `code-reviewer` packet. A
 `verifier` packet keeps `TDD responsibility` populated for behavior-changing
@@ -590,6 +608,39 @@ Expansion request:
 - mutation performed before stop
 - requested-direction-change: yes | no
 ```
+
+Record `Expansion: none | requested | approved@<revision id> | rejected` in the
+snapshot together with its named approval owner
+(`caller-ralph | user | ralplan`), the bound manifest revision id, and whether
+the packet was reissued; persist all four at every change [E14]. An expansion
+whose approval owner is unrecorded is unapproved.
+
+Approval owner and routing. Ralph may approve, as the caller, only a
+behavior-preserving expansion inside the approved direction — for example
+caller-owned test-assertion maintenance or a causal generated output.
+Ralph MUST pause and return to the user, or to `ralplan` for a plan-level
+change, BEFORE any
+mutation when the expansion touches direction or architecture; a public,
+external, or CLI contract; a dependency, pin, or lockfile; a shared schema or
+migration; security, permissions, or secrets; a destructive or
+recovery-sensitive surface; concurrency or lifecycle semantics; or delivery
+scope. That list is illustrative, not exhaustive: ANY named or approved risk
+whose resolution needs authority beyond the caller — including a risk class not
+listed above — routes through the same pause/return rather than caller
+self-approval. When ownership is unclear, fail closed to the user.
+`requested-direction-change: yes` is always user-owned [E1].
+
+Revised-manifest binding. An approved expansion is not authorization until the
+revised Mutation Manifest carries a new revision id, that id is recorded in the
+snapshot, and the affected packet fields are reissued to the executor with
+`Expansion status: approved@<revision id> -> incorporated before mutation`.
+Mutation under a superseded manifest revision is out-of-scope work.
+
+State transitions. An `Expansion request` returns EXECUTE to the pre-edit stop:
+a Ralph-approvable expansion re-enters EXECUTE under the new manifest revision;
+a user- or plan-owned expansion transitions to outcome PAUSED (or
+RETURN_TO_PLAN when the plan or an AC is wrong as written) and never proceeds on
+an assumed approval.
 
 Do not infer authorization from file, line, process, dispatch, or test counts.
 Unapproved expansion remains blocked; unrelated findings are residual risk or
@@ -745,34 +796,38 @@ under `## Finalize Checkpoints`.
 2. RECHECK — when cleanup changed files, rerun relevant verification and
    confirm behavior, the behavior lock, and changed-file scope survived. The
    `## Diff-Budget Gate` then runs once for the stabilized post-cleanup
-   revision, and the sole perspective-diverse pair inspects that final
+   revision, and the sole review round inspects that final
    post-cleanup diff in REVIEW.
 
-The post-cleanup perspective-pair inspection and the `single review round`
-language apply ONLY when the selected review topology is `perspective-pair`.
-A compliant LIGHT run, with the reviewer pair waived, proceeds directly from
-CLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage.
+The post-cleanup review inspection and the `single review round`
+language apply whenever a code-review stage runs, under `single-reviewer` or
+`perspective-pair`. A compliant LIGHT run, with code review waived, proceeds
+directly from CLEANUP/RECHECK to its verifier decision under
+`### Independent Verifier Trigger Predicate`, with no reviewer stage; when no
+trigger fires it proceeds to FINALIZE with caller-owned evidence.
 
 ## Review Gate
 
 Phase: REVIEW. Completion requires evidence, not confidence.
 
-Topology by mode [E8]:
+Topology by risk [E8]:
 
 ```text
-LIGHT    -> the code-reviewer pair is waived; the dispatched `executor`'s
-            mutation goes straight to the required independent `verifier`.
-STANDARD -> one perspective-diverse code-reviewer pair for behavior-affecting
-            or workflow changes: Lens A = adversarial correctness + security
-            skeptic; Lens B = maintainability + coverage completeness. Each
-            instance runs the full role; packets are identical except the single `Assigned perspective:` line,
+LIGHT    -> code review is waived; the dispatched `executor`'s mutation goes
+            straight to the verifier decision in the predicate below.
+STANDARD -> ONE full-role `code-reviewer` for behavior-affecting or workflow
+            changes, running the complete ordered lenses in one dispatch. The
+            compliant carve-out remains `not-required (STANDARD small
+            carve-out: <reason>)`.
+THOROUGH -> ONE full-role `code-reviewer` by default, exactly as STANDARD.
+            ONLY a named security, data, destructive, public-contract,
+            release-critical, new-concurrency, migration, or broad
+            multi-system trigger escalates to one perspective-diverse pair:
+            Lens A = adversarial correctness + security skeptic; Lens B =
+            maintainability + coverage completeness. Each instance runs the
+            full role; packets are identical except the single `Assigned perspective:` line,
             dispatched in one parallel batch and caller-synthesized into one
-            verdict. The compliant
-            carve-out remains `not-required (STANDARD small carve-out:
-            <reason>)`.
-THOROUGH -> the same perspective-diverse pair; a named security, data,
-            destructive, public-contract, release-critical, new-concurrency,
-            migration, or broad multi-system trigger selects only the active
+            verdict. That same named trigger selects only the active
             platform's escalated diversity (cross-host on Codex). The active
             platform supplies the diversity leg. If that leg is unavailable,
             default mode uses two independent same-model instances and records
@@ -780,19 +835,47 @@ THOROUGH -> the same perspective-diverse pair; a named security, data,
             and transitions to PAUSED instead of falling back.
 ```
 
-E8's `exactly one review round` MUST apply when the selected code-review
-topology is `perspective-pair`; a compliant LIGHT run and the STANDARD
-small-task carve-out record code-review `not-required` and run ZERO review
-rounds and no fix-manifest step, while their independent verifier remains
-REQUIRED.
+Reviewer count is never a quality proxy: a second reviewer instance is
+authorized ONLY by a named trigger above — never by mode alone, task size,
+non-triviality, reviewer availability, or imminent completion.
+
+E8's `exactly one review round` MUST apply whenever a code-review stage runs at
+all, under `single-reviewer` and `perspective-pair` alike; a compliant LIGHT run
+and the STANDARD small-task carve-out record code-review `not-required` and run
+ZERO review rounds and no fix-manifest step.
+
+### Independent Verifier Trigger Predicate
+
+This predicate is the ONLY authority that selects the independent `verifier`
+[E7]. Dispatch it when, and only when, at least one named trigger fires:
+
+- the user explicitly requested independent verification;
+- required evidence is stale, missing, or conflicting on the delivered revision;
+- a named security, data-loss, destructive, migration, recovery, or
+  public-contract risk actually requires independent evidence that caller-owned
+  evidence cannot supply;
+- an accepted blocking review finding was fixed, so the fixed revision needs a
+  per-finding resolution audit.
+
+Explicit NON-TRIGGERS — each is insufficient by itself and MUST NOT be recorded
+as a verifier basis: the selected execution mode, including THOROUGH; task size
+or non-triviality; the proving tests or implementation having been authored or
+accepted by the same agent; a `code-reviewer` having run, or not run; and
+completion being imminent. When no trigger fires, record
+`Independent verifier: not-required (no trigger fired: <reason>)`, let the
+caller own evidence freshness, and treat that as a compliant completion path in
+every mode — LIGHT, STANDARD, and THOROUGH alike.
 
 Review-then-verify [E7]: run exactly one selected code-review stage first and
-validate its caller-synthesized `Overall verdict`, blocking finding IDs, and
-reviewed revision binding. Reviewer packets are blind to maker conclusions,
-expected verdicts, and sibling output; each reviewer derives findings from the
-exact contract and diff. With no blocking findings, start the required
-independent self-host `verifier` pass (independence per E7) against the reviewed
-revision. On `blocking-findings`, issue exactly one executor-owned focused fix
+validate its `Overall verdict` (caller-synthesized when the trigger selected a
+pair), blocking finding IDs, and reviewed revision binding.
+Reviewer packets are blind to maker conclusions, expected verdicts, and sibling
+output; each reviewer
+derives findings from the exact contract and diff. With no blocking findings and
+no other trigger fired, no verifier is required: record the compliant
+not-required reason and complete on the reviewed revision. When a trigger does
+fire, start the independent self-host `verifier` pass (independence per E7)
+against the reviewed revision. On `blocking-findings`, issue exactly one executor-owned focused fix
 and record its manifest before the verifier starts. The verifier first records
 its evidence design from the Direction Contract, ACs, exact target, and raw
 evidence; only then does the caller disclose the accepted reviewer findings and
@@ -803,31 +886,30 @@ Validate the verifier's `Verification verdict`, verified revision binding, and
 per-finding audit before using it.
 
 Completion requires either reviewer verdict `approve` (or compliant
-`not-required`) and verifier `pass` / accepted `pass-with-residual-risk` bound
-to the reviewed revision, or reviewer verdict `blocking-findings` with a fix
+`not-required`) with the verifier compliantly not-required, or that verdict plus
+verifier `pass` / accepted `pass-with-residual-risk` bound to the reviewed
+revision, or reviewer verdict `blocking-findings` with a fix
 manifest mapping every accepted blocking finding ID, and the verifier pass (or
 accepted pass-with-residual-risk) binds to the FIXED revision with a
 per-finding resolution audit.
 `pass-with-residual-risk` also requires the caller to record why the named risk
 is non-blocking and every AC remains satisfied. A compliant LIGHT path records
-code-reviewer topology `not-required (LIGHT: reviewer pair waived)`; the
-dispatched verifier's `pass` (or accepted
-`pass-with-residual-risk`) binds to the `reviewed` revision and follows the same
-reviewed-revision completion path as a compliant STANDARD small-task carve-out;
-the verifier is NEVER waived in LIGHT. Verifier `fail`, an
+code-reviewer topology `not-required (LIGHT: code review waived)` and completes
+on the reviewed revision, exactly as a compliant STANDARD small-task carve-out
+does; a verifier joins that path only when the predicate fires. Verifier `fail`, an
 unresolved blocking finding after the one fix and audit returns to the
 budgeted `systematic-debugging` or `failed_verification` path; either role's
 `blocked` verdict pauses. These enums are caller
 inputs under E17, never autonomous transitions.
 
-The verifier audit is required at STANDARD/THOROUGH when the proving tests or
-implementation were authored or accepted by the same agent. A compliant LIGHT
-run also requires that independent verifier audit; `dispatch-unavailable` for
-it is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH.
-It MUST run in a separate context. If no separate context is available, record `Independent
+The verifier audit is required exactly when
+`### Independent Verifier Trigger Predicate` fires, in any mode. Same authorship
+of the proving tests or implementation is explicitly NOT such a trigger.
+A triggered audit MUST run in a separate context. If no separate context is
+available, record `Independent
 verifier: dispatch-unavailable` as a blocker and transition to PAUSED. Inline
 command reruns may still strengthen caller-owned evidence, but they cannot
-count as the required independent audit. When the audit is optional or not
+count as a triggered independent audit. When the audit is optional or not
 required, record that reason without turning dispatch unavailability into a
 pass.
 
@@ -835,27 +917,33 @@ Record the Review Gate dependency graph in the ledger:
 
 ```text
 Review Gate dependency graph:
-- code-reviewer topology: not-required | perspective-pair
+- code-reviewer topology: not-required | single-reviewer | perspective-pair
+- pair trigger: not-applicable | <named high-risk/diversity trigger>
 - code-reviewer pass: pending | complete | blocked | not-required
 - blocking reviewer findings: none | fix-applied (manifest mapped) | blocking
+- verifier trigger: none | <named trigger from the predicate>
 - verifier bound revision: reviewed | fixed | not-required
-- verifier eligible to start: yes | no
+- verifier eligible to start: yes | no | not-required
 - verifier started after reviewer completion: yes | no | not-required
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
 
+Record `perspective-pair` only with its named `pair trigger`, and a verifier
+only with its named `verifier trigger`; a topology or verifier recorded without
+its trigger is a named ledger gap, not a pass.
+
 `verifier eligible to start` is `yes` only after the selected code-review
-output and pair synthesis are captured and either findings are none / review is
+output and any pair synthesis are captured and either findings are none / review is
 compliantly not-required, or the single fix manifest is recorded. A verifier
 spawned before that point is stale evidence: record it as discarded and rerun
 it after the dependency is satisfied. When both roles are required, the ledger
 must show `verifier started after reviewer completion: yes` or the verifier
 pass does not count.
 
-Review focus — the reviewer pair and independent verifier must audit the exact
-complete manifest fingerprint. The verifier independently checks manifest
-adherence, semantic RED/GREEN, Test Necessity mapping, scope and non-goals,
-generated causality, and the Completion Stop; reviewer approval is not a
+Review focus — every reviewer instance and any triggered verifier must audit the
+exact complete manifest fingerprint. A triggered verifier independently checks
+manifest adherence, semantic RED/GREEN, Test Necessity mapping, scope and
+non-goals, generated causality, and the Completion Stop; reviewer approval is not a
 substitute for that evidence.
 
 - the applicable negative-path scenarios — malformed or boundary input,
@@ -871,7 +959,8 @@ IDs, the main agent issues exactly one focused `executor` assignment and
 records a manifest mapped to every accepted finding ID; the reviewer never
 applies the fix or advances the FSM, and is never re-dispatched. Budget
 [E8]: exactly one review round; after the executor-owned fix the verifier audit
-of the fixed revision is the recheck. A blocker remaining after that budget
+of the fixed revision is the recheck, since accepted blocking-fix resolution is
+itself a named verifier trigger. A blocker remaining after that budget
 goes to `systematic-debugging`, `blocked`, or `failed_verification`.
 
 ## Finalize Checkpoints
@@ -887,11 +976,17 @@ Phase: FINALIZE — the remaining checkpoints run in order, after REVIEW:
 ## Completion Stop
 
 Record final run Completion Stop only after mutation-capable cleanup, the sole
-review round and any one focused review fix, all resulting rechecks, the
-independent final verifier, integration, and completion audit have stabilized
+review round and any one focused review fix, all resulting rechecks, any
+triggered final verifier, integration, and completion audit have stabilized
 the exact final complete manifest fingerprint. Any later mutation invalidates
 this final stop and requires reevaluation and reverification on the new
 revision. Optional follow-ups do not reopen a valid final stop.
+
+The COMPLETION_AUDIT is EVIDENCE-ONLY: it reads the existing ledger and reuses
+fresh revision-bound evidence. Imminent completion is NOT a trigger — the audit
+MUST NOT dispatch a role, rerun a passing check, or add a test merely because
+the run is about to finish. It may only name a missing-evidence blocker when a
+required row is actually stale, missing, or conflicting.
 
 ## Resume Protocol
 
@@ -922,9 +1017,13 @@ each). A silently omitted step is a named ledger gap, not a pass.
 
 - Evidence status lives in `verification.md`; PRD/progress point to its AC IDs.
 - Every review records its topology using the dependency-graph values
-  (`not-required` with the compliant reason, or `perspective-pair` with the
-  active platform's pair-mode value); an inline fallback requires a reason.
+  (`not-required` with the compliant reason, `single-reviewer`, or
+  `perspective-pair` with its named pair trigger and the active platform's
+  pair-mode value); an inline fallback requires a reason.
   Missing review topology is a named ledger gap.
+- The verifier entry records its named trigger, or the compliant
+  `not-required (no trigger fired: <reason>)` reason. A verifier recorded
+  without a named trigger, or omitted while a trigger fired, is a ledger gap.
 - When both code-reviewer and verifier are required, the ledger must show
   `verifier started after reviewer completion: yes` or the verifier pass is
   stale and does not count.
@@ -939,20 +1038,26 @@ Completion criteria:
 - a run recorded in LIGHT mode shows dispatched-executor evidence (the
   LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)
 - Diff-Budget is `passed@<current stabilized fingerprint>` for the delivered diff
-- actual changed paths adhere to the Mutation Manifest; any Expansion request is
-  approved and reflected in the current capsule before mutation
+- actual changed paths adhere to the Mutation Manifest; any Expansion request
+  records its approval owner, was approved, and was bound to a revised Mutation
+  Manifest ID recorded in the snapshot and reissued to the executor as
+  `Expansion status: approved@<revision id> -> incorporated before mutation`
+  before any mutation
 - `verification.md` has one row per AC ID with planned/actual evidence,
   freshness, and audit status
 - required TDD evidence exists, or each exception is documented; every new or
   changed test has a recorded Test Necessity decision
 - Completion Stop was applied when its conditions became true
-- the mode-required review is recorded complete in the `## Review Gate`
+- the risk-required review is recorded complete in the `## Review Gate`
   dependency graph — approved or compliantly not-required, or blocking findings
-  with one accepted fix manifest mapped to every finding ID per that section
-- the independent verifier pass ran per the review-then-verify order and bound
+  with one accepted fix manifest mapped to every finding ID per that section;
+  a `perspective-pair` topology names its firing trigger
+- either a named verifier trigger fired and that verifier pass ran per the
+  review-then-verify order and bound
   to the reviewed revision or, on the fix path, the FIXED revision with a
-  per-finding resolution audit; otherwise a compliant not-required reason is
-  recorded; `dispatch-unavailable` is a blocker
+  per-finding resolution audit; or no trigger fired and the compliant
+  `not-required (no trigger fired: <reason>)` is recorded. For a fired trigger,
+  `dispatch-unavailable` is a blocker
   and cannot satisfy completion
 - the proportional `simplify` scan ran, was disabled, or recorded no
   candidates; post-cleanup verification passed when cleanup changed files
@@ -964,8 +1069,11 @@ Completion criteria:
   recorded
 - the final report was written
 
-A LIGHT run with no behavior change may compact the four named criteria into
-one combined ledger line when each part is actually true; a STANDARD
+ANY run may compact the four named criteria into one combined ledger line when
+EVERY part is a compliant not-required / no-candidate / no-trigger record with
+its reason — nothing was actually dispatched or run for any of the four. Whenever
+one of the four actually ran or blocked, that entry stays individual with its own
+evidence. A STANDARD
 small-carveout run may compact the review and simplify entries while the
 verifier and verification-before-completion entries stay individual. When
 the criteria pass and only optional follow-ups remain, record residual risk
@@ -1002,8 +1110,8 @@ invoking Ralph.
 |---|---|
 | `explore` | find relevant files, tests, commands, and integration surfaces; independent read-only targets as one parallel batch (up to 5) |
 | `executor` | implement scoped story work with an explicit ownership boundary |
-| `verifier` | independently map evidence to ACs and audit test genuineness; one self-host pass after review, never the maker |
-| `code-reviewer` | review correctness, maintainability, regressions, scope trace, and overcomplication; applies the security lens when triggered |
+| `verifier` | independently map evidence to ACs and audit test genuineness; one self-host pass after review, never the maker; dispatched ONLY when `## Review Gate`'s trigger predicate fires |
+| `code-reviewer` | review correctness, maintainability, regressions, scope trace, and overcomplication; applies the security lens when triggered; ONE full-role instance unless a named trigger selects the pair |
 
 `simplify`, `verification-before-completion`, `test-driven-development`, and
 `systematic-debugging` are skills, not agents. Whether a role is inline or
@@ -1079,7 +1187,14 @@ not a final status.
 
 ## Model Diversity Pair
 
-For any dispatched `code-reviewer` pair (every dispatched review), dispatch two
+This section applies ONLY when the core selected `perspective-pair` after a
+named trigger fired, or the caller explicitly demanded strict diversity. It
+never applies to every dispatched review. For ordinary STANDARD/THOROUGH
+`single-reviewer`, dispatch exactly ONE full-role `code-reviewer` using the
+declared stored primary, with NO diversity leg, NO model override, and no
+`Assigned perspective:` line.
+
+Once a pair is actually selected, dispatch two
 same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same assistant
 turn (or with `Background: yes` for both) BEFORE waiting on either result; a

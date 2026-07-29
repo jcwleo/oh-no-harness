@@ -92,15 +92,21 @@ opposite-host unavailable + require-cross-host -> PAUSED
 STANDARD -> one required Plan-Reviewer instance on Codex, recorded as
             single-reviewer; this is intentional single review, so no fallback
             reason is required.
-THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally, run on
-            Codex and recorded as same-host-perspective-pair; this is
-            intentional same-host review, so no fallback reason is required. A
+THOROUGH -> ONE required full-role Plan-Reviewer instance on Codex by default,
+            exactly as STANDARD, recorded as single-reviewer. ONLY a
             named security/data/destructive, public/release-contract,
-            concurrency, migration, or comparable multi-system trigger selects
-            cross-host review when available, or
+            concurrency, migration, or comparable multi-system paired-review
+            trigger escalates to the perspective-diverse Plan-Reviewer pair,
+            recorded as same-host-perspective-pair, and that same fired trigger
+            selects cross-host review when available, or
             same-host-parallel-fallback when the opposite host is unavailable;
             record the fallback reason. `require-cross-host` pauses instead.
 ```
+
+Pair-specific mechanics apply ONLY when that named paired-review trigger
+actually fired; with no fired trigger, spawn exactly one full-role Plan-Reviewer
+and record `single-reviewer`. An explicitly selected pair keeps strict fallback
+semantics.
 
 A required Plan-Reviewer is
 the exception: it must use a separate context, with a generic separate subagent

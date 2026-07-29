@@ -48,7 +48,15 @@ acknowledgement is not completion. Do not duplicate pending work inline.
 
 ## Model Diversity Pair
 
-For the THOROUGH `plan-reviewer` pair (every dispatched THOROUGH review),
+This section applies ONLY when the core selected `perspective-pair` after a
+named paired-review trigger fired, or the caller explicitly demanded strict
+diversity. It never applies to every dispatched THOROUGH review: ordinary
+THOROUGH is `single-reviewer`, exactly like STANDARD, and must
+dispatch exactly ONE full-role `plan-reviewer` using the declared stored
+primary, with NO diversity leg, NO model override, and no
+`Assigned perspective:` line.
+
+Once a pair is actually selected,
 dispatch two same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same
 assistant turn (or with `Background: yes` for both) BEFORE waiting on either

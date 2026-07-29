@@ -46,18 +46,28 @@ record that and continue.
 
 ## Review Pair Modes
 
-Every dispatched Final Validation `code-reviewer` review runs as one
-perspective-diverse pair. STANDARD uses two Codex reviewers and records
-`same-host-perspective-pair`; this is intentional same-host review, so no
-fallback reason is required. A fired named THOROUGH trigger selects cross-host
-review when available, or `same-host-parallel-fallback` when the opposite host
-is unavailable; record the required fallback reason.
+This section implements only the topology the core already selected; it never
+selects topology itself. An ordinary `single-reviewer` Final Validation review —
+the default in STANDARD and THOROUGH alike — dispatches exactly ONE full-role
+Codex `code-reviewer` and records `single-reviewer`; this is intentional single
+review, so no fallback reason is required.
 
+ONLY after the core's named paired-review trigger fired, or the caller
+explicitly demanded a strict pair, does the review run as one
+perspective-diverse pair recorded as
+`same-host-perspective-pair`; that same fired trigger selects cross-host
+review when available, or `same-host-parallel-fallback` when the opposite host
+is unavailable; record the required fallback reason. `require-cross-host` pauses
+instead of degrading.
+
+Once a pair is actually selected, spawn both legs before waiting.
 The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Cross-Host Consult Channel
 
-A fired named THOROUGH Final Validation trigger starts one Codex
+This channel opens ONLY after a named THOROUGH Final Validation trigger actually
+fires; absent that trigger there is no second leg to consult. A fired trigger
+starts one Codex
 `code-reviewer` and one transport-owner reviewer making exactly one foreground
 Claude call (`claude --print --model opus --permission-mode dontAsk
 --no-session-persistence`). A launch notice, background acknowledgement, or

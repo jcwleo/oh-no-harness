@@ -260,9 +260,13 @@ plugin-agent unavailability uses the documented embedded-role fallback.
 
 ## Model Diversity Pair
 
-This mechanism is trigger-loaded, not embedded in every workflow decision. For
-a dispatched THOROUGH `plan-reviewer` pair, any dispatched `code-reviewer` pair
-(every dispatched review),
+This mechanism is trigger-loaded, not embedded in every workflow decision. It
+governs only how an ALREADY-SELECTED pair is dispatched; it never selects review
+topology itself. The active core or skill owns that selection, and a
+`code-reviewer` pair applies only where that core already selected
+`perspective-pair` after a named trigger, or the caller explicitly demanded
+strict diversity — never to every dispatched review. For
+a dispatched THOROUGH `plan-reviewer` pair, such a selected `code-reviewer` pair,
 or a named THOROUGH `debugger` pair, both legs MUST be requested in a single
 batch: issue both subagent tool calls in the same assistant turn (or with
 `Background: yes` for both) BEFORE waiting on either result; a serial

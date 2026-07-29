@@ -43,10 +43,18 @@ V2. A success status is not acceptance: HTTP 2xx with an empty or error
     observable effect is missing evidence, not a pass.
 V3. A command list is not proof: every acceptance criterion maps to
     evidence with coverage strength, freshness, and audit status.
-V4. For STANDARD/THOROUGH behavior-changing claims whose proving tests or
-    implementation were authored or accepted by the current agent, an
-    independent `verifier` audit is required — this self-gate never
-    substitutes for it.
+V4. An independent `verifier` audit is required only when a named trigger
+    fires: an explicit user request; stale, missing, or conflicting evidence;
+    a named security, data-loss, destructive, migration, recovery, or
+    public-contract risk that actually needs independent evidence; or accepted
+    blocking-review fix resolution. Mode, task non-triviality, the current
+    agent having authored or accepted the proving tests or implementation,
+    reviewer presence, and imminent completion are explicit NON-triggers. When a
+    trigger fires, this self-gate never substitutes for that audit.
+V9. Fresh revision-bound reviewer, verifier, and command evidence is reused as
+    recorded. Completion imminence alone never justifies a rerun, an added
+    test, or a fresh dispatch; only stale, missing, or conflicting evidence
+    does.
 V5. A merge or integration step is evidence-changing unless the caller
     proves the final files and dependencies are identical to the
     verifier-audited state.
@@ -72,10 +80,11 @@ Before making a completion claim, complete every step below; the claim is invali
    and record the delta since the last independent audit [V6].
 5. Complete the Risk Check Before Completion below.
 6. Report skipped checks and residual risk.
-7. For a STANDARD or THOROUGH behavior-changing claim whose proving tests or implementation were authored or accepted by the current agent, confirm a separate-context independent `verifier` audit ran per the carve-out [V4]. If no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller; inline command reruns cannot satisfy the audit.
-8. When a `code-reviewer` was dispatched, record `perspective-pair` plus the
-   active platform's pair-mode value: it is always a perspective-diverse pair
-   when dispatched, and the named THOROUGH trigger selects only escalated
+7. Confirm whether any named V4 verifier trigger fired. If one did, confirm a separate-context independent `verifier` audit ran [V4]; if no separate context is available, record `dispatch-unavailable` as a blocker and return blocked/PAUSED to the caller, since inline command reruns cannot satisfy the audit. If none fired, record `Independent verifier: not-required (no trigger fired: <reason>)` and treat caller-owned fresh evidence as sufficient — do NOT dispatch a verifier merely because the claim is nontrivial, self-authored, or imminent [V9].
+8. When a `code-reviewer` was dispatched, record `single-reviewer`, or
+   `perspective-pair` plus its named firing trigger and the
+   active platform's pair-mode value. One full-role reviewer is the default; a
+   pair requires that named trigger, which also selects escalated
    platform diversity. An inline fallback requires a reason. Missing review
    topology is a named ledger gap, not a pass.
 </HARD-GATE>
@@ -164,11 +173,13 @@ maintainer on similar work.
 
 ## Agent Roles
 
-Dispatch `verifier` by default for nontrivial completion claims on
-subagent-capable hosts — independent evidence mapping can change the
-ship/block decision or expose residual risk, and independence requires a
-separate context [V4]. Add a `code-reviewer` (security lens included) when
-the changed scope, verification tier, or user-facing risk warrants it.
+Dispatch `verifier` only when a named V4 trigger fires; nontriviality alone is
+not one. Independent evidence mapping can change the ship/block decision or
+expose residual risk, and when triggered its independence requires a
+separate context [V4]. With no trigger, record the compliant not-required reason
+and reuse the fresh caller-owned evidence [V9]. Add a `code-reviewer` (security
+lens included) when the changed scope, verification tier, or user-facing risk
+warrants it; one full-role instance is the default.
 Apply the active platform's dispatch authorization; do not ask for per-run
 subagent approval when standing authorization covers these roles. Every direct
 role dispatch reuses the target role's required identity/result envelope and
@@ -182,15 +193,18 @@ supplement the record but cannot satisfy the audit.
 
 | Agent | Use |
 |---|---|
-| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; always a perspective-diverse pair when dispatched, while the named THOROUGH trigger selects only escalated platform diversity (pair synthesis: merged findings) |
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; dispatched only on a named V4 trigger, and then a single self-host independent pass, never part of a reviewer pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; ONE full-role instance by default, escalating to a perspective-diverse pair only on the named high-risk trigger that also selects escalated platform diversity (pair synthesis: merged findings) |
 
-A dispatched `code-reviewer` uses two same-role instances, each running the
+A dispatched `code-reviewer` is ONE instance running the complete role with both
+ordered lenses. Only a named security, data, destructive, public-contract,
+release-critical, new-concurrency, migration, or broad multi-system trigger
+escalates to two same-role instances, each running the
 full role: Lens A = adversarial correctness + security skeptic; Lens B =
 maintainability + coverage completeness. Their packets are
 identical except the single `Assigned perspective:` line; the instances are
-dispatched in parallel and synthesized into one verdict. The named THOROUGH
-trigger selects only escalated platform diversity. The active platform supplies
+dispatched in parallel and synthesized into one verdict. That same fired trigger
+selects escalated platform diversity. The active platform supplies
 the diversity
 leg. If that leg is unavailable, default mode uses two independent same-model
 instances and records the reason; an explicit caller demand for diversity is
@@ -198,7 +212,7 @@ strict mode and transitions to PAUSED instead of falling back. The `verifier`
 remains outside this pair contract.
 
 Confirming-verifier reuse: when this skill runs as the final gate inside
-`ralph` or `ultrawork` and the caller already completed the required
+`ralph` or `ultrawork` and the caller already completed a triggered
 independent confirming `verifier` pass for the same final claim, do not
 dispatch a second `verifier` when the pass ran as an independent dispatch
 (never the maker) after the selected code-review stage and no file,
@@ -210,12 +224,14 @@ after the fix manifest was recorded. Record the reused pass as a reference
 to the caller's ledger entry and its revision binding under the carve-out.
 This reuse satisfies only the verifier-dispatch expectation: every Required
 Gate step still executes in full, and this clause never licenses skipping
-this skill itself. Dispatch a fresh `verifier` when evidence changed after
-the caller's pass or when no compliant pass exists.
+this skill itself. Dispatch a fresh `verifier` only when evidence changed after
+the caller's pass, or when a named V4 trigger fires and no compliant pass
+exists; a compliant `not-required (no trigger fired)` record needs no dispatch.
 
 Confirming code-reviewer reuse: when this skill runs as the final gate inside
-`ralph` or `ultrawork` and the caller already completed the required single
-perspective-diverse `code-reviewer` round for the same final claim, do not
+`ralph` or `ultrawork` and the caller already completed the single required
+`code-reviewer` round for the same final claim — `single-reviewer` or a
+triggered perspective-diverse pair — do not
 dispatch a second `code-reviewer`. On the no-fix path, reuse requires review
 evidence bound to the reviewed revision with no file, dependency, or evidence
 change since that review. On the fix path, reuse requires that review binding
@@ -300,21 +316,26 @@ that and continue.
 
 ## Re-Homed Core Pair Rules
 
-9. When a `code-reviewer` was dispatched, record `perspective-pair` plus
-   `same-host-perspective-pair` for intentional STANDARD same-host review, or
-   the fired named THOROUGH trigger plus `cross-host` /
+9. When a `code-reviewer` was dispatched, record `single-reviewer` for the
+   default one full-role Codex review, or `perspective-pair` plus the fired
+   named trigger and `same-host-perspective-pair` / `cross-host` /
    `same-host-parallel-fallback`; only the fallback requires a reason. Missing
    review topology is a named ledger gap, not a pass.
 
-| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; every dispatched review runs as a perspective-diverse pair, while a named THOROUGH trigger selects cross-host escalation (cross-host merge: merged findings) |
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; dispatched only on a named V4 trigger, and then a single self-host independent pass, never a cross-host or same-host pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; ONE full-role instance by default, escalating to a perspective-diverse pair only on the named trigger that also selects cross-host escalation (cross-host merge: merged findings) |
 
+Pair-specific mechanics apply ONLY when that named trigger actually fired; with
+no fired trigger, spawn exactly one full-role reviewer. When it did fire:
 The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Cross-Host Consult Channel
 
-A fired named THOROUGH `code-reviewer` trigger starts one Codex reviewer and
+This channel opens ONLY after a named THOROUGH `code-reviewer` trigger actually
+fires; absent that trigger there is no second leg to consult. A fired trigger
+starts one Codex reviewer and
 one transport-owner making exactly one foreground Claude call. A launch notice,
 background acknowledgement, or empty output is unavailable evidence; on
 opposite-host unavailability run `same-host-parallel-fallback` and record the
-required fallback reason. The `verifier` is never paired.
+required fallback reason. An explicitly selected pair keeps strict fallback
+semantics. The `verifier` is never paired.

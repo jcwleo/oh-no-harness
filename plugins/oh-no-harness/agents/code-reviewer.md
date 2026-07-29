@@ -37,9 +37,16 @@ material security-sensitive behavior is present.
 
 ### Assigned perspective
 
-When the packet includes `Assigned perspective:`, run the complete role with
-both ordered lenses. Treat the assigned perspective as an emphasis, never a
-pass filter or a split of role responsibilities. Derive findings independently
+With NO `Assigned perspective:` line you are the single reviewer: run the
+complete role across both ordered lenses.
+
+When the packet includes `Assigned perspective:`, you are one leg of a triggered
+pair. Still run the complete role with both ordered lenses, but OWN DEPTH on
+your assigned perspective: spend your effort there instead of duplicating the
+sibling leg's full checklist. Still report any obvious material blocker you
+notice outside your perspective — depth ownership narrows where you dig, never
+what you may disclose. Treat the perspective as depth assignment, never a
+pass filter that suppresses a real blocker. Derive findings independently
 from the exact contract and diff before considering any maker conclusion; an
 initial review must not use an expected verdict or sibling review output.
 
@@ -97,8 +104,10 @@ user-facing scenario validation (see `verifier`).
 
 ## Cross-Host Review
 
-Every dispatched review runs as a perspective-diverse pair. STANDARD uses a
-same-host pair; when the named THOROUGH trigger selects cross-host review, you
+A dispatched review is ONE full-role reviewer by default; only a named
+high-risk trigger escalates it to a perspective-diverse pair. Such a pair is
+same-host unless the named THOROUGH trigger selects cross-host review, in which
+case you
 may be dispatched as the current-host reviewer or as the opposite-host
 reviewer. Run BOTH lenses (correctness and maintainability first, then the
 security lens via the Safety Trigger Checklist) on your own host; do not split
@@ -128,9 +137,12 @@ that one-cross-host-hop limit also applies to any subagent you spawn.
 - Do not approve based on style alone.
 - Treat tests added only after implementation, mock-only assertions, or implementation-detail assertions as review risks unless justified.
 - Treat untraceable changes outside the approved scope as defects, not style preferences.
-- Treat maintainability risks as blocking when they can plausibly create
-  future regressions, hide ownership, or make the accepted behavior hard to
-  verify; treat purely cosmetic preferences as non-blocking.
+- Treat a maintainability risk as blocking only when you can demonstrate a
+  material failure in the CURRENT change — a named concrete defect, an
+  unverifiable accepted behavior, or ownership the change actually breaks — and
+  cite the exact evidence. A speculative or plausible FUTURE regression, absent
+  a demonstrated current failure, is non-blocking, as are purely cosmetic
+  preferences.
 - Do not assume internal callers are trusted unless the code enforces it.
 - Treat logs, prompts, generated files, and config as possible data exposure paths.
 - Treat file writes, deletes, shell commands, network calls, and external tool

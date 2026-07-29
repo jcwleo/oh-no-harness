@@ -24,8 +24,14 @@ subagent primitive, keep the role boundary inline and record the fallback.
 
 ## Model Diversity Pair
 
-For any dispatched post-fix `code-reviewer` pair (every dispatched review), or a
-named THOROUGH paired `debugger`, dispatch two same-role instances in parallel
+This section applies ONLY when the core selected `perspective-pair` after a
+named trigger fired, selected a named THOROUGH paired `debugger`, or the caller
+explicitly demanded strict diversity. It never applies to every dispatched
+review. For the default `single-reviewer` post-fix review, dispatch exactly ONE
+full-role `code-reviewer` using the declared stored primary, with NO diversity
+leg, NO model override, and no `Assigned perspective:` line.
+
+Once a pair is actually selected, dispatch two same-role instances in parallel
 and synthesize one result. Both legs MUST be requested in a single batch: issue
 both subagent tool calls in the same assistant turn (or with `Background: yes`
 for both) BEFORE waiting on either result; a serial dispatch-wait-dispatch

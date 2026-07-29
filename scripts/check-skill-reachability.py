@@ -126,6 +126,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("apply Ralph's complete canonical LIGHT predicate before defaulting to STANDARD", BOTH),
         # Platform-owned paired-review vocabulary. Claude proves the A1-amended
         # unoverridden-primary/native-secondary shape; Codex keeps cross-host.
+        # CR-1 cross-host (M3.1): Claude pair mechanics are pair-only; the
+        # ordinary single-reviewer path uses one stored primary, no diversity leg.
+        ("This section applies ONLY when the core selected `perspective-pair` after a", CLAUDE),
+        ("with NO diversity leg, NO model override, and no", CLAUDE),
         ("model-diversity-pair", CLAUDE),
         ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
@@ -136,6 +140,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
         ("require-cross-host", CODEX),
+        # CR-1: Codex adapters must state the single-reviewer default and that
+        # pair mechanics apply only when the named trigger fired.
+        ("recorded as single-reviewer; this is intentional single review", CODEX),
+        ("Pair-specific mechanics apply ONLY when that named paired-review trigger", CODEX),
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
@@ -169,14 +177,23 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("parent workspace directory", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
-        ("authored or accepted by the same agent", BOTH),  # verifier-required carve-out (ralph.md Review Gate)
-        ("run also requires that independent verifier audit", BOTH),
-        ("the code-reviewer pair is waived", BOTH),
-        ("E8's `exactly one review round` MUST apply when the selected code-review topology is `perspective-pair`", BOTH),
+        # 2026-07-29: one canonical named-trigger predicate replaced the
+        # mode/same-maker mandatory verifier, and STANDARD/ordinary THOROUGH
+        # review with ONE full-role code-reviewer.
+        ("### Independent Verifier Trigger Predicate", BOTH),
+        ("This predicate is the ONLY authority that selects the independent `verifier`", BOTH),
+        ("Explicit NON-TRIGGERS", BOTH),
+        ("Independent verifier: not-required (no trigger fired: <reason>)", BOTH),
+        ("ONE full-role `code-reviewer` for behavior-affecting or workflow", BOTH),
+        ("Reviewer count is never a quality proxy", BOTH),
+        ("code review is waived", BOTH),
+        ("E8's `exactly one review round` MUST apply whenever a code-review stage runs at\nall, under `single-reviewer` and `perspective-pair` alike", BOTH),
         ("no fix-manifest step", BOTH),
         ("Delta fields are role-scoped", BOTH),
-        ("post-cleanup perspective-pair inspection", BOTH),
-        ("CLEANUP/RECHECK to its REQUIRED independent verifier", BOTH),
+        ("post-cleanup review inspection", BOTH),
+        ("CLEANUP/RECHECK to its verifier decision under", BOTH),
+        ("The COMPLETION_AUDIT is EVIDENCE-ONLY", BOTH),
+        ("Imminent completion is NOT a trigger", BOTH),
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
@@ -213,6 +230,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("A frozen `none` remains `none`", BOTH),
         ("`dispatch-unavailable` is a blocker", BOTH),
         ("Assigned perspective", BOTH),
+        # CR-1 cross-host (M3.1): Claude pair mechanics are pair-only; the
+        # ordinary single-reviewer path uses one stored primary, no diversity leg.
+        ("This section applies ONLY when the core selected `perspective-pair` after a", CLAUDE),
+        ("with NO diversity leg, NO model override, and no", CLAUDE),
         ("model-diversity-pair", CLAUDE),
         ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
@@ -222,6 +243,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
+        # CR-1: same single-reviewer default / triggered-pair rule on the Ralph adapter.
+        ("ONE full-role code-reviewer on Codex when review is required", CODEX),
+        ("Pair-specific mechanics apply ONLY when that named pair trigger actually fired", CODEX),
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
@@ -239,7 +263,12 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Ultrawork-approved", BOTH),
         ("mode and mode source", BOTH),
         ("## Cleanup And Final Verification", BOTH),  # via the ralph handoff edge
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (ultrawork.md body + Ralph core)
+        # 2026-07-29: same authorship is now an explicit NON-trigger; Ultrawork
+        # defers to VBC's named V4 predicate and defaults to one full reviewer.
+        ("are explicit NON-triggers", BOTH),
+        ("Independent verifier: not-required (no trigger fired: <reason>)", BOTH),
+        ("ONE full-role `code-reviewer` by default and records\n`single-reviewer`", BOTH),
+        ("Reviewer count is never a quality proxy", BOTH),
         ("Final Validation dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
@@ -269,6 +298,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-model-parallel-fallback", CLAUDE),
         ("require-model-diversity", CLAUDE),
         ("transition to PAUSED", CLAUDE),
+        # V-1/V-2 (failed-verification correction): Codex Ultrawork implements only
+        # the core-selected topology; ordinary Final Validation is single-reviewer.
+        ("implements only the topology the core already selected", CODEX),
+        ("dispatches exactly ONE full-role", CODEX),
+        ("ralplan's risk-selected topology", BOTH),
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
@@ -281,6 +315,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("caller remains the orchestrator", BOTH),
     ],
     "simplify": [
+        # CR-1 cross-host (M3.2): simplify composes the SHARED Claude runtime doc,
+        # so it proves the shared pair mechanism stays dispatch-only there too.
+        ("governs only how an ALREADY-SELECTED pair is dispatched", CLAUDE),
+        ("never to every dispatched review", CLAUDE),
         ("Required Behavior Lock", BOTH),
         ("Phase 0 - Gather The Diff", BOTH),
         ("Phase 1 - Review", BOTH),
@@ -307,7 +345,16 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("causal toggle", BOTH),  # the falsifiable root-cause confirmation gate
         ("the failure mode is gone", BOTH),
         ("verification-before-completion", BOTH),
-        ("authored or accepted by the same agent", BOTH),  # verifier independence carve-out (Ralph core, path-referenced)
+        # The post-fix verifier is selected by the same named-trigger predicate as
+        # Ralph/VBC; same authorship is an explicit NON-trigger, not a requirement.
+        ("This predicate is the ONLY authority that selects the post-fix `verifier`", BOTH),
+        ("Explicit NON-TRIGGERS", BOTH),
+        ("authored or\naccepted by the same agent", BOTH),
+        ("Independent verifier: not-required (no trigger fired: <reason>)", BOTH),
+        # Post-fix review is single by default; only a named trigger buys the pair.
+        ("ONE full-role instance by default, escalating to a perspective-diverse pair only on the named high-risk trigger", BOTH),
+        ("Reviewer count is never\na quality proxy", BOTH),
+        ("records `single-reviewer` by default, or `perspective-pair` plus", BOTH),
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
         ("do not directly dispatch\n    `plan-reviewer`", BOTH),
@@ -353,6 +400,10 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("trigger-loaded", BOTH),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
         ("Assigned perspective", BOTH),
+        # CR-1 cross-host (M3.1): Claude pair mechanics are pair-only; the
+        # ordinary single-reviewer path uses one stored primary, no diversity leg.
+        ("This section applies ONLY when the core selected `perspective-pair` after a", CLAUDE),
+        ("with NO diversity leg, NO model override, and no", CLAUDE),
         ("model-diversity-pair", CLAUDE),
         ("identical except the single `Assigned perspective:` line", CLAUDE),
         ("serial dispatch-wait-dispatch", CLAUDE),
@@ -408,6 +459,13 @@ FORBIDDEN: dict[str, list[tuple[str, str]]] = {
     "systematic-debugging": [
         ("STANDARD keeps one dispatched `debugger` instance", CODEX),
         ("`single-reviewer` for a STANDARD debugger", CODEX),
+        # M4 item 1: the retired same-maker verifier trigger and the retired
+        # post-fix pair-by-default topology must not become reachable again.
+        ("required when the proving tests or fix were authored or accepted by the same agent", BOTH),
+        ("when dispatched, runs as the perspective-diverse pair", BOTH),
+        ("always runs as the\nperspective-diverse pair", BOTH),
+        ("Every dispatched post-fix `code-reviewer` review\ninstead runs as an intentional same-host perspective pair", CODEX),
+        ("(every dispatched review)", CLAUDE),
     ],
 }
 

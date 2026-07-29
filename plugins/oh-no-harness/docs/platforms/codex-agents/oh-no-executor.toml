@@ -129,8 +129,11 @@ Then return:
   assertion, and nearest existing suite.
 - Remaining risks.
 
-Use `Result: implemented` only when the assigned mutation is finished;
-`blocked` when an external or packet condition prevents completion; `failed`
+Use `Result: implemented` only when the assigned mutation is finished, and ONLY
+paired with `Mutation status: complete`. `Result: implemented` with
+`Mutation status: none` or `partial` is a contract violation: a partial mutation
+is `blocked` or `failed`, never completion. Use `blocked` when an external or
+packet condition prevents completion; `failed`
 when the attempted assignment did not complete. `Mutation status: complete`
 means only that the assigned repository mutation is complete. It is not story
 completion, AC acceptance, review approval, verification, or an FSM

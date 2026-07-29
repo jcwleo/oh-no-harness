@@ -67,9 +67,10 @@ U13. Ultrawork is the only context that may invoke interview/ralplan/ralph
      planning gates, scope-change pauses, verification, and final evidence
      all still run.
 U14. Maker roles do not self-approve; inline checker fallback is still
-     checker output. At STANDARD/THOROUGH on subagent-capable hosts, an
+     checker output. When a named verifier trigger fires on a
+     subagent-capable host, an
      inline check by the maker or accepting agent never satisfies the
-     independent verifier audit.
+     independent verifier audit. Same authorship alone is not that trigger.
 U16. Phase-agent authorization, eligibility, and fallback follow
      `## Agent Roles`.
 U17. A discovered plan admitted through U2 but lacking an execution
@@ -247,10 +248,16 @@ Do not repeat Ralph's completed internal gates [U11]. Dispatch
 `code-reviewer` only for additional orchestration risk not already covered
 by Ralph (integration, merge, public-contract, security, or cross-phase),
 with its security lens when security-sensitive behavior was touched. When
-dispatched, it runs as the perspective-diverse pair and records
-`perspective-pair` with the active platform's pair-mode value. The named
-THOROUGH trigger selects only escalated platform diversity; the STANDARD
-small-task carve-out is a direct-Ralph path and never applies here. The pair
+dispatched, it runs as ONE full-role `code-reviewer` by default and records
+`single-reviewer`. ONLY a named security, data, destructive, public-contract,
+release-critical, new-concurrency, migration, or broad multi-system trigger
+escalates it to the perspective-diverse pair, recorded as `perspective-pair`
+with the active platform's pair-mode value; that same fired trigger selects
+escalated platform diversity. Reviewer count is never a quality proxy: mode
+alone, orchestration breadth, and imminent completion never authorize a second
+instance. The STANDARD
+small-task carve-out is a direct-Ralph path and never applies here. A triggered
+pair
 uses two same-role instances, each running the full role, with Lens A =
 adversarial correctness + security skeptic and Lens B = maintainability +
 coverage completeness. The two instances receive packets
@@ -261,9 +268,18 @@ independent same-model instances and records the reason; an explicit caller
 demand for diversity is strict mode and transitions to PAUSED instead of
 falling back.
 
-At STANDARD/THOROUGH, an independent `verifier` audit is required when execution
-produced or changed proving tests or the implementation/tests were authored or
-accepted by the same agent [U11, U14]. Satisfy it through exactly one of two
+An independent `verifier` audit is required exactly when a named trigger in
+`verification-before-completion`'s V4 trigger predicate fires — explicit user
+request; stale, missing, or conflicting evidence; a named security, data-loss,
+destructive, migration, recovery, or public-contract risk actually needing
+independent evidence; or accepted blocking-review fix resolution. Execution
+having produced or changed the proving tests, and the implementation or tests
+having been authored or accepted by the same agent, are explicit NON-triggers,
+as are mode, orchestration breadth, and imminent completion [U11, U14]. When no
+trigger fires, record
+`Independent verifier: not-required (no trigger fired: <reason>)` and reuse the
+fresh revision-bound evidence instead of re-proving it.
+A fired trigger is satisfied through exactly one of two
 mutually exclusive paths. Reuse Ralph's independent `verifier` pass only when
 all hold: it covers the same final claim and revision, it was an independent
 dispatch, it ran after the selected Final Validation code-review stage completed
@@ -282,14 +298,16 @@ dispatching, write the dependency graph into the session ledger:
 
 ```text
 Final Validation dependency graph:
-- code-reviewer topology: not-required | perspective-pair
+- code-reviewer topology: not-required | single-reviewer | perspective-pair
+- pair trigger: not-applicable | <named high-risk/diversity trigger>
 - code-reviewer pair mode: not-required | <active platform pair-mode value>
 - code-reviewer pass: pending | complete | blocked | not-required
 - code-reviewer synthesis captured: yes | no | not-required
 - blocking reviewer findings: none | fix-applied (manifest mapped) | blocking
+- verifier trigger: none | <named V4 trigger>
 - verifier source: fresh | reused@<ralph ledger entry + revision binding>
 - verifier bound revision: reviewed | fixed | not-required
-- verifier eligible to start: yes | no
+- verifier eligible to start: yes | no | not-required
 - verifier started after reviewer completion: yes | no | not-required
 - early verifier discarded and rerun: yes | no | not-applicable
 ```
@@ -312,7 +330,7 @@ evidence requirements here before reporting success.
 ### REPORT
 
 <HARD-GATE>
-The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each) [U12]. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `perspective-pair` with the active platform's pair-mode value; an inline fallback requires a reason. Missing review topology is a named ledger gap, not a pass. The single verifier pass is governed by the maker-verifier carve-out and sequencing field. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count. On the fix path, review evidence remains bound to the reviewed revision and the verifier pass must be bound to the fixed revision.
+The run is invalid if the session ledger does not show each required phase gate satisfied, named individually: requirements_gate, planning_gate (Plan approval source recorded), worktree_gate, execution mode, verification, reviewer pass, independent verifier pass, simplify/cleanup, and VBC (or a recorded not-required reason for each) [U12]. A silently omitted step is a named ledger gap, not a pass. Each dispatched reviewer pass records `single-reviewer`, or `perspective-pair` plus its named pair trigger and the active platform's pair-mode value; an inline fallback requires a reason. A `perspective-pair` recorded without its named trigger is also a gap. Missing review topology is a named ledger gap, not a pass. Any verifier pass is governed by the named V4 trigger predicate and the sequencing field, and records either its firing trigger or the compliant `not-required (no trigger fired: <reason>)`. When both code-reviewer and verifier are required, the ledger must show `verifier started after reviewer completion: yes` or the verifier pass is stale and does not count. On the fix path, review evidence remains bound to the reviewed revision and the verifier pass must be bound to the fixed revision.
 Run `verification-before-completion` before any completion claim or final report.
 </HARD-GATE>
 
@@ -346,10 +364,10 @@ scope.
 | Phase | Agents |
 |---|---|
 | REQUIREMENTS | follow `interview`; it dispatches `explore` for brownfield facts; no planning or review agents here |
-| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; the Plan-Reviewer follows ralplan's mode-selected topology, while a named THOROUGH risk selects only escalated platform diversity |
+| PLANNING | follow `ralplan`; sequential `analyst` -> `planner` -> risk-gated Plan-Reviewer; the Plan-Reviewer follows ralplan's risk-selected topology, defaulting to one full-role reviewer, while a named paired-review trigger selects whether the pair exists and then the platform's diversity mechanics |
 | EXECUTION | follow `ralph`; isolated `explore`, executor-default repository mutation, `verifier`, and review agents per the approved mode and plan; Ralph-unavailable phase fallback preserves executor ownership, with inline mutation only for recorded LIGHT-tiny or dispatch-unavailable cases |
 | QA | `systematic-debugging` owns `debugger`; `verifier` with the scenario lens |
-| FINAL_VALIDATION | `code-reviewer` dispatched only for additional orchestration risk (runs as the perspective-diverse pair); independent `verifier` under the carve-out |
+| FINAL_VALIDATION | `code-reviewer` dispatched only for additional orchestration risk (ONE full-role instance by default; perspective-diverse pair only on a named trigger); independent `verifier` only on a named V4 trigger |
 
 If the user invoked ultrawork with `parallel`, `subagents`, `spawn`,
 `delegate`, or `one agent per` language outside an approved plan profile,

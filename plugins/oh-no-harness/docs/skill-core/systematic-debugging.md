@@ -138,7 +138,8 @@ with an isolated scope.
 
 The normal flow is diagnostic first (`debugger`, plus `explore` when
 context is missing), then the executor-default minimal fix (`executor`), then
-evidence (`verifier`). Every direct role dispatch reuses the target role's
+trigger-gated independent evidence (`verifier`) only when the predicate below
+fires. Every direct role dispatch reuses the target role's
 required identity/result envelope and adds only the debugging workflow delta.
 An initial debugger packet contains the raw reproduction, expected behavior,
 actual behavior, environment, and diagnostic scope. In eligible fan-out it also
@@ -156,25 +157,52 @@ here.
 | `debugger` | exactly one instance per independently testable active hypothesis in one complete batch; one sequential instance when fan-out is ineligible; a paired investigation only for one named THOROUGH uncertainty when fan-out is not active |
 | `explore` | gather codebase facts, related call sites, working examples, and commands |
 | `executor` | default owner of the minimal fix after root cause and reproduction evidence exist; preserve its TDD identity across RED/GREEN/REFACTOR [D4, D7] |
-| `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never part of a reviewer or debugger pair — required when the proving tests or fix were authored or accepted by the same agent |
-| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; when dispatched, runs as the perspective-diverse pair with merged-finding synthesis |
+| `verifier` | confirm the fix and package evidence; scenario lens for user-facing flows; dispatched only when a named trigger in `### Independent Verifier Trigger Predicate` fires, and then a single self-host independent pass, never part of a reviewer or debugger pair |
+| `code-reviewer` | post-fix when the changed code is nontrivial, shared, workflow-affecting, or maintainability-sensitive, or its security lens is needed because auth, data, file system, network, secrets, sandbox, or policy-sensitive behavior is touched; ONE full-role instance by default, escalating to a perspective-diverse pair only on the named high-risk trigger (pair synthesis: merged findings) |
 
 STANDARD uses one dispatched `debugger` per eligible hypothesis in the complete
 fan-out batch, or one sequential instance when fan-out is ineligible. Only when
 hypothesis fan-out is not active may a named THOROUGH trigger use two same-role
 instances with identical packets for one named uncertainty, dispatched in
 parallel and synthesized into one result; never multiply that pair across
-hypotheses. A post-fix `code-reviewer`, when dispatched, always runs as the
-perspective-diverse pair: two same-role instances, each running the full role,
-with Lens A = adversarial correctness + security skeptic and Lens B =
-maintainability + coverage completeness. Their packets are
+hypotheses. A dispatched post-fix `code-reviewer` is ONE full-role instance by
+default, recorded `single-reviewer`. ONLY a named security, data, destructive,
+public-contract, release-critical, new-concurrency, migration, or broad
+multi-system trigger escalates it to the perspective-diverse pair: two same-role
+instances, each running the full role, with Lens A = adversarial correctness +
+security skeptic and Lens B = maintainability + coverage completeness. Their
+packets are
 identical except the single `Assigned perspective:` line; the instances are
-dispatched in parallel and synthesized into one verdict. A named THOROUGH
-code-review trigger selects only escalated platform diversity. The active
+dispatched in parallel and synthesized into one verdict. Reviewer count is never
+a quality proxy: mode alone, task size, non-triviality, reviewer availability,
+and imminent completion never authorize a second instance. That same fired
+trigger also selects escalated platform diversity. The active
 platform supplies the diversity leg. If that leg is unavailable, default mode
 uses two independent same-model instances and records the reason; an explicit
 caller demand for diversity is strict mode and transitions to PAUSED instead of
 falling back.
+
+### Independent Verifier Trigger Predicate
+
+This predicate is the ONLY authority that selects the post-fix `verifier`.
+Dispatch it when, and only when, at least one named trigger fires:
+
+- the user explicitly requested independent verification;
+- required evidence is stale, missing, or conflicting on the fixed revision;
+- a named security, data-loss, destructive, migration, recovery, or
+  public-contract risk actually requires independent evidence that caller-owned
+  evidence cannot supply;
+- an accepted blocking review finding was fixed, so the fixed revision needs a
+  per-finding resolution audit.
+
+Explicit NON-TRIGGERS — each is insufficient by itself and MUST NOT be recorded
+as a verifier basis: the selected execution mode, including THOROUGH; task size
+or non-triviality; the proving reproduction tests or fix having been authored or
+accepted by the same agent; a `code-reviewer` having run, or not run; and
+completion being imminent. When no trigger fires, record
+`Independent verifier: not-required (no trigger fired: <reason>)` and let the
+caller own the fix evidence. When a trigger does fire, the verifier is a single
+self-host independent pass, never a pair.
 
 ## Output Gate
 
@@ -183,8 +211,11 @@ Report every result, but do not classify it as passing until every dispatched re
 an eligible debugger batch records `hypothesis-fanout:<count>`, a sequential
 STANDARD debugger records `single-reviewer`, and a named THOROUGH debugger pair
 records the active platform's pair-mode value. A dispatched post-fix
-code-reviewer records `perspective-pair` with the active platform's pair-mode
-value. An inline fallback requires a reason. Missing review topology is a named
+code-reviewer records `single-reviewer` by default, or `perspective-pair` plus
+its named firing trigger and the active platform's pair-mode value. A `verifier`
+records its named trigger from `### Independent Verifier Trigger Predicate`, or
+the compliant `not-required (no trigger fired: <reason>)`. An inline fallback
+requires a reason. Missing review topology is a named
 ledger gap, not a pass. On the direct-invocation path this gate owns
 the completion chokepoint; when invoked mid-loop from `ralph`/`ultrawork`, the
 caller's completion gate is the backstop.

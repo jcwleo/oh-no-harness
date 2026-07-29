@@ -38,21 +38,26 @@ that and continue.
 
 ## Re-Homed Core Pair Rules
 
-9. When a `code-reviewer` was dispatched, record `perspective-pair` plus
-   `same-host-perspective-pair` for intentional STANDARD same-host review, or
-   the fired named THOROUGH trigger plus `cross-host` /
+9. When a `code-reviewer` was dispatched, record `single-reviewer` for the
+   default one full-role Codex review, or `perspective-pair` plus the fired
+   named trigger and `same-host-perspective-pair` / `cross-host` /
    `same-host-parallel-fallback`; only the fallback requires a reason. Missing
    review topology is a named ledger gap, not a pass.
 
-| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; an unconditionally single self-host independent pass, never a cross-host or same-host pair |
-| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; every dispatched review runs as a perspective-diverse pair, while a named THOROUGH trigger selects cross-host escalation (cross-host merge: merged findings) |
+| `verifier` | map the claim to evidence and run or inspect the required checks; scenario lens for user-facing flows; dispatched only on a named V4 trigger, and then a single self-host independent pass, never a cross-host or same-host pair |
+| `code-reviewer` | review behavior-affecting code or workflow prompt changes when risk warrants it; security lens for auth, data, file system, network, secrets, or policy-sensitive changes; ONE full-role instance by default, escalating to a perspective-diverse pair only on the named trigger that also selects cross-host escalation (cross-host merge: merged findings) |
 
+Pair-specific mechanics apply ONLY when that named trigger actually fired; with
+no fired trigger, spawn exactly one full-role reviewer. When it did fire:
 The two review legs receive redacted packets identical except the single `Assigned perspective:` line.
 
 ## Cross-Host Consult Channel
 
-A fired named THOROUGH `code-reviewer` trigger starts one Codex reviewer and
+This channel opens ONLY after a named THOROUGH `code-reviewer` trigger actually
+fires; absent that trigger there is no second leg to consult. A fired trigger
+starts one Codex reviewer and
 one transport-owner making exactly one foreground Claude call. A launch notice,
 background acknowledgement, or empty output is unavailable evidence; on
 opposite-host unavailability run `same-host-parallel-fallback` and record the
-required fallback reason. The `verifier` is never paired.
+required fallback reason. An explicitly selected pair keeps strict fallback
+semantics. The `verifier` is never paired.

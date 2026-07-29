@@ -131,10 +131,14 @@ record the fallback reason when the core skill requires it.
 
 ## Model Diversity Pair
 
-Load this section after a dispatched THOROUGH `plan-reviewer` pair, any
-dispatched `code-reviewer` pair
-(every dispatched review), a named THOROUGH paired `debugger`, or a Fusion Rescue
-trigger. The SessionStart `<OH_NO_MODEL_DIVERSITY>` block declares the resolved
+Load this section only after the active core actually SELECTED a pair: a
+triggered `plan-reviewer` pair, a triggered `code-reviewer` pair, a named
+THOROUGH paired `debugger`, or a Fusion Rescue
+trigger. It never applies to every dispatched review — the default one full-role
+`single-reviewer` uses the declared stored primary with no diversity leg and no
+model override. A `verifier` is never paired.
+
+The SessionStart `<OH_NO_MODEL_DIVERSITY>` block declares the resolved
 top-tier list, an optional validated secondary top-tier model, and each paired
 role's stored effective primary or `host-default`.
 

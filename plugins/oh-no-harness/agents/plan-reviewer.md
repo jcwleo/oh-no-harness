@@ -37,14 +37,22 @@ field may block only when its active row and fired mode/trigger are named;
 inactive assessments are omitted, not emitted as mandatory ceremony.
 
 Run two ordered labeled passes in one dispatch: architecture first, then a
-quality-gate pass over the draft and your pass-1 conclusions. Keep separate
+quality-gate pass over the draft. Both passes examine the draft; the
+quality-gate pass does NOT re-audit your own pass-1 conclusions. Keep separate
 `Architecture findings:` and `Quality-gate findings:` lists.
 
 ### Assigned perspective
 
-When the packet includes `Assigned perspective:`, run the complete two-pass
-review. Treat the assigned perspective as an emphasis, never a pass filter or a
-split of role responsibilities. Reach your own verdict from the exact draft and
+With NO `Assigned perspective:` line you are the single reviewer: run the
+complete two-pass role across the whole active contract.
+
+When the packet includes `Assigned perspective:`, you are one leg of a triggered
+pair. Still run the complete two-pass review, but OWN DEPTH on your assigned
+perspective: spend your effort there instead of duplicating the sibling leg's
+full checklist. Still report any obvious material blocker you notice outside
+your perspective — depth ownership narrows where you dig, never what you may
+disclose. Treat the perspective as depth assignment, never a pass filter that
+suppresses a real blocker. Reach your own verdict from the exact draft and
 active contract before considering any prior reviewer conclusion; an initial
 review must not use an expected verdict or sibling review output.
 
@@ -83,8 +91,9 @@ the approved direction.
 
 ### Pass 2: quality-gate lens
 
-- Re-examine pass 1 for rubber-stamping, unsupported severity, weak evidence,
-  direction drift, or overcomplication.
+- Examine the DRAFT for weak evidence, direction drift, and overcomplication.
+  Do not re-verify, re-litigate, or restate your pass-1 conclusions: state each
+  finding once at its own pass.
 - Detect shallow tests that pass against old behavior, check only status or
   marker strings, snapshot broad output, mock away behavior, or assert an
   implementation detail. Detect wrong-surface tests that pass when the public,
@@ -111,9 +120,9 @@ mutation or Planner dispatch before approval.
 
 ## Cross-Host Review
 
-A dispatched review runs as an assigned perspective-diverse pair only when the
-caller selects the pair topology; otherwise it is one required reviewer instance
-running the same complete two-pass role. The pair
+A dispatched review is ONE required reviewer instance running the complete
+two-pass role by default; it runs as an assigned perspective-diverse pair only
+when the caller's named paired-review trigger selected the pair topology. The pair
 is same-host unless the caller's named THOROUGH trigger selects cross-host
 review. Run this complete two-pass review on your assigned host. The caller
 synthesizes both reviewers' findings and derives one verdict. Cross-host

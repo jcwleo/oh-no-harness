@@ -47,17 +47,39 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(body.replace(old, new, 1), encoding="utf-8")
 
 
-def weaken_light_verifier_requirement(root: Path) -> None:
+def weaken_verifier_trigger_predicate(root: Path) -> None:
+    """Turn the canonical named-trigger predicate back into a mode/maker default.
+
+    The 2026-07-29 policy makes ONE predicate the sole verifier selector. This
+    mutation restores the retired "same author => mandatory audit" rule and
+    deletes the explicit non-triggers, which is exactly the regression the
+    predicate contract must catch.
+    """
     path = root / "docs" / "skill-core" / "ralph.md"
     replace_once(
         path,
-        "A compliant LIGHT\nrun also requires that independent verifier audit; `dispatch-unavailable` for\nit is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH.",
-        "A compliant LIGHT\nrun records that the LIGHT verifier audit is optional; dispatch-unavailable does not block LIGHT.",
+        "The verifier audit is required exactly when\n`### Independent Verifier Trigger Predicate` fires, in any mode. Same authorship\nof the proving tests or implementation is explicitly NOT such a trigger.",
+        "The verifier audit is required at STANDARD/THOROUGH when the proving tests or\nimplementation were authored or accepted by the same agent.",
     )
     replace_once(
         path,
-        "When the audit is optional or not\nrequired, record that reason",
-        "When the audit is optional or not\nrequired, including a compliant LIGHT path, record that reason",
+        "Explicit NON-TRIGGERS",
+        "Additional advisory considerations",
+    )
+
+
+def waive_triggered_verifier_independence(root: Path) -> None:
+    """Let a FIRED verifier trigger be satisfied inline instead of fail-closed."""
+    path = root / "docs" / "skill-core" / "ralph.md"
+    replace_once(
+        path,
+        "A triggered audit MUST run in a separate context",
+        "A triggered audit SHOULD run in a separate context when convenient",
+    )
+    replace_once(
+        path,
+        "they cannot\ncount as a triggered independent audit",
+        "they may\ncount as a triggered independent audit",
     )
 
 
@@ -84,27 +106,28 @@ def force_light_cleanup_through_reviewer(root: Path) -> None:
     path = root / "docs" / "skill-core" / "ralph.md"
     replace_once(
         path,
-        "`single review round`\nlanguage apply ONLY when the selected review topology is `perspective-pair`",
-        "`single review round`\nlanguage apply to every mode, including LIGHT",
+        "The post-cleanup review inspection and the `single review round`\nlanguage apply whenever a code-review stage runs, under `single-reviewer` or\n`perspective-pair`.",
+        "The post-cleanup review inspection and the `single review round`\nlanguage apply to every mode, including LIGHT.",
     )
     replace_once(
         path,
-        "proceeds directly from\nCLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage",
-        "proceeds from\nCLEANUP/RECHECK through a reviewer stage before its independent verifier",
+        "proceeds\ndirectly from CLEANUP/RECHECK to its verifier decision under",
+        "proceeds from\nCLEANUP/RECHECK through a reviewer stage before its verifier decision under",
     )
 
 
 def blur_light_reviewer_verifier_boundary(root: Path) -> None:
+    """Erase the LIGHT code-review waiver by relabelling it as a review round."""
     path = root / "docs" / "skill-core" / "ralph.md"
     replace_once(
         path,
-        "not-required (LIGHT: reviewer pair waived)",
+        "not-required (LIGHT: code review waived)",
         "perspective-pair (LIGHT: reviewer pair equivalent)",
     )
     replace_once(
         path,
-        "the verifier is NEVER waived in LIGHT",
-        "the verifier may be waived in LIGHT",
+        "a verifier joins that path only when the predicate fires",
+        "a verifier never joins that path in LIGHT",
     )
 
 
@@ -391,7 +414,7 @@ def main() -> int:
         "final run Completion Stop ordering requires exactly one '## Completion Stop'",
         lambda root: append_before_heading(
             root / "docs/skill-core/ralph.md", "## Cleanup And Final Verification",
-            "## Completion Stop\n\nRecord final run Completion Stop only after mutation-capable cleanup, the sole review round and any one focused review fix, the independent final verifier, and the exact final complete manifest fingerprint. Any later mutation invalidates this final stop and requires reevaluation and reverification on the new revision."), packet_assertion,
+            "## Completion Stop\n\nRecord final run Completion Stop only after mutation-capable cleanup, the sole review round and any one focused review fix, any triggered final verifier, and the exact final complete manifest fingerprint. Any later mutation invalidates this final stop and requires reevaluation and reverification on the new revision."), packet_assertion,
     )
     expect_rejected(
         validator, plugin_root, "independent verifier audit loses necessity mapping",
@@ -661,23 +684,33 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "LIGHT verifier requirement reverts or becomes optional",
-        "LIGHT verifier-required contract",
-        weaken_light_verifier_requirement,
+        "verifier predicate reverts to a mode/same-maker default",
+        "canonical verifier trigger-predicate contract",
+        weaken_verifier_trigger_predicate,
         assertion="assert_orchestration_ownership_contract",
     )
     expect_rejected(
         validator,
         plugin_root,
-        "LIGHT reviewer waiver is represented as verifier waiver or pair equivalence",
-        "LIGHT reviewer-waived + verifier-never-waived contract",
+        "a fired verifier trigger becomes satisfiable inline",
+        # The separate-context requirement is pinned by the review-to-executor
+        # ownership contract first; either contract failing is a correct reject.
+        "review-to-executor ownership contract",
+        waive_triggered_verifier_independence,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "LIGHT code-review waiver is relabelled as a reviewer pair",
+        "LIGHT reviewer-waived + trigger-gated verifier contract",
         blur_light_reviewer_verifier_boundary,
         assertion="assert_orchestration_ownership_contract",
     )
     expect_rejected(
         validator,
         plugin_root,
-        "LIGHT post-cleanup flow is forced through a perspective-pair reviewer",
+        "LIGHT post-cleanup flow is forced through a reviewer stage",
         "LIGHT cleanup-to-verifier topology contract",
         force_light_cleanup_through_reviewer,
         assertion="assert_orchestration_ownership_contract",
@@ -696,6 +729,480 @@ def main() -> int:
         "LIGHT regains hard numeric file bounds in grant and restrict polarity",
         "LIGHT no-hard-cap contract",
         add_hard_numeric_light_bounds,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # 2026-07-29: `implemented` must never ride along with an unfinished mutation.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "executor may report implemented with a partial mutation",
+        "executor result envelope",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "executor.md",
+            "a partial mutation\nis `blocked` or `failed`, never completion",
+            "a partial mutation\nmay still be reported as implemented",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # 2026-07-29: the completion audit reads evidence and must not grow proof
+    # merely because the run is nearly done.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "completion audit may dispatch or rerun because completion is imminent",
+        "evidence-only completion-audit contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Imminent completion is NOT a trigger",
+            "Imminent completion is itself a trigger",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # 2026-07-29: an approved expansion binds to a new manifest revision before
+    # any mutation, and direction-class expansion is never caller-approvable.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "expansion may mutate under a superseded manifest revision",
+        "## Mutation Manifest and Expansion Gate",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Mutation under a superseded manifest revision is out-of-scope work",
+            "Mutation may continue under the previous manifest revision",
+        ),
+        assertion="assert_child_packet_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph self-approves direction-class expansion without the user",
+        "## Mutation Manifest and Expansion Gate",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Ralph MUST pause and return to the user, or to `ralplan` for a plan-level\nchange",
+            "Ralph MAY approve as caller without returning to the user",
+        ),
+        assertion="assert_child_packet_ownership_contract",
+    )
+    # 2026-07-29: blocking requires a demonstrated CURRENT material failure.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "code-reviewer regains the speculative future-regression blocking route",
+        "code-reviewer demonstrated-failure and single/paired depth contract",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "code-reviewer.md",
+            "A speculative or plausible FUTURE regression, absent\n  a demonstrated current failure, is non-blocking",
+            "A plausible future regression is blocking",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # 2026-07-29: a paired leg owns depth but must still disclose an obvious
+    # material blocker outside its assigned perspective.
+    for role, anchor in (
+        (
+            "code-reviewer",
+            "Still report any obvious material blocker you\nnotice outside your perspective",
+        ),
+        (
+            "plan-reviewer",
+            "Still report any obvious material blocker you notice outside\nyour perspective",
+        ),
+    ):
+        expect_rejected(
+            validator,
+            plugin_root,
+            f"{role} assigned perspective becomes a blocker-suppressing filter",
+            f"{role} "
+            + (
+                "demonstrated-failure and single/paired depth contract"
+                if role == "code-reviewer"
+                else "draft-oriented quality gate and single/paired depth contract"
+            ),
+            lambda root, role=role, anchor=anchor: replace_once(
+                root / "docs" / "agent-core" / f"{role}.md",
+                anchor,
+                "Report only findings inside your assigned perspective",
+            ),
+            assertion="assert_orchestration_ownership_contract",
+        )
+    # 2026-07-29: pass 2 is a draft-oriented quality gate, not a self-audit.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "plan-reviewer pass 2 regresses to re-auditing its own pass-1 conclusions",
+        "plan-reviewer draft-oriented quality gate and single/paired depth contract",
+        lambda root: replace_once(
+            root / "docs" / "agent-core" / "plan-reviewer.md",
+            "Do not re-verify, re-litigate, or restate your pass-1 conclusions",
+            "Re-examine pass 1 for rubber-stamping and unsupported severity",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # 2026-07-29: VBC must not reinstate nontriviality/self-authorship defaults
+    # or re-prove fresh evidence just because a claim is imminent.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "VBC verifier dispatch reverts to a nontriviality default",
+        "verification-before-completion trigger-gated verifier and evidence-reuse contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "verification-before-completion.md",
+            "Dispatch `verifier` only when a named V4 trigger fires; nontriviality alone is\nnot one",
+            "Dispatch `verifier` by default for nontrivial completion claims",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "VBC lets imminent completion force reruns of fresh evidence",
+        "verification-before-completion trigger-gated verifier and evidence-reuse contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "verification-before-completion.md",
+            "Completion imminence alone never justifies a rerun, an added\n    test, or a fresh dispatch",
+            "Completion imminence justifies rerunning every check again",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # CR-1: the Codex adapters must not re-home a pair-by-default topology that
+    # contradicts the core's single-reviewer default.
+    for adapter, anchor, replacement, label in (
+        (
+            "codex-ralph.md",
+            "ONE full-role code-reviewer on Codex when review is required",
+            "one perspective-diverse code-reviewer pair when review is required",
+            "Codex Ralph adapter regains a pair-by-default topology",
+        ),
+        (
+            "codex-ralplan.md",
+            "ONE required full-role Plan-Reviewer instance on Codex by default",
+            "one perspective-diverse Plan-Reviewer pair, unconditionally, on Codex",
+            "Codex Ralplan adapter regains an unconditional THOROUGH pair",
+        ),
+        (
+            "codex-verification-before-completion.md",
+            "ONE full-role instance by default, escalating to a perspective-diverse pair only on the named trigger",
+            "every dispatched review runs as a perspective-diverse pair",
+            "Codex VBC adapter regains pair-by-default review",
+        ),
+    ):
+        expect_rejected(
+            validator,
+            plugin_root,
+            label,
+            "codex adapter single-reviewer default contract",
+            lambda root, adapter=adapter, anchor=anchor, replacement=replacement: replace_once(
+                root / "docs" / "platforms" / adapter,
+                anchor,
+                replacement,
+            ),
+            assertion="assert_orchestration_ownership_contract",
+        )
+    # CR-1 cross-host (M3.1): the three Claude adapters must not restore
+    # pair-by-default Model Diversity Pair wording, and must keep the ordinary
+    # single-reviewer (one stored-primary, no diversity leg) path explicit.
+    for adapter, anchor, replacement, label in (
+        (
+            "claude-code-ralph.md",
+            "This section applies ONLY when the core selected `perspective-pair` after a",
+            "For any dispatched `code-reviewer` pair (every dispatched review), after a",
+            "Claude Ralph adapter restores pair-by-default diversity dispatch",
+        ),
+        (
+            "claude-code-ralplan.md",
+            "This section applies ONLY when the core selected `perspective-pair` after a",
+            "For the THOROUGH `plan-reviewer` pair (every dispatched THOROUGH review), after a",
+            "Claude Ralplan adapter restores unconditional THOROUGH pair dispatch",
+        ),
+        (
+            "claude-code-verification-before-completion.md",
+            "This section applies ONLY when the core selected `perspective-pair` after a",
+            "For any dispatched `code-reviewer` pair (every dispatched review), after a",
+            "Claude VBC adapter restores pair-by-default diversity dispatch",
+        ),
+    ):
+        expect_rejected(
+            validator,
+            plugin_root,
+            label,
+            "claude adapter pair-only diversity contract",
+            lambda root, adapter=adapter, anchor=anchor, replacement=replacement: replace_once(
+                root / "docs" / "platforms" / adapter,
+                anchor,
+                replacement,
+            ),
+            assertion="assert_orchestration_ownership_contract",
+        )
+    # V-1 (failed-verification correction): the Codex Ultrawork adapter must not
+    # revert to a pair-by-default Final Validation review.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Codex Ultrawork adapter reverts to pair-by-default Final Validation",
+        "codex ultrawork single-reviewer default contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "codex-ultrawork.md",
+            "ONLY after the core's named paired-review trigger fired",
+            "Every dispatched Final Validation `code-reviewer` review runs as one pair, and after the trigger fired",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # V-2 / V-3: topology must stay risk-selected, never mode-selected.
+    for stale_core, anchor, replacement, label in (
+        (
+            "ultrawork.md",
+            "ralplan's risk-selected topology",
+            "ralplan's mode-selected topology",
+            "Ultrawork PLANNING row reverts to mode-selected topology",
+        ),
+        (
+            "ralplan.md",
+            "at the risk-selected topology",
+            "at the mode-selected topology",
+            "Ralplan agent-role row reverts to mode-selected topology",
+        ),
+    ):
+        expect_rejected(
+            validator,
+            plugin_root,
+            label,
+            "retains stale mode-selected review topology",
+            lambda root, stale_core=stale_core, anchor=anchor, replacement=replacement: replace_once(
+                root / "docs" / "skill-core" / stale_core,
+                anchor,
+                replacement,
+            ),
+            assertion="assert_orchestration_ownership_contract",
+        )
+    # The named trigger decides whether the pair EXISTS, not just its diversity.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork reduces the named trigger to diversity-only escalation",
+        "selects only escalated platform diversity",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "while a named paired-review trigger selects whether the pair exists and then the platform's diversity mechanics",
+            "while a named THOROUGH risk selects only escalated platform diversity",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # CR-1 cross-host (M3.2): the SHARED Claude runtime doc must not revert to
+    # pair-by-default, since it injects into many generated skills at once.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "shared Claude runtime doc reverts to pair-by-default review",
+        "shared runtime pair-only diversity contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "claude-code-runtime.md",
+            "such a selected `code-reviewer` pair,",
+            "any dispatched `code-reviewer` pair (every dispatched review),",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # It must also keep topology selection with the active core, not itself.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "shared Claude runtime doc claims review-topology selection",
+        "claude-code-runtime.md is missing required Platform-Rules marker",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "claude-code-runtime.md",
+            "governs only how an ALREADY-SELECTED pair is dispatched; it never selects review\ntopology itself",
+            "selects the review topology for each dispatched review",
+        ),
+        assertion="assert_execution_mode_contract",
+    )
+    # The ordinary single-reviewer leg must not lose its no-diversity-leg rule.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Claude adapters drop the single-reviewer no-diversity-leg rule",
+        "claude adapter pair-only diversity contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "claude-code-ralph.md",
+            "with NO diversity leg, NO model override, and no",
+            "optionally adding a diversity leg and model override, plus no",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # CR-2: Ultrawork must not reinstate same-maker verifier triggers or an
+    # unconditional Final Validation pair.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork reinstates same-author as an independent verifier trigger",
+        "ultrawork trigger-gated Final Validation contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "having been authored or accepted by the same agent, are explicit NON-triggers",
+            "having been authored or accepted by the same agent, require the audit",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ultrawork Final Validation review reverts to an unconditional pair",
+        "ultrawork trigger-gated Final Validation contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ultrawork.md",
+            "it runs as ONE full-role `code-reviewer` by default and records\n`single-reviewer`",
+            "it runs as the perspective-diverse pair and records\n`perspective-pair`",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # M4 item 1: systematic-debugging must not reinstate the same-maker verifier
+    # trigger or a pair-by-default post-fix review, in the core or either adapter.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "systematic-debugging reinstates same-author as a verifier trigger",
+        "systematic-debugging trigger-gated review and verifier contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "systematic-debugging.md",
+            "the proving reproduction tests or fix having been authored or\naccepted by the same agent",
+            "the proving reproduction tests or fix authored or accepted by the same agent requiring the audit",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "systematic-debugging post-fix review reverts to a pair by default",
+        "systematic-debugging trigger-gated review and verifier contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "systematic-debugging.md",
+            "is ONE full-role instance by\ndefault, recorded `single-reviewer`",
+            "always runs as the\nperspective-diverse pair",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Codex systematic-debugging adapter regains pair-by-default post-fix review",
+        "codex systematic-debugging single-reviewer default contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "codex-systematic-debugging.md",
+            "spawns exactly ONE full-role Codex reviewer, recorded as single-reviewer",
+            "instead runs as an intentional same-host perspective pair",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Claude systematic-debugging adapter restores pair-by-default diversity dispatch",
+        "claude systematic-debugging pair-only diversity contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "claude-code-systematic-debugging.md",
+            "This section applies ONLY when the core selected `perspective-pair` after a",
+            "For any dispatched post-fix `code-reviewer` pair (every dispatched review), after a",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # M4 item 2: compaction follows what actually ran, never the tier alone.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph compaction narrows back to LIGHT-only runs",
+        "proportional completion-ledger compaction contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "ANY run may compact the four named criteria into one combined ledger line when",
+            "A LIGHT run with no behavior change may compact the four named criteria into one combined ledger line when",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph compaction hides a step that actually ran",
+        "proportional completion-ledger compaction contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Whenever\none of the four actually ran or blocked, that entry stays individual with its own\nevidence.",
+            "A dispatched or blocked entry may also be folded into that combined line.",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # M4 item 3: the hand-maintained references must not restate pair-by-default
+    # review or an unconditional confirming verifier.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "cross-host reference restores pair-by-default review",
+        "cross-host reference proportional review contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "cross-host-review.md",
+            "is ONE full-role instance\nby default and records `single-reviewer`",
+            "uses a\nperspective-diverse pair",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "cross-host reference restores an unconditional confirming verifier",
+        "cross-host reference proportional review contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "cross-host-review.md",
+            "A `verifier` is a dependent later stage that exists\nonly when the calling skill's named verifier trigger predicate fires",
+            "The confirming `verifier` is an unconditionally required dependent later stage",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Claude reference doc restores pair-by-default diversity loading",
+        "claude reference proportional review contract",
+        lambda root: replace_once(
+            root / "docs" / "platforms" / "claude-code.md",
+            "Load this section only after the active core actually SELECTED a pair",
+            "Load this section after any dispatched `code-reviewer` pair (every dispatched review)",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # CR-3: the expansion lifecycle must persist an approval owner, route any
+    # named risk needing broader authority, and stay off retired capsule terms.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "expansion snapshot drops its approval owner",
+        "## Mutation Manifest and Expansion Gate",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "An expansion\nwhose approval owner is unrecorded is unapproved.",
+            "The approval owner may be left implicit.",
+        ),
+        assertion="assert_child_packet_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "expansion routing drops generic named-risk authority escalation",
+        "## Mutation Manifest and Expansion Gate",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "That list is illustrative, not exhaustive: ANY named or approved risk",
+            "That list is exhaustive: only a listed risk",
+        ),
+        assertion="assert_child_packet_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "completion criteria revert to stale current-capsule terminology",
+        "expansion manifest-revision completion contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "records its approval owner, was approved, and was bound to a revised Mutation\n  Manifest ID recorded in the snapshot and reissued to the executor as\n  `Expansion status: approved@<revision id> -> incorporated before mutation`\n  before any mutation",
+            "approved and reflected in the current capsule before mutation",
+        ),
         assertion="assert_orchestration_ownership_contract",
     )
     expect_rejected(
@@ -1046,37 +1553,81 @@ def main() -> int:
             "packet bodies MUST be byte-identical",
         ),
     )
+    # 2026-07-29 inverted this pair of controls. STANDARD/ordinary THOROUGH now
+    # review with ONE full-role reviewer, so the regressions worth catching are
+    # (a) losing the single full-role reviewer entirely and (b) making the
+    # escalated pair unreachable, i.e. a named trigger that can never fire.
     expect_rejected(
         validator,
         plugin_root,
-        "Ralph perspective pair regresses to one targeted reviewer",
-        "missing fixed-revision completion marker: 'one perspective-diverse code-reviewer pair'",
+        "Ralph drops the required single full-role reviewer",
+        "missing fixed-revision completion marker: "
+        "'ONE full-role `code-reviewer` for behavior-affecting or workflow'",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralph.md",
-            "one perspective-diverse code-reviewer pair",
-            "one targeted reviewer instance",
+            "ONE full-role `code-reviewer` for behavior-affecting or workflow",
+            "an optional reviewer for behavior-affecting or workflow",
         ),
     )
-    # Compensating control for the STANDARD Plan-Reviewer pin that was scoped
-    # down to a single required reviewer: THOROUGH must keep the
-    # perspective-diverse pair unconditionally. The THOROUGH-pair marker lives in
-    # RALPLAN_CONSENSUS_MARKERS and in assert_proportional_workflow_contract's
-    # ralplan entry, so this case MUST name that assertion explicitly — the
-    # default assert_ralplan_review_boundary_contract never reads it and would
-    # report `mutation unexpectedly passed`.
     expect_rejected(
         validator,
         plugin_root,
-        "ralplan THOROUGH pair regresses to one reviewer",
+        "Ralph makes the triggered escalated review pair unreachable",
+        "missing fixed-revision completion marker: "
+        "'escalates to one perspective-diverse pair'",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "escalates to one perspective-diverse pair",
+            "is reviewed by the same single reviewer",
+        ),
+    )
+    # The Plan-Reviewer markers live in RALPLAN_CONSENSUS_MARKERS and in
+    # assert_proportional_workflow_contract's ralplan entry, so these cases MUST
+    # name that assertion explicitly — the default
+    # assert_ralplan_review_boundary_contract never reads it and would report
+    # `mutation unexpectedly passed`.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "ralplan drops the required single full-role THOROUGH reviewer",
         "ralplan.md is missing proportional-workflow marker: "
-        "'THOROUGH -> one perspective-diverse Plan-Reviewer pair'",
+        "'THOROUGH -> one required full-role Plan-Reviewer instance by default'",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralplan.md",
-            "THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally",
-            "THOROUGH -> one required Plan-Reviewer instance, optionally paired",
+            "THOROUGH -> one required full-role Plan-Reviewer instance by default",
+            "THOROUGH -> review is optional at the caller's discretion",
         ),
         assertion="assert_proportional_workflow_contract",
     )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "ralplan makes the triggered Plan-Reviewer pair unreachable",
+        "ralplan.md is missing proportional-workflow marker: "
+        "'selects one perspective-diverse Plan-Reviewer'",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralplan.md",
+            "selects one perspective-diverse Plan-Reviewer",
+            "still selects only the single Plan-Reviewer",
+        ),
+        assertion="assert_proportional_workflow_contract",
+    )
+    # Reviewer count must never become a quality proxy again: a mode or a
+    # "nontrivial" judgement alone cannot authorize a second instance.
+    for core in ("ralph", "ralplan"):
+        expect_rejected(
+            validator,
+            plugin_root,
+            f"{core} lets mode alone authorize a second reviewer instance",
+            f"{core}.md is missing proportional-workflow marker: "
+            "'Reviewer count is never a quality proxy'",
+            lambda root, core=core: replace_once(
+                root / "docs" / "skill-core" / f"{core}.md",
+                "Reviewer count is never a quality proxy",
+                "More reviewers generally means a safer review",
+            ),
+            assertion="assert_proportional_workflow_contract",
+        )
     expect_rejected(
         validator,
         plugin_root,

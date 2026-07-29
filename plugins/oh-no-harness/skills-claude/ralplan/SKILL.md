@@ -52,10 +52,10 @@ R8. Every blocker names a basis, exact draft pointer, material consequence,
     and smallest sufficient correction. Preference, future-proofing, and
     optional stronger proof are non-blocking.
 R9. Roles are sequential — Analyst -> Planner -> Plan-Reviewer. Review
-    topology is mode-selected: STANDARD dispatches one required Plan-Reviewer.
-    Every dispatched THOROUGH Plan-Reviewer review runs as one
-    perspective-diverse pair; the named THOROUGH trigger selects only the
-    platform's escalated diversity (cross-host on Codex).
+    topology is risk-selected: STANDARD and ordinary THOROUGH each dispatch ONE
+    required full-role Plan-Reviewer. Only the named THOROUGH paired-review
+    trigger selects one perspective-diverse pair and the platform's escalated
+    diversity (cross-host on Codex); THOROUGH alone never does.
 R10. Active semantic risk selects mode and cost; category words and host
      capability alone never escalate.
 R15. The Active plan contract is compiled once before Planner draft v1, and
@@ -244,13 +244,19 @@ and when none exists, record
 an inline review cannot satisfy the required pass. The compliant LIGHT
 no-review carve-out remains unchanged.
 
-Topology by mode:
+Topology by risk — the named paired-review trigger, not the mode, selects
+whether a second reviewer instance exists:
 
 ```text
 LIGHT    -> review may be omitted with one concrete risk-based reason.
 STANDARD -> one required Plan-Reviewer instance running the complete two-pass
             role in its own context, recorded as `single-reviewer`.
-THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally: two
+THOROUGH -> one required full-role Plan-Reviewer instance by default, exactly as
+            STANDARD, recorded as `single-reviewer`. ONLY the named THOROUGH
+            paired-review trigger — security/data/destructive,
+            public/release-contract, concurrency, migration, or comparable
+            multi-system risk — selects one perspective-diverse Plan-Reviewer
+            pair: two
             instances of the same role, each running the full two-pass review
             with one distinct assigned perspective (Lens A
             strongest-antithesis/feasibility-risk; Lens B
@@ -260,11 +266,15 @@ THOROUGH -> one perspective-diverse Plan-Reviewer pair, unconditionally: two
             active platform supplies the diversity leg; unavailable diversity
             in default mode falls back to two independent same-model instances
             with the reason recorded; explicit diversity demand is strict mode
-            and transitions to PAUSED. A named security/data/destructive,
-            public/release-contract, concurrency, migration, or comparable
-            multi-system trigger additionally selects only the platform's
-            escalated diversity (cross-host pair on Codex).
+            and transitions to PAUSED. That same fired trigger selects only the
+            platform's escalated diversity (cross-host pair on Codex).
 ```
+
+Reviewer count is never a quality proxy: THOROUGH alone, plan length, and task
+non-triviality never authorize a second Plan-Reviewer instance — only the named
+paired-review trigger does. Review still runs exactly once per planning run
+[R6], and APPROVE freezes the exact reviewed Planner draft [R4], under either
+topology.
 
 Blocker predicate [R8]:
 
@@ -490,7 +500,7 @@ natural-dispatch`, `explicit-user-request`, or `inline-fallback`.
 | `explore` | repository facts needed; one per independent subsystem (up to 5), batched |
 | `analyst` | requirements gaps, unless satisfied by an approved interview spec; when gaps span independent areas, one per independent requirement or risk area (up to 5), batched |
 | `planner` | creates `Planner draft v1` and the single final `Planner revision v2`; owns body and dispositions |
-| `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` at the mode-selected topology |
+| `plan-reviewer` | reviews the exact draft once per `## Plan Review Contract` at the risk-selected topology: one full-role reviewer by default, a perspective-diverse pair only when the named paired-review trigger fired |
 
 Only Ralplan dispatches `plan-reviewer`; execution skills own their own
 review roles.
@@ -553,7 +563,15 @@ acknowledgement is not completion. Do not duplicate pending work inline.
 
 ## Model Diversity Pair
 
-For the THOROUGH `plan-reviewer` pair (every dispatched THOROUGH review),
+This section applies ONLY when the core selected `perspective-pair` after a
+named paired-review trigger fired, or the caller explicitly demanded strict
+diversity. It never applies to every dispatched THOROUGH review: ordinary
+THOROUGH is `single-reviewer`, exactly like STANDARD, and must
+dispatch exactly ONE full-role `plan-reviewer` using the declared stored
+primary, with NO diversity leg, NO model override, and no
+`Assigned perspective:` line.
+
+Once a pair is actually selected,
 dispatch two same-role instances in parallel and synthesize one verdict. Both legs MUST be
 requested in a single batch: issue both subagent tool calls in the same
 assistant turn (or with `Background: yes` for both) BEFORE waiting on either

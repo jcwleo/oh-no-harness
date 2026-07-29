@@ -318,7 +318,9 @@ PLATFORM_SUBAGENT_MARKERS = {
         "scenario lens for user-facing flows",
     ),
     "verification-before-completion": (
-        "Dispatch `verifier` by default for nontrivial completion claims",
+        # 2026-07-29: nontriviality is no longer a verifier trigger; dispatch is
+        # gated on the named V4 triggers.
+        "Dispatch `verifier` only when a named V4 trigger fires; nontriviality alone is\nnot one",
         "ship/block decision",
         "separate-context independent `verifier` audit",
         "`dispatch-unavailable` as a blocker",
@@ -452,6 +454,12 @@ PLATFORM_RULE_DOC_MARKERS = {
         "embedded-role fallback",
         "trigger-loaded",
         "## Model Diversity Pair",
+        # CR-1 cross-host (M3.2): this shared mechanism dispatches an
+        # already-selected pair and must never select topology or assert that
+        # every dispatched review is a pair.
+        "governs only how an ALREADY-SELECTED pair is dispatched; it never selects review\ntopology itself",
+        "The active core or skill owns that selection",
+        "never to every dispatched review",
         "identical except the single `Assigned perspective:` line",
         "Assigned perspective",
         "serial dispatch-wait-dispatch",
@@ -889,10 +897,12 @@ RALPLAN_CONSENSUS_MARKERS = (
     "Analyst -> Planner -> Plan-Reviewer",
     "APPROVE freezes the exact reviewed Planner draft",
     "blocking | non-blocking",
-    # Review topology is mode-selected: STANDARD keeps a required single
-    # reviewer, THOROUGH keeps the perspective-diverse pair unconditionally.
+    # Review topology is risk-selected: STANDARD and ordinary THOROUGH each keep
+    # ONE required full-role reviewer; only the named paired-review trigger
+    # escalates to the perspective-diverse pair.
     "STANDARD -> one required Plan-Reviewer",
-    "THOROUGH -> one perspective-diverse Plan-Reviewer pair",
+    "THOROUGH -> one required full-role Plan-Reviewer instance by default",
+    "ONLY the named THOROUGH\n            paired-review trigger",
     "required Plan-Reviewer cannot be skipped",
     "accepted blocking feedback is not in the body",
     "accepted section pointer",
@@ -3465,6 +3475,24 @@ def assert_child_packet_ownership_contract(root: Path) -> None:
             "stops before editing and returns an `Expansion request`",
             "affected packet fields",
             "requested-direction-change: yes | no",
+            # 2026-07-29: an approved expansion must be routed by owner, bound to
+            # a new manifest revision, and reflected in the snapshot BEFORE any
+            # mutation; direction-class expansion is never caller-approvable.
+            "Expansion: none | requested | approved@<revision id> | rejected",
+            "Approval owner and routing",
+            "Ralph MUST pause and return to the user, or to `ralplan` for a plan-level\nchange",
+            "BEFORE any\nmutation",
+            "Revised-manifest binding",
+            "Mutation under a superseded manifest revision is out-of-scope work",
+            # CR-3: the approval owner is persisted, and any named risk needing
+            # broader authority routes through pause/return, not self-approval.
+            "its named approval owner",
+            "An expansion\nwhose approval owner is unrecorded is unapproved.",
+            "That list is illustrative, not exhaustive: ANY named or approved risk",
+            "routes through the same pause/return rather than caller\nself-approval",
+            "When ownership is unclear, fail closed to the user",
+            "Expansion status: approved@<revision id> -> incorporated before mutation",
+            "never proceeds on\nan assumed approval",
         ),
         "## Verification Contract and Test Necessity Gate": (
             "focused RED behavior/command and expected old failure",
@@ -3493,7 +3521,9 @@ def assert_child_packet_ownership_contract(root: Path) -> None:
         ),
         "## Completion Stop": (
             "Record final run Completion Stop only after mutation-capable cleanup",
-            "independent final verifier",
+            # Trigger-gated since 2026-07-29: the final verifier is required only
+            # when the Review Gate predicate fires.
+            "any triggered final verifier",
             "exact final complete manifest fingerprint",
             "Any later mutation invalidates this final stop",
         ),
@@ -3712,12 +3742,14 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         markdown_section(ralph, "## State Machine"),
         (
-            "reviewer verdict approve (or compliant not-required) and verifier pass / accepted pass-with-residual-risk bound to the reviewed revision",
+            # The no-blocker exit now has two compliant shapes: no verifier
+            # trigger fired, or a triggered pass bound to the reviewed revision.
+            "reviewer verdict approve (or compliant not-required) and either no verifier trigger fired (compliant not-required) or verifier pass / accepted pass-with-residual-risk bound to the reviewed revision",
             "reviewer verdict blocking-findings",
             "EXECUTE-fix (exactly one executor-owned focused fix; no reviewer re-dispatch)",
             "fix manifest maps every accepted blocking finding ID",
             "verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision",
-            "required independent verifier has no separate context",
+            "TRIGGERED independent verifier has no separate context",
             "reviewer or verifier verdict is `blocked`",
         ),
         "caller-owned FSM transition contract",
@@ -3787,6 +3819,15 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "Lifecycle: caller waits for and captures",
             "Coordination:",
             "Assigned review perspective:",
+            # 2026-07-29: the executor's scope contract travels in the packet, so
+            # a bounded assignment cannot be dispatched without its manifest,
+            # verification contract, admitted tests, stop, and expansion state.
+            "Mutation Manifest:",
+            "Verification Contract:",
+            "Test Necessity Decisions:",
+            "Assignment completion contract:",
+            "Expansion authority:",
+            "Expansion status:",
         ),
         "caller-owned child packet and Ralph assignment-delta contract",
     )
@@ -3807,9 +3848,10 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         cleanup,
         (
-            "post-cleanup perspective-pair inspection",
-            "apply ONLY when the selected review topology is `perspective-pair`",
-            "proceeds directly from\nCLEANUP/RECHECK to its REQUIRED independent verifier, with no reviewer stage",
+            "post-cleanup review inspection",
+            "apply whenever a code-review stage runs, under `single-reviewer` or\n`perspective-pair`",
+            "proceeds\ndirectly from CLEANUP/RECHECK to its verifier decision under",
+            "when no\ntrigger fires it proceeds to FINALIZE with caller-owned evidence",
         ),
         "LIGHT cleanup-to-verifier topology contract",
     )
@@ -3828,41 +3870,64 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "blocking reviewer findings: none | fix-applied (manifest mapped) | blocking",
             "verifier bound revision: reviewed | fixed",
             "either role's `blocked` verdict pauses",
-            "MUST run in a\nseparate context",
+            "A triggered audit MUST run in a separate context",
             "Independent\nverifier: dispatch-unavailable",
             "transition to PAUSED",
-            "cannot\ncount as the required independent audit",
+            "cannot\ncount as a triggered independent audit",
             "focused `executor` assignment",
             "reviewer never applies the fix or advances the FSM",
         ),
         "review-to-executor ownership contract",
     )
+    # 2026-07-29: the verifier is no longer mandatory per mode/same-maker. One
+    # canonical named-trigger predicate is the sole selector, so pin the
+    # predicate and its explicit non-triggers instead of the retired
+    # "LIGHT always needs a verifier" wording.
     require(
         ralph_path,
         review,
         (
-            "run also requires that independent verifier audit",
-            "it is a LIGHT blocker (transition to PAUSED) exactly as for STANDARD/THOROUGH",
+            "### Independent Verifier Trigger Predicate",
+            "This predicate is the ONLY authority that selects the independent `verifier`",
+            "an accepted blocking review finding was fixed",
+            "Explicit NON-TRIGGERS",
+            "the selected execution mode, including THOROUGH; task size",
+            "accepted by the same agent; a `code-reviewer` having run, or not run; and\ncompletion being imminent",
+            "Independent verifier: not-required (no trigger fired: <reason>)",
         ),
-        "LIGHT verifier-required contract",
+        "canonical verifier trigger-predicate contract",
     )
     require(
         ralph_path,
         review,
         (
-            "not-required (LIGHT: reviewer pair waived)",
-            "the verifier is NEVER waived in LIGHT",
+            "not-required (LIGHT: code review waived)",
+            "a verifier joins that path only when the predicate fires",
         ),
-        "LIGHT reviewer-waived + verifier-never-waived contract",
+        "LIGHT reviewer-waived + trigger-gated verifier contract",
     )
+    # A triggered audit still cannot be satisfied inline or by an absent host.
+    require(
+        ralph_path,
+        review,
+        (
+            "A triggered audit MUST run in a separate context",
+            "they cannot\ncount as a triggered independent audit",
+        ),
+        "triggered verifier independence contract",
+    )
+    # Guard the superseded mandatory-verifier polarity from returning, and guard
+    # the new predicate from being weakened back into a mode/maker default.
     for forbidden in (
-        "LIGHT verifier audit is optional",
-        "including a compliant LIGHT path",
+        "run also requires that independent verifier audit",
+        "the verifier is NEVER waived in LIGHT",
+        "authored or accepted by the same agent, an\nindependent",
+        "required at STANDARD/THOROUGH when the proving tests",
     ):
         if forbidden in review:
             die(
-                f"{ralph_path} violates LIGHT verifier-required contract: "
-                f"{forbidden!r}"
+                f"{ralph_path} violates canonical verifier trigger-predicate "
+                f"contract (retired mandatory-verifier wording): {forbidden!r}"
             )
     persistence = markdown_section(ralph, "## Persistence Rule")
     require(
@@ -3878,19 +3943,58 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         persistence,
         (
-            "compliant not-required reason",
-            "`dispatch-unavailable` is a blocker",
+            # A fired trigger still fails closed; an unfired one must name its
+            # compliant reason rather than silently omitting the verifier row.
+            "compliantly not-required",
+            "`not-required (no trigger fired: <reason>)` is recorded",
+            "For a fired trigger,\n  `dispatch-unavailable` is a blocker",
             "cannot satisfy completion",
             "Diff-Budget is `passed@<current stabilized fingerprint>`",
         ),
         "required verifier fail-closed completion contract",
     )
+    # M4 item 2 (2026-07-29): compaction is proportional to what actually ran, not
+    # to the tier. ANY run may compact the four criteria into one line when all
+    # four are compliant not-required / no-candidate / no-trigger records; an entry
+    # that actually ran or blocked stays individual with its own evidence.
+    require(
+        ralph_path,
+        persistence,
+        (
+            "the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion",
+            "ANY run may compact the four named criteria into one combined ledger line when",
+            "EVERY part is a compliant not-required / no-candidate / no-trigger record with\nits reason",
+            "nothing was actually dispatched or run for any of the four",
+            "one of the four actually ran or blocked, that entry stays individual with its own\nevidence",
+        ),
+        "proportional completion-ledger compaction contract",
+    )
+    if "A LIGHT run with no behavior change may compact the four named criteria" in persistence:
+        die(
+            f"{ralph_path} violates proportional completion-ledger compaction "
+            "contract: retains the LIGHT-only compaction restriction"
+        )
     for forbidden in (
         "Implement inline or dispatch `executor`",
         "| EXECUTE (focused fix + focused re-check only) |",
     ):
         if forbidden in ralph:
             die(f"{ralph_path} retains forbidden inline-maker wording: {forbidden!r}")
+
+    # 2026-07-29: the completion audit reads evidence; nearing the end of a run
+    # must not become a licence to dispatch, rerun, or grow proof.
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Completion Stop"),
+        (
+            "The COMPLETION_AUDIT is EVIDENCE-ONLY",
+            "reuses\nfresh revision-bound evidence",
+            "Imminent completion is NOT a trigger",
+            "MUST NOT dispatch a role, rerun a passing check, or add a test merely because\nthe run is about to finish",
+            "only name a missing-evidence blocker when a\nrequired row is actually stale, missing, or conflicting",
+        ),
+        "evidence-only completion-audit contract",
+    )
 
     executor_path = agent_core / "executor.md"
     executor = read_text(executor_path)
@@ -3910,6 +4014,11 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
             "Structured change manifest",
             "not story completion, AC acceptance",
             "never collapse, abbreviate",
+            # 2026-07-29: `implemented` may never ride along with an unfinished
+            # mutation, so a partial result cannot be reported as completion.
+            "ONLY\npaired with `Mutation status: complete`",
+            "is a contract violation",
+            "a partial mutation\nis `blocked` or `failed`, never completion",
         ),
         "executor result envelope",
     )
@@ -3930,6 +4039,196 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     # Its still-meaningful identity/revision boundary is now covered above against
     # the surviving executor role; exact inventory rejects transport reintroduction.
 
+    # CR-1 (2026-07-29): the Codex adapters are host mechanics only and must not
+    # re-home a pair-by-default topology that contradicts the core default.
+    for adapter_name, adapter_markers in {
+        "codex-ralph.md": (
+            "ONE full-role code-reviewer on Codex when review is required",
+            "recorded as single-reviewer",
+            "ONLY a\n            named security, data,",
+            "Pair-specific mechanics apply ONLY when that named pair trigger actually fired",
+            "An explicitly selected pair keeps strict fallback",
+        ),
+        "codex-ralplan.md": (
+            "ONE required full-role Plan-Reviewer instance on Codex by default",
+            "recorded as single-reviewer",
+            "paired-review\n            trigger escalates to the perspective-diverse Plan-Reviewer pair",
+            "Pair-specific mechanics apply ONLY when that named paired-review trigger",
+            "An explicitly selected pair keeps strict fallback",
+        ),
+        "codex-verification-before-completion.md": (
+            "record `single-reviewer` for the\n   default one full-role Codex review",
+            "ONE full-role instance by default, escalating to a perspective-diverse pair only on the named trigger",
+            "Pair-specific mechanics apply ONLY when that named trigger actually fired",
+            "An explicitly selected pair keeps strict fallback",
+        ),
+    }.items():
+        adapter_path = platforms / adapter_name
+        adapter_body = read_text(adapter_path)
+        require(
+            adapter_path,
+            adapter_body,
+            adapter_markers,
+            "codex adapter single-reviewer default contract",
+        )
+        for forbidden in (
+            "one perspective-diverse code-reviewer pair when review is required",
+            "one perspective-diverse Plan-Reviewer pair, unconditionally",
+            "every dispatched review runs as a perspective-diverse pair",
+        ):
+            if forbidden in adapter_body:
+                die(
+                    f"{adapter_path} violates codex adapter single-reviewer default "
+                    f"contract (retired pair-by-default wording): {forbidden!r}"
+                )
+
+    # CR-1 cross-host (M3.1): the Claude adapters' Model Diversity Pair mechanics
+    # are pair-only. They must not re-home pair-by-default dispatch, and the
+    # ordinary single-reviewer path must stay explicit (one stored-primary
+    # reviewer, no diversity leg).
+    for adapter_name, role_name in (
+        ("claude-code-ralph.md", "code-reviewer"),
+        ("claude-code-ralplan.md", "plan-reviewer"),
+        ("claude-code-verification-before-completion.md", "code-reviewer"),
+    ):
+        adapter_path = platforms / adapter_name
+        adapter_body = read_text(adapter_path)
+        require(
+            adapter_path,
+            adapter_body,
+            (
+                "This section applies ONLY when the core selected `perspective-pair` after a",
+                f"dispatch exactly ONE full-role `{role_name}` using the declared stored",
+                "with NO diversity leg, NO model override, and no",
+                "Once a pair is actually selected,",
+                # Pair mechanics must survive intact once a pair IS selected.
+                "requested in a single batch",
+                "model-diversity-pair",
+                "same-model-parallel-fallback",
+                "require-model-diversity",
+                "transition to PAUSED",
+            ),
+            "claude adapter pair-only diversity contract",
+        )
+        for forbidden in (
+            "For any dispatched `code-reviewer` pair (every dispatched review)",
+            "For the THOROUGH `plan-reviewer` pair (every dispatched THOROUGH review)",
+        ):
+            if forbidden in adapter_body:
+                die(
+                    f"{adapter_path} violates claude adapter pair-only diversity "
+                    f"contract (retired pair-by-default wording): {forbidden!r}"
+                )
+
+    # CR-1 cross-host (M3.2): the SHARED Claude runtime doc feeds many generated
+    # skills, so a pair-by-default phrase here leaks into all of them.
+    shared_runtime_path = platforms / "claude-code-runtime.md"
+    shared_runtime = read_text(shared_runtime_path)
+    if "(every dispatched review)" in shared_runtime:
+        die(
+            f"{shared_runtime_path} violates shared runtime pair-only diversity "
+            "contract: retains retired '(every dispatched review)' wording"
+        )
+
+    # V-1 (failed-verification correction): the Codex Ultrawork adapter implements
+    # only the core-selected topology and must not re-home a pair-by-default
+    # Final Validation review.
+    codex_ultrawork_path = platforms / "codex-ultrawork.md"
+    codex_ultrawork = read_text(codex_ultrawork_path)
+    require(
+        codex_ultrawork_path,
+        codex_ultrawork,
+        (
+            "implements only the topology the core already selected; it never\nselects topology itself",
+            "the default in STANDARD and THOROUGH alike — dispatches exactly ONE full-role",
+            "records `single-reviewer`",
+            "ONLY after the core's named paired-review trigger fired",
+            # Pair mechanics must survive once a pair IS selected.
+            "Once a pair is actually selected, spawn both legs before waiting",
+            "same-host-perspective-pair",
+            "same-host-parallel-fallback",
+            "`require-cross-host` pauses",
+        ),
+        "codex ultrawork single-reviewer default contract",
+    )
+    for forbidden in (
+        "Every dispatched Final Validation `code-reviewer` review runs as one",
+        "STANDARD uses two Codex reviewers",
+    ):
+        if forbidden in codex_ultrawork:
+            die(
+                f"{codex_ultrawork_path} violates codex ultrawork single-reviewer "
+                f"default contract (retired pair-by-default wording): {forbidden!r}"
+            )
+
+    # V-2 / V-3: topology is risk-selected, never mode-selected, and a named
+    # trigger decides whether the pair exists (not merely its diversity).
+    for stale_path, stale_label in (
+        (skill_core / "ultrawork.md", "ultrawork"),
+        (skill_core / "ralplan.md", "ralplan"),
+    ):
+        stale_body = read_text(stale_path)
+        for forbidden in ("mode-selected topology", "Topology by mode"):
+            if forbidden in stale_body:
+                die(
+                    f"{stale_path} retains stale mode-selected review topology "
+                    f"wording ({stale_label}): {forbidden!r}"
+                )
+    if "selects only escalated platform diversity" in read_text(skill_core / "ultrawork.md"):
+        die(
+            "ultrawork.md retains stale 'selects only escalated platform diversity' "
+            "wording: the named trigger selects whether the pair exists, then its diversity"
+        )
+
+    # CR-2 (2026-07-29): Ultrawork Final Validation follows the same trigger-gated
+    # verifier predicate and single-reviewer default as the cores it composes.
+    ultrawork_final_validation_body = markdown_section(
+        read_text(skill_core / "ultrawork.md"), "### FINAL_VALIDATION"
+    )
+    require(
+        skill_core / "ultrawork.md",
+        ultrawork_final_validation_body,
+        (
+            "it runs as ONE full-role `code-reviewer` by default and records\n`single-reviewer`",
+            "ONLY a named security, data, destructive, public-contract,",
+            "Reviewer count is never a quality proxy",
+            "`verification-before-completion`'s V4 trigger predicate fires",
+            "are explicit NON-triggers",
+            "Independent verifier: not-required (no trigger fired: <reason>)",
+            "reuse the\nfresh revision-bound evidence instead of re-proving it",
+            "- code-reviewer topology: not-required | single-reviewer | perspective-pair",
+            "- verifier trigger: none | <named V4 trigger>",
+        ),
+        "ultrawork trigger-gated Final Validation contract",
+    )
+    for forbidden in (
+        "having been authored or accepted by the same agent, require the audit",
+        "it runs as the perspective-diverse pair and records",
+    ):
+        if forbidden in ultrawork_final_validation_body:
+            die(
+                "ultrawork.md violates ultrawork trigger-gated Final Validation "
+                f"contract: {forbidden!r}"
+            )
+
+    # CR-3 (2026-07-29): completion criteria bind an approved expansion to its
+    # revised manifest ID and reissued packet, not the retired capsule term.
+    if "current capsule" in ralph:
+        die(
+            f"{ralph_path} violates expansion manifest-revision completion "
+            "contract: retains retired 'current capsule' terminology"
+        )
+    require(
+        ralph_path,
+        markdown_section(ralph, "## Persistence Rule"),
+        (
+            "records its approval owner, was approved, and was bound to a revised Mutation",
+            "Manifest ID recorded in the snapshot and reissued to the executor as",
+            "`Expansion status: approved@<revision id> -> incorporated before mutation`",
+        ),
+        "expansion manifest-revision completion contract",
+    )
+
     reviewer_path = agent_core / "code-reviewer.md"
     reviewer = read_text(reviewer_path)
     require(
@@ -3945,6 +4244,28 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "code-reviewer verdict/revision envelope",
     )
+    # 2026-07-29: blocking requires a demonstrated CURRENT material failure, and
+    # a single reviewer owns the whole role while a paired leg owns depth without
+    # suppressing an obvious out-of-perspective blocker.
+    require(
+        reviewer_path,
+        reviewer,
+        (
+            "only when you can demonstrate a\n  material failure in the CURRENT change",
+            "A speculative or plausible FUTURE regression, absent\n  a demonstrated current failure, is non-blocking",
+            "With NO `Assigned perspective:` line you are the single reviewer: run the\ncomplete role across both ordered lenses",
+            "OWN DEPTH on\nyour assigned perspective",
+            "Still report any obvious material blocker you\nnotice outside your perspective",
+            "never a\npass filter that suppresses a real blocker",
+            "A dispatched review is ONE full-role reviewer by default",
+        ),
+        "code-reviewer demonstrated-failure and single/paired depth contract",
+    )
+    if "blocking when they can plausibly create" in reviewer:
+        die(
+            f"{reviewer_path} retains the retired speculative future-regression "
+            "blocking route"
+        )
 
     verifier_path = agent_core / "verifier.md"
     verifier = read_text(verifier_path)
@@ -3984,6 +4305,31 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "plan-reviewer read-only review envelope",
     )
+    # 2026-07-29: pass 2 is a draft-oriented quality gate, not a self-audit of
+    # pass-1 conclusions; single vs. paired depth mirrors the code reviewer.
+    require(
+        plan_reviewer_path,
+        plan_reviewer,
+        (
+            "quality-gate pass over the draft. Both passes examine the draft; the\nquality-gate pass does NOT re-audit your own pass-1 conclusions",
+            "Examine the DRAFT for weak evidence, direction drift, and overcomplication",
+            "Do not re-verify, re-litigate, or restate your pass-1 conclusions",
+            "With NO `Assigned perspective:` line you are the single reviewer: run the\ncomplete two-pass role",
+            "OWN DEPTH on your assigned\nperspective",
+            "Still report any obvious material blocker you notice outside\nyour perspective",
+            "A dispatched review is ONE required reviewer instance running the complete\ntwo-pass role by default",
+        ),
+        "plan-reviewer draft-oriented quality gate and single/paired depth contract",
+    )
+    for forbidden in (
+        "Re-examine pass 1 for rubber-stamping",
+        "quality-gate pass over the draft and your pass-1 conclusions",
+    ):
+        if forbidden in plan_reviewer:
+            die(
+                f"{plan_reviewer_path} retains the retired pass-1 self-recheck: "
+                f"{forbidden!r}"
+            )
     for forbidden in (
         "unless explicitly assigned by the current skill",
         "may run the generator",
@@ -4082,6 +4428,93 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     if "`executor` subagent when the write scope is\n   isolated, otherwise inline" in debugging:
         die(f"{debugging_path} retains isolation-optional executor ownership")
 
+    # M4 item 1 (2026-07-29): systematic-debugging follows the same proportionality
+    # policy as Ralph/VBC — one named-trigger predicate selects the post-fix
+    # verifier (same authorship is an explicit NON-trigger), and post-fix review is
+    # ONE full-role instance unless a named high-risk trigger buys the pair.
+    require(
+        debugging_path,
+        debugging,
+        (
+            "### Independent Verifier Trigger Predicate",
+            "This predicate is the ONLY authority that selects the post-fix `verifier`",
+            "an accepted blocking review finding was fixed",
+            "Explicit NON-TRIGGERS",
+            "the proving reproduction tests or fix having been authored or\naccepted by the same agent",
+            "Independent verifier: not-required (no trigger fired: <reason>)",
+            "the verifier is a single\nself-host independent pass, never a pair",
+            "ONE full-role instance by default, escalating to a perspective-diverse pair only on the named high-risk trigger",
+            "is ONE full-role instance by\ndefault, recorded `single-reviewer`",
+            "Reviewer count is never\na quality proxy",
+            "records `single-reviewer` by default, or `perspective-pair` plus\nits named firing trigger",
+        ),
+        "systematic-debugging trigger-gated review and verifier contract",
+    )
+    for forbidden in (
+        "required when the proving tests or fix were authored or accepted by the same agent",
+        "when dispatched, runs as the perspective-diverse pair",
+        "always runs as the\nperspective-diverse pair",
+        "code-reviewer records `perspective-pair` with the active platform's pair-mode",
+    ):
+        if forbidden in debugging:
+            die(
+                f"{debugging_path} violates systematic-debugging trigger-gated "
+                f"review and verifier contract (retired wording): {forbidden!r}"
+            )
+
+    # The two systematic-debugging adapters implement only the core-selected
+    # topology; neither may re-home a pair-by-default or same-maker verifier rule.
+    debug_codex_path = platforms / "codex-systematic-debugging.md"
+    debug_codex = read_text(debug_codex_path)
+    require(
+        debug_codex_path,
+        debug_codex,
+        (
+            "spawns exactly ONE full-role Codex reviewer, recorded as single-reviewer",
+            "Pair-specific mechanics apply ONLY when that named pair trigger actually fired",
+            "dispatched only on a named trigger from the core's verifier predicate",
+            "An explicitly selected pair keeps strict fallback",
+            "The `verifier` is never paired.",
+            # Pair mechanics must survive intact once a pair IS selected.
+            "same-host-perspective-pair",
+            "same-host-parallel-fallback",
+        ),
+        "codex systematic-debugging single-reviewer default contract",
+    )
+    for forbidden in (
+        "Every dispatched post-fix `code-reviewer` review\ninstead runs as an intentional same-host perspective pair",
+        "required when the proving tests or fix were authored or accepted by the same agent",
+    ):
+        if forbidden in debug_codex:
+            die(
+                f"{debug_codex_path} violates codex systematic-debugging "
+                f"single-reviewer default contract (retired wording): {forbidden!r}"
+            )
+    debug_claude_path = platforms / "claude-code-systematic-debugging.md"
+    debug_claude = read_text(debug_claude_path)
+    require(
+        debug_claude_path,
+        debug_claude,
+        (
+            "This section applies ONLY when the core selected `perspective-pair` after a",
+            "dispatch exactly ONE\nfull-role `code-reviewer` using the declared stored primary",
+            "with NO diversity\nleg, NO model override, and no `Assigned perspective:` line",
+            "Once a pair is actually selected,",
+            # Pair mechanics must survive intact once a pair IS selected.
+            "requested in a single batch",
+            "model-diversity-pair",
+            "same-model-parallel-fallback",
+            "require-model-diversity",
+            "transition to PAUSED",
+        ),
+        "claude systematic-debugging pair-only diversity contract",
+    )
+    if "(every dispatched review)" in debug_claude:
+        die(
+            f"{debug_claude_path} violates claude systematic-debugging pair-only "
+            "diversity contract: retains retired '(every dispatched review)' wording"
+        )
+
     ultrawork_path = skill_core / "ultrawork.md"
     ultrawork = read_text(ultrawork_path)
     require(
@@ -4117,7 +4550,7 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ultrawork_path,
         ultrawork_final_validation,
         (
-            "Satisfy it through exactly one of two\nmutually exclusive paths.",
+            "A fired trigger is satisfied through exactly one of two\nmutually exclusive paths.",
             "Reuse Ralph's independent `verifier` pass only when\nall hold: it covers the same final claim and revision, it was an independent\ndispatch, it ran after the selected Final Validation code-review stage completed\nor that review is compliantly not-required, and no file, dependency, or evidence\nchanged since that pass; otherwise dispatch one fresh self-host `verifier` pass.",
             "If Ultrawork dispatches its own `code-reviewer`, Ralph's prior verifier is\nearly/stale by construction, so reuse is unavailable and the fresh self-host\n`verifier` pass runs after reviewer synthesis and any fix manifest, bound to the\nreviewed/fixed revision.",
             "verifier source: fresh | reused@<ralph ledger entry + revision binding>",
@@ -4141,6 +4574,26 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "verification-before-completion independent-audit contract",
     )
+    # 2026-07-29: the audit is trigger-gated, and fresh revision-bound evidence
+    # is reused rather than re-proven just because a claim is imminent.
+    require(
+        vbc_path,
+        vbc,
+        (
+            "An independent `verifier` audit is required only when a named trigger\n    fires",
+            "reviewer presence, and imminent completion are explicit NON-triggers",
+            "Fresh revision-bound reviewer, verifier, and command evidence is reused as\n    recorded",
+            "Completion imminence alone never justifies a rerun, an added\n    test, or a fresh dispatch",
+            "Dispatch `verifier` only when a named V4 trigger fires; nontriviality alone is\nnot one",
+            "Independent verifier: not-required (no trigger fired: <reason>)",
+            "ONE full-role instance by default",
+        ),
+        "verification-before-completion trigger-gated verifier and evidence-reuse contract",
+    )
+    if "authored or accepted by the current agent, an\n    independent" in vbc:
+        die(
+            f"{vbc_path} retains the retired same-maker mandatory-verifier rule"
+        )
     for adapter_name in (
         "claude-code-verification-before-completion.md",
         "codex-verification-before-completion.md",
@@ -4242,6 +4695,53 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ),
         "current Ralph core owner reference",
     )
+    # M4 item 3 (2026-07-29): these two hand-maintained references must state the
+    # shipped contract — single-reviewer default, pair only on a named trigger,
+    # verifier only on its named trigger predicate (single self-host when fired).
+    require(
+        cross_host_path,
+        cross_host,
+        (
+            "is ONE full-role instance\nby default and records `single-reviewer`",
+            "A perspective-diverse pair exists only after the calling skill\nrecords its named high-risk or paired-review trigger",
+            "it never creates a pair",
+            "A `verifier` is a dependent later stage that exists\nonly when the calling skill's named verifier trigger predicate fires",
+            "are explicit NON-triggers",
+            "not-required (no trigger fired: <reason>)",
+            "A triggered `verifier` is always a\nsingle self-host independent pass",
+        ),
+        "cross-host reference proportional review contract",
+    )
+    for forbidden in (
+        "Every dispatched `code-reviewer` review, and every dispatched THOROUGH\n`plan-reviewer` review, uses a\nperspective-diverse pair",
+        "the ordinary dispatched review\nstill runs its perspective pair as `same-host-perspective-pair`",
+        "The confirming `verifier` is an unconditionally",
+        "the intentional STANDARD same-host pair",
+        "every dispatched post-fix `code-reviewer` uses a perspective pair",
+    ):
+        if forbidden in cross_host:
+            die(
+                f"{cross_host_path} violates cross-host reference proportional "
+                f"review contract (retired pair-by-default wording): {forbidden!r}"
+            )
+    claude_reference_path = platforms / "claude-code.md"
+    claude_reference = read_text(claude_reference_path)
+    require(
+        claude_reference_path,
+        claude_reference,
+        (
+            "Load this section only after the active core actually SELECTED a pair",
+            "It never applies to every dispatched review",
+            "the default one full-role\n`single-reviewer` uses the declared stored primary with no diversity leg and no\nmodel override",
+            "A `verifier` is never paired.",
+        ),
+        "claude reference proportional review contract",
+    )
+    if "(every dispatched review)" in claude_reference:
+        die(
+            f"{claude_reference_path} violates claude reference proportional review "
+            "contract: retains retired '(every dispatched review)' wording"
+        )
 
     generator_path = root.parent.parent / "scripts" / "generate-agent-wrappers.py"
     generator = read_text(generator_path)
@@ -4439,16 +4939,19 @@ def assert_proportional_workflow_contract(root: Path) -> None:
     for skill, markers in {
         "ralplan": (
             "single canonical schema",
-            # Mode-selected topology: STANDARD's required reviewer is single and
-            # THOROUGH keeps the perspective-diverse pair unconditionally. Both
-            # halves are pinned so neither can be dropped as "reduction".
+            # Risk-selected topology: STANDARD and ordinary THOROUGH each keep
+            # ONE required full-role reviewer, and the pair stays reachable only
+            # through its named trigger. Both halves are pinned so neither the
+            # single-reviewer default nor the triggered pair can be dropped.
             "STANDARD -> one required Plan-Reviewer",
-            "THOROUGH -> one perspective-diverse Plan-Reviewer pair",
-            "Every dispatched THOROUGH Plan-Reviewer review runs as one",
+            "THOROUGH -> one required full-role Plan-Reviewer instance by default",
+            "selects one perspective-diverse Plan-Reviewer",
+            "Reviewer count is never a quality proxy",
         ),
         "ralph": (
             "`verification.md` is the canonical acceptance-to-evidence",
-            "one perspective-diverse code-reviewer pair",
+            "ONE full-role `code-reviewer` for behavior-affecting or workflow",
+            "Reviewer count is never a quality proxy",
             "## Process Budget Gate",
         ),
         "simplify": (
@@ -4788,7 +5291,8 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
 
     ralph = read_text(skill_core / "ralph.md")
     for marker in (
-        "one perspective-diverse code-reviewer pair",
+        "ONE full-role `code-reviewer` for behavior-affecting or workflow",
+        "escalates to one perspective-diverse pair",
         "Reviewer approval of the fixed revision is NOT required and MUST NOT be requested",
         "the verifier pass (or accepted pass-with-residual-risk) binds to the FIXED revision with a per-finding resolution audit",
         "verifier bound revision: reviewed | fixed",
