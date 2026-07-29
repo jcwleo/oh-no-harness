@@ -112,6 +112,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("finding→fix mapping", BOTH),
         # Plan length is a draft-contract rule, so its omission must fail a gate.
         ("calibrated to decision content, not to mode", BOTH),
+        # 2026-07-29 artifact de-duplication: planning.md is snapshot + ledger,
+        # and requirements/baseline/subagent material is pointed at, not copied.
+        ("explore/analyst output\nare referenced by pointer", BOTH),
         ("Assigned perspective", BOTH),
         ("APPROVE freezes the exact reviewed Planner draft", BOTH),
         ("Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>", BOTH),
@@ -155,6 +158,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
     ],
     "ralph": [
         ("Ralph's main agent is the orchestrator", BOTH),
+        # 2026-07-29 artifact de-duplication: canonical ownership must stay
+        # pinned, or artifacts silently re-derive the plan and this skill again.
+        ("restating them as prose. `verification.md` owns AC-to-evidence, RED/GREEN,\ntest necessity, and the baseline gate table; the plan's test-design decisions\nare referenced by AC ID", BOTH),
+        ("record the finding and its evidence pointer. Artifact\nlength is calibrated to resume and audit need, not to mode", BOTH),
+        ("The session file set is closed to the files named above", BOTH),
         ("executor roles own default repository work-product mutation", BOTH),
         ("inline mutation is only a recorded LIGHT-tiny or dispatch-unavailable fallback", BOTH),
         ("Execution Mode Decision Prompt", BOTH),

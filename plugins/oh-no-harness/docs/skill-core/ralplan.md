@@ -74,6 +74,13 @@ Planning run:
 - Approval: pending approval | approved-direct | approved-ultrawork
 ```
 
+This snapshot and the `## Findings Ledger Gate` ledger are `planning.md`'s only
+canonical content. Requirements evidence, baselines, and explore/analyst output
+are referenced by pointer — path, finding id, AC ID — never transcribed, and
+subagent output is never copied verbatim. Snapshot length is calibrated to
+decision content, not to mode; do not restate a decision that already has a
+canonical home in the spec or the plan.
+
 ## State Machine
 
 | Phase | Exit guard | Next |

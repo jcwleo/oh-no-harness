@@ -165,6 +165,18 @@ Acceptance-to-evidence ledger row:
 - Freshness source; reviewer findings by AC ID; verifier audit; residual risk
 ```
 
+Artifact scope — pointer, not restatement. `progress.md` is a resume index: it
+references the plan's Mutation Manifest, budget baselines, and this skill's
+completion criteria by path, AC ID, revision id, and status instead of
+restating them as prose. `verification.md` owns AC-to-evidence, RED/GREEN,
+test necessity, and the baseline gate table; the plan's test-design decisions
+are referenced by AC ID, never re-derived. Never copy subagent output verbatim
+into an artifact — record the finding and its evidence pointer. Artifact
+length is calibrated to resume and audit need, not to mode; do not restate a
+decision that already has a canonical home. The session file set is closed to
+the files named above — no improvised session file, directory, patch, or
+backup; scratch and diagnostic output belongs outside `.oh-no` (e.g. `/tmp`).
+
 PRD stories (when the artifact policy requires a PRD, scaffold one from the
 approved input before editing):
 
