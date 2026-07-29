@@ -38,6 +38,14 @@ the current feature work.
     `Worktree decision` carve-out, and nothing prevents re-adding the duplication
     AC-4 removed. None is a defect in what shipped. The first three are one
     additive string each; the fourth needs a real detector.
+- [Live verification of need-based dispatch and inline contract](./need-based-dispatch-live-verification.md)
+  - **Open; the four source commits shipped with offline evidence only.** The
+    2026-07-30 change made dispatch-versus-inline a judgment call and gave the
+    inline path the full executor contract, but the live lane never ran: the
+    gateway returned 502 for `sonnet` and the standing instruction pins Claude
+    live lanes to that model. Run `--natural-session-start-live` once routing is
+    restored — plain `--live` only proves each SKILL.md loads. Two rules
+    (manifest-exit promotion, contract inheritance) have no runtime lane at all.
 - [Review packet lightening](./review-packet-lightening.md)
   - Stop review packets from converting a bounded requirements question into an
     unbounded search: drop investigation-path instructions, role-core duplicates,
