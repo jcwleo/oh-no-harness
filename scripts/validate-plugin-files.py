@@ -308,7 +308,10 @@ PLATFORM_SUBAGENT_MARKERS = {
     # standing authorization live once under each core's ## Agent Roles.
     "systematic-debugging": (
         "Dispatch diagnostic and evidence roles by default",
-        "collapse diagnostic or evidence roles inline",
+        # 2026-07-30: the anti-collapse floor is now need-based rather than
+        # absolute, and it no longer treats mutation as a stricter lane.
+        "Do not collapse a role inline merely",
+        "One need test covers diagnostic,",
         "active platform's dispatch authorization",
         "standing authorization",
         "per-run subagent approval",
@@ -2674,15 +2677,23 @@ def assert_hook_contract(root: Path) -> None:
         "carries no per-call model value",
         "the sole exception is a prescribed model-diversity leg or panel",
         "MUST carry the explicit NATIVE override",
-        # 2026-07-29: read-only delegation is proportional while repository
-        # work-product mutation dispatch stays absolute. Pinned verbatim because
-        # both halves regress by reusing the same tokens: an absolute never-inline
-        # read-only rule over-delegates trivial lookups, and dropping the
-        # mutation clause would silently license inline maker work.
-        "it never performs repository work-product mutation inline",
+        # 2026-07-30: ONE need test covers every non-review role, repository
+        # work-product mutation included. Pinned verbatim because both extremes
+        # regress by reusing the same tokens: an absolute never-inline rule
+        # over-delegates a two-tool-call edit, and deleting the test licenses
+        # unrecorded inline maker work.
+        "One need test governs every non-review role, repository work-product mutation included",
         "dispatches a role subagent when sizeable, genuinely independent, or parallelizable",
-        "a bounded lookup finishable in a handful of tool calls may run inline",
+        "a bounded lookup or edit finishable in a handful of tool calls may run inline",
+        "with a recorded reason and, for an edit, a scoped diff check",
         "Use one subagent where one suffices, not several; keep spawn counts low",
+        # Review independence is the ONE exemption. Kept as separate markers so
+        # relaxing maker dispatch can never leak into collapsing a fired review
+        # or audit trigger into the turn that produced the work.
+        "Review independence is exempt from the need test",
+        "always runs in a separate context, never inline",
+        "never folded into the turn that produced the work",
+        "Convenience, a small diff, or time pressure never collapses it",
     ):
         if marker not in session_start_text:
             die(f"{session_start_path} is missing required session-start marker: {marker!r}")
@@ -3803,7 +3814,17 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         mode_dispatch,
         (
             "main agent is the orchestrator, not the default maker",
-            "STANDARD/THOROUGH repository work-product mutation\nMUST dispatch `executor`",
+            # 2026-07-30: one need test replaces the per-mode absolute. Both
+            # halves are pinned because either polarity regresses by reusing the
+            # same tokens: dropping the need test forces a subagent onto a
+            # two-tool-call edit, and dropping the executor default silently
+            # licenses unrecorded inline maker work.
+            "One need test governs every non-review role in every mode",
+            "sizeable, genuinely\nindependent, or parallelizable",
+            "finishes in a handful of tool calls",
+            "`executor` is the DEFAULT owner of\nrepository work-product mutation",
+            "Mode never decides the need test by itself",
+            "An unrecorded inline mutation is non-compliant in every\nmode",
             "executor-default trigger",
             "does not require a parallel trigger",
             "Mutation fallback: LIGHT-tiny",
@@ -3818,12 +3839,17 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         mode_dispatch,
         (
-            "A run RECORDED in LIGHT mode",
-            "MUST show\ndispatched-`executor` evidence to reach completion",
-            "is NOT a completion path for a widened-LIGHT-mode run",
-            "never authorizes inline completion WITHIN LIGHT",
+            # Review independence is the ONE exemption from the need test. It is
+            # pinned separately so relaxing maker dispatch can never leak into
+            # collapsing a fired review or audit trigger inline.
+            "Review independence is the one exemption from the need test",
+            "ALWAYS runs in a\nseparate context and NEVER inline",
+            "its value is independence rather\nthan throughput",
+            "Size, convenience, and time pressure never collapse a fired\nreview or audit trigger",
+            "only confirmed dispatch-unavailability does",
+            "FAIL-CLOSED",
         ),
-        "LIGHT recorded-mode dispatched-executor completion contract",
+        "review-independence need-test exemption contract",
     )
     packet = markdown_section(ralph, "## Parallel Subagent Policy")
     require(
@@ -3980,10 +4006,14 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         persistence,
         (
-            "a run recorded in LIGHT mode shows dispatched-executor evidence (the\n"
-            "  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)",
+            # 2026-07-30: completion is evidence-bound, not mode-bound. Every
+            # mutation shows either dispatch evidence or ONE recorded inline
+            # reason; silence is not a completion path in any mode.
+            "every repository work-product mutation shows dispatched-executor evidence, or\n"
+            "  one recorded inline fallback reason (LIGHT-tiny or dispatch-unavailable) per\n"
+            "  inline edit; an unrecorded inline mutation cannot complete in any mode",
         ),
-        "LIGHT recorded-mode dispatched-executor completion contract",
+        "mutation-evidence completion contract",
     )
     require(
         ralph_path,
@@ -4596,7 +4626,8 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ultrawork,
         (
             "When Ralph is unavailable",
-            "STANDARD/THOROUGH repository mutation still\n    dispatches `executor`",
+            "repository mutation still dispatches `executor` by\n    default under Ralph's need test",
+            "a fired review or audit trigger is\n    exempt from the need test and never runs inline",
             "Ralph-unavailable fallback",
             "Ultrawork still owns `.oh-no` state and gate decisions",
             "inline mutation is only a recorded\nLIGHT-tiny or dispatch-unavailable fallback",

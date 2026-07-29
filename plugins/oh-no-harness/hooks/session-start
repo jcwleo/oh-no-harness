@@ -196,7 +196,7 @@ rg_search_policy=""
 if command -v rg >/dev/null 2>&1; then
   rg_search_policy='
 <OH_NO_RG_SEARCH_TOOLING>
-Ripgrep is available. Prefer `rg` and `rg --files` for repository search; use a fallback only if `rg` cannot answer.
+Prefer `rg` and `rg --files` for repository search; fall back only if `rg` cannot answer.
 </OH_NO_RG_SEARCH_TOOLING>'
 fi
 
@@ -207,11 +207,11 @@ ${bootstrap_policy}
 </EXTREMELY_IMPORTANT>"
 
 claude_code_question_policy='<CLAUDE_CODE_ONLY>
-Claude Code only: use AskUserQuestion when available for clarification, preference, scope, or approval. Ask one focused question; use 2-4 mutually exclusive choices when suitable, otherwise plain text.
+Claude Code only: use AskUserQuestion when available for clarification, preference, scope, or approval — one focused question, 2-4 mutually exclusive choices when suitable, else plain text.
 </CLAUDE_CODE_ONLY>'
 
 claude_code_subagent_role_label_policy='<OH_NO_SUBAGENT_ROLE_LABEL>
-This platform is Claude Code. An Oh No Harness role and its configured model come ONLY from the selector field: the Task and Agent tools set `subagent_type: oh-no-harness:<role>` first, before description and prompt; a Workflow `agent()` call sets `agentType: "oh-no-harness:<role>"`; other subagent mechanisms use their own selector. Begin the task description with the [oh-no-harness:<role>] marker (a display label), then a brief summary; the marker is NOT the selector, and a dispatch carrying it without the selector silently runs a generic agent on the parent model. Mark only Oh No Harness role dispatches; leave other descriptions unmarked.
+Claude Code only. A role and its configured model come ONLY from the selector: the Task and Agent tools set `subagent_type: oh-no-harness:<role>` before description and prompt, a Workflow `agent()` call sets `agentType`, other subagent mechanisms use their own. Start the task description with the [oh-no-harness:<role>] marker, a display label only; it is NOT the selector, so carrying it alone silently runs a generic agent on the parent model. Mark Oh No Harness dispatches only.
 </OH_NO_SUBAGENT_ROLE_LABEL>'
 
 # Emitted length is capped at 6600 chars by the offline gate in
@@ -223,17 +223,17 @@ This platform is Claude Code. An Oh No Harness role and its configured model com
 # len(json.dumps(...)) of the second-to-last output. Comments here are free;
 # only the quoted block below counts.
 claude_code_orchestration_policy='<OH_NO_MAIN_AGENT_ORCHESTRATION>
-Standing preference every turn, not only inside a workflow skill: the main agent orchestrates conversation flow, `.oh-no` state, gates, and synthesis; it never performs repository work-product mutation inline. Read-only exploration/analysis dispatches a role subagent when sizeable, genuinely independent, or parallelizable; a bounded lookup finishable in a handful of tool calls may run inline. Use one subagent where one suffices, not several; keep spawn counts low.
+Standing preference every turn, not only inside a workflow skill: the main agent orchestrates conversation flow, `.oh-no` state, gates, and synthesis. One need test governs every non-review role, repository work-product mutation included: work dispatches a role subagent when sizeable, genuinely independent, or parallelizable; a bounded lookup or edit finishable in a handful of tool calls may run inline, with a recorded reason and, for an edit, a scoped diff check. Use one subagent where one suffices, not several; keep spawn counts low.
 
-Delegation map: read-only code/config/docs lookup, tracing, research sweeps oh-no-harness:explore; requirements/risk analysis oh-no-harness:analyst; every repository work-product mutation oh-no-harness:executor; root-cause investigation oh-no-harness:debugger; changed-code review oh-no-harness:code-reviewer; evidence audits oh-no-harness:verifier. Planner, plan-reviewer, fusion roles stay workflow-internal; workflow skills keep stricter rules. Role names are selector values (see OH_NO_SUBAGENT_ROLE_LABEL). For Oh No Harness work never select general-purpose, claude, Explore, or Plan while the matching role exists; default unmatched read-only work to explore and mutation to executor. Generic types need confirmed role unavailability under the active skill.
+Review independence is exempt from the need test: a fired trigger for code-reviewer, plan-reviewer, verifier, or a fusion-rescue-analyst panel always runs in a separate context, never inline and never folded into the turn that produced the work. Convenience, a small diff, or time pressure never collapses it; only confirmed dispatch-unavailability does, recorded as a blocker.
 
-Executor-always: never use the LIGHT-tiny inline fallback. Dispatch oh-no-harness:executor for every repository work-product mutation regardless of size or mode; inline mutation needs a failed dispatch recorded as Mutation fallback: dispatch-unavailable. Trivial conversation-local non-work-product writes are exempt.
+Delegation map (role names are selector values, see OH_NO_SUBAGENT_ROLE_LABEL): explore for read-only lookup and tracing, analyst for requirements/risk, executor for default work-product mutation, debugger for root cause, code-reviewer for changed-code review, verifier for evidence audits. Planner, plan-reviewer, fusion roles stay workflow-internal; workflow skills keep stricter rules. Never select general-purpose, claude, Explore, or Plan while the matching role exists; default unmatched read-only work to explore and mutation to executor. Generic types need confirmed role unavailability under the active skill.
 
 Host-plan boundary: never auto-wrap Ralph-eligible Oh No Harness execution in EnterPlanMode or a host planning pass; host plan mode needs explicit user request. Usable approved/concrete execution contract goes straight to Ralph; vague or plan-only work routes upstream to Oh No Harness planning; no-route housekeeping stays direct.
 
-Model fidelity: every role dispatch, including executor and LIGHT, runs on its configured model and carries no per-call model value; the sole exception is a prescribed model-diversity leg or panel, which MUST carry the explicit NATIVE override.
+Model fidelity: every role dispatch runs on its configured model and carries no per-call model value; the sole exception is a prescribed model-diversity leg or panel, which MUST carry the explicit NATIVE override.
 
-Concurrency: up to 5 Oh No Harness subagents run in parallel. Batch independent dispatches in one request; wait for and use every started result. Never redo delegated work inline.
+Concurrency: up to 5 Oh No Harness subagents run in parallel. Batch independent dispatches in one request; wait for and use every started result, and never redo delegated work inline.
 </OH_NO_MAIN_AGENT_ORCHESTRATION>'
 
 codex_subagent_policy='<CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION>

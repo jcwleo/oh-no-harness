@@ -83,22 +83,20 @@ def waive_triggered_verifier_independence(root: Path) -> None:
     )
 
 
-def allow_light_inline_completion(root: Path) -> None:
-    path = root / "docs" / "skill-core" / "ralph.md"
+def allow_unrecorded_inline_completion(root: Path) -> None:
+    """Let an inline mutation complete without any recorded fallback reason.
+
+    Since 2026-07-30 inline mutation is permitted by the need test, so the
+    defended property is no longer "dispatch or fail" but "dispatch evidence OR
+    exactly one recorded inline reason". Silence is the regression: it makes an
+    undisclosed inline edit indistinguishable from a dispatched one.
+    """
     replace_once(
-        path,
-        "MUST show\ndispatched-`executor` evidence to reach completion",
-        "MAY use inline mutation evidence to reach completion",
-    )
-    replace_once(
-        path,
-        "is NOT a completion path for a widened-LIGHT-mode run",
-        "is a completion path for a widened-LIGHT-mode run",
-    )
-    replace_once(
-        path,
-        "a run recorded in LIGHT mode shows dispatched-executor evidence (the\n  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)",
-        "a run recorded in LIGHT mode may show LIGHT-tiny inline evidence instead of dispatched-executor evidence",
+        root / "docs" / "skill-core" / "ralph.md",
+        "every repository work-product mutation shows dispatched-executor evidence, or\n"
+        "  one recorded inline fallback reason (LIGHT-tiny or dispatch-unavailable) per\n"
+        "  inline edit; an unrecorded inline mutation cannot complete in any mode",
+        "a run may complete without recording how each mutation was performed",
     )
 
 
@@ -551,10 +549,12 @@ def main() -> int:
         assertion="assert_hook_contract",
     )
 
-    # 2026-07-29 proportional read-only delegation: mutation dispatch stays
-    # absolute, but restoring the retired absolute never-inline read-only rule
-    # over-delegates trivial lookups, and dropping the one-suffices floor lets a
-    # single bounded question fan out across redundant subagents.
+    # 2026-07-30 one need test for every non-review role, mutation included.
+    # The defended property is the TEST, not a polarity: both extremes regress by
+    # reusing the same tokens. Restoring an absolute never-inline rule
+    # over-delegates a two-tool-call edit; deleting the test licenses unrecorded
+    # inline maker work; and dropping the one-suffices floor lets a single
+    # bounded question fan out across redundant subagents.
     expect_rejected(
         validator,
         plugin_root,
@@ -562,11 +562,12 @@ def main() -> int:
         "restores the retired absolute never-inline read-only rule",
         lambda root: replace_once(
             root / "hooks" / "session-start",
-            "it never performs repository work-product mutation inline. Read-only "
-            "exploration/analysis dispatches a role subagent when sizeable, "
-            "genuinely independent, or parallelizable; a bounded lookup finishable "
-            "in a handful of tool calls may run inline. Use one subagent where one "
-            "suffices, not several; keep spawn counts low.",
+            "One need test governs every non-review role, repository work-product "
+            "mutation included: work dispatches a role subagent when sizeable, "
+            "genuinely independent, or parallelizable; a bounded lookup or edit "
+            "finishable in a handful of tool calls may run inline, with a recorded "
+            "reason and, for an edit, a scoped diff check. Use one subagent where "
+            "one suffices, not several; keep spawn counts low.",
             "it never performs exploration, investigation, analysis, or repository "
             "work-product mutation inline when a role subagent can do it.",
         ),
@@ -585,16 +586,53 @@ def main() -> int:
         ),
         assertion="assert_hook_contract",
     )
+    # Opposite extreme: deleting the need test entirely, so nothing distinguishes
+    # a sizeable independent track from a two-tool-call edit.
     expect_rejected(
         validator,
         plugin_root,
-        "SessionStart drops absolute inline-mutation prohibition",
+        "SessionStart deletes the mutation need test",
         "missing required session-start marker: "
-        "'it never performs repository work-product mutation inline'",
+        "'One need test governs every non-review role, repository work-product "
+        "mutation included'",
         lambda root: replace_once(
             root / "hooks" / "session-start",
-            "it never performs repository work-product mutation inline.",
-            "it may perform repository work-product mutation inline.",
+            "One need test governs every non-review role, repository work-product "
+            "mutation included: work dispatches a role subagent when sizeable, "
+            "genuinely independent, or parallelizable; a bounded lookup or edit "
+            "finishable in a handful of tool calls may run inline, with a recorded "
+            "reason and, for an edit, a scoped diff check.",
+            "Any work may run inline whenever that is faster.",
+        ),
+        assertion="assert_hook_contract",
+    )
+    # Review independence must NOT inherit the relaxation: a fired review or
+    # audit trigger exists for independence, not throughput, so folding it into
+    # the need test would let a small diff silently self-review.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "SessionStart subjects review independence to the need test",
+        "missing required session-start marker: "
+        "'Review independence is exempt from the need test'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "Review independence is exempt from the need test:",
+            "Review roles follow the same need test:",
+        ),
+        assertion="assert_hook_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "SessionStart lets convenience collapse a fired review trigger",
+        "missing required session-start marker: "
+        "'Convenience, a small diff, or time pressure never collapses it'",
+        lambda root: replace_once(
+            root / "hooks" / "session-start",
+            "Convenience, a small diff, or time pressure never collapses it; only "
+            "confirmed dispatch-unavailability does, recorded as a blocker.",
+            "Collapse it inline when the diff is small.",
         ),
         assertion="assert_hook_contract",
     )
@@ -710,8 +748,49 @@ def main() -> int:
         "executor-default orchestration contract",
         lambda root: replace_once(
             root / "docs" / "skill-core" / "ralph.md",
-            "MUST dispatch `executor`",
-            "MAY dispatch `executor`",
+            "`executor` is the DEFAULT owner of\nrepository work-product mutation",
+            "`executor` is one optional owner of\nrepository work-product mutation",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # Opposite extreme for the same contract: re-binding the need test to mode
+    # would restore the retired per-mode absolute that forced a subagent onto a
+    # two-tool-call edit purely because the run was recorded as LIGHT.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph re-binds the need test to execution mode",
+        "executor-default orchestration contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Mode never decides the need test by itself",
+            "Mode alone decides dispatch",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    # Ralph-side review-independence exemption: a fired Review Gate predicate or
+    # audit trigger must stay outside the relaxation.
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph subjects review independence to the need test",
+        "review-independence need-test exemption contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Review independence is the one exemption from the need test.",
+            "Review roles follow the same need test.",
+        ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph lets size collapse a fired review or audit trigger",
+        "review-independence need-test exemption contract",
+        lambda root: replace_once(
+            root / "docs" / "skill-core" / "ralph.md",
+            "Size, convenience, and time pressure never collapse a fired\nreview or audit trigger",
+            "A small edit set collapses a fired\nreview or audit trigger",
         ),
         assertion="assert_orchestration_ownership_contract",
     )
@@ -778,9 +857,9 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "LIGHT mode completes through inline fallback without dispatched-executor evidence",
-        "LIGHT recorded-mode dispatched-executor completion contract",
-        allow_light_inline_completion,
+        "a run completes through inline mutation with no recorded fallback reason",
+        "mutation-evidence completion contract",
+        allow_unrecorded_inline_completion,
         assertion="assert_orchestration_ownership_contract",
     )
     expect_rejected(

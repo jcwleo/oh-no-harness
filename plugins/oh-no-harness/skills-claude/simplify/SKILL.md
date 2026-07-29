@@ -206,9 +206,10 @@ executor's required envelope and add only the behavior lock plus accepted
 cleanup finding IDs. Simplify interprets the executor envelope; `Mutation
 status: complete` is not cleanup acceptance.
 
-Inline application is allowed only with `Mutation fallback: LIGHT-tiny` for a
-tiny LIGHT cleanup or `Mutation fallback: dispatch-unavailable` after a failed
-dispatch attempt. Record the reason. `.oh-no` state and finding dispositions
+Inline application is allowed with `Mutation fallback: LIGHT-tiny` when the
+cleanup is too small to benefit from context separation, or
+`Mutation fallback: dispatch-unavailable` after a failed dispatch attempt.
+Record the reason; an unrecorded inline application is non-compliant. `.oh-no` state and finding dispositions
 remain caller-owned.
 
 Skip any finding whose fix would change intended behavior, require changes well

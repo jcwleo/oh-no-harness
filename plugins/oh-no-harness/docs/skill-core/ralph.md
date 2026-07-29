@@ -10,8 +10,8 @@ Ralph is a mode-gated execution loop: it works until acceptance criteria are
 satisfied with fresh evidence, required review and cleanup gates are handled,
 and the final report is written. Ralph's main agent is the orchestrator: it
 owns `.oh-no` state, gate decisions, result intake, and FSM transitions while
-executor roles own default repository work-product mutation in
-STANDARD/THOROUGH. Ralph owns execution mode selection or enforcement for
+executor roles own default repository work-product mutation. Ralph owns
+execution mode selection or enforcement for
 ordinary implementation. Do not route concrete add/fix/refactor/implement
 requests directly to `test-driven-development`; Ralph invokes TDD internally
 when behavior-changing edits require it.
@@ -83,9 +83,10 @@ E15. Ralph is terminal: after the final report, no workflow skill is
      `verification-before-completion`, `systematic-debugging`,
      `fusion-rescue`) are documented loop internals, not chaining events.
 E17. The main agent is the orchestrator and sole owner of `.oh-no` state and
-     FSM transitions. STANDARD/THOROUGH repository work-product mutation,
-     including REVIEW-to-EXECUTE focused fixes, dispatches `executor`; inline
+     FSM transitions. Repository work-product mutation, including
+     REVIEW-to-EXECUTE focused fixes, dispatches `executor` by default; inline
      mutation is only a recorded LIGHT-tiny or dispatch-unavailable fallback.
+     A fired review or audit trigger is exempt and never runs inline.
      Role result enums are caller gate inputs, never autonomous transitions.
 ```
 
@@ -450,37 +451,40 @@ Ralph's main agent is the orchestrator, not the default maker. It owns
 and transitions. A role's `Result`, `Overall verdict`, or `Verification
 verdict` is caller input; no enum advances the state machine by itself.
 
-On subagent-capable hosts, STANDARD/THOROUGH repository work-product mutation
-MUST dispatch `executor`, including REVIEW-to-EXECUTE focused fixes. This
-executor-default trigger is sequential-capable and does not require a
-parallel trigger. Inline mutation is permitted only with one recorded fallback:
-`Mutation fallback: LIGHT-tiny — <reason>` for a tiny LIGHT edit, or
+One need test governs every non-review role in every mode, repository
+work-product mutation included: dispatch when the work is sizeable, genuinely
+independent, or parallelizable, and run inline when a bounded lookup or edit
+finishes in a handful of tool calls. `executor` is the DEFAULT owner of
+repository work-product mutation, including REVIEW-to-EXECUTE focused fixes;
+this executor-default trigger is sequential-capable and does not require a
+parallel trigger. Mode never decides the need test by itself: a large or
+sprawling LIGHT edit set dispatches, and a genuinely tiny STANDARD/THOROUGH
+edit may run inline. Inline mutation records one fallback reason:
+`Mutation fallback: LIGHT-tiny — <reason>` when the edit is too small to
+benefit from context separation, or
 `Mutation fallback: dispatch-unavailable — <attempt and reason>` after the
-host cannot dispatch. For every compliant revised-LIGHT run, dispatched
-`executor` ownership is MANDATORY: the mutation goes to a dispatched `executor`,
-and any audit goes to a dispatched independent `verifier` only when the Review
-Gate predicate fires; executor dispatch-
-unavailability is FAIL-CLOSED and MUST PAUSE the run or reclassify it OUT of
-LIGHT to STANDARD, never authorize inline completion; the unchanged
-`LIGHT-tiny` inline path does NOT satisfy the revised-LIGHT path and remains a
-narrow, separate escape valve for a trivial edit.
+host cannot dispatch. An unrecorded inline mutation is non-compliant in every
+mode. Escalate to a dispatched `executor` the moment an inline edit stops being
+tiny — a growing edit set, a surfacing exclusion, or any residual doubt.
 
-A run RECORDED in LIGHT mode under the widened
-`### LIGHT Eligibility — Risk Gate, Soft Size Screen` tier MUST show
-dispatched-`executor` evidence to reach completion. The `LIGHT-tiny` inline
-fallback is a SEPARATE, narrower path for a tiny edit smaller than LIGHT
-eligibility and is NOT a completion path for a widened-LIGHT-mode run. Executor
-dispatch-unavailability in a LIGHT run PAUSES or reclassifies to STANDARD and
-never authorizes inline completion WITHIN LIGHT.
+Review independence is the one exemption from the need test. When the Review
+Gate predicate or another named trigger fires for `code-reviewer`,
+`plan-reviewer`, or the independent `verifier`, that role ALWAYS runs in a
+separate context and NEVER inline, because its value is independence rather
+than throughput. Size, convenience, and time pressure never collapse a fired
+review or audit trigger; only confirmed dispatch-unavailability does, and it is
+FAIL-CLOSED — record the blocker and PAUSE rather than substitute an inline
+pass.
 
 The STANDARD small-task carve-out waives only reviewer
 dispatch (see `### STANDARD Small-Task Carve-Out`).
 
-For non-mutating roles, use targeted subagents on subagent-capable hosts when
-the result can change the implementation, review, verification, or ship/block
-decision; record unavailable, unsafe-to-isolate, or no-benefit inline reasons
-without weakening the executor rule above. THOROUGH dispatches every
-risk-warranted isolable role. In STANDARD and THOROUGH, proactively partition
+For non-mutating roles the same need test applies: use targeted subagents on
+subagent-capable hosts when the result can change the implementation, review,
+verification, or ship/block decision; record unavailable, unsafe-to-isolate, or
+no-benefit inline reasons without weakening review independence above. THOROUGH
+dispatches every risk-warranted isolable role. In STANDARD and THOROUGH,
+proactively partition
 disjoint implementation into parallel `executor` batches only when the recorded
 trigger authorizes concurrency and ownership, dependency, TDD, and benefit gates
 hold.
@@ -1033,8 +1037,9 @@ each). A silently omitted step is a named ledger gap, not a pass.
 Completion criteria:
 
 - selected execution mode recorded and followed; every story `passes: true`
-- a run recorded in LIGHT mode shows dispatched-executor evidence (the
-  LIGHT-tiny inline fallback does not satisfy widened-LIGHT completion)
+- every repository work-product mutation shows dispatched-executor evidence, or
+  one recorded inline fallback reason (LIGHT-tiny or dispatch-unavailable) per
+  inline edit; an unrecorded inline mutation cannot complete in any mode
 - Diff-Budget is `passed@<current stabilized fingerprint>` for the delivered diff
 - actual changed paths adhere to the Mutation Manifest; any Expansion request
   records its approval owner, was approved, and was bound to a revised Mutation

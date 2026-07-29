@@ -148,12 +148,15 @@ the main thread. Dispatch is trigger-loaded and governed by the active
 platform adapter; when this debugging pass runs inside Ralph, Ralph's
 `## Mode-Gated Agent Dispatch` governs. Apply the active platform's
 dispatch authorization; do not ask for per-run subagent approval when
-standing authorization covers these roles. For diagnostic or evidence roles,
-inline fallback may be unavailable, unsafe-to-isolate, or too-small-to-benefit
-when recorded. Repository mutation follows the stricter executor-default rule
-in D7: only LIGHT-tiny or dispatch-unavailable permits inline writes. Do not
-collapse diagnostic or evidence roles inline when the host can dispatch them
-with an isolated scope.
+standing authorization covers these roles. One need test covers diagnostic,
+evidence, and mutation work alike: inline fallback may be unavailable,
+unsafe-to-isolate, or too-small-to-benefit when recorded. Repository mutation
+follows the executor-default rule in D7 and records LIGHT-tiny or
+dispatch-unavailable for an inline write. Do not collapse a role inline merely
+for convenience when the work is sizeable, genuinely independent, or
+parallelizable and the host can dispatch it with an isolated scope; a fired
+post-fix review or audit trigger is exempt from the need test and never runs
+inline.
 
 The normal flow is diagnostic first (`debugger`, plus `explore` when
 context is missing), then the executor-default minimal fix (`executor`), then
