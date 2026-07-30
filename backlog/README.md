@@ -41,11 +41,13 @@ the current feature work.
 - [Live verification of need-based dispatch and inline contract](./need-based-dispatch-live-verification.md)
   - **Open; the four source commits shipped with offline evidence only.** The
     2026-07-30 change made dispatch-versus-inline a judgment call and gave the
-    inline path the full executor contract, but the live lane never ran: the
-    gateway returned 502 for `sonnet` and the standing instruction pins Claude
-    live lanes to that model. Run `--natural-session-start-live` once routing is
-    restored — plain `--live` only proves each SKILL.md loads. Two rules
-    (manifest-exit promotion, contract inheritance) have no runtime lane at all.
+    inline path the full executor contract, but no live attempt has produced a
+    verdict on either. Claude: one stale oracle fixed (`ac508df`), then
+    `autonomous end-to-end` timed out at 900s before its oracle ran. Codex:
+    blocked before the relevant cases by host-injected `<multi_agent_mode>`
+    suppression of proactive delegation — not caused by this change, and its
+    config and live-home clone are verified sound. Two rules (manifest-exit
+    promotion, contract inheritance) have no runtime lane at all.
 - [Review packet lightening](./review-packet-lightening.md)
   - Stop review packets from converting a bounded requirements question into an
     unbounded search: drop investigation-path instructions, role-core duplicates,
