@@ -132,21 +132,6 @@ JOURNAL_FILE="${CFG_DIR}/subagent-journal.conf"
 LOCK_DIR="${CFG_DIR}/subagent-lock.d"
 LOCK_OWNER="${LOCK_DIR}/owner"
 
-legacy_prefs_path() {
-  local identity parent
-  identity="$(basename "$CFG_DIR")"
-  [ "$identity" = "oh-no-harness-oh-no-harness" ] || return 1
-  parent="$(dirname "$CFG_DIR")"
-  [ "$(basename "$parent")" = data ] || return 1
-  [ "$(basename "$(dirname "$parent")")" = plugins ] || return 1
-  printf '%s/oh-no-harness-inline/subagent-models.conf\n' "$parent"
-}
-LEGACY_PREF_FILE="$(legacy_prefs_path || true)"
-LEGACY_PREF_HOLD="${LOCK_DIR}/legacy-prefs.hold"
-LEGACY_PREF_SNAPSHOT_PATH="${LOCK_DIR}/legacy-prefs.snapshot"
-LEGACY_PREF_SNAPSHOT=""
-LEGACY_SNAPSHOT_STATE="absent"
-
 is_source_checkout() {
   # True when the plugin root (or an ancestor) is a Git working tree: a
   # generator-owned checkout whose agents/*.md must never carry preferences.
@@ -339,19 +324,6 @@ write_prefs_atomic() {
   mv "$tmp" "$dest" || { rm -f "$tmp"; return 1; }
 }
 
-publish_prefs_copy_atomic() {
-  # Preserve validated imported bytes so later coexistence is byte-identical.
-  local dest="$1" source="$2" tmp
-  [ ! -L "$(dirname "$source")" ] || return 1
-  [ ! -L "$source" ] && [ -f "$source" ] || return 1
-  mkdir -p "$CFG_DIR" || return 1
-  tmp="$(mktemp "${CFG_DIR}/.subagent-models.conf.XXXXXX")" || return 1
-  cp "$source" "$tmp" || { rm -f "$tmp"; return 1; }
-  local PREF_FILE="$tmp"
-  prefs_valid || { rm -f "$tmp"; return 1; }
-  mv "$tmp" "$dest" || { rm -f "$tmp"; return 1; }
-}
-
 prefs_present() { [ -f "$PREF_FILE" ]; }
 prefs_proxy() { LC_ALL=C awk -F= '/^proxy=/{print $2; exit}' "$PREF_FILE"; }
 prefs_secondary() { LC_ALL=C awk -F= '/^secondary_top_model=/{print $2; exit}' "$PREF_FILE"; }
@@ -420,108 +392,6 @@ prefs_valid() {
 $(prefs_assignments)
 EOF
   [ "$i" = "${#ROLES[@]}" ]
-}
-
-legacy_prefs_state() {
-  [ -n "$LEGACY_PREF_FILE" ] || { printf 'absent\n'; return; }
-  [ "$LEGACY_PREF_FILE" != "$PREF_FILE" ] || { printf 'absent\n'; return; }
-  local legacy_dir
-  legacy_dir="$(dirname "$LEGACY_PREF_FILE")"
-  if [ -L "$legacy_dir" ] || [ -L "$LEGACY_PREF_FILE" ]; then printf 'invalid\n'; return; fi
-  if [ ! -e "$LEGACY_PREF_FILE" ]; then printf 'absent\n'; return; fi
-  if [ ! -f "$LEGACY_PREF_FILE" ]; then printf 'invalid\n'; return; fi
-  local PREF_FILE="$LEGACY_PREF_FILE"
-  if prefs_valid; then printf 'valid\n'; else printf 'invalid\n'; fi
-}
-
-cleanup_legacy_snapshot() {
-  # These fixed basenames are owned only by the currently held exact lock. Never
-  # scan or delete elsewhere; normal release/stale reclaim removes the lock tree.
-  [ "$LOCK_HELD" = 1 ] || { LEGACY_PREF_SNAPSHOT=""; return 0; }
-  rm -f "$LEGACY_PREF_HOLD" "$LEGACY_PREF_SNAPSHOT_PATH" 2>/dev/null || true
-  LEGACY_PREF_SNAPSHOT=""
-}
-
-capture_legacy_prefs_snapshot() {
-  # Capture the import source once while holding the canonical lock. The first
-  # private hard link pins one regular-file inode across an atomic pathname
-  # replacement; the second private file breaks that link so later source writes
-  # cannot change validation, assignments, or canonical publication. Both fixed
-  # paths are distinct from owner metadata and share the exact lock lifecycle.
-  LEGACY_SNAPSHOT_STATE="absent"
-  cleanup_legacy_snapshot
-  [ -n "$LEGACY_PREF_FILE" ] || return 0
-  [ "$LEGACY_PREF_FILE" != "$PREF_FILE" ] || return 0
-  local legacy_dir
-  legacy_dir="$(dirname "$LEGACY_PREF_FILE")"
-  if [ -L "$legacy_dir" ] || [ -L "$LEGACY_PREF_FILE" ]; then LEGACY_SNAPSHOT_STATE="invalid"; return 0; fi
-  if [ ! -e "$LEGACY_PREF_FILE" ]; then return 0; fi
-  if [ ! -f "$LEGACY_PREF_FILE" ]; then LEGACY_SNAPSHOT_STATE="invalid"; return 0; fi
-
-  if ! ln -P "$LEGACY_PREF_FILE" "$LEGACY_PREF_HOLD" 2>/dev/null; then
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  fi
-  if [ -L "$legacy_dir" ] || [ -L "$LEGACY_PREF_HOLD" ] || [ ! -f "$LEGACY_PREF_HOLD" ]; then
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  fi
-
-  if ! (umask 077; set -o noclobber; : >"$LEGACY_PREF_SNAPSHOT_PATH") 2>/dev/null || \
-     [ -L "$LEGACY_PREF_SNAPSHOT_PATH" ] || [ ! -f "$LEGACY_PREF_SNAPSHOT_PATH" ]; then
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  fi
-  if ! cp "$LEGACY_PREF_HOLD" "$LEGACY_PREF_SNAPSHOT_PATH" 2>/dev/null; then
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  fi
-  rm -f "$LEGACY_PREF_HOLD" 2>/dev/null || {
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  }
-  chmod 400 "$LEGACY_PREF_SNAPSHOT_PATH" 2>/dev/null || {
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-    return 0
-  }
-  local PREF_FILE="$LEGACY_PREF_SNAPSHOT_PATH"
-  if prefs_valid; then
-    LEGACY_PREF_SNAPSHOT="$LEGACY_PREF_SNAPSHOT_PATH"
-    LEGACY_SNAPSHOT_STATE="valid"
-  else
-    cleanup_legacy_snapshot
-    LEGACY_SNAPSHOT_STATE="invalid"
-  fi
-}
-
-legacy_prefs_conflict() {
-  [ -n "$LEGACY_PREF_FILE" ] || return 1
-  [ "$LEGACY_PREF_FILE" != "$PREF_FILE" ] || return 1
-  local legacy_dir
-  legacy_dir="$(dirname "$LEGACY_PREF_FILE")"
-  [ ! -L "$legacy_dir" ] || return 1
-  [ ! -L "$LEGACY_PREF_FILE" ] && [ -f "$LEGACY_PREF_FILE" ] || return 1
-  cmp -s "$PREF_FILE" "$LEGACY_PREF_FILE" && return 1
-  local PREF_FILE="$LEGACY_PREF_FILE"
-  prefs_valid
-}
-
-load_legacy_prefs() {
-  local PREF_FILE="$1" line
-  LEGACY_PROXY="$(prefs_proxy)"
-  LEGACY_SECONDARY="$(prefs_secondary)"
-  LEGACY_TOP_TIER="$(prefs_top_tier)"
-  [ -n "$LEGACY_TOP_TIER" ] || LEGACY_TOP_TIER="$DEFAULT_TOP_TIER_MODELS"
-  LEGACY_ASSIGNMENTS=()
-  while IFS= read -r line; do [ -n "$line" ] && LEGACY_ASSIGNMENTS+=("$line"); done <<EOF
-$(prefs_assignments)
-EOF
 }
 
 # --- Journal (identity-bound; no destination paths / arbitrary filenames) -----
@@ -676,7 +546,6 @@ TXN_ID=""
 TXN_BACKUP_DIR=""
 TXN_PRIOR_PREFS="absent"
 TXN_BACKUP_RESULT=""
-PREF_IMPORT_SOURCE=""
 COMMITTED_ROLES=()
 
 restore_all() {
@@ -819,9 +688,6 @@ apply_transaction() {
   # 7) Publish preferences BEFORE clearing the journal (part of the transaction).
   if seam_on OH_NO_CONFIGURE_FAIL_PREFS; then
     fail_after_rollback "runtime agents committed but preferences could not be published"
-  elif [ -n "$PREF_IMPORT_SOURCE" ]; then
-    publish_prefs_copy_atomic "$PREF_FILE" "$PREF_IMPORT_SOURCE" || \
-      fail_after_rollback "runtime agents committed but preferences could not be published"
   elif ! write_prefs_atomic "$PREF_FILE" "$proxy" "$secondary" "$top_tier" "${assignments[@]}"; then
     fail_after_rollback "runtime agents committed but preferences could not be published"
   fi
@@ -892,16 +758,8 @@ cmd_check() {
   if is_source_checkout "$PLUGIN_ROOT"; then printf 'STATUS: source-checkout\n'; return 0; fi
   if ! validate_target_layout; then printf 'STATUS: invalid-agents\n'; return 0; fi
   if ! validate_all_agents; then printf 'STATUS: invalid-agents\n'; return 0; fi
-  if ! prefs_present; then
-    case "$(legacy_prefs_state)" in
-      valid) printf 'STATUS: legacy-unmigrated\n' ;;
-      invalid) printf 'STATUS: invalid-legacy-preferences\n' ;;
-      *) printf 'STATUS: unconfigured\n' ;;
-    esac
-    return 0
-  fi
+  if ! prefs_present; then printf 'STATUS: unconfigured\n'; return 0; fi
   if ! prefs_valid; then printf 'STATUS: invalid-preferences\n'; return 0; fi
-  if legacy_prefs_conflict; then printf 'STATUS: preference-conflict\n'; return 0; fi
   runtime_matches_prefs; local rc=$?
   case "$rc" in
     0) printf 'STATUS: matching\n' ;;
@@ -960,33 +818,19 @@ cmd_reapply() {
 
   # Skip safely (no writes) when another run holds the lock.
   acquire_lock skip || { [ "$quiet" = 1 ] && exit 0; die "another configure-subagents run holds the lock" 8; }
-  trap 'cleanup_legacy_snapshot; release_lock' EXIT
+  trap 'release_lock' EXIT
 
   if ! recover_from_journal; then
-    cleanup_legacy_snapshot; release_lock; trap - EXIT
+    release_lock; trap - EXIT
     exit 7   # invalid journal retained; warn already emitted to stderr
   fi
 
-  # With no canonical preferences, a valid legacy source is imported through the
-  # same transaction as runtime convergence. Otherwise this remains a silent no-op.
-  local import_legacy=0 legacy_state=""
-  if ! prefs_present; then
-    capture_legacy_prefs_snapshot
-    legacy_state="$LEGACY_SNAPSHOT_STATE"
-    case "$legacy_state" in
-      valid) import_legacy=1 ;;
-      invalid)
-        cleanup_legacy_snapshot; release_lock; trap - EXIT
-        printf 'configure-subagents: legacy subagent preferences are invalid or unsafe; reapply skipped.\n' >&2
-        exit 4
-        ;;
-      *) cleanup_legacy_snapshot; release_lock; trap - EXIT; exit 0 ;;
-    esac
-  fi
+  # With no stored preferences there is nothing to converge on: silent no-op.
+  if ! prefs_present; then release_lock; trap - EXIT; exit 0; fi
   # Source checkout: silent skip (no stdout, no failure) so local development
   # never sees a spurious reapply warning.
   if is_source_checkout "$PLUGIN_ROOT"; then
-    cleanup_legacy_snapshot; release_lock; trap - EXIT
+    release_lock; trap - EXIT
     [ "$quiet" = 1 ] || printf 'configure-subagents: target is a Git checkout; skipping reapply.\n' >&2
     exit 0
   fi
@@ -994,51 +838,34 @@ cmd_reapply() {
   # failures. Report a fixed, value-free diagnostic on stderr only and exit
   # non-zero so the SessionStart hook takes its failure branch instead of
   # mistaking non-empty stdout for a successful repair.
-  if [ "$import_legacy" = 0 ] && ! prefs_valid; then
-    cleanup_legacy_snapshot; release_lock; trap - EXIT
+  if ! prefs_valid; then
+    release_lock; trap - EXIT
     printf 'configure-subagents: stored subagent preferences are invalid; reapply skipped.\n' >&2
     exit 4
   fi
-  if [ "$import_legacy" = 0 ] && legacy_prefs_conflict; then
-    cleanup_legacy_snapshot; release_lock; trap - EXIT
-    printf 'configure-subagents: canonical and legacy subagent preferences conflict; reapply skipped.\n' >&2
-    exit 4
-  fi
   if ! validate_target_layout; then
-    cleanup_legacy_snapshot; release_lock; trap - EXIT
+    release_lock; trap - EXIT
     printf 'configure-subagents: installed subagent layout is invalid; reapply skipped.\n' >&2
     exit 5
   fi
 
-  if [ "$import_legacy" = 0 ]; then
-    runtime_matches_prefs; local rc=$?
-    if [ "$rc" = 0 ]; then cleanup_legacy_snapshot; release_lock; trap - EXIT; exit 0; fi   # matching: no-op
-    if [ "$rc" != 1 ]; then
-      cleanup_legacy_snapshot; release_lock; trap - EXIT
-      printf 'configure-subagents: installed subagent files are invalid; reapply skipped.\n' >&2
-      exit 5
-    fi
+  runtime_matches_prefs; local rc=$?
+  if [ "$rc" = 0 ]; then release_lock; trap - EXIT; exit 0; fi   # matching: no-op
+  if [ "$rc" != 1 ]; then
+    release_lock; trap - EXIT
+    printf 'configure-subagents: installed subagent files are invalid; reapply skipped.\n' >&2
+    exit 5
   fi
 
   local proxy secondary top_tier assignments=() line
-  if [ "$import_legacy" = 1 ]; then
-    load_legacy_prefs "$LEGACY_PREF_SNAPSHOT"
-    PREF_IMPORT_SOURCE="$LEGACY_PREF_SNAPSHOT"
-    proxy="$LEGACY_PROXY"
-    secondary="$LEGACY_SECONDARY"
-    top_tier="$LEGACY_TOP_TIER"
-    assignments=("${LEGACY_ASSIGNMENTS[@]}")
-  else
-    proxy="$(prefs_proxy)"
-    secondary="$(prefs_secondary)"
-    top_tier="$(prefs_top_tier)"
-    [ -n "$top_tier" ] || top_tier="$DEFAULT_TOP_TIER_MODELS"
-    while IFS= read -r line; do [ -n "$line" ] && assignments+=("$line"); done <<EOF
+  proxy="$(prefs_proxy)"
+  secondary="$(prefs_secondary)"
+  top_tier="$(prefs_top_tier)"
+  [ -n "$top_tier" ] || top_tier="$DEFAULT_TOP_TIER_MODELS"
+  while IFS= read -r line; do [ -n "$line" ] && assignments+=("$line"); done <<EOF
 $(prefs_assignments)
 EOF
-  fi
   apply_transaction "$proxy" "$secondary" "$top_tier" "${assignments[@]}" >/dev/null
-  cleanup_legacy_snapshot
   release_lock
   trap - EXIT
   printf 'reapplied subagent configuration after runtime drift; start a new Claude Code session or run /clear.\n'
