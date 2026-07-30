@@ -2257,21 +2257,37 @@ from pathlib import Path
 out_path, err_path, final_path, label, expected, live_home, project_root = sys.argv[1:8]
 workflows = {"interview", "ralplan", "ralph", "ultrawork", "auto-routing", "test-driven-development", "simplify", "verification-before-completion", "systematic-debugging", "fusion-rescue"}
 wrapper_read_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)\b[^;&|\n]*" r"(?P<path>/[^\s'\";&|<>]*/skills/(?P<route>[a-z0-9-]+)/SKILL[.]md)(?=$|[\s'\";&|<>])")
-read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)(?:\s|$)")
+read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less|nl)(?:\s|$)")
 repo_path_pattern = re.compile(r"(?:^|[\s'\"/])(?:README[.]md|run[.]sh|src/|tests/|notes/)")
 write_pattern = re.compile(r"\b(?:apply_patch|patch|touch|rm|mv|cp|chmod|install)\b|\b(?:sed|perl)\s+-i\b|" r"write_(?:text|bytes)|open\([^)]*,\s*['\"]?[wa]")
 def collect_text(value): return value if isinstance(value, str) else "\n".join(collect_text(item) for item in value.values()) if isinstance(value, dict) else "\n".join(collect_text(item) for item in value) if isinstance(value, list) else ""
+embedded_cmd_pattern = re.compile(r'"cmd"\s*:\s*("(?:[^"\\]|\\.)*")')
 def command_text_from_event(data):
     item = data.get("item") or {}
     payload = data.get("payload") or {}
     if item.get("type") == "command_execution":
         return str(item.get("command") or "")
-    if payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}:
-        arguments_text = str(payload.get("arguments") or "")
+    # Child subagent transcripts (codex-cli >= 0.146) record shell work as a
+    # custom_tool_call named "exec" whose input is a JS snippet wrapping
+    # tools.exec_command({"cmd": ...}), not a function_call with JSON arguments.
+    # Reading only the function_call shape found 0 of 2 real child commands.
+    if (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}) \
+            or (payload.get("type") == "custom_tool_call" and payload.get("name") in {"exec", "functions.exec"}):
+        raw = payload.get("arguments") or payload.get("input") or ""
+        raw_text = raw if isinstance(raw, str) else json.dumps(raw)
         try:
-            arguments_data = json.loads(arguments_text) if arguments_text else {}
+            arguments_data = json.loads(raw_text) if raw_text else {}
         except json.JSONDecodeError:
-            arguments_data = {}
+            # The JS wrapper is not JSON; recover the embedded cmd string so the
+            # read/mutation patterns match the actual command rather than the
+            # surrounding JavaScript.
+            match = embedded_cmd_pattern.search(raw_text)
+            if not match:
+                return raw_text
+            try:
+                return str(json.loads(match.group(1)))
+            except json.JSONDecodeError:
+                return raw_text
         if isinstance(arguments_data, dict):
             return str(arguments_data.get("cmd") or "")
     return ""
@@ -2323,6 +2339,7 @@ wrapper_attempts = [(index, item_id, route, path, completed.get(item_id)) for in
 activations = [(index, route, command) for index, item_id, command in commands for route, _ in wrapper_reads(command)
                if completed.get(item_id) and ((completed[item_id][0] == 0 and completed[item_id][1].strip()) or "oh-no-harness-generated-skill-wrapper" in completed[item_id][1])]
 hidden_activations = []
+child_commands = []
 if parent_thread_id:
     sessions_root = Path(live_home) / "sessions"
     for transcript_path in sessions_root.rglob("*.jsonl"):
@@ -2350,6 +2367,11 @@ if parent_thread_id:
         parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
         if parent != parent_thread_id:
             continue
+        # Retain every child command, not only wrapper reads: since role dispatch
+        # became need-based, a lookup this run legitimately delegates lands here
+        # rather than in the parent stream, and discarding it made a compliant run
+        # look like it never inspected the repository.
+        child_commands.extend((str(transcript_path), command_text) for command_text in transcript_commands)
         for command_text in transcript_commands:
             hidden_activations.extend(
                 (str(transcript_path), route, command_text)
@@ -2419,11 +2441,19 @@ if label == "plan-only/pending approval":
 if label == "direct-edit ineligible" and any(route != "ralph" for route in routes_seen):
     raise SystemExit(f"{label} read a non-Ralph workflow wrapper: {activations!r}")
 if label == "vague requirements":
-    reads = [(index, command) for index, _, command in commands
-             if index > first_expected and read_tool_pattern.search(command) and "README.md" in command]
-    mutations = [(index, command) for index, _, command in commands if mutates(command, "README.md")]
+    # The run must inspect the repository and must not mutate it. Accept the read
+    # from either stream and at any position: a dispatched explore child does the
+    # lookup in its own transcript, where no index is comparable to the parent's,
+    # and a lookup small enough to run inline may land before skill activation.
+    # Requiring a post-activation PARENT read encoded the retired dispatch-always
+    # rule and rejected a run whose child had read the file correctly.
+    inspections = [(source, command) for source, _, command in commands] \
+        + [(source, command) for source, command in child_commands]
+    reads = [(source, command) for source, command in inspections
+             if read_tool_pattern.search(command) and "README.md" in command]
+    mutations = [(source, command) for source, command in inspections if mutates(command, "README.md")]
     if not reads or mutations:
-        raise SystemExit(f"{label} missed its post-activation repository read or mutated source")
+        raise SystemExit(f"{label} missed its repository read or mutated source")
 elif label == "explicit test-first":
     test_pattern = re.compile(r"(?:^|[;&|'\"]\s*)(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])|\b(?:bash|sh)\s+(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])" )
     tests = [(index, item_id) for index, item_id, command in commands if test_pattern.search(command)]
@@ -2493,6 +2523,26 @@ run_codex_natural_activation_assertion_offline_test() {
     printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' '{"type":"item.completed","item":{"type":"command_execution","id":"diff","exit_code":1,"aggregated_output":"diff failed"}}' "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted a failed diff"
     printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted an unscoped diff"
     printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null || fail "Codex direct-edit oracle rejected mutation then successful scoped diff then final"
+    # A dispatched explore child records its lookup in its own transcript as a
+    # custom_tool_call named "exec" wrapping tools.exec_command. Reading only the
+    # parent stream found zero commands and failed a compliant run.
+    local child_dir child_meta iv_wrapper_start iv_wrapper_done iv_final
+    child_dir="$temp_root/home/sessions/2026/07/30"; mkdir -p "$child_dir"
+    child_meta='{"type":"session_meta","payload":{"id":"child","parent_thread_id":"parent","agent_role":"oh-no-explore","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent","agent_role":"oh-no-explore"}}}}}'
+    iv_wrapper_start='{"type":"item.started","item":{"type":"command_execution","id":"wrapper","command":"cat /tmp/plugin/skills/interview/SKILL.md"}}'
+    iv_wrapper_done='{"type":"item.completed","item":{"type":"command_execution","id":"wrapper","exit_code":0,"aggregated_output":"oh-no-harness-generated-skill-wrapper"}}'
+    iv_final='{"type":"item.completed","item":{"type":"agent_message","text":"Who should use this tool?"}}'
+    printf '%s\n' "$started" "$iv_wrapper_start" "$iv_wrapper_done" "$iv_final" "$turn_done" >"$fixture"
+    printf '%s\n' "$child_meta" '{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"const r = await tools.exec_command({\"cmd\":\"nl -ba README.md\",\"workdir\":\"/tmp\"});\ntext(r.output);\n"}}' >"$child_dir/child.jsonl"
+    assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null \
+      || fail "Codex vague-requirements oracle rejected a dispatched child repository read"
+    rm -f "$child_dir/child.jsonl"
+    rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null 2>&1 || rc=$?
+    [[ "$rc" != 0 ]] || fail "Codex vague-requirements oracle accepted a run with no repository read in either stream"
+    printf '%s\n' "$child_meta" '{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"const r = await tools.exec_command({\"cmd\":\"nl -ba README.md; sed -i s/broad/narrow/ README.md\",\"workdir\":\"/tmp\"});\n"}}' >"$child_dir/child.jsonl"
+    rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null 2>&1 || rc=$?
+    [[ "$rc" != 0 ]] || fail "Codex vague-requirements oracle accepted a child mutation of the read-only source"
+    rm -f "$child_dir/child.jsonl"
   ) || { rm -rf "$temp_root"; return 1; }
   rm -rf "$temp_root"; ok "Codex natural hard facts require plan artifacts and post-mutation scoped direct-edit diffs"
 }
@@ -2591,13 +2641,13 @@ run_no_skill_readonly_session_start_live_test() {
   local final_file="$RUN_DIR/natural-${routing_state}-${label// /-}.final.txt"
   run_natural_session_start_live_skill_test "$label" none "$routing_state"
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" <<'PY'
+  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" "$CODEX_HOME_DIR" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-out_path, err_path, final_path = sys.argv[1:4]
+out_path, err_path, final_path, live_home = sys.argv[1:5]
 
 
 def collect_text(value):
@@ -2620,7 +2670,36 @@ if (
 ):
     raise SystemExit(f"no-skill read-only smoke saw spawn failure in stderr: {err_text[:2000]!r}")
 
-read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)(?:\s|$)")
+read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less|nl)(?:\s|$)")
+embedded_cmd_pattern = re.compile(r'"cmd"\s*:\s*("(?:[^"\\]|\\.)*")')
+
+
+def command_text_from_event(data):
+    item = data.get("item") or {}
+    payload = data.get("payload") or {}
+    if item.get("type") == "command_execution":
+        return str(item.get("command") or "")
+    # Child transcripts record shell work as custom_tool_call "exec" whose input is
+    # a JS snippet wrapping tools.exec_command({"cmd": ...}).
+    if (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}) \
+            or (payload.get("type") == "custom_tool_call" and payload.get("name") in {"exec", "functions.exec"}):
+        raw = payload.get("arguments") or payload.get("input") or ""
+        raw_text = raw if isinstance(raw, str) else json.dumps(raw)
+        try:
+            arguments_data = json.loads(raw_text) if raw_text else {}
+        except json.JSONDecodeError:
+            match = embedded_cmd_pattern.search(raw_text)
+            if not match:
+                return raw_text
+            try:
+                return str(json.loads(match.group(1)))
+            except json.JSONDecodeError:
+                return raw_text
+        if isinstance(arguments_data, dict):
+            return str(arguments_data.get("cmd") or "")
+    return ""
+
+
 evidence_reads = []
 failed_spawns = []
 all_text_parts = []
@@ -2647,6 +2726,36 @@ with open(out_path, "r", encoding="utf-8") as fh:
             and "README.md" in str(item.get("command") or "")
         ):
             evidence_reads.append((index, event_text))
+
+# This lane explicitly authorizes dispatching the read-only oh-no-explore agent
+# ("as many as the lookup needs"), so the lookup evidence legitimately lives in a
+# child transcript. Counting only parent command_execution events rejected a run
+# whose dispatched child had read the file.
+if parent_thread_id:
+    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
+        meta = None
+        child_commands = []
+        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not transcript_line.strip():
+                continue
+            candidate = json.loads(transcript_line)
+            if candidate.get("type") == "session_meta":
+                meta = candidate.get("payload") or {}
+            command_text = command_text_from_event(candidate)
+            if command_text:
+                child_commands.append(command_text)
+        if not isinstance(meta, dict):
+            continue
+        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
+        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
+        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
+        if (meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")) != parent_thread_id:
+            continue
+        evidence_reads.extend(
+            (str(transcript_path), command_text)
+            for command_text in child_commands
+            if read_tool_pattern.search(command_text) and "README.md" in command_text
+        )
 
 if failed_spawns:
     raise SystemExit(f"no-skill read-only smoke saw failed spawn_agent calls: {failed_spawns!r}")
