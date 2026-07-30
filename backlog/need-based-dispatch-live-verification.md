@@ -2,9 +2,10 @@
 
 **Status:** open. The four source commits landed on `main` with offline evidence
 only. First deferred 2026-07-30 because the local gateway could not route
-`sonnet`; after it recovered, two further attempts still produced no verdict on
-the changed rules — see the attempt log below. The Codex lane is blocked by a
-host-side cause unrelated to this change.
+`sonnet`; after it recovered, further attempts still produced no verdict on the
+changed rules — see the attempt log below. Two blocking test defects have since
+been fixed (`ac508df` Claude, `467ca98` Codex), so the next run should get
+further; `autonomous end-to-end` still needs a raised timeout.
 
 ## Why this is open
 
@@ -50,6 +51,9 @@ below records what happened next.
 ```sh
 OH_NO_TEST_MODEL=sonnet scripts/test-claude-plugin.sh \
   --isolated-config --no-install --natural-session-start-live
+
+OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh \
+  --codex-home "$(mktemp -d)" --natural-session-start-live </dev/null
 ```
 
 `--natural-session-start-live` is the lane that matters — plain `--live` only
@@ -101,53 +105,102 @@ still worth recording, because the two halves point opposite ways:
 Raising the timeout for this one case is probably a prerequisite to getting any
 verdict from it.
 
-**Codex — blocked outside this change.** Case 1 (`vague requirements`) failed for
-a host reason, and the Codex lane cannot verify these commits at all: it stops
-before ever reaching `direct-edit eligible`.
+**Codex — was a test defect, fixed in `467ca98`.** Case 1
+(`vague requirements`) failed, but neither the harness nor the model was at
+fault. A live probe reproduced the run and showed Codex behaved correctly:
 
-Codex CLI 0.146.0 injects a developer message the repository does not contain:
+- it spawned a child with `agent_role: oh-no-explore`,
+  `task_name: interview_explore_discovery_1`, `fork_turns: none` (recorded in
+  plaintext in the parent rollout, `agent_path /root/interview_explore_discovery_1`)
+- the child ran `nl -ba README.md` and `pwd; rg --files ...; git status`
+- it reported the contents accurately
 
-```
-<multi_agent_mode>Any earlier instruction enabling proactive multi-agent
-delegation no longer applies. Do not spawn sub-agents unless the user or
-applicable AGENTS.md/skill instructions explicitly ask for sub-agents,
-delegation, or parallel agent work.</multi_agent_mode>
-```
+Three oracle defects stacked, and measurement showed all three had to be fixed
+together — `nl` alone still failed, inner-`cmd` extraction alone still failed,
+both together passed:
 
-The observed trace matches that suppression exactly: 3 `sed` reads of
-`interview/SKILL.md` (skill loading is fine), **0** `spawn_agent` calls, one
-`wait` with `receiver_thread_ids=[]` and `agents_states={}`, **0** commands
-reading `README.md` — and a final message quoting the README verbatim. The
-content was not in the prompt (verified: 0 `README` occurrences in
-`prompt-input.json`, and `codex debug prompt-input` in an empty temp project does
-not inject it either). The model announced dispatching a read-only explorer,
-never spawned it, waited for nothing, and hallucinated the report.
+1. `command_text_from_event` only handled `function_call`/`exec_command`, while a
+   child records shell work as `custom_tool_call` named `exec` whose `input` is a
+   JS snippet wrapping `tools.exec_command({"cmd": ...})` — **0 of 2** real child
+   commands parsed.
+2. The child-transcript walk kept only `wrapper_reads` hits and discarded every
+   other child command.
+3. `read_tool_pattern` lacked `nl`, and its anchor cannot match inside the JS
+   wrapper, so even `cat` failed without first recovering the embedded `cmd`.
 
-Ruled out as causes:
+`run_no_skill_readonly_session_start_live_test` had the same blindness and did not
+even receive `live_home`, so it could not see child transcripts at all.
 
-- **Config.** `~/.codex/config.toml` has `[features.multi_agent_v2]`
-  (`tool_namespace = "agents"`) and `[agents] max_threads = 6 / max_depth = 2`,
-  and `clone_codex_live_home` copies `config.toml` then verifies it by sha256
-  (`test-codex-plugin.sh:309-315`), so a silent drop is impossible. The live
-  prompt carried the multi-agent developer message and "7 available concurrency
-  slots" (= `max_threads` + self). An earlier grep suggesting the clone lacked
-  these settings was wrong: it hit leftover 2026-07-14..19 clone directories that
-  cleanup had already emptied.
-- **This change.** The failure is in read-only `explore` dispatch, and
-  `interview.md:488` still makes `explore` the *default* dispatch — untouched by
-  the four commits. That default is what collides with the host suppression.
+### Corrections to the previous entry
 
-Do **not** relax `test-codex-plugin.sh:2421-2426` the way the Claude oracle was
-relaxed. Its position constraint is the same stale assumption, but Codex read the
-README zero times, so dropping the constraint would not make the case pass — and
-must not, since passing would mean accepting a hallucinated repository report.
+Two claims committed in `7036109` were wrong and are retracted:
+
+- **"Hallucinated the report" — false.** The child genuinely read the file. The
+  parent's `wait` showing `receiver_thread_ids=[]` / `agents_states={}` is normal:
+  codex-cli ≥ 0.144 stops emitting child activity in the `exec --json` stream, a
+  fact the harness already documents at `test-codex-plugin.sh:4440-4442`. Child
+  work lives in a separate rollout file linked by `parent_thread_id`.
+- **"`<multi_agent_mode>` suppression caused it" — false.** The block is real and
+  host-injected, but our authorization wins: the parent rollout shows the
+  suppression at line 4 and
+  `CODEX_ONLY_OH_NO_SUBAGENT_STANDING_AUTHORIZATION` ("use sub-agents, delegation,
+  and parallel agent work proactively. This is the explicit user request") at
+  line 8, and the spawn succeeded. The earlier evidence for its absence —
+  0 hook blocks in `prompt-input.json` — was a tool artifact:
+  `codex debug prompt-input` does not fire the SessionStart hook (verified in an
+  empty temp project: `OH_NO_BOOTSTRAP` 0, `multi_agent_mode` 1).
+
+The config ruling-out still stands: `[features.multi_agent_v2]` and
+`[agents] max_threads = 6 / max_depth = 2` are present, and
+`clone_codex_live_home` verifies `config.toml` by sha256
+(`test-codex-plugin.sh:309-315`). An earlier grep suggesting the clone lacked them
+hit leftover 2026-07-14..19 clone directories that cleanup had already emptied.
+
+### Remaining oracle-strictness gap (not fixed, needs its own scope)
+
+`467ca98` deliberately covered only the two blocked lanes. The same parent-only
+blindness remains in every other positive-evidence oracle, and an audit of
+`assert_codex_natural_activation_smoke` found:
+
+- `explicit test-first`, `known-cause fix`, `unknown-cause failure` — the test
+  runs and production mutations they require are legitimately child-side work
+  (`executor`, `verifier`, `debugger`), so a dispatching run fails.
+- `plan-only/pending approval` — plan artifacts under `.oh-no/plans` are
+  legitimately written by a dispatched `planner`. Its `production` containment
+  check is the inverse risk: a child mutating production before approval is
+  invisible and passes silently.
+- `autonomous end-to-end`, `ordinary implementation` — no dedicated branch at all,
+  so the labels with the *most* child usage assert the least.
+
+Do not fix these by widening them the way the two lanes were widened. Two reasons:
+
+1. **Mechanical.** All three ordering checks compare event indices, and the parent
+   `exec --json` stream carries **no timestamp** (keys are `item`, `thread_id`,
+   `type`, `usage`). Only the rollout files have timestamps, so a unified sequence
+   means replacing the evidence source, which destabilizes checks that pass today.
+2. **Design.** These oracles assert tool-use minutiae, not design compliance:
+   `explicit test-first` demands exactly `tests/timeout_test.sh` in a given order
+   with a given exit code. An LLM satisfies the same design many ways, so this is
+   over-strict. The right follow-up is relaxing them toward the design property
+   ("a failing focused test preceded the production change"), regardless of who ran
+   it, since `natural_payload_changes` and
+   `natural_source_checkout_fingerprint` already verify final on-disk state
+   independently of the stream.
 
 Related but distinct: `codex-subagent-protocol-compatibility.md` covers
-`agent_type` schema compatibility. Host-side `<multi_agent_mode>` suppression of
-proactive delegation is a new observation and needs its own decision — most
-likely whether `interview`'s dispatch-by-default survives on Codex.
+`agent_type` schema compatibility.
 
 ## Verification tip
+
+**`codex exec` needs stdin closed.** Run it with `</dev/null`. Without that, a
+backgrounded invocation hangs at `Reading additional input from stdin...`
+indefinitely (19 minutes observed, 0 bytes of output). The failed live run's
+`.err` contains that same line.
+
+**Child activity is not in the `exec --json` stream.** codex-cli ≥ 0.144 records
+child subagent work only in a separate `sessions/**/rollout-*.jsonl` linked by
+`parent_thread_id`; the parent stream shows an empty `wait`. Reading the parent
+alone makes a correct dispatch look like it never happened.
 
 When checking these cores by grep, use `rg -U`. The prose wraps near column 78,
 so phrases like `too small to benefit` span a line break and line-oriented

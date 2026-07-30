@@ -42,12 +42,14 @@ the current feature work.
   - **Open; the four source commits shipped with offline evidence only.** The
     2026-07-30 change made dispatch-versus-inline a judgment call and gave the
     inline path the full executor contract, but no live attempt has produced a
-    verdict on either. Claude: one stale oracle fixed (`ac508df`), then
-    `autonomous end-to-end` timed out at 900s before its oracle ran. Codex:
-    blocked before the relevant cases by host-injected `<multi_agent_mode>`
-    suppression of proactive delegation — not caused by this change, and its
-    config and live-home clone are verified sound. Two rules (manifest-exit
-    promotion, contract inheritance) have no runtime lane at all.
+    verdict on either. Two blocking test defects are now fixed — `ac508df`
+    (Claude stale position constraint) and `467ca98` (Codex could not see a
+    dispatched child's commands at all). The earlier "Codex hallucinated /
+    `<multi_agent_mode>` caused it" reading is retracted: the child spawned and
+    really read the file. Still open: `autonomous end-to-end` times out at 900s,
+    two rules (manifest-exit promotion, contract inheritance) have no runtime
+    lane, and the remaining positive-evidence oracles are over-strict rather than
+    child-blind — see the file for why widening them is the wrong fix.
 - [Review packet lightening](./review-packet-lightening.md)
   - Stop review packets from converting a bounded requirements question into an
     unbounded search: drop investigation-path instructions, role-core duplicates,
