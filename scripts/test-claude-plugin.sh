@@ -2231,8 +2231,14 @@ elif label == "direct-edit ineligible":
     forbid(workflows - {"ralph"}, anywhere=True)
 
 if label == "vague requirements":
-    reads = [item for item in actions if item[1] in {"Read", "Glob", "Grep"} and first_expected < item[0] < final_sequence]
-    if not reads or mutations: raise SystemExit(f"{label} missed post-activation repository read or mutated files")
+    # The interview run must inspect the repository and must not mutate it. Reads
+    # are accepted anywhere in the run, not only after activation: since the
+    # 2026-07-30 need test, a lookup too small to benefit from context separation
+    # may legitimately run inline and land before the skill is selected. Requiring
+    # a post-activation read assumed the retired dispatch-always rule and rejected
+    # a compliant run whose whole repository was a one-line README.
+    reads = [item for item in actions if item[1] in {"Read", "Glob", "Grep"} and item[0] < final_sequence]
+    if not reads or mutations: raise SystemExit(f"{label} missed repository read or mutated files")
 elif label == "explicit test-first":
     production = [item for item in mutations if "src/timeout.sh" in item[2]]
     if not test_bashes or not production or min(x[0] for x in test_bashes) >= min(x[0] for x in production):
