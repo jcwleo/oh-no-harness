@@ -57,11 +57,16 @@ ROUTING_DESCRIPTION_PATTERNS = {
 
 ALL_SKILLS = PUBLIC_SKILLS
 
-# Skills that ship a Claude Code wrapper only (no Codex wrapper). For these,
-# assert_skill validates only the Claude wrapper and asserts the Codex wrapper is
-# absent. Keep identical to CLAUDE_ONLY_SKILLS in scripts/generate-skill-wrappers.py
-# (this validator runs that generator's `--check` as a subprocess).
-CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
+ALL_RUNTIME_PLATFORMS = frozenset({"claude", "codex", "opencode"})
+SKILL_AVAILABILITY = {
+    skill: ALL_RUNTIME_PLATFORMS for skill in WORKFLOW_ROUTING_SKILLS
+}
+SKILL_AVAILABILITY.update(
+    {
+        "install-statusline": frozenset({"claude"}),
+        "configure-subagents": frozenset({"claude", "opencode"}),
+    }
+)
 SELF_CONTAINED_ADAPTER_SKILLS = {
     "interview",
     "ralplan",
@@ -73,7 +78,7 @@ SELF_CONTAINED_ADAPTER_SKILLS = {
 
 # Skills whose slash-command wrapper may set disable-model-invocation: true (the
 # model must never auto-invoke them). This is the invocation dimension and is kept
-# separate from CLAUDE_ONLY_SKILLS (the platform dimension) on purpose. Every other
+# separate from SKILL_AVAILABILITY (the platform dimension) on purpose. Every other
 # command wrapper must still set disable-model-invocation: false.
 MODEL_UNINVOCABLE_SKILLS = {"install-statusline", "configure-subagents"}
 
@@ -115,10 +120,38 @@ PLUGIN_NAME = "oh-no-harness"
 MARKETPLACE_PLUGIN_PATH = f"./plugins/{PLUGIN_NAME}"
 CODEX_SKILL_ROOT = "skills"
 CLAUDE_SKILL_ROOT = "skills-claude"
+OPENCODE_SKILL_ROOT = "skills-opencode"
+SKILL_ROOTS = {
+    "codex": CODEX_SKILL_ROOT,
+    "claude": CLAUDE_SKILL_ROOT,
+    "opencode": OPENCODE_SKILL_ROOT,
+}
 SKILL_CORE_ROOT = "docs/skill-core"
 AGENT_CORE_ROOT = "docs/agent-core"
 CODEX_AGENT_TEMPLATE_ROOT = "docs/platforms/codex-agents"
 PROVIDER_DOC_ROOT = "docs/providers"
+OPENCODE_SKILLS = [*WORKFLOW_ROUTING_SKILLS, "configure-subagents"]
+OPENCODE_CONFIGURE_TOOL = "oh_no_configure_subagents"
+OPENCODE_AGENT_ROOT = "opencode/generated"
+OPENCODE_ALLOWED_SKILL_FIELDS = {"name", "description"}
+OPENCODE_FORBIDDEN_WRAPPER_PATTERNS = (
+    (r"\bspawn_agent\s*\(", "Codex spawn_agent invocation"),
+    (r"\bwait_agent\b", "Codex wait_agent invocation"),
+    (r"\bclose_agent\b", "Codex close_agent invocation"),
+    (r"\bagent_type\s*=", "Codex agent_type invocation"),
+    (r"\bfork_context\s*=", "Codex fork_context invocation"),
+    (r"\bTask\s*\(", "Claude Task invocation"),
+    (r"\bWorkflow\s+`agent\(\)`", "Claude Workflow agent invocation"),
+    (r"@agent-[A-Za-z0-9:_-]+", "Claude agent mention invocation"),
+    (r"\bCLAUDE_PLUGIN_ROOT\b", "Claude plugin-root runtime variable"),
+    (r"\brequire-cross-host\b", "Codex cross-host strict-mode term"),
+    (r"\bmodel-diversity-pair\b", "Claude model-diversity strict-mode term"),
+    (
+        r"docs/platforms/(?:codex|claude-code)(?:-[a-z0-9-]+)?\.md",
+        "another host's runtime document",
+    ),
+    (r"\bskills-claude/", "Claude skill runtime path"),
+)
 AGENT_CORE_FORBIDDEN_SURFACE_PATTERNS = (
     (r"\bspawn_agent\s*\(", "Codex spawn_agent invocation belongs in platform docs or dispatch packets"),
     (r"\bwait_agent\b", "Codex wait_agent lifecycle syntax belongs in platform docs or dispatch packets"),
@@ -1537,7 +1570,9 @@ def assert_ultrawork_loop_contract(path: Path, body: str) -> None:
     assert_no_forbidden_ultrawork_runtime_claims(path, body)
 
 
-def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
+def assert_skill_frontmatter(
+    path: Path, skill: str, platform: str | None = None
+) -> dict[str, str]:
     fm = parse_frontmatter(path)
     missing = REQUIRED_SKILL_FIELDS - set(fm)
     if missing:
@@ -1545,6 +1580,13 @@ def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
     expected_name = skill.split("/")[-1]
     if fm["name"] != expected_name:
         die(f"{path} name={fm['name']!r}, expected {expected_name!r}")
+    if platform == "opencode":
+        if set(fm) != OPENCODE_ALLOWED_SKILL_FIELDS:
+            die(
+                f"{path} OpenCode frontmatter fields must be exactly "
+                f"{sorted(OPENCODE_ALLOWED_SKILL_FIELDS)!r}; actual={sorted(fm)!r}"
+            )
+        return fm
     if skill in WORKFLOW_SKILLS_REQUIRING_ARGUMENT_HINT and "argument-hint" not in fm:
         die(f"{path} should define argument-hint")
     dmi = fm.get("disable-model-invocation")
@@ -1563,8 +1605,8 @@ def assert_skill_frontmatter(path: Path, skill: str) -> dict[str, str]:
 
 def assert_model_uninvocable_skill_mutation_guards(root: Path) -> None:
     # ralplan-v2 retired 2026-07-17. install-statusline and configure-subagents
-    # are the remaining model-uninvocable skills (Claude-only, so no Codex
-    # wrapper path). Each must keep exactly one disable-model-invocation marker,
+    # are the remaining model-uninvocable skills. Their Claude sources must keep
+    # exactly one disable-model-invocation marker,
     # and the frontmatter guard must reject a core/wrapper mutation that drops it.
     for skill in sorted(MODEL_UNINVOCABLE_SKILLS):
         paths = (
@@ -1592,10 +1634,10 @@ def assert_model_uninvocable_skill_mutation_guards(root: Path) -> None:
 
 def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str) -> None:
     path = root / skill_root / skill / "SKILL.md"
-    assert_skill_frontmatter(path, skill)
+    assert_skill_frontmatter(path, skill, platform)
     body = read_text(path)
     core_marker = f"../../{SKILL_CORE_ROOT}/{skill}.md"
-    if core_marker not in body:
+    if platform != "opencode" and core_marker not in body:
         die(f"{path} should reference shared skill core: {core_marker!r}")
 
     if platform == "codex":
@@ -1642,6 +1684,52 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
                 die(f"{path} should reference Claude Code Fusion Rescue adapter")
             if "docs/platforms/codex-fusion-rescue.md" in body:
                 die(f"{path} contains forbidden Codex Fusion Rescue adapter marker")
+    elif platform == "opencode":
+        if skill == "configure-subagents":
+            source_paths = ["docs/platforms/opencode-configure-subagents.md"]
+        else:
+            source_paths = [f"{SKILL_CORE_ROOT}/{skill}.md"]
+            if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+                source_paths.append(f"docs/platforms/opencode-{skill}.md")
+            else:
+                source_paths.append("docs/platforms/opencode-runtime.md")
+                overlay = root / "docs" / "platforms" / f"opencode-{skill}.md"
+                if overlay.exists():
+                    source_paths.append(f"docs/platforms/opencode-{skill}.md")
+
+        actual_sources = re.findall(r"^## Source: (.+)$", body, flags=re.MULTILINE)
+        if actual_sources != source_paths:
+            die(
+                f"{path} OpenCode source composition mismatch: "
+                f"expected={source_paths!r} actual={actual_sources!r}"
+            )
+        expected_source_list = [f"../../{source}" for source in source_paths]
+        for source in expected_source_list:
+            if f"- `{source}`" not in body:
+                die(f"{path} is missing OpenCode Source order marker: {source!r}")
+        if skill != "configure-subagents" and core_marker not in body:
+            die(f"{path} should reference shared skill core: {core_marker!r}")
+        if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+            required = f"docs/platforms/opencode-{skill}.md"
+            if "docs/platforms/opencode-runtime.md" in body:
+                die(f"{path} self-contained OpenCode wrapper must not embed common runtime")
+        elif skill == "configure-subagents":
+            required = "docs/platforms/opencode-configure-subagents.md"
+            for forbidden_source in (
+                core_marker,
+                "docs/platforms/opencode-runtime.md",
+            ):
+                if forbidden_source in body:
+                    die(
+                        f"{path} standalone OpenCode setup wrapper contains forbidden "
+                        f"composition source: {forbidden_source!r}"
+                    )
+        else:
+            required = "docs/platforms/opencode-runtime.md"
+        forbidden = ()
+        for pattern, reason in OPENCODE_FORBIDDEN_WRAPPER_PATTERNS:
+            if re.search(pattern, body):
+                die(f"{path} contains forbidden {reason}: pattern={pattern!r}")
     else:
         die(f"unknown platform for wrapper validation: {platform}")
 
@@ -1657,13 +1745,13 @@ def assert_skill_wrapper(root: Path, skill: str, skill_root: str, platform: str)
 
 
 def assert_skill(root: Path, skill: str) -> None:
-    if skill in CLAUDE_ONLY_SKILLS:
-        codex_wrapper = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
-        if codex_wrapper.exists():
-            die(f"{codex_wrapper} should not exist; {skill} is a Claude-Code-only skill")
-    else:
-        assert_skill_wrapper(root, skill, CODEX_SKILL_ROOT, "codex")
-    assert_skill_wrapper(root, skill, CLAUDE_SKILL_ROOT, "claude")
+    available = SKILL_AVAILABILITY[skill]
+    for platform, skill_root in SKILL_ROOTS.items():
+        wrapper = root / skill_root / skill / "SKILL.md"
+        if platform in available:
+            assert_skill_wrapper(root, skill, skill_root, platform)
+        elif wrapper.exists():
+            die(f"{wrapper} should not exist; {skill} is unavailable on {platform}")
 
     path = root / SKILL_CORE_ROOT / f"{skill}.md"
     assert_skill_frontmatter(path, skill)
@@ -1716,7 +1804,8 @@ def assert_skill(root: Path, skill: str) -> None:
         for forbidden in SIMPLIFY_FORBIDDEN_MARKERS:
             if has_required_marker(body, forbidden):
                 die(f"{path} still contains retired small-diff-gate language: {forbidden!r}")
-        for wrapper_root in (CODEX_SKILL_ROOT, CLAUDE_SKILL_ROOT):
+        for platform in sorted(SKILL_AVAILABILITY[skill]):
+            wrapper_root = SKILL_ROOTS[platform]
             wrapper_path = root / wrapper_root / skill / "SKILL.md"
             wrapper_body = read_text(wrapper_path)
             for marker in SIMPLIFY_WRAPPER_MARKERS:
@@ -3069,6 +3158,534 @@ def assert_configure_subagents_contract(root: Path) -> None:
     assert_config_resolver_contract(root)
 
 
+def read_json_object(path: Path) -> dict[str, object]:
+    try:
+        value = json.loads(read_text(path), object_pairs_hook=dict)
+    except json.JSONDecodeError as exc:
+        die(f"{path} is not valid JSON: {exc}")
+    if not isinstance(value, dict):
+        die(f"{path} must contain a JSON object")
+    return value
+
+
+def assert_exact_opencode_skill_inventory(root: Path) -> None:
+    skills_root = root / OPENCODE_SKILL_ROOT
+    if not skills_root.is_dir():
+        die(f"missing OpenCode skill directory: {skills_root}")
+    expected = set(OPENCODE_SKILLS)
+    actual = {path.name for path in skills_root.iterdir()}
+    if actual != expected:
+        die(
+            f"{skills_root} exact-set mismatch: expected={sorted(expected)!r} "
+            f"actual={sorted(actual)!r}"
+        )
+    for skill in OPENCODE_SKILLS:
+        wrapper = skills_root / skill / "SKILL.md"
+        if not wrapper.is_file():
+            die(f"missing OpenCode skill wrapper: {wrapper}")
+
+
+def assert_opencode_generated_agents(root: Path) -> None:
+    path = root / OPENCODE_AGENT_ROOT / "agents.json"
+    agents = read_json_object(path)
+    expected_names = ["oh-no", *(f"oh-no-{role}" for role in AGENTS)]
+    if list(agents) != expected_names:
+        die(
+            f"{path} agent inventory/order mismatch: expected={expected_names!r} "
+            f"actual={list(agents)!r}"
+        )
+
+    main = agents["oh-no"]
+    if not isinstance(main, dict):
+        die(f"{path} oh-no primary must be an object")
+    for forbidden_field in ("tools", "model"):
+        if forbidden_field in main:
+            die(f"{path} oh-no must not define {forbidden_field!r}")
+    if set(main) != {
+        "description", "mode", "prompt", "permission"
+    }:
+        die(f"{path} oh-no primary must use description/mode/prompt/permission only")
+    if main.get("mode") != "primary":
+        die(f"{path} oh-no must be the one primary agent")
+    main_source = read_text(root / "docs" / "platforms" / "opencode-main-agent.md")
+    if main.get("prompt") != main_source:
+        die(f"{path} oh-no prompt must exactly equal docs/platforms/opencode-main-agent.md")
+    expected_main_permission = {
+        "question": "allow",
+        "task": {
+            "*": "deny",
+            **{f"oh-no-{role}": "allow" for role in AGENTS},
+        },
+        OPENCODE_CONFIGURE_TOOL: "ask",
+    }
+    if main.get("permission") != expected_main_permission:
+        die(
+            f"{path} oh-no permission must allow questions, preserve bounded task "
+            "topology, and ask before the custom configurator tool"
+        )
+    main_permission = main["permission"]
+    if not isinstance(main_permission, dict) or not isinstance(
+        main_permission.get("task"), dict
+    ):
+        die(f"{path} oh-no task permission must be an ordered object")
+    expected_task_order = ["*", *(f"oh-no-{role}" for role in AGENTS)]
+    if list(main_permission["task"]) != expected_task_order:
+        die(f"{path} oh-no task permission must order deny-all before exact role allows")
+
+    bounded_task = {
+        "*": "deny",
+        "oh-no-explore": "allow",
+        "oh-no-analyst": "allow",
+    }
+    for role in AGENTS:
+        name = f"oh-no-{role}"
+        agent = agents[name]
+        if not isinstance(agent, dict):
+            die(f"{path} {name} must be an object")
+        if "tools" in agent:
+            die(f"{path} {name} must use permission, not tools")
+        if "model" in agent:
+            die(f"{path} {name} must not define a default model")
+        if set(agent) != {
+            "description", "mode", "prompt", "permission"
+        }:
+            die(f"{path} {name} must use description/mode/prompt/permission only")
+        if agent.get("mode") != "subagent":
+            die(f"{path} {name} must use mode='subagent'")
+        expected_prompt = read_text(root / AGENT_CORE_ROOT / f"{role}.md")
+        if agent.get("prompt") != expected_prompt:
+            die(f"{path} {name} prompt must exactly equal {AGENT_CORE_ROOT}/{role}.md")
+
+        expected_permission: dict[str, object] = {}
+        if role not in {"planner", "executor"}:
+            expected_permission["edit"] = "deny"
+        expected_permission["task"] = (
+            bounded_task if role in {"debugger", "verifier"} else "deny"
+        )
+        if role in {
+            "analyst",
+            "planner",
+            "plan-reviewer",
+            "code-reviewer",
+            "fusion-rescue-analyst",
+        }:
+            expected_permission["bash"] = "deny"
+        expected_permission[OPENCODE_CONFIGURE_TOOL] = "deny"
+        if agent.get("permission") != expected_permission:
+            die(
+                f"{path} {name} permission mismatch: "
+                f"expected={expected_permission!r} actual={agent.get('permission')!r}"
+            )
+        if role in {"debugger", "verifier"}:
+            task_permission = agent["permission"]["task"]
+            if list(task_permission) != ["*", "oh-no-explore", "oh-no-analyst"]:
+                die(
+                    f"{path} {name} task permission must order deny-all before "
+                    "the two bounded role allows"
+                )
+
+    primary_count = sum(
+        isinstance(agent, dict) and agent.get("mode") == "primary"
+        for agent in agents.values()
+    )
+    if primary_count != 1:
+        die(f"{path} must contain exactly one primary agent; actual={primary_count}")
+
+
+def assert_opencode_generated_commands(root: Path) -> None:
+    path = root / OPENCODE_AGENT_ROOT / "commands.json"
+    commands = read_json_object(path)
+    if list(commands) != OPENCODE_SKILLS:
+        die(
+            f"{path} command inventory/order mismatch: expected={OPENCODE_SKILLS!r} "
+            f"actual={list(commands)!r}"
+        )
+    for skill in OPENCODE_SKILLS:
+        command = commands[skill]
+        if not isinstance(command, dict) or set(command) != {
+            "description", "agent", "template"
+        }:
+            die(f"{path} {skill} must use description/agent/template only")
+        expected_template = (
+            f"Load the `{skill}` skill and follow it exactly. Preserve and pass "
+            "through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+        )
+        if skill == "configure-subagents":
+            expected_template = (
+                "Load the `configure-subagents` skill and follow it exactly. This "
+                "command is interactive only; never treat arguments as confirmation "
+                "or as a bypass of its apply gate. Preserve and pass through the "
+                "user's raw arguments unchanged:\n\n$ARGUMENTS"
+            )
+        expected = {
+            "description": f"Run the Oh No Harness {skill} skill.",
+            "agent": "oh-no",
+            "template": expected_template,
+        }
+        if command != expected:
+            die(f"{path} {skill} command contract mismatch")
+    configure_template = commands["configure-subagents"]["template"]
+    if "never treat arguments as confirmation or as a bypass of its apply gate" not in configure_template:
+        die(f"{path} configure-subagents command exposes an apply bypass")
+
+
+def assert_opencode_runtime_contract(root: Path) -> None:
+    package_path = root / "package.json"
+    package = read_json_object(package_path)
+    manifest_versions = {
+        read_json_object(root / rel).get("version")
+        for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json")
+    }
+    if len(manifest_versions) != 1 or package.get("version") not in manifest_versions:
+        die(f"{package_path} version must match both marketplace manifests")
+    expected_package = {
+        "name": "oh-no-harness",
+        "version": package["version"],
+        "description": (
+            "Markdown-first coding workflow harness for OpenCode with 10 workflow "
+            "skills and 9 role agents."
+        ),
+        "type": "module",
+        "main": "./opencode/index.js",
+        "exports": "./opencode/index.js",
+        "files": [
+            "opencode/",
+            "skills-opencode/",
+            "LICENSE",
+            "NOTICE.md",
+            "README.ko.md",
+            "README.md",
+        ],
+        "repository": {
+            "type": "git",
+            "url": "git+https://github.com/jcwleo/oh-no-harness.git",
+            "directory": "plugins/oh-no-harness",
+        },
+        "homepage": "https://github.com/jcwleo/oh-no-harness#readme",
+        "bugs": {"url": "https://github.com/jcwleo/oh-no-harness/issues"},
+        "license": "MIT",
+        "keywords": [
+            "opencode",
+            "plugin",
+            "skills",
+            "planning",
+            "tdd",
+            "debugging",
+            "verification",
+            "coding-workflow",
+        ],
+        "publishConfig": {"access": "public"},
+    }
+    if package != expected_package:
+        die(f"{package_path} does not match the public OpenCode package contract")
+
+    opencode_root = root / "opencode"
+    required_files = {
+        "index.js",
+        "preferences.js",
+        "preference-writer.js",
+        "configure-opencode-subagents",
+    }
+    for filename in required_files:
+        path = opencode_root / filename
+        if not path.is_file():
+            die(f"missing OpenCode package file: {path}")
+
+    generated_root = opencode_root / "generated"
+    generated_files = {path.name for path in generated_root.iterdir()}
+    if generated_files != {"agents.json", "commands.json"}:
+        die(
+            f"{generated_root} exact-set mismatch: expected=['agents.json', 'commands.json'] "
+            f"actual={sorted(generated_files)!r}"
+        )
+
+    index_path = opencode_root / "index.js"
+    index = read_text(index_path)
+    for marker in (
+        'new URL("./generated/agents.json", import.meta.url)',
+        'new URL("./generated/commands.json", import.meta.url)',
+        'new URL("../skills-opencode", import.meta.url)',
+        'const CONFIGURE_TOOL = "oh_no_configure_subagents"',
+        "tool: {",
+        "[CONFIGURE_TOOL]: {",
+        "args: CONFIGURE_TOOL_ARGS",
+        "await context.ask({",
+        "permission: CONFIGURE_TOOL",
+        'patterns: ["*"]',
+        "writePreferenceAssignments(args)",
+        "config.agent =",
+        "config.command =",
+        "config.skills =",
+        'config.default_agent = "oh-no"',
+        "config.subagent_depth = 2",
+        "build: { ...existingAgents.build, disable: true }",
+        "plan: { ...existingAgents.plan, disable: true }",
+        "applyPackagePermissions(packageAgents, config.permission, existingAgents)",
+    ):
+        if marker not in index:
+            die(f"{index_path} is missing OpenCode plugin contract marker: {marker!r}")
+    for forbidden in (
+        '"shell.env"',
+        "OH_NO_OPENCODE_PLUGIN_ROOT",
+        "CONFIGURATOR_BASH_PATTERN",
+        "configure-opencode-subagents*",
+        "tool.schema",
+        'from "zod"',
+    ):
+        if forbidden in index:
+            die(f"{index_path} retains forbidden shell/Bash/Zod configurator surface: {forbidden!r}")
+    if index.count('type: "string"') != 1 or "pattern: MODEL_SCHEMA_PATTERN" not in index:
+        die(f"{index_path} custom tool must use the legacy plain JSON-schema property shape")
+
+    permission_ceiling_markers = (
+        "function concretePermissionAction(permission, tool, target)",
+        'if (tool.includes("*") || tool.includes("?"))',
+        'throw new TypeError("Permission evaluation requires a concrete tool name")',
+        "if (candidate !== undefined) action = candidate",
+        "function finitePackageAction(packageAction, permissions, tool, target)",
+        "function collectRestrictions(groups, permission)",
+        'if (action !== "ask" && action !== "deny") return',
+        "function restrictivePermission(permissions)",
+        'if (action === "ask") targets.set(pattern, "deny")',
+        "function applyPackagePermissions(packageAgents, globalPermission, existingAgents)",
+        'const primaryPermission = existingAgents["oh-no"]?.permission',
+        "const rolePermission = existingAgents[name]?.permission",
+        "const permission = restrictivePermission([...agentCeilings, packagePermission])",
+        "[globalPermission, primaryPermission, rolePermission]",
+        "finitePackageAction(",
+        "applyExactRestriction(",
+    )
+    for marker in permission_ceiling_markers:
+        if marker not in index:
+            die(
+                f"{index_path} must inherit global permission natively, preserve restrictive "
+                "primary/role patterns, and ceiling finite package permissions without "
+                f"symbolic policy synthesis: missing {marker!r}"
+            )
+    apply_at = index.find(
+        "applyPackagePermissions(packageAgents, config.permission, existingAgents)"
+    )
+    publish_at = index.find("config.agent =")
+    if apply_at == -1 or publish_at == -1 or apply_at > publish_at:
+        die(
+            f"{index_path} must apply host ceilings before publishing package agents"
+        )
+
+    preferences_path = opencode_root / "preferences.js"
+    preferences = read_text(preferences_path)
+    role_match = re.search(
+        r"export const ROLES = Object\.freeze\(\[(?P<body>.*?)\]\);",
+        preferences,
+        flags=re.DOTALL,
+    )
+    if not role_match:
+        die(f"{preferences_path} is missing the canonical ROLES array")
+    roles = re.findall(r'"([a-z0-9-]+)"', role_match.group("body"))
+    if roles != AGENTS:
+        die(f"{preferences_path} ROLES mismatch: expected={AGENTS!r} actual={roles!r}")
+    for marker in (
+        "opencode-subagent-models.conf",
+        "schema_version=1",
+        "OH_NO_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        "path.isAbsolute(candidate)",
+        "stats.isSymbolicLink()",
+        "O_NOFOLLOW",
+        "export function isSecureConfigDirectory(stats)",
+        "(stats.mode & 0o022) !== 0",
+        "stats.uid === process.getuid()",
+        "export function sameDirectoryIdentity(first, second)",
+        "first.dev === second.dev && first.ino === second.ino",
+    ):
+        if marker not in preferences:
+            die(f"{preferences_path} is missing preference contract marker: {marker!r}")
+
+    writer_path = opencode_root / "preference-writer.js"
+    writer = read_text(writer_path)
+    for marker in (
+        'platform !== "win32"',
+        "constants.O_DIRECTORY",
+        "constants.O_NOFOLLOW",
+        "normalizeModelAssignments(value)",
+        "async function ensureConfigDirectory(directory)",
+        "async function destinationIsSafe(file)",
+        "async function openConfigDirectory(directory, syncDirectory)",
+        "isSecureConfigDirectory(stats)",
+        "sameDirectoryIdentity(stats, pathStats)",
+        "async function directoryPathStillMatches(directory, openedStats)",
+        "sameDirectoryIdentity(openedStats, stats)",
+        "async function writeLockOwner(lock, owner)",
+        "constants.O_EXCL |",
+        "await handle.sync()",
+        "async function readLockOwner(lock)",
+        "value.uid !== currentUid",
+        'value.host !== hostname()',
+        'error?.code === "ESRCH"',
+        "async function reclaimStaleLock(lock, directoryHandle, syncDirectory)",
+        "constants.O_CREAT |",
+        "await rename(lock, quarantine)",
+        "sameDirectoryIdentity(state.lockStats, acquisition.lockStats)",
+        "await rename(temporary, destination)",
+        "published = true",
+        'status: published ? "indeterminate-durability" : "write-failed"',
+        "preferences were published, but directory durability could not be confirmed",
+        "Node has no portable openat/renameat API",
+        "not group/world writable",
+    ):
+        if marker not in writer:
+            die(f"{writer_path} is missing preference-writer marker: {marker!r}")
+    destination_section = writer[
+        writer.find("async function destinationIsSafe"):
+        writer.find("async function openConfigDirectory")
+    ]
+    if "constants.O_NOFOLLOW" not in destination_section or "await open(file" not in destination_section:
+        die(f"{writer_path} must open an existing destination with no-follow semantics")
+    owner_open = re.search(
+        r"async function writeLockOwner.*?await open\(\s*ownerPath,\s*(?P<flags>.*?)\s*,\s*0o600\s*,?\s*\)",
+        writer,
+        flags=re.DOTALL,
+    )
+    if not owner_open or not all(
+        marker in owner_open.group("flags")
+        for marker in ("constants.O_EXCL", "constants.O_NOFOLLOW")
+    ):
+        die(f"{writer_path} must create lock owner metadata with exclusive no-follow flags")
+    reclaim_section = writer[
+        writer.find("async function reclaimStaleLock"):
+        writer.find("async function acquirePreferenceLock")
+    ]
+    if not all(
+        marker in reclaim_section
+        for marker in (
+            "constants.O_EXCL",
+            "constants.O_NOFOLLOW",
+            "await guardHandle.sync()",
+            "await rename(lock, quarantine)",
+        )
+    ):
+        die(f"{writer_path} must serialize stale reclaim through a durable guard and quarantine")
+    temporary_open = re.search(
+        r"await open\(\s*temporary,\s*(?P<flags>.*?)\s*,\s*0o600\s*,?\s*\)",
+        writer,
+        flags=re.DOTALL,
+    )
+    if not temporary_open or not all(
+        marker in temporary_open.group("flags")
+        for marker in ("constants.O_EXCL", "constants.O_NOFOLLOW")
+    ):
+        die(f"{writer_path} must create the temporary destination with exclusive no-follow flags")
+
+    helper_path = opencode_root / "configure-opencode-subagents"
+    if not (helper_path.stat().st_mode & 0o111):
+        die(f"{helper_path} must be executable")
+    helper = read_text(helper_path)
+    for marker in (
+        'if (command !== "check" || args.length !== 0)',
+        "readPreferenceState()",
+        "STATUS: ${state.status}",
+    ):
+        if marker not in helper:
+            die(f"{helper_path} is missing read-only status marker: {marker!r}")
+    for forbidden in ("writePreferenceAssignments", "rename(", "mkdir(", 'command === "apply"'):
+        if forbidden in helper:
+            die(f"{helper_path} read-only command contains write/apply surface: {forbidden!r}")
+
+    legacy_package_path = opencode_root / "package.json"
+    if legacy_package_path.exists():
+        die(f"{legacy_package_path} must not shadow the public package metadata")
+
+
+def assert_opencode_configure_subagents_contract(root: Path) -> None:
+    source_path = root / "docs" / "platforms" / "opencode-configure-subagents.md"
+    wrapper_path = root / OPENCODE_SKILL_ROOT / "configure-subagents" / "SKILL.md"
+    command_path = root / OPENCODE_AGENT_ROOT / "commands.json"
+    gate_marker = (
+        "First operational rule: continue only when the current user request explicitly"
+    )
+    for path in (source_path, wrapper_path):
+        text = read_text(path)
+        gate_at = text.find(gate_marker)
+        gate_end = text.find("</HARD-GATE>")
+        operational_at = text.find("## Collection")
+        if gate_at == -1 or gate_end == -1 or operational_at == -1:
+            die(f"{path} is missing the explicit-current-user OpenCode setup hard gate")
+        if not gate_at < gate_end < operational_at:
+            die(
+                f"{path} must place the explicit-current-user hard gate before "
+                "question/tool/write instructions"
+            )
+        for operational_marker in (
+            "Use `question` for every choice",
+            "Ask for one mode:",
+            "Show a final table",
+            "After explicit `Apply`",
+            "Invoke `",
+            'Invoke "',
+        ):
+            marker_at = text.find(operational_marker)
+            if marker_at != -1 and marker_at < gate_end:
+                die(
+                    f"{path} places operational setup instructions before the "
+                    f"explicit-current-user hard gate: {operational_marker!r}"
+                )
+        for marker in (
+            "Otherwise STOP before calling `question`, calling",
+            "`oh_no_configure_subagents`, or writing anything",
+            "Prior conversation, inferred preference, workflow entry, and",
+            "another agent's recommendation are not authorization",
+            "After explicit `Apply`",
+            "Cancel stops with no tool call and no write",
+            "call `oh_no_configure_subagents` exactly once",
+            "all nine required properties",
+            "Do not invoke Bash, a subprocess, or any helper path",
+        ):
+            if not has_required_marker(text, marker):
+                die(f"{path} is missing OpenCode setup gate/apply marker: {marker!r}")
+        if text.count("call `oh_no_configure_subagents` exactly once") != 1:
+            die(f"{path} must contain exactly one custom-tool call instruction")
+        for role in AGENTS:
+            if text.count(f'"{role}": "<provider/model-id>"') != 1:
+                die(f"{path} must pass exactly one {role!r} custom-tool property")
+        for forbidden in (
+            "OH_NO_OPENCODE_PLUGIN_ROOT",
+            '"${OH_NO_OPENCODE_PLUGIN_ROOT}',
+            "argument array",
+            "starting any subprocess",
+        ):
+            if forbidden in text:
+                die(f"{path} retains forbidden helper/subprocess setup syntax: {forbidden!r}")
+
+    commands = read_json_object(command_path)
+    configure = commands.get("configure-subagents")
+    if not isinstance(configure, dict):
+        die(f"{command_path} is missing configure-subagents")
+    template = configure.get("template")
+    if not isinstance(template, str) or "bypass of its apply gate" not in template:
+        die(f"{command_path} configure-subagents command must expose no apply bypass")
+    for forbidden in (
+        "OH_NO_OPENCODE_PLUGIN_ROOT",
+        "configure-opencode-subagents",
+        "apply\n",
+        "`apply`",
+        "Apply or Cancel",
+    ):
+        if forbidden in template:
+            die(
+                f"{command_path} configure-subagents command exposes operational "
+                f"apply syntax: {forbidden!r}"
+            )
+
+
+def assert_opencode_contract(root: Path) -> None:
+    assert_exact_opencode_skill_inventory(root)
+    for skill in OPENCODE_SKILLS:
+        assert_skill_wrapper(root, skill, OPENCODE_SKILL_ROOT, "opencode")
+    assert_opencode_generated_agents(root)
+    assert_opencode_generated_commands(root)
+    assert_opencode_runtime_contract(root)
+    assert_opencode_configure_subagents_contract(root)
+
+
 
 def assert_generated_agent_wrappers(marketplace_root: Path, root: Path) -> None:
     script_candidates = [
@@ -3134,7 +3751,7 @@ def assert_skill_reachability(marketplace_root: Path, root: Path) -> None:
     if script is None:
         searched = ", ".join(str(candidate) for candidate in script_candidates)
         die(f"check-skill-reachability.py is missing; searched: {searched}")
-    for platform in ("codex", "claude"):
+    for platform in ("codex", "claude", "opencode"):
         result = subprocess.run(
             [sys.executable, str(script), "--platform", platform, "--plugin-root", str(root)],
             capture_output=True,
@@ -3145,6 +3762,49 @@ def assert_skill_reachability(marketplace_root: Path, root: Path) -> None:
                 part for part in (result.stdout.strip(), result.stderr.strip()) if part
             )
             die(f"skill reachability check failed ({platform}):\n{details}")
+
+
+def assert_opencode_mutation_tests(marketplace_root: Path, root: Path) -> None:
+    script = marketplace_root / "scripts" / "test-opencode-static-contract.py"
+    if not script.exists():
+        die(f"{script} is missing; OpenCode static contracts need mutation coverage")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--marketplace-root",
+            str(marketplace_root),
+            "--plugin-root",
+            str(root),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout.strip(), result.stderr.strip()) if part
+        )
+        die(f"OpenCode static mutation tests failed:\n{details}")
+
+
+def assert_opencode_preference_tests(marketplace_root: Path) -> None:
+    script = marketplace_root / "scripts" / "test-opencode-preferences.mjs"
+    if not script.exists():
+        die(f"{script} is missing; OpenCode preference hardening needs a focused gate")
+    try:
+        result = subprocess.run(
+            ["node", str(script)],
+            cwd=marketplace_root,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        die(f"unable to run focused OpenCode preference tests: {exc}")
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout.strip(), result.stderr.strip()) if part
+        )
+        die(f"focused OpenCode preference tests failed:\n{details}")
 
 
 def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> None:
@@ -3269,10 +3929,22 @@ def assert_codex_child_packet_floor_contract(root: Path) -> None:
         'CODEX_CHILD_PACKET_FLOOR = "docs/platforms/codex-child-packet-floor.md"',
         "child_packet_paths",
         "source_paths = [core_path, *child_packet_paths, *overlay_paths]",
-        "source_paths = [core_path, *child_packet_paths, plugin_root / platform.platform_doc, *overlay_paths]",
     ):
         if marker not in generator:
             die(f"{generator_path} is missing Codex child-packet composition marker: {marker!r}")
+    common_runtime_composition = (
+        "source_paths = [core_path, *child_packet_paths, "
+        "plugin_root / platform.platform_doc, *overlay_paths]"
+    )
+    if not re.search(
+        r"source_paths\s*=\s*\[\s*core_path,\s*\*child_packet_paths,\s*"
+        r"plugin_root\s*/\s*platform\.platform_doc,\s*\*overlay_paths,?\s*\]",
+        generator,
+    ):
+        die(
+            f"{generator_path} is missing Codex child-packet composition marker: "
+            f"{common_runtime_composition!r}"
+        )
 
     for skill in WORKFLOW_ROUTING_SKILLS:
         wrapper_path = root / CODEX_SKILL_ROOT / skill / "SKILL.md"
@@ -6115,6 +6787,9 @@ def main() -> None:
         assert_fsm_contract(root, fsm_skill)
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
+    assert_opencode_contract(root)
+    assert_opencode_preference_tests(marketplace_root)
+    assert_opencode_mutation_tests(marketplace_root, root)
     assert_test_harness_lane_contract(marketplace_root, root)
     assert_review_boundary_mutation_tests(marketplace_root, root)
     assert_skill_reachability(marketplace_root, root)

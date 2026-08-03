@@ -18,11 +18,11 @@ Do not register this development checkout as a `directory`-source marketplace fo
 - `configure-subagents` refuses to run against a Git checkout (generator-owned agents), so subagent model/effort preferences silently never apply — agents run on the generator defaults committed in `agents/*.md`.
 - Uncommitted working-tree edits leak into live sessions, and debugging "which file is actually loaded" wastes time (cache vs. checkout confusion).
 
-The supported setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin cache, and test local changes with the sandboxed smoke scripts (`scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh`). The Claude smoke script **fails closed** rather than register a marketplace from a local source into your real `~/.claude`; run it with `--isolated-config` (a throwaway config home the script creates and cleans up) so the checkout never becomes your daily-use registration. Only use a `directory` marketplace registration temporarily, and remove it afterwards.
+The supported Claude Code setup: install from the GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin cache, and test local changes with the sandboxed smoke scripts (`scripts/test-claude-plugin.sh`, `scripts/test-codex-plugin.sh`, `scripts/test-opencode-plugin.sh`, `scripts/test-opencode-package.sh`). The Claude smoke script **fails closed** rather than register a marketplace from a local source into your real `~/.claude`; run it with `--isolated-config` (a throwaway config home the script creates and cleans up) so the checkout never becomes your daily-use registration. Only use a `directory` marketplace registration temporarily, and remove it afterwards. OpenCode installs the public `oh-no-harness` npm plugin through its native package loader; package tests use disposable roots.
 
 ## What this is
 
-Oh No Harness is a **Markdown-first coding-workflow plugin** for Claude Code and Codex — no npm package, no packaged runtime CLI binary, no daemon, no MCP server. The "runtime" is plain text the host loads through its plugin/skill system: 10 cross-platform workflow skills (`interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) backed by 9 internal role agents, plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) that are one-time environment-setup actions, not workflow stages — 12 Claude-visible skills in total.
+Oh No Harness is a **Markdown-first coding-workflow plugin** with runtime sources for Claude Code, Codex, and OpenCode. Its npm artifact is an OpenCode plugin, not a packaged global runtime CLI binary; there is no daemon or MCP server. The "runtime" is plain text plus thin host-native configuration loaded through each host's plugin/skill system: 10 workflow skills (`interview`, `ralplan`, `ralph`, `ultrawork`, `auto-routing`, `test-driven-development`, `simplify`, `verification-before-completion`, `systematic-debugging`, `fusion-rescue`) on all three hosts, backed by 9 internal role agents. Claude Code additionally has 2 human-invoked setup skills (`install-statusline`, `configure-subagents`) for 12 Claude-visible skills; OpenCode has its own explicit-user-only `configure-subagents` source for 11 OpenCode skills; Codex exposes the 10 workflow skills.
 
 ## The single most important rule: source vs. generated
 
@@ -30,17 +30,17 @@ Many files in `plugins/oh-no-harness/` are **generated**. Hand-editing them will
 
 | Edit this source… | …never hand-edit this generated output | Regenerate with |
 |---|---|---|
-| `docs/skill-core/<name>.md` (shared workflow body), `docs/platforms/codex-runtime.md` / `docs/platforms/claude-code-runtime.md` and optional `docs/platforms/codex-<name>.md` / `docs/platforms/claude-code-<name>.md` overlays | `skills/<name>/SKILL.md` (Codex), `skills-claude/<name>/SKILL.md` (Claude Code) | `python3 scripts/generate-skill-wrappers.py --write` |
-| `docs/agent-core/<name>.md` (platform-neutral role body), wrapper metadata in the generator | `agents/<name>.md` (Claude subagent), `docs/platforms/codex-agents/<name>.toml` (Codex custom agent) | `python3 scripts/generate-agent-wrappers.py --write` |
+| `docs/skill-core/<name>.md` (shared workflow body), compact platform runtime docs, and optional platform skill overlays; OpenCode `configure-subagents` is standalone in `docs/platforms/opencode-configure-subagents.md` | `skills/<name>/SKILL.md` (10 Codex), `skills-claude/<name>/SKILL.md` (12 Claude Code), `skills-opencode/<name>/SKILL.md` (11 OpenCode) | `python3 scripts/generate-skill-wrappers.py --write` |
+| `docs/agent-core/<name>.md` (platform-neutral role body), `docs/platforms/opencode-main-agent.md`, and wrapper metadata in the generator | `agents/<name>.md` (9 Claude subagents), `docs/platforms/codex-agents/<name>.toml` (9 Codex custom agents), `opencode/generated/agents.json` (`oh-no` primary + 9 subagents), `opencode/generated/commands.json` (11 commands) | `python3 scripts/generate-agent-wrappers.py --write` |
 
-`docs/skill-core/*.md` is the **default, primary edit surface** for workflow behavior. Only touch the compact `docs/platforms/*-runtime.md` docs for genuinely host-specific invocation syntax, permissions, or tool behavior; `docs/platforms/codex.md` / `docs/platforms/claude-code.md` are longer maintenance references, not generation sources. Both generators run from the **repository root** (not the plugin dir).
+`docs/skill-core/*.md` is the **default, primary edit surface** for workflow behavior. Only touch the compact `docs/platforms/*-runtime.md` docs for genuinely host-specific invocation syntax, permissions, or tool behavior; `docs/platforms/codex.md`, `docs/platforms/claude-code.md`, and `docs/platforms/opencode.md` are longer maintenance references, not generation sources. Both generators run from the **repository root** (not the plugin dir).
 
 `docs/providers/openai.md` and `docs/providers/anthropic.md` are **maintenance references only** — never generated sources. When company guidance changes, update the provider doc, then copy only stable runtime rules into the matching `docs/platforms/*.md` and regenerate.
 
 ## Repo layout: root vs. plugin
 
 - **Root** = marketplace wrapper + release/test tooling only: `.claude-plugin/marketplace.json` (Claude), `.agents/plugins/marketplace.json` (Codex), `scripts/`, repo metadata. Do **not** reintroduce root-level `skills/`, `commands/`, `agents/`, `hooks/`, or `docs/`.
-- **`plugins/oh-no-harness/`** = the actual plugin source of truth: skill cores, agent cores, platform docs, generated runtime files, `hooks/`, `commands/`, plugin manifests, and plugin-local `scripts/`.
+- **`plugins/oh-no-harness/`** = the actual plugin source of truth and npm package root: skill cores, agent cores, platform docs, generated runtime files, `hooks/`, `commands/`, plugin/package manifests, plugin-local `scripts/`, and the OpenCode adapter under `opencode/`.
 
 Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `sessions/`, `worktrees/`, `test-runs/`. **Ignore `.oh-no/` when searching** — it's full of test-run snapshots and worktree copies that match real filenames (`AGENTS.md`, `SKILL.md`, etc.).
 
@@ -48,8 +48,10 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 
 - **Skills are the public workflow stages**; **agents are internal role prompts** the skills (or the host's subagent mechanism) call. Skills own stage selection, artifact creation, approval gates, and next-skill handoffs.
 - **Skill chaining is explicit Markdown only** — no hidden automation. Skill bodies must not contain `Task(...)` / `Skill(...)` calls; the validator rejects them. A skill that hands off presents a `Next Skill Handoff` and the caller decides.
-- **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
-- **One plugin hook entrypoint only:** the unconditional `SessionStart` bootstrap carries only compact global no-route/direct-edit/object-of-analysis boundaries; positive workflow selection comes from destination skill descriptions. On Claude Code, auto-routing adds before-action ordering and essential precedence; Codex gains no forced-routing semantics. The hook always injects the Claude-Code model-diversity block and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
+- **Composition:** each generated `SKILL.md` is assembled from the relevant shared core + platform source + optional per-skill overlay; OpenCode `configure-subagents` is intentionally standalone. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
+- **Claude/Codex plugin hook:** the unconditional `SessionStart` bootstrap carries only compact global no-route/direct-edit/object-of-analysis boundaries; positive workflow selection comes from destination skill descriptions. On Claude Code, auto-routing adds before-action ordering and essential precedence; Codex gains no forced-routing semantics. The hook always injects the Claude-Code model-diversity block and best-effort reapplies saved Claude subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
+- **OpenCode config hook:** `opencode/index.js` registers `skills-opencode/`, the generated commands, one `oh-no` primary carrying the static orchestration contract, and nine `oh-no-<role>` subagents from `opencode/generated/*.json`. It disables built-in `build` and `plan`, uses `oh-no` when the default is unset or one of those built-ins, preserves an unrelated custom default, and raises `subagent_depth` to at least 2 without lowering a higher custom value.
+- **OpenCode models:** the explicit-user-only OpenCode `configure-subagents` skill calls the `oh_no_configure_subagents` custom tool, which writes separate `opencode-subagent-models.conf` preferences. The `opencode/configure-opencode-subagents` executable is read-only and supports status `check` only. Changes require quitting and restarting OpenCode. Unconfigured roles inherit the primary model and must never be described as model-diverse without runtime proof.
 
 ## Maintainer validation policy
 
@@ -83,7 +85,7 @@ Maintainers run these after applicable Oh No Harness repository changes, from th
 ```sh
 # Fast static checks (frontmatter, manifests, public-skill surface, no Task/Skill in bodies).
 # Also fails if generated files are stale, and runs the deterministic
-# skill-reachability deep-smoke (below) for both platforms.
+# skill-reachability deep-smoke (below) for all three runtime sources.
 python3 scripts/validate-plugin-files.py .
 
 # Verify generated outputs are up to date (CI/release-style check; no writes).
@@ -94,12 +96,15 @@ python3 scripts/generate-agent-wrappers.py --check
 # reachable in its composed wrapper plus referenced docs/shared and sub-skills.
 python3 scripts/check-skill-reachability.py --platform codex --plugin-root plugins/oh-no-harness
 python3 scripts/check-skill-reachability.py --platform claude --plugin-root plugins/oh-no-harness
+python3 scripts/check-skill-reachability.py --platform opencode --plugin-root plugins/oh-no-harness
 
-# Local install + offline smoke tests (resyncs the plugin cache when source differs).
+# Claude/Codex local install smoke plus deterministic OpenCode source/package loading.
 # The Claude script fails closed if it would register a local-source marketplace
 # into your real ~/.claude, so isolate the config home (auto-created and cleaned):
 scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
+scripts/test-opencode-plugin.sh
+scripts/test-opencode-package.sh
 
 # Opt-in direct skill smoke: deterministic installed-skill identity preflight
 # plus one native invocation and exact invariant per non-Fusion public skill.
@@ -108,7 +113,7 @@ scripts/test-codex-plugin.sh --no-install --live --codex-home /path/to/disposabl
 # A disposable GPT-only plugin copy may be selected for Claude model runs:
 OH_NO_LIVE_PLUGIN_ROOT=/absolute/path/to/disposable-gpt-plugin scripts/test-claude-plugin.sh --isolated-config --no-install --live --model 'gpt-5.6-sol'
 
-# Release from a clean main (validates, bumps both plugin.json versions, tags, pushes, publishes).
+# Release Claude/Codex/OpenCode from a clean main; --push also publishes npm.
 scripts/release 1.5.2 --push        # omit --push to stop after local commit+tag
 ```
 
@@ -127,6 +132,6 @@ Useful live-test overrides: `OH_NO_TEST_MODEL=sonnet`, `OH_NO_MAX_BUDGET_USD=0.5
 2. Regenerate (`generate-skill-wrappers.py --write` and/or `generate-agent-wrappers.py --write`).
 3. `python3 scripts/validate-plugin-files.py .`.
 4. For Claude Code behavior changes, `/clear` or restart to re-fire the `SessionStart` hook.
-5. New public skill? Update both plugin manifests, the validator's `PUBLIC_SKILLS` list, both test scripts' `PUBLIC_SKILLS`, the generator's `PUBLIC_SKILLS`, `plugins/oh-no-harness/AGENTS.md`, public docs, and add a thin `commands/<name>.md` wrapper. Update root `AGENTS.md` only if the marketplace-wrapper boundary changes.
+5. New public skill? Update its exact platform availability in the generator and validator, applicable Claude/Codex manifests and test inventories, the OpenCode command/skill inventory when applicable, `plugins/oh-no-harness/AGENTS.md`, public docs, and the applicable generated wrapper sources. Add a thin `commands/<name>.md` only for Claude Code. Update root `AGENTS.md` only if the marketplace-wrapper boundary changes.
 
 Commit prefixes in use: `chore:`, `docs:`, `fix:`, `feat:`, `refactor:`, `build:`. Keep the first line under ~72 chars.

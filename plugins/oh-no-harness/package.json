@@ -1,0 +1,39 @@
+{
+  "name": "oh-no-harness",
+  "version": "2.1.0",
+  "description": "Markdown-first coding workflow harness for OpenCode with 10 workflow skills and 9 role agents.",
+  "type": "module",
+  "main": "./opencode/index.js",
+  "exports": "./opencode/index.js",
+  "files": [
+    "opencode/",
+    "skills-opencode/",
+    "LICENSE",
+    "NOTICE.md",
+    "README.ko.md",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jcwleo/oh-no-harness.git",
+    "directory": "plugins/oh-no-harness"
+  },
+  "homepage": "https://github.com/jcwleo/oh-no-harness#readme",
+  "bugs": {
+    "url": "https://github.com/jcwleo/oh-no-harness/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "plugin",
+    "skills",
+    "planning",
+    "tdd",
+    "debugging",
+    "verification",
+    "coding-workflow"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

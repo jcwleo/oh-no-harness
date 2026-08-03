@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Cuts an Oh No Harness release for the Claude Code and Codex plugin layouts.
+# Cuts an Oh No Harness release for Claude Code, Codex, and OpenCode.
 #
 # What it does:
 #   1. Validates the version arg (semver: 0.2.0 or v0.2.0).
 #   2. Refuses to run when not on main, when the tree is dirty, or when the
 #      tag already exists locally or on origin.
-#   3. Rewrites the version field in the nested plugin manifests under
-#      plugins/oh-no-harness (no-op if already correct).
-#   4. Checks generated agent wrappers, then runs scripts/validate-plugin-files.py.
+#   3. Rewrites the version field in the nested plugin manifests and npm
+#      package under plugins/oh-no-harness (no-op if already correct).
+#   4. Checks generated agent wrappers, npm metadata, then runs the validator.
 #   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed.
 #   6. With --push: pushes main to origin BEFORE the install tests, because the
 #      registered Claude marketplace syncs from GitHub and can only deliver
 #      content that is already on origin/main.
-#   7. Runs the local Codex install test, then the Claude install test only
+#   7. Runs the packed OpenCode npm artifact test, local Codex install test,
+#      then the Claude install test only
 #      when HEAD matches origin's main (verified live via ls-remote). The
 #      Claude test derives a credential-free owner/repo slug from origin and
 #      runs with --isolated-config + OH_NO_INSTALL=1, so the child creates and
@@ -24,8 +25,10 @@
 #      never a skip; in no-push mode the Claude test is skipped with an
 #      explanation when local content is not on origin yet. Live model smoke
 #      is skipped.
-#   8. Creates an annotated tag `v{X.Y.Z}` on the release commit.
-#   9. With --push: pushes the tag to origin, then publishes a GitHub
+#   8. With --push: publishes the public OpenCode npm package after verifying
+#      npm authentication and refusing a mismatched existing version.
+#   9. Creates an annotated tag `v{X.Y.Z}` on the release commit.
+#  10. With --push: pushes the tag to origin, then publishes a GitHub
 #      Release via gh CLI if available. 0.x releases are prereleases;
 #      1.x and later are stable releases. Release notes are built from
 #      `git log <prev-tag>..<new-tag>`, grouped by conventional-commit
@@ -48,6 +51,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+NPM_BIN="${NPM_BIN:-npm}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$REPO_ROOT/plugins/$PLUGIN_NAME}"
@@ -56,13 +60,14 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/release <version|vversion> [--push] [--skip-tests]
 
-Updates plugin version files, runs validators, and creates the release commit.
+Updates plugin and npm package versions, runs validators, and creates the release commit.
 With --push, pushes main to origin before the install tests (the Claude
 marketplace syncs from GitHub, so the tests need the release content on
 origin/main), then tags, pushes the tag, and publishes a GitHub Release via
 gh CLI. Without --push, the Claude install test is skipped unless HEAD already
 matches origin's main. 0.x releases are marked prerelease; 1.x and later are
-stable releases.
+stable releases. A pushed release also publishes the matching public
+`oh-no-harness` package to npm for OpenCode.
 
 Examples:
   scripts/release v0.2.1
@@ -187,6 +192,52 @@ run_claude_install_test() {
     run scripts/test-claude-plugin.sh --isolated-config
 }
 
+npm_published_integrity() {
+  local identity="$1"
+  "$NPM_BIN" view "$identity" dist.integrity 2>/dev/null || true
+}
+
+local_npm_integrity() {
+  local destination="$1" report
+  report="$destination/pack.json"
+  "$NPM_BIN" pack "$PLUGIN_ROOT" --json --pack-destination "$destination" >"$report"
+  "$PYTHON_BIN" - "$report" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+if not isinstance(report, list) or len(report) != 1:
+    raise SystemExit("npm pack did not return exactly one package report")
+integrity = report[0].get("integrity")
+if not isinstance(integrity, str) or not integrity:
+    raise SystemExit("npm pack did not report package integrity")
+print(integrity)
+PY
+}
+
+preflight_npm_publish() {
+  local identity="$1"
+  if [ -z "$(npm_published_integrity "$identity")" ]; then
+    "$NPM_BIN" whoami >/dev/null \
+      || fail "npm authentication is required before pushing a release"
+  fi
+}
+
+publish_npm_package() {
+  local identity="$1" pack_dir local_integrity remote_integrity
+  pack_dir="$(mktemp -d)"
+  cleanup_paths+=("$pack_dir")
+  local_integrity="$(local_npm_integrity "$pack_dir")"
+  remote_integrity="$(npm_published_integrity "$identity")"
+  if [ -n "$remote_integrity" ]; then
+    [ "$remote_integrity" = "$local_integrity" ] \
+      || fail "npm version $identity already exists with different contents"
+    printf 'release: npm package %s already exists with matching integrity; skipping publish\n' "$identity"
+    return
+  fi
+  run "$NPM_BIN" publish "$PLUGIN_ROOT" --access public
+}
+
 # When sourced (e.g. by the offline regression test in
 # scripts/test-claude-plugin.sh) stop before the straight-line release body so
 # callers can exercise individual functions without cutting a real release.
@@ -258,7 +309,7 @@ from pathlib import Path
 
 version = sys.argv[1]
 plugin_root = Path(sys.argv[2])
-for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
+for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json", "package.json"):
     path = plugin_root / rel
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("version") != version:
@@ -271,6 +322,10 @@ PY
 
 run "$PYTHON_BIN" scripts/generate-agent-wrappers.py --plugin-root "$PLUGIN_ROOT" --check
 run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
+
+if [ "$push" = "true" ]; then
+  preflight_npm_publish "oh-no-harness@$version"
+fi
 
 if git diff --quiet -- plugins/oh-no-harness; then
   printf 'release: version files already at %s; no release commit needed\n' "$tag"
@@ -291,6 +346,7 @@ if [ "$skip_tests" = "true" ]; then
   printf 'release: skipping local install tests (--skip-tests)\n'
 else
   tests_failed="false"
+  run scripts/test-opencode-package.sh || tests_failed="true"
   codex_test_home="$(mktemp -d)"
   cleanup_paths+=("$codex_test_home")
   OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_RALPLAN_V2_LIVE=0 OH_NO_NAMED_AGENTS_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_WORKTREE_LIVE=0 run scripts/test-codex-plugin.sh --codex-home "$codex_test_home" \
@@ -325,6 +381,10 @@ else
     fi
     fail "install tests failed; tag $tag was not created"
   fi
+fi
+
+if [ "$push" = "true" ]; then
+  publish_npm_package "oh-no-harness@$version"
 fi
 
 run git tag -a "$tag" -m "$tag"

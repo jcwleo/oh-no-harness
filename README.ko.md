@@ -9,7 +9,7 @@
 
 코딩 에이전트에게 또 하나의 런타임은 필요 없습니다. 필요한 건 실제로 읽고 따라갈 수 있는 workflow입니다.
 
-**Oh No Harness**는 **Claude Code**와 **Codex**를 위한 그 workflow입니다: **10개의 workflow skill**과 **9개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, 어려운 정체 구간에서는 `fusion-rescue`를 사용하고, npm, tmux, MCP, terminal-only control plane 없이 동작합니다.
+**Oh No Harness**는 **Claude Code**, **Codex**, **OpenCode**를 위한 그 workflow입니다: **10개의 workflow skill**과 **9개의 role agent**가 모호한 요청을 `interview`에서 `ralplan`, 검증된 `ralph` 실행까지 끌고 가며, 어려운 정체 구간에서는 `fusion-rescue`를 사용하고, daemon, global CLI, MCP, terminal-only control plane 없이 동작합니다.
 
 두 극단 사이에 있습니다.
 
@@ -18,7 +18,7 @@
 
 stage skill이 handoff를 조율하고, role agent가 탐색, 계획, 실행, 리뷰, 보안, QA, 검증 같은 전문 패스를 맡는 text-native workflow harness입니다.
 
-- `npm install -g` 없음
+- `npm install -g` 런타임 없음
 - `npx` 댄스 없음
 - 살려둬야 할 tmux 창 없음
 - 새로 외워야 할 전용 CLI 없음
@@ -26,10 +26,10 @@ stage skill이 handoff를 조율하고, role agent가 탐색, 계획, 실행, �
 - app/plugin UI로 가면 무너지는 terminal-only workflow 없음
 
 런타임에서는 일부러 심심합니다. **에이전트가 읽을 수 있는 텍스트 파일**이
-전부입니다 — `skills/`와 `skills-claude/`의 플랫폼별 skill wrapper,
+전부입니다 — `skills/`, `skills-claude/`, `skills-opencode/`의 플랫폼별 skill wrapper,
 `docs/skill-core/`의 공용 workflow core, `docs/providers/`의 유지보수용
-회사별 prompt 참고 문서, `agents/`, 얇은 `commands/`, plugin manifest,
-그리고 간결한 `SessionStart` 훅 entrypoint 하나.
+회사별 prompt 참고 문서, 생성된 agent/command 정의, 얇은 host adapter,
+그리고 간결한 native hook entrypoint입니다.
 
 > [!NOTE]
 > Markdown을 읽을 수 있다면 harness의 동작도 확인할 수 있습니다. handoff를 따라갈 수 있다면 workflow도 이해할 수 있습니다.
@@ -41,16 +41,17 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 ## 특징
 
 **🛠 구조**
-- **런타임이 아니라 plain text.** npm 패키지도, 프로젝트 전용 CLI도, tmux 세션 매니저도, MCP 서버도 없습니다. 동작은 읽고 diff하고 fork하고 수정할 수 있는 Markdown입니다.
-- **호스트 native 설치.** Claude Code와 Codex가 각자의 plugin/skill 시스템으로 로드합니다. Oh No Harness가 관리할 대상을 하나 더 늘리지 않습니다.
+- **sidecar가 아니라 plain text.** global 런타임도, 프로젝트 전용 CLI도, tmux 세션 매니저도, daemon도, MCP 서버도 없습니다. 동작은 읽고 diff하고 fork하고 수정할 수 있는 Markdown과 얇은 host-native 설정입니다.
+- **호스트 native 로딩.** Claude Code와 Codex는 각자의 plugin/skill 시스템으로 설치합니다. OpenCode는 native startup package loader를 통해 공개 `oh-no-harness` npm plugin을 설치합니다.
 - **터미널은 선택 사항.** 설치는 shell에서 할 수 있지만, 일상 workflow는 터미널에 묶이지 않습니다. 같은 Markdown skill이 Claude Code 세션과 Codex App 스타일 plugin UI에서도 맞게 동작합니다.
 - **Workflow spine.** 공개 skill은 소프트웨어 개발 단계를 맡고, 내부 agent는 사용자가 외울 새 명령이 아니라 전문 판단 패스로 붙습니다.
-- **Skill + 에이전트.** 10개 크로스 플랫폼 워크플로우 skill을 9명 역할 에이전트(`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`)가 떠받치고, 여기에 일회성 환경 설정용 Claude Code 전용·사용자 직접 호출 setup skill 2개(`install-statusline`, `configure-subagents`)가 더해져 Claude에 노출되는 명령은 총 12개입니다.
-- **슬래시 ↔ skill 1:1.** Claude Code에서는 `commands/*.md`가 동일한 12개 명령 이름(워크플로우 10 + setup 2)과 argument hint를 노출한 뒤, Claude Code wrapper인 `skills-claude/<name>/SKILL.md`로 위임합니다. Codex는 워크플로우 10개 skill에 대해서만 `skills/<name>/SKILL.md` wrapper를 읽습니다(setup skill 2개는 Claude Code 전용).
+- **Skill + 에이전트.** 세 runtime source 모두 9명 역할 에이전트가 뒷받침하는 동일한 10개 workflow skill을 제공합니다. Claude Code는 사용자 직접 호출 setup skill 2개(`install-statusline`, `configure-subagents`)가 더해져 12개, OpenCode는 자체 explicit-user-only `configure-subagents`가 더해져 11개, Codex는 10개입니다.
+- **호스트 native command parity.** Claude Code의 `commands/*.md`는 12개 skill을 mirror하고, Codex는 `skills/`의 10개 wrapper를 읽으며, OpenCode의 생성된 11개 command는 `oh-no` primary를 통해 `skills-opencode/`로 route합니다.
+- **OpenCode orchestration.** config hook은 static orchestration contract를 가진 `oh-no` primary 하나와 `oh-no-<role>` subagent 9개를 등록하고, built-in `build`/`plan`을 끄며, 필요한 subagent depth를 2로 설정하고, 관련 없는 custom default agent는 보존합니다.
 
 | 너무 무거움 | 너무 헐거움 | Oh No Harness |
 |---|---|---|
-| 옆에서 띄워두는 runtime | 느슨한 skill 선반에서 계속 고르기 | Claude Code / Codex native plugin |
+| 옆에서 띄워두는 runtime | 느슨한 skill 선반에서 계속 고르기 | Claude Code, Codex, OpenCode의 native plugin surface로 설치 |
 | 프로젝트 CLI 학습 | 매 단계를 손으로 기억 | `interview`, `ralplan`, `ralph` 중심의 작은 stage surface |
 | hook, HUD, MCP, tmux 디버깅 | 한 skill이 충분히 해주길 기대 | skill이 role agent로 넘기고 evidence gate로 닫음 |
 | 터미널 안에만 머무르기 | GUI host에서 구조를 잃음 | native plugin discovery로 같은 text skill 사용 |
@@ -68,10 +69,10 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 
 ## 설치
 
-저장소 루트는 마켓플레이스이고, 실제 플러그인 source는
+저장소 루트는 Claude Code/Codex 마켓플레이스이고, 실제 플러그인 source는
 `plugins/oh-no-harness/` 아래에 있습니다.
 
-`npm install`, `npx`, tmux bootstrap, 독립 실행형 `oh-no` 바이너리, MCP 서버, setup daemon, runtime doctor가 필요 없습니다. 아래 터미널 명령은 설치 경로일 뿐이고, workflow 자체는 Codex App 같은 GUI/plugin surface를 포함해 호스트 안에서 동작합니다.
+npm 패키지는 OpenCode plugin이며 global CLI가 아닙니다. `npx` bootstrap, 독립 실행형 global `oh-no` 바이너리, MCP 서버, setup daemon, runtime doctor는 없습니다. workflow 자체는 Codex App 같은 GUI/plugin surface를 포함해 호스트 안에서 동작합니다.
 
 > [!TIP]
 > 에이전트가 이미 읽는 곳에 plugin으로 설치하고, 작업을 자연어로 적어 native discovery가 skill description을 사용하게 하세요. Claude Code에서 더 강한 행동 순서 guidance를 원할 때만 auto-routing을 켜면 됩니다.
@@ -128,9 +129,26 @@ codex plugin marketplace upgrade oh-no-harness
 
 </details>
 
+### OpenCode
+
+`~/.config/opencode/opencode.json`에 npm plugin을 추가합니다:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["oh-no-harness"]
+}
+```
+
+OpenCode는 시작할 때 Bun으로 npm plugin을 설치하고
+`~/.cache/opencode/node_modules/` 아래에 cache합니다. 설치하거나 Oh No
+Harness 버전/설정을 변경한 뒤에는 OpenCode를 완전히 종료하고 다시
+시작하세요. 새 대화만 시작해서는 agent, command, skill, plugin 설정이 다시
+로드되지 않습니다.
+
 ## 사용법
 
-각 워크플로우는 플러그인 네임스페이스가 붙은 슬래시 명령으로 호출합니다. Claude Code에서는 `commands/*.md` 래퍼가 autocomplete hint를 추가한 뒤 matching skill을 읽습니다. 손에 든 입력 형태에 맞게 고르세요:
+각 워크플로우에는 host-native command/skill entrypoint가 있습니다. Claude Code에서는 `commands/*.md` 래퍼가 autocomplete hint를 추가한 뒤 namespaced skill을 읽고, OpenCode의 생성 command는 같은 bare skill 이름을 `oh-no` primary에서 사용합니다. 손에 든 입력 형태에 맞게 고르세요:
 
 | Skill | 언제 쓰면 좋은가 |
 |---|---|
@@ -143,9 +161,9 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:systematic-debugging <장애>` | 실패한 테스트, 크래시, 또는 원인을 모를 때. |
 | `/oh-no-harness:verification-before-completion` | "완료" / "수정됨" / "준비됨" 선언 전 — 새 증거를 요구합니다. |
 | `/oh-no-harness:simplify` | 구현 후 품질 정리 - 재사용, 단순화, 효율, 적절한 추상화 깊이를 점검합니다. |
-| `/oh-no-harness:auto-routing on\|off\|status` | Claude 전용 행동 순서·필수 우선순위 guidance를 설정하며, positive selection은 description이 담당합니다. |
+| `/oh-no-harness:auto-routing on\|off\|status` | host routing guidance를 확인하거나 설정합니다. positive selection은 description이 담당하고, Codex에는 forced routing이 없으며, OpenCode는 static primary contract를 유지합니다. |
 
-어느 걸 쓸지 모르겠다면 작업을 자연어로 적으세요 — 호스트의 native discovery가 각 destination skill description을 기준으로 선택합니다. 한 요청으로 전 과정을 묶고 싶을 때만 `/oh-no-harness:ultrawork`을 쓰면 됩니다.
+어느 걸 쓸지 모르겠다면 작업을 자연어로 적으세요 — 호스트의 native discovery가 각 destination skill description을 기준으로 선택합니다. 설치가 지원되는 Claude Code/Codex surface에서는 한 요청으로 전 과정을 묶고 싶을 때 `/oh-no-harness:ultrawork`을 쓰면 됩니다.
 
 ### Setup 명령 (Claude Code 전용)
 
@@ -156,31 +174,43 @@ codex plugin marketplace upgrade oh-no-harness
 | `/oh-no-harness:install-statusline [check]` | 번들 개발자 statusline을 `~/.claude`에 설치 (`check`는 상태만 보고). |
 | `/oh-no-harness:configure-subagents [check]` | 설치된 각 subagent의 model과 reasoning effort, Claude-host 모델 다양성에 사용할 선택적 secondary top-tier model을 설정 (`check`는 상태만 보고). |
 
-일반적인 단계 흐름:
+### OpenCode setup source
 
-1. 사용자가 작업을 설명하면, 목표가 아직 흐릿할 때 Claude Code나 Codex가 `interview`를 선택합니다.
+OpenCode source runtime에는 별도의 explicit-user-only `configure-subagents`
+skill이 있습니다. 최종 확인 후 이 skill은 `oh_no_configure_subagents` custom
+tool을 호출해 9개 role의 정확한 `provider/model-id` 할당을
+`opencode-subagent-models.conf`에 기록합니다. `configure-opencode-subagents`
+실행 파일은 읽기 전용이며 상태 `check`만 지원하고 preference를 기록하지
+않습니다. 적용하려면 OpenCode를 완전히 종료하고 다시 시작해야 합니다.
+설정되지 않은 role은 `oh-no` primary의 model을 상속합니다. 같은 model이나
+같은 role의 여러 호출은 독립 context일 뿐, 입증된 model diversity가 아닙니다.
+
+### 일반적인 단계 흐름
+
+1. 사용자가 작업을 설명하면, 목표가 아직 흐릿할 때 현재 host가 `interview`를 선택합니다.
 2. 사용자가 스펙을 승인하면, 구현 계획이 필요한 경우 호스트 에이전트가 `ralplan`을 호출합니다.
 3. 사용자가 계획을 승인하면, 호스트 에이전트가 일반 `ralph`로 실행할지 end-to-end `ultrawork`로 진행할지 묻습니다. 승인된 Ralph handoff는 계획에 분리 가능한 role이 있으면 기본적으로 parallel-capable입니다.
 4. `ralph`가 실행, 검증, 리뷰, 완료 보고를 진행합니다. 사용자가 Planner, Plan-Reviewer, Executor, Verifier 같은 내부 역할 에이전트를 직접 고를 필요는 없습니다. 선택된 workflow가 허용할 때 호스트 에이전트가 알아서 사용합니다.
 
-## Auto Routing (Claude Code)
+## Auto Routing
 
-간결한 `SessionStart` 부트스트랩은 항상 전역 no-route, direct-edit, object-of-analysis 경계만 제공합니다. Positive workflow selection은 각 skill description이 담당합니다. Claude Code에서 auto-routing을 켜면 행동 순서와 필수 우선순위 guidance가 추가되며, Codex에는 forced-routing semantics가 추가되지 않습니다.
+모든 host에서 positive workflow selection은 각 skill description이 담당합니다. Claude Code에서는 간결한 `SessionStart` 부트스트랩이 항상 전역 no-route, direct-edit, object-of-analysis 경계를 제공하고, auto-routing을 켜면 행동 순서와 필수 우선순위 guidance가 추가됩니다. Codex에는 forced-routing semantics가 추가되지 않습니다. OpenCode의 `oh-no` primary는 static orchestration contract를 항상 가지며, 사용할 수 있는 OpenCode preference 변경은 process를 완전히 종료하고 다시 시작한 뒤 적용됩니다.
 
 ```text
 /oh-no-harness:auto-routing on
 ```
 
-토글 후에는 Claude Code를 재시작하거나 `/clear` 하세요. 설정은 플러그인 업데이트 후에도 유지됩니다.
+위 Claude Code 명령으로 토글한 뒤에는 Claude Code를 재시작하거나 `/clear` 하세요. 설정은 플러그인 업데이트 후에도 유지됩니다.
 
 ## 개인정보 및 동작
 
-- 간결한 `SessionStart` 부트스트랩이 유일한 플러그인 훅이며, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` 훅은 사용하지 않습니다.
-- npm 런타임 없음, 별도 CLI 프로세스 없음, tmux 프로세스 없음, MCP 서버 없음.
+- Claude Code/Codex에서는 간결한 `SessionStart` 부트스트랩이 유일한 플러그인 훅이며, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` 훅은 사용하지 않습니다.
+- OpenCode는 Claude/Codex `SessionStart`가 아니라 startup config hook을 사용합니다. static local source를 등록할 뿐 background process를 시작하지 않습니다.
+- npm 패키지는 startup에 로드되는 OpenCode plugin이며 global 전용 CLI 프로세스가 아닙니다. tmux 프로세스, daemon, MCP 서버도 없습니다.
 - **네트워크 호출 없음**, **텔레메트리 없음**.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (지속되는 harness 설정용).
-- `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정, top-tier/secondary 다양성 설정, 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
-- 모든 command, skill, agent는 일반 Markdown입니다. 데몬도, 백그라운드 프로세스도 없습니다.
+- Claude Code의 `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정, top-tier/secondary 다양성 설정, 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
+- command, skill, agent는 Markdown 또는 얇은 host-native adapter가 읽는 생성 JSON으로 확인할 수 있습니다. 데몬도, 백그라운드 프로세스도 없습니다.
 
 ## 산출물
 

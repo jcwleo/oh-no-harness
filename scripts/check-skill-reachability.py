@@ -13,8 +13,8 @@ For each skill we build a resolved text bag = the platform wrapper body + every
 `docs/shared/<name>.md` it references + the same-platform wrapper of every skill
 it hands off to via the explicit SKILL_REFERENCES graph (bounded depth,
 cycle-guarded), then assert each required canonical rule phrase appears there.
-Phrases that are genuinely platform-asymmetric (e.g. Codex spawn_agent vs Claude
-agent naming) are tagged so they are only required on their platform.
+Phrases that are genuinely platform-asymmetric (for example Codex spawn_agent,
+Claude agent naming, or OpenCode subagent_type) are tagged for their platform.
 
 The reference graph is explicit (not regex over every backticked skill name) so a
 required cross-skill rule only counts as reachable through a real handoff edge —
@@ -24,6 +24,7 @@ fails the check.
 Usage:
     python3 scripts/check-skill-reachability.py --platform codex  [--plugin-root .]
     python3 scripts/check-skill-reachability.py --platform claude [--plugin-root .]
+    python3 scripts/check-skill-reachability.py --platform opencode [--plugin-root .]
 """
 from __future__ import annotations
 
@@ -32,15 +33,36 @@ import re
 import sys
 from pathlib import Path
 
-WRAPPER_DIR = {"codex": "skills", "claude": "skills-claude"}
+WRAPPER_DIR = {
+    "codex": "skills",
+    "claude": "skills-claude",
+    "opencode": "skills-opencode",
+}
 
-BOTH, CODEX, CLAUDE = "both", "codex", "claude"
-VALID_PLATFORMS = {BOTH, CODEX, CLAUDE}
+BOTH, CODEX_CLAUDE = "both", "codex-claude"
+CODEX, CLAUDE, OPENCODE = "codex", "claude", "opencode"
+VALID_PLATFORMS = {BOTH, CODEX_CLAUDE, CODEX, CLAUDE, OPENCODE}
 
-# Claude-Code-only skills ship no Codex wrapper, so they are only resolvable (and
-# only checked) on the claude platform. Keep this identical to CLAUDE_ONLY_SKILLS
-# in scripts/validate-plugin-files.py and scripts/generate-skill-wrappers.py.
-CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
+ALL_RUNTIME_PLATFORMS = frozenset({CODEX, CLAUDE, OPENCODE})
+WORKFLOW_SKILLS = (
+    "interview",
+    "ralplan",
+    "ralph",
+    "ultrawork",
+    "auto-routing",
+    "test-driven-development",
+    "simplify",
+    "verification-before-completion",
+    "systematic-debugging",
+    "fusion-rescue",
+)
+SKILL_AVAILABILITY = {skill: ALL_RUNTIME_PLATFORMS for skill in WORKFLOW_SKILLS}
+SKILL_AVAILABILITY.update(
+    {
+        "install-statusline": frozenset({CLAUDE}),
+        "configure-subagents": frozenset({CLAUDE, OPENCODE}),
+    }
+)
 
 # Explicit handoff edges that a required cross-skill phrase is reached through.
 # Only these edges are followed when resolving a skill's reachable text, so an
@@ -62,11 +84,17 @@ SOURCE_HANDOFF_PATTERNS: dict[str, tuple[str, ...]] = {
 # so drift fails loudly here instead of intermittently in a paid live test.
 REQUIRED: dict[str, list[tuple[str, str]]] = {
     "auto-routing": [
-        # The retired executor-delegation toggle has no replacement in this
-        # skill. Keep only the persistent routing-setting contract reachable.
-        ("The bundled `scripts/oh-no-config` script resolves the data directory", BOTH),
-        ("\"<plugin-root>/scripts/oh-no-config\" on", BOTH),
-        ("\"<plugin-root>/scripts/oh-no-config\" off", BOTH),
+        # Claude/Codex retain the shared persistence mechanism. OpenCode has an
+        # always-present primary contract and deliberately implements no toggle.
+        ("The bundled `scripts/oh-no-config` script resolves the data directory", CODEX_CLAUDE),
+        ("\"<plugin-root>/scripts/oh-no-config\" on", CODEX_CLAUDE),
+        ("\"<plugin-root>/scripts/oh-no-config\" off", CODEX_CLAUDE),
+        ("OpenCode has no persistent Auto Routing toggle in this implementation", OPENCODE),
+        ("there is no stored on/off state", OPENCODE),
+        ("selected `oh-no` primary always carries its standing routing and orchestration contract", OPENCODE),
+        ("For `on`, explain that it is a no-op", OPENCODE),
+        ("For `off`, explain that it is a no-op", OPENCODE),
+        ("Perform no write and do not claim changed state or require a restart", OPENCODE),
     ],
     "interview": [
         ("consider advisory context", BOTH),
@@ -107,7 +135,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         (".oh-no/worktrees/<task-slug>", BOTH),
         ("Model Diversity Pair", CLAUDE),
         ("Cross-Host Consult Channel", CODEX),
-        ("trigger-loaded", BOTH),
+        ("trigger-loaded", CODEX_CLAUDE),
         ("exactly one final Planner revision v2", BOTH),
         ("finding→fix mapping", BOTH),
         # Plan length is a draft-contract rule, so its omission must fail a gate.
@@ -153,8 +181,9 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Dispatch only after the active skill's trigger fires", CODEX),
         ("not to the plan body", BOTH),
         ("recorded as `single-reviewer`", BOTH),
-        ("paired topology valid", BOTH),
+        ("paired topology valid", CODEX_CLAUDE),
         ("with no further review", BOTH),
+        ("same-model-perspective-pair", OPENCODE),
     ],
     "ralph": [
         ("Ralph's main agent is the orchestrator", BOTH),
@@ -208,7 +237,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("Review Gate dependency graph", BOTH),  # verifier must not start before code-reviewer pair is synthesized
         ("verifier started after reviewer completion", BOTH),  # sequence ledger field, not just pass presence
         ("A verifier spawned before that point is stale", BOTH),  # early verifier cannot count
-        ("trigger-loaded", BOTH),
+        ("trigger-loaded", CODEX_CLAUDE),
         ("read and follow `verification-before-completion`", BOTH),  # G1 thin VBC reference (FINALIZE COMPLETION_AUDIT checkpoint)
         ("before any completion claim", BOTH),
         ("The run is invalid if the session does not show each required completion criterion below satisfied", BOTH),  # ralph Persistence Rule ledger-invalidation chokepoint
@@ -260,6 +289,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
+        ("same-model-perspective-pair", OPENCODE),
     ],
     "ultrawork": [
         (".oh-no/specs/", BOTH),
@@ -287,7 +317,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("otherwise dispatch one fresh self-host `verifier` pass", BOTH),  # reuse and fresh dispatch are mutually exclusive, not sequential commands
         ("Ralph's prior verifier is early/stale by construction, so reuse is unavailable", BOTH),  # a self-dispatched reviewer voids reuse
         ("verifier source: fresh | reused@<ralph ledger entry + revision binding>", BOTH),  # reuse must name its Ralph ledger entry + revision binding
-        ("trigger-loaded", BOTH),
+        ("trigger-loaded", CODEX_CLAUDE),
         ("Run `verification-before-completion` before any completion claim or final report", BOTH),  # G1 thin VBC reference (ultrawork Phase 5)
         ("The run is invalid if the session ledger does not show each required phase gate satisfied", BOTH),  # ultrawork Phase 5 ledger-invalidation chokepoint
         ("reviewer pass, independent verifier pass, simplify/cleanup, and VBC", BOTH),  # presence: 4 completion steps named individually so a skip is a named ledger gap
@@ -317,6 +347,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
+        ("same-model-perspective-pair", OPENCODE),
     ],
     "test-driven-development": [
         ("Execution Ownership", BOTH),
@@ -397,6 +428,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude", CODEX),
+        ("OpenCode has no per-task model override", OPENCODE),
     ],
     "verification-before-completion": [
         ("No completion claim may be made without fresh, acceptance-mapped evidence verified in the current work pass", BOTH),  # G1 canonical home invariant (HARD-GATE)
@@ -408,7 +440,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("A success status is not acceptance", BOTH),  # the silent-success gate
         ("A previous run is not fresh evidence", BOTH),
         ("redact secrets", BOTH),  # the evidence-redaction rule
-        ("trigger-loaded", BOTH),
+        ("trigger-loaded", CODEX_CLAUDE),
         ("Missing review topology is a named ledger gap", BOTH),  # proportional review-topology HARD-GATE clause
         ("Assigned perspective", BOTH),
         # CR-1 cross-host (M3.1): Claude pair mechanics are pair-only; the
@@ -427,6 +459,7 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("same-host-perspective-pair", CODEX),
         ("same-host-parallel-fallback", CODEX),
         ("foreground Claude call", CODEX),
+        ("same-model-perspective-pair", OPENCODE),
     ],
     "fusion-rescue": [
         ("exactly three same-role `fusion-rescue-analyst` panels in parallel", CLAUDE),
@@ -444,10 +477,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("require-cross-host", CODEX),
         ("Claude consult", CODEX),
         ("current-host Codex panel agents in default mode", CODEX),
+        ("same-model-parallel-fallback", OPENCODE),
+        ("No opposite-host consult is defined", OPENCODE),
     ],
-    # Claude-Code-only setup skill: checked on claude only (skipped on codex,
-    # which ships no wrapper for it). Every phrase lives in the shared skill core
-    # so it composes into the Claude wrapper regardless of the platform overlay.
+    # Configure Subagents is available on Claude and OpenCode, with independent
+    # host-specific source contracts; Codex deliberately ships no wrapper.
     "configure-subagents": [
         ("human-invoke-only", CLAUDE),  # never model-invoked
         ("`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`", CLAUDE),  # exact 9-agent order
@@ -462,11 +496,24 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("all 9 agents and the diversity settings change in one", CLAUDE),  # one transaction
         ("reapplies stored preferences best-effort", CLAUDE),  # SessionStart drift repair
         ("No proxy URL or token value is ever stored or printed", CLAUDE),  # credential safety
+        ("current user request explicitly", OPENCODE),
+        ("exact OpenCode `provider/model-id` strings", OPENCODE),
+        ("Cancel stops with no tool call and no write", OPENCODE),
+        ("call `oh_no_configure_subagents` exactly once", OPENCODE),
+        ("Do not invoke Bash, a subprocess, or any helper path", OPENCODE),
+        ("quit and restart OpenCode", OPENCODE),
     ],
 }
 
 # Skill-specific stale clauses that would contradict reachable canonical rules.
 FORBIDDEN: dict[str, list[tuple[str, str]]] = {
+    "auto-routing": [
+        ("OpenCode persists an Auto Routing toggle", OPENCODE),
+        ("OpenCode persists the Auto Routing toggle", OPENCODE),
+        ("OpenCode writes an Auto Routing preference", OPENCODE),
+        ("OpenCode Auto Routing changes require a restart", OPENCODE),
+        ("restart OpenCode to activate Auto Routing", OPENCODE),
+    ],
     "systematic-debugging": [
         ("STANDARD keeps one dispatched `debugger` instance", CODEX),
         ("`single-reviewer` for a STANDARD debugger", CODEX),
@@ -497,6 +544,14 @@ def read(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except OSError:
         return None
+
+
+def applies_to(platform_tag: str, platform: str) -> bool:
+    return (
+        platform_tag == BOTH
+        or platform_tag == platform
+        or (platform_tag == CODEX_CLAUDE and platform in {CODEX, CLAUDE})
+    )
 
 
 def source_skill_references(root: Path) -> dict[str, list[str]]:
@@ -561,7 +616,9 @@ def resolve(root: Path, platform: str, skill: str, depth: int = 2,
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--platform", required=True, choices=["codex", "claude"])
+    ap.add_argument(
+        "--platform", required=True, choices=["codex", "claude", "opencode"]
+    )
     ap.add_argument("--plugin-root", default=".")
     args = ap.parse_args()
     root = find_plugin_root(Path(args.plugin_root))
@@ -579,9 +636,7 @@ def main() -> int:
     warnings: list[str] = []
     checked = 0
     for skill, reqs in REQUIRED.items():
-        # Claude-only skills have no Codex wrapper; skip them on the codex run so
-        # a deliberately absent wrapper is not reported as unreachable.
-        if skill in CLAUDE_ONLY_SKILLS and args.platform != CLAUDE:
+        if args.platform not in SKILL_AVAILABILITY[skill]:
             continue
         missing: list[str] = []
         bag = " ".join(resolve(root, args.platform, skill, missing=missing).lower().split())
@@ -590,14 +645,14 @@ def main() -> int:
             failures.append(f"{skill}: composed wrapper not found under {WRAPPER_DIR[args.platform]}/")
             continue
         for phrase, platform in reqs:
-            if platform not in (BOTH, args.platform):
+            if not applies_to(platform, args.platform):
                 continue
             checked += 1
             normalized_phrase = " ".join(phrase.lower().split())
             if normalized_phrase not in bag:
                 failures.append(f"{skill} [{args.platform}]: rule not reachable -> {phrase!r}")
         for phrase, platform in FORBIDDEN.get(skill, []):
-            if platform not in (BOTH, args.platform):
+            if not applies_to(platform, args.platform):
                 continue
             checked += 1
             normalized_phrase = " ".join(phrase.lower().split())
@@ -607,22 +662,63 @@ def main() -> int:
     # Platform vocabulary is mutually exclusive. Check every generated wrapper,
     # not only REQUIRED entries, so a future skill cannot leak the other host's
     # strict-mode terms without being added to this table first.
-    forbidden_terms = (
-        ("model-diversity-pair", "require-model-diversity")
-        if args.platform == CODEX
-        else ("require-cross-host",)
-    )
+    if args.platform == CODEX:
+        required_terms: tuple[str, ...] = ()
+        forbidden_terms = ("model-diversity-pair", "require-model-diversity")
+    elif args.platform == CLAUDE:
+        required_terms = ()
+        forbidden_terms = ("require-cross-host",)
+    elif args.platform == OPENCODE:
+        required_terms = ("subagent_type: oh-no-",)
+        forbidden_terms = (
+            "spawn_agent(",
+            "wait_agent",
+            "close_agent",
+            "claude_plugin_root",
+            "workflow `agent()`",
+            "@agent-",
+            "task(",
+            "require-cross-host",
+            "model-diversity-pair",
+        )
+    else:
+        raise SystemExit(f"unsupported platform vocabulary branch: {args.platform}")
     wrapper_root = root / WRAPPER_DIR[args.platform]
     for wrapper in sorted(wrapper_root.glob("*/SKILL.md")):
         text = read(wrapper)
         if text is None:
             continue
         lowered = text.lower()
+        skill = wrapper.parent.name
+        wrapper_required_terms = required_terms
+        if args.platform == OPENCODE and skill == "configure-subagents":
+            wrapper_required_terms = (
+                "current user request explicitly",
+                "oh_no_configure_subagents",
+                "do not invoke bash",
+            )
+        for term in wrapper_required_terms:
+            if term not in lowered:
+                failures.append(
+                    f"{skill} [{args.platform}]: required platform term not reachable -> {term!r}"
+                )
         for term in forbidden_terms:
             if term in lowered:
                 failures.append(
-                    f"{wrapper.parent.name} [{args.platform}]: forbidden platform term -> {term!r}"
+                    f"{skill} [{args.platform}]: forbidden platform term -> {term!r}"
                 )
+
+        if args.platform == OPENCODE and skill == "auto-routing":
+            contradictory_claims = (
+                r"\bopencode\s+(?:auto routing\s+)?(?:persists?|stores?|writes?)\b.{0,100}\b(?:toggle|preference|state)\b",
+                r"\bopencode\s+auto routing\b.{0,100}\b(?:requires?|needs?)\b.{0,40}\brestart\b",
+                r"\brestart opencode\b.{0,60}\b(?:activate|apply|enable)\b.{0,60}\b(?:auto routing|routing (?:toggle|change|preference))\b",
+            )
+            for pattern in contradictory_claims:
+                if re.search(pattern, lowered, flags=re.DOTALL):
+                    failures.append(
+                        f"{skill} [{args.platform}]: forbidden persisted-toggle/restart claim -> {pattern!r}"
+                    )
 
     for w in sorted(set(warnings)):
         print(f"WARN - missing referenced doc/wrapper: {w}", file=sys.stderr)

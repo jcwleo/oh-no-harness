@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "plugins" / "oh-no-harness"
 
 DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
+OPEN_CODE_MAIN_AGENT_SOURCE = "docs/platforms/opencode-main-agent.md"
+OPEN_CODE_SKILLS = [
+    "interview",
+    "ralplan",
+    "ralph",
+    "ultrawork",
+    "auto-routing",
+    "test-driven-development",
+    "simplify",
+    "verification-before-completion",
+    "systematic-debugging",
+    "fusion-rescue",
+    "configure-subagents",
+]
+OPEN_CODE_CONFIGURE_TOOL = "oh_no_configure_subagents"
 
 
 @dataclass(frozen=True)
@@ -227,6 +243,92 @@ def render_codex_agent(plugin_root: Path, meta: AgentMetadata) -> str:
     )
 
 
+def read_text(plugin_root: Path, relative_path: str) -> str:
+    path = plugin_root / relative_path
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise SystemExit(f"missing OpenCode source file: {path}") from None
+
+
+def opencode_subagent_permission(role: str) -> dict[str, object]:
+    permission: dict[str, object] = {}
+    if role not in {"executor", "planner"}:
+        permission["edit"] = "deny"
+    if role in {"debugger", "verifier"}:
+        permission["task"] = {
+            "*": "deny",
+            "oh-no-explore": "allow",
+            "oh-no-analyst": "allow",
+        }
+    else:
+        permission["task"] = "deny"
+    if role in {
+        "analyst",
+        "planner",
+        "plan-reviewer",
+        "code-reviewer",
+        "fusion-rescue-analyst",
+    }:
+        permission["bash"] = "deny"
+    permission[OPEN_CODE_CONFIGURE_TOOL] = "deny"
+    return permission
+
+
+def render_opencode_agents(plugin_root: Path) -> str:
+    agents: dict[str, object] = {
+        "oh-no": {
+            "description": (
+                "Primary Oh No Harness workflow orchestrator for planning, "
+                "implementation, debugging, review, and verification."
+            ),
+            "mode": "primary",
+            "prompt": read_text(plugin_root, OPEN_CODE_MAIN_AGENT_SOURCE),
+            "permission": {
+                "question": "allow",
+                "task": {
+                    "*": "deny",
+                    **{
+                        f"oh-no-{meta.role}": "allow"
+                        for meta in AGENTS
+                    },
+                },
+                OPEN_CODE_CONFIGURE_TOOL: "ask",
+            },
+        }
+    }
+    for meta in AGENTS:
+        agents[f"oh-no-{meta.role}"] = {
+            "description": meta.codex_description,
+            "mode": "subagent",
+            "prompt": read_agent_core(plugin_root, meta.role),
+            "permission": opencode_subagent_permission(meta.role),
+        }
+    return json.dumps(agents, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_opencode_commands() -> str:
+    commands: dict[str, object] = {}
+    for skill in OPEN_CODE_SKILLS:
+        template = (
+            f"Load the `{skill}` skill and follow it exactly. Preserve and pass "
+            "through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+        )
+        if skill == "configure-subagents":
+            template = (
+                "Load the `configure-subagents` skill and follow it exactly. This "
+                "command is interactive only; never treat arguments as confirmation "
+                "or as a bypass of its apply gate. Preserve and pass through the "
+                "user's raw arguments unchanged:\n\n$ARGUMENTS"
+            )
+        commands[skill] = {
+            "description": f"Run the Oh No Harness {skill} skill.",
+            "agent": "oh-no",
+            "template": template,
+        }
+    return json.dumps(commands, indent=2, ensure_ascii=False) + "\n"
+
+
 def expected_files(plugin_root: Path) -> dict[Path, str]:
     files: dict[Path, str] = {}
     for meta in AGENTS:
@@ -236,6 +338,12 @@ def expected_files(plugin_root: Path) -> dict[Path, str]:
         files[
             plugin_root / "docs" / "platforms" / "codex-agents" / f"oh-no-{meta.role}.toml"
         ] = render_codex_agent(plugin_root, meta)
+    files[plugin_root / "opencode" / "generated" / "agents.json"] = (
+        render_opencode_agents(plugin_root)
+    )
+    files[plugin_root / "opencode" / "generated" / "commands.json"] = (
+        render_opencode_commands()
+    )
     return files
 
 
@@ -265,7 +373,9 @@ def write(plugin_root: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate Claude and Codex agent wrappers from docs/agent-core."
+        description=(
+            "Generate Claude, Codex, and OpenCode agent and command wrappers."
+        )
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="fail when wrappers are stale")

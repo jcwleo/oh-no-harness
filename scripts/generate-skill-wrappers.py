@@ -27,12 +27,21 @@ PUBLIC_SKILLS = [
     "configure-subagents",
 ]
 
-# Skills that ship a Claude Code wrapper only (no Codex wrapper). The Codex
-# platform is skipped for these in expected_files(); the validator mirrors this
-# set and asserts the Codex wrapper is absent. Keep this set identical to the
-# one in scripts/validate-plugin-files.py (the validator runs `--check` here as
-# a subprocess, so any divergence fails loudly).
-CLAUDE_ONLY_SKILLS = {"install-statusline", "configure-subagents"}
+ALL_RUNTIME_PLATFORMS = frozenset({"claude", "codex", "opencode"})
+SKILL_AVAILABILITY = {
+    "interview": ALL_RUNTIME_PLATFORMS,
+    "ralplan": ALL_RUNTIME_PLATFORMS,
+    "ralph": ALL_RUNTIME_PLATFORMS,
+    "ultrawork": ALL_RUNTIME_PLATFORMS,
+    "auto-routing": ALL_RUNTIME_PLATFORMS,
+    "test-driven-development": ALL_RUNTIME_PLATFORMS,
+    "simplify": ALL_RUNTIME_PLATFORMS,
+    "verification-before-completion": ALL_RUNTIME_PLATFORMS,
+    "systematic-debugging": ALL_RUNTIME_PLATFORMS,
+    "fusion-rescue": ALL_RUNTIME_PLATFORMS,
+    "install-statusline": frozenset({"claude"}),
+    "configure-subagents": frozenset({"claude", "opencode"}),
+}
 
 # These skills carry every required host binding in a required skill-specific
 # adapter. Embedding the common platform runtime would duplicate those bindings
@@ -82,6 +91,18 @@ PLATFORMS = (
             "This generated file is the Claude Code-facing runtime skill "
             "document. Claude Code slash commands should read this file directly; "
             "maintainers edit the source documents listed below instead."
+        ),
+    ),
+    PlatformSpec(
+        key="opencode",
+        display_name="OpenCode",
+        skill_root="skills-opencode",
+        platform_doc="docs/platforms/opencode-runtime.md",
+        source_prefix="opencode",
+        runtime_note=(
+            "This generated file is the OpenCode-facing runtime skill document. "
+            "OpenCode should read this file directly; maintainers edit the source "
+            "documents listed below instead."
         ),
     ),
 )
@@ -142,14 +163,33 @@ def optional_overlay_paths(plugin_root: Path, platform: PlatformSpec, skill: str
 
 def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
     core_path = plugin_root / "docs" / "skill-core" / f"{skill}.md"
-    frontmatter, core_body = parse_frontmatter(core_path)
-    require_frontmatter(core_path, frontmatter, skill)
+    standalone_path = (
+        plugin_root / "docs" / "platforms" / "opencode-configure-subagents.md"
+    )
+    standalone = platform.key == "opencode" and skill == "configure-subagents"
+    source_metadata_path = standalone_path if standalone else core_path
+    frontmatter, source_body = parse_frontmatter(source_metadata_path)
+    if standalone:
+        missing = {"name", "description"} - set(frontmatter)
+        if missing:
+            raise SystemExit(
+                f"{source_metadata_path} missing frontmatter fields: {sorted(missing)}"
+            )
+        if frontmatter["name"] != skill:
+            raise SystemExit(
+                f"{source_metadata_path} name={frontmatter['name']!r}, "
+                f"expected {skill!r}"
+            )
+    else:
+        require_frontmatter(core_path, frontmatter, skill)
 
     overlay_paths = optional_overlay_paths(plugin_root, platform, skill)
     child_packet_paths = (
         [plugin_root / CODEX_CHILD_PACKET_FLOOR] if platform.key == "codex" else []
     )
-    if skill in SELF_CONTAINED_ADAPTER_SKILLS:
+    if standalone:
+        source_paths = [standalone_path]
+    elif skill in SELF_CONTAINED_ADAPTER_SKILLS:
         if not overlay_paths:
             expected = (
                 plugin_root
@@ -160,7 +200,12 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
             raise SystemExit(f"missing required self-contained adapter: {expected}")
         source_paths = [core_path, *child_packet_paths, *overlay_paths]
     else:
-        source_paths = [core_path, *child_packet_paths, plugin_root / platform.platform_doc, *overlay_paths]
+        source_paths = [
+            core_path,
+            *child_packet_paths,
+            plugin_root / platform.platform_doc,
+            *overlay_paths,
+        ]
 
     source_labels = [
         f"../../{path.relative_to(plugin_root).as_posix()}" for path in source_paths
@@ -168,7 +213,11 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
     sections = []
     for path in source_paths:
         relative = path.relative_to(plugin_root).as_posix()
-        body = core_body.rstrip() if path == core_path else read_text(path).strip()
+        body = (
+            source_body.rstrip()
+            if path == source_metadata_path
+            else read_text(path).strip()
+        )
         sections.append(f"## Source: {relative}\n\n{body}\n")
 
     source_list = "\n".join(f"- `{label}`" for label in source_labels)
@@ -189,11 +238,12 @@ def render_skill(plugin_root: Path, platform: PlatformSpec, skill: str) -> str:
         "---\n"
         f"name: {frontmatter['name']}\n"
         f"description: {frontmatter['description']}\n"
-        f"argument-hint: \"{frontmatter['argument-hint']}\"\n"
     )
+    if platform.key != "opencode":
+        frontmatter_text += f"argument-hint: \"{frontmatter['argument-hint']}\"\n"
     # Propagate disable-model-invocation only when the skill core sets it, so
     # wrappers for skills that omit it stay byte-identical after regeneration.
-    if "disable-model-invocation" in frontmatter:
+    if platform.key != "opencode" and "disable-model-invocation" in frontmatter:
         frontmatter_text += (
             f"disable-model-invocation: {frontmatter['disable-model-invocation']}\n"
         )
@@ -205,8 +255,8 @@ def expected_files(plugin_root: Path) -> dict[Path, str]:
     files: dict[Path, str] = {}
     for platform in PLATFORMS:
         for skill in PUBLIC_SKILLS:
-            if platform.key == "codex" and skill in CLAUDE_ONLY_SKILLS:
-                continue  # Claude-Code-only skill ships no Codex wrapper.
+            if platform.key not in SKILL_AVAILABILITY[skill]:
+                continue
             files[plugin_root / platform.skill_root / skill / "SKILL.md"] = render_skill(
                 plugin_root, platform, skill
             )
@@ -255,7 +305,7 @@ def write(plugin_root: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate Codex and Claude Code runtime skill docs."
+        description="Generate Codex, Claude Code, and OpenCode runtime skill docs."
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="verify generated wrappers")

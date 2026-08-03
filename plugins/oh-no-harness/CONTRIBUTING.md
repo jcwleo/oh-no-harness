@@ -8,11 +8,13 @@ The following CLIs must be on `PATH`:
 
 - `claude` (Claude Code CLI)
 - `codex` (Codex CLI)
+- `opencode` 1.18.11 (for the pinned deterministic OpenCode source-loading lane)
+- `node`
 - `python3`
 
 ## Install your local checkout as a plugin
 
-Register the working tree directly with both runtimes — but keep it out of the
+Register the working tree directly with the released Claude Code and Codex runtimes — but keep it out of the
 daily-use `oh-no-harness` registration (see the root `CLAUDE.md` warning). The
 Claude script **fails closed** if a local source would be registered into your
 real `~/.claude` config, so isolate the config home with `--isolated-config`:
@@ -28,6 +30,14 @@ scripts/test-claude-plugin.sh --isolated-config
 
 # Codex: exercise the /plugins install path from the root marketplace wrapper.
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
+
+# OpenCode: load opencode/index.js from source in fully disposable XDG/config
+# homes and verify the real host inventory without provider credentials.
+scripts/test-opencode-plugin.sh
+
+# OpenCode npm: pack the public artifact, install it without lifecycle scripts,
+# and run the same isolated host checks against the installed package.
+scripts/test-opencode-package.sh
 ```
 
 Install locations (relative to the config home the script uses):
@@ -35,16 +45,22 @@ Install locations (relative to the config home the script uses):
 - Claude Code → `$CLAUDE_CONFIG_DIR/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
 - Codex → `$CODEX_HOME/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
 
+OpenCode installs `oh-no-harness` with Bun at startup and caches npm plugins in
+`~/.cache/opencode/node_modules/`. The package has no dependencies, lifecycle
+scripts, global binary, daemon, or MCP server. Maintainer package tests use only
+disposable install and config roots.
+
 For a persistent daily-use install, follow the root `CLAUDE.md`: install from the
 GitHub marketplace (`jcwleo/oh-no-harness`) so the runtime loads from the plugin
 cache, and use these smoke scripts to verify local changes in isolation.
 
 ## Development cycle
 
-1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform guidance in `docs/platforms/*.md`, shared role bodies in `docs/agent-core/*.md`, hooks, `scripts/oh-no-config`, `scripts/install-codex-agents`, or docs. Do not hand-edit generated skill runtime documents in `skills/*/SKILL.md` or `skills-claude/*/SKILL.md`; change `docs/skill-core/*.md`, `docs/platforms/*.md`, or `scripts/generate-skill-wrappers.py` metadata, then regenerate. Do not hand-edit generated role wrappers in `agents/*.md` or `docs/platforms/codex-agents/*.toml`; change `docs/agent-core/*.md` or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
-2. Re-run the test script for the runtime you changed — the cache resyncs when source differs.
+1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform guidance in `docs/platforms/*.md`, shared role bodies in `docs/agent-core/*.md`, hooks, handwritten OpenCode sources in `opencode/index.js`, `opencode/preferences.js`, `opencode/preference-writer.js`, and `opencode/configure-opencode-subagents`, plugin-local helpers, or docs. Do not hand-edit generated skill runtime documents in `skills/*/SKILL.md`, `skills-claude/*/SKILL.md`, or `skills-opencode/*/SKILL.md`; change the applicable source doc or `scripts/generate-skill-wrappers.py` metadata, then regenerate. Do not hand-edit generated role wrappers in `agents/*.md`, `docs/platforms/codex-agents/*.toml`, or `opencode/generated/*.json`; change `docs/agent-core/*.md`, `docs/platforms/opencode-main-agent.md`, or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
+2. Re-run the test script for the runtime you changed. Claude/Codex caches resync when source differs; the OpenCode source lane loads the entrypoint in a disposable config and the package lane verifies the packed artifact.
 3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
 4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, `SessionStart` is the only hook entrypoint and adds no forced-routing semantics.
+5. OpenCode snapshots config, agents, commands, and skills at process startup; quit and restart it after source or model-configuration changes. A new conversation is not a reliable reload boundary.
 
 ## Maintainer validation policy
 
@@ -87,11 +103,13 @@ Fast static checks for repository changes (no installs):
 python3 scripts/validate-plugin-files.py .
 ```
 
-Full maintainer validation (static + local install/update for both runtimes):
+Full maintainer validation (static + Claude/Codex local install/update + OpenCode source loading):
 
 ```sh
 scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
+scripts/test-opencode-plugin.sh
+scripts/test-opencode-package.sh
 ```
 
 Maintainer live model smoke tests after applicable repository changes (cost real
@@ -146,6 +164,11 @@ Useful overrides:
 
 ## Release
 
+The release helper keeps the Claude Code, Codex, and npm package versions in
+lockstep. It validates and tests a packed OpenCode artifact on every release;
+with `--push`, it also requires npm authentication and publishes
+`oh-no-harness@<version>` before creating the release tag.
+
 Cut a release from a clean `main`:
 
 ```sh
@@ -156,14 +179,14 @@ What `--push` does end-to-end:
 
 1. Validates the version arg (semver: `0.2.2` or `v0.2.2`)
 2. Refuses if tree is dirty, you're not on `main`, or the tag exists locally/remote
-3. Rewrites `version` in `plugins/oh-no-harness/.claude-plugin/plugin.json` and `plugins/oh-no-harness/.codex-plugin/plugin.json`
-4. Runs the agent-wrapper `--check` and `validate-plugin-files.py`
+3. Rewrites `version` in both plugin manifests and `plugins/oh-no-harness/package.json`
+4. Runs the agent-wrapper `--check`, npm package validation, and `validate-plugin-files.py`
 5. Creates a `chore: release v0.2.2` commit if version files changed
 6. With `--push`: pushes `main` to origin **before** the install tests — the Claude marketplace syncs from GitHub, so the tests can only verify content already on `origin/main`
-7. Runs the Codex install test, then the Claude install test when local `HEAD` matches `origin/main`. The Claude test derives a credential-free `owner/repo` slug from `origin` and runs with `--isolated-config` + `OH_NO_INSTALL=1`, so it installs the GitHub-synced marketplace into a throwaway config home and verifies the pushed revision without touching your real `~/.claude`
-8. Creates annotated tag `v0.2.2`
-9. Builds release notes from `git log <prev-tag>..<tag>`, grouped by conventional-commit prefix
-10. With `--push`: pushes the tag, then publishes a GitHub Release via `gh release create` with the generated `--notes-file` (`--prerelease` for `0.x`, `--latest` for `1.x` and later)
+7. Tests the packed OpenCode npm artifact, then runs the Codex and eligible Claude install tests
+8. With `--push`, publishes `oh-no-harness@<version>` to npm; an existing version is accepted only when its registry integrity matches the local tarball exactly
+9. Creates annotated tag `v0.2.2`
+10. Builds release notes and, with `--push`, pushes the tag and publishes the GitHub Release
 
 Skip flags:
 
@@ -181,16 +204,26 @@ plugins/oh-no-harness/.codex-plugin/plugin.json   # Codex plugin manifest
 plugins/oh-no-harness/hooks/session-start          # SessionStart bootstrap
 plugins/oh-no-harness/hooks/run-hook.cmd           # Cross-platform polyglot wrapper
 plugins/oh-no-harness/commands/<name>.md           # Claude slash-command wrapper
-plugins/oh-no-harness/skills/<name>/SKILL.md       # Generated Codex-facing runtime skill document (10 total; no Codex wrapper for the two Claude-only setup skills install-statusline and configure-subagents)
-plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Generated Claude Code-facing runtime skill document (12 total: 10 cross-platform + 2 Claude-only setup skills)
+plugins/oh-no-harness/skills/<name>/SKILL.md       # Generated Codex-facing runtime skill document (10 total; no Codex setup wrappers)
+plugins/oh-no-harness/skills-claude/<name>/SKILL.md # Generated Claude Code-facing runtime skill document (12 total: 10 workflows + 2 Claude setup skills)
+plugins/oh-no-harness/skills-opencode/<name>/SKILL.md # Generated OpenCode-facing runtime skill document (11 total: 10 workflows + OpenCode configure-subagents)
 plugins/oh-no-harness/docs/skill-core/<name>.md    # Shared workflow source of truth
 plugins/oh-no-harness/docs/platforms/<platform>.md # Platform-wide runtime guidance and skill overlays
 plugins/oh-no-harness/docs/agent-core/<name>.md    # Platform-neutral role prompt body
 plugins/oh-no-harness/agents/<name>.md             # Generated Claude Code subagent wrapper
 plugins/oh-no-harness/docs/platforms/codex-agents/<name>.toml # Generated optional Codex custom-agent template
+plugins/oh-no-harness/docs/platforms/opencode-main-agent.md # Static orchestration contract source for the OpenCode oh-no primary
+plugins/oh-no-harness/opencode/index.js            # OpenCode config hook and source entrypoint
+plugins/oh-no-harness/opencode/preferences.js      # OpenCode model-preference parsing and loading
+plugins/oh-no-harness/opencode/preference-writer.js          # Secure OpenCode-only preference publisher
+plugins/oh-no-harness/opencode/configure-opencode-subagents # Read-only model preference status command
+plugins/oh-no-harness/opencode/generated/agents.json # Generated oh-no primary + 9 oh-no-<role> subagents
+plugins/oh-no-harness/opencode/generated/commands.json # Generated 11-command OpenCode inventory
 scripts/release                   # Release helper
 scripts/test-claude-plugin.sh     # Claude Code install + smoke tests
 scripts/test-codex-plugin.sh      # Codex install + prompt-exposure + smoke tests
+scripts/test-opencode-plugin.sh   # Isolated deterministic OpenCode source-loading test
+scripts/test-opencode-static-contract.py # Deterministic OpenCode validator mutation tests
 scripts/generate-skill-wrappers.py # Regenerates generated runtime skill documents
 scripts/generate-agent-wrappers.py # Regenerates generated agent wrappers
 scripts/validate-plugin-files.py  # Frontmatter and manifest static checks
@@ -204,11 +237,12 @@ plugins/oh-no-harness/docs/specs/                  # Design specs
 
 ## Conventions
 
-- Public skill surface is the 12 skills listed in `AGENTS.md` — 10 cross-platform workflow skills plus 2 Claude-Code-only, human-invoke-only setup skills (`install-statusline`, `configure-subagents`) — for 12 Claude-visible total; the Codex surface is the 10 workflow skills only. Do not add user-invocable skills without updating the manifest's `skills` array and the validator's `PUBLIC_SKILLS` list.
+- Public workflow surface is the 10 workflow skills listed in `AGENTS.md` on Claude Code, Codex, and OpenCode. Claude Code additionally has 2 human-invoke-only setup skills (`install-statusline`, `configure-subagents`) for 12 total; OpenCode has its separate explicit-user-only `configure-subagents` for 11 total; Codex remains at 10. Keep `SKILL_AVAILABILITY`, exact generated inventories, applicable manifests, and host tests synchronized.
 - Claude Code command wrappers must mirror those same 12 names only. Keep them thin: argument-hint metadata, `$ARGUMENTS`, and a direct read of the matching `skills-claude/<name>/SKILL.md` file. The `install-statusline` and `configure-subagents` wrappers are the two exceptions that set `disable-model-invocation: true` (they must never be model-invoked); all others set `false`.
-- Claude-Code-only or human-invoke-only skills use two carve-outs, kept conceptually distinct, in both `scripts/generate-skill-wrappers.py` and `scripts/validate-plugin-files.py`: `CLAUDE_ONLY_SKILLS` (ships only the Claude wrapper; the Codex wrapper is asserted absent and `test-codex-plugin.sh` must NOT list the skill) and `MODEL_UNINVOCABLE_SKILLS` (its command wrapper sets `disable-model-invocation: true`). Keep the two sets identical across the generator and validator — the validator runs the generator's `--check` as a subprocess.
-- Keep generated runtime skill documents out of hand edits. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax and host-specific behavior belong in `docs/platforms/`; after changing either source, run `python3 scripts/generate-skill-wrappers.py --write`.
-- Keep role behavior in `docs/agent-core/`. Do not hand-edit generated Claude Code wrappers in `agents/` or generated Codex custom-agent templates in `docs/platforms/codex-agents/`; after changing agent-core content or wrapper metadata in `scripts/generate-agent-wrappers.py`, run `python3 scripts/generate-agent-wrappers.py --write`.
+- Platform availability and model invocation are separate dimensions in both `scripts/generate-skill-wrappers.py` and `scripts/validate-plugin-files.py`: `SKILL_AVAILABILITY` controls the 10/12/11 wrapper inventories, while `MODEL_UNINVOCABLE_SKILLS` controls Claude's `disable-model-invocation: true` setup wrappers. Keep both definitions synchronized across generator and validator; OpenCode `configure-subagents` uses its standalone current-user-request hard gate rather than Claude frontmatter.
+- Keep generated runtime skill documents out of hand edits. Shared workflow rules belong in `docs/skill-core/`; platform invocation syntax and host-specific behavior belong in `docs/platforms/`; after changing either source, run `python3 scripts/generate-skill-wrappers.py --write` to refresh Codex, Claude Code, and OpenCode outputs.
+- Keep role behavior in `docs/agent-core/` and the OpenCode primary contract in `docs/platforms/opencode-main-agent.md`. Do not hand-edit generated Claude Code wrappers in `agents/`, generated Codex custom-agent templates in `docs/platforms/codex-agents/`, or `opencode/generated/*.json`; after changing a source or wrapper metadata in `scripts/generate-agent-wrappers.py`, run `python3 scripts/generate-agent-wrappers.py --write`.
+- Keep the handwritten OpenCode config hook in `opencode/index.js`. It registers `skills-opencode/` and both generated JSON inventories, disables built-in `build`/`plan`, substitutes `oh-no` only for absent or built-in defaults, preserves unrelated custom defaults, and raises subagent depth to at least 2. Model preferences remain separate in `opencode-subagent-models.conf` and require restart.
 - Use `python3 scripts/generate-skill-wrappers.py --check` and `python3 scripts/generate-agent-wrappers.py --check` before release-facing changes. The validator and release script also run these checks and fail when generated files are stale.
 - Do not add a public skill for optional Codex custom-agent installation. Use `plugins/oh-no-harness/scripts/install-codex-agents` and templates under `docs/platforms/codex-agents/`.
 - Keep provider docs out of generated runtime sources. Use `docs/providers/openai.md` and `docs/providers/anthropic.md` as company-scoped maintenance references, then summarize only stable runtime rules in the matching platform doc.

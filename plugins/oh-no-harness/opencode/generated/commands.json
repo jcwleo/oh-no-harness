@@ -1,0 +1,57 @@
+{
+  "interview": {
+    "description": "Run the Oh No Harness interview skill.",
+    "agent": "oh-no",
+    "template": "Load the `interview` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "ralplan": {
+    "description": "Run the Oh No Harness ralplan skill.",
+    "agent": "oh-no",
+    "template": "Load the `ralplan` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "ralph": {
+    "description": "Run the Oh No Harness ralph skill.",
+    "agent": "oh-no",
+    "template": "Load the `ralph` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "ultrawork": {
+    "description": "Run the Oh No Harness ultrawork skill.",
+    "agent": "oh-no",
+    "template": "Load the `ultrawork` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "auto-routing": {
+    "description": "Run the Oh No Harness auto-routing skill.",
+    "agent": "oh-no",
+    "template": "Load the `auto-routing` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "test-driven-development": {
+    "description": "Run the Oh No Harness test-driven-development skill.",
+    "agent": "oh-no",
+    "template": "Load the `test-driven-development` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "simplify": {
+    "description": "Run the Oh No Harness simplify skill.",
+    "agent": "oh-no",
+    "template": "Load the `simplify` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "verification-before-completion": {
+    "description": "Run the Oh No Harness verification-before-completion skill.",
+    "agent": "oh-no",
+    "template": "Load the `verification-before-completion` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "systematic-debugging": {
+    "description": "Run the Oh No Harness systematic-debugging skill.",
+    "agent": "oh-no",
+    "template": "Load the `systematic-debugging` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "fusion-rescue": {
+    "description": "Run the Oh No Harness fusion-rescue skill.",
+    "agent": "oh-no",
+    "template": "Load the `fusion-rescue` skill and follow it exactly. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  },
+  "configure-subagents": {
+    "description": "Run the Oh No Harness configure-subagents skill.",
+    "agent": "oh-no",
+    "template": "Load the `configure-subagents` skill and follow it exactly. This command is interactive only; never treat arguments as confirmation or as a bypass of its apply gate. Preserve and pass through the user's raw arguments unchanged:\n\n$ARGUMENTS"
+  }
+}

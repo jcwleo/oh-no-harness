@@ -9,7 +9,7 @@
 
 Your coding agent does not need another runtime. It needs a workflow it can actually read and follow.
 
-**Oh No Harness** is that workflow for **Claude Code** and **Codex**: **10 workflow skills** plus **9 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, with `fusion-rescue` for hard stalled problems, without npm, tmux, MCP, or a terminal-only control plane.
+**Oh No Harness** is that workflow for **Claude Code**, **Codex**, and **OpenCode**: **10 workflow skills** plus **9 role agents** that move vague work from `interview` to `ralplan` to verified `ralph` execution, with `fusion-rescue` for hard stalled problems, without a daemon, global CLI, MCP, or a terminal-only control plane.
 
 It sits between two extremes:
 
@@ -18,7 +18,7 @@ It sits between two extremes:
 
 It is a text-native workflow harness: stage skills coordinate the handoffs; role agents handle focused passes for exploration, planning, execution, review, security, QA, and verification.
 
-- No `npm install -g`
+- No `npm install -g` runtime
 - No `npx` dance
 - No tmux window to keep alive
 - No custom CLI muscle memory
@@ -26,10 +26,10 @@ It is a text-native workflow harness: stage skills coordinate the handoffs; role
 - No terminal-only workflow that falls apart in app or plugin UIs
 
 The runtime is deliberately boring: **text files your agent can read** —
-platform skill wrappers in `skills/` and `skills-claude/`, shared workflow core
+platform skill wrappers in `skills/`, `skills-claude/`, and `skills-opencode/`, shared workflow core
 in `docs/skill-core/`, maintenance-only company prompt references in
-`docs/providers/`, `agents/`, thin `commands/`, plugin manifests, and one
-compact `SessionStart` hook entrypoint.
+`docs/providers/`, generated agent/command definitions, thin host adapters, and
+compact native hook entrypoints.
 
 > [!NOTE]
 > If you can read Markdown, you can audit the harness. If you can follow a handoff, you can understand the workflow.
@@ -44,16 +44,17 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 ## Highlights
 
 **🛠 Architecture**
-- **Plain text, not a sidecar.** No npm package, no project CLI, no tmux session manager, no MCP server. The behavior is Markdown you can read, diff, fork, and edit.
-- **Native host install.** Claude Code and Codex load the plugin through their own plugin/skill systems; Oh No Harness does not add another thing to supervise.
+- **Plain text, not a sidecar.** No global runtime, project CLI, tmux session manager, daemon, or MCP server. The behavior is Markdown plus thin host-native configuration you can read, diff, fork, and edit.
+- **Native host loading.** Claude Code and Codex install through their own plugin/skill systems. OpenCode installs the public `oh-no-harness` npm plugin through its native startup package loader.
 - **Terminal optional.** Shell users can install from the terminal, but the daily workflow is not terminal-bound. The same Markdown skills fit Claude Code sessions and Codex App-style plugin UIs.
 - **Workflow spine.** Public skills own the software-development stages; internal agents supply the specialist judgment without becoming extra commands to memorize.
-- **Skills + agents.** 10 cross-platform workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`), plus 2 Claude-Code-only, human-invoked setup skills (`install-statusline`, `configure-subagents`) for one-time environment setup — 12 Claude-visible commands in total.
-- **Slash ↔ skill parity.** In Claude Code, `commands/*.md` mirrors all 12 command names (10 workflow + 2 setup) with argument hints, then delegates to the Claude Code wrapper in `skills-claude/<name>/SKILL.md`; Codex reads the matching wrapper in `skills/<name>/SKILL.md` for the 10 workflow skills only (the 2 setup skills are Claude-Code-only).
+- **Skills + agents.** All three runtime sources expose the same 10 workflow skills backed by 9 role agents (`explore`, `analyst`, `planner`, `plan-reviewer`, `executor`, `debugger`, `verifier`, `code-reviewer`, `fusion-rescue-analyst`). Claude Code adds 2 human-invoked setup skills (`install-statusline`, `configure-subagents`) for 12 total; OpenCode adds its own explicit-user-only `configure-subagents` for 11; Codex remains at 10.
+- **Host-native command parity.** Claude Code's `commands/*.md` mirrors its 12 skills, Codex reads the 10 wrappers in `skills/`, and OpenCode's generated 11 commands route through the `oh-no` primary to `skills-opencode/`.
+- **OpenCode orchestration.** The config hook registers one `oh-no` primary carrying the static orchestration contract and nine `oh-no-<role>` subagents, disables built-in `build`/`plan`, sets the required subagent depth to 2, and preserves an unrelated custom default agent.
 
 | Too much | Too little | Oh No Harness |
 |---|---|---|
-| Start a sidecar runtime | Keep picking from a loose skill shelf | Install a native Claude Code / Codex plugin |
+| Start a sidecar runtime | Keep picking from a loose skill shelf | Install through the native Claude Code, Codex, or OpenCode plugin surface |
 | Learn a project CLI | Remember every phase by hand | Use a small stage surface: `interview`, `ralplan`, `ralph` |
 | Debug hooks, HUDs, MCP, tmux | Hope one skill has enough context | Let skills hand off to role agents with explicit evidence gates |
 | Stay in terminal-land | Lose structure in GUI hosts | Use the same text skills through native plugin discovery |
@@ -71,10 +72,10 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 
 ## Install
 
-The repository root is the marketplace. The plugin source lives under
+The repository root is the Claude Code/Codex marketplace. The plugin source lives under
 `plugins/oh-no-harness/`.
 
-There is no `npm install`, `npx`, tmux bootstrap, standalone `oh-no` binary, MCP server, setup daemon, or runtime doctor to run. The terminal commands below are just install paths; the workflow itself lives inside the host, including GUI/plugin surfaces such as Codex App.
+The npm package is an OpenCode plugin, not a global CLI: there is no `npx` bootstrap, standalone global `oh-no` binary, MCP server, setup daemon, or runtime doctor to run. The workflow lives inside the host, including GUI/plugin surfaces such as Codex App.
 
 > [!TIP]
 > Install the plugin where your agent already looks, describe the task so native discovery can use the skill descriptions, and turn on auto-routing in Claude Code only if you want stronger action-ordering guidance.
@@ -131,9 +132,25 @@ codex plugin marketplace upgrade oh-no-harness
 
 </details>
 
+### OpenCode
+
+Add the npm plugin to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["oh-no-harness"]
+}
+```
+
+OpenCode installs npm plugins with Bun at startup and caches them under
+`~/.cache/opencode/node_modules/`. Quit and restart OpenCode after installation
+or an Oh No Harness version/configuration change; a new conversation does not
+reload agents, commands, skills, or plugin configuration.
+
 ## Usage
 
-Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.md` wrappers add autocomplete hints, then load the matching skill. Pick by what you have in hand:
+Each workflow has a host-native command/skill entrypoint. In Claude Code, `commands/*.md` wrappers add autocomplete hints and load the matching namespaced skill; OpenCode's generated commands use the same bare skill names through the `oh-no` primary. Pick by what you have in hand:
 
 | Skill | Use when |
 |---|---|
@@ -146,9 +163,9 @@ Each workflow is a plugin-namespaced slash command. In Claude Code, `commands/*.
 | `/oh-no-harness:systematic-debugging <failure>` | Failing test, crash, or unknown root cause. |
 | `/oh-no-harness:verification-before-completion` | Before claiming done / fixed / ready — demands fresh evidence. |
 | `/oh-no-harness:simplify` | Post-implementation quality cleanup for reuse, simplification, efficiency, and altitude. |
-| `/oh-no-harness:auto-routing on\|off\|status` | Configure Claude-only action-ordering and essential-precedence guidance; positive selection remains description-owned. |
+| `/oh-no-harness:auto-routing on\|off\|status` | Inspect or configure host routing guidance; positive selection remains description-owned, Codex gains no forced routing, and OpenCode keeps its static primary contract. |
 
-Not sure which to pick? Just describe the task — native host discovery selects from the destination skill descriptions. Use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
+Not sure which to pick? Just describe the task — native host discovery selects from the destination skill descriptions. On installed Claude Code/Codex surfaces, use `/oh-no-harness:ultrawork` when you want one request to span the full flow.
 
 ### Setup commands (Claude Code only)
 
@@ -159,31 +176,44 @@ These two are one-time environment-setup actions, not workflow stages. They are 
 | `/oh-no-harness:install-statusline [check]` | Install the bundled developer statusline into `~/.claude` (`check` reports status only). |
 | `/oh-no-harness:configure-subagents [check]` | Choose each installed subagent's model and reasoning effort plus the optional secondary top-tier model used for Claude-host model diversity (`check` reports status only). |
 
-Typical staged flow:
+### OpenCode setup source
 
-1. You describe the work; Claude Code or Codex chooses `interview` when the goal is still fuzzy.
+The OpenCode source runtime has a separate explicit-user-only
+`configure-subagents` skill. After confirmation, the skill calls the
+`oh_no_configure_subagents` custom tool to write exact `provider/model-id`
+assignments for all nine roles to `opencode-subagent-models.conf`. The
+`configure-opencode-subagents` executable is read-only and supports status
+`check` only; it never writes preferences. Activation requires quitting and
+restarting OpenCode. Without configured assignments, roles inherit the `oh-no`
+primary model. Multiple inherited or same-role calls provide independent
+contexts, not proven model diversity.
+
+### Typical staged flow
+
+1. You describe the work; the active host chooses `interview` when the goal is still fuzzy.
 2. You approve the spec; the host agent invokes `ralplan` if implementation planning is needed.
 3. You approve the plan; the host agent asks whether it should run ordinary `ralph` or end-to-end `ultrawork`. Approved Ralph handoffs are parallel-capable by default when the plan lists isolated roles.
 4. `ralph` executes, verifies, reviews, and reports back. You do not need to choose internal role agents such as Planner, Plan-Reviewer, Executor, or Verifier; the host agent uses them when the selected workflow allows it.
 
-## Auto Routing (Claude Code)
+## Auto Routing
 
-The compact `SessionStart` bootstrap always carries global no-route, direct-edit, and object-of-analysis boundaries. Positive workflow selection comes from skill descriptions. On Claude Code, auto-routing is off by default; enabling it adds action ordering and essential precedence. Codex receives no forced-routing semantics.
+Positive workflow selection comes from skill descriptions on every host. On Claude Code, the compact `SessionStart` bootstrap always carries global no-route, direct-edit, and object-of-analysis boundaries; auto-routing is off by default, and enabling it adds action ordering and essential precedence. Codex receives no forced-routing semantics. OpenCode's `oh-no` primary always carries its static orchestration contract; any available OpenCode preference change takes effect only after quitting and restarting the process.
 
 ```text
 /oh-no-harness:auto-routing on
 ```
 
-Restart Claude Code or `/clear` after toggling. Setting persists across plugin updates.
+For the Claude Code command above, restart Claude Code or `/clear` after toggling. Setting persists across plugin updates.
 
 ## Privacy
 
-- The compact `SessionStart` bootstrap is the only plugin hook; there is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook.
-- No npm runtime, no custom CLI process, no tmux process, no MCP server.
+- On Claude Code/Codex, the compact `SessionStart` bootstrap is the only plugin hook; there is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook.
+- OpenCode uses a startup config hook, not the Claude/Codex `SessionStart` hook; it registers static local source and starts no background process.
+- The npm package is a startup-loaded OpenCode plugin, not a global custom CLI process; there is no tmux process, daemon, or MCP server.
 - **No** network calls, **no** telemetry.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for persistent harness settings.
-- `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices, top-tier/secondary diversity settings, plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
-- All commands, skills, and agents are plain Markdown. No daemon, no background process.
+- Claude Code's `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices, top-tier/secondary diversity settings, plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
+- Commands, skills, and agents are auditable Markdown or generated JSON loaded by thin host-native adapters. No daemon, no background process.
 
 ## Artifacts
 
