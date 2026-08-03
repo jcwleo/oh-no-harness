@@ -270,8 +270,9 @@ work, compaction, or handoff.
 ## Role Dispatch
 
 Dispatch only after the active skill's trigger fires, then read
-`docs/platforms/codex.md` `## Role Dispatch` for the full host contract. Use
-`spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")` first; the legacy `spawn_agent(agent_type="oh-no-planner", ...)` shorthand is incomplete
+`docs/platforms/codex.md` `## Role Dispatch` for the full host contract. For typed
+Oh No role dispatch, use
+`spawn_agent(task_name="ralplan_planner_draft_01", agent_type="oh-no-planner", message=<self-contained packet>, fork_turns="none")` first unless the selected active skill's platform adapter gives an exact spawn form, which takes precedence. The legacy `spawn_agent(agent_type="oh-no-planner", ...)` shorthand is incomplete
 (omitting `fork_turns="none"` defaults to a full-history fork, which rejects a custom
 `agent_type`), do not combine it with `fork_context=true`, and use generic
 prompt embedding only after the custom agent is actually rejected. The example encodes the Ralplan workflow, Planner role, draft phase, and stable ordinal; derive each caller's concrete identity the same way and keep sibling names unique. The task packet carries scope, ownership, expected

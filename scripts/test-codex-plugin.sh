@@ -3,6 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+# The self-inspecting offline guards (shared-helper injection, parser inventory,
+# safety extraction) must read the RUNNING script, not a fixed CWD-relative path.
+# A hardcoded "scripts/test-codex-plugin.sh" let a mutated variant read canonical
+# source and certify itself, which silently neutralised those guards under mutation.
+SELF_PATH="${BASH_SOURCE[0]}"
+[[ "$SELF_PATH" == /* ]] || SELF_PATH="$SCRIPT_DIR/$(basename -- "$SELF_PATH")"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
@@ -15,16 +21,10 @@ PLUGIN_ID="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
 MARKETPLACE_SOURCE="${OH_NO_MARKETPLACE_SOURCE:-$MARKETPLACE_ROOT}"
 INSTALL_MODE="${OH_NO_INSTALL:-1}"
 RUN_LIVE="${OH_NO_LIVE:-0}"
-RUN_DEEP_LIVE="${OH_NO_DEEP_LIVE:-0}"
-RUN_PARALLEL_LIVE="${OH_NO_PARALLEL_LIVE:-0}"
-RUN_RALPLAN_LIVE="${OH_NO_RALPLAN_LIVE:-0}"
-RUN_NAMED_AGENTS_LIVE="${OH_NO_NAMED_AGENTS_LIVE:-0}"
-RUN_FUSION_RESCUE_LIVE="${OH_NO_FUSION_RESCUE_LIVE:-0}"
-RUN_CROSS_HOST_FALLBACK_LIVE="${OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE:-0}"
-RUN_SIMPLIFY_LIVE="${OH_NO_SIMPLIFY_LIVE:-0}"
-RUN_NATURAL_SESSION_START_LIVE="${OH_NO_NATURAL_SESSION_START_LIVE:-0}"
-RUN_WORKTREE_LIVE="${OH_NO_WORKTREE_LIVE:-0}"
+RUN_DISPATCH_LIVE="${OH_NO_DISPATCH_LIVE:-0}"
+RUN_CROSS_HOST_LIVE="${OH_NO_CROSS_HOST_LIVE:-0}"
 LIVE_MODEL="${OH_NO_CODEX_TEST_MODEL:-}"
+CROSS_HOST_MAX_BUDGET_USD="${OH_NO_MAX_BUDGET_USD:-3.00}"
 FORCE_ISOLATED_CODEX_HOME="${OH_NO_ISOLATE_CODEX_HOME:-0}"
 LIVE_TIMEOUT_SECONDS="${OH_NO_LIVE_TIMEOUT_SECONDS:-900}"
 LIVE_TIMEOUT_GRACE_SECONDS="${OH_NO_LIVE_TIMEOUT_GRACE_SECONDS:-5}"
@@ -35,8 +35,9 @@ CODEX_ACTIVE_HOME_DIR=""
 CODEX_LIVE_TEMP_ROOTS=()
 CODEX_LIVE_CLONE_MARKER=".oh-no-live-clone-provenance.json"
 ISOLATED_CODEX_LIVE_FUNCTIONS=(
-  run_ralplan_live_test
-  run_named_agents_live_test
+  run_live_skill_test
+  run_dispatch_live_scenario
+  run_cross_host_live_test
 )
 
 cleanup_codex_live_temp_roots() {
@@ -66,147 +67,47 @@ usage() {
   cat <<USAGE
 Usage: scripts/test-codex-plugin.sh [options]
 
-Adds the Codex marketplace, exercises the same app-server plugin list/install
-path used by /plugins, then verifies that Codex exposes the plugin skills.
+Adds the marketplace, verifies deterministic install/identity gates, and exposes
+public skills. Ordinary --live directly invokes each public non-Fusion skill and
+checks one explicit read-only invariant. Separate --dispatch-live probes bounded
+internal role dispatch mechanics without enlarging --live. Separate
+--cross-host-live proves one direct Codex parent -> Claude Code transport.
 
 Options:
-  --live             Run live codex exec smoke tests after prompt exposure checks.
-  --deep-live        Run live deep smoke tests that require linked support docs.
-  --parallel-live    Run live Ralph explicit and SessionStart-natural subagent smoke tests.
-  --ralplan-live     Run live Ralplan explicit and SessionStart-natural planning-subagent smoke tests.
-                     Requires install mode and must run separately from other subagent live flags.
-                     Requires install mode and runs separately from legacy --ralplan-live.
-  --named-agents-live
-                     Run live Codex custom-agent name spawn smoke test.
-  --fusion-rescue-live
-                     Run live Fusion Rescue cross-host and panel-subagent smoke test.
-  --cross-host-fallback-live
-                     Run live Codex cross-host Same-Host Parallel Fallback smoke test
-                     (opposite host unavailable, two same-host agents synthesized).
-  --simplify-live    Run live simplify explicit and SessionStart-natural cleanup-subagent smoke tests.
-  --natural-session-start-live
-                     Run live natural SessionStart role-worker smoke tests for Interview, Ultrawork,
-                     Systematic Debugging, and Verification Before Completion.
-  --worktree-live    Run live Ralph worktree-creation smoke test in a disposable repo.
-  --skip-live        Skip live codex exec smoke tests. Default.
-  --no-install       Skip the marketplace/app-server install step. Incompatible with --ralplan-live.
+  --live              Run direct public-skill invariant smokes.
+  --dispatch-live     Run the minimal internal role-dispatch matrix.
+  --cross-host-live   Run one direct Codex parent -> Claude Code transport smoke.
+  --skip-live         Skip all live smokes. Default.
+  --no-install       Skip marketplace/app-server install.
   --codex-home <dir> Use this Codex home instead of \$CODEX_HOME or ~/.codex.
-  --model <model>    Model for live codex exec tests. Default: Codex config default.
+  --model <model>    Model for direct smokes. Default: Codex config default.
   --marketplace-source <source>
-                     Marketplace source passed to app-server marketplace/add.
-                     Default: this checkout. Use jcwleo/oh-no-harness to test GitHub.
   -h, --help         Show this help.
 
-Environment overrides:
-  CODEX_BIN, PYTHON_BIN, CODEX_HOME, OH_NO_INSTALL, OH_NO_LIVE, OH_NO_DEEP_LIVE,
-  OH_NO_PARALLEL_LIVE, OH_NO_RALPLAN_LIVE, OH_NO_CODEX_TEST_MODEL,
-  OH_NO_ISOLATE_CODEX_HOME, OH_NO_LIVE_TIMEOUT_SECONDS, OH_NO_LIVE_TIMEOUT_GRACE_SECONDS,
-  OH_NO_NAMED_AGENTS_LIVE, OH_NO_FUSION_RESCUE_LIVE, OH_NO_FUSION_RESCUE_MAX_BUDGET_USD,
-  OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE,
-  OH_NO_SIMPLIFY_LIVE, OH_NO_NATURAL_SESSION_START_LIVE, OH_NO_WORKTREE_LIVE, OH_NO_TEST_RUN_DIR,
-  OH_NO_MARKETPLACE_SOURCE
+Natural-routing, deep-summary, topology, worktree, and exhaustive-agent model
+suites have been retired. Fusion Rescue remains deferred. Cross-host is limited
+to the separate direct transport smoke; no workflow, fallback, panel, or subagent.
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --live)
-      RUN_LIVE=1
-      shift
-      ;;
-    --deep-live)
-      RUN_DEEP_LIVE=1
-      shift
-      ;;
-    --parallel-live)
-      RUN_PARALLEL_LIVE=1
-      shift
-      ;;
-    --ralplan-live)
-      RUN_RALPLAN_LIVE=1
-      shift
-      ;;
-    --named-agents-live)
-      RUN_NAMED_AGENTS_LIVE=1
-      shift
-      ;;
-    --fusion-rescue-live)
-      RUN_FUSION_RESCUE_LIVE=1
-      shift
-      ;;
-    --cross-host-fallback-live)
-      RUN_CROSS_HOST_FALLBACK_LIVE=1
-      shift
-      ;;
-    --simplify-live)
-      RUN_SIMPLIFY_LIVE=1
-      shift
-      ;;
-    --natural-session-start-live)
-      RUN_NATURAL_SESSION_START_LIVE=1
-      shift
-      ;;
-    --worktree-live)
-      RUN_WORKTREE_LIVE=1
-      shift
-      ;;
-    --skip-live)
-      RUN_LIVE=0
-      shift
-      ;;
-    --no-install)
-      INSTALL_MODE=0
-      shift
-      ;;
-    --codex-home)
-      CODEX_HOME_DIR="${2:-}"
-      [[ -n "$CODEX_HOME_DIR" ]] || { echo "Missing value for --codex-home" >&2; exit 2; }
-      shift 2
-      ;;
-    --model)
-      LIVE_MODEL="${2:-}"
-      [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }
-      shift 2
-      ;;
-    --marketplace-source)
-      MARKETPLACE_SOURCE="${2:-}"
-      [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
+    --live) RUN_LIVE=1; shift ;;
+    --dispatch-live) RUN_DISPATCH_LIVE=1; shift ;;
+    --cross-host-live) RUN_CROSS_HOST_LIVE=1; shift ;;
+    --skip-live) RUN_LIVE=0; RUN_DISPATCH_LIVE=0; RUN_CROSS_HOST_LIVE=0; shift ;;
+    --no-install) INSTALL_MODE=0; shift ;;
+    --codex-home) CODEX_HOME_DIR="${2:-}"; [[ -n "$CODEX_HOME_DIR" ]] || { echo "Missing value for --codex-home" >&2; exit 2; }; shift 2 ;;
+    --model) LIVE_MODEL="${2:-}"; [[ -n "$LIVE_MODEL" ]] || { echo "Missing value for --model" >&2; exit 2; }; shift 2 ;;
+    --marketplace-source) MARKETPLACE_SOURCE="${2:-}"; [[ -n "$MARKETPLACE_SOURCE" ]] || { echo "Missing value for --marketplace-source" >&2; exit 2; }; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
-
 CODEX_ACTIVE_HOME_DIR="$CODEX_HOME_DIR"
 
 isolated_codex_live_home_requested() {
-  [[ "${RUN_RALPLAN_LIVE}" == "1" || "${FORCE_ISOLATED_CODEX_HOME}" == "1" ]]
-}
-
-validate_ralplan_live_option_compatibility() {
-  [[ "${RUN_RALPLAN_LIVE}" == "1" ]] || return 0
-
-  [[ "$INSTALL_MODE" == "1" ]] \
-    || fail "Ralplan live lanes cannot be combined with --no-install because their isolated home requires current plugin and agent fixtures"
-
-  local conflicting_flags=()
-  [[ "$RUN_PARALLEL_LIVE" == "1" ]] && conflicting_flags+=(--parallel-live)
-  [[ "$RUN_NAMED_AGENTS_LIVE" == "1" ]] && conflicting_flags+=(--named-agents-live)
-  [[ "$RUN_FUSION_RESCUE_LIVE" == "1" ]] && conflicting_flags+=(--fusion-rescue-live)
-  [[ "$RUN_CROSS_HOST_FALLBACK_LIVE" == "1" ]] && conflicting_flags+=(--cross-host-fallback-live)
-  [[ "$RUN_SIMPLIFY_LIVE" == "1" ]] && conflicting_flags+=(--simplify-live)
-  [[ "$RUN_NATURAL_SESSION_START_LIVE" == "1" ]] && conflicting_flags+=(--natural-session-start-live)
-  if [[ "${#conflicting_flags[@]}" -gt 0 ]]; then
-    fail "Ralplan live lanes use the Multi-Agent v2 event surface; run separately from: ${conflicting_flags[*]}"
-  fi
+  [[ "$RUN_LIVE" == "1" || "$RUN_DISPATCH_LIVE" == "1" || "$RUN_CROSS_HOST_LIVE" == "1" || "$FORCE_ISOLATED_CODEX_HOME" == "1" ]]
 }
 
 clone_codex_live_home() {
@@ -415,11 +316,12 @@ if current_manifest != payload.get("source_manifest"):
 PY
 }
 
-run_live_process_with_timeout() {
+run_live_process_with_timeout_seconds() {
   local live_home="$1"
-  shift
+  local timeout_seconds="$2"
+  shift 2
 
-  "$PYTHON_BIN" - "$live_home" "$LIVE_TIMEOUT_SECONDS" "$LIVE_TIMEOUT_GRACE_SECONDS" "$@" <<'PY'
+  "$PYTHON_BIN" - "$live_home" "$timeout_seconds" "$LIVE_TIMEOUT_GRACE_SECONDS" "$@" <<'PY'
 import os
 import signal
 import subprocess
@@ -502,6 +404,29 @@ raise SystemExit(return_code)
 PY
 }
 
+live_timeout_seconds_for_policy() {
+  case "$1" in
+    ordinary) printf '%s\n' "$LIVE_TIMEOUT_SECONDS" ;;
+    ralplan-natural) printf '%s\n' "$RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS" ;;
+    *) fail "unknown Codex live-timeout policy: $1" ;;
+  esac
+}
+
+run_live_process_with_timeout_for_policy() {
+  local live_home="$1"
+  local policy="$2"
+  local timeout_seconds
+  shift 2
+  timeout_seconds="$(live_timeout_seconds_for_policy "$policy")"
+  run_live_process_with_timeout_seconds "$live_home" "$timeout_seconds" "$@"
+}
+
+run_live_process_with_timeout() {
+  local live_home="$1"
+  shift
+  run_live_process_with_timeout_for_policy "$live_home" ordinary "$@"
+}
+
 run_live_timeout_offline_test() {
   log "Running offline Codex live-timeout process-group regression"
   local temp_root fixture pid_file err_file child_pid rc
@@ -573,6 +498,54 @@ PY
   ok "Codex live-timeout runner returns 124, kills descendants, and preserves child status"
 }
 
+run_live_timeout_policy_offline_test() {
+  log "Running offline Codex live-timeout policy regression"
+  local saved_timeout="$LIVE_TIMEOUT_SECONDS"
+  local saved_ralplan_timeout="$RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS"
+  local temp_root rc=0 default_values override_values
+  default_values="$(
+    env -u OH_NO_LIVE_TIMEOUT_SECONDS bash -c \
+      'script=$1; set --; source "$script"; printf "%s %s\n" "$LIVE_TIMEOUT_SECONDS" "$RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS"' \
+      timeout-policy-default "$SELF_PATH"
+  )"
+  [[ "$default_values" == "900 1500" ]] \
+    || fail "Codex live-timeout defaults changed: $default_values"
+  LIVE_TIMEOUT_SECONDS=900
+  RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS=1500
+  [[ "$(live_timeout_seconds_for_policy ordinary)" == "900" ]] \
+    || fail "ordinary Codex live commands no longer resolve the 900-second default"
+  [[ "$(live_timeout_seconds_for_policy ralplan-natural)" == "1500" ]] \
+    || fail "natural Ralplan live command does not resolve the fixed 1500-second default ceiling"
+  override_values="$(
+    OH_NO_LIVE_TIMEOUT_SECONDS=37 bash -c \
+      'script=$1; set --; source "$script"; printf "%s %s\n" "$LIVE_TIMEOUT_SECONDS" "$RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS"' \
+      timeout-policy-override "$SELF_PATH"
+  )"
+  [[ "$override_values" == "37 37" ]] \
+    || fail "explicit OH_NO_LIVE_TIMEOUT_SECONDS no longer overrides both supported live-timeout policies: $override_values"
+
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-timeout-policy.XXXXXX")"
+  mkdir -p "$temp_root/live-home"
+  LIVE_TIMEOUT_SECONDS="0.45"
+  RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS="0.8"
+  run_live_process_with_timeout_for_policy \
+    "$temp_root/live-home" ordinary "$PYTHON_BIN" -u -c \
+    'import time; time.sleep(0.15); print("progress", flush=True); time.sleep(0.15); print("receipt", flush=True); time.sleep(0.4)' \
+    >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "124" ]] \
+    || { rm -rf "$temp_root"; fail "ordinary timeout deadline was reset by progress/receipt or returned $rc instead of 124"; }
+  rc=0
+  run_live_process_with_timeout_for_policy \
+    "$temp_root/live-home" ralplan-natural "$PYTHON_BIN" -c 'import time; time.sleep(0.7)' \
+    >/dev/null 2>&1 || rc=$?
+  LIVE_TIMEOUT_SECONDS="$saved_timeout"
+  RALPLAN_NATURAL_LIVE_TIMEOUT_SECONDS="$saved_ralplan_timeout"
+  rm -rf "$temp_root"
+  [[ "$rc" == "0" ]] \
+    || fail "scaled natural Ralplan timeout policy returned $rc instead of 0"
+  ok "ordinary live commands retain 900s, natural Ralplan defaults to 1500s, explicit override wins, and progress does not reset the deadline"
+}
+
 run_in_verified_codex_live_home() {
   local live_home="$1"
   shift
@@ -580,6 +553,18 @@ run_in_verified_codex_live_home() {
   assert_codex_live_home_provenance "$live_home" || return $?
   local status=0
   run_live_process_with_timeout "$live_home" "$@" || status=$?
+  assert_codex_live_home_provenance "$live_home" || return $?
+  return "$status"
+}
+
+run_in_verified_codex_live_home_for_policy() {
+  local live_home="$1"
+  local policy="$2"
+  shift 2
+
+  assert_codex_live_home_provenance "$live_home" || return $?
+  local status=0
+  run_live_process_with_timeout_for_policy "$live_home" "$policy" "$@" || status=$?
   assert_codex_live_home_provenance "$live_home" || return $?
   return "$status"
 }
@@ -615,10 +600,41 @@ validate_codex_live_clone_safety() {
   local external_agents="$temp_root/external-agents"
   mkdir -p "$source/agents" "$external_agents"
   printf 'model = "fixture"\n' >"$source/config.toml"
+  printf '{"token":"fixture"}\n' >"$source/auth.json"
+  printf '{"fixture":true}\n' >"$source/config.json"
   printf 'developer_instructions = "fixture"\n' >"$source/agents/oh-no-planner.toml"
   printf 'sentinel\n' >"$external_agents/sentinel"
 
   clone_codex_live_home "$source" "$target"
+  assert_codex_live_home_provenance "$target"
+
+  local dispatch_fingerprint
+  dispatch_fingerprint="$(dispatch_home_fingerprint "$target")"
+  printf 'model = "runtime-owned-rewrite"\n' >"$target/config.toml"
+  [[ "$(dispatch_home_fingerprint "$target")" == "$dispatch_fingerprint" ]] \
+    || { rm -rf "$temp_root"; fail "Codex dispatch fingerprint rejected a disposable config.toml rewrite"; }
+
+  printf '{"token":"changed"}\n' >"$target/auth.json"
+  [[ "$(dispatch_home_fingerprint "$target")" != "$dispatch_fingerprint" ]] \
+    || { rm -rf "$temp_root"; fail "Codex dispatch fingerprint missed a disposable auth.json change"; }
+  cp -p "$source/auth.json" "$target/auth.json"
+
+  printf '{"fixture":false}\n' >"$target/config.json"
+  [[ "$(dispatch_home_fingerprint "$target")" != "$dispatch_fingerprint" ]] \
+    || { rm -rf "$temp_root"; fail "Codex dispatch fingerprint missed a disposable config.json change"; }
+  cp -p "$source/config.json" "$target/config.json"
+
+  printf 'developer_instructions = "changed"\n' >"$target/agents/oh-no-planner.toml"
+  [[ "$(dispatch_home_fingerprint "$target")" != "$dispatch_fingerprint" ]] \
+    || { rm -rf "$temp_root"; fail "Codex dispatch fingerprint missed a disposable agents-tree change"; }
+  cp -p "$source/agents/oh-no-planner.toml" "$target/agents/oh-no-planner.toml"
+
+  printf 'model = "active-source-change"\n' >"$source/config.toml"
+  if assert_codex_live_home_provenance "$target" >/dev/null 2>&1; then
+    rm -rf "$temp_root"
+    fail "Codex live provenance accepted an active source config.toml change"
+  fi
+  printf 'model = "fixture"\n' >"$source/config.toml"
   assert_codex_live_home_provenance "$target"
 
   local unverified_home="$temp_root/unverified-home"
@@ -686,6 +702,7 @@ assert_no_codex_live_secret_leak() {
   local auth_file="$1"
   shift
   "$PYTHON_BIN" - "$auth_file" "$@" <<'PY'
+import hashlib
 import json
 import re
 import sys
@@ -698,7 +715,7 @@ secret_key = re.compile(
     r"(?i)(?:^|[_-])(?:tokens?|keys?|secret|password|cookie|credential|bearer)(?:$|[_-])"
 )
 secret_patterns = (
-    re.compile(r"sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|private[_-]?key|secret|password|cookie|credential|bearer)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 )
 
@@ -728,11 +745,48 @@ for root in roots:
     elif root.is_dir():
         targets.extend(path for path in root.rglob("*") if path.is_file())
 
+diagnostic_labels = {
+    "access_token", "session_token", "refresh_token", "id_token", "api_key",
+    "password", "private_key", "authorization", "bearer", "token",
+    "credential", "secret", "cookie",
+}
+json_path_labels = diagnostic_labels | {
+    "type", "payload", "item", "content", "message", "text", "tool_output",
+    "websiteUrl", "role", "name", "input", "output", "last_agent_message",
+}
+alphanumeric_run = re.compile(r"[A-Za-z0-9_]+")
+
+
+def safe_structure(text):
+    def replace(match):
+        token = match.group(0)
+        if token.lower() in diagnostic_labels:
+            return token.lower()
+        return f"<redacted:{len(token)}>"
+    return alphanumeric_run.sub(replace, text)
+
+
+def safe_json_key(key):
+    return key if key in json_path_labels else f"<redacted:{len(key)}>"
+
+
+def safe_metadata(value):
+    if not isinstance(value, str):
+        return None
+    if (
+        re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]{0,63}", value)
+        and value not in secret_values
+        and not any(pattern.search(value) for pattern in secret_patterns)
+    ):
+        return value
+    return safe_structure(value)
+
+
 def visible_line_parts(line):
     try:
         value = json.loads(line)
     except json.JSONDecodeError:
-        return line, [line]
+        return line, [("$", line)], None, None
 
     def redact_encrypted(item):
         if isinstance(item, dict):
@@ -750,43 +804,106 @@ def visible_line_parts(line):
             return [redact_encrypted(child) for child in item]
         return item
 
-    def collect_strings(item):
+    def collect_strings(item, path="$"):
         if isinstance(item, str):
-            return [item]
+            return [(path, item)]
         if isinstance(item, dict):
             result = []
-            for child in item.values():
-                result.extend(collect_strings(child))
+            for key, child in item.items():
+                child_path = f"{path}.{safe_json_key(str(key))}"
+                result.extend(collect_strings(child, child_path))
             return result
         if isinstance(item, list):
             result = []
-            for child in item:
-                result.extend(collect_strings(child))
+            for index, child in enumerate(item):
+                result.extend(collect_strings(child, f"{path}[{index}]"))
             return result
         return []
 
     visible_value = redact_encrypted(value)
-    return json.dumps(visible_value, sort_keys=True), collect_strings(visible_value)
+    payload = value.get("payload") if isinstance(value, dict) else None
+    event_type = value.get("type") if isinstance(value, dict) else None
+    payload_type = payload.get("type") if isinstance(payload, dict) else None
+    return (
+        json.dumps(visible_value, sort_keys=True),
+        collect_strings(visible_value),
+        safe_metadata(event_type),
+        safe_metadata(payload_type),
+    )
 
 
+url_token_pattern = re.compile(r"(?i)(?<![A-Za-z0-9_])https?://[^\s<>\"'`]+")
 def is_public_url_slug(text, match):
-    parsed = urlsplit(text)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if re.fullmatch(r"sk-(?:[a-z]+-){2,}[a-z]+", match.group(0)) is None:
         return False
-    authority_start = len(parsed.scheme) + 3
-    netloc_start = text.find(parsed.netloc, authority_start)
-    path_start = text.find(parsed.path, netloc_start + len(parsed.netloc)) if parsed.path else -1
-    in_netloc = (
-        netloc_start >= 0
-        and netloc_start <= match.start() < match.end() <= netloc_start + len(parsed.netloc)
+    for url_match in url_token_pattern.finditer(text):
+        token = url_match.group(0).rstrip(".,;:!?)]}")
+        token_end = url_match.start() + len(token)
+        if not (url_match.start() <= match.start() < match.end() <= token_end):
+            continue
+        parsed = urlsplit(token)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            return False
+        path_start = token.find(parsed.path, len(parsed.scheme) + 3 + len(parsed.netloc))
+        relative_start = match.start() - url_match.start()
+        relative_end = match.end() - url_match.start()
+        if path_start < 0 or not (
+            path_start <= relative_start < relative_end <= path_start + len(parsed.path)
+        ):
+            return False
+        left = token[relative_start - 1] if relative_start else ""
+        right = token[relative_end] if relative_end < len(token) else ""
+        return left == "/" and right in {"", "/"}
+    return False
+
+
+def emit_secret_diagnostic(
+    path, line_number, event_type, payload_type, json_path, visible_text,
+    detector_class, detector_index, match_start, match_length,
+):
+    urls = []
+    for url_match in re.finditer(r"(?i)https?://[^\s<>\"'`]+", visible_text):
+        token = url_match.group(0).rstrip(".,;:!?)]}")
+        try:
+            urls.append(urlsplit(token))
+        except ValueError:
+            pass
+    context_start = max(0, match_start - 80)
+    context_end = min(len(visible_text), match_start + match_length + 80)
+    diagnostic = {
+        "artifact": path.name,
+        "line": line_number,
+        "event_type": event_type,
+        "payload_type": payload_type,
+        "json_path": json_path,
+        "detector_class": detector_class,
+        "detector_index": detector_index,
+        "match_start": match_start,
+        "match_length": match_length,
+        "string_length": len(visible_text),
+        "sha256": hashlib.sha256(visible_text.encode("utf-8")).hexdigest(),
+        "structural_context": safe_structure(visible_text[context_start:context_end]),
+        "source_path_mention": bool(re.search(
+            r"(?:^|[\s\"'])(?:/(?:Users|home|root|private|tmp|var)/|(?:scripts|plugins|backlog|docs|src|tests)/)",
+            visible_text,
+        )),
+        "diff_marker": bool(re.search(r"(?m)^(?:diff --git |[+-]{3} |[+-](?![+-]))", visible_text)),
+        "url_scheme": bool(re.search(r"(?i)https?://", visible_text)),
+        "url_query": any(bool(parsed.query) for parsed in urls),
+        "url_userinfo": any(parsed.username is not None or parsed.password is not None for parsed in urls),
+    }
+    print(
+        "SAFE_SECRET_DIAGNOSTIC " + json.dumps(diagnostic, sort_keys=True, separators=(",", ":")),
+        file=sys.stderr,
     )
-    in_path = (
-        path_start >= 0
-        and path_start <= match.start() < match.end() <= path_start + len(parsed.path)
-    )
-    if not in_netloc and not in_path:
-        return False
-    return re.fullmatch(r"sk-(?:[a-z]+-){2,}[a-z]+", match.group(0)) is not None
+    raise SystemExit(1)
 
 
 for path in targets:
@@ -795,47 +912,162 @@ for path in targets:
     except OSError as exc:
         raise SystemExit(f"unable to inspect live artifact safely: {path.name}: {type(exc).__name__}")
     for line_number, line in enumerate(lines, 1):
-        visible_line, visible_strings = visible_line_parts(line)
-        if any(value in visible_line for value in secret_values):
-            raise SystemExit(f"isolated auth value detected in {path.name} near line {line_number}")
-        for visible_text in visible_strings:
+        visible_line, visible_strings, event_type, payload_type = visible_line_parts(line)
+        exact_candidates = []
+        for traversal_index, (json_path, visible_text) in enumerate(visible_strings):
+            for value in secret_values:
+                start = visible_text.find(value)
+                if start >= 0:
+                    exact_candidates.append((traversal_index, start, value, json_path, visible_text))
+        if exact_candidates:
+            _, start, value, json_path, visible_text = min(
+                exact_candidates, key=lambda item: (item[0], item[1], item[2])
+            )
+            emit_secret_diagnostic(
+                path, line_number, event_type, payload_type, json_path,
+                visible_text, "exact-auth", "exact-auth", start, len(value),
+            )
+        serialized_exact = []
+        for value in secret_values:
+            start = visible_line.find(value)
+            if start >= 0:
+                serialized_exact.append((start, value))
+        if serialized_exact:
+            start, value = min(serialized_exact, key=lambda item: (item[0], item[1]))
+            emit_secret_diagnostic(
+                path, line_number, event_type, payload_type, "$<serialized>",
+                visible_line, "exact-auth", "exact-auth", start, len(value),
+            )
+        for json_path, visible_text in visible_strings:
             for pattern_index, pattern in enumerate(secret_patterns, 1):
                 for match in pattern.finditer(visible_text):
                     if pattern_index == 1 and is_public_url_slug(visible_text, match):
                         continue
-                    raise SystemExit(
-                        f"secret-like pattern {pattern_index} detected in {path.name} near line {line_number}"
+                    emit_secret_diagnostic(
+                        path, line_number, event_type, payload_type, json_path,
+                        visible_text, "generic-pattern", f"pattern-{pattern_index}",
+                        match.start(), match.end() - match.start(),
                     )
 PY
 }
 
+codex_malformed_url_secret_fixture() {
+  printf '%s%s%s\n' 'prefixhttps://example.invalid/' 's' 'k-task-app-hub-content-chain/privacy'
+}
+
 validate_codex_live_secret_scanner() {
-  local temp_root auth_file safe_file safe_url_file encrypted_file leak_file
-  local access_token id_token session_token private_key credential long_nonsecret generic_secret
+  local temp_root auth_file safe_file safe_spawn_file safe_url_file encrypted_file leak_file fixture_source_file
+  local diagnostic_file diagnostic_err
+  local access_token id_token session_token private_key credential long_nonsecret generic_secret safe_suffix
   temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-secret-scan.XXXXXX")"
   CODEX_LIVE_TEMP_ROOTS+=("$temp_root")
   auth_file="$temp_root/auth.json"
   safe_file="$temp_root/safe.jsonl"
+  safe_spawn_file="$temp_root/safe-spawn.jsonl"
   safe_url_file="$temp_root/safe-url.jsonl"
   encrypted_file="$temp_root/encrypted.jsonl"
   leak_file="$temp_root/leak.jsonl"
-  access_token="fixture-access-$(printf '%024d' 0)"
-  id_token="fixture-id-$(printf '%024d' 1)"
-  session_token="fixture-session-$(printf '%024d' 2)"
-  private_key="fixture-private-$(printf '%024d' 3)"
-  long_nonsecret="sk-$(printf '%0600d' 4)"
-  generic_secret="sk-$(printf '%024d' 5)"
+  fixture_source_file="$temp_root/malformed-url-fixture-source.txt"
+  diagnostic_file="$temp_root/scanner-diagnostic.jsonl"
+  diagnostic_err="$temp_root/scanner-diagnostic.err"
+  access_token="$(printf '%s%s-%024d' 'fixture-ac' 'cess' 0)"
+  id_token="$(printf '%s%s-%024d' 'fixture-i' 'd' 1)"
+  session_token="$(printf '%s%s-%024d' 'fixture-ses' 'sion' 2)"
+  private_key="$(printf '%s%s-%024d' 'fixture-pri' 'vate' 3)"
+  long_nonsecret="$(printf '%s%s%0600d' 's' 'k-' 4)"
+  generic_secret="$(printf '%s%s%024d' 's' 'k-' 5)"
+  safe_suffix="$(printf '%0396d' 6)"
 
   printf '{"access_token":"%s","id_token":"%s","session_token":"%s","private_key":"%s"}\n' \
     "$access_token" "$id_token" "$session_token" "$private_key" >"$auth_file"
+
+  scanner_reject_with_safe_diagnostic() {
+    local expected_detector="$1"
+    local forbidden_value="$2"
+    local expected_event="${3:-null}"
+    local expected_payload="${4:-null}"
+    local expected_url_scheme="${5:-false}"
+    local rc=0
+    : >"$diagnostic_err"
+    assert_no_codex_live_secret_leak "$auth_file" "$leak_file" \
+      >/dev/null 2>"$diagnostic_err" || rc=$?
+    [[ "$rc" != "0" ]] || fail "Codex live secret scanner missed its credential fixture ($expected_detector)"
+    "$PYTHON_BIN" - "$diagnostic_err" "$expected_detector" "$forbidden_value" \
+      "$expected_event" "$expected_payload" "$expected_url_scheme" <<'PY' \
+      || fail "Codex live secret scanner emitted an unsafe or incomplete diagnostic for $expected_detector"
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+expected_detector = sys.argv[2]
+forbidden_value = sys.argv[3]
+expected_event = None if sys.argv[4] == "null" else sys.argv[4]
+expected_payload = None if sys.argv[5] == "null" else sys.argv[5]
+expected_url_scheme = sys.argv[6] == "true"
+lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+if len(lines) != 1 or not lines[0].startswith("SAFE_SECRET_DIAGNOSTIC "):
+    raise SystemExit("diagnostic must be one structured SAFE_SECRET_DIAGNOSTIC line")
+payload = json.loads(lines[0].removeprefix("SAFE_SECRET_DIAGNOSTIC "))
+required = {
+    "artifact", "line", "event_type", "payload_type", "json_path",
+    "detector_class", "detector_index", "match_start", "match_length",
+    "string_length", "sha256", "structural_context", "source_path_mention",
+    "diff_marker", "url_scheme", "url_query", "url_userinfo",
+}
+missing = sorted(required - payload.keys())
+if missing:
+    raise SystemExit(f"missing diagnostic fields: {missing}")
+if payload["artifact"] != "leak.jsonl" or payload["line"] != 1:
+    raise SystemExit("diagnostic artifact location is not deterministic")
+if payload["detector_index"] != expected_detector:
+    raise SystemExit(f"wrong detector index: {payload['detector_index']!r}")
+if payload["event_type"] != expected_event or payload["payload_type"] != expected_payload:
+    raise SystemExit(
+        f"wrong parsed JSON types: event={payload['event_type']!r} payload={payload['payload_type']!r}"
+    )
+if payload["url_scheme"] is not expected_url_scheme:
+    raise SystemExit(f"wrong URL-scheme context: {payload['url_scheme']!r}")
+if not isinstance(payload["json_path"], str) or not payload["json_path"].startswith("$"):
+    raise SystemExit("diagnostic JSON path is missing")
+if payload["match_start"] < 0 or payload["match_length"] <= 0:
+    raise SystemExit("diagnostic match bounds are invalid")
+if payload["match_start"] + payload["match_length"] > payload["string_length"]:
+    raise SystemExit("diagnostic match bounds exceed the visible string")
+if len(payload["sha256"]) != 64 or any(ch not in "0123456789abcdef" for ch in payload["sha256"]):
+    raise SystemExit("diagnostic SHA-256 is invalid")
+if forbidden_value and forbidden_value in lines[0]:
+    raise SystemExit("diagnostic preserved a raw synthetic credential")
+if "<redacted:" not in payload["structural_context"]:
+    raise SystemExit("diagnostic structural context did not redact non-allowlisted text")
+for name in ("source_path_mention", "diff_marker", "url_scheme", "url_query", "url_userinfo"):
+    if not isinstance(payload[name], bool):
+        raise SystemExit(f"diagnostic context flag {name} is not boolean")
+PY
+    cp "$diagnostic_err" "$diagnostic_file"
+    assert_no_codex_live_secret_leak "$auth_file" "$diagnostic_file" \
+      || fail "Codex live secret scanner diagnostic triggered the production scanner"
+  }
+
+  assert_no_codex_live_secret_leak "$auth_file" "$SELF_PATH" \
+    || fail "Codex live secret scanner source self-observation rejected the complete harness script"
   printf 'safe live artifact\nopaque=%s\n' "$long_nonsecret" >"$safe_file"
   assert_no_codex_live_secret_leak "$auth_file" "$safe_file" \
     || fail "Codex live secret scanner rejected its safe fixture"
 
-  printf '{"websiteUrl":"https://task-app-hub-content-chain.example.invalid/privacy"}\n' \
+  printf '{"type":"item.started","item":{"type":"spawn_agent","message":"risk-%s. task-%024d risk_sk-%024d"}}\n' \
+    "$safe_suffix" 7 8 >"$safe_spawn_file"
+  assert_no_codex_live_secret_leak "$auth_file" "$safe_spawn_file" \
+    || fail "Codex live secret scanner rejected benign embedded task/risk tokens"
+
+  printf '{"websiteUrl":"https://example.invalid/sk-task-app-hub-content-chain/privacy"}\n' \
     >"$safe_url_file"
   assert_no_codex_live_secret_leak "$auth_file" "$safe_url_file" \
     || fail "Codex live secret scanner rejected a public URL slug"
+  printf '{"tool_output":"diff --git a/file b/file\\n+ policy: https://example.invalid/sk-task-app-hub-content-chain/privacy ; retained"}\n' \
+    >"$safe_url_file"
+  assert_no_codex_live_secret_leak "$auth_file" "$safe_url_file" \
+    || fail "Codex live secret scanner rejected an embedded public URL slug"
 
   printf '{"type":"response_item","payload":{"type":"agent_message","content":[{"type":"encrypted_content","ciphertext":"%s-%s"}]}}\n' \
     "$generic_secret" "$access_token" >"$encrypted_file"
@@ -843,20 +1075,41 @@ validate_codex_live_secret_scanner() {
     || fail "Codex live secret scanner rejected opaque encrypted transcript content"
 
   printf 'visible=%s\n' "$generic_secret" >"$leak_file"
+  # The visible secret-like fixture must fail and produce scanner-safe structure only.
+  scanner_reject_with_safe_diagnostic "pattern-1" "$generic_secret"
+
+  printf 'visible=%s%s-%024d\n' 's' 'k-proj' 9 >"$leak_file"
   if assert_no_codex_live_secret_leak "$auth_file" "$leak_file" >/dev/null 2>&1; then
-    fail "Codex live secret scanner missed its visible secret-like fixture"
+    fail "Codex live secret scanner missed its visible project secret fixture"
   fi
 
-  printf '{"websiteUrl":"https://example.invalid/?token=%s"}\n' "$generic_secret" >"$leak_file"
+  printf '{"type":"response_item","payload":{"type":"agent_message","message":"%s%s=fixture-%s%s-%024d"}}\n' \
+    'pass' 'word' 'pass' 'word' 10 >"$leak_file"
+  scanner_reject_with_safe_diagnostic \
+    "pattern-2" "$(printf 'fixture-%s%s-%024d' 'pass' 'word' 10)" \
+    "response_item" "agent_message"
+
+  printf '{"websiteUrl":"https://example.invalid/?api_key=%s"}\n' "$generic_secret" >"$leak_file"
   if assert_no_codex_live_secret_leak "$auth_file" "$leak_file" >/dev/null 2>&1; then
     fail "Codex live secret scanner ignored a secret-like URL query value"
   fi
 
+  printf '{"websiteUrl":"https://%s@example.invalid/privacy"}\n' "$generic_secret" >"$leak_file"
+  if assert_no_codex_live_secret_leak "$auth_file" "$leak_file" >/dev/null 2>&1; then
+    fail "Codex live secret scanner ignored userinfo credentials"
+  fi
+
+  declare -f codex_malformed_url_secret_fixture >"$fixture_source_file"
+  assert_no_codex_live_secret_leak "$auth_file" "$fixture_source_file" \
+    || fail "Codex live secret scanner fixture source self-observed as a live credential"
+  printf '{"tool_output":"%s"}\n' "$(codex_malformed_url_secret_fixture)" >"$leak_file"
+  # The malformed concatenated URL token must still fail while reporting URL context safely.
+  scanner_reject_with_safe_diagnostic \
+    "pattern-1" "$(codex_malformed_url_secret_fixture)" null null true
+
   for credential in "$access_token" "$id_token" "$session_token" "$private_key"; do
-    printf 'unlabeled=%s\n' "$credential" >"$leak_file"
-    if assert_no_codex_live_secret_leak "$auth_file" "$leak_file" >/dev/null 2>&1; then
-      fail "Codex live secret scanner missed its credential fixture"
-    fi
+    printf 'larger-token=prefix%suffix\n' "$credential" >"$leak_file"
+    scanner_reject_with_safe_diagnostic "exact-auth" "$credential"
   done
   rm -rf "$temp_root"
   ok "Codex live secret scanner rejects credential-bearing artifacts"
@@ -877,6 +1130,36 @@ if root.is_dir():
 PY
 }
 
+tree_manifest_digest() {
+  local root="$1"
+  "$PYTHON_BIN" - "$root" <<'PY'
+import hashlib
+import json
+import stat
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+    raise SystemExit(f"manifest root must be an absolute, non-symlink directory: {root}")
+entries = []
+for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
+    relative = path.relative_to(root).as_posix()
+    info = path.lstat()
+    mode = stat.S_IMODE(info.st_mode)
+    if stat.S_ISLNK(info.st_mode):
+        raise SystemExit(f"manifest tree must be symlink-free: {relative}")
+    if stat.S_ISDIR(info.st_mode):
+        entries.append([relative, "dir", mode, ""])
+    elif stat.S_ISREG(info.st_mode):
+        entries.append([relative, "file", mode, hashlib.sha256(path.read_bytes()).hexdigest()])
+    else:
+        raise SystemExit(f"manifest tree has unsupported entry: {relative}")
+payload = json.dumps(entries, separators=(",", ":"), ensure_ascii=True).encode()
+print(hashlib.sha256(payload).hexdigest())
+PY
+}
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
 }
@@ -893,6 +1176,125 @@ value = data
 for part in sys.argv[2].split("."):
     value = value[part]
 print(value)
+PY
+}
+
+# The plugin root the live run actually loads. Wrapper-activation evidence is
+# bound to this exact directory, so a decoy tree or a stale prior-version cache
+# root cannot stand in for it.
+#
+# Resolution is decided by MODE, never by candidate count. Counting candidates was
+# wrong twice: a SOLE stale cached version was accepted merely because it was
+# unambiguous (singularity is not identity), and a no-install run bound to the
+# cache whenever one existed, even though such a run loads from its explicit
+# plugin root. Both errors silently validate evidence against the wrong tree.
+CODEX_ACTIVE_PLUGIN_ROOT=""
+# Identity recorded by the actual install operation. This is the authority for
+# install mode; the local PLUGIN_ROOT manifest is NOT, because the source checkout
+# can be a different version than the installed tree.
+CODEX_INSTALLED_PLUGIN_VERSION=""
+codex_installed_version_file() { printf '%s\n' "$RUN_DIR/installed-plugin-version.txt"; }
+codex_safe_version_component() {
+  local value="$1"
+  [[ "$value" != "." && "$value" != ".." && "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]
+}
+codex_installed_plugin_version() {
+  if [[ -n "$CODEX_INSTALLED_PLUGIN_VERSION" ]]; then
+    codex_safe_version_component "$CODEX_INSTALLED_PLUGIN_VERSION" || return 1
+    printf '%s\n' "$CODEX_INSTALLED_PLUGIN_VERSION"; return 0
+  fi
+  local recorded value
+  recorded="$(codex_installed_version_file)"
+  # A whitespace-only file is NOT identity: `-s` accepts it, but stripping leaves an
+  # empty version that would then be concatenated into a cache path.
+  if [[ -s "$recorded" ]]; then
+    value="$(tr -d '[:space:]' <"$recorded")"
+    if [[ -n "$value" ]] && codex_safe_version_component "$value"; then
+      CODEX_INSTALLED_PLUGIN_VERSION="$value"
+      printf '%s\n' "$CODEX_INSTALLED_PLUGIN_VERSION"; return 0
+    fi
+  fi
+  return 1
+}
+codex_active_plugin_root() {
+  [[ -z "$CODEX_ACTIVE_PLUGIN_ROOT" ]] || { printf '%s\n' "$CODEX_ACTIVE_PLUGIN_ROOT"; return 0; }
+  local cache_parent version selected resolved
+  if [[ "$INSTALL_MODE" == "1" ]]; then
+    # Install mode binds to the version the INSTALL reported. Falling back to the
+    # local manifest under source/installed skew names the wrong tree: it either
+    # misses entirely (source 2.2.0 vs installed 2.1.0) or, if a stale directory
+    # happens to match, validates evidence against a tree the run never loaded.
+    cache_parent="$CODEX_HOME_DIR/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
+    version="$(codex_installed_plugin_version || true)"
+    [[ -n "$version" ]] \
+      || fail "Codex active plugin root needs the installed plugin version; none was recorded by the install operation at $(codex_installed_version_file)"
+    [[ -f "$cache_parent/$version/skills/ralph/SKILL.md" ]] \
+      || fail "Codex active plugin root missing for INSTALLED version $version under $cache_parent"
+    selected="$cache_parent/$version"
+    resolved="$("$PYTHON_BIN" - "$cache_parent" "$selected" <<'PY'
+from pathlib import Path
+import sys
+
+parent = Path(sys.argv[1]).resolve()
+selected = Path(sys.argv[2]).resolve()
+if selected.parent != parent:
+    raise SystemExit("installed plugin root escaped its cache parent")
+print(selected)
+PY
+)" || fail "Codex active plugin root escaped cache parent $cache_parent"
+  else
+    # A source/no-install run loads from its explicit plugin root. A cache may also
+    # exist from earlier runs; it is not what this run loads.
+    [[ -f "$PLUGIN_ROOT/skills/ralph/SKILL.md" ]] \
+      || fail "Codex active plugin root has no generated wrapper under $PLUGIN_ROOT"
+    selected="$PLUGIN_ROOT"
+    resolved="$("$PYTHON_BIN" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$selected")"
+  fi
+  CODEX_ACTIVE_PLUGIN_ROOT="$resolved"
+  printf '%s\n' "$CODEX_ACTIVE_PLUGIN_ROOT"
+}
+
+codex_begin_install_attempt() {
+  CODEX_INSTALLED_PLUGIN_VERSION=""
+  CODEX_ACTIVE_PLUGIN_ROOT=""
+  rm -f \
+    "$RUN_DIR/installed-plugin-version.txt" \
+    "$RUN_DIR/installed-plugin-version.tmp" \
+    "$RUN_DIR/post-install-plugin-read.json" \
+    "$RUN_DIR/post-install-plugin-read.tmp"
+}
+
+codex_record_installed_identity() {
+  local response_path="$1" record_path="$2"
+  "$PYTHON_BIN" - "$response_path" "$record_path" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+response_path = Path(sys.argv[1])
+record_path = Path(sys.argv[2])
+try:
+    response = json.loads(response_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as error:
+    raise SystemExit(f"post-install plugin/read response was unreadable: {error}")
+plugin = response.get("plugin") or {}
+summary = plugin.get("summary") or {}
+if summary.get("installed") is not True:
+    raise SystemExit("post-install plugin/read did not report summary.installed=true")
+installed_version = summary.get("localVersion")
+if not isinstance(installed_version, str) or not installed_version.strip():
+    raise SystemExit("post-install plugin/read returned no summary.localVersion")
+installed_version = installed_version.strip()
+if installed_version in {".", ".."} or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", installed_version) is None:
+    raise SystemExit(f"post-install plugin/read returned unsafe localVersion: {installed_version!r}")
+record_path.parent.mkdir(parents=True, exist_ok=True)
+temp_record = record_path.with_name("installed-plugin-version.tmp")
+try:
+    temp_record.write_text(installed_version + "\n", encoding="utf-8")
+    temp_record.replace(record_path)
+finally:
+    temp_record.unlink(missing_ok=True)
 PY
 }
 
@@ -1438,8 +1840,13 @@ install_codex_agents_user_scope() {
 install_via_codex_plugins() {
   [[ "$INSTALL_MODE" == "1" ]] || { log "Skipping Codex marketplace install (--no-install)"; return; }
 
-  log "Registering marketplace through Codex CLI"
   mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  # LIFECYCLE: destroy prior on-disk and in-memory identity before the first
+  # fallible install action. RUN_DIR can be reused, so a failed retry must never
+  # expose identity from an earlier successful attempt.
+  codex_begin_install_attempt
+
+  log "Registering marketplace through Codex CLI"
   if codex_marketplace_exists; then
     CODEX_HOME="$CODEX_HOME_DIR" "$CODEX_BIN" plugin marketplace remove "$MARKETPLACE_NAME" >/dev/null
   fi
@@ -1600,6 +2007,9 @@ send(
 )
 plugin_read = wait_response(3, timeout=60.0)
 detail = plugin_read["plugin"]
+# NOTE: this is a PRE-INSTALL read. Its version describes what the marketplace
+# OFFERS, not what got installed, so it must never be recorded as installed
+# identity. The authoritative record is written after plugin/install succeeds.
 actual_skills = [skill["name"] for skill in detail.get("skills", [])]
 expected_skills = [f"{plugin_name}:{skill}" for skill in skills]
 missing_skills = [skill for skill in expected_skills if skill not in actual_skills]
@@ -1617,6 +2027,28 @@ install = wait_response(4, timeout=60.0)
 if install.get("authPolicy") != "ON_INSTALL":
     fail(f"plugin/install authPolicy={install.get('authPolicy')!r}, expected ON_INSTALL")
 
+# AUTHORITATIVE INSTALLED IDENTITY, obtained only AFTER the install succeeded.
+# Order matters: a pre-install read describes the offer, not the installed tree.
+# Only the forced-refresh post-install read is bound to this completed operation.
+# Existing cache directories are never identity evidence, even when one looks valid.
+send(
+    {
+        "id": 5,
+        "method": "plugin/read",
+        "params": {
+            "marketplacePath": marketplace_path,
+            "remoteMarketplaceName": None,
+            "pluginName": plugin_name,
+            "forceReload": True,
+        },
+    }
+)
+post_install = wait_response(5, timeout=60.0)
+post_install_path = Path(app_log).with_name("post-install-plugin-read.json")
+post_install_temp = post_install_path.with_name("post-install-plugin-read.tmp")
+post_install_temp.write_text(json.dumps(post_install, separators=(",", ":")), encoding="utf-8")
+post_install_temp.replace(post_install_path)
+
 if proc.stdin:
     proc.stdin.close()
 try:
@@ -1625,8 +2057,12 @@ except subprocess.TimeoutExpired:
     proc.terminate()
     proc.wait(timeout=5)
 
-print(f"ok - Codex CLI marketplace add plus /plugins lists and installs {plugin_id} from {marketplace_source}")
 PY
+  codex_record_installed_identity \
+    "$RUN_DIR/post-install-plugin-read.json" \
+    "$RUN_DIR/installed-plugin-version.txt" \
+    || fail "Codex post-install identity response was invalid"
+  ok "Codex CLI marketplace add plus /plugins lists and installs ${PLUGIN_ID} from ${MARKETPLACE_SOURCE}"
 }
 
 assert_codex_prompt_exposes_skills() {
@@ -1676,597 +2112,1700 @@ print(f"ok - Codex prompt exposes {len(skills)} public oh-no-harness skills")
 PY
 }
 
-live_prompt_for_skill() {
+direct_invariant_for_skill() {
   case "$1" in
-    interview)
-      printf 'Use the oh-no-harness:interview skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK interview.'
-      ;;
-    ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralplan.'
-      ;;
-    ralph)
-      printf 'Use the oh-no-harness:ralph skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ralph.'
-      ;;
-    ultrawork)
-      printf 'Use the oh-no-harness:ultrawork skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK ultrawork.'
-      ;;
-    auto-routing)
-      printf 'Use the oh-no-harness:auto-routing skill for a read-only Codex platform-semantics smoke. Do not run the config helper or change settings/files. Explain that native skill loading remains primary, the preference is stored state, current Codex routing semantics stay unchanged with no forced routing, and generic restart or stronger routing is not the effect. End with OH_NO_CODEX_SKILL_OK auto-routing.'
-      ;;
-    test-driven-development)
-      printf 'Use the oh-no-harness:test-driven-development skill for an explicit TDD/test-first smoke request. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK test-driven-development.'
-      ;;
-    simplify)
-      printf 'Use the oh-no-harness:simplify skill for reuse, simplification, efficiency, and altitude cleanup. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK simplify.'
-      ;;
-    verification-before-completion)
-      printf 'Use the oh-no-harness:verification-before-completion skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK verification-before-completion.'
-      ;;
-    systematic-debugging)
-      printf 'Use the oh-no-harness:systematic-debugging skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK systematic-debugging.'
-      ;;
-    fusion-rescue)
-      printf 'Use the oh-no-harness:fusion-rescue skill. Smoke test only. Do not edit files. Reply with exactly OH_NO_CODEX_SKILL_OK fusion-rescue.'
-      ;;
-    *)
-      fail "No live prompt for skill: $1"
-      ;;
+    interview) printf 'clarify-before-planning' ;;
+    ralplan) printf 'wait-for-user-approval' ;;
+    ralph) printf 'require-acceptance-contract' ;;
+    ultrawork) printf 'wait-for-spec-approval' ;;
+    auto-routing) printf 'future-session-guidance-only' ;;
+    test-driven-development) printf 'create-red-first' ;;
+    simplify) printf 'lock-behavior-then-combined-scan' ;;
+    verification-before-completion) printf 'withhold-completion' ;;
+    systematic-debugging) printf 'reproduce-first' ;;
+    *) fail "No direct invariant for skill: $1" ;;
   esac
 }
 
-run_live_skill_test() {
-  local skill="$1"
-  local out_file="$RUN_DIR/${skill}.txt"
-  local log_file="$RUN_DIR/${skill}.log"
-  local prompt
-  prompt="$(live_prompt_for_skill "$skill")"
+direct_prompt_for_skill() {
+  case "$1" in
+    interview) printf '$%s:interview A request says only "improve this tool" and omits users and constraints. Apply the directly invoked installed skill. Choose exactly one: clarify-before-planning | plan-now.' "$PLUGIN_NAME" ;;
+    ralplan) printf '$%s:ralplan A reviewed plan is ready but required user approval is pending. Apply the directly invoked installed skill. Choose exactly one: wait-for-user-approval | execute-now.' "$PLUGIN_NAME" ;;
+    ralph) printf '$%s:ralph The task has no usable acceptance contract. Apply the directly invoked installed skill. Choose exactly one: require-acceptance-contract | execute-without-contract.' "$PLUGIN_NAME" ;;
+    ultrawork) printf '$%s:ultrawork Requirements remain unclear and spec-content approval has not occurred. Apply the directly invoked installed skill. Choose exactly one: wait-for-spec-approval | begin-autonomous-execution.' "$PLUGIN_NAME" ;;
+    auto-routing) printf '$%s:auto-routing The stored preference is changed during this turn. Apply the directly invoked installed skill. Choose exactly one: future-session-guidance-only | changes-current-turn.' "$PLUGIN_NAME" ;;
+    test-driven-development) printf '$%s:test-driven-development A test-first change has no failing focused test yet. Apply the directly invoked installed skill. Choose exactly one: create-red-first | edit-production-first.' "$PLUGIN_NAME" ;;
+    simplify) printf '$%s:simplify No behavior lock exists and no named THOROUGH expansion trigger is present. Apply the directly invoked installed skill. Choose exactly one: lock-behavior-then-combined-scan | run-four-way-cleanup-now.' "$PLUGIN_NAME" ;;
+    verification-before-completion) printf '$%s:verification-before-completion One required acceptance criterion lacks direct evidence. Apply the directly invoked installed skill. Choose exactly one: withhold-completion | claim-complete.' "$PLUGIN_NAME" ;;
+    systematic-debugging) printf '$%s:systematic-debugging A failing test has an unknown cause and has not been reproduced. Apply the directly invoked installed skill. Choose exactly one: reproduce-first | patch-first.' "$PLUGIN_NAME" ;;
+    *) fail "No direct prompt for skill: $1" ;;
+  esac
+  printf ' Do not execute the workflow, dispatch, create artifacts, run commands, or change files. Reply with exactly two lines: `Skill: %s` and `Invariant: <one listed choice>`.' "$1"
+}
 
-  # `git worktree add` writes Git metadata under `.git/refs` and `.git/worktrees`;
-  # Codex workspace-write sandbox may block those writes even in this disposable repo.
-  local cmd=(
-    "$CODEX_BIN"
-    --ask-for-approval never
-    exec
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-    --output-last-message "$out_file"
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
+direct_smoke_failure_class() {
+  local rc="$1" evidence_file="$2"
+  if grep -Eiq 'unknown[[:space:]:-]+(command|option|argument|skill|invocation)|unexpected[[:space:]]+argument|unrecognized[[:space:]]+(option|argument)|invalid[[:space:]]+(option|argument)|permission denied|command not found|not found:[[:space:]]*command|no such file or directory|failed to (start|launch)|could not (start|launch)|unsupported (host|platform)|incompatible (host|platform)|^usage:' "$evidence_file"; then
+    printf 'hard-fail\n'; return 0
   fi
+  if [[ "$rc" == 124 ]]; then printf 'provider-limited\n'; return 0; fi
+  if grep -Eiq 'HTTP[[:space:]]*429|rate[ -]?limit|cooling down|credits?[[:space:]]+(unavailable|exhausted)|provider credits?[[:space:]]+exhausted|quota exceeded' "$evidence_file"; then
+    printf 'provider-limited\n'; return 0
+  fi
+  printf 'hard-fail\n'
+}
 
-  cmd+=("$prompt")
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
-
-  "$PYTHON_BIN" - "$out_file" "$skill" <<'PY'
-import re
+assert_direct_result_fields() {
+  "$PYTHON_BIN" - "$1" "$2" "$3" <<'PY'
 import sys
-
-path, skill = sys.argv[1], sys.argv[2]
-text = open(path, "r", encoding="utf-8").read()
-expected = f"OH_NO_CODEX_SKILL_OK {skill}"
-if expected not in text:
-    raise SystemExit(f"{skill} live smoke did not return marker {expected!r}; got {text!r}")
-# Hard boundary: routing semantics must be unchanged; restart and stronger routing overclaims stay in the raw transcript for main adjudication.
-boundary = re.search(r"\b(?:current\s+)?(?:codex\s+)?routing semantics?\b.{0,80}\b(?:(?:are|stay|stays|remain|remains)\s+unchanged|(?:do|does)\s+not\s+change|no\s+change)\b", text, re.I | re.S) or re.search(r"\b(?:unchanged|(?:do|does)\s+not\s+change|no\s+change)\b.{0,80}\b(?:current\s+)?(?:codex\s+)?routing semantics?\b", text, re.I | re.S)
-if skill == "auto-routing" and not boundary:
-    raise SystemExit("auto-routing final response must say current Codex routing semantics are unchanged")
-print(f"ok - live Codex skill smoke: {skill}")
+skill, expected, path = sys.argv[1:]
+lines = [line.strip() for line in open(path, encoding="utf-8").read().strip().splitlines() if line.strip()]
+wanted = [f"Skill: {skill}", f"Invariant: {expected}"]
+if lines != wanted:
+    raise SystemExit(f"HARD FAIL [{skill}] expected exactly {wanted!r}; got {lines!r}")
 PY
+}
+
+assert_direct_installed_skill_identity() {
+  "$PYTHON_BIN" - "$1" "$2" "$PLUGIN_NAME" <<'PY'
+import json, re, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve()
+skill, plugin_name = sys.argv[2:]
+manifest_path = root / ".codex-plugin" / "plugin.json"
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    raise SystemExit(f"HARD FAIL [{skill}] unreadable active Codex plugin manifest: {exc}")
+if manifest.get("name") != plugin_name or manifest.get("skills") != "./skills/":
+    raise SystemExit(f"HARD FAIL [{skill}] active Codex plugin identity or skill path is wrong")
+wrapper = root / "skills" / skill / "SKILL.md"
+try:
+    resolved = wrapper.resolve(strict=True)
+    text = wrapper.read_text(encoding="utf-8")
+except OSError as exc:
+    raise SystemExit(f"HARD FAIL [{skill}] missing installed skill identity: {exc}")
+if resolved.parent != wrapper.parent.resolve():
+    raise SystemExit(f"HARD FAIL [{skill}] installed skill escaped its expected path: {resolved}")
+if "oh-no-harness-generated-skill-wrapper" not in text:
+    raise SystemExit(f"HARD FAIL [{skill}] installed skill lacks generated-wrapper identity")
+match = re.search(r"(?m)^name:[ \t]*([^\n]+)[ \t]*$", text)
+if match is None or match.group(1).strip() != skill:
+    raise SystemExit(f"HARD FAIL [{skill}] installed skill frontmatter identity is wrong")
+PY
+}
+
+validate_codex_direct_result() {
+  "$PYTHON_BIN" - "$1" "$2" "$3" "$4" "$5" <<'PY'
+import json, re, sys
+from pathlib import Path
+out, log, skill, root, result_path = sys.argv[1:]
+try:
+    text = Path(out).read_text(encoding="utf-8").strip()
+except OSError as exc:
+    raise SystemExit(f"HARD FAIL [{skill}] malformed command result: {exc}")
+rows = []
+diagnostics = []
+try:
+    for number, line in enumerate(Path(log).read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("{"):
+            try:
+                row = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise SystemExit(f"HARD FAIL [{skill}] malformed JSON event at line {number}: {exc}") from exc
+            if not isinstance(row, dict):
+                raise SystemExit(f"HARD FAIL [{skill}] non-object JSON event at line {number}")
+            rows.append(row)
+            continue
+        try:
+            non_object = json.loads(stripped)
+        except json.JSONDecodeError:
+            diagnostics.append((number, stripped))
+            continue
+        if not isinstance(non_object, dict):
+            raise SystemExit(f"HARD FAIL [{skill}] non-object JSON event at line {number}")
+        raise SystemExit(f"HARD FAIL [{skill}] JSON event must start with '{{' at line {number}")
+except OSError as exc:
+    raise SystemExit(f"HARD FAIL [{skill}] malformed JSON result: {exc}") from exc
+if not text:
+    raise SystemExit(f"HARD FAIL [{skill}] empty command result")
+hard_diagnostic = re.compile(
+    r"unknown[\s:-]+(command|option|argument|skill|invocation)|"
+    r"unexpected\s+argument|unrecognized\s+(option|argument)|"
+    r"invalid\s+(option|argument)|permission denied|command not found|"
+    r"not found:\s*command|no such file or directory|failed to (start|launch)|"
+    r"could not (start|launch)|unsupported (host|platform)|"
+    r"incompatible (host|platform)|^usage:",
+    re.IGNORECASE,
+)
+for number, diagnostic in diagnostics:
+    if hard_diagnostic.search(diagnostic):
+        raise SystemExit(f"HARD FAIL [{skill}] hard CLI diagnostic at line {number}: {diagnostic}")
+if not rows or rows[-1].get("type") != "turn.completed":
+    raise SystemExit(f"HARD FAIL [{skill}] missing successful terminal turn.completed event")
+if diagnostics:
+    print(f"WARNING [{skill}] ignored {len(diagnostics)} non-JSON Codex diagnostic line(s)", file=sys.stderr)
+Path(result_path).write_text(text, encoding="utf-8")
+PY
+}
+
+run_direct_smoke_classifier_offline_test() {
+  local root file got
+  root="$(mktemp -d)"; file="$root/evidence"
+  for value in 'HTTP 429: credentials cooling down' 'quota exceeded' 'provider credits exhausted'; do
+    printf '%s\n' "$value" >"$file"; got="$(direct_smoke_failure_class 1 "$file")"; [[ "$got" == provider-limited ]] || fail "provider exhaustion classifier fixture failed: $value"
+  done
+  : >"$file"; got="$(direct_smoke_failure_class 124 "$file")"; [[ "$got" == provider-limited ]] || fail "timeout classifier fixture failed"
+  for value in 'Unknown skill invocation' 'permission denied' 'error: unexpected argument --bad' 'Unknown option: --rate-limit' 'unexpected argument --rate-limit'; do
+    printf '%s\n' "$value" >"$file"; got="$(direct_smoke_failure_class 2 "$file")"; [[ "$got" == hard-fail ]] || fail "hard-failure classifier accepted: $value"
+  done
+  printf 'Skill: interview\nInvariant: plan-now\n' >"$file"
+  if assert_direct_result_fields interview clarify-before-planning "$file" >/dev/null 2>&1; then fail "wrong finite invariant choice passed"; fi
+  printf 'Skill: interview\nInvariant: clarify-before-planning\nNarration: extra\n' >"$file"
+  if assert_direct_result_fields interview clarify-before-planning "$file" >/dev/null 2>&1; then fail "third direct-result line passed"; fi
+  local plugin="$root/plugin" out="$root/out" log="$root/events.jsonl" parsed="$root/parsed" wrapper="$root/plugin/skills/interview/SKILL.md"
+  mkdir -p "$plugin/.codex-plugin" "$plugin/skills/interview"
+  printf '{"name":"%s","skills":"./skills/"}\n' "$PLUGIN_NAME" >"$plugin/.codex-plugin/plugin.json"
+  printf '%s\n' '---' 'name: interview' '---' '<!-- oh-no-harness-generated-skill-wrapper -->' >"$wrapper"
+  assert_direct_installed_skill_identity "$plugin" interview || fail "valid installed skill identity fixture failed"
+  mv "$wrapper" "$wrapper.saved"
+  if assert_direct_installed_skill_identity "$plugin" interview >/dev/null 2>&1; then fail "missing installed skill identity passed"; fi
+  mv "$wrapper.saved" "$wrapper"
+  printf '%s\n' '---' 'name: wrong-skill' '---' '<!-- oh-no-harness-generated-skill-wrapper -->' >"$wrapper"
+  if assert_direct_installed_skill_identity "$plugin" interview >/dev/null 2>&1; then fail "wrong installed skill identity passed"; fi
+  printf '%s\n' '---' 'name: interview' '---' '<!-- oh-no-harness-generated-skill-wrapper -->' >"$wrapper"
+  printf 'Skill: interview\nInvariant: clarify-before-planning\n' >"$out"
+  "$PYTHON_BIN" - "$log" "$plugin" <<'PY'
+import json, sys
+from pathlib import Path
+path, _root = map(Path, sys.argv[1:])
+rows = [
+    {"type": "thread.started", "thread_id": "fixture-thread"},
+    {"type": "turn.started"},
+    {"type": "item.completed", "item": {"id": "message-1", "type": "agent_message", "text": "Skill: interview\\nInvariant: clarify-before-planning"}},
+    {"type": "turn.completed", "usage": {"input_tokens": 1, "output_tokens": 1}},
+]
+diagnostic = "2026-08-02T17:02:37.105780Z ERROR codex_core::tools::router: error=exec_command failed: UnknownProcessId { process_id: 31416 }"
+path.write_text("Reading additional input from stdin...\n\n" + "\n".join(json.dumps(row) for row in rows) + "\n" + diagnostic + "\n", encoding="utf-8")
+PY
+  validate_codex_direct_result "$out" "$log" interview "$plugin" "$parsed" || fail "plain Codex diagnostics around complete events fixture failed"
+  { printf 'plain diagnostic before events\n'; command cat "$log"; } >"$root/diagnostics-around.jsonl"
+  validate_codex_direct_result "$out" "$root/diagnostics-around.jsonl" interview "$plugin" "$parsed" || fail "plain diagnostic before events fixture failed"
+  { command cat "$log"; printf '{malformed-json-event\n'; } >"$root/malformed-event.jsonl"
+  if validate_codex_direct_result "$out" "$root/malformed-event.jsonl" interview "$plugin" "$parsed" >/dev/null 2>&1; then fail "malformed JSON event candidate passed"; fi
+  { command cat "$log"; printf '[]\n'; } >"$root/non-object-event.jsonl"
+  if validate_codex_direct_result "$out" "$root/non-object-event.jsonl" interview "$plugin" "$parsed" >/dev/null 2>&1; then fail "non-object JSON event passed"; fi
+  { command cat "$log"; printf 'Unknown option: --rate-limit\n'; } >"$root/hard-diagnostic.jsonl"
+  if validate_codex_direct_result "$out" "$root/hard-diagnostic.jsonl" interview "$plugin" "$parsed" >/dev/null 2>&1; then fail "hard CLI diagnostic passed with rc 0"; fi
+  "$PYTHON_BIN" - "$log" "$root/incomplete.jsonl" <<'PY'
+import json, sys
+from pathlib import Path
+source, target = map(Path, sys.argv[1:])
+lines = [line for line in source.read_text(encoding="utf-8").splitlines() if '"type": "turn.completed"' not in line]
+target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+  if validate_codex_direct_result "$out" "$root/incomplete.jsonl" interview "$plugin" "$parsed" >/dev/null 2>&1; then fail "missing terminal event passed"; fi
+  rm -rf "$root"; ok "direct smoke classifiers, exact output, and proportional Codex JSON diagnostics"
+}
+
+run_live_skill_test() {
+  local skill="$1" expected out_file log_file result_file prompt before after rc active_root class
+  expected="$(direct_invariant_for_skill "$skill")"; out_file="$RUN_DIR/${skill}.txt"; log_file="$RUN_DIR/${skill}.jsonl"; result_file="$RUN_DIR/${skill}.result"; prompt="$(direct_prompt_for_skill "$skill")"; active_root="$(codex_active_plugin_root)"
+  assert_direct_installed_skill_identity "$active_root" "$skill"
+  before="$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all; git -C "$REPO_ROOT" diff --binary HEAD | shasum -a 256)"
+  local cmd=("$CODEX_BIN" --ask-for-approval never exec --json --cd "$PLUGIN_ROOT" --sandbox read-only --skip-git-repo-check --output-last-message "$out_file")
+  [[ -z "$LIVE_MODEL" ]] || cmd+=(--model "$LIVE_MODEL")
+  cmd+=("$prompt")
+  rc=0; run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" </dev/null >"$log_file" 2>&1 || rc=$?
+  after="$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all; git -C "$REPO_ROOT" diff --binary HEAD | shasum -a 256)"
+  [[ "$before" == "$after" ]] || fail "HARD FAIL [$skill] forbidden project mutation"
+  if [[ "$rc" != 0 ]]; then
+    class="$(direct_smoke_failure_class "$rc" "$log_file")"
+    if [[ "$class" == provider-limited ]]; then printf 'INCONCLUSIVE(provider-limited) - %s (command rc=%s)\n' "$skill" "$rc" >&2; return 0; fi
+    fail "HARD FAIL [$skill] direct invocation failed (rc=$rc): $(tail -n 3 "$log_file" | tr '\n' ' ')"
+  fi
+  validate_codex_direct_result "$out_file" "$log_file" "$skill" "$active_root" "$result_file"
+  assert_direct_result_fields "$skill" "$expected" "$result_file"
+  printf 'PASS - %s: %s\n' "$skill" "$expected"
 }
 
 run_live_tests() {
   if [[ "$RUN_LIVE" != "1" ]]; then
-    log "Skipping live Codex skill smoke tests"
-    printf 'Run with --live or OH_NO_LIVE=1 to invoke codex exec smoke tests.\n' >&2
-    return
+    log "Skipping live Codex direct skill smokes"; printf 'Run with --live or OH_NO_LIVE=1 for one direct read-only invariant per public non-Fusion skill.\n' >&2; printf 'SKIPPED/DEFERRED - fusion-rescue: Claude-host provider credits exhausted\n' >&2; return
   fi
-
-  log "Running live Codex skill smoke tests"
-  mkdir -p "$RUN_DIR"
+  mkdir -p "$RUN_DIR"; log "Running direct Codex skill smokes"
+  local skill
   for skill in "${PUBLIC_SKILLS[@]}"; do
+    if [[ "$skill" == "fusion-rescue" ]]; then printf 'SKIPPED/DEFERRED - fusion-rescue: Claude-host provider credits exhausted\n' >&2; continue; fi
     run_live_skill_test "$skill"
   done
-  ok "live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+  ok "direct live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
 }
 
-deep_prompt_for_skill() {
+dispatch_scenario_contract() {
   case "$1" in
+    interview) printf '%s|%s|%s|%s\n' 'oh-no-explore' read-only '' '' ;;
+    ralplan) printf '%s|%s|%s|%s\n' 'oh-no-planner,oh-no-plan-reviewer' workspace-write '.oh-no/plans/task-53-ralplan-probe.md,.oh-no/sessions/task-53-dispatch-ralplan/planning.md' '.oh-no/plans/task-53-ralplan-probe.md' ;;
+    ralph) printf '%s|%s|%s|%s\n' 'oh-no-executor,oh-no-code-reviewer' workspace-write 'dispatch-fixture/src/formatter.py,dispatch-fixture/tests/test_formatter.py,dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/progress.md,dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/verification.md' 'dispatch-fixture/src/formatter.py,dispatch-fixture/tests/test_formatter.py' ;;
+    verification-before-completion) printf '%s|%s|%s|%s\n' 'oh-no-verifier' read-only '' '' ;;
+    systematic-debugging) printf '%s|%s|%s|%s\n' 'oh-no-debugger' read-only '' '' ;;
+    auto-routing|simplify) printf '%s|%s|%s|%s\n' '' read-only '' '' ;;
+    *) fail "unknown dispatch-live scenario: $1" ;;
+  esac
+}
+
+dispatch_home_fingerprint() {
+  "$PYTHON_BIN" - "$1" <<'PY'
+import hashlib, os, sys
+from pathlib import Path
+root = Path(sys.argv[1]); h = hashlib.sha256()
+paths = [root / name for name in ("auth.json", "config.json")]
+agents = root / "agents"
+if agents.exists(): paths.extend(sorted(agents.rglob("*")))
+for path in paths:
+    if not path.exists() and not path.is_symlink(): continue
+    relative = path.relative_to(root).as_posix().encode()
+    h.update(relative + b"\0")
+    if path.is_symlink(): h.update(b"L" + os.readlink(path).encode())
+    elif path.is_file(): h.update(b"F" + path.read_bytes())
+    elif path.is_dir(): h.update(b"D")
+    h.update(b"\0")
+print(h.hexdigest())
+PY
+}
+
+run_sanitized_dispatch_command() (
+  local launch_dir="$1"
+  shift
+  cd "$launch_dir"
+  unset OLDPWD
+  local name
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && unset "$name"
+  done < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" environment-unsets --repo-root "$REPO_ROOT")
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" environment-check --repo-root "$REPO_ROOT" || return $?
+  run_codex_live_command "$CODEX_HOME_DIR" "$@" </dev/null
+)
+
+prepare_dispatch_fixture() {
+  local skill="$1" workspace="$2" nonce="$3"
+  local fixture="$workspace/dispatch-fixture"
+  mkdir -p "$fixture"
+  case "$skill" in
     interview)
-      printf 'Use the oh-no-harness:interview skill. Deep smoke test only. Read the invariants, state machine, snapshot, company-context rules, and Socratic guidance in the wrapper. Do not edit files. Return when company context should be considered, whether it is advisory or executable, whether remote/global systems should be searched for it, and the names of the Socratic guidance sections for question routing, answer capture, and the Spec Closure Gate including acceptance criteria, goal restatement, and machine-consumable requirements. End with OH_NO_CODEX_DEEP_OK interview.'
+      printf 'Brownfield service fact: fixture protocol is kestrel-%s.\n' "$nonce" >"$fixture/FACTS.md"
       ;;
     ralplan)
-      printf 'Use the oh-no-harness:ralplan skill. Deep smoke test only. Read the invariants, Direction Contract, planning-run snapshot, state machine, proportional test design, mode selection, and execution profile. Do not edit files. Return the Direction Contract fields and single canonical schema owner, single-review-round rule, approval status term, conditional Analyst -> Planner -> Plan-Reviewer ordering rule, STANDARD single full-role Plan-Reviewer rule and triggered same-host-perspective-pair record, named THOROUGH paired-review trigger, final-revision-v2 / no-re-review rule, required Blocking basis field, APPROVE exact-draft freeze and non-blocking optional-follow-up rule, process budget, Ralph execution profile, project-local worktree path, and trigger-loaded Codex dispatch rule. End with OH_NO_CODEX_DEEP_OK ralplan.'
+      mkdir -p "$workspace/.oh-no/plans" "$workspace/.oh-no/sessions/task-53-dispatch-ralplan"
+      printf 'Session ID: task-53-dispatch-ralplan\nMode: STANDARD\nApproval: planning scenario approved\n' >"$workspace/.oh-no/sessions/task-53-dispatch-ralplan/planning.md"
+      printf 'Plan a read-only status command that prints the fixture nonce %s. No implementation.\n' "$nonce" >"$fixture/request.txt"
       ;;
     ralph)
-      printf 'Use the oh-no-harness:ralph skill. Deep smoke test only. Read the wrapper invariants, state machine, snapshot, and gates. Do not edit files. Return the Direction Contract, the four phases and three outcomes, execution mode decision heading, mode-gated dispatch heading, parallel trigger, canonical verification ledger, STANDARD single full-role code-reviewer rule and triggered same-host-perspective-pair record, named THOROUGH paired-review trigger, cumulative per-story Process Budget timing, final Diff-Budget exactly-once-before-Review timing, proportional cleanup rule, default worktree path, and TDD internal mid-loop discipline boundary including that TDD is not a top-level implementation route. End with OH_NO_CODEX_DEEP_OK ralph.'
+      mkdir -p "$fixture/src" "$fixture/tests" "$fixture/.oh-no/sessions/task-53-dispatch-ralph"
+      printf '%s\n' 'def normalize_label(value):' '    return value.strip()' >"$fixture/src/formatter.py"
+      printf '%s\n' 'import unittest' 'from src.formatter import normalize_label' '' 'class NormalizeLabelTest(unittest.TestCase):' '    def test_trims_outer_whitespace(self):' '        self.assertEqual(normalize_label("  alpha  "), "alpha")' '' 'if __name__ == "__main__":' '    unittest.main()' >"$fixture/tests/test_formatter.py"
+      git -C "$fixture" init -q
+      git -C "$fixture" add src/formatter.py tests/test_formatter.py
+      git -C "$fixture" -c user.name=fixture -c user.email=fixture.invalid commit -qm fixture-base
       ;;
-    ultrawork)
-      printf 'Use the oh-no-harness:ultrawork skill. Deep smoke test only. Read the wrapper invariants, heartbeat, state machine, and phase procedures, following the linked phase skills where needed. Do not edit files. Return the spec artifact path from clarification, the planning loop limit, the project-local automatic worktree path, the Ultrawork auto-approval rule after interview/spec approval, how ralplan approval becomes a recorded internal execution approval, how ralph is invoked with the Ultrawork-approved plan, the required execution mode source in the final report, and the cleanup/final-verification heading reached through execution. End with OH_NO_CODEX_DEEP_OK ultrawork.'
+    verification-before-completion)
+      printf 'immutable-evidence nonce=%s status=verified\n' "$nonce" >"$fixture/evidence.txt"
+      chmod 444 "$fixture/evidence.txt"
+      ;;
+    systematic-debugging)
+      printf 'reproduction: exit 17\nhypothesis: parser rejects kestrel-%s before normalization\n' "$nonce" >"$fixture/failure.log"
+      ;;
+    auto-routing)
+      printf 'nonce=%s\nauto-routing=off\nmeaning=future sessions only\n' "$nonce" >"$fixture/status.txt"
       ;;
     simplify)
-      printf 'Use the oh-no-harness:simplify skill. Deep smoke test only. Read the shared simplify core and Codex platform docs. Do not edit files. Return the Required Behavior Lock and Phase headings; the LIGHT/STANDARD combined-scan default; the named THOROUGH trigger for four independent Reuse, Simplification, Efficiency, and Altitude passes; batch/fallback behavior only after that trigger; and the false-positive or behavior-changing skip rule. End with OH_NO_CODEX_DEEP_OK simplify.'
-      ;;
-    *)
-      fail "No deep live prompt for skill: $1"
+      mkdir -p "$fixture/src" "$fixture/tests"
+      printf 'def label():\n    value = "%s"\n    return value\n' "$nonce" >"$fixture/src/value.py"
+      printf 'from src.value import label\n\ndef test_label():\n    assert label()\n' >"$fixture/tests/test_value.py"
+      git -C "$fixture" init -q
+      git -C "$fixture" add src/value.py tests/test_value.py
+      git -C "$fixture" -c user.name=fixture -c user.email=fixture.invalid commit -qm fixture-base
+      printf 'def label():\n    return "%s"\n' "$nonce" >"$fixture/src/value.py"
       ;;
   esac
 }
 
-assert_deep_output() {
-  "$PYTHON_BIN" - "$1" "$2" <<'PY'
-import sys
-
-SEMANTIC_VARIANCE_EXIT = 88
-
-
-def semantic_failure(message):
-    print(message, file=sys.stderr)
-    raise SystemExit(SEMANTIC_VARIANCE_EXIT)
-
-
-path, skill = sys.argv[1], sys.argv[2]
-with open(path, "r", encoding="utf-8") as handle:
-    text = handle.read()
-if not text.strip():
-    raise SystemExit(f"{skill} deep smoke returned an empty output artifact")
-text_lower = text.lower()
-text_plain = text_lower.translate(str.maketrans("", "", "`*_"))
-
-expected = {
-    "interview": [
-        "OH_NO_CODEX_DEEP_OK interview",
-        "advisory",
-        "Question Routing",
-        "Answer Capture",
-        "Spec Closure Gate",
-        "Acceptance criteria",
-        "Goal restatement",
-        "Machine-consumable",
-    ],
-    "ralplan": [
-        "OH_NO_CODEX_DEEP_OK ralplan",
-        "pending approval",
-        "Direction Contract",
-        "Overall Ralph mode",
-        "Task sizing",
-        "Execution profile",
-        "Analyst",
-        "Planner",
-        "perspective-diverse",
-        "same-host-perspective-pair",
-        "named THOROUGH",
-        "process budget",
-        ".oh-no/worktrees/<task-slug>",
-    ],
-    "ralph": [
-        "OH_NO_CODEX_DEEP_OK ralph",
-        "Direction Contract",
-        "PREPARE",
-        "FINALIZE",
-        "Required Execution Mode",
-        "Mode-Gated Agent Dispatch",
-        "STANDARD",
-        "THOROUGH",
-        "Parallel trigger",
-        "Acceptance-to-evidence ledger",
-        "perspective-diverse",
-        "same-host-perspective-pair",
-        "combined scan",
-        ".oh-no/worktrees/<task-slug>",
-        "test-driven-development",
-        "internal mid-loop",
-    ],
-    "ultrawork": [
-        "OH_NO_CODEX_DEEP_OK ultrawork",
-        ".oh-no/specs/interview-{slug}.md",
-        ".oh-no/worktrees/<task-slug>",
-        "auto",
-        "approval",
-        "ralplan",
-        "ralph",
-        "Ultrawork-approved",
-        "Mode source",
-        "Cleanup And Final Verification",
-    ],
-    "simplify": [
-        "OH_NO_CODEX_DEEP_OK simplify",
-        "Required Behavior Lock",
-        "Phase 0 - Gather The Diff",
-        "Phase 1 - Review",
-        "Phase 2 - Apply The Fixes",
-        "Reuse",
-        "Simplification",
-        "Efficiency",
-        "Altitude",
-        "subagent",
-        "batch",
-        "before waiting",
-        "inline",
-        "dispatch-unavailable reason",
-        "false positive",
-        "intended behavior",
-    ],
+dispatch_prompt() {
+  local skill="$1" nonce="$2" child_json="$3"
+  local common="Every expected child task must require its assigned nonce in its final result. Wait for each expected child to complete and preserve the nonce-bearing receipt. Include scenario nonce $nonce and every child nonce in your final answer. Do not use generic agents or optional agents."
+  case "$skill" in
+    interview)
+      printf '$%s:interview Tiny brownfield fact lookup. Read dispatch-fixture/FACTS.md only by dispatching exactly one agent_type oh-no-explore. Child nonces: %s. %s Do not change files.\n' "$PLUGIN_NAME" "$child_json" "$common" ;;
+    ralplan)
+      printf '$%s:ralplan Use fixed Session ID task-53-dispatch-ralplan in STANDARD mode. The approved planning state is in .oh-no/sessions/task-53-dispatch-ralplan/planning.md and the request is dispatch-fixture/request.txt. Dispatch oh-no-planner to create .oh-no/plans/task-53-ralplan-probe.md, wait for Planner completion, then dispatch exactly one oh-no-plan-reviewer to review that plan and wait for reviewer completion. Child nonces: %s. %s Do not apply reviewer feedback or request a v2. Stop immediately after the review, before user approval or execution. Only the probe plan and this session planning.md may change.\n' "$PLUGIN_NAME" "$child_json" "$common" ;;
+    ralph)
+      printf '$%s:ralph Use STANDARD mode and fixed Session ID task-53-dispatch-ralph. Worktree decision: user declined/current disposable fixture checkout. Approved bounded change in dispatch-fixture: normalize_label must trim outer whitespace and collapse internal whitespace; update only src/formatter.py and tests/test_formatter.py, using python -B -m unittest discover -s tests. Dispatch oh-no-executor for this bounded two-file change and wait for Executor completion. Then dispatch exactly one oh-no-code-reviewer to review the resulting change, wait for Code Reviewer completion, and stop. Child nonces: %s. %s Stop before verifier or completion. No worktree, pair, additional executor, or commit. Only dispatch-fixture/src/formatter.py, dispatch-fixture/tests/test_formatter.py, dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/progress.md, and dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/verification.md may change.\n' "$PLUGIN_NAME" "$child_json" "$common" ;;
+    verification-before-completion)
+      printf '$%s:verification-before-completion Independently verify immutable dispatch-fixture/evidence.txt by dispatching exactly one oh-no-verifier. Child nonces: %s. %s Do not change files or claim broader completion.\n' "$PLUGIN_NAME" "$child_json" "$common" ;;
+    systematic-debugging)
+      printf '$%s:systematic-debugging The failure is reproduced and one active hypothesis is recorded in dispatch-fixture/failure.log. Diagnose only in a separate context by dispatching exactly one oh-no-debugger. Child nonces: %s. %s Do not patch or change files.\n' "$PLUGIN_NAME" "$child_json" "$common" ;;
+    auto-routing)
+      printf '$%s:auto-routing Report the read-only semantics/status from dispatch-fixture/status.txt. Dispatch zero children and change nothing. Include scenario nonce %s in the final answer.\n' "$PLUGIN_NAME" "$nonce" ;;
+    simplify)
+      printf '$%s:simplify Inspect the tiny behavior-locked clean diff under dispatch-fixture. Combined-depth expansion is not justified. Dispatch zero named children, do not edit, and include scenario nonce %s in the final answer.\n' "$PLUGIN_NAME" "$nonce" ;;
+  esac
 }
 
-missing = [needle for needle in expected[skill] if needle.lower() not in text_lower]
-if missing:
-    semantic_failure(f"{skill} deep smoke missing markers: {missing}; got {text!r}")
-
-if skill == "ralph" and not (
-    "not a top-level implementation" in text_lower
-    or "not the top-level route" in text_lower
-    or "not a top-level route" in text_lower
-    or ("not" in text_lower and "top-level" in text_lower and "implementation" in text_lower)
-):
-    semantic_failure(f"{skill} deep smoke missing TDD top-level route boundary; got {text!r}")
-
-def terms_appear_in_order(*terms: str) -> bool:
-    cursor = -1
-    for term in terms:
-        cursor = text_lower.find(term, cursor + 1)
-        if cursor == -1:
-            return False
-    return True
-
-if skill == "interview" and not (
-    "already available" in text_lower or "already in session" in text_lower
-    or "already in-session" in text_lower
-    or "already in the session" in text_lower
-    or "already present" in text_lower
-):
-    semantic_failure(f"{skill} deep smoke missing company-context availability marker; got {text!r}")
-
-if skill == "interview" and not (
-    "do not search remote" in text_lower
-    or "should not be searched" in text_lower
-    or ("remote" in text_lower and "not" in text_lower and "search" in text_lower)
-):
-    semantic_failure(f"{skill} deep smoke missing remote-search policy marker; got {text!r}")
-
-plan_reviewer_token = "plan-reviewer" if "plan-reviewer" in text_lower else "plan reviewer"
-
-if skill == "ralplan" and not (
-    "analyst" in text_lower
-    and "planner" in text_lower
-    and plan_reviewer_token in text_lower
-    and (
-        f"analyst -> planner -> {plan_reviewer_token}" in text_lower
-        or f"analyst, planner, {plan_reviewer_token}" in text_lower
-        or f"analyst, planner, and {plan_reviewer_token}" in text_lower
-        or (
-            terms_appear_in_order("analyst", "planner", plan_reviewer_token)
-            and ("first" in text_lower or "then" in text_lower or "sequential" in text_lower)
-        )
-        or (
-            "analyst first" in text_lower
-            and "planner second" in text_lower
-            and f"{plan_reviewer_token} third" in text_lower
-        )
+run_dispatch_live_scenario() {
+  local skill="$1" active_root contract roles sandbox allow require attempt
+  active_root="$(codex_active_plugin_root)"
+  contract="$(dispatch_scenario_contract "$skill")"
+  IFS='|' read -r roles sandbox allow require <<<"$contract"
+  for attempt in 1 2; do
+    local root workspace evidence prompt_file out_file log_file before_file after_file canonical_before canonical_after
+    local session_before session_manifest export_dir session_file
+    local nonce parent_nonce child_json role role_nonce home_before home_after rc class oracle_rc
+    local baseline_head='' baseline_branch=''
+    local canonical_paths=(
+      '.oh-no/plans/task-53-ralplan-probe.md'
+      '.oh-no/sessions/task-53-dispatch-ralplan/planning.md'
+      '.oh-no/sessions/task-53-dispatch-ralph/progress.md'
+      '.oh-no/sessions/task-53-dispatch-ralph/verification.md'
+      'dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/progress.md'
+      'dispatch-fixture/.oh-no/sessions/task-53-dispatch-ralph/verification.md'
+      '.oh-no/worktrees/task-53-dispatch-ralph'
     )
-):
-    semantic_failure(f"{skill} deep smoke missing full consensus ordering marker; got {text!r}")
-
-if skill == "ralplan" and not (
-    plan_reviewer_token in text_lower
-    and ("perspective" in text_lower or "pair" in text_lower)
-    and "blocking" in text_lower
-    and ("v2" in text_lower or "final revision" in text_lower)
-    and (
-        "no re-review" in text_lower
-        or "no further review" in text_lower
-        or "without re-review" in text_lower
-        or "review runs exactly once" in text_lower
-    )
-):
-    semantic_failure(f"{skill} deep smoke missing Plan-Reviewer pair/final-v2/no-re-review marker; got {text!r}")
-
-if skill == "ralplan" and not (
-    "process budget" in text_lower and "named thorough" in text_lower
-):
-    semantic_failure(f"{skill} deep smoke missing proportional process-budget marker; got {text!r}")
-
-if skill == "ralplan" and not (
-    "blocking basis" in text_lower
-    and "non-blocking" in text_lower
-    and "optional" in text_lower
-    and "approve" in text_lower
-    and ("exact reviewed" in text_lower or "exact draft" in text_lower)
-):
-    semantic_failure(f"{skill} deep smoke missing exact-draft freeze/blocking-basis marker; got {text!r}")
-
-if skill == "ralph" and not (
-    "process budget" in text_lower
-    and "cumulative" in text_lower
-    and ("per-story" in text_lower or "per story" in text_lower)
-    and "diff-budget" in text_lower
-    and ("exactly once" in text_lower or "one time" in text_lower)
-    and "before" in text_lower
-    and "review" in text_lower
-):
-    semantic_failure(f"{skill} deep smoke missing process/diff budget timing marker; got {text!r}")
-
-if skill in ("ralplan", "ultrawork") and not (
-    "one review round" in text_plain
-    or "single review round" in text_plain
-    or "single-review-round" in text_plain
-    or "review runs exactly once" in text_plain
-    or "exactly one review round" in text_plain
-):
-    semantic_failure(f"{skill} deep smoke missing single-review-round marker; got {text!r}")
-
-linked_doc_markers = {
-    "ralph": [
-        "Direction Contract",
-        "Mode-Gated Agent Dispatch",
-        "Parallel trigger",
-        "Acceptance-to-evidence ledger",
-    ],
-    "ultrawork": [
-        "Mode source",
-        "Cleanup And Final Verification",
-    ],
+    root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-dispatch-${skill}.XXXXXX")"
+    CODEX_LIVE_TEMP_ROOTS+=("$root")
+    workspace="$root/plugin"; evidence="$root/evidence"; mkdir -p "$workspace" "$evidence"
+    cp -Rp "$active_root/." "$workspace/"
+    nonce="$($PYTHON_BIN -c 'import secrets; print(secrets.token_hex(12))')"
+    parent_nonce="PARENT-$nonce"; child_json='{'; local first=1
+    IFS=',' read -ra expected_roles <<<"$roles"
+    for role in "${expected_roles[@]:-}"; do
+      [[ -n "$role" ]] || continue
+      role_nonce="CHILD-${role#oh-no-}-$nonce"
+      (( first == 1 )) || child_json+=','
+      child_json+="\"$role\":\"$role_nonce\""; first=0
+    done
+    child_json+='}'
+    prepare_dispatch_fixture "$skill" "$workspace" "$parent_nonce"
+    if [[ "$skill" == ralph ]]; then
+      baseline_head="$(git -C "$workspace/dispatch-fixture" rev-parse HEAD)"
+      baseline_branch="$(git -C "$workspace/dispatch-fixture" symbolic-ref -q --short HEAD || printf 'DETACHED')"
+    fi
+    prompt_file="$evidence/prompt.txt"; dispatch_prompt "$skill" "$parent_nonce" "$child_json" >"$prompt_file"
+    out_file="$evidence/result.txt"; log_file="$evidence/events.jsonl"
+    before_file="$evidence/before.json"; after_file="$evidence/after.json"
+    canonical_before="$evidence/canonical-before.json"; canonical_after="$evidence/canonical-after.json"
+    session_before="$evidence/session-before.json"; session_manifest="$evidence/new-sessions.json"
+    export_dir="$RUN_DIR/dispatch-live/$skill/attempt-$attempt"
+    [[ ! -e "$export_dir" && ! -L "$export_dir" ]] || fail "HARD FAIL [$skill] dispatch evidence destination already exists"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-inventory --sessions "$CODEX_HOME_DIR/sessions" --output "$session_before"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" snapshot "$workspace" "$before_file"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" selected-snapshot "$REPO_ROOT" "$canonical_before" "${canonical_paths[@]}"
+    home_before="$(dispatch_home_fingerprint "$CODEX_HOME_DIR")"
+    assert_direct_installed_skill_identity "$workspace" "$skill"
+    local cmd=("$CODEX_BIN" --ask-for-approval never exec --json --cd "$workspace" --sandbox "$sandbox" --skip-git-repo-check --output-last-message "$out_file")
+    [[ -z "$LIVE_MODEL" ]] || cmd+=(--model "$LIVE_MODEL")
+    cmd+=("$(<"$prompt_file")")
+    rc=0; run_sanitized_dispatch_command "$root" "${cmd[@]}" >"$log_file" 2>&1 || rc=$?
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" new-session-manifest --sessions "$CODEX_HOME_DIR/sessions" --before "$session_before" --output "$session_manifest"
+    local -a new_session_files=()
+    while IFS= read -r -d '' session_file; do new_session_files+=("$session_file"); done \
+      < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-paths --sessions "$CODEX_HOME_DIR/sessions" --manifest "$session_manifest")
+    assert_no_codex_live_secret_leak "$CODEX_HOME_DIR/auth.json" "$evidence" "${new_session_files[@]}" \
+      || fail "HARD FAIL [$skill] dispatch evidence secret scan failed"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" export-evidence \
+      --sessions "$CODEX_HOME_DIR/sessions" --manifest "$session_manifest" --destination "$export_dir" \
+      --prompt "$prompt_file" --result "$out_file" --events "$log_file"
+    home_after="$(dispatch_home_fingerprint "$CODEX_HOME_DIR")"
+    [[ "$home_before" == "$home_after" ]] || fail "HARD FAIL [$skill] Codex auth.json, config.json, or agents tree changed"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" selected-snapshot "$REPO_ROOT" "$canonical_after" "${canonical_paths[@]}"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" compare-snapshots --skill "$skill" --before "$canonical_before" --after "$canonical_after"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" snapshot "$workspace" "$after_file"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" mutation --skill "$skill" --before "$before_file" --after "$after_file" --allow "$allow"
+    if [[ "$skill" == ralph ]]; then
+      "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" git-state --skill ralph --repo "$workspace/dispatch-fixture" --head "$baseline_head" --branch "$baseline_branch"
+    fi
+    if [[ "$rc" != 0 ]]; then
+      class="$(direct_smoke_failure_class "$rc" "$log_file")"
+      if [[ "$class" == provider-limited ]]; then printf 'INCONCLUSIVE(provider-limited) - dispatch %s (command rc=%s)\n' "$skill" "$rc" >&2; return 0; fi
+      fail "HARD FAIL [$skill] dispatch invocation failed (rc=$rc)"
+    fi
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" mutation --skill "$skill" --before "$before_file" --after "$after_file" --allow "$allow" --require "$require"
+    oracle_rc=0
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" verify \
+      --events "$log_file" --result "$out_file" --prompt "$prompt_file" --sessions "$CODEX_HOME_DIR/sessions" \
+      --skill "$skill" --plugin "$PLUGIN_NAME" --roles "$roles" \
+      --child-nonces "$child_json" --parent-nonce "$parent_nonce" || oracle_rc=$?
+    if [[ "$oracle_rc" == 0 ]]; then return 0; fi
+    if [[ "$oracle_rc" == 75 && "$attempt" == 1 ]]; then
+      printf 'WARNING [%s] retrying once after dispatch variance\n' "$skill" >&2
+      continue
+    fi
+    return "$oracle_rc"
+  done
 }
 
-if skill in linked_doc_markers and not all(marker.lower() in text_lower for marker in linked_doc_markers[skill]):
-    semantic_failure(f"{skill} deep smoke missing linked-doc marker; got {text!r}")
-
-if skill == "simplify" and not (
-    (
-        "standing" in text_lower
-        and "authorization" in text_lower
-        and "per-run" in text_lower
-        and "subagent" in text_lower
-    )
-    and (
-        ("host" in text_lower and "policy" in text_lower)
-        or "subagent dispatch is unavailable" in text_lower
-        or ("dispatch" in text_lower and "unavailable" in text_lower)
-    )
-):
-    semantic_failure(f"{skill} deep smoke missing standing authorization or host dispatch/fallback policy marker; got {text!r}")
-
-print(f"ok - deep Codex linked-doc smoke: {skill}")
-PY
-}
-
-run_deep_live_skill_test() {
-  local skill="$1"
-  local out_file="$RUN_DIR/deep-${skill}.txt"
-  local log_file="$RUN_DIR/deep-${skill}.log"
-  local prompt
-  prompt="$(deep_prompt_for_skill "$skill")"
-
-  local cmd=(
-    "$CODEX_BIN"
-    --ask-for-approval never
-    exec
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-    --output-last-message "$out_file"
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  cmd+=("$prompt")
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" >"$log_file" 2>&1
-  # Only semantic marker/paraphrase variance is non-gating. Missing, empty, or
-  # malformed artifacts and command/tool failures remain hard failures.
-  local deep_rc=0
-  assert_deep_output "$out_file" "$skill" || deep_rc=$?
-  if [[ "$deep_rc" == "88" ]]; then
-    log "WARN: live deep-smoke for $skill flagged paraphrase/dereference variance (non-gating)"
-  elif [[ "$deep_rc" != "0" ]]; then
-    return "$deep_rc"
-  fi
-}
-
-run_deep_live_tests() {
-  if [[ "$RUN_DEEP_LIVE" != "1" ]]; then
-    log "Skipping deep Codex linked-doc smoke tests"
-    printf 'Run with --deep-live or OH_NO_DEEP_LIVE=1 to verify linked support docs are read.\n' >&2
+run_dispatch_live_tests() {
+  if [[ "$RUN_DISPATCH_LIVE" != "1" ]]; then
+    log "Skipping Codex internal role-dispatch live matrix"
+    printf 'Run with --dispatch-live or OH_NO_DISPATCH_LIVE=1 for the bounded seven-scenario dispatch matrix.\n' >&2
     return
   fi
-
-  log "Running deep Codex linked-doc smoke tests"
   mkdir -p "$RUN_DIR"
-  for skill in interview ralplan ralph ultrawork simplify; do
-    run_deep_live_skill_test "$skill"
+  log "Running minimal Codex internal role-dispatch matrix"
+  local skill
+  for skill in interview ralplan ralph verification-before-completion systematic-debugging auto-routing simplify; do
+    run_dispatch_live_scenario "$skill"
   done
-  ok "deep live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
+  ok "dispatch-live matrix completed (7 parents, nominal 14 total model calls)"
 }
 
-assert_natural_prompt_has_no_explicit_subagent_terms() {
-  local label="$1"
-  local prompt="$2"
-  local prompt_lower
-  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
-  for forbidden in \
-    "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
-    "worker" "agent_type" "role:" "wave" "wait results" "wait_agent" \
-    "close_agent" "clean up" "cleanup" "lifecycle"; do
-    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
-      fail "${label} natural prompt contains explicit subagent authorization term: ${forbidden}"
-    fi
-  done
+run_codex_dispatch_oracle_offline_test() {
+  log "Running offline Codex dispatch-live oracle fixtures"
+  "$PYTHON_BIN" "$SCRIPT_DIR/test-codex-dispatch-live-oracle.py" "$SCRIPT_DIR/codex-dispatch-live-oracle.py"
+  ok "Codex dispatch oracle pins linkage, role, completion, nonce, unexpected-child, and mutation gates"
 }
 
-assert_natural_routing_prompt_shape() {
-  local label="$1"
-  local prompt="$2"
-  local prompt_lower
-  prompt_lower="$(printf '%s' "$prompt" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
-  for forbidden in \
-    "oh-no-harness" "using-oh-no-harness" "interview" "ralplan" "ralph" \
-    "ultrawork" "auto-routing" "test-driven-development" "simplify" \
-    "verification-before-completion" "systematic-debugging" "fusion-rescue" \
-    "skills/" "skills-claude/" "commands/" "skill.md"; do
-    if [[ "$prompt_lower" == *"$forbidden"* ]]; then
-      fail "${label} natural routing prompt names an expected skill/plugin/command path: ${forbidden}"
-    fi
-  done
-}
+run_codex_dispatch_evidence_offline_test() {
+  log "Running offline Codex dispatch evidence export fixtures"
+  local root home evidence before manifest destination session_file secret
+  local -a new_sessions=()
+  root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-dispatch-evidence.XXXXXX")"
+  home="$root/home"; evidence="$root/evidence"; mkdir -p "$home/sessions/preexisting" "$evidence"
+  secret="$(printf 'fixture-dispatch-%s-%012d' 'secret' 1)"
+  printf '{"access_token":"%s"}\n' "$secret" >"$home/auth.json"
+  printf 'model = "fixture"\n' >"$home/config.toml"
+  printf '%s\n' '{"type":"session_meta","payload":{"id":"old"}}' >"$home/sessions/preexisting/old.jsonl"
+  before="$root/before.json"; manifest="$root/new.json"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-inventory --sessions "$home/sessions" --output "$before"
+  mkdir -p "$home/sessions/new/parent" "$home/sessions/new/child"
+  printf '%s\n' '{"type":"session_meta","payload":{"id":"parent"}}' >"$home/sessions/new/parent/rollout.jsonl"
+  printf '%s\n' '{"type":"session_meta","payload":{"id":"child"}}' >"$home/sessions/new/child/rollout.jsonl"
+  ln -s "$home/auth.json" "$home/sessions/new/credential.jsonl"
+  printf 'prompt\n' >"$evidence/prompt.txt"; printf 'result\n' >"$evidence/result.txt"; printf '{}\n' >"$evidence/events.jsonl"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" new-session-manifest --sessions "$home/sessions" --before "$before" --output "$manifest"
+  while IFS= read -r -d '' session_file; do new_sessions+=("$session_file"); done \
+    < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-paths --sessions "$home/sessions" --manifest "$manifest")
+  assert_no_codex_live_secret_leak "$home/auth.json" "$evidence" "${new_sessions[@]}" \
+    || { rm -rf "$root"; fail "safe dispatch evidence fixture failed secret scan"; }
+  destination="$root/export/attempt-1"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" export-evidence \
+    --sessions "$home/sessions" --manifest "$manifest" --destination "$destination" \
+    --prompt "$evidence/prompt.txt" --result "$evidence/result.txt" --events "$evidence/events.jsonl"
+  [[ -f "$destination/sessions/new/parent/rollout.jsonl" && -f "$destination/sessions/new/child/rollout.jsonl" \
+      && ! -e "$destination/sessions/preexisting/old.jsonl" && ! -e "$destination/sessions/new/credential.jsonl" \
+      && ! -e "$destination/auth.json" && ! -e "$destination/config.toml" ]] \
+    || { rm -rf "$root"; fail "dispatch evidence export included the wrong files"; }
 
-run_natural_prompt_guard_offline_test() {
-  log "Running offline Codex natural-prompt causality guard fixtures"
-  local allowed_prompt case_id forbidden object_prompt prompt routing_prompt
-  local routing_prompts=(
-    "I have an idea for making this developer tool easier to adopt, but I have not decided the users, constraints, or acceptance criteria. Help me work out the requirements."
-    "Take this broad goal from unclear requirements through implementation and final evidence autonomously; manage the whole end-to-end delivery without asking me to choose each stage."
-    "Implement the approved timeout change and verify each acceptance criterion without widening the scope."
-    "A regression appears intermittently after startup. Determine the root cause before proposing a fix."
-    "Use a failing test first, then make the smallest production change and rerun the focused checks."
-    "Compare the current planning workflow with the proposed design and return an analysis report only."
-    "The startup regression has a confirmed cause in the request parser and the exact executable source file is identified. Apply the localized fix and verify the supplied acceptance criteria without reopening root-cause investigation."
-    "Fix one typo in a private inert notes file that is not generated or consumed by tooling, then show the diff."
-    "The requirements document is approved. Present the available approval choices before moving to execution."
-  )
-  allowed_prompt="Read the repository facts, assess the requested outcome, and summarize the evidence without editing files."
-  assert_natural_prompt_has_no_explicit_subagent_terms "allowed-fixture" "$allowed_prompt"
-  assert_natural_routing_prompt_shape "allowed-fixture" "$allowed_prompt"
-  for routing_prompt in "${routing_prompts[@]}"; do
-    assert_natural_prompt_has_no_explicit_subagent_terms "routing-fixture" "$routing_prompt"
-    assert_natural_routing_prompt_shape "routing-fixture" "$routing_prompt"
-  done
-  for case_id in "vague requirements" "autonomous end-to-end" "ordinary implementation" \
-    "explicit test-first" "unknown-cause failure" "known-cause fix" "plan-only/pending approval" \
-    "no-route research" "direct-edit eligible" "direct-edit ineligible"; do
-    prompt="$(natural_session_start_prompt_for_skill "$case_id")"
-    assert_natural_prompt_has_no_explicit_subagent_terms "$case_id" "$prompt"
-    assert_natural_routing_prompt_shape "$case_id" "$prompt"
-  done
-  object_prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
-  assert_natural_prompt_has_no_explicit_subagent_terms "object analysis" "$object_prompt"
-  [[ "$object_prompt" == *"Ralplan"* && "$object_prompt" != *"/"* && "$object_prompt" != *"SKILL.md"* ]] \
-    || fail "object-analysis prompt escaped its bounded workflow-subject exception"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-inventory --sessions "$home/sessions" --output "$before"
+  mkdir -p "$home/sessions/retry"; printf '%s\n' '{"type":"session_meta","payload":{"id":"retry"}}' >"$home/sessions/retry/rollout.jsonl"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" new-session-manifest --sessions "$home/sessions" --before "$before" --output "$manifest"
+  new_sessions=()
+  while IFS= read -r -d '' session_file; do new_sessions+=("$session_file"); done \
+    < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-paths --sessions "$home/sessions" --manifest "$manifest")
+  assert_no_codex_live_secret_leak "$home/auth.json" "$evidence" "${new_sessions[@]}" \
+    || { rm -rf "$root"; fail "retry dispatch evidence fixture failed secret scan"; }
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" export-evidence \
+    --sessions "$home/sessions" --manifest "$manifest" --destination "$root/export/attempt-2" \
+    --prompt "$evidence/prompt.txt" --result "$evidence/result.txt" --events "$evidence/events.jsonl"
+  [[ -f "$root/export/attempt-1/sessions/new/parent/rollout.jsonl" && -f "$root/export/attempt-2/sessions/retry/rollout.jsonl" ]] \
+    || { rm -rf "$root"; fail "dispatch evidence retry destinations were not separate"; }
 
-  for forbidden in \
-    "subagent" "sub-agent" "spawn" "delegate" "delegation" "parallel agent" \
-    "worker" "agent_type" "role:" "wave" "wait results" "wait_agent" \
-    "close_agent" "clean up" "cleanup" "lifecycle"; do
-    if (
-      assert_natural_prompt_has_no_explicit_subagent_terms \
-        "forbidden-fixture" "Read facts, then ${forbidden}, then summarize."
-    ) >/dev/null 2>&1; then
-      fail "Codex natural-prompt guard missed forbidden fixture: ${forbidden}"
-    fi
-  done
-  ok "Codex natural-prompt guard accepts outcome-only prose and rejects dispatch mechanics"
-}
-
-natural_source_checkout_fingerprint() {
-  local root="$1"
-  {
-    printf 'UNSTAGED\0'; git -C "$root" diff --binary
-    printf '\0STAGED\0'; git -C "$root" diff --cached --binary
-    printf '\0UNTRACKED\0'
-    git -C "$root" ls-files --others --exclude-standard -z | "$PYTHON_BIN" -c 'import os,sys
-root=os.fsencode(sys.argv[1]); paths=sorted(filter(None,sys.stdin.buffer.read().split(b"\0")))
-for rel in paths:
- p=os.path.join(root,rel); link=os.path.islink(p)
- if not link and not os.path.isfile(p): raise SystemExit("unsupported untracked entry: "+os.fsdecode(rel))
- data=os.fsencode(os.readlink(p)) if link else open(p,"rb").read()
- sys.stdout.buffer.write(len(rel).to_bytes(8,"big")+rel+(b"L" if link else b"F")+len(data).to_bytes(8,"big")+data)' "$root"
-  } | shasum -a 256
-}
-
-natural_git_fixture() {
-  local root="$1" label="$2" mode="${3:-initialize}" status
-  case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") ;; *) return 0 ;; esac
-  if [[ "$mode" == initialize ]]; then
-    git -C "$root" init -q; git -C "$root" config user.name oh-no-fixture; git -C "$root" config user.email fixture@example.invalid
-    git -C "$root" add .; git -C "$root" commit -qm baseline
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-inventory --sessions "$home/sessions" --output "$before"
+  mkdir -p "$home/sessions/unsafe"; printf '{"message":"%s"}\n' "$secret" >"$home/sessions/unsafe/rollout.jsonl"
+  "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" new-session-manifest --sessions "$home/sessions" --before "$before" --output "$manifest"
+  new_sessions=()
+  while IFS= read -r -d '' session_file; do new_sessions+=("$session_file"); done \
+    < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-paths --sessions "$home/sessions" --manifest "$manifest")
+  if assert_no_codex_live_secret_leak "$home/auth.json" "$evidence" "${new_sessions[@]}" >/dev/null 2>&1; then
+    rm -rf "$root"; fail "unsafe dispatch evidence passed the secret scanner"
   fi
-  git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label fixture is not an actual Git checkout"
-  status="$(git -C "$root" status --porcelain)"; [[ -z "$status" ]] || fail "$label fixture is dirty before launch: $status"
+  [[ ! -e "$root/export/attempt-3" ]] || { rm -rf "$root"; fail "unsafe dispatch evidence was exported"; }
+  rm -rf "$root"
+  ok "dispatch evidence exports only new safe session JSONL files into separate attempts"
 }
-natural_payload_changes() { diff -qr -x .git "$1" "$2" || true; }
-run_natural_git_fixture_offline_test() {
-  log "Running offline Codex natural Git-fixture guards"
-  local root label dir direct before changes; root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-git-fixtures.XXXXXX")"; trap 'rm -rf "$root"' RETURN
-  for label in "autonomous end-to-end" "ordinary implementation" "explicit test-first" "unknown-cause failure" "known-cause fix" "direct-edit eligible" "direct-edit ineligible" "vague requirements" "plan-only/pending approval" "no-route research" "object analysis"; do
-    dir="$root/${label//[ \/]/-}"; mkdir -p "$dir"; printf 'fixture\n' >"$dir/fixture.txt"; natural_git_fixture "$dir" "$label"
-    case "$label" in "autonomous end-to-end"|"ordinary implementation"|"explicit test-first"|"unknown-cause failure"|"known-cause fix"|"direct-edit eligible"|"direct-edit ineligible") [[ -z "$(git -C "$dir" status --porcelain)" ]] || fail "$label fixture was not clean" ;; *) ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$label unexpectedly became a Git fixture" ;; esac
-  done
-  dir="$root/ordinary-implementation"; printf 'dirty\n' >>"$dir/fixture.txt"; if (natural_git_fixture "$dir" "ordinary implementation" verify) >/dev/null 2>&1; then fail "dirty selected Codex fixture passed its pre-launch guard"; fi
-  direct="$root/direct-containment"; before="$root/direct-before"; mkdir -p "$direct/notes" "$before"; printf 'Keep teh private note concise.\n' >"$direct/notes/private-notes.md"; natural_git_fixture "$direct" "direct-edit eligible"; cp -R "$direct/." "$before/"
-  git -C "$direct" config fixture.metadata changed; [[ -z "$(natural_payload_changes "$before" "$direct")" ]] || fail ".git-only Codex metadata counted as payload mutation"
-  printf 'Keep the private note concise.\n' >"$direct/notes/private-notes.md"; changes="$(natural_payload_changes "$before" "$direct")"
-  [[ "$(printf '%s\n' "$changes" | grep -c .)" == 1 && "$changes" == *"notes/private-notes.md"* ]] || fail "Codex direct-edit containment lost its exact one-file payload boundary: $changes"
-  rm -rf "$root"; trap - RETURN; ok "Codex selected natural fixtures are clean Git checkouts and payload diffs exclude .git"
+
+run_cross_host_oracle_offline_test() {
+  log "Running offline Codex -> Claude transport oracle fixtures"
+  "$PYTHON_BIN" "$SCRIPT_DIR/test-cross-host-live-oracle.py" "$SCRIPT_DIR/cross-host-live-oracle.py"
+  ok "cross-host oracle pins launcher, terminal, nested Read/result, semantic, mutation, and secret gates"
 }
-natural_session_start_prompt_for_skill() {
-  case "$1" in
-    "vague requirements") cat <<'PROMPT'
-I have an idea for improving the small tool described in README.md, but I have not decided its users, constraints, or acceptance criteria. Inspect the repository facts, then help me work out the requirements without changing files.
-PROMPT
-      ;;
-    "autonomous end-to-end") printf '%s\n' 'Approved synthetic low-risk internal goal: take the broad improvement goal in README.md from unclear requirements through implementation and final evidence autonomously. This message is the complete approved requirements source. Manage the whole end-to-end delivery without asking me to choose each stage. No product, architecture, public-contract, security, migration, concurrency, or release decision is in scope.' ;;
-    "ordinary implementation") printf '%s\n' 'Update the runtime-consumed executable src/timeout.sh so TIMEOUT is 10 instead of 5. Acceptance criteria: run.sh prints TIMEOUT=10, existing behavior stays scoped to that value, and focused checks pass.' ;;
-    "explicit test-first") printf '%s\n' 'Change the runtime-consumed executable src/timeout.sh so TIMEOUT is 10. Use RED/GREEN/REFACTOR: add or update the focused failing test first, show its failure, make the smallest production change, and rerun it.' ;;
-    "unknown-cause failure") printf '%s\n' 'Running tests/startup_test.sh currently fails and the root cause is unknown. Reproduce the failure, determine the cause from evidence, apply the smallest justified fix, and rerun the focused check.' ;;
-    "known-cause fix") printf '%s\n' 'The confirmed cause is the misspelled MODE value in runtime-consumed executable src/parser.sh; the exact fix is MODE=fast. Apply that localized change and verify tests/parser_test.sh without reopening root-cause investigation.' ;;
-    "plan-only/pending approval") printf '%s\n' 'Prepare an approval-ready cross-file implementation plan for the concrete two-shell-file contract in README.md covering src/alpha.sh and src/beta.sh. Do not edit source or execute changes. Leave execution pending and present the next approval actions after the plan.' ;;
-    "no-route research") printf '%s\n' 'Read README.md and explain how this disposable example is structured. Return the answer only; do not create files or change the project.' ;;
-    "direct-edit eligible") printf '%s\n' 'Fix the one obvious "teh" typo in notes/private-notes.md and show the diff. This private prose file is inert, non-generated, non-operational, not consumed by build/test/CI, and has no security, permission, migration, or public-contract effect.' ;;
-    "direct-edit ineligible") printf '%s\n' 'Fix the one "teh" typo printed by executable src/status.sh and verify tests/status_test.sh. This file is runtime-consumed source, so do not take a prose-only shortcut.' ;;
-    *) fail "No natural Codex prompt for case: $1" ;;
-  esac
-}
-assert_natural_role_spawn_smoke() {
-  local out_file="$1" err_file="$2" label="$3" live_home="$4"
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$label" "$live_home" <<'PY'
-import json, re, sys; from pathlib import Path
-out_path, err_path, label, live_home = sys.argv[1:5]
-def collect_text(value):
-    return value if isinstance(value, str) else "\n".join(map(collect_text, value.values())) if isinstance(value, dict) else "\n".join(map(collect_text, value)) if isinstance(value, list) else ""
-rows = [json.loads(line) for line in Path(out_path).read_text(encoding="utf-8").splitlines() if line.strip()]
-err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
-failure_markers = ("spawn failed", "unknown agent_type", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items")
-failed_events = [collect_text(data) for data in rows if ((data.get("item") or {}).get("type") == "collab_tool_call" and (data.get("item") or {}).get("tool") == "spawn_agent" and (data.get("item") or {}).get("status") == "failed") or data.get("type") in {"error", "turn.failed"}]
-if failed_events or any(marker in err_text.lower() for marker in failure_markers): raise SystemExit(f"{label} natural named-agent transport saw spawn/protocol failure: {(err_text + chr(10).join(failed_events))[:2000]!r}")
-parents = {data.get("thread_id") for data in rows if data.get("type") == "thread.started" and isinstance(data.get("thread_id"), str) and data.get("thread_id")}
-if len(parents) != 1: raise SystemExit(f"{label} natural named-agent transport expected one valid parent thread identity, got {parents!r}")
-parent = next(iter(parents)); parent_outputs = [collect_text((data.get("item") or {}).get("text") or data.get("result")).strip() for data in rows if (data.get("item") or {}).get("type") == "agent_message" or data.get("result")]
-if not any(parent_outputs): raise SystemExit(f"{label} natural named-agent transport lacked a non-empty parent final response")
-children = []
-for path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-    child_rows = [json.loads(line) for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
-    meta = next((row.get("payload") or {} for row in child_rows if row.get("type") == "session_meta"), {}); source = meta.get("source") if isinstance(meta.get("source"), dict) else {}; subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}; spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-    if (meta.get("parent_thread_id") or spawn.get("parent_thread_id")) != parent: continue
-    role = meta.get("agent_role") or spawn.get("agent_role")
-    if not isinstance(role, str) or re.fullmatch(r"oh-no-[a-z0-9][a-z0-9-]*", role) is None: raise SystemExit(f"{label} natural child {path} lacked registered host agent_role metadata: {role!r}")
-    completed = [collect_text((row.get("payload") or {}).get("last_agent_message")).strip() for row in child_rows if row.get("type") == "event_msg" and (row.get("payload") or {}).get("type") == "task_complete"]
-    if not completed or not any(completed): raise SystemExit(f"{label} natural child {path} lacked task_complete with non-empty final output")
-    children.append((str(path), role))
-if not children: raise SystemExit(f"{label} natural named-agent transport found no parent-linked child sessions")
-print(f"ok - {label} mechanical named-agent transport hard facts captured")
+
+validate_cross_host_budget() {
+  "$PYTHON_BIN" - "$CROSS_HOST_MAX_BUDGET_USD" <<'PY'
+from decimal import Decimal, InvalidOperation
+import sys
+
+try:
+    value = Decimal(sys.argv[1])
+except InvalidOperation:
+    raise SystemExit("cross-host Claude budget must be numeric")
+if not value.is_finite() or value <= 0 or value > Decimal("3.00"):
+    raise SystemExit("cross-host Claude budget must be greater than 0 and no more than 3.00")
 PY
 }
-assert_codex_natural_activation_smoke() {
-  local out_file="$1" err_file="$2" final_file="$3" label="$4" expected_route="$5" project_root="${6:-}"
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" "$label" "$expected_route" "$CODEX_HOME_DIR" "$project_root" <<'PY'
-import json, re, sys
+
+prepare_cross_host_fixture() {
+  local workspace="$1" receiver_nonce="$2" launcher="$workspace/dispatch-fixture/invoke-claude.py"
+  mkdir -p "$workspace/dispatch-fixture"
+  cat >"$workspace/dispatch-fixture/receiver-input.txt" <<EOF
+receiver_nonce=$receiver_nonce
+acceptance=non-idempotent payment capture must never be automatically retried
+retry_non_idempotent_payment_capture=true
+EOF
+  "$PYTHON_BIN" - "$launcher" "$CROSS_HOST_MAX_BUDGET_USD" <<'PY'
+import sys
 from pathlib import Path
-out_path, err_path, final_path, label, expected, live_home, project_root = sys.argv[1:8]
-workflows = {"interview", "ralplan", "ralph", "ultrawork", "auto-routing", "test-driven-development", "simplify", "verification-before-completion", "systematic-debugging", "fusion-rescue"}
-wrapper_read_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)\b[^;&|\n]*" r"(?P<path>/[^\s'\";&|<>]*/skills/(?P<route>[a-z0-9-]+)/SKILL[.]md)(?=$|[\s'\";&|<>])")
-read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less|nl)(?:\s|$)")
+
+path = Path(sys.argv[1])
+budget = sys.argv[2]
+source = f'''#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+
+argv = [
+    os.environ.get("CLAUDE_BIN", "claude"),
+    "--print",
+    "--verbose",
+    "--output-format", "stream-json",
+    "--model", "sonnet",
+    "--max-budget-usd", {budget!r},
+    "--permission-mode", "dontAsk",
+    "--tools", "Read",
+    "--no-session-persistence",
+    (
+        "Read only dispatch-fixture/receiver-input.txt. Return a concise receiver "
+        "finding containing exactly the receiver identity 'Receiver: claude-code', "
+        "the receiver nonce read from that file, the exact conflicting setting, and "
+        "whether the setting violates the acceptance rule. Do not infer fixture values "
+        "without the Read result."
+    ),
+]
+result = subprocess.run(argv, capture_output=True, text=True, timeout=240)
+print(result.stdout, end="")
+if result.stderr:
+    print(result.stderr, end="", file=sys.stderr)
+raise SystemExit(result.returncode)
+'''
+path.write_text(source, encoding="utf-8")
+path.chmod(0o700)
+PY
+}
+
+cross_host_prompt() {
+  local parent_nonce="$1"
+  printf '%s\n' \
+    "This is a direct transport smoke from one Codex parent to Claude Code. Do not invoke any skill, workflow, agent, subagent, collaboration tool, fallback, panel, or edit. Execute exactly this command once and no other command: python3 dispatch-fixture/invoke-claude.py. Wait for its terminal output. Then report parent nonce $parent_nonce plus the receiver result, and stop."
+}
+
+run_cross_host_live_test() {
+  if [[ "$RUN_CROSS_HOST_LIVE" != "1" ]]; then
+    log "Skipping Codex -> Claude direct transport live smoke"
+    printf 'Run with --cross-host-live or OH_NO_CROSS_HOST_LIVE=1 for the bounded direct transport smoke.\n' >&2
+    return
+  fi
+  validate_cross_host_budget || fail "invalid cross-host Claude budget: $CROSS_HOST_MAX_BUDGET_USD"
+  mkdir -p "$RUN_DIR"
+  local active_root attempt
+  active_root="$(codex_active_plugin_root)"
+  for attempt in 1 2; do
+    local root workspace evidence claude_config prompt_file result_file events_file before after
+    local session_before session_manifest export_dir session_file rc oracle_rc parent_nonce receiver_nonce
+    local -a new_session_files=()
+    root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-cross-host.XXXXXX")"
+    CODEX_LIVE_TEMP_ROOTS+=("$root")
+    workspace="$root/workspace"; evidence="$root/evidence"; claude_config="$root/claude-config"
+    mkdir -p "$workspace" "$evidence" "$claude_config"
+    cp -Rp "$active_root/." "$workspace/"
+    parent_nonce="PARENT-$($PYTHON_BIN -c 'import secrets; print(secrets.token_hex(12))')"
+    receiver_nonce="RECEIVER-$($PYTHON_BIN -c 'import secrets; print(secrets.token_hex(12))')"
+    prepare_cross_host_fixture "$workspace" "$receiver_nonce"
+    prompt_file="$evidence/prompt.txt"; cross_host_prompt "$parent_nonce" >"$prompt_file"
+    result_file="$evidence/result.txt"; events_file="$evidence/events.jsonl"
+    before="$evidence/protected-before.json"; after="$evidence/protected-after.json"
+    session_before="$evidence/session-before.json"; session_manifest="$evidence/new-sessions.json"
+    export_dir="$RUN_DIR/cross-host-live/attempt-$attempt"
+    [[ ! -e "$export_dir" && ! -L "$export_dir" ]] || fail "HARD FAIL [cross-host-live] evidence destination already exists"
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-inventory \
+      --sessions "$CODEX_HOME_DIR/sessions" --output "$session_before"
+    "$PYTHON_BIN" "$SCRIPT_DIR/cross-host-live-oracle.py" snapshot --output "$before" \
+      --root "workspace=$workspace" \
+      --root "canonical=$REPO_ROOT" --exclude .git --exclude .oh-no \
+      --root "codex-auth=$CODEX_HOME_DIR/auth.json" \
+      --root "codex-config-json=$CODEX_HOME_DIR/config.json" \
+      --root "codex-agents=$CODEX_HOME_DIR/agents" \
+      --root "real-claude-config=$HOME/.claude" \
+      --root "real-claude-state=$HOME/.claude.json"
+    local cmd=("$CODEX_BIN" --ask-for-approval never exec --json --cd "$workspace" \
+      --sandbox danger-full-access --skip-git-repo-check --output-last-message "$result_file")
+    [[ -z "$LIVE_MODEL" ]] || cmd+=(--model "$LIVE_MODEL")
+    cmd+=("$(<"$prompt_file")")
+    rc=0
+    CLAUDE_CONFIG_DIR="$claude_config" run_sanitized_dispatch_command "$root" "${cmd[@]}" \
+      >"$events_file" 2>&1 || rc=$?
+    "$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" new-session-manifest \
+      --sessions "$CODEX_HOME_DIR/sessions" --before "$session_before" --output "$session_manifest"
+    while IFS= read -r -d '' session_file; do new_session_files+=("$session_file"); done \
+      < <("$PYTHON_BIN" "$SCRIPT_DIR/codex-dispatch-live-oracle.py" session-paths \
+        --sessions "$CODEX_HOME_DIR/sessions" --manifest "$session_manifest")
+    "$PYTHON_BIN" "$SCRIPT_DIR/cross-host-live-oracle.py" snapshot --output "$after" \
+      --root "workspace=$workspace" \
+      --root "canonical=$REPO_ROOT" --exclude .git --exclude .oh-no \
+      --root "codex-auth=$CODEX_HOME_DIR/auth.json" \
+      --root "codex-config-json=$CODEX_HOME_DIR/config.json" \
+      --root "codex-agents=$CODEX_HOME_DIR/agents" \
+      --root "real-claude-config=$HOME/.claude" \
+      --root "real-claude-state=$HOME/.claude.json"
+    assert_codex_live_home_provenance "$CODEX_HOME_DIR" \
+      || fail "HARD FAIL [cross-host-live] source Codex home provenance changed"
+    assert_no_codex_live_secret_leak "$CODEX_HOME_DIR/auth.json" "$evidence" "${new_session_files[@]}" \
+      || fail "HARD FAIL [cross-host-live] evidence secret scan failed"
+    "$PYTHON_BIN" "$SCRIPT_DIR/cross-host-live-oracle.py" export-evidence \
+      --events "$events_file" --result "$result_file" --prompt "$prompt_file" \
+      --sessions "$CODEX_HOME_DIR/sessions" --session-manifest "$session_manifest" \
+      --destination "$export_dir"
+    [[ "$rc" == 0 ]] || fail "HARD FAIL [cross-host-live] outer Codex command failed (rc=$rc)"
+    oracle_rc=0
+    "$PYTHON_BIN" "$SCRIPT_DIR/cross-host-live-oracle.py" verify \
+      --events "$events_file" --result "$result_file" \
+      --sessions "$CODEX_HOME_DIR/sessions" --session-manifest "$session_manifest" \
+      --parent-nonce "$parent_nonce" --receiver-nonce "$receiver_nonce" \
+      --workspace "$workspace" --before "$before" --after "$after" || oracle_rc=$?
+    if [[ "$oracle_rc" == 0 ]]; then
+      ok "cross-host-live direct transport completed"
+      return
+    fi
+    if [[ "$oracle_rc" == 75 && "$attempt" == 1 ]]; then
+      printf 'WARNING [cross-host-live] retrying once after missing, wrong, or duplicate launcher dispatch\n' >&2
+      continue
+    fi
+    return "$oracle_rc"
+  done
+}
+
+run_codex_safety_extraction_offline_test() {
+  log "Running offline Codex safety-extraction guards"
+  # The live safety inspectors used to match only `function_call` /
+  # `command_execution` and only ONE command per event. Today's shape is a
+  # `custom_tool_call` named `exec` whose input batches several
+  # tools.exec_command(...) calls, so a forbidden write in the second embedded
+  # command -- or in any child custom_tool_call at all -- was never inspected.
+  # These fixtures pin the canonical shared extractor's behaviour directly.
+  "$PYTHON_BIN" - "$SELF_PATH" <<'PY'
+import json, re, sys, subprocess, pathlib
+source = pathlib.Path(sys.argv[1]).read_text()
+start = source.index("codex_oracle_shared_helpers() {")
+end = source.index("SHARED_HELPERS_PY\n}", start)
+head = "  cat <<'SHARED_HELPERS_PY'\n"
+block = source[start:end]
+helpers = block[block.index(head) + len(head):]
+ns = {}
+exec("import json, re\n" + helpers, ns)
+inspect = ns["safety_inspectable_commands"]
+bearing = ns["event_is_command_bearing"]
+reads_readme = ns["reads_readme_command"]
+retained_result = ns["retained_output_result"]
+assert reads_readme("nl -ba README.md")
+assert not reads_readme("echo README.md")
+assert retained_result("Process exited with code 0\nOutput:\ncontent\n") == (0, "content\n")
+assert retained_result("Process exited with code 1\nOutput:\nmissing\n") == (1, "missing\n")
+
+FORBIDDEN = [re.compile(p) for p in (
+    r"\btouch\b", r"\brm\b", r"\bsed\s+-i\b", r"\bmv\b", r"\bcp\b",
+    r"\bapply_patch\b", r">\s*\S", r"\bchmod\b",
+)]
+EGRESS = [re.compile(r"\bclaude\b"), re.compile(r"\bcodex\b")]
+
+def child(inp, call_id="c1"):
+    return {"payload": {"type": "custom_tool_call", "name": "exec",
+                        "call_id": call_id, "input": inp}}
+def parent(command):
+    return {"item": {"type": "command_execution", "id": "p1", "command": command}}
+def fcall(cmd):
+    return {"payload": {"type": "function_call", "name": "exec_command",
+                        "call_id": "f1", "arguments": json.dumps({"cmd": cmd})}}
+
+def js(*commands, capture=None):
+    lines = []
+    for index, command in enumerate(commands, 1):
+        lines.append('const r%d = await tools.exec_command({"cmd":"%s"});' % (index, command))
+    lines.append("text(r%d.output);" % (capture or len(commands)))
+    return "\n".join(lines) + "\n"
+
+failures = []
+def check(label, event, want_forbidden, want_egress, want_commands=None):
+    commands = inspect(event)
+    is_bearing = bearing(event)
+    hit_f = is_bearing and any(p.search(c) for c in commands for p in FORBIDDEN)
+    hit_e = is_bearing and any(p.search(c) for c in commands for p in EGRESS)
+    problems = []
+    if hit_f != want_forbidden:
+        problems.append(f"forbidden={hit_f} want={want_forbidden}")
+    if hit_e != want_egress:
+        problems.append(f"egress={hit_e} want={want_egress}")
+    if want_commands is not None and commands != want_commands:
+        problems.append(f"commands={commands!r} want={want_commands!r}")
+    if problems:
+        failures.append(f"{label}: " + "; ".join(problems))
+
+# --- child custom_tool_call shape: each forbidden write must be caught ---
+check("child touch", child(js("touch src/status.sh")), True, False)
+check("child rm", child(js("rm -rf src")), True, False)
+check("child sed -i", child(js("sed -i s/a/b/ README.md")), True, False)
+check("child redirect", child(js("printf x > src/status.sh")), True, False)
+# --- host egress in the child shape ---
+check("child claude egress", child(js("claude -p hello")), False, True)
+check("child codex egress", child(js("codex exec hi")), False, True)
+# --- safe reads must not trip either guard ---
+check("child safe read", child(js("nl -ba README.md")), False, False)
+check("child safe cat", child(js("cat src/status.sh")), False, False)
+# --- BATCHED: violation in the SECOND embedded command ---
+check("batched second violation",
+      child(js("nl -ba README.md", "rm -rf src")), True, False,
+      ["nl -ba README.md", "rm -rf src"])
+check("batched egress second",
+      child(js("nl -ba README.md", "claude -p x")), False, True,
+      ["nl -ba README.md", "claude -p x"])
+# --- missing output: safety must still inspect the ISSUED command ---
+missing = {"payload": {"type": "custom_tool_call", "name": "exec",
+                       "call_id": "no-output", "input": js("rm -rf src")}}
+check("violation with no retained output", missing, True, False)
+# --- a command whose read credit would fail closed is STILL inspected ---
+unowned = child('const r = placeholder\nawait tools.exec_command({"cmd":"sed -i s/a/b/ README.md"});\ntext(r.output);\n')
+check("unowned mutation still inspected", unowned, True, False,
+      ["sed -i s/a/b/ README.md"])
+branchy = child('let r;\nif (f) { r = await tools.exec_command({"cmd":"rm -rf src"}); }\ntext(r.output);\n')
+check("branch-ambiguous mutation still inspected", branchy, True, False)
+# --- parent and function_call shapes keep working ---
+check("parent touch", parent("touch src/status.sh"), True, False)
+check("parent safe read", parent("nl -ba README.md"), False, False)
+check("function_call rm", fcall("rm -rf src"), True, False)
+check("function_call safe", fcall("cat README.md"), False, False)
+# --- prose that is not a call must not manufacture a violation ---
+check("prose only", child('// rm -rf src\ntext("done");\n'), False, False, [])
+check("regex literal only",
+      child('const re = /await tools.exec_command({"cmd":"rm -rf src"})/;\n'), False, False, [])
+
+if failures:
+    raise SystemExit("safety-extraction fixtures failed:\n  " + "\n  ".join(failures))
+print("ok - safety extraction inspects every issued command in every observed shape")
+PY
+  ok "Codex safety inspectors use canonical shared extraction for all shapes"
+}
+run_codex_install_identity_offline_test() (
+  log "Running offline Codex installed-identity response and lifecycle guards"
+  local root response record rc unsafe
+  root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-install-identity.XXXXXX")"
+  trap 'rm -rf "$root"' EXIT
+  response="$root/post-install-plugin-read.json"
+  record="$root/installed-plugin-version.txt"
+
+  printf '%s\n' '{"plugin":{"summary":{"installed":true,"localVersion":"2.1.0"}}}' >"$response"
+  printf '%s\n' '9.9.9' >"$record"
+  codex_record_installed_identity "$response" "$record" \
+    || fail "Codex installed-identity validator rejected the current nested PluginReadResponse shape"
+  [[ "$(<"$record")" == "2.1.0" && ! -e "$root/installed-plugin-version.tmp" ]] \
+    || fail "Codex installed-identity validator did not atomically replace a stale record"
+
+  printf '%s\n' '{"plugin":{"summary":{"installed":false,"localVersion":"2.1.0"}}}' >"$response"
+  rm -f "$record"; rc=0
+  codex_record_installed_identity "$response" "$record" >/dev/null 2>&1 || rc=$?
+  [[ "$rc" != 0 && ! -e "$record" ]] \
+    || fail "Codex installed-identity validator accepted summary.installed=false"
+
+  printf '%s\n' '{"plugin":{"summary":{"installed":true}}}' >"$response"
+  rc=0; codex_record_installed_identity "$response" "$record" >/dev/null 2>&1 || rc=$?
+  [[ "$rc" != 0 && ! -e "$record" ]] \
+    || fail "Codex installed-identity validator accepted a missing summary.localVersion"
+
+  for unsafe in '..' '../outside' '/tmp/outside' '2.1.0/other' '2.1.0\\other'; do
+    "$PYTHON_BIN" - "$response" "$unsafe" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+path.write_text(json.dumps({"plugin": {"summary": {"installed": True, "localVersion": sys.argv[2]}}}), encoding="utf-8")
+PY
+    rc=0; codex_record_installed_identity "$response" "$record" >/dev/null 2>&1 || rc=$?
+    [[ "$rc" != 0 && ! -e "$record" ]] \
+      || fail "Codex installed-identity validator accepted unsafe localVersion $unsafe"
+  done
+
+  # A reused process and RUN_DIR may carry both in-memory and on-disk identity. The
+  # attempt boundary clears all of it BEFORE a simulated first install action fails.
+  RUN_DIR="$root/reused-run"; mkdir -p "$RUN_DIR"
+  printf '%s\n' '2.1.0' >"$RUN_DIR/installed-plugin-version.txt"
+  printf '%s\n' 'partial' >"$RUN_DIR/installed-plugin-version.tmp"
+  printf '%s\n' '{}' >"$RUN_DIR/post-install-plugin-read.json"
+  printf '%s\n' 'partial' >"$RUN_DIR/post-install-plugin-read.tmp"
+  CODEX_INSTALLED_PLUGIN_VERSION="2.1.0"
+  CODEX_ACTIVE_PLUGIN_ROOT="$root/stale-root"
+  codex_begin_install_attempt
+  rc=0; false || rc=$?
+  [[ "$rc" != 0 && -z "$CODEX_INSTALLED_PLUGIN_VERSION" && -z "$CODEX_ACTIVE_PLUGIN_ROOT" ]] \
+    || fail "Codex install retry retained in-memory identity after a failed first action"
+  [[ ! -e "$RUN_DIR/installed-plugin-version.txt" && ! -e "$RUN_DIR/installed-plugin-version.tmp" \
+      && ! -e "$RUN_DIR/post-install-plugin-read.json" && ! -e "$RUN_DIR/post-install-plugin-read.tmp" ]] \
+    || fail "Codex install retry retained stale identity files after a failed first action"
+  ok "Codex installed identity follows plugin.summary installed/localVersion and clears stale retry state"
+)
+run_codex_install_integration_offline_test() (
+  log "Running offline Codex install lifecycle and app-server boundary fixtures"
+  local root fake_codex fake_app log capture rc
+  root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-install-integration.XXXXXX")"
+  trap "rm -rf '$root'" EXIT
+  fake_codex="$root/fake-codex"
+  fake_app="$root/fake-app-server.py"
+  log="$root/codex-actions.log"
+  capture="$root/request-5.json"
+
+  cat >"$fake_codex" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1 $2 $3" == "plugin marketplace list" ]]; then
+  [[ -z "${CODEX_INSTALLED_PLUGIN_VERSION:-}" && -z "${CODEX_ACTIVE_PLUGIN_ROOT:-}" ]] || exit 91
+  [[ ! -e "$RUN_DIR/installed-plugin-version.txt" && ! -e "$RUN_DIR/installed-plugin-version.tmp" \
+      && ! -e "$RUN_DIR/post-install-plugin-read.json" && ! -e "$RUN_DIR/post-install-plugin-read.tmp" ]] || exit 92
+  printf '%s\n' 'list-clean' >>"$FAKE_CODEX_LOG"
+  printf '%s\n' '{"marketplaces":[]}'
+  exit 0
+fi
+if [[ "$1 $2 $3" == "plugin marketplace add" ]]; then
+  printf '%s\n' 'add' >>"$FAKE_CODEX_LOG"
+  exit "${FAKE_MARKETPLACE_ADD_STATUS:-0}"
+fi
+if [[ "$1" == "app-server" ]]; then
+  exec "$PYTHON_BIN" "$FAKE_APP_SERVER"
+fi
+exit 93
+SH
+  chmod +x "$fake_codex"
+  cat >"$fake_app" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+skills = [
+    "interview", "ralplan", "ralph", "ultrawork", "auto-routing",
+    "test-driven-development", "simplify", "verification-before-completion",
+    "systematic-debugging", "fusion-rescue",
+]
+for line in sys.stdin:
+    message = json.loads(line)
+    request_id = message.get("id")
+    if request_id is None:
+        continue
+    if request_id == 1:
+        result = {}
+    elif request_id == 2:
+        result = {"marketplaces": [{"name": "oh-no-harness", "path": "/offline/marketplace", "plugins": [{"id": "oh-no-harness@oh-no-harness", "installPolicy": "AVAILABLE", "availability": "AVAILABLE"}]}]}
+    elif request_id == 3:
+        result = {"plugin": {"skills": [{"name": f"oh-no-harness:{skill}"} for skill in skills]}}
+    elif request_id == 4:
+        result = {"authPolicy": "ON_INSTALL"}
+    elif request_id == 5:
+        Path(os.environ["FAKE_REQUEST_CAPTURE"]).write_text(json.dumps(message), encoding="utf-8")
+        result = {"plugin": {"summary": {"installed": True, "localVersion": "2.1.0"}}}
+    else:
+        raise SystemExit(f"unexpected request id: {request_id}")
+    print(json.dumps({"id": request_id, "result": result}), flush=True)
+PY
+
+  export CODEX_BIN="$fake_codex" PYTHON_BIN FAKE_APP_SERVER="$fake_app" FAKE_CODEX_LOG="$log" FAKE_REQUEST_CAPTURE="$capture"
+  export INSTALL_MODE=1 MARKETPLACE_SOURCE="$root/marketplace" MARKETPLACE_NAME=oh-no-harness PLUGIN_NAME=oh-no-harness
+  export CODEX_HOME_DIR="$root/codex-home" RUN_DIR="$root/reused-run"
+  mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  printf '%s\n' '9.9.9' >"$RUN_DIR/installed-plugin-version.txt"
+  printf '%s\n' 'partial' >"$RUN_DIR/installed-plugin-version.tmp"
+  printf '%s\n' '{}' >"$RUN_DIR/post-install-plugin-read.json"
+  printf '%s\n' 'partial' >"$RUN_DIR/post-install-plugin-read.tmp"
+  export CODEX_INSTALLED_PLUGIN_VERSION=9.9.9 CODEX_ACTIVE_PLUGIN_ROOT="$root/stale-root"
+  export FAKE_MARKETPLACE_ADD_STATUS=73
+  export -f install_via_codex_plugins codex_marketplace_exists codex_begin_install_attempt log ok fail
+  rc=0
+  bash -e -c 'set --; install_via_codex_plugins >/dev/null 2>&1' install-lifecycle || rc=$?
+  [[ "$rc" == "73" ]] || fail "Codex install lifecycle fixture did not reach the controlled first marketplace add failure (rc=$rc)"
+  [[ "$(<"$log")" == $'list-clean\nadd' ]] \
+    || fail "Codex install lifecycle fixture did not prove cleanup before the first external marketplace actions: $(<"$log")"
+
+  : >"$log"; rm -rf "$RUN_DIR" "$CODEX_HOME_DIR"; mkdir -p "$RUN_DIR" "$CODEX_HOME_DIR"
+  export CODEX_INSTALLED_PLUGIN_VERSION="" CODEX_ACTIVE_PLUGIN_ROOT="" FAKE_MARKETPLACE_ADD_STATUS=0
+  install_via_codex_plugins >/dev/null
+  "$PYTHON_BIN" - "$capture" <<'PY'
+import json
+import sys
+from pathlib import Path
+message = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if message.get("id") != 5 or message.get("method") != "plugin/read":
+    raise SystemExit(f"captured the wrong app-server request: {message!r}")
+if message.get("params", {}).get("forceReload") is not True:
+    raise SystemExit(f"post-install plugin/read did not force reload: {message!r}")
+PY
+  [[ "$(<"$RUN_DIR/installed-plugin-version.txt")" == "2.1.0" ]] \
+    || fail "Codex install integration fixture did not record the post-install nested summary"
+  ok "Codex install clears stale identity before marketplace actions and force-reloads request 5"
+)
+run_codex_active_plugin_root_offline_test() {
+  log "Running offline Codex active-plugin-root resolution guards"
+  # Wrapper-activation evidence is bound to the root the run actually loads, so
+  # resolution must be decided by MODE, not by how many cached versions happen to
+  # exist. A single stale cached version is still stale; being the only candidate
+  # does not make it this run's root. Conversely a no-install run loads from its
+  # explicit PLUGIN_ROOT even when a cache is present, so a stale cache must never
+  # win there. Each case runs in a subshell with its own disposable CODEX_HOME.
+  local root manifest_version resolved rc expected
+  root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-active-root.XXXXXX")"
+  trap 'rm -rf "$root"' RETURN
+  manifest_version="$(json_value version)"
+  [[ -n "$manifest_version" ]] || fail "Codex active-root test could not read the manifest version"
+  # $1 = case label; $2 = install mode; $3 = space-separated cached versions to
+  # create; $4 = expected resolved root ("FAIL" when resolution must fail closed);
+  # $5 = version the install operation RECORDED ("" = nothing recorded);
+  # $6 = version in the local source manifest (defaults to the real manifest).
+  apr_case() {
+    local label="$1" install_mode="$2" versions="$3" want="$4" recorded="${5:-}" source_version="${6:-$manifest_version}"
+    local home cache version source_root run_dir
+    home="$root/${label//[ \/]/-}"; cache="$home/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
+    source_root="$home/source-plugin"; run_dir="$home/run"
+    mkdir -p "$source_root/skills/ralph" "$source_root/.codex-plugin" "$run_dir"
+    printf '%s\n' "wrapper" >"$source_root/skills/ralph/SKILL.md"
+    # The LOCAL manifest may deliberately disagree with the installed version: that
+    # skew is the whole point of these cases.
+    printf '{"name":"%s","version":"%s"}\n' "$PLUGIN_NAME" "$source_version" \
+      >"$source_root/.codex-plugin/plugin.json"
+    for version in $versions; do
+      mkdir -p "$cache/$version/skills/ralph"
+      printf '%s\n' "wrapper" >"$cache/$version/skills/ralph/SKILL.md"
+    done
+    [[ -z "$recorded" ]] || printf '%s\n' "$recorded" >"$run_dir/installed-plugin-version.txt"
+    rc=0
+    resolved="$(
+      CODEX_ACTIVE_PLUGIN_ROOT=""
+      CODEX_INSTALLED_PLUGIN_VERSION=""
+      CODEX_HOME_DIR="$home"
+      INSTALL_MODE="$install_mode"
+      PLUGIN_ROOT="$source_root"
+      RUN_DIR="$run_dir"
+      codex_active_plugin_root 2>/dev/null
+    )" || rc=$?
+    if [[ "$want" == "FAIL" ]]; then
+      [[ "$rc" != 0 ]] || fail "Codex active-root resolution accepted $label instead of failing closed (got: $resolved)"
+      return 0
+    fi
+    expected="$("$PYTHON_BIN" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$want")"
+    [[ "$rc" == 0 ]] || fail "Codex active-root resolution failed closed on $label, which is resolvable"
+    [[ "$resolved" == "$expected" ]] || fail "Codex active-root resolution bound $label to $resolved instead of $expected"
+  }
+  apr_cache() { printf '%s/%s/plugins/cache/%s/%s/%s' "$root" "$1" "$MARKETPLACE_NAME" "$PLUGIN_NAME" "$2"; }
+  # Install mode binds to the version the INSTALL recorded.
+  apr_case "install current only" 1 "$manifest_version" "$(apr_cache install-current-only "$manifest_version")" "$manifest_version"
+  apr_case "install multiple with recorded present" 1 "0.0.1 $manifest_version 99.0.0" "$(apr_cache install-multiple-with-recorded-present "$manifest_version")" "$manifest_version"
+  # H) SOURCE/INSTALLED SKEW. The checkout is bumped to 2.2.0 while the installed
+  #    tree is still 2.1.0. Binding to the local manifest names a nonexistent
+  #    directory; binding to the recorded installed version is correct.
+  apr_case "install source 2.2.0 with installed 2.1.0" 1 "2.1.0" "$(apr_cache install-source-2.2.0-with-installed-2.1.0 2.1.0)" "2.1.0" "2.2.0"
+  # H) STALE MATCHING-LOCAL-CACHE DECOY. Under the same skew a stale 2.2.0 directory
+  #    also exists, so a local-manifest resolver would happily bind to a tree the run
+  #    never loaded. The recorded installed version must still win.
+  apr_case "install stale local-matching cache decoy" 1 "2.1.0 2.2.0" "$(apr_cache install-stale-local-matching-cache-decoy 2.1.0)" "2.1.0" "2.2.0"
+  # H) A remote marketplace-style source has no local manifest version to fall back
+  #    on at all, so only the recorded identity can resolve it.
+  apr_case "install from remote marketplace-style source" 1 "2.1.0" "$(apr_cache install-from-remote-marketplace-style-source 2.1.0)" "2.1.0" "0.0.0-unknown"
+  # Fail-closed: nothing recorded, and a recorded version with no matching tree.
+  apr_case "install with no recorded version" 1 "$manifest_version" FAIL ""
+  apr_case "install recorded version absent from cache" 1 "0.0.1 0.0.2" FAIL "$manifest_version"
+  apr_case "install empty cache" 1 "" FAIL "$manifest_version"
+  # A SOLE stale cached version must fail closed: singularity is not identity.
+  apr_case "install sole stale cache with mismatched record" 1 "0.0.1" FAIL "$manifest_version"
+  # No-install mode binds to the explicit source root regardless of cache contents,
+  # and regardless of any recorded installed version.
+  apr_case "no-install with no cache" 0 "" "$root/no-install-with-no-cache/source-plugin" ""
+  apr_case "no-install with stale cache" 0 "0.0.1" "$root/no-install-with-stale-cache/source-plugin" ""
+  apr_case "no-install with current cache" 0 "$manifest_version" "$root/no-install-with-current-cache/source-plugin" ""
+  apr_case "no-install ignores a recorded installed version" 0 "2.1.0" "$root/no-install-ignores-a-recorded-installed-version/source-plugin" "2.1.0" "2.2.0"
+  # --- item 5 lifecycle: the record must be run-bound, post-install, and atomic ---
+  # A REUSED RUN_DIR holding a stale record must not be trusted: install removes any
+  # prior record first, so a stale record with no matching cache tree fails closed.
+  apr_case "install reused RUN_DIR stale record" 1 "2.1.0" FAIL "9.9.9"
+  # An abandoned atomic temp file is not a record.
+  apr_lifecycle_case() {
+    local label="$1" want="$2" home cache run_dir source_root
+    home="$root/${label//[ \/]/-}"; cache="$home/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
+    run_dir="$home/run"; source_root="$home/source-plugin"
+    mkdir -p "$source_root/skills/ralph" "$source_root/.codex-plugin" "$run_dir" "$cache/2.1.0/skills/ralph"
+    printf '%s\n' "wrapper" >"$source_root/skills/ralph/SKILL.md"
+    printf '{"name":"%s","version":"2.2.0"}\n' "$PLUGIN_NAME" >"$source_root/.codex-plugin/plugin.json"
+    printf '%s\n' "wrapper" >"$cache/2.1.0/skills/ralph/SKILL.md"
+    shift 2
+    "$@" "$run_dir" "$cache"
+    rc=0
+    resolved="$(
+      CODEX_ACTIVE_PLUGIN_ROOT=""; CODEX_INSTALLED_PLUGIN_VERSION=""
+      CODEX_HOME_DIR="$home"; INSTALL_MODE=1; PLUGIN_ROOT="$source_root"; RUN_DIR="$run_dir"
+      codex_active_plugin_root 2>/dev/null
+    )" || rc=$?
+    if [[ "$want" == "FAIL" ]]; then
+      [[ "$rc" != 0 ]] || fail "Codex active-root resolution accepted $label instead of failing closed (got: $resolved)"
+    else
+      local expected
+      expected="$("$PYTHON_BIN" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$cache/$want")"
+      [[ "$rc" == 0 && "$resolved" == "$expected" ]] \
+        || fail "Codex active-root resolution bound $label to '$resolved' (rc=$rc) instead of $expected"
+    fi
+  }
+  apr_only_tempfile() { printf '2.1.0' >"$1/installed-plugin-version.tmp"; }
+  apr_no_record()     { : ; }
+  apr_empty_record()  { : >"$1/installed-plugin-version.txt"; }
+  apr_good_record()   { printf '2.1.0\n' >"$1/installed-plugin-version.txt"; }
+  apr_blank_record()  { printf '   \n' >"$1/installed-plugin-version.txt"; }
+  # An interrupted atomic write leaves only the .tmp file, which is not identity.
+  apr_lifecycle_case "install abandoned atomic temp only" FAIL apr_only_tempfile
+  # A failed install writes nothing, so there is no record to read.
+  apr_lifecycle_case "install failed leaves no record" FAIL apr_no_record
+  # A truncated/empty or whitespace-only record is not identity. These two are
+  # REGRESSION GUARDS, not discriminating fixtures: an empty version also fails the
+  # subsequent cache-path check, so they hold even without the emptiness guard in
+  # codex_installed_plugin_version. That guard is defense in depth.
+  apr_lifecycle_case "install empty record" FAIL apr_empty_record
+  apr_lifecycle_case "install blank record" FAIL apr_blank_record
+  # A successful post-install record resolves, even though the LOCAL manifest says
+  # 2.2.0 -- proving the local manifest is not consulted.
+  apr_lifecycle_case "install successful post-install record" "2.1.0" apr_good_record
+  # Retry semantics: a stale record replaced by the correct one resolves.
+  apr_retry_record() { printf '9.9.9\n' >"$1/installed-plugin-version.txt"; printf '2.1.0\n' >"$1/installed-plugin-version.txt"; }
+  apr_lifecycle_case "install retry overwrites stale record" "2.1.0" apr_retry_record
+  rm -rf "$root"; trap - RETURN
+  ok "Codex active plugin root resolves by mode and rejects stale cached versions"
+}
+codex_run_oracle_script() {
+  local script marker_lines
+  script="$(cat)"
+  # Require EXACTLY ONE marker LINE. A substring test passed when the marker merely
+  # appeared inside a string or comment (where no substitution happens), and it also
+  # passed with duplicate markers, which would inject the helpers twice and let the
+  # second copy silently redefine the first.
+  marker_lines="$(printf '%s\n' "$script" | grep -c '^#@SHARED_HELPERS@$' || true)"
+  [[ "$marker_lines" == "1" ]] \
+    || fail "oracle script needs exactly one '#@SHARED_HELPERS@' marker line, found $marker_lines"
+  # Compose through files. Bash-level assembly was far too slow on bash 3.2 (the
+  # macOS default): both `${var//pat/rep}` and a per-line read loop over this
+  # ~15KB oracle cost seconds per call, which multiplied across the fixture suite
+  # into minutes. `awk` streams it in one pass instead.
+  local dir composed helpers_file status=0
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-oracle.XXXXXX")"
+  composed="$dir/oracle.py"; helpers_file="$dir/helpers.py"
+  codex_oracle_shared_helpers >"$helpers_file"
+  # awk reports the substitution count so injection integrity is PROVEN, not assumed.
+  local substitutions
+  substitutions="$(awk -v helpers="$helpers_file" '
+    $0 == "#@SHARED_HELPERS@" { n += 1; while ((getline line < helpers) > 0) print line > out; close(helpers); next }
+    { print > out }
+    END { print n + 0 }
+  ' out="$composed" <<<"$script")"
+  [[ "$substitutions" == "1" ]] \
+    || fail "shared-helper injection substituted $substitutions times, expected exactly 1"
+  # The composed oracle must retain no marker line.
+  ! grep -q '^#@SHARED_HELPERS@$' "$composed" \
+    || fail "composed oracle still contains a '#@SHARED_HELPERS@' marker line"
+  "$PYTHON_BIN" "$composed" "$@" || status=$?
+  rm -rf "$dir"
+  return $status
+}
+# Shared Python helper source for the natural-activation and no-skill oracles.
+# Both need the SAME bounded command extraction and completion-aware read
+# semantics; a second hand-maintained copy in the no-skill lane diverged and
+# silently kept the original free-regex false positives. This is emitted into
+# each heredoc-generated oracle so there is exactly ONE implementation.
+codex_oracle_shared_helpers() {
+  cat <<'SHARED_HELPERS_PY'
+read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*|\r?\n[ \t]*)(?:cat|sed|head|tail|more|less|nl)(?:\s|$)")
 repo_path_pattern = re.compile(r"(?:^|[\s'\"/])(?:README[.]md|run[.]sh|src/|tests/|notes/)")
 write_pattern = re.compile(r"\b(?:apply_patch|patch|touch|rm|mv|cp|chmod|install)\b|\b(?:sed|perl)\s+-i\b|" r"write_(?:text|bytes)|open\([^)]*,\s*['\"]?[wa]")
 def collect_text(value): return value if isinstance(value, str) else "\n".join(collect_text(item) for item in value.values()) if isinstance(value, dict) else "\n".join(collect_text(item) for item in value) if isinstance(value, list) else ""
-embedded_cmd_pattern = re.compile(r'"cmd"\s*:\s*("(?:[^"\\]|\\.)*")')
-def command_text_from_event(data):
+def reads_readme_command(command):
+    """True only for a bounded read-tool command naming README.md as a path token."""
+    return bool(read_tool_pattern.search(command)) and re.search(
+        r"(?:^|[\s'\"/=])README[.]md(?=$|[\s'\";&|)])", command) is not None
+def retained_output_result(output, call_status=None):
+    """(exit status or None, retained body) for one matched child tool result."""
+    structured = not isinstance(output, str)
+    def structured_text(value):
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            if not value:
+                return None
+            parts = [structured_text(item) for item in value]
+            return None if any(part is None for part in parts) else "".join(parts)
+        if isinstance(value, dict):
+            if value.get("type") == "input_text" and isinstance(value.get("text"), str):
+                return value["text"]
+            present = [key for key in ("output", "content", "result", "text") if key in value]
+            if len(present) == 1:
+                return structured_text(value[present[0]])
+        return None
+    text = structured_text(output)
+    if text is None:
+        return None, ""
+    observed_status = str(call_status or "").strip().lower()
+    if observed_status and observed_status != "completed":
+        return None, ""
+    host_completed = re.findall(r"(?m)^\s*Script completed\s*$", text)
+    host_failed = re.findall(r"(?m)^\s*Script failed\s*$", text)
+    legacy = re.findall(r"(?m)^\s*Process exited with code\s+(\d+)\s*$", text)
+    if (host_completed and host_failed) or len(host_completed) > 1 or len(host_failed) > 1 or len(legacy) > 1:
+        return None, ""
+    if structured and observed_status != "completed":
+        return None, ""
+    if host_completed or host_failed:
+        if legacy:
+            return None, ""
+        status = 0 if host_completed else 1
+    elif legacy:
+        status = int(legacy[0])
+    else:
+        return None, ""
+    body_match = re.search(r"(?ms)^Output:\s*\n(.*)\Z", text)
+    return status, body_match.group(1) if body_match else ""
+# One custom-tool input can batch SEVERAL tools.exec_command(...) calls, and the
+# JS object key appears both quoted (`"cmd":`) and bare (`cmd:`). Recovering only
+# the FIRST `"cmd"` hid every later command, so a child whose repository read was
+# its second embedded call looked like it never read anything.
+#
+# A free `cmd:"…"` regex over the whole input was the opposite error: an unrelated
+# object literal (`const metadata = {cmd:"nl -ba README.md"}`) or a `//` comment
+# manufactured a repository read that never executed, and since the surrounding
+# call's own output was successful and nonempty every completion-side guard passed.
+# Only INVOCATION scoping can reject that, so a `cmd` value counts solely when it
+# is a key of the object literal passed as an `exec_command(...)` argument.
+#
+# This is deliberately NOT a JavaScript parser. It is a bounded scanner over the
+# captured shapes: quote/escape-aware strings, `//` and `/* */` comments, balanced
+# parentheses/braces/brackets, and one flat argument object whose keys are bare or
+# quoted identifiers. Anything outside that contract -- a non-object argument, an
+# unterminated string or comment, a malformed key/value, a non-string or
+# non-double-quoted `cmd` -- yields NO command for that call rather than a guess.
+# Approved receivers, matched LEXICALLY rather than by a regex that may restart
+# inside a longer token. `exec_command` is a call site only when the token
+# immediately before it is nothing, `tools.`, or `functions.` (spaces around the
+# dot allowed, as the host emits). `other . exec_command` and a bare word butted
+# against the name (`narrative exec_command`) are different receivers, so a regex
+# lookbehind alone -- which only inspects the single previous character -- cannot
+# decide this. The scanner therefore anchors on the NAME and walks backwards.
+exec_name_pattern = re.compile(r"exec_command\s*[(]")
+js_identifier_pattern = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
+js_identifier_tail = re.compile(r"[A-Za-z0-9_$]")
+# Keywords that may legally sit immediately before a bare call expression. Any
+# other bare word before `exec_command(` is prose, not an invocation.
+js_expression_keywords = {"await", "return", "yield", "typeof", "void", "new"}
+def js_prev_token(text, index):
+    """The identifier/punctuation token ending at or before index.
+
+    Returns (kind, value, start) where kind is "word", "dot", "other", or "bos".
+    A LINE BREAK is reported as a statement boundary ("bos"), not skipped: JavaScript
+    terminates statements at a newline, so `const r = placeholder\\nawait tools.…`
+    starts a NEW statement. Treating the newline as insignificant whitespace made the
+    token chain read `placeholder await tools .`, which rejected a perfectly valid
+    call and silently dropped its command -- including real mutations -- from the
+    safety records. Horizontal whitespace is still skipped.
+    """
+    cursor = index
+    while cursor >= 0 and text[cursor] in " \t":
+        cursor -= 1
+    if cursor >= 0 and text[cursor] in "\r\n":
+        return ("bos", "", cursor)
+    if cursor < 0:
+        return ("bos", "", 0)
+    if text[cursor] == ".":
+        return ("dot", ".", cursor)
+    if js_identifier_tail.match(text[cursor]):
+        end = cursor + 1
+        while cursor >= 0 and js_identifier_tail.match(text[cursor]):
+            cursor -= 1
+        return ("word", text[cursor + 1:end], cursor + 1)
+    return ("other", text[cursor], cursor)
+def js_approved_receiver(text, name_start):
+    """True when the exec_command token at name_start is a genuine invocation.
+
+    The ENTIRE prefix chain is validated, not just one token. An earlier version
+    inspected a single preceding token, so `narrative await exec_command(...)` and
+    `narrative tools.exec_command(...)` passed: the `await`/`tools.` immediately
+    before the name looked approved while the prose word in front of it was never
+    examined. Accepted shapes are exactly:
+        exec_command(                      -- bare, at a statement/expression start
+        <kw> exec_command(                 -- kw in js_expression_keywords
+        tools|functions . exec_command(    -- optionally preceded by one <kw>
+    Anything else, including a bare identifier anywhere in the chain, is prose.
+    """
+    kind, value, start = js_prev_token(text, name_start - 1)
+    if kind == "dot":
+        # Dotted form: the receiver must be exactly `tools` or `functions`.
+        kind, value, start = js_prev_token(text, start - 1)
+        if kind != "word" or value not in {"tools", "functions"}:
+            return False
+        kind, value, start = js_prev_token(text, start - 1)
+    if kind == "bos":
+        return True
+    if kind == "other":
+        # Punctuation (`=`, `(`, `,`, `;`, an operator) is an expression boundary.
+        return True
+    if kind != "word" or value not in js_expression_keywords:
+        return False
+    # A keyword is allowed, but only when IT is itself expression-initial. This is
+    # what rejects `narrative await exec_command(...)`.
+    kind, value, start = js_prev_token(text, start - 1)
+    return kind in {"bos", "other"}
+def js_skip_gap(text, index):
+    """Advance past whitespace and comments. -1 marks an unterminated comment."""
+    limit = len(text)
+    while index < limit:
+        if text[index] in " \t\r\n":
+            index += 1
+        elif text.startswith("//", index):
+            stop = text.find("\n", index)
+            index = limit if stop < 0 else stop + 1
+        elif text.startswith("/*", index):
+            stop = text.find("*/", index)
+            if stop < 0:
+                return -1
+            index = stop + 2
+        else:
+            break
+    return index
+def js_read_string(text, index):
+    """Read the string literal opening at text[index]. -1 marks unterminated."""
+    quote, limit, cursor = text[index], len(text), index + 1
+    while cursor < limit:
+        char = text[cursor]
+        if char == "\\":
+            cursor += 2
+            continue
+        if char == quote:
+            return cursor + 1, text[index:cursor + 1]
+        if char == "\n" and quote != "`":
+            return -1, ""
+        cursor += 1
+    return -1, ""
+js_closer_for = {"{": "}", "[": "]", "(": ")"}
+def js_skip_value(text, index):
+    """Consume a non-string value, stopping at its object's `,` or closer.
+
+    Nesting is tracked with a TYPED stack, so a mismatched closer is malformed
+    rather than merely decrementing a counter. An untyped depth counter accepted
+    `(]` as balanced, which let a syntactically impossible argument object parse and
+    still yield a credited command.
+    """
+    limit, stack, cursor = len(text), [], index
+    while cursor < limit:
+        char = text[cursor]
+        if char in "\"'`":
+            cursor, _ = js_read_string(text, cursor)
+            if cursor < 0:
+                return -1
+            continue
+        if text.startswith("//", cursor) or text.startswith("/*", cursor):
+            cursor = js_skip_gap(text, cursor)
+            if cursor < 0:
+                return -1
+            continue
+        if char in js_closer_for:
+            stack.append(js_closer_for[char])
+        elif char in "}])":
+            if not stack:
+                return cursor
+            if stack[-1] != char:
+                return -1
+            stack.pop()
+        elif char == "," and not stack:
+            return cursor
+        cursor += 1
+    return -1
+def js_exec_argument_cmd(text, index):
+    """Parse the argument object at text[index] == '{'.
+
+    Returns (end_offset, cmd_or_None); (-1, None) when the shape is unsupported.
+    Only a `cmd` key at this object's own top level is recognized, so a `cmd`
+    nested inside another value stays invisible.
+    """
+    limit, command = len(text), None
+    cursor = js_skip_gap(text, index + 1)
+    if cursor < 0:
+        return -1, None
+    if cursor < limit and text[cursor] == "}":
+        return cursor + 1, None
+    while cursor < limit:
+        if text[cursor] in "\"'":
+            cursor, raw_key = js_read_string(text, cursor)
+            if cursor < 0:
+                return -1, None
+            key = raw_key[1:-1]
+        else:
+            key_match = js_identifier_pattern.match(text, cursor)
+            if not key_match:
+                return -1, None
+            key, cursor = key_match.group(0), key_match.end()
+        cursor = js_skip_gap(text, cursor)
+        if cursor < 0 or cursor >= limit or text[cursor] != ":":
+            return -1, None
+        cursor = js_skip_gap(text, cursor + 1)
+        if cursor < 0 or cursor >= limit:
+            return -1, None
+        if text[cursor] in "\"'`":
+            cursor, raw_value = js_read_string(text, cursor)
+            if cursor < 0:
+                return -1, None
+            if key == "cmd":
+                # The host always emits a double-quoted JSON-compatible command
+                # string; anything else is not decodable here without guessing.
+                if raw_value[0] != '"':
+                    return -1, None
+                try:
+                    decoded = json.loads(raw_value)
+                except json.JSONDecodeError:
+                    return -1, None
+                command = decoded
+        else:
+            cursor = js_skip_value(text, cursor)
+            if cursor < 0:
+                return -1, None
+            if key == "cmd":
+                return -1, None
+        cursor = js_skip_gap(text, cursor)
+        if cursor < 0 or cursor >= limit:
+            return -1, None
+        if text[cursor] == "}":
+            return cursor + 1, command
+        if text[cursor] != ",":
+            return -1, None
+        cursor = js_skip_gap(text, cursor + 1)
+        if cursor < 0:
+            return -1, None
+        if cursor < limit and text[cursor] == "}":
+            return cursor + 1, command
+    return -1, None
+# The result variable a call is assigned to (`const r2 = await tools.exec_command`),
+# needed to decide WHICH batched command the single retained output describes.
+#
+# Assignment parsing must TERMINATE at the call expression. A pattern that bridged
+# arbitrary identifier/dot/whitespace runs matched across a statement boundary, so
+# `const r = placeholder\nawait tools.exec_command(...)` bound the call to `r`
+# even though `r` actually holds `placeholder`. Only the supported optional `await`
+# and the approved receiver syntax may sit between the `=` and the call name; the
+# `=` itself must not be part of `==`/`!=`/`<=`/`>=`/`=>`.
+js_assignment_pattern = re.compile(
+    r"(?:(?:const|let|var)\s+)?(?P<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*(?<![=!<>])=(?![=>])\s*"
+    r"(?:await\s+)?(?:(?:tools|functions)\s*[.]\s*)?\Z")
+# The result actually captured into the host-retained output. This must be an
+# EXECUTABLE sink: a commented-out `text(r.output)` and the literal string
+# "r.output" are data, and crediting them let a child narrate a capture it never
+# performed. Candidate sinks are therefore discovered only in executable regions,
+# which js_executable_spans computes with the same quote/comment awareness the rest
+# of this scanner uses.
+js_capture_pattern = re.compile(r"(?<![A-Za-z0-9_$.])text\s*[(]\s*(?P<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*[.]\s*output\s*[)]")
+# A `/` starts a REGEX LITERAL only where a value may begin. After an identifier,
+# a number, or a closing `)`/`]`/`}` it is division instead. Getting this wrong in
+# either direction is unsafe, so the decision uses the previous significant token.
+js_regex_prefix_words = {"return", "typeof", "void", "case", "in", "of", "new",
+                         "delete", "instanceof", "await", "yield", "do", "else"}
+def js_regex_allowed_at(text, index):
+    """True when text[index] == '/' begins a regex literal rather than division."""
+    kind, value, _ = js_prev_token(text, index - 1)
+    if kind == "bos":
+        return True
+    if kind == "word":
+        return value in js_regex_prefix_words
+    if kind == "dot":
+        return False
+    # Punctuation: a value may follow `=`, `(`, `,`, `:`, `[`, operators, etc., but
+    # NOT a closing delimiter (that is division on the preceding expression).
+    return value not in {")", "]", "}"}
+def js_read_regex(text, index):
+    """Index just past the regex literal opening at text[index]. -1 = unterminated.
+
+    Escapes and character classes are honoured: inside `[...]` a `/` does not end the
+    literal, and `\\/` never does.
+    """
+    limit, cursor, in_class = len(text), index + 1, False
+    while cursor < limit:
+        char = text[cursor]
+        if char == "\\":
+            cursor += 2
+            continue
+        if char == "\n":
+            return -1
+        if in_class:
+            if char == "]":
+                in_class = False
+        elif char == "[":
+            in_class = True
+        elif char == "/":
+            cursor += 1
+            # Trailing flags belong to the token.
+            while cursor < limit and js_identifier_tail.match(text[cursor]):
+                cursor += 1
+            return cursor
+        cursor += 1
+    return -1
+def js_read_template(text, index):
+    """(end_index, executable_spans) for the template literal at text[index].
+
+    Raw template text is DATA. `${...}` substitutions are executable, so their
+    interiors are returned as spans. -1 marks an unterminated template.
+    """
+    limit, cursor, spans = len(text), index + 1, []
+    while cursor < limit:
+        char = text[cursor]
+        if char == "\\":
+            cursor += 2
+            continue
+        if char == "`":
+            return cursor + 1, spans
+        if text.startswith("${", cursor):
+            depth, start = 1, cursor + 2
+            scan = start
+            while scan < limit and depth:
+                inner = text[scan]
+                if inner in "\"'`":
+                    if inner == "`":
+                        scan, nested = js_read_template(text, scan)
+                        if scan < 0:
+                            return -1, spans
+                        spans.extend(nested)
+                    else:
+                        scan, _ = js_read_string(text, scan)
+                        if scan < 0:
+                            return -1, spans
+                    continue
+                if inner == "{":
+                    depth += 1
+                elif inner == "}":
+                    depth -= 1
+                    if not depth:
+                        break
+                scan += 1
+            if depth:
+                return -1, spans
+            spans.append((start, scan))
+            cursor = scan + 1
+            continue
+        cursor += 1
+    return -1, spans
+def js_executable_spans(text):
+    """(start, end) spans of `text` that are real code, not data.
+
+    Data means strings, template RAW text, comments, AND regex literals. The regex
+    case is the subtle one: `/const r = await tools.exec_command(...)/` is a single
+    token whose body looks like ordinary code to a scanner that only skips quotes and
+    comments, so it fabricated a complete credited read out of a pattern.
+
+    Template `${...}` substitutions ARE executable and are emitted as spans; the raw
+    text around them is not. An unterminated construct truncates the span list, which
+    fails closed for positive evidence.
+    """
+    spans, limit, cursor, span_start = [], len(text), 0, 0
+    while cursor < limit:
+        char = text[cursor]
+        if char == "`":
+            spans.append((span_start, cursor))
+            cursor, interpolations = js_read_template(text, cursor)
+            if cursor < 0:
+                return spans
+            spans.extend(interpolations)
+            span_start = cursor
+            continue
+        if char in "\"'":
+            spans.append((span_start, cursor))
+            cursor, _ = js_read_string(text, cursor)
+            if cursor < 0:
+                return spans
+            span_start = cursor
+            continue
+        if text.startswith("//", cursor) or text.startswith("/*", cursor):
+            spans.append((span_start, cursor))
+            cursor = js_skip_gap(text, cursor)
+            if cursor < 0:
+                return spans
+            span_start = cursor
+            continue
+        if char == "/" and js_regex_allowed_at(text, cursor):
+            spans.append((span_start, cursor))
+            cursor = js_read_regex(text, cursor)
+            if cursor < 0:
+                return spans
+            span_start = cursor
+            continue
+        cursor += 1
+    spans.append((span_start, limit))
+    return spans
+def js_capture_sites(raw_text):
+    """(result_name, offset) for each executable output sink, in source order."""
+    sites = []
+    for start, end in js_executable_spans(raw_text):
+        for match in js_capture_pattern.finditer(raw_text, start, end):
+            sites.append((match.group("name"), match.start()))
+    sites.sort(key=lambda site: site[1])
+    return sites
+def captured_result_name(raw_text):
+    """The single result variable whose output was retained, else None.
+
+    Zero captures and several DIFFERENT captured results both return None: the
+    retained output cannot be attributed to one command, so no command may claim it.
+    """
+    names = {name for name, _ in js_capture_sites(raw_text)}
+    return next(iter(names)) if len(names) == 1 else None
+def embedded_commands(raw_text):
+    """Every `cmd` actually passed to an exec_command(...) call, in source order."""
+    return [command for command, _, _ in embedded_command_records(raw_text)]
+# Control-flow keywords whose presence makes straight-line reachability undecidable
+# for this bounded scanner. Conditional execution is exactly the case where an
+# assignment may or may not reach the capture, so it must fail closed.
+js_control_keywords = re.compile(r"(?<![A-Za-z0-9_$.])(?:if|else|for|while|do|switch|case|try|catch|finally)(?![A-Za-z0-9_$])")
+def js_control_flow_between(text, start, end):
+    """True when a control-flow construct appears in executable code in [start,end)."""
+    lo, hi = min(start, end), max(start, end)
+    for span_start, span_end in js_executable_spans(text):
+        window_lo, window_hi = max(span_start, lo), min(span_end, hi)
+        if window_lo >= window_hi:
+            continue
+        if js_control_keywords.search(text, window_lo, window_hi):
+            return True
+        # A ternary `?` between the assignment and the capture is also conditional.
+        if "?" in text[window_lo:window_hi]:
+            return True
+    return False
+def js_straight_line_between(text, owner_offset, site_offset):
+    """True when the owning assignment plainly reaches the capture.
+
+    Requirements, all bounded: no control-flow construct between them, and neither
+    endpoint nested more deeply in braces than the other (which would mean the
+    assignment lives inside a block the capture is outside of, or vice versa).
+    """
+    if js_control_flow_between(text, owner_offset, site_offset):
+        return False
+    # Brace depth is computed over executable spans only, so a `{` inside a string
+    # or regex cannot change it.
+    def depth_at(target):
+        depth = 0
+        for span_start, span_end in js_executable_spans(text):
+            for index in range(span_start, min(span_end, target)):
+                if text[index] == "{":
+                    depth += 1
+                elif text[index] == "}":
+                    depth -= 1
+        return depth
+    if depth_at(owner_offset) != depth_at(site_offset):
+        return False
+    # A control-flow construct ANYWHERE before the assignment can still make the
+    # assignment conditional (e.g. an `if` block that assigns and falls through), so
+    # require the owning assignment itself not to sit inside a nested block.
+    return depth_at(owner_offset) == 0
+def embedded_command_ownership(raw_text):
+    """(command, owns_retained_output) per real call, in source order.
+
+    Ownership is TEMPORAL: the retained output belongs to the latest assignment of
+    the captured variable that still REACHES the capture. Matching on variable name
+    alone credited an earlier command whose result had already been overwritten and
+    never retained -- and, with one variable assigned twice, credited BOTH.
+    """
+    records = embedded_command_records(raw_text)
+    sites = js_capture_sites(raw_text)
+    # EXACTLY ONE supported capture site. Several sites -- even naming the same
+    # variable -- mean the retained output cannot be tied to one command.
+    if len(sites) != 1:
+        return [(command, False) for command, _, _ in records]
+    captured, site_offset = sites[0]
+    # Among calls bound to the captured variable, only the LATEST one before the
+    # capture can have produced the retained output.
+    candidates = [offset for _, name, offset in records
+                  if name == captured and offset < site_offset]
+    if not candidates:
+        return [(command, False) for command, _, _ in records]
+    owner_offset = max(candidates)
+    # CONTROL FLOW. Straight-line reachability is required. If the owning assignment
+    # or the capture sits inside a branch or loop, or the variable is assigned in
+    # more than one branch, which assignment actually reaches the capture is not
+    # decidable by this bounded scanner -- so read credit fails closed. Every real
+    # exec call still remains a RECORD for mutation/safety detection.
+    if not js_straight_line_between(raw_text, owner_offset, site_offset):
+        return [(command, False) for command, _, _ in records]
+    if len(candidates) > 1 and js_control_flow_between(raw_text, min(candidates), site_offset):
+        return [(command, False) for command, _, _ in records]
+    return [(command, offset == owner_offset) for command, _, offset in records]
+def js_statement_start(text, offset):
+    """Offset of the innermost enclosing statement/block boundary before `offset`.
+
+    Bounded and quote/comment aware: the boundary is the latest `;`, LF, `{`, `}`,
+    `(`, `,`, or `?`/`:` that lies in an EXECUTABLE span. Assignment ownership may
+    only be sought within this window, which is what stops
+    `const r = placeholder\\nawait tools.exec_command(...)` from binding the call to
+    `r` -- the newline ends that statement.
+    """
+    boundary = 0
+    for start, end in js_executable_spans(text):
+        for index in range(start, min(end, offset)):
+            if text[index] in ";\n{}(,?:":
+                boundary = index + 1
+    return boundary
+def embedded_command_records(raw_text):
+    """(command, result_variable_or_None, offset) per real exec_command call.
+
+    CALL RECOGNITION IS SEPARATE FROM OWNERSHIP. A syntactically valid call in a new
+    statement is always a record even when no variable owns it; previously a failed
+    assignment match silently discarded the whole call, so a real
+    `sed -i` mutation after a placeholder assignment VANISHED from the safety
+    records. Only an invalid/prose prefix yields no record at all.
+    """
+    found = []
+    for span_start, span_end in js_executable_spans(raw_text):
+        cursor = span_start
+        while cursor < span_end:
+            call_match = exec_name_pattern.match(raw_text, cursor)
+            if not call_match or call_match.end() > span_end or not js_approved_receiver(raw_text, cursor):
+                cursor += 1
+                continue
+            argument_start = js_skip_gap(raw_text, call_match.end())
+            if argument_start < 0:
+                break
+            cursor = call_match.end()
+            if argument_start >= span_end or raw_text[argument_start] != "{":
+                continue
+            end_offset, command = js_exec_argument_cmd(raw_text, argument_start)
+            if end_offset < 0:
+                continue
+            # INVOCATION CLOSURE: the call is only a call once its own `)` is present.
+            # A truncated transcript can end mid-invocation with a well-formed
+            # argument object, and crediting that would invent an unfinished read.
+            closing = js_skip_gap(raw_text, end_offset)
+            if closing < 0 or closing >= len(raw_text) or raw_text[closing] != ")":
+                cursor = end_offset
+                continue
+            if isinstance(command, str) and command.strip():
+                # Ownership is sought only inside the call's OWN statement, so an
+                # assignment in a previous statement cannot claim it.
+                window = js_statement_start(raw_text, call_match.start())
+                assigned = js_assignment_pattern.search(raw_text, window, call_match.start())
+                # The call's own offset travels with the record: result ownership is
+                # TEMPORAL, so a later reassignment of the same variable supersedes.
+                found.append((command, assigned.group("name") if assigned else None, call_match.start()))
+            cursor = closing + 1
+    found.sort(key=lambda record: record[2])
+    return found
+def command_records_from_event(data):
+    """(command, output_is_this_command's) per shell command an event records.
+
+    A parent `command_execution` stays exactly ONE evidence record (its whole
+    command string, compound segments included) and owns its own completion. A
+    child exec tool call yields one record per embedded command so read and
+    mutation predicates apply to each independently -- but the call retains only
+    ONE output, so at most one embedded command may claim it.
+    """
     item = data.get("item") or {}
     payload = data.get("payload") or {}
     if item.get("type") == "command_execution":
-        return str(item.get("command") or "")
+        command = str(item.get("command") or "")
+        return [(command, True)] if command else []
     # Child subagent transcripts (codex-cli >= 0.146) record shell work as a
     # custom_tool_call named "exec" whose input is a JS snippet wrapping
     # tools.exec_command({"cmd": ...}), not a function_call with JSON arguments.
@@ -2275,1546 +3814,746 @@ def command_text_from_event(data):
             or (payload.get("type") == "custom_tool_call" and payload.get("name") in {"exec", "functions.exec"}):
         raw = payload.get("arguments") or payload.get("input") or ""
         raw_text = raw if isinstance(raw, str) else json.dumps(raw)
+        if not raw_text:
+            return []
         try:
-            arguments_data = json.loads(raw_text) if raw_text else {}
+            arguments_data = json.loads(raw_text)
         except json.JSONDecodeError:
-            # The JS wrapper is not JSON; recover the embedded cmd string so the
-            # read/mutation patterns match the actual command rather than the
+            # The JS wrapper is not JSON; recover every embedded cmd string so the
+            # read/mutation patterns match the actual commands rather than the
             # surrounding JavaScript.
-            match = embedded_cmd_pattern.search(raw_text)
-            if not match:
-                return raw_text
-            try:
-                return str(json.loads(match.group(1)))
-            except json.JSONDecodeError:
-                return raw_text
+            # The retained output is whatever the script CAPTURED, so read evidence
+            # follows the capture link uniformly -- no special case for a lone call.
+            # No capture, an unsupported combination of several results, a call whose
+            # result was never assigned, and a call whose result was overwritten
+            # before the capture all leave the outcome unknown, which fails closed
+            # rather than borrowing another command's success.
+            return embedded_command_ownership(raw_text)
         if isinstance(arguments_data, dict):
-            return str(arguments_data.get("cmd") or "")
-    return ""
-def wrapper_reads(command): return [(match.group("route"), match.group("path")) for match in wrapper_read_pattern.finditer(command) if match.group("route") in workflows]
-def mutates(command, path):
-    if path.lower() not in command.lower(): return False
-    return write_pattern.search(command) is not None or re.search(rf"(?:>>?|\btee(?:\s+-a)?)\s+[^\n;&|]*{re.escape(path)}", command, re.I) is not None
-err_text = Path(err_path).read_text(encoding="utf-8")
-if any(marker in err_text.lower() for marker in ("spawn failed", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items")):
-    raise SystemExit(f"{label} natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-commands, completed, file_changes, file_change_positions, file_change_completions, agent_messages, native_interactions, native_interaction_ids = [], {}, [], {}, {}, [], [], set()
-final_output, final_index, parent_thread_id, turn_completed, turn_failed = "", None, None, False, False
-with open(out_path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip(): continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started": parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}; event_text = collect_text(data)
-        if item.get("type") == "agent_message": agent_messages.append((index, str(item.get("text") or event_text)))
-        change_kinds = {"file_change", "apply_patch", "patch", "edit", "write", "write_file"}
-        payload = data.get("payload") or {}
-        event_kinds = {str(value) for value in (
-            item.get("type"), item.get("tool"), item.get("name"), data.get("type"), data.get("tool"), data.get("name"),
-            payload.get("type"), payload.get("name"),
-        ) if value}
-        if {re.sub(r"[^a-z]", "", kind.lower()) for kind in event_kinds} & {"askuserquestion", "requestuserinput", "structuredchoice"} and (interaction_key := str(item.get("id") or data.get("id") or payload.get("call_id") or event_text)) not in native_interaction_ids: native_interaction_ids.add(interaction_key); native_interactions.append((index, event_text))
-        if event_kinds & change_kinds:
-            fallback = collect_text([source.get(key) for source in (item, data, payload) for key in ("path", "changes", "text")])
-            change_key = str(item.get("id") or data.get("id") or payload.get("call_id") or fallback or json.dumps(item or data, sort_keys=True))
-            position = file_change_positions.get(change_key)
-            if position is None:
-                file_change_positions[change_key] = len(file_changes)
-                file_changes.append([index, event_text])
-            else: file_changes[position][1] += "\n" + event_text
-            status = str(item.get("status") or data.get("status") or payload.get("status") or "").lower()
-            if data.get("type") == "item.completed" and status not in {"failed", "error", "errored", "aborted", "cancelled", "canceled", "incomplete"}: file_change_completions[position] = index
-        if data.get("type") == "item.started" and item.get("type") == "command_execution":
-            command = command_text_from_event(data)
-            commands.append((index, str(item.get("id") or ""), command))
-        elif data.get("type") == "item.completed" and item.get("type") == "command_execution":
-            completed[str(item.get("id") or "")] = (item.get("exit_code"), collect_text(item.get("aggregated_output")), index)
-        elif data.get("type") == "item.completed" and item.get("type") == "agent_message":
-            text = str(item.get("text") or collect_text(item)).strip()
-            if text: final_output, final_index = text, index
-        elif data.get("type") == "turn.completed": turn_completed = True
-        elif data.get("type") == "turn.failed": turn_failed = True
-if final_output: Path(final_path).write_text(final_output + "\n", encoding="utf-8")
-wrapper_attempts = [(index, item_id, route, path, completed.get(item_id)) for index, item_id, command in commands for route, path in wrapper_reads(command)]
-activations = [(index, route, command) for index, item_id, command in commands for route, _ in wrapper_reads(command)
-               if completed.get(item_id) and ((completed[item_id][0] == 0 and completed[item_id][1].strip()) or "oh-no-harness-generated-skill-wrapper" in completed[item_id][1])]
-hidden_activations = []
-child_commands = []
-if parent_thread_id:
-    sessions_root = Path(live_home) / "sessions"
-    for transcript_path in sessions_root.rglob("*.jsonl"):
-        meta = None
-        transcript_commands = []
-        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not transcript_line.strip():
-                continue
-            candidate = json.loads(transcript_line)
-            payload = candidate.get("payload") or {}
-            if candidate.get("type") == "session_meta":
-                meta = payload
-            command_text = command_text_from_event(candidate)
-            if command_text:
-                transcript_commands.append(command_text)
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = (
-            subagent.get("thread_spawn")
-            if isinstance(subagent.get("thread_spawn"), dict)
-            else {}
-        )
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        if parent != parent_thread_id:
-            continue
-        # Retain every child command, not only wrapper reads: since role dispatch
-        # became need-based, a lookup this run legitimately delegates lands here
-        # rather than in the parent stream, and discarding it made a compliant run
-        # look like it never inspected the repository.
-        child_commands.extend((str(transcript_path), command_text) for command_text in transcript_commands)
-        for command_text in transcript_commands:
-            hidden_activations.extend(
-                (str(transcript_path), route, command_text)
-                for route, _ in wrapper_reads(command_text)
-            )
-missing_completions = sorted(item_id for _, item_id, _ in commands if item_id and item_id not in completed)
-if missing_completions:
-    raise SystemExit(f"{label} command executions lacked completed events: {missing_completions!r}")
-if wrapper_attempts and not activations:
-    raise SystemExit(f"{label} generated wrapper reads never produced loaded content: {wrapper_attempts!r}")
-if turn_failed or not turn_completed:
-    raise SystemExit(f"{label} natural activation smoke did not complete an error-free turn")
-if not final_output:
-    raise SystemExit(f"{label} natural activation smoke returned no final prose")
-if expected == "none":
-    if activations or hidden_activations:
-        raise SystemExit(f"{label} read workflow wrappers: parent={activations!r} child={hidden_activations!r}")
-    if label == "direct-edit eligible":
-        target = "notes/private-notes.md"
-        command_mutations = [(index, command) for index, _, command in commands if mutates(command, target)]
-        change_mutations = [(index, text) for index, text in file_changes if target in text.replace("\\", "/")]
-        mutations = command_mutations or change_mutations
-        if len(mutations) != 1:
-            raise SystemExit(f"{label} lacked exactly one intended notes mutation: {mutations!r}")
-        mutation_index = mutations[0][0]; proofs = []
-        for index, item_id, command in commands:
-            result = completed.get(item_id)
-            if not result or final_index is None or not mutation_index < index or not result[2] < final_index: continue
-            git_scoped = re.search(r"\bgit\s+diff\b[^\n;&|]*--\s+['\"]?(?:[.]/)?notes/private-notes[.]md(?:['\"]|\s|$)", command)
-            plain_scoped = not re.search(r"\bgit\s+diff\b", command) and re.search(r"(?:^|[;&|]\s*)diff\b[^\n;&|]*notes/private-notes[.]md", command)
-            output = result[1]; lines = output.splitlines()
-            evidence = target in output.replace("\\", "/") and ((any(line.startswith("--- ") for line in lines) and any(line.startswith("+++ ") for line in lines) and any(line.startswith("-") and not line.startswith("---") for line in lines) and any(line.startswith("+") and not line.startswith("+++") for line in lines)) or (any(line.startswith("< ") for line in lines) and any(line.startswith("> ") for line in lines)))
-            if (git_scoped or plain_scoped) and result[0] == 0 and evidence: proofs.append((index, command))
-        if not proofs:
-            raise SystemExit(f"{label} lacked a successful scoped runtime diff after mutation and before final")
-    print(f"ok - {label} natural Codex smoke stayed outside workflow activation")
-    raise SystemExit(0)
-if not activations or activations[0][1] != expected:
-    raise SystemExit(f"{label} first generated workflow wrapper read was not {expected}: {activations!r}")
-first_expected = activations[0][0]
-substantive = list(file_changes)
-for index, _, command in commands:
-    routes = [route for route, _ in wrapper_reads(command)]
-    if not routes or repo_path_pattern.search(command) or write_pattern.search(command):
-        substantive.append((index, command))
-if substantive and min(index for index, _ in substantive) <= first_expected:
-    raise SystemExit(f"{label} ran a substantive repository command before {expected}: {substantive!r}")
-routes_seen = [route for _, route, _ in activations]
-routes_seen.extend(route for _, route, _ in hidden_activations)
-if label == "known-cause fix" and "systematic-debugging" in routes_seen:
-    raise SystemExit(f"{label} read the debugging wrapper despite a supplied known cause")
-if label == "plan-only/pending approval":
-    if {"ralph", "ultrawork"} & set(routes_seen): raise SystemExit(f"{label} read an execution wrapper before approval: {activations!r}")
-    successful_plan_events = [(completed[item_id][2], command) for _, item_id, command in commands if item_id in completed and completed[item_id][0] == 0 and mutates(command, ".oh-no/plans")]
-    successful_plan_events.extend((file_change_completions[position], text) for position, (_, text) in enumerate(file_changes) if position in file_change_completions and ".oh-no/plans" in text)
-    plan_root = Path(project_root) / ".oh-no" / "plans" if project_root else None; plan_path_pattern = re.compile(r"(?:/[^\s'\";&|]+)?[.]oh-no/plans/[A-Za-z0-9_.\-/]+")
-    def event_plan_paths(text): return [Path(token) if Path(token).is_absolute() else Path(project_root) / (token[2:] if token.startswith("./") else token) for token in plan_path_pattern.findall(text.replace("\\", "/"))]
-    plan_evidence = [(index, text) for index, text in successful_plan_events for path in event_plan_paths(text) if plan_root and plan_root.resolve() in path.resolve().parents and path.is_file() and path.stat().st_size > 0]
-    if not plan_evidence: raise SystemExit(f"{label} created no successful host-visible nonempty .oh-no/plans artifact")
-    decision_pattern = re.compile(r"\b(?:approv(?:e|al)|review|revis(?:e|ion)|continu(?:e|ation)|proceed|next[- ]?(?:action|step)|choose|select|options?|decision)\b", re.I); request_pattern = re.compile(r"\b(?:please|kindly)\s+(?:approve|review|revise|continue|choose|select|provide|tell|confirm)\b|\b(?:would|could|can|will|may|do)\s+you\b|\b(?:should|may|can)\s+I\b|\b(?:choose|select)\s+(?:an?|the|your|how|whether|which|what)\b|\b(?:tell|let)\s+me\b|\bprovide\s+(?:your|the)\b|\b(?:approve|review|revise|continue|proceed|choose|select)\b[^?\n]*[?]", re.I)
-    interactions = [(index, text, True) for index, text in native_interactions] + ([(final_index, final_output, False)] if final_index is not None else [])
-    if not any(index > max(index for index, _ in plan_evidence) and (native or decision_pattern.search(text) and request_pattern.search(text)) for index, text, native in interactions): raise SystemExit(f"{label} offered no approval/review/revision/continuation/next-action choice after plan evidence")
-    redirect_targets = [(index, target.strip("'\"")) for index, _, command in commands for target in re.findall(r"(?:>>?|\btee(?:\s+-a)?)\s+([^\s;&|]+)", command, re.I)]
-    production = [(index, text) for index, text in file_changes if ".oh-no/plans" not in text.replace("\\", "/")]
-    production.extend((index, target) for index, target in redirect_targets if ".oh-no/plans" not in target.replace("\\", "/")); production.extend((index, command) for index, _, command in commands if write_pattern.search(command) and repo_path_pattern.search(command) and not mutates(command, ".oh-no/plans"))
-    if production: raise SystemExit(f"{label} mutated production before approval: {production!r}")
-if label == "direct-edit ineligible" and any(route != "ralph" for route in routes_seen):
-    raise SystemExit(f"{label} read a non-Ralph workflow wrapper: {activations!r}")
-if label == "vague requirements":
-    # The run must inspect the repository and must not mutate it. Accept the read
-    # from either stream and at any position: a dispatched explore child does the
-    # lookup in its own transcript, where no index is comparable to the parent's,
-    # and a lookup small enough to run inline may land before skill activation.
-    # Requiring a post-activation PARENT read encoded the retired dispatch-always
-    # rule and rejected a run whose child had read the file correctly.
-    inspections = [(source, command) for source, _, command in commands] \
-        + [(source, command) for source, command in child_commands]
-    reads = [(source, command) for source, command in inspections
-             if read_tool_pattern.search(command) and "README.md" in command]
-    mutations = [(source, command) for source, command in inspections if mutates(command, "README.md")]
-    if not reads or mutations:
-        raise SystemExit(f"{label} missed its repository read or mutated source")
-elif label == "explicit test-first":
-    test_pattern = re.compile(r"(?:^|[;&|'\"]\s*)(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])|\b(?:bash|sh)\s+(?:[.]?/)?tests/timeout_test[.]sh(?=$|[\s'\"])" )
-    tests = [(index, item_id) for index, item_id, command in commands if test_pattern.search(command)]
-    production = [(index, command) for index, _, command in commands if mutates(command, "src/timeout.sh")]
-    production.extend((index, text) for index, text in file_changes if "src/timeout.sh" in text)
-    if not tests or not production or min(index for index, _ in tests) >= min(index for index, _ in production):
-        raise SystemExit(f"{label} did not run the focused test before production mutation")
-    if not any(completed.get(item_id, (None, ""))[0] not in {None, 0} for _, item_id in tests):
-        raise SystemExit(f"{label} focused pre-production test did not visibly fail")
-elif label == "known-cause fix":
-    modes = [index for index, text in agent_messages if re.search(r"\b(?:Mode:\s*LIGHT|qualif(?:y|ies|ied) for (?:a )?LIGHT run)\b", text, re.I)]
-    decisions = [index for index, text in agent_messages if re.search(r"\b(?:Worktree decision:\s*light direct checkout|selected (?:the )?in-place LIGHT checkout path)\b", text, re.I)]
-    tests, production = [], [(index, command) for index, _, command in commands if mutates(command, "src/parser.sh")]
-    production.extend((index, text) for index, text in file_changes if "src/parser.sh" in text)
-    for index, item_id, command in commands:
-        result = completed.get(item_id)
-        if not result:
-            continue
-        if "tests/parser_test.sh" in command:
-            marker = re.search(r"parser_test_exit=(\d+)", result[1])
-            tests.append((result[2], int(marker.group(1)) if marker else result[0]))
-        if "src/parser.sh" in command and re.search(r"(?m)^\s*(?:\d+\s+)?MODE=fast\s*$", result[1]):
-            production.append((index, command))
-    if not production:
-        raise SystemExit(f"{label} did not expose its production mutation")
-    mutation = min(index for index, _ in production)
-    if not modes or not decisions or max(modes[0], decisions[0]) >= mutation:
-        raise SystemExit(f"{label} production mutation preceded observable Mode: LIGHT and Worktree decision: light direct checkout authorization")
-    red = [index for index, status in tests if status not in {None, 0}]
-    green = [index for index, status in tests if status == 0]
-    if not red or min(red) >= mutation or not green or max(green) <= mutation:
-        raise SystemExit(f"{label} did not show RED before production mutation and GREEN after it")
-elif label == "unknown-cause failure":
-    fixes = [(index, command) for index, _, command in commands if mutates(command, "src/startup.sh")]
-    fixes.extend((index, text) for index, text in file_changes if "src/startup.sh" in text)
-    evidence = [(index, command) for index, _, command in commands if index > first_expected and (
-        "tests/startup_test.sh" in command or
-        (read_tool_pattern.search(command) and "src/startup.sh" in command)
-    )]
-    if not fixes or not evidence or min(index for index, _ in evidence) >= min(index for index, _ in fixes):
-        raise SystemExit(f"{label} missed reproduction/read evidence before fix mutation")
-print(f"ok - {label} natural Codex smoke observed {expected} wrapper activation before actionable work")
-PY
-}
-run_codex_natural_activation_assertion_offline_test() {
-  log "Running offline Codex plan-only hard-fact fixtures"
-  local temp_root fixture err_file final_file project output rc
-  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-activation.XXXXXX")"; fixture="$temp_root/transcript.jsonl"; err_file="$temp_root/stderr"; final_file="$temp_root/final"; project="$temp_root/project"; mkdir -p "$temp_root/home/sessions" "$project"; : >"$err_file"
-  (
-    CODEX_HOME_DIR="$temp_root/home"
-    local started='{"type":"thread.started","thread_id":"parent"}' wrapper_start='{"type":"item.started","item":{"type":"command_execution","id":"wrapper","command":"cat /tmp/plugin/skills/ralplan/SKILL.md"}}' wrapper_done='{"type":"item.completed","item":{"type":"command_execution","id":"wrapper","exit_code":0,"aggregated_output":"oh-no-harness-generated-skill-wrapper"}}' plan_start='{"type":"item.started","item":{"type":"command_execution","id":"plan","command":"mkdir -p .oh-no/plans && printf plan > .oh-no/plans/approved.md"}}' plan_done='{"type":"item.completed","item":{"type":"command_execution","id":"plan","exit_code":0,"aggregated_output":""}}' change_start='{"type":"item.started","item":{"type":"file_change","id":"change","status":"in_progress","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' change_errored='{"type":"item.completed","item":{"type":"file_change","id":"change","status":"errored","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' change_done='{"type":"item.completed","item":{"type":"file_change","id":"change","status":"completed","changes":[{"path":".oh-no/plans/approved.md","kind":"add"}]}}' turn_done='{"type":"turn.completed"}'
-    expect_plan_reject() { local needle="$1" reason="$2"; shift 2; printf '%s\n' "$@" >"$fixture"; rc=0; output="$(assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "plan-only/pending approval" ralplan "$project" 2>&1)" || rc=$?; [[ "$rc" != 0 && "$output" == *"$needle"* ]] || fail "Codex plan-only oracle accepted $reason: $output"; }
-    expect_plan_reject "created no successful host-visible nonempty" "a requirements pause" "$started" "$wrapper_start" "$wrapper_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Please clarify the requirements."}}' "$turn_done"
-    expect_plan_reject "created no successful host-visible nonempty" "a bare approval question" "$started" "$wrapper_start" "$wrapper_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Approve this plan?"}}' "$turn_done"
-    expect_plan_reject "created no successful host-visible nonempty" "failed plan creation" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" '{"type":"item.completed","item":{"type":"command_execution","id":"plan","exit_code":1,"aggregated_output":"write failed"}}' '{"type":"item.completed","item":{"type":"agent_message","text":"Approve or revise?"}}' "$turn_done"
-    mkdir -p "$project/.oh-no/plans"; printf 'plan\n' >"$project/.oh-no/plans/approved.md"
-    expect_plan_reject "created no successful host-visible nonempty" "A: errored file_change completion with a partial plan" "$started" "$wrapper_start" "$wrapper_done" "$change_start" "$change_errored" '{"type":"item.completed","item":{"type":"agent_message","text":"Would you like to approve or revise the plan?"}}' "$turn_done"; expect_plan_reject "offered no approval" "B: choice before successful file_change completion" "$started" "$wrapper_start" "$wrapper_done" "$change_start" '{"type":"item.completed","item":{"type":"agent_message","text":"Would you like to continue with this plan?"}}' "$change_done" "$turn_done"
-    expect_plan_reject "offered no approval" "C: unavailable approval prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"I cannot proceed because approval is unavailable."}}' "$turn_done"; expect_plan_reject "offered no approval" "D: declarative review prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Review complete."}}' "$turn_done"
-    expect_plan_reject "offered no approval" "generic final prose" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"Ready."}}' "$turn_done"
-    expect_plan_reject "mutated production before approval" "production mutation" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.started","item":{"type":"command_execution","id":"prod","command":"printf changed > src/alpha.sh"}}' '{"type":"item.completed","item":{"type":"command_execution","id":"prod","exit_code":0,"aggregated_output":""}}' '{"type":"item.completed","item":{"type":"agent_message","text":"Approve or revise this plan?"}}' "$turn_done"
-    printf '%s\n' "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" '{"type":"item.completed","item":{"type":"agent_message","text":"How would you like to proceed: approve the plan, request revisions, or choose another next step?"}}' "$turn_done" >"$fixture"; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "plan-only/pending approval" ralplan "$project" >/dev/null || fail "Codex plan-only oracle rejected E: natural broad next-action request"
-    expect_plan_reject "returned no final prose" "an empty final" "$started" "$wrapper_start" "$wrapper_done" "$plan_start" "$plan_done" "$turn_done"
-    local started='{"type":"thread.started","thread_id":"parent"}' edit_start='{"type":"item.started","item":{"type":"command_execution","id":"edit","command":"python3 -c '\''from pathlib import Path; p=Path(\"notes/private-notes.md\"); p.write_text(p.read_text().replace(\"teh\", \"the\"))'\''"}}' edit_done='{"type":"item.completed","item":{"type":"command_execution","id":"edit","exit_code":0,"aggregated_output":""}}' final='{"type":"item.completed","item":{"type":"agent_message","text":"done"}}' completed='{"type":"turn.completed"}' diff_output
-    diff_output=$'diff --git a/notes/private-notes.md b/notes/private-notes.md\n--- a/notes/private-notes.md\n+++ b/notes/private-notes.md\n-Keep teh private note concise.\n+Keep the private note concise.'
-    printf '%s\n' "$started" "$edit_start" "$edit_done" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted no runtime diff"
-    printf '%s\n' "$started" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$edit_start" "$edit_done" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted a diff before mutation"
-    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' '{"type":"item.completed","item":{"type":"command_execution","id":"diff","exit_code":1,"aggregated_output":"diff failed"}}' "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted a failed diff"
-    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null 2>&1 || rc=$?; [[ "$rc" != 0 ]] || fail "Codex direct-edit oracle accepted an unscoped diff"
-    printf '%s\n' "$started" "$edit_start" "$edit_done" '{"type":"item.started","item":{"type":"command_execution","id":"diff","command":"git diff -- notes/private-notes.md"}}' "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"id\":\"diff\",\"exit_code\":0,\"aggregated_output\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$diff_output")}}" "$final" "$completed" >"$fixture"; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "direct-edit eligible" none >/dev/null || fail "Codex direct-edit oracle rejected mutation then successful scoped diff then final"
-    # A dispatched explore child records its lookup in its own transcript as a
-    # custom_tool_call named "exec" wrapping tools.exec_command. Reading only the
-    # parent stream found zero commands and failed a compliant run.
-    local child_dir child_meta iv_wrapper_start iv_wrapper_done iv_final
-    child_dir="$temp_root/home/sessions/2026/07/30"; mkdir -p "$child_dir"
-    child_meta='{"type":"session_meta","payload":{"id":"child","parent_thread_id":"parent","agent_role":"oh-no-explore","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent","agent_role":"oh-no-explore"}}}}}'
-    iv_wrapper_start='{"type":"item.started","item":{"type":"command_execution","id":"wrapper","command":"cat /tmp/plugin/skills/interview/SKILL.md"}}'
-    iv_wrapper_done='{"type":"item.completed","item":{"type":"command_execution","id":"wrapper","exit_code":0,"aggregated_output":"oh-no-harness-generated-skill-wrapper"}}'
-    iv_final='{"type":"item.completed","item":{"type":"agent_message","text":"Who should use this tool?"}}'
-    printf '%s\n' "$started" "$iv_wrapper_start" "$iv_wrapper_done" "$iv_final" "$turn_done" >"$fixture"
-    printf '%s\n' "$child_meta" '{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"const r = await tools.exec_command({\"cmd\":\"nl -ba README.md\",\"workdir\":\"/tmp\"});\ntext(r.output);\n"}}' >"$child_dir/child.jsonl"
-    assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null \
-      || fail "Codex vague-requirements oracle rejected a dispatched child repository read"
-    rm -f "$child_dir/child.jsonl"
-    rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null 2>&1 || rc=$?
-    [[ "$rc" != 0 ]] || fail "Codex vague-requirements oracle accepted a run with no repository read in either stream"
-    printf '%s\n' "$child_meta" '{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"const r = await tools.exec_command({\"cmd\":\"nl -ba README.md; sed -i s/broad/narrow/ README.md\",\"workdir\":\"/tmp\"});\n"}}' >"$child_dir/child.jsonl"
-    rc=0; assert_codex_natural_activation_smoke "$fixture" "$err_file" "$final_file" "vague requirements" interview "$project" >/dev/null 2>&1 || rc=$?
-    [[ "$rc" != 0 ]] || fail "Codex vague-requirements oracle accepted a child mutation of the read-only source"
-    rm -f "$child_dir/child.jsonl"
-  ) || { rm -rf "$temp_root"; return 1; }
-  rm -rf "$temp_root"; ok "Codex natural hard facts require plan artifacts and post-mutation scoped direct-edit diffs"
-}
-run_natural_session_start_live_skill_test() {
-  local label="$1"
-  local expected_route="$2"
-  local routing_state="$3"
-  local prompt="${4:-}"
-  local safe_label="${label//\//-}"
-  local out_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.jsonl"
-  local err_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.err"
-  local final_file="$RUN_DIR/natural-${routing_state}-${safe_label// /-}.final.txt"
-  [[ -n "$prompt" ]] || prompt="$(natural_session_start_prompt_for_skill "$label")"
-  assert_natural_prompt_has_no_explicit_subagent_terms "$label" "$prompt"
-  [[ "$label" == "object analysis" ]] || assert_natural_routing_prompt_shape "$label" "$prompt"
-  (
-    local temp_project="" config_dir="" before_dir=""
-    trap 'rm -rf "$temp_project" "$config_dir" "$before_dir"' EXIT
-    temp_project="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-project.XXXXXX")"
-    config_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-config.XXXXXX")"
-    before_dir="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-codex-natural-before.XXXXXX")"
-    case "$label" in
-      "vague requirements"|"autonomous end-to-end"|"no-route research"|"object analysis") printf 'Disposable example with an intentionally broad improvement goal.\n' >"$temp_project/README.md" ;;
-      "ordinary implementation"|"explicit test-first") mkdir -p "$temp_project/src" "$temp_project/tests"; printf 'TIMEOUT=5\n' >"$temp_project/src/timeout.sh"; printf '#!/bin/sh\n. ./src/timeout.sh\nprintf "TIMEOUT=%%s\\n" "$TIMEOUT"\n' >"$temp_project/run.sh"; printf '#!/bin/sh\n[ "$(./run.sh)" = "TIMEOUT=10" ]\n' >"$temp_project/tests/timeout_test.sh"; chmod +x "$temp_project/run.sh" "$temp_project/tests/timeout_test.sh" ;;
-      "unknown-cause failure") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "ready\\n"\n' >"$temp_project/src/startup.sh"; printf '#!/bin/sh\n[ "$(./src/startup.sh)" = "started" ]\n' >"$temp_project/tests/startup_test.sh"; chmod +x "$temp_project/src/startup.sh" "$temp_project/tests/startup_test.sh" ;;
-      "known-cause fix") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nMODE=sloww\nprintf "%%s\\n" "$MODE"\n' >"$temp_project/src/parser.sh"; printf '#!/bin/sh\n[ "$(./src/parser.sh)" = "fast" ]\n' >"$temp_project/tests/parser_test.sh"; chmod +x "$temp_project/src/parser.sh" "$temp_project/tests/parser_test.sh" ;;
-      "plan-only/pending approval") mkdir -p "$temp_project/src"; printf 'Plan two POSIX sh scripts with no external dependency. Both accept exactly one LABEL; alpha.sh prints newline-terminated alpha:<LABEL> and beta.sh prints newline-terminated beta:<LABEL>. Invalid arity prints usage to stderr and exits 2. Include focused valid-argument and invalid-arity tests.\n' >"$temp_project/README.md"; printf '#!/bin/sh\nprintf "alpha\\n"\n' >"$temp_project/src/alpha.sh"; printf '#!/bin/sh\nprintf "beta\\n"\n' >"$temp_project/src/beta.sh" ;;
-      "direct-edit eligible") mkdir -p "$temp_project/notes"; printf 'Keep teh private note concise.\n' >"$temp_project/notes/private-notes.md" ;;
-      "direct-edit ineligible") mkdir -p "$temp_project/src" "$temp_project/tests"; printf '#!/bin/sh\nprintf "teh status\\n"\n' >"$temp_project/src/status.sh"; printf '#!/bin/sh\n[ "$(./src/status.sh)" = "the status" ]\n' >"$temp_project/tests/status_test.sh"; chmod +x "$temp_project/src/status.sh" "$temp_project/tests/status_test.sh" ;;
-    esac
-    natural_git_fixture "$temp_project" "$label" initialize
-    cp -R "$temp_project/." "$before_dir/"
+            command = arguments_data.get("cmd")
+            if isinstance(command, str) and command.strip():
+                return [(command, True)]
+        return []
+    return []
+def commands_from_event(data):
+    return [command for command, _ in command_records_from_event(data)]
+def safety_inspectable_commands(data):
+    """Every command an event ISSUED, for forbidden-write / host-egress inspection.
 
-    local config_path
-    config_path="$(OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" path)"
-    case "$config_path" in "$config_dir"/*) ;; *) fail "$label helper config path escaped disposable directory: $config_path" ;; esac
-    case "$routing_state" in
-      off) ;;
-      on) OH_NO_CONFIG_DIR="$config_dir" "$PLUGIN_ROOT/scripts/oh-no-config" on >/dev/null ;;
-      *) fail "Unsupported natural routing state: $routing_state" ;;
-    esac
-
-    local checkout_before checkout_after sandbox live_rc=0
-    checkout_before="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
-    case "$label" in "vague requirements"|"no-route research"|"object analysis") sandbox=read-only ;; *) sandbox=workspace-write ;; esac
-    natural_git_fixture "$temp_project" "$label" verify
-    local cmd=(
-      "$CODEX_BIN"
-      --enable plugin_hooks
-      --ask-for-approval never
-      exec
-      --json
-      --cd "$temp_project"
-      --sandbox "$sandbox"
-      --skip-git-repo-check
-    )
-    if [[ -n "$LIVE_MODEL" ]]; then
-      cmd+=(--model "$LIVE_MODEL")
-    fi
-    run_codex_live_command "$CODEX_HOME_DIR" env OH_NO_CONFIG_DIR="$config_dir" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file" || live_rc=$?
-    checkout_after="$(natural_source_checkout_fingerprint "$MARKETPLACE_ROOT")"
-    [[ "$checkout_before" == "$checkout_after" ]] || fail "$label live child mutated the source checkout"
-    assert_codex_natural_activation_smoke "$out_file" "$err_file" "$final_file" "$label" "$expected_route" "$temp_project" || return $?
-    [[ "$live_rc" == "0" ]] || fail "$label live command failed with exit $live_rc; raw artifacts remain in $RUN_DIR"
-
-    local changes
-    changes="$(natural_payload_changes "$before_dir" "$temp_project")"
-    case "$label" in
-      "no-route research"|"object analysis")
-        [[ -z "$changes" && ! -e "$temp_project/.oh-no" ]] || fail "$label changed its project or created workflow artifacts: $changes"
-        ;;
-      "vague requirements")
-        [[ -z "$changes" && ! -e "$temp_project/.oh-no" ]] || fail "$label changed its project or created workflow artifacts: $changes"
-        ;;
-      "direct-edit eligible")
-        [[ "$(printf '%s\n' "$changes" | grep -c .)" == "1" && "$changes" == *"notes/private-notes.md"* ]] \
-          || fail "$label did not change exactly its one inert notes file: $changes"
-        [[ "$(<"$temp_project/notes/private-notes.md")" == "Keep the private note concise." ]] \
-          || fail "$label did not make the one requested typo correction"
-        [[ ! -e "$temp_project/.oh-no" ]] || fail "$label created a workflow artifact"
-        ;;
-      "plan-only/pending approval")
-        local non_artifact_changes
-        non_artifact_changes="$(printf '%s\n' "$changes" | grep -Ev '(^|[/ :])[.]oh-no([/: ]|$)' || true)"
-        [[ -z "$non_artifact_changes" ]] || fail "$label changed project files outside planning artifacts: $non_artifact_changes"
-        [[ ! -e "$temp_project/.oh-no/worktrees" ]] || fail "$label created a task worktree before approval"
-        ;;
-    esac
-  )
-}
-
-run_no_skill_readonly_session_start_live_test() {
-  local label="$1" routing_state="$2"
-  local out_file="$RUN_DIR/natural-${routing_state}-${label// /-}.jsonl"
-  local err_file="$RUN_DIR/natural-${routing_state}-${label// /-}.err"
-  local final_file="$RUN_DIR/natural-${routing_state}-${label// /-}.final.txt"
-  run_natural_session_start_live_skill_test "$label" none "$routing_state"
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$final_file" "$CODEX_HOME_DIR" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-out_path, err_path, final_path, live_home = sys.argv[1:5]
-
-
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"no-skill read-only smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-read_tool_pattern = re.compile(r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less|nl)(?:\s|$)")
-embedded_cmd_pattern = re.compile(r'"cmd"\s*:\s*("(?:[^"\\]|\\.)*")')
-
-
-def command_text_from_event(data):
+    Safety inspection is deliberately independent of completion-sensitive positive
+    evidence. A command counts here as soon as it was issued, even when its result
+    was never retained and even when read-credit logic would fail closed -- an
+    unobserved `rm -rf` is still a violation. Every embedded command of a batched
+    `custom_tool_call` is inspected, not just the first: the old inspectors matched
+    only `function_call`/`command_execution`, so today's `custom_tool_call` name
+    `exec` shape (and every command after the first inside it) went unexamined.
+    """
+    commands = [command for command, _ in command_records_from_event(data)]
+    if commands:
+        return commands
+    # A JS wrapper input that yielded NO call is prose, a comment, or a regex: it
+    # must not be handed to the safety patterns as if it were a command, or
+    # `// rm -rf src` would raise a violation for a line that never ran. Only a
+    # plain non-JS command string (the parent `command_execution` shape, or a
+    # function_call whose JSON arguments failed to parse) is worth falling back to.
     item = data.get("item") or {}
     payload = data.get("payload") or {}
-    if item.get("type") == "command_execution":
-        return str(item.get("command") or "")
-    # Child transcripts record shell work as custom_tool_call "exec" whose input is
-    # a JS snippet wrapping tools.exec_command({"cmd": ...}).
-    if (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}) \
-            or (payload.get("type") == "custom_tool_call" and payload.get("name") in {"exec", "functions.exec"}):
-        raw = payload.get("arguments") or payload.get("input") or ""
-        raw_text = raw if isinstance(raw, str) else json.dumps(raw)
-        try:
-            arguments_data = json.loads(raw_text) if raw_text else {}
-        except json.JSONDecodeError:
-            match = embedded_cmd_pattern.search(raw_text)
-            if not match:
-                return raw_text
+    command = item.get("command")
+    if isinstance(command, str) and command.strip():
+        return [command]
+    if payload.get("type") == "function_call":
+        raw = payload.get("arguments")
+        if isinstance(raw, str) and raw.strip() and "exec_command" not in raw:
             try:
-                return str(json.loads(match.group(1)))
+                decoded = json.loads(raw)
             except json.JSONDecodeError:
-                return raw_text
-        if isinstance(arguments_data, dict):
-            return str(arguments_data.get("cmd") or "")
+                return [raw]
+            if isinstance(decoded, dict):
+                value = decoded.get("cmd") or decoded.get("command")
+                if isinstance(value, str) and value.strip():
+                    return [value]
+    return []
+FUSION_WRITE_STDIN_MAX_OUTPUT_TOKENS = 12000
+
+
+def fusion_parent_observed_result_text(data):
+    """Return parent-owned observed output, never prompts or tool-request instructions."""
+    item = data.get("item") or {}
+    if item.get("type") == "agent_message":
+        return collect_text(item.get("text") or item.get("content") or "")
+    payload = data.get("payload") or {}
+    if data.get("type") == "event_msg" and payload.get("type") == "task_complete":
+        return collect_text(payload.get("last_agent_message") or "")
     return ""
 
 
-evidence_reads = []
-failed_spawns = []
-all_text_parts = []
-parent_thread_id = None
-with open(out_path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if (
-            data.get("type") == "item.started"
-            and item.get("type") == "command_execution"
-            and read_tool_pattern.search(str(item.get("command") or ""))
-            and "README.md" in str(item.get("command") or "")
-        ):
-            evidence_reads.append((index, event_text))
-
-# This lane explicitly authorizes dispatching the read-only oh-no-explore agent
-# ("as many as the lookup needs"), so the lookup evidence legitimately lives in a
-# child transcript. Counting only parent command_execution events rejected a run
-# whose dispatched child had read the file.
-if parent_thread_id:
-    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-        meta = None
-        child_commands = []
-        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not transcript_line.strip():
-                continue
-            candidate = json.loads(transcript_line)
-            if candidate.get("type") == "session_meta":
-                meta = candidate.get("payload") or {}
-            command_text = command_text_from_event(candidate)
-            if command_text:
-                child_commands.append(command_text)
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-        if (meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")) != parent_thread_id:
-            continue
-        evidence_reads.extend(
-            (str(transcript_path), command_text)
-            for command_text in child_commands
-            if read_tool_pattern.search(command_text) and "README.md" in command_text
-        )
-
-if failed_spawns:
-    raise SystemExit(f"no-skill read-only smoke saw failed spawn_agent calls: {failed_spawns!r}")
-all_text = "\n".join(all_text_parts)
-if not parent_thread_id:
-    raise SystemExit("no-route research smoke lacked a host thread")
-if not all_text.strip():
-    raise SystemExit("no-route research smoke returned no host-visible answer")
-if not evidence_reads:
-    raise SystemExit("no-route research smoke returned no repository-read evidence")
-if not Path(final_path).read_text(encoding="utf-8", errors="replace").strip():
-    raise SystemExit("no-route research smoke returned no final answer")
-print("ok - no-route research returned repository evidence without workflow activation")
-PY
-}
-
-run_ralplan_object_analysis_session_start_live_test() {
-  local label="$1" routing_state="$2"
-  local prompt='Analyze the Ralplan review loop for unnecessary steps. Return an analysis report only; do not create a plan or execute changes.'
-  local out_file="$RUN_DIR/natural-${routing_state}-${label// /-}.jsonl"
-  local final_file="$RUN_DIR/natural-${routing_state}-${label// /-}.final.txt"
-  assert_natural_prompt_has_no_explicit_subagent_terms "$label" "$prompt"
-  [[ "$prompt" == *"Ralplan"* && "$prompt" != *"/"* && "$prompt" != *"SKILL.md"* ]] \
-    || fail "object-analysis prompt escaped its bounded workflow-subject exception"
-  run_natural_session_start_live_skill_test "$label" none "$routing_state" "$prompt"
-
-  "$PYTHON_BIN" - "$out_file" "$final_file" "$CODEX_HOME_DIR" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-out_path, final_path, live_home = sys.argv[1:4]
-parent_thread_id = None
-for line in open(out_path, encoding="utf-8"):
-    if not line.strip():
-        continue
-    data = json.loads(line)
-    if data.get("type") == "thread.started":
-        parent_thread_id = data.get("thread_id") or parent_thread_id
-if parent_thread_id:
-    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-        meta = None
-        rows = []
-        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not transcript_line.strip():
-                continue
-            row = json.loads(transcript_line)
-            rows.append(row)
-            if row.get("type") == "session_meta":
-                meta = row.get("payload") or {}
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        if parent != parent_thread_id:
-            continue
-        for row in rows:
-            item = row.get("item") or {}
-            command = str(item.get("command") or "") if item.get("type") == "command_execution" else ""
-            if re.search(
-                r"(?:^|(?:-lc\s+)[\"']|(?:&&|[;|])\s*)(?:cat|sed|head|tail|more|less)\b[^;&|\n]*"
-                r"/skills/[a-z0-9-]+/SKILL[.]md(?:$|[\s'\";&|<>])",
-                command,
-            ):
-                raise SystemExit("Ralplan object-analysis smoke read a workflow wrapper in a child transcript")
-if not parent_thread_id:
-    raise SystemExit("Ralplan object-analysis smoke lacked a host thread")
-if not Path(final_path).read_text(encoding="utf-8", errors="replace").strip():
-    raise SystemExit("Ralplan object-analysis smoke returned no final analysis")
-print("ok - Ralplan object-analysis request stayed analysis-only")
-PY
-}
-
-run_natural_session_start_live_tests() {
-  if [[ "$RUN_NATURAL_SESSION_START_LIVE" != "1" ]]; then
-    log "Skipping live natural Codex routing/activation evidence tests"
-    printf 'Run with --natural-session-start-live or OH_NO_NATURAL_SESSION_START_LIVE=1 to capture isolated natural routing, activation, and containment evidence.\n' >&2
-    return
-  fi
-
-  [[ -f "$CODEX_HOME_DIR/$CODEX_LIVE_CLONE_MARKER" && ! -L "$CODEX_HOME_DIR/$CODEX_LIVE_CLONE_MARKER" ]] \
-    || fail "natural Codex routing tests require the verified physical active-home clone"
-  assert_codex_live_home_provenance "$CODEX_HOME_DIR"
-  log "Running live natural Codex routing/activation evidence tests"
-  mkdir -p "$RUN_DIR"
-  run_natural_session_start_live_skill_test "vague requirements" interview off
-  run_natural_session_start_live_skill_test "autonomous end-to-end" ultrawork off
-  run_natural_session_start_live_skill_test "ordinary implementation" ralph off
-  run_natural_session_start_live_skill_test "explicit test-first" test-driven-development off
-  run_natural_session_start_live_skill_test "unknown-cause failure" systematic-debugging off
-  run_natural_session_start_live_skill_test "known-cause fix" ralph off
-  run_natural_session_start_live_skill_test "plan-only/pending approval" ralplan off
-  run_no_skill_readonly_session_start_live_test "no-route research" off
-  run_natural_session_start_live_skill_test "direct-edit eligible" none off
-  run_natural_session_start_live_skill_test "direct-edit ineligible" ralph off
-  run_ralplan_object_analysis_session_start_live_test "object analysis" off
-
-  run_natural_session_start_live_skill_test "ordinary implementation" ralph on
-  run_ralplan_object_analysis_session_start_live_test "object analysis" on
-  ok "natural Codex live outputs saved under ${RUN_DIR#$MARKETPLACE_ROOT/}"
-}
-
-run_ralplan_live_test() {
-  if [[ "$RUN_RALPLAN_LIVE" != "1" ]]; then
-    log "Skipping live Codex ralplan sequential-subagent smoke test"
-    printf 'Run with --ralplan-live or OH_NO_RALPLAN_LIVE=1 to verify Planner -> Plan-Reviewer sequential spawn_agent review.\n' >&2
-    return
-  fi
-
-  log "Running live Codex ralplan sequential-subagent smoke test"
-  mkdir -p "$RUN_DIR"
-  local out_file="$RUN_DIR/ralplan-sequential-subagents.jsonl"
-  local err_file="$RUN_DIR/ralplan-sequential-subagents.err"
-  local proof_file="$RUN_DIR/ralplan-handoff-proof.json"
-  local request_nonce draft_id
-  request_nonce="$("$PYTHON_BIN" - <<'PY'
-import secrets
-print(secrets.token_hex(12))
-PY
-)"
-  draft_id="ralplan-draft-${request_nonce}"
-  "$PYTHON_BIN" - "$proof_file" "$request_nonce" "$draft_id" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-proof_path = Path(sys.argv[1])
-request_nonce = sys.argv[2]
-draft_id = sys.argv[3]
-active_contract = """ACTIVE_PLAN_CONTRACT_BEGIN
-Mode: LIGHT
-Always required: Direction and acceptance core; Minimal scope trace; Core evidence
-Mode-required: none
-Trigger-required: Execution handoff; Planning-role evidence
-Explicitly not applicable: none
-Reviewer entitlement: missing-field blocking is limited to the active fields above
-ACTIVE_PLAN_CONTRACT_END"""
-proof_path.write_text(
-    json.dumps(
-        {
-            "request_nonce": request_nonce,
-            "draft_id": draft_id,
-            "active_contract": active_contract,
-        },
-        indent=2,
-    )
-    + "\n",
-    encoding="utf-8",
-)
-PY
-  chmod 600 "$proof_file"
-  local prompt
-  IFS= read -r -d '' prompt <<PROMPT || true
-Use oh-no-harness:ralplan for a read-only typed-role probe. No edits, artifacts, generic roles, retries, or roles beyond Planner and Plan-Reviewer.
-
-Each spawn_agent: message; fork_turns "none".
-1. task_name "ralplan_planner", agent_type "oh-no-planner"; wait.
-2. Spawn two first: agent_type "oh-no-plan-reviewer"; task_names "ralplan_review_feasibility" (feasibility), "ralplan_review_coverage" (coverage); wait both.
-
-Each role message needs Role, Codex agent type, Scope, Expected output, Verification responsibility, and Lifecycle.
-The Planner message must include this exact request and contract:
-OH_NO_RALPLAN_PLANNER_PROOF_REQUEST ${request_nonce}
-ACTIVE_PLAN_CONTRACT_BEGIN
-Mode: LIGHT
-Always required: Direction and acceptance core; Minimal scope trace; Core evidence
-Mode-required: none
-Trigger-required: Execution handoff; Planning-role evidence
-Explicitly not applicable: none
-Reviewer entitlement: missing-field blocking is limited to the active fields above
-ACTIVE_PLAN_CONTRACT_END
-Planner output: one PLANNER_DRAFT_BEGIN/PLANNER_DRAFT_END envelope with exact line Planner draft id: ${draft_id} and fields Goal, Acceptance criteria, Execution profile, Worktree policy, and Verification plan.
-
-Build two REVIEW_PACKET_BEGIN/REVIEW_PACKET_END Plan-Reviewer messages. They must be identical except the single Assigned perspective: line. Use exactly these two values, one per packet:
-Assigned perspective: strongest-antithesis / feasibility-risk
-Assigned perspective: acceptance-coverage / quality-gate completeness
-Each packet includes the same OH_NO_RALPLAN_REVIEW_PROOF_REQUEST ${request_nonce}, exact Active plan contract, unchanged Planner envelope, and this output contract: echo the unchanged Planner envelope inside REVIEWED_PLANNER_DRAFT_BEGIN/REVIEWED_PLANNER_DRAFT_END, then one PLAN_REVIEWER_DECISION_BEGIN/PLAN_REVIEWER_DECISION_END envelope with exact line Reviewed draft: ${draft_id}. Keep NB1 non-blocking; APPROVE with no Planner revision. APPROVE freezes the exact reviewed Planner draft. Optional follow-up: NB1. Planner revision: not run.
-
-Copy both complete REVIEW_PACKET envelopes unchanged into the parent final response, then copy all three complete role results unchanged, Planner then both Plan-Reviewers. Record Review pair mode: same-host-perspective-pair and Planner skips revision (v1 approved). Use cleanup only if exposed; otherwise include exactly: Close/cleanup was not available. End with OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK after reporting role order, handoff, consensus, contradictions, recommended next action, no revision, and cleanup.
-PROMPT
-
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file" "$proof_file"
-    fail "Codex Ralplan explicit live artifacts failed the credential-leak guard and were removed"
-  fi
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$proof_file" <<'PY'
-import json
-import re
-import sys
-from collections import defaultdict
-from pathlib import Path
-
-path = sys.argv[1]
-err_path = sys.argv[2]
-live_home = sys.argv[3]
-proof_path = sys.argv[4]
-proof = json.loads(Path(proof_path).read_text(encoding="utf-8"))
-
-expected_roles = ["planner", "plan-reviewer"]
-expected_role_sequence = ["planner", "plan-reviewer", "plan-reviewer"]
-expected_role_counts = {"planner": 1, "plan-reviewer": 2}
-expected_perspectives = {
-    "strongest-antithesis / feasibility-risk",
-    "acceptance-coverage / quality-gate completeness",
-}
-role_headings = {
-    "planner": "# Planner Agent",
-    "plan-reviewer": "# Plan Reviewer Agent",
-}
-required_prompt_markers = [
-    "## Skill Relationship",
-    "## Responsibilities",
-    "## Operating Rules",
-    "## Output",
-]
-dependency_prompt_markers = {
-    "plan-reviewer": ["PLANNER_DRAFT_BEGIN", "Active plan contract"],
-}
-output_markers = {
-    "planner": [
-        "PLANNER_DRAFT_BEGIN",
-        "Planner draft id:",
-        "Goal:",
-        "Acceptance criteria:",
-        "Execution profile:",
-        "Worktree policy:",
-        "Verification plan:",
-        "PLANNER_DRAFT_END",
-    ],
-    "plan-reviewer": [
-        "REVIEWED_PLANNER_DRAFT_BEGIN",
-        "REVIEWED_PLANNER_DRAFT_END",
-        "PLAN_REVIEWER_DECISION_BEGIN",
-        "Reviewed draft:",
-        "Architecture findings",
-        "NB1",
-        "Quality-gate findings",
-        "PLAN_REVIEWER_DECISION_END",
-    ],
-}
-CONTRACT_START = "ACTIVE_PLAN_CONTRACT_BEGIN"
-CONTRACT_END = "ACTIVE_PLAN_CONTRACT_END"
-DRAFT_START = "PLANNER_DRAFT_BEGIN"
-DRAFT_END = "PLANNER_DRAFT_END"
-REVIEWED_DRAFT_START = "REVIEWED_PLANNER_DRAFT_BEGIN"
-REVIEWED_DRAFT_END = "REVIEWED_PLANNER_DRAFT_END"
-DECISION_START = "PLAN_REVIEWER_DECISION_BEGIN"
-DECISION_END = "PLAN_REVIEWER_DECISION_END"
-REVIEW_PACKET_START = "REVIEW_PACKET_BEGIN"
-REVIEW_PACKET_END = "REVIEW_PACKET_END"
-
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-def normalize_transport_whitespace(value):
-    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop()
-    return "\n".join(line.rstrip() for line in lines)
-
-def extract_delimited_block(value, start, end, label, allow_repeats=False):
-    matches = re.findall(
-        rf"(?ms)^\s*{re.escape(start)}\s*$\n(.*?)^\s*{re.escape(end)}\s*$",
-        value,
-    )
-    normalized = {normalize_transport_whitespace(match) for match in matches}
-    if len(normalized) != 1 or (not allow_repeats and len(matches) != 1):
-        raise SystemExit(
-            f"Codex ralplan sequential smoke expected one unique {label} block; "
-            f"matches={len(matches)} unique={len(normalized)}"
-        )
-    return next(iter(normalized))
-
-
-def review_packet_evidence(value, label):
-    packet = extract_delimited_block(
-        value,
-        REVIEW_PACKET_START,
-        REVIEW_PACKET_END,
-        label,
-        allow_repeats=True,
-    )
-    perspectives = re.findall(
-        r"(?m)^Assigned perspective:[ \t]*(.*?)[ \t]*$",
-        packet,
-    )
-    if len(perspectives) != 1:
-        raise SystemExit(
-            f"Codex ralplan sequential smoke {label} must contain exactly one Assigned perspective line"
-        )
-    perspective = normalize_transport_whitespace(perspectives[0])
-    normalized_lines = []
-    for line in packet.splitlines():
-        if re.match(r"^Assigned perspective:", line):
-            normalized_lines.append("Assigned perspective: NORMALIZED")
-        else:
-            normalized_lines.append(line)
-    return packet, perspective, normalize_transport_whitespace("\n".join(normalized_lines))
-
-
-def roles_in_text(text):
-    lower = text.lower()
+def fusion_provider_observed_success_markers(panel_results, parent_results):
+    """Return exact success tokens found only on child/parent result surfaces."""
+    text = "\n".join([
+        *(str(value) for value in panel_results.values()),
+        *(str(value) for value in parent_results),
+    ])
     return [
-        role for role in expected_roles
-        if f"Codex agent type: oh-no-{role}".lower() in lower
+        marker for marker in (
+            "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+            "OH_NO_CLAUDE_FUSION_PANEL_OK",
+        )
+        if marker in text
     ]
 
-def mentioned_receivers(item):
-    text = collect_text(item)
-    mentioned = set(item.get("receiver_thread_ids") or [])
-    mentioned.update((item.get("agents_states") or {}).keys())
-    mentioned.update(
-        receiver for receiver in receiver_to_role
-        if receiver in text
-    )
-    return mentioned & set(receiver_to_role)
 
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"Codex ralplan sequential smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-                subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-                thread_spawn = (
-                    subagent.get("thread_spawn")
-                    if isinstance(subagent.get("thread_spawn"), dict)
-                    else {}
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"Codex ralplan sequential smoke transcript lacked session_meta: {receiver}")
+def fusion_launcher_proof(raw_text, budget):
+    """Recognize one bounded Codex custom-exec Claude launcher, or fail closed."""
+    def reject(reason):
+        return {"ok": False, "reason": reason, "argv": [], "terminal_mode": None}
 
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit("Codex ralplan sequential smoke saw a spawn failure; inspect the secret-scanned stderr artifact")
-
-successful_spawns = []
-failed_spawns = []
-command_events = []
-receiver_to_role = {}
-receiver_outputs = {}
-wait_index_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
-all_text_parts = []
-parent_thread_id = None
-transcript_fallback = False
-
-with open(path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        if item.get("type") == "agent_message":
-            all_text_parts.append(collect_text(data))
-        payload = data.get("payload") or {}
-        if item.get("type") == "command_execution":
-            command_events.append((index, collect_text(item)))
-        if payload.get("type") == "function_call" and payload.get("name") in {
-            "exec_command",
-            "functions.exec_command",
-        }:
-            command_events.append((index, collect_text(payload)))
-        if "OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK" in collect_text(data):
-            marker = True
-        if item.get("type") != "collab_tool_call":
-            continue
-
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            if not receivers:
-                continue
-            spawn_text = collect_text(item)
-            matched_roles = roles_in_text(spawn_text)
-            if len(matched_roles) != 1:
-                raise SystemExit(
-                    "expected each completed spawn_agent payload to contain exactly one planning role prompt source; "
-                    f"line={index} roles={matched_roles!r} text={spawn_text[:2000]!r}"
-                )
-            role = matched_roles[0]
-            successful_spawns.append((index, role, tuple(receivers), spawn_text))
-            for receiver in receivers:
-                receiver_to_role[receiver] = role
-        if tool in {"wait", "wait_agent", "close_agent"} and status == "completed":
-            receivers = set(item.get("receiver_thread_ids") or []) | mentioned_receivers(item)
-            if tool in {"wait", "wait_agent"}:
-                for receiver, state in (item.get("agents_states") or {}).items():
-                    role = receiver_to_role.get(receiver)
-                    if not role or not isinstance(state, dict):
-                        continue
-                    message = collect_text(state.get("message"))
-                    if state.get("status") == "completed" and message:
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        receiver_outputs[receiver] = message
-            if tool == "close_agent":
-                for receiver in receivers:
-                    close_index_by_receiver.setdefault(receiver, index)
-
-if failed_spawns:
-    raise SystemExit(f"Codex ralplan sequential smoke saw failed spawn_agent calls: {failed_spawns!r}")
-tainted_command_events = [
-    event for event in command_events
-    if "ralplan-handoff-proof.json" in event[1]
-    or "/agents/oh-no-planner.toml" in event[1]
-    or "/agents/oh-no-plan-reviewer.toml" in event[1]
-]
-if tainted_command_events:
-    tainted_lines = sorted({event[0] for event in tainted_command_events})
-    raise SystemExit(
-        "Codex ralplan sequential smoke inspected test-only proof material instead of relying on typed-role output: "
-        f"event lines {tainted_lines!r}"
+    if not isinstance(raw_text, str):
+        return reject("custom exec input was not text")
+    records = embedded_command_records(raw_text)
+    if len(records) != 1:
+        return reject("custom exec must contain exactly one exec_command operation")
+    command, result_name, _ = records[0]
+    if not result_name:
+        return reject("custom exec result was not assigned")
+    executable = "".join(raw_text[start:end] for start, end in js_executable_spans(raw_text))
+    json_sinks = re.findall(
+        r"(?<![A-Za-z0-9_$.])text\s*[(]\s*JSON[.]stringify\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*[)]\s*[)]",
+        executable,
     )
-all_text = "\n".join(all_text_parts)
-if not successful_spawns:
-    transcript_fallback = True
-    if not parent_thread_id:
-        raise SystemExit("Codex ralplan sequential smoke lacked both collab events and a parent thread id")
-    transcript_children = defaultdict(list)
-    sessions_root = Path(live_home) / "sessions"
-    for transcript_path in sessions_root.rglob("*.jsonl"):
-        transcript_rows = []
-        meta = None
-        for transcript_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not transcript_line.strip():
-                continue
-            candidate = json.loads(transcript_line)
-            transcript_rows.append(candidate)
-            if candidate.get("type") == "session_meta":
-                meta = candidate.get("payload") or {}
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = (
-            subagent.get("thread_spawn")
-            if isinstance(subagent.get("thread_spawn"), dict)
-            else {}
-        )
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id or not isinstance(agent_role, str):
-            continue
-        if not agent_role.startswith("oh-no-"):
-            continue
-        role = agent_role.removeprefix("oh-no-")
-        if role not in expected_roles:
-            continue
-        assistant_messages = []
-        task_complete_messages = []
-        user_messages = []
-        encrypted_task_messages = 0
-        completed = False
-        completion_timestamp = ""
-        for candidate in transcript_rows:
-            payload = candidate.get("payload") or {}
-            if candidate.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                completion_timestamp = candidate.get("timestamp", "") or completion_timestamp
-                final_message = collect_text(payload.get("last_agent_message"))
-                if final_message:
-                    task_complete_messages.append(final_message)
-            if candidate.get("type") != "response_item":
-                continue
-            if payload.get("type") == "agent_message":
-                content = payload.get("content") or []
-                if any(
-                    isinstance(item, dict) and item.get("type") == "encrypted_content"
-                    for item in content
-                ):
-                    encrypted_task_messages += 1
-                else:
-                    user_messages.append(collect_text(content))
-                continue
-            if payload.get("type") != "message":
-                continue
-            if payload.get("role") == "assistant":
-                assistant_messages.append(collect_text(payload.get("content")))
-            elif payload.get("role") == "user":
-                user_messages.append(collect_text(payload.get("content")))
-        if not completed:
-            raise SystemExit(f"Codex ralplan sequential smoke typed child {role} lacked task_complete")
-        transcript_children[role].append(
-            {
-                "timestamp": meta.get("timestamp", ""),
-                "completion_timestamp": completion_timestamp,
-                "input": "\n".join(user_messages),
-                "encrypted_task_messages": encrypted_task_messages,
-                "output": (
-                    task_complete_messages[-1]
-                    if task_complete_messages
-                    else "\n".join(dict.fromkeys(assistant_messages))
-                ),
-            }
-        )
-    child_count_mismatches = {
-        role: len(transcript_children[role])
-        for role, expected_count in expected_role_counts.items()
-        if len(transcript_children[role]) != expected_count
-    }
-    if child_count_mismatches:
-        raise SystemExit(
-            "Codex ralplan sequential smoke typed child session counts did not prove one Planner plus one reviewer pair: "
-            f"{child_count_mismatches!r}"
-        )
-    planner = transcript_children["planner"][0]
-    reviewers = sorted(
-        transcript_children["plan-reviewer"], key=lambda child: child["timestamp"]
+    output_sinks = re.findall(
+        r"(?<![A-Za-z0-9_$.])text\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*[.]\s*output\s*[)]",
+        executable,
     )
-    planner_time = planner["timestamp"]
-    planner_completion = planner["completion_timestamp"]
-    reviewer_starts = [reviewer["timestamp"] for reviewer in reviewers]
-    reviewer_completions = [reviewer["completion_timestamp"] for reviewer in reviewers]
-    if (
-        not planner_time
-        or not planner_completion
-        or not all(reviewer_starts)
-        or planner_time >= min(reviewer_starts)
-        or planner_completion >= min(reviewer_starts)
-    ):
-        raise SystemExit(
-            "Codex ralplan sequential smoke typed Planner completion did not precede the reviewer pair"
-        )
-    if (
-        not all(reviewer_completions)
-        or max(reviewer_starts) >= min(reviewer_completions)
-    ):
-        raise SystemExit(
-            "Codex ralplan sequential smoke reviewer pair was not dispatched before either review completed"
-        )
-    planner_input = normalize_transport_whitespace(planner["input"])
-    reviewer_inputs = [normalize_transport_whitespace(reviewer["input"]) for reviewer in reviewers]
-    planner_output = normalize_transport_whitespace(planner["output"])
-    reviewer_outputs = [normalize_transport_whitespace(reviewer["output"]) for reviewer in reviewers]
-    parent_output = normalize_transport_whitespace(all_text)
-    planner_request = f"OH_NO_RALPLAN_PLANNER_PROOF_REQUEST {proof['request_nonce']}"
-    reviewer_request = f"OH_NO_RALPLAN_REVIEW_PROOF_REQUEST {proof['request_nonce']}"
-    planner_input_visible = planner_request.lower() in planner_input.lower()
-    planner_input_encrypted = planner["encrypted_task_messages"] == 1
-    if not planner_input_visible and not planner_input_encrypted:
-        raise SystemExit(
-            "Codex ralplan sequential smoke Planner task had neither visible proof request "
-            "nor one encrypted inter-agent task message"
-        )
-    for reviewer_index, (reviewer, reviewer_input) in enumerate(
-        zip(reviewers, reviewer_inputs), start=1
-    ):
-        reviewer_input_visible = reviewer_request.lower() in reviewer_input.lower()
-        reviewer_input_encrypted = reviewer["encrypted_task_messages"] == 1
-        if not reviewer_input_visible and not reviewer_input_encrypted:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke Plan-Reviewer {reviewer_index} task had neither "
-                "visible proof request nor one encrypted inter-agent task message"
-            )
-    for role, output_text in (
-        ("planner", planner_output),
-        *(("plan-reviewer", output) for output in reviewer_outputs),
-    ):
-        if not output_text:
-            raise SystemExit(f"Codex ralplan sequential smoke typed child {role} returned no final output")
-        missing = [
-            value for value in output_markers[role]
-            if value.lower() not in output_text.lower()
-        ]
-        if missing:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke typed child {role} lacked output proof: {missing!r}"
-            )
-    planner_draft_ids = re.findall(r"(?m)^Planner draft id:\s*(\S.*)$", planner_output)
-    if planner_draft_ids != [proof["draft_id"]]:
-        raise SystemExit(
-            "Codex ralplan sequential smoke typed Planner did not return the exact dynamic draft id"
-        )
-    planner_draft = extract_delimited_block(
-        planner_output, DRAFT_START, DRAFT_END, "typed child Planner draft"
+    session_sinks = re.findall(
+        r"if\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)[.]session_id\s*[)]\s*text\s*[(]\s*`SESSION_ID=[$][{]\1[.]session_id[}]`\s*[)]",
+        raw_text,
     )
-    planner_draft_envelope = normalize_transport_whitespace(
-        f"{DRAFT_START}\n{planner_draft}\n{DRAFT_END}"
-    )
-    visible_packet_sources = [
-        reviewer_input
-        for reviewer_input in reviewer_inputs
-        if REVIEW_PACKET_START in reviewer_input and REVIEW_PACKET_END in reviewer_input
-    ]
-    parent_packet_blocks = re.findall(
-        rf"(?ms)^\s*{re.escape(REVIEW_PACKET_START)}\s*$\n(.*?)^\s*{re.escape(REVIEW_PACKET_END)}\s*$",
-        parent_output,
-    )
-    if len(visible_packet_sources) == 2:
-        packet_sources = visible_packet_sources
-    elif len(parent_packet_blocks) == 2:
-        packet_sources = [
-            f"{REVIEW_PACKET_START}\n{block}\n{REVIEW_PACKET_END}"
-            for block in parent_packet_blocks
-        ]
+    all_text_calls = re.findall(r"(?<![A-Za-z0-9_$.])text\s*[(]", executable)
+    if json_sinks == [result_name] and not output_sinks and not session_sinks and len(all_text_calls) == 1:
+        pass
+    elif output_sinks == [result_name] and len(session_sinks) <= 1 and all(name == result_name for name in session_sinks) and len(all_text_calls) == 1 + len(session_sinks):
+        if session_sinks:
+            expected = f"SESSION_ID=${{{result_name}.session_id}}"
+            if expected not in raw_text:
+                return reject("session sink was not derived from the retained result")
     else:
-        raise SystemExit(
-            "Codex ralplan sequential smoke could not capture both complete reviewer packets"
-        )
-    packet_evidence = [
-        review_packet_evidence(source, f"Plan-Reviewer packet {index}")
-        for index, source in enumerate(packet_sources, start=1)
-    ]
-    raw_packets = {packet for packet, _, _ in packet_evidence}
-    perspectives = {perspective for _, perspective, _ in packet_evidence}
-    normalized_packets = {packet for _, _, packet in packet_evidence}
-    if len(raw_packets) != 2 or perspectives != expected_perspectives:
-        raise SystemExit(
-            "Codex ralplan sequential smoke reviewer packets lacked two distinct role-appropriate Assigned perspective values"
-        )
-    if len(normalized_packets) != 1:
-        raise SystemExit(
-            "Codex ralplan sequential smoke reviewer packets differed beyond the Assigned perspective line"
-        )
-    expected_contract = extract_delimited_block(
-        proof["active_contract"], CONTRACT_START, CONTRACT_END, "expected Active plan contract"
+        return reject("custom exec lacked one retained sink for its assigned result")
+    skeleton = [" "] * len(raw_text)
+    for start, end in js_executable_spans(raw_text):
+        skeleton[start:end] = raw_text[start:end]
+    statements = [re.sub(r"\s+", " ", statement).strip() for statement in "".join(skeleton).split(";") if statement.strip()]
+    first_statement = re.fullmatch(
+        rf"const {re.escape(result_name)} = await (?:tools|functions)\s*[.]\s*exec_command\s*[(].*[)]",
+        statements[0] if statements else "",
+        re.S,
     )
-    for packet_index, (packet, _, _) in enumerate(packet_evidence, start=1):
-        if reviewer_request not in packet:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke reviewer packet {packet_index} omitted its dynamic request marker"
-            )
-        packet_contract = extract_delimited_block(
-            packet, CONTRACT_START, CONTRACT_END, f"reviewer packet {packet_index} Active plan contract"
+    json_statement = re.fullmatch(rf"text\s*[(]\s*JSON[.]stringify\s*[(]\s*{re.escape(result_name)}\s*[)]\s*[)]", statements[1] if len(statements) > 1 else "")
+    output_statement = re.fullmatch(rf"text\s*[(]\s*{re.escape(result_name)}[.]output\s*[)]", statements[1] if len(statements) > 1 else "")
+    session_statement = re.fullmatch(rf"if\s*[(]\s*{re.escape(result_name)}[.]session_id\s*[)]\s*text\s*[(]\s*(?:{re.escape(result_name)}[.]session_id)?\s*[)]", statements[2] if len(statements) > 2 else "")
+    if not first_statement or not (
+        len(statements) == 2 and json_statement
+        or len(statements) == 2 and output_statement and not session_sinks
+        or len(statements) == 3 and output_statement and session_statement and session_sinks == [result_name]
+    ):
+        return reject("custom exec contained an unsupported JavaScript operation or statement")
+
+    command_match = re.fullmatch(r"\s*(python|python3)\s+(-c|-)\s+(.*)\s*", command, re.S)
+    if command_match is None:
+        return reject("launcher was not bounded python -c or python - heredoc")
+    mode, remainder = command_match.group(2), command_match.group(3)
+    if mode == "-c":
+        try:
+            outer = shlex.split(command)
+        except ValueError:
+            return reject("python -c command was not shell-parseable")
+        if len(outer) != 3 or Path(outer[0]).name not in {"python", "python3"} or outer[1] != "-c":
+            return reject("python -c source was not one quoted literal argument")
+        raw_argument = remainder.strip()
+        if not raw_argument or raw_argument[0] not in {"'", '"'}:
+            return reject("python -c source was not shell-quoted")
+        python_source = outer[2]
+    else:
+        heredoc = re.fullmatch(r"<<(['\"])([A-Za-z_][A-Za-z0-9_]*)\1\r?\n(.*)\r?\n\2", remainder, re.S)
+        if heredoc is None:
+            return reject("python stdin source was not one exact quoted heredoc")
+        python_source = heredoc.group(3)
+
+    try:
+        tree = ast.parse(python_source, mode="exec")
+    except SyntaxError:
+        return reject("Python launcher source was not parseable")
+    if any(isinstance(node, (ast.Delete, ast.AugAssign, ast.AnnAssign, ast.NamedExpr, ast.Starred, ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) for node in ast.walk(tree)):
+        return reject("Python launcher used dynamic or mutable syntax")
+    imports = []
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            imports.extend((alias.name, alias.asname) for alias in statement.names)
+        elif isinstance(statement, ast.ImportFrom):
+            return reject("Python launcher used from-import")
+    if len(imports) != len(set(imports)) or any(alias is not None for _, alias in imports) or set(name for name, _ in imports) != {"os", "subprocess"} | ({"sys"} if any(name == "sys" for name, _ in imports) else set()) or any(name not in {"os", "subprocess", "sys"} for name, _ in imports):
+        return reject("Python launcher imports were not bounded")
+    if not {"os", "subprocess"}.issubset({name for name, _ in imports}):
+        return reject("Python launcher omitted required imports")
+
+    assignments = {}
+    store_counts = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            store_counts[node.id] = store_counts.get(node.id, 0) + 1
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            assignments.setdefault(node.targets[0].id, []).append(node)
+    run_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name) and node.func.value.id == "subprocess" and node.func.attr == "run"
+    ]
+    subprocess_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name) and node.func.value.id == "subprocess"
+    ]
+    if len(run_calls) != 1 or subprocess_calls != run_calls:
+        return reject("Python launcher must call subprocess.run exactly once")
+    run_call = run_calls[0]
+    result_assignments = [
+        node for nodes in assignments.values() for node in nodes if node.value is run_call
+    ]
+    if len(result_assignments) != 1:
+        return reject("subprocess result lacked one immutable binding")
+    result_stmt = result_assignments[0]
+    result_name = result_stmt.targets[0].id
+    if store_counts.get(result_name) != 1 or len(run_call.args) != 1 or not isinstance(run_call.args[0], ast.Name):
+        return reject("subprocess result or argv binding was ambiguous")
+    argv_name = run_call.args[0].id
+    if len(assignments.get(argv_name, [])) != 1 or store_counts.get(argv_name) != 1:
+        return reject("argv was reassigned or aliased")
+    argv_stmt = assignments[argv_name][0]
+    if argv_stmt.lineno >= result_stmt.lineno or not isinstance(argv_stmt.value, ast.List):
+        return reject("argv did not dominate subprocess.run as a concrete list")
+    argv_loads = [node for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == argv_name]
+    if argv_loads != [run_call.args[0]]:
+        return reject("argv was aliased, mutated, or reused")
+
+    string_assignments = [
+        node for nodes in assignments.values() for node in nodes
+        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+    ]
+    if not argv_stmt.value.elts or not isinstance(argv_stmt.value.elts[-1], ast.Name):
+        return reject("prompt was not the final argv element")
+    prompt_name = argv_stmt.value.elts[-1].id
+    if len(assignments.get(prompt_name, [])) != 1 or store_counts.get(prompt_name) != 1:
+        return reject("prompt was dynamic or reassigned")
+    prompt_stmt = assignments[prompt_name][0]
+    if prompt_stmt not in string_assignments or prompt_stmt.lineno >= argv_stmt.lineno:
+        return reject("prompt was not one dominating string constant")
+    prompt_loads = [node for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == prompt_name]
+    if prompt_loads != [argv_stmt.value.elts[-1]]:
+        return reject("prompt was used outside the final argv position")
+
+    def resolver(node):
+        direct = (
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Attribute) and node.func.value.attr == "environ"
+            and isinstance(node.func.value.value, ast.Name) and node.func.value.value.id == "os"
+            and not node.keywords
         )
-        if packet_contract != expected_contract:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke reviewer packet {packet_index} changed the Active plan contract"
-            )
-        packet_draft = extract_delimited_block(
-            packet, DRAFT_START, DRAFT_END, f"reviewer packet {packet_index} Planner draft"
+        if direct and len(node.args) == 2 and all(isinstance(arg, ast.Constant) for arg in node.args):
+            return [arg.value for arg in node.args] == ["CLAUDE_BIN", "claude"]
+        return (
+            isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or) and len(node.values) == 2
+            and isinstance(node.values[1], ast.Constant) and node.values[1].value == "claude"
+            and isinstance(node.values[0], ast.Call) and isinstance(node.values[0].func, ast.Attribute)
+            and node.values[0].func.attr == "get" and isinstance(node.values[0].func.value, ast.Attribute)
+            and node.values[0].func.value.attr == "environ" and isinstance(node.values[0].func.value.value, ast.Name)
+            and node.values[0].func.value.value.id == "os" and len(node.values[0].args) == 1
+            and isinstance(node.values[0].args[0], ast.Constant) and node.values[0].args[0].value == "CLAUDE_BIN"
+            and not node.values[0].keywords
         )
-        if packet_draft != planner_draft:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke reviewer packet {packet_index} changed the Planner draft"
-            )
-    reviewed_draft_ids = []
-    for reviewer_index, reviewer_output in enumerate(reviewer_outputs, start=1):
-        reviewed_planner_draft = extract_delimited_block(
-            reviewer_output,
-            REVIEWED_DRAFT_START,
-            REVIEWED_DRAFT_END,
-            f"Plan-Reviewer {reviewer_index} echoed Planner draft",
+
+    executable_node = argv_stmt.value.elts[0]
+    exe_stmt = None
+    if isinstance(executable_node, ast.Name):
+        exe_name = executable_node.id
+        if len(assignments.get(exe_name, [])) != 1 or store_counts.get(exe_name) != 1:
+            return reject("executable binding was reassigned")
+        exe_stmt = assignments[exe_name][0]
+        if exe_stmt.lineno >= argv_stmt.lineno or not resolver(exe_stmt.value):
+            return reject("executable binding was not CLAUDE_BIN/claude")
+        exe_loads = [node for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == exe_name]
+        if exe_loads != [executable_node]:
+            return reject("executable binding was aliased or reused")
+    elif not resolver(executable_node):
+        return reject("executable was not CLAUDE_BIN/claude")
+    top_imports = {id(statement) for statement in tree.body if isinstance(statement, ast.Import)}
+    if any(id(node) not in top_imports for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))):
+        return reject("Python launcher contained a nested or unsupported import")
+    recognized_assignments = {id(prompt_stmt), id(argv_stmt), id(result_stmt)}
+    if exe_stmt is not None:
+        recognized_assignments.add(id(exe_stmt))
+    if any(id(node) not in recognized_assignments for node in ast.walk(tree) if isinstance(node, ast.Assign)):
+        return reject("Python launcher contained an unrecognized assignment")
+    if any(isinstance(node, (ast.Attribute, ast.Subscript)) and isinstance(node.ctx, ast.Store) for node in ast.walk(tree)):
+        return reject("Python launcher assigned through an attribute or subscript")
+
+    argv = ["claude"]
+    for index, element in enumerate(argv_stmt.value.elts[1:], 1):
+        if index == len(argv_stmt.value.elts) - 1 and isinstance(element, ast.Name) and element.id == prompt_name:
+            argv.append(prompt_stmt.value.value)
+        elif isinstance(element, ast.Constant) and isinstance(element.value, str):
+            argv.append(element.value)
+        else:
+            return reject("argv contained dynamic, concatenated, or starred elements")
+    if len(argv) != 10 or argv.count("--print") + argv.count("-p") != 1:
+        return reject("argv had extras or an invalid print mode")
+    def exact_pair(flag, expected):
+        positions = [index for index, token in enumerate(argv) if token == flag]
+        return len(positions) == 1 and positions[0] + 1 < len(argv) and argv[positions[0] + 1] == expected
+    if not all((exact_pair("--model", "opus"), exact_pair("--max-budget-usd", budget), exact_pair("--permission-mode", "dontAsk"))):
+        return reject("argv required flag/value pairs were not exact")
+    if argv.count("--no-session-persistence") != 1 or "--tools" in argv:
+        return reject("argv session/tools controls were invalid")
+    consumed = {0, len(argv) - 1}
+    for flag in ("--model", "--max-budget-usd", "--permission-mode"):
+        position = argv.index(flag); consumed.update({position, position + 1})
+    consumed.add(argv.index("--print") if "--print" in argv else argv.index("-p"))
+    consumed.add(argv.index("--no-session-persistence"))
+    if consumed != set(range(len(argv))):
+        return reject("argv contained extra tokens")
+
+    keywords = {keyword.arg: keyword.value for keyword in run_call.keywords if keyword.arg is not None}
+    if len(keywords) != len(run_call.keywords):
+        return reject("subprocess.run used expanded keywords")
+    allowed = {"capture_output", "stdin", "stdout", "stderr", "text", "timeout", "shell", "check"}
+    if not set(keywords) <= allowed:
+        return reject("subprocess.run used unsafe keywords")
+    literal_true = lambda node: isinstance(node, ast.Constant) and node.value is True
+    literal_false = lambda node: isinstance(node, ast.Constant) and node.value is False
+    capture = "capture_output" in keywords and literal_true(keywords["capture_output"])
+    pipes = all(
+        key in keywords and isinstance(keywords[key], ast.Attribute)
+        and isinstance(keywords[key].value, ast.Name) and keywords[key].value.id == "subprocess"
+        and keywords[key].attr == "PIPE"
+        for key in ("stdout", "stderr")
+    )
+    if capture == pipes or (capture and ({"stdout", "stderr"} & set(keywords))):
+        return reject("subprocess output capture was missing or mixed")
+    if "stdin" in keywords and not (
+        isinstance(keywords["stdin"], ast.Attribute) and isinstance(keywords["stdin"].value, ast.Name)
+        and keywords["stdin"].value.id == "subprocess" and keywords["stdin"].attr == "DEVNULL"
+    ):
+        return reject("subprocess stdin was not DEVNULL")
+    timeout = keywords.get("timeout")
+    timeout_ok = timeout is None or (
+        isinstance(timeout, ast.Constant)
+        and isinstance(timeout.value, (int, float))
+        and not isinstance(timeout.value, bool)
+        and 0 < timeout.value <= 300
+    )
+    # run_codex_live_command already enforces the outer process-group deadline;
+    # an inner timeout is optional evidence, not a provider-limit acceptance rule.
+    if not literal_true(keywords.get("text")) or not timeout_ok:
+        return reject("subprocess text/timeout controls were invalid")
+    if "shell" in keywords and not literal_false(keywords["shell"]):
+        return reject("subprocess shell was not false")
+    if "check" in keywords and not literal_false(keywords["check"]):
+        return reject("subprocess check was not false")
+
+    def result_attr(node, attr):
+        return isinstance(node, ast.Attribute) and node.attr == attr and isinstance(node.value, ast.Name) and node.value.id == result_name
+    def exit_from_result(statement):
+        call = statement.exc if isinstance(statement, ast.Raise) else statement.value if isinstance(statement, ast.Expr) else None
+        return (
+            isinstance(call, ast.Call) and len(call.args) == 1 and not call.keywords and result_attr(call.args[0], "returncode")
+            and ((isinstance(call.func, ast.Name) and call.func.id == "SystemExit")
+                 or (isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name) and call.func.value.id == "sys" and call.func.attr == "exit"))
         )
-        if reviewed_planner_draft != planner_draft_envelope:
-            raise SystemExit(
-                "Codex ralplan sequential smoke typed Plan-Reviewer did not echo the exact Planner draft "
-                f"(reviewer {reviewer_index})"
-            )
-        reviewer_decision = extract_delimited_block(
-            reviewer_output,
-            DECISION_START,
-            DECISION_END,
-            f"Plan-Reviewer {reviewer_index} decision",
+    success_statements = tree.body
+    try_nodes = [node for node in tree.body if isinstance(node, ast.Try)]
+    handler_family = "none"
+    if try_nodes:
+        if len(try_nodes) != 1 or try_nodes[0].orelse or try_nodes[0].finalbody or try_nodes[0].body != [result_stmt]:
+            return reject("subprocess try block was not bounded")
+        handler_names = []
+        for handler in try_nodes[0].handlers:
+            target = handler.type
+            if isinstance(target, ast.Name):
+                handler_names.append(target.id)
+            elif isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                handler_names.append(target.value.id + "." + target.attr)
+            else:
+                return reject("subprocess handler type was not bounded")
+            handler_constants = [node.value for node in ast.walk(handler) if isinstance(node, ast.Constant) and isinstance(node.value, str)]
+            if any(re.search(r"(?i)(?:CLAUDE_CALL_STATUS=completed|CLAUDE_EXIT_CODE=|CLAUDE_EXIT_STATUS=|429|cooling down|provider.failure|OH_NO_CLAUDE_FUSION_PANEL_OK)", value) for value in handler_constants):
+                return reject("subprocess handler could fabricate provider terminal evidence")
+        if set(handler_names) == {"FileNotFoundError", "subprocess.TimeoutExpired"} and len(handler_names) == 2:
+            handler_family = "bounded-specific"
+        elif handler_names == ["Exception"] and try_nodes[0].handlers[0].name:
+            handler_family = "launch-failure"
+        else:
+            return reject("subprocess handlers were not a certified family")
+        success_statements = [statement for statement in tree.body if getattr(statement, "lineno", 0) > result_stmt.lineno]
+    else:
+        success_statements = [statement for statement in tree.body if getattr(statement, "lineno", 0) > result_stmt.lineno]
+
+    def exact_print(call, arguments):
+        return (
+            isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "print"
+            and len(call.args) == len(arguments) and all(predicate(argument) for predicate, argument in zip(arguments, call.args))
+            and len(call.keywords) == 1 and call.keywords[0].arg == "end"
+            and isinstance(call.keywords[0].value, ast.Constant) and call.keywords[0].value.value == ""
         )
-        leg_reviewed_draft_ids = [
-            normalize_transport_whitespace(value)
-            for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
-        ]
-        if len(leg_reviewed_draft_ids) != 1:
-            raise SystemExit(
-                f"Codex ralplan sequential smoke typed Plan-Reviewer {reviewer_index} did not return one anchored Reviewed draft field"
-            )
-        reviewed_draft_ids.extend(leg_reviewed_draft_ids)
-        reviewer_lower = reviewer_decision.lower()
+    direct_stdout = (
+        len(success_statements) == 3 and isinstance(success_statements[0], ast.Expr)
+        and exact_print(success_statements[0].value, (lambda node: result_attr(node, "stdout"),))
+    )
+    direct_stderr = (
+        len(success_statements) == 3 and isinstance(success_statements[1], ast.If)
+        and result_attr(success_statements[1].test, "stderr") and len(success_statements[1].body) == 1
+        and isinstance(success_statements[1].body[0], ast.Expr)
+        and exact_print(success_statements[1].body[0].value, (
+            lambda node: isinstance(node, ast.Constant) and node.value == "\n[stderr]",
+            lambda node: result_attr(node, "stderr"),
+        ))
+        and not success_statements[1].orelse
+    )
+    final_exits = [statement for statement in success_statements if exit_from_result(statement)]
+    constants = [node.value for statement in success_statements for node in ast.walk(statement) if isinstance(node, ast.Constant) and isinstance(node.value, str)]
+    forbidden_static = re.compile(r"(?i)(?:429|cooling down|provider.failure|OH_NO_CLAUDE_FUSION_PANEL_OK)")
+    if any(forbidden_static.search(value) for value in constants):
+        return reject("launcher emitted fabricated provider/success text")
+    def plain_print(statement, predicate, keyword_predicate=None):
         if not (
-            "non-blocking" in reviewer_lower
-            or (
-                "optional follow-up" in reviewer_lower
-                and "required changes for planner: none" in reviewer_lower
-            )
+            isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name) and statement.value.func.id == "print"
+            and len(statement.value.args) == 1 and predicate(statement.value.args[0])
         ):
-            raise SystemExit(
-                f"Codex ralplan sequential smoke typed Plan-Reviewer {reviewer_index} did not keep NB1 non-blocking"
+            return False
+        if keyword_predicate is None:
+            return not statement.value.keywords
+        return keyword_predicate(statement.value.keywords)
+    def fixed_sys_exit(statement, status):
+        return (
+            isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Attribute) and isinstance(statement.value.func.value, ast.Name)
+            and statement.value.func.value.id == "sys" and statement.value.func.attr == "exit"
+            and len(statement.value.args) == 1 and not statement.value.keywords
+            and isinstance(statement.value.args[0], ast.Constant) and statement.value.args[0].value == status
+        )
+    def label_plus_result_string(node, label, attr):
+        return (
+            isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+            and isinstance(node.left, ast.Constant) and node.left.value == label
+            and isinstance(node.right, ast.Call) and isinstance(node.right.func, ast.Name)
+            and node.right.func.id == "str" and len(node.right.args) == 1 and not node.right.keywords
+            and result_attr(node.right.args[0], attr)
+        )
+    def stderr_class_argument(node):
+        return (
+            isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+            and isinstance(node.left, ast.Constant) and node.left.value == "CLAUDE_STDERR_CLASS="
+            and isinstance(node.right, ast.IfExp)
+            and isinstance(node.right.test, ast.UnaryOp) and isinstance(node.right.test.op, ast.Not)
+            and result_attr(node.right.test.operand, "stderr")
+            and isinstance(node.right.body, ast.Constant) and node.right.body.value == "empty"
+            and isinstance(node.right.orelse, ast.Constant) and node.right.orelse.value == "nonempty"
+        )
+    def stdout_end_keywords(keywords):
+        if len(keywords) != 1 or keywords[0].arg != "end" or not isinstance(keywords[0].value, ast.IfExp):
+            return False
+        choice = keywords[0].value
+        if not (
+            isinstance(choice.body, ast.Constant) and choice.body.value == ""
+            and isinstance(choice.orelse, ast.Constant) and choice.orelse.value in {"\n", "\\n"}
+            and isinstance(choice.test, ast.BoolOp) and isinstance(choice.test.op, ast.Or)
+            and len(choice.test.values) == 2
+        ):
+            return False
+        def endswith_newline(node):
+            return (
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "endswith"
+                and result_attr(node.func.value, "stdout") and len(node.args) == 1 and not node.keywords
+                and isinstance(node.args[0], ast.Constant) and node.args[0].value in {"\n", "\\n"}
             )
-    unique_reviewed = set(reviewed_draft_ids)
-    if len(unique_reviewed) != 1:
-        raise SystemExit(
-            "Codex ralplan sequential smoke reviewer pair did not identify one shared Planner draft"
-        )
-    if next(iter(unique_reviewed)) != proof["draft_id"]:
-        raise SystemExit(
-            "Codex ralplan sequential smoke reviewer pair did not identify the dynamic draft id"
-        )
-    parent_draft = extract_delimited_block(
-        parent_output, DRAFT_START, DRAFT_END, "parent Planner draft", allow_repeats=True
+        def empty_stdout(node):
+            return isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not) and result_attr(node.operand, "stdout")
+        values = choice.test.values
+        return (endswith_newline(values[0]) and empty_stdout(values[1])) or (empty_stdout(values[0]) and endswith_newline(values[1]))
+
+    transport_structure = (
+        len(success_statements) == 6
+        and plain_print(success_statements[0], lambda node: label_plus_result_string(node, "CLAUDE_EXIT_STATUS=", "returncode"))
+        and plain_print(success_statements[1], stderr_class_argument)
+        and plain_print(success_statements[2], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_BEGIN")
+        and plain_print(success_statements[3], lambda node: result_attr(node, "stdout"), stdout_end_keywords)
+        and plain_print(success_statements[4], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_END")
+        and fixed_sys_exit(success_statements[5], 0)
     )
-    if planner_draft != parent_draft:
-        raise SystemExit("Codex ralplan sequential smoke parent changed the captured Planner draft")
-    if planner_output not in parent_output:
-        raise SystemExit("Codex ralplan sequential smoke parent did not preserve the exact Planner output")
-    missing_parent_outputs = [
-        index
-        for index, reviewer_output in enumerate(reviewer_outputs, start=1)
-        if reviewer_output not in parent_output
-    ]
-    if missing_parent_outputs:
-        raise SystemExit(
-            "Codex ralplan sequential smoke parent did not preserve both exact Plan-Reviewer outputs: "
-            f"missing={missing_parent_outputs!r}"
+    if direct_stdout and direct_stderr and len(final_exits) == 1:
+        terminal_mode = "direct"
+    elif transport_structure:
+        allowed_transport_constants = {
+            "CLAUDE_EXIT_STATUS=", "CLAUDE_STDERR_CLASS=", "empty", "nonempty",
+            "CLAUDE_STDOUT_BEGIN", "CLAUDE_STDOUT_END", "", "\n", "\\n",
+        }
+        if any(value not in allowed_transport_constants for value in constants):
+            return reject("result transport envelope emitted an unsupported static label")
+        terminal_mode = "transport"
+    else:
+        completed = [value for value in constants if value == "CLAUDE_CALL_STATUS=completed"]
+        stdout_begin = [value for value in constants if value == "CLAUDE_STDOUT_BEGIN"]
+        stdout_end = [value for value in constants if value == "CLAUDE_STDOUT_END"]
+        exit_prints = []
+        stdout_relays = []
+        for node in ast.walk(ast.Module(body=success_statements, type_ignores=[])):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "print" or not node.args:
+                continue
+            argument = node.args[0]
+            if label_plus_result_string(argument, "CLAUDE_EXIT_CODE=", "returncode"):
+                exit_prints.append(node)
+            if result_attr(argument, "stdout"):
+                stdout_relays.append(node)
+        allowed_labels = {
+            "CLAUDE_CALL_STATUS=completed", "CLAUDE_EXIT_CODE=", "CLAUDE_STDOUT_BEGIN",
+            "CLAUDE_STDOUT_END", "CLAUDE_STDERR_BEGIN", "CLAUDE_STDERR_END",
+        }
+        if any(value not in allowed_labels for value in constants):
+            return reject("textual completed envelope emitted an unsupported static label")
+        stderr_blocks = [statement for statement in success_statements if isinstance(statement, ast.If)]
+        stderr_ok = not stderr_blocks or (
+            len(stderr_blocks) == 1 and result_attr(stderr_blocks[0].test, "stderr") and not stderr_blocks[0].orelse
+            and len(stderr_blocks[0].body) == 3
+            and plain_print(stderr_blocks[0].body[0], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDERR_BEGIN")
+            and plain_print(stderr_blocks[0].body[1], lambda node: result_attr(node, "stderr"))
+            and plain_print(stderr_blocks[0].body[2], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDERR_END")
         )
-    if any(parent_output.index(planner_output) >= parent_output.index(output) for output in reviewer_outputs):
-        raise SystemExit("Codex ralplan sequential smoke parent reversed the typed child outputs")
-    parent_lower = parent_output.lower()
-    for required in (
-        "OH_NO_CODEX_RALPLAN_SEQUENTIAL_SUBAGENTS_OK",
-        "Close/cleanup was not available",
-        "same-host-perspective-pair",
-        "Planner skips revision (v1 approved)",
-        "consensus",
-        "contradictions",
-        "recommended next action",
-    ):
-        if required.lower() not in parent_lower:
-            raise SystemExit(f"Codex ralplan sequential smoke parent omitted {required!r}")
-    print("ok - live Codex ralplan typed child transcripts proved the same-host perspective pair")
-    raise SystemExit(0)
-if len(successful_spawns) != len(expected_role_sequence):
-    raise SystemExit(
-        f"expected exactly {len(expected_role_sequence)} completed planning spawn_agent calls, "
-        f"got {len(successful_spawns)}: {successful_spawns!r}"
-    )
-receiver_ids = {rid for _, _, receivers, _ in successful_spawns for rid in receivers}
-missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
-missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
-if missing_wait_results:
-    raise SystemExit(f"Codex ralplan sequential smoke did not capture wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        "Codex ralplan sequential smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in receiver_ids
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
+        core = success_statements[:-1]
+        if stderr_blocks:
+            core = [statement for statement in core if statement is not stderr_blocks[0]]
+        structure_ok = (
+            len(core) == 5
+            and plain_print(core[0], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_CALL_STATUS=completed")
+            and plain_print(core[1], lambda node: node in [item.args[0] for item in exit_prints])
+            and plain_print(core[2], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_BEGIN")
+            and plain_print(core[3], lambda node: result_attr(node, "stdout"))
+            and plain_print(core[4], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_END")
+            and success_statements and exit_from_result(success_statements[-1])
+        )
+        if len(completed) != 1 or len(stdout_begin) != 1 or len(stdout_end) != 1 or len(exit_prints) != 1 or len(stdout_relays) != 1 or len(final_exits) != 1 or not stderr_ok or not structure_ok:
+            return reject("textual completed envelope was incomplete or not result-derived")
+        terminal_mode = "envelope"
+
+    def env_get_call(node, arity):
+        return (
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Attribute) and node.func.value.attr == "environ"
+            and isinstance(node.func.value.value, ast.Name) and node.func.value.value.id == "os"
+            and len(node.args) == arity and not node.keywords
+            and isinstance(node.args[0], ast.Constant) and node.args[0].value == "CLAUDE_BIN"
+            and (arity == 1 or isinstance(node.args[1], ast.Constant) and node.args[1].value == "claude")
+        )
+    def plain_print_call(statement, predicate):
+        return (
+            isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name) and statement.value.func.id == "print"
+            and len(statement.value.args) == 1 and not statement.value.keywords
+            and predicate(statement.value.args[0])
+        )
+    def fixed_handler_exit(statement, status):
+        return (
+            isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Attribute) and isinstance(statement.value.func.value, ast.Name)
+            and statement.value.func.value.id == "sys" and statement.value.func.attr == "exit"
+            and len(statement.value.args) == 1 and not statement.value.keywords
+            and isinstance(statement.value.args[0], ast.Constant) and statement.value.args[0].value == status
+        )
+    def command_source_argument(node):
+        return (
+            isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+            and isinstance(node.left, ast.Constant) and node.left.value == "CLAUDE_COMMAND_SOURCE="
+            and isinstance(node.right, ast.IfExp) and env_get_call(node.right.test, 1)
+            and isinstance(node.right.body, ast.Constant) and node.right.body.value == "CLAUDE_BIN"
+            and isinstance(node.right.orelse, ast.Constant) and node.right.orelse.value == "literal_claude"
+        )
+    def exception_stdout(node, name):
+        return isinstance(node, ast.Attribute) and node.attr == "stdout" and isinstance(node.value, ast.Name) and node.value.id == name
+    def timeout_output_argument(node, name):
+        return (
+            isinstance(node, ast.IfExp)
+            and isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name) and node.test.func.id == "isinstance"
+            and len(node.test.args) == 2 and not node.test.keywords and exception_stdout(node.test.args[0], name)
+            and isinstance(node.test.args[1], ast.Name) and node.test.args[1].id == "str"
+            and exception_stdout(node.body, name)
+            and isinstance(node.orelse, ast.Call) and isinstance(node.orelse.func, ast.Attribute) and node.orelse.func.attr == "decode"
+            and exception_stdout(node.orelse.func.value, name) and not node.orelse.args
+            and len(node.orelse.keywords) == 1 and node.orelse.keywords[0].arg == "errors"
+            and isinstance(node.orelse.keywords[0].value, ast.Constant) and node.orelse.keywords[0].value.value == "replace"
+        )
+
+    certified_handler_statements = []
+    if try_nodes:
+        for handler in try_nodes[0].handlers:
+            target_name = handler.type.id if isinstance(handler.type, ast.Name) else handler.type.value.id + "." + handler.type.attr
+            body = handler.body
+            if handler_family == "launch-failure":
+                exception_name = handler.name
+                def failure_type_argument(node):
+                    return (
+                        isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+                        and isinstance(node.left, ast.Constant) and node.left.value == "CLAUDE_LAUNCH_FAILURE_TYPE="
+                        and isinstance(node.right, ast.Attribute) and node.right.attr == "__name__"
+                        and isinstance(node.right.value, ast.Call) and isinstance(node.right.value.func, ast.Name)
+                        and node.right.value.func.id == "type" and len(node.right.value.args) == 1
+                        and not node.right.value.keywords and isinstance(node.right.value.args[0], ast.Name)
+                        and node.right.value.args[0].id == exception_name
+                    )
+                valid = (
+                    target_name == "Exception" and isinstance(exception_name, str)
+                    and len(body) == 2 and plain_print_call(body[0], failure_type_argument)
+                    and fixed_handler_exit(body[1], 125)
+                )
+            elif target_name == "FileNotFoundError":
+                valid = (
+                    len(body) in {2, 3}
+                    and plain_print_call(body[0], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_CALL_STATUS=executable_not_found")
+                    and fixed_handler_exit(body[-1], 127)
+                    and (len(body) == 2 or plain_print_call(body[1], command_source_argument))
+                )
+            else:
+                exception_name = handler.name
+                timeout_if = body[1] if len(body) == 3 else None
+                valid_timeout_if = timeout_if is None or (
+                    isinstance(exception_name, str) and isinstance(timeout_if, ast.If)
+                    and exception_stdout(timeout_if.test, exception_name) and not timeout_if.orelse
+                    and len(timeout_if.body) == 3
+                    and plain_print_call(timeout_if.body[0], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_BEGIN")
+                    and plain_print_call(timeout_if.body[1], lambda node: timeout_output_argument(node, exception_name))
+                    and plain_print_call(timeout_if.body[2], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_STDOUT_END")
+                )
+                valid = (
+                    len(body) in {2, 3}
+                    and plain_print_call(body[0], lambda node: isinstance(node, ast.Constant) and node.value == "CLAUDE_CALL_STATUS=timeout")
+                    and fixed_handler_exit(body[-1], 124)
+                    and valid_timeout_if
+                )
+            if not valid:
+                return reject("subprocess handler contained an unsupported statement or call")
+            certified_handler_statements.extend(body)
+
+    run_container = try_nodes[0] if try_nodes else result_stmt
+    certified_top = {
+        *(id(statement) for statement in tree.body if isinstance(statement, ast.Import)),
+        id(prompt_stmt), id(argv_stmt), id(run_container),
+        *(id(statement) for statement in success_statements),
+    }
+    if exe_stmt is not None:
+        certified_top.add(id(exe_stmt))
+    if any(id(statement) not in certified_top for statement in tree.body):
+        return reject("Python launcher contained an unsupported top-level statement")
+    call_containers = [prompt_stmt, argv_stmt, run_container, *success_statements, *certified_handler_statements]
+    if exe_stmt is not None:
+        call_containers.append(exe_stmt)
+    certified_calls = {id(node) for container in call_containers for node in ast.walk(container) if isinstance(node, ast.Call)}
+    if any(id(node) not in certified_calls for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        return reject("Python launcher contained an unsupported global call")
+    return {"ok": True, "reason": "ok", "argv": argv, "terminal_mode": terminal_mode}
+
+
+def fusion_textual_terminal(value):
+    """Normalize one strict launcher-certified textual terminal envelope."""
+    text = collect_text(value)
+    transport_exits = re.findall(r"(?m)^CLAUDE_EXIT_STATUS=(-?[0-9]+)$", text)
+    stderr_classes = re.findall(r"(?m)^CLAUDE_STDERR_CLASS=(empty|nonempty)$", text)
+    transport_begins = list(re.finditer(r"(?m)^CLAUDE_STDOUT_BEGIN\r?$", text))
+    transport_end_offsets = [match.start() for match in re.finditer(r"CLAUDE_STDOUT_END\r?$", text, re.M)]
+    if transport_exits or stderr_classes:
+        if len(transport_exits) != 1 or len(stderr_classes) != 1 or len(transport_begins) != 1 or len(transport_end_offsets) != 1:
+            return None
+        begin = transport_begins[0].end()
+        end = transport_end_offsets[0]
+        if begin >= end:
+            return None
+        stdout = text[begin:end]
+        if stdout.startswith("\r\n"):
+            stdout = stdout[2:]
+        elif stdout.startswith("\n"):
+            stdout = stdout[1:]
+        if stdout.endswith("\\n"):
+            stdout = stdout[:-2]
+        elif stdout.endswith("\r\n"):
+            stdout = stdout[:-2]
+        elif stdout.endswith("\n"):
+            stdout = stdout[:-1]
+        if "CLAUDE_" in stdout:
+            return None
+        exit_code = int(transport_exits[0])
+        return {
+            "exit_code": exit_code,
+            "status": "failed" if exit_code else "completed",
+            "output": stdout + "\n",
+            "stderr_class": stderr_classes[0],
+        }
+
+    status = re.findall(r"(?m)^CLAUDE_CALL_STATUS=([^\r\n]+)$", text)
+    exits = re.findall(r"(?m)^CLAUDE_EXIT_CODE=(-?[0-9]+)$", text)
+    begins = list(re.finditer(r"(?m)^CLAUDE_STDOUT_BEGIN\r?$", text))
+    ends = list(re.finditer(r"(?m)^CLAUDE_STDOUT_END\r?$", text))
+    if status != ["completed"] or len(exits) != 1 or len(begins) != 1 or len(ends) != 1 or begins[0].end() >= ends[0].start():
+        return None
+    stdout = text[begins[0].end():ends[0].start()].lstrip("\r\n").rstrip("\r\n") + "\n"
+    stderr_begins = list(re.finditer(r"(?m)^CLAUDE_STDERR_BEGIN\r?$", text))
+    stderr_ends = list(re.finditer(r"(?m)^CLAUDE_STDERR_END\r?$", text))
+    if len(stderr_begins) != len(stderr_ends) or len(stderr_begins) > 1:
+        return None
+    if stderr_begins:
+        if stderr_begins[0].end() >= stderr_ends[0].start():
+            return None
+        stdout += text[stderr_begins[0].end():stderr_ends[0].start()].lstrip("\r\n").rstrip("\r\n") + "\n"
+    return {"exit_code": int(exits[0]), "status": "failed" if int(exits[0]) else "completed", "output": stdout}
+
+
+def event_is_command_bearing(data):
+    """True when an event can carry shell commands, in any observed shape."""
+    item = data.get("item") or {}
+    payload = data.get("payload") or {}
+    if str(item.get("type") or "").lower() == "command_execution":
+        return True
+    if payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"}:
+        return True
+    if payload.get("type") == "custom_tool_call" and payload.get("name") in {"exec", "functions.exec"}:
+        return True
+    return False
+SHARED_HELPERS_PY
 }
-if early_closes:
-    raise SystemExit(
-        "Codex ralplan sequential smoke closed agents before their wait_agent results were captured: "
-        f"{early_closes!r}"
-    )
-
-actual_order = [role for _, role, _, _ in successful_spawns]
-if actual_order != expected_role_sequence:
-    raise SystemExit(
-        f"expected Planner then reviewer-pair spawn order {expected_role_sequence!r}, got {actual_order!r}"
-    )
-
-for receiver, role in receiver_to_role.items():
-    expected_agent_role = f"oh-no-{role}"
-    actual_agent_role = receiver_agent_role(receiver)
-    if actual_agent_role != expected_agent_role:
-        raise SystemExit(
-            f"Codex ralplan sequential smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
-            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
-        )
-
-payloads_by_role = {
-    role: [spawn for spawn in successful_spawns if spawn[1] == role]
-    for role in expected_roles
-}
-for role, expected_count in expected_role_counts.items():
-    payloads = payloads_by_role[role]
-    if len(payloads) != expected_count:
-        raise SystemExit(
-            f"expected exactly {expected_count} successful spawn_agent payloads for {role}, got {len(payloads)}"
-        )
-    for payload_index, (_, _, receivers, role_text) in enumerate(payloads, start=1):
-        if len(receivers) != 1:
-            raise SystemExit(
-                f"Codex ralplan {role} payload {payload_index} expected one receiver, got {receivers!r}"
-            )
-        required_role_markers = list(dependency_prompt_markers.get(role, []))
-        if not transcript_fallback:
-            required_role_markers.insert(0, f"Codex agent type: oh-no-{role}")
-        missing_prompt_markers = [
-            marker for marker in required_role_markers
-            if marker.lower() not in role_text.lower()
-        ]
-        if missing_prompt_markers:
-            raise SystemExit(
-                f"Codex ralplan spawn_agent payload for {role} did not use the required custom-agent prompt/review markers: "
-                f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
-            )
-        forbidden_frontmatter_markers = [
-            "\n---\n",
-            "\ntools:",
-            "\nmodel:",
-            "\ncolor:",
-            "Agent prompt content:",
-            f"Agent prompt source: docs/agent-core/{role}.md",
-        ]
-        leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
-        if leaked:
-            raise SystemExit(
-                f"Codex ralplan spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
-                f"{leaked}; spawn_text={role_text[:2000]!r}"
-            )
-
-planner_payload = payloads_by_role["planner"][0]
-reviewer_payloads = payloads_by_role["plan-reviewer"]
-planner_payload_text = planner_payload[3]
-reviewer_payload_texts = [payload[3] for payload in reviewer_payloads]
-planner_request = f"OH_NO_RALPLAN_PLANNER_PROOF_REQUEST {proof['request_nonce']}"
-reviewer_request = f"OH_NO_RALPLAN_REVIEW_PROOF_REQUEST {proof['request_nonce']}"
-if planner_request not in planner_payload_text:
-    raise SystemExit("Codex ralplan Planner payload omitted its dynamic request marker")
-for reviewer_index, reviewer_payload_text in enumerate(reviewer_payload_texts, start=1):
-    if reviewer_request not in reviewer_payload_text:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer payload {reviewer_index} omitted its dynamic request marker"
-        )
-    if f"Planner draft id: {proof['draft_id']}" not in reviewer_payload_text:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer payload {reviewer_index} omitted the dynamic Planner draft id"
-        )
-
-planner_spawn_index = planner_payload[0]
-reviewer_spawn_indices = [payload[0] for payload in reviewer_payloads]
-planner_receiver = planner_payload[2][0]
-reviewer_receivers = [payload[2][0] for payload in reviewer_payloads]
-planner_wait_index = wait_index_by_receiver[planner_receiver]
-reviewer_wait_indices = [wait_index_by_receiver[receiver] for receiver in reviewer_receivers]
-if not planner_spawn_index < planner_wait_index < min(reviewer_spawn_indices):
-    raise SystemExit(
-        "Codex ralplan sequential smoke did not wait for the Planner before dispatching the reviewer pair"
-    )
-if max(reviewer_spawn_indices) >= min(reviewer_wait_indices):
-    raise SystemExit(
-        "Codex ralplan sequential smoke did not dispatch both Plan-Reviewers before waiting for either"
-    )
-
-planner_outputs = [receiver_outputs[planner_receiver]]
-reviewer_outputs = [receiver_outputs[receiver] for receiver in reviewer_receivers]
-if len(planner_outputs) != 1 or len(reviewer_outputs) != 2:
-    raise SystemExit(
-        "Codex ralplan sequential smoke wait results did not prove one Planner plus two Plan-Reviewers: "
-        f"planner={len(planner_outputs)} reviewers={len(reviewer_outputs)}"
-    )
-planner_output = normalize_transport_whitespace(planner_outputs[0])
-reviewer_outputs = [normalize_transport_whitespace(output) for output in reviewer_outputs]
-for role, output_text in (
-    ("planner", planner_output),
-    *(("plan-reviewer", output) for output in reviewer_outputs),
-):
-    missing_output_markers = [
-        marker for marker in output_markers[role]
-        if marker.lower() not in output_text.lower()
-    ]
-    if missing_output_markers:
-        raise SystemExit(
-            f"Codex ralplan {role} output did not prove the review chain: "
-            f"{missing_output_markers}; output={output_text[:2000]!r}"
-        )
-planner_draft_ids = re.findall(r"(?m)^Planner draft id:\s*(\S.*)$", planner_output)
-if planner_draft_ids != [proof["draft_id"]]:
-    raise SystemExit("Codex ralplan Planner output did not identify the dynamic draft id")
-captured_draft = extract_delimited_block(
-    planner_output, DRAFT_START, DRAFT_END, "captured Planner draft"
-)
-captured_draft_envelope = normalize_transport_whitespace(
-    f"{DRAFT_START}\n{captured_draft}\n{DRAFT_END}"
-)
-planner_contract = extract_delimited_block(
-    planner_payload_text, CONTRACT_START, CONTRACT_END, "Planner Active plan contract"
-)
-expected_contract = extract_delimited_block(
-    proof["active_contract"], CONTRACT_START, CONTRACT_END, "expected Active plan contract"
-)
-if planner_contract != expected_contract:
-    raise SystemExit("Codex ralplan Planner payload changed the expected Active plan contract")
-packet_evidence = [
-    review_packet_evidence(payload, f"Plan-Reviewer payload {index}")
-    for index, payload in enumerate(reviewer_payload_texts, start=1)
-]
-raw_packets = {packet for packet, _, _ in packet_evidence}
-perspectives = {perspective for _, perspective, _ in packet_evidence}
-normalized_packets = {packet for _, _, packet in packet_evidence}
-if len(raw_packets) != 2 or perspectives != expected_perspectives:
-    raise SystemExit(
-        "Codex ralplan sequential smoke reviewer payloads lacked two distinct role-appropriate Assigned perspective values"
-    )
-if len(normalized_packets) != 1:
-    raise SystemExit(
-        "Codex ralplan sequential smoke reviewer payloads differed beyond the Assigned perspective line"
-    )
-for reviewer_index, (packet, _, _) in enumerate(packet_evidence, start=1):
-    reviewer_contract = extract_delimited_block(
-        packet, CONTRACT_START, CONTRACT_END, f"Plan-Reviewer {reviewer_index} Active plan contract"
-    )
-    if reviewer_contract != expected_contract:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer payload {reviewer_index} changed the Active plan contract"
-        )
-    reviewer_draft = extract_delimited_block(
-        packet, DRAFT_START, DRAFT_END, f"Plan-Reviewer {reviewer_index} input draft"
-    )
-    if reviewer_draft != captured_draft:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer payload {reviewer_index} changed the captured Planner draft"
-        )
-reviewed_draft_ids = []
-for reviewer_index, reviewer_output in enumerate(reviewer_outputs, start=1):
-    reviewer_decision = extract_delimited_block(
-        reviewer_output,
-        DECISION_START,
-        DECISION_END,
-        f"Plan-Reviewer {reviewer_index} decision",
-    )
-    leg_reviewed_draft_ids = [
-        normalize_transport_whitespace(value)
-        for value in re.findall(r"(?m)^Reviewed draft:[ \t]*(.*?)[ \t]*$", reviewer_decision)
-    ]
-    if len(leg_reviewed_draft_ids) != 1:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not contain one anchored Reviewed draft field"
-        )
-    reviewed_draft_ids.extend(leg_reviewed_draft_ids)
-    reviewer_output_lower = reviewer_decision.lower()
-    if not (
-        "non-blocking" in reviewer_output_lower
-        or (
-            "optional follow-up" in reviewer_output_lower
-            and "required changes for planner: none" in reviewer_output_lower
-        )
-    ):
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not keep NB1 non-blocking"
-        )
-    reviewer_echo = extract_delimited_block(
-        reviewer_output,
-        REVIEWED_DRAFT_START,
-        REVIEWED_DRAFT_END,
-        f"Plan-Reviewer {reviewer_index} echoed Planner draft",
-    )
-    if reviewer_echo != captured_draft_envelope:
-        raise SystemExit(
-            f"Codex ralplan Plan-Reviewer output {reviewer_index} did not echo the exact captured Planner draft"
-        )
-unique_reviewed = set(reviewed_draft_ids)
-if len(unique_reviewed) != 1:
-    raise SystemExit(
-        "Codex ralplan reviewer pair did not identify one shared Planner draft"
-    )
-if next(iter(unique_reviewed)) != proof["draft_id"]:
-    raise SystemExit(
-        "Codex ralplan reviewer pair did not identify the dynamic draft id"
-    )
-parent_output = normalize_transport_whitespace(all_text)
-if planner_output not in parent_output:
-    raise SystemExit("Codex ralplan parent did not preserve the exact Planner output")
-missing_parent_outputs = [
-    index
-    for index, reviewer_output in enumerate(reviewer_outputs, start=1)
-    if reviewer_output not in parent_output
-]
-if missing_parent_outputs:
-    raise SystemExit(
-        "Codex ralplan parent did not preserve both exact Plan-Reviewer outputs: "
-        f"missing={missing_parent_outputs!r}"
-    )
-if any(parent_output.index(planner_output) >= parent_output.index(output) for output in reviewer_outputs):
-    raise SystemExit("Codex ralplan parent reversed Planner -> Plan-Reviewer output order")
-parent_lower = parent_output.lower()
-for required in (
-    "same-host-perspective-pair",
-    "Planner skips revision (v1 approved)",
-    "consensus",
-    "contradictions",
-    "recommended next action",
-):
-    if required.lower() not in parent_lower:
-        raise SystemExit(f"Codex ralplan parent omitted {required!r}")
-if not marker:
-    raise SystemExit("Codex ralplan sequential smoke did not return success marker")
-
-print("ok - live Codex ralplan planning subagents ran one same-host perspective pair")
-PY
-
-  log "Running live Codex ralplan natural SessionStart-dispatch smoke test"
-  out_file="$RUN_DIR/ralplan-natural-session-start.jsonl"
-  err_file="$RUN_DIR/ralplan-natural-session-start.err"
-  IFS= read -r -d '' prompt <<'PROMPT' || true
-Use the oh-no-harness:ralplan skill for a read-only natural planning smoke test.
-Requirements are already analyzed. Produce a compact approved plan for documenting that the host asks which approved execution workflow to run after plan approval.
-Do not edit files, create artifacts, or execute the plan. Follow the skill's normal planning and review path without additional procedural instructions from this prompt.
-In the final response, preserve the complete planning draft and review decision in their natural order, report whether the review approved or blocked the draft, and end with OH_NO_CODEX_RALPLAN_NATURAL_OK.
-PROMPT
-  assert_natural_prompt_has_no_explicit_subagent_terms "ralplan" "$prompt"
-  run_in_verified_codex_live_home "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Ralplan natural live artifacts failed the credential-leak guard and were removed"
-  fi
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
+write_fusion_rescue_safe_rejection_summary() {
+  local out_file="$1" err_file="$2" sessions_dir="$3" summary_file="$4"
+  local first_leg_rc="$5" scanner_result="$6" classifier_rc="$7"
+  codex_run_oracle_script "$out_file" "$err_file" "$sessions_dir" "$summary_file" \
+    "$first_leg_rc" "$scanner_result" "$classifier_rc" "$FUSION_RESCUE_MAX_BUDGET_USD" <<'PY'
+import ast
+import hashlib
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
-out_path, err_path, live_home = sys.argv[1:4]
-expected_roles = ("planner", "plan-reviewer")
+
+#@SHARED_HELPERS@
+out_path, err_path, sessions_path, summary_path = map(Path, sys.argv[1:5])
+first_leg_rc, scanner_result, classifier_rc_text, budget = sys.argv[5:9]
+
+def digest_blob(label, blob):
+    return {
+        "channel": label,
+        "sha256": hashlib.sha256(blob).hexdigest(),
+        "size_bytes": len(blob),
+    }
+
+def read_bytes(path):
+    try:
+        return path.read_bytes()
+    except OSError:
+        return b""
+
 def collect_text(value):
     if isinstance(value, str):
         return value
@@ -3823,830 +4562,249 @@ def collect_text(value):
     if isinstance(value, list):
         return "\n".join(collect_text(item) for item in value)
     return ""
-def normalize(value):
-    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop()
-    return "\n".join(line.rstrip() for line in lines)
-def payload_from(value, prefixes):
-    lines = normalize(value).split("\n")
-    for index, line in enumerate(lines):
-        if any(line.strip().lower().startswith(prefix.lower()) for prefix in prefixes):
-            return normalize("\n".join(lines[index:]))
-    return ""
-def canonical_draft_id(value):
-    draft_id = normalize(value).strip("` *_").rstrip(".").strip("` *_")
-    version = re.fullmatch(
-        r"(?i)(?:planner\s+)?(?:draft|revision)\s+(v[0-9]+)",
-        draft_id,
-    )
-    return version.group(1).lower() if version else draft_id
-err_text = Path(err_path).read_text(encoding="utf-8", errors="replace")
-for marker in (
-    "spawn failed",
-    "agent thread limit reached",
-    "full-history forked agents inherit",
-    "provide either message or items",
-):
-    if marker in err_text.lower():
-        raise SystemExit("Codex ralplan natural transcript proof saw a spawn failure; inspect the secret-scanned stderr artifact")
-rows = [json.loads(line) for line in Path(out_path).read_text(encoding="utf-8").splitlines() if line.strip()]
-parent_thread_id = next(
-    (row.get("thread_id") for row in rows if row.get("type") == "thread.started"),
-    None,
-)
-if not parent_thread_id:
-    raise SystemExit("Codex ralplan natural transcript proof lacked a parent thread id")
-parent_messages = [
-    collect_text(row)
-    for row in rows
-    if (row.get("item") or {}).get("type") == "agent_message"
-]
-parent_output = normalize("\n".join(parent_messages))
-final_parent_output = normalize(parent_messages[-1]) if parent_messages else ""
-transcript_children = {role: [] for role in expected_roles}
-for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-    transcript_rows = [
-        json.loads(line)
-        for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if line.strip()
-    ]
-    meta = next(
-        (row.get("payload") or {} for row in transcript_rows if row.get("type") == "session_meta"),
-        None,
-    )
-    if not isinstance(meta, dict):
-        continue
-    source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-    subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-    thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-    parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-    agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-    if parent != parent_thread_id or not isinstance(agent_role, str) or not agent_role.startswith("oh-no-"):
-        continue
-    role = agent_role.removeprefix("oh-no-")
-    if role not in expected_roles:
-        continue
-    assistant_messages = []
-    task_complete_messages = []
-    task_completions = []
-    user_messages = []
-    task_timestamps = []
-    encrypted_task_messages = 0
-    completed = False
-    first_completion_timestamp = ""
-    last_completion_timestamp = ""
-    for row in transcript_rows:
-        payload = row.get("payload") or {}
-        if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-            completed = True
-            completion_timestamp = row.get("timestamp", "")
-            if not first_completion_timestamp:
-                first_completion_timestamp = completion_timestamp
-            last_completion_timestamp = completion_timestamp or last_completion_timestamp
-            final_message = collect_text(payload.get("last_agent_message"))
-            task_completions.append((completion_timestamp, normalize(final_message)))
-            if final_message:
-                task_complete_messages.append(final_message)
-        if row.get("type") != "response_item":
-            continue
-        if payload.get("type") == "agent_message":
-            if row.get("timestamp"):
-                task_timestamps.append(row["timestamp"])
-            content = payload.get("content") or []
-            if any(
-                isinstance(item, dict) and item.get("type") == "encrypted_content"
-                for item in content
-            ):
-                encrypted_task_messages += 1
-            else:
-                user_messages.append(collect_text(content))
-            continue
-        if payload.get("type") != "message":
-            continue
-        if payload.get("role") == "assistant":
-            assistant_messages.append(collect_text(payload.get("content")))
-        elif payload.get("role") == "user":
-            if row.get("timestamp"):
-                task_timestamps.append(row["timestamp"])
-            user_messages.append(collect_text(payload.get("content")))
-    if not completed:
-        raise SystemExit(f"Codex ralplan natural typed child {role} lacked task_complete")
-    transcript_children[role].append(
-        {
-            "timestamp": meta.get("timestamp", ""),
-            "first_completion_timestamp": first_completion_timestamp,
-            "last_completion_timestamp": last_completion_timestamp,
-            "last_task_timestamp": task_timestamps[-1] if task_timestamps else "",
-            "task_timestamps": task_timestamps,
-            "task_completions": task_completions,
-            "input": normalize("\n".join(user_messages)),
-            "encrypted_task_messages": encrypted_task_messages,
-            "output": normalize(
-                task_complete_messages[-1]
-                if task_complete_messages
-                else "\n".join(dict.fromkeys(assistant_messages))
-            ),
-        }
-    )
-missing_roles = sorted(role for role in expected_roles if not transcript_children[role])
-if missing_roles:
-    raise SystemExit(f"Codex ralplan natural transcript proof omitted typed child roles: {missing_roles!r}")
-planner_sessions = transcript_children["planner"]
-reviewer_sessions = transcript_children["plan-reviewer"]
-if len(planner_sessions) != 1:
-    raise SystemExit(
-        "Codex ralplan natural transcript proof expected one reusable Planner context; "
-        f"found {len(planner_sessions)}"
-    )
-if not 1 <= len(reviewer_sessions) <= 2:
-    raise SystemExit(
-        "Codex ralplan natural transcript proof exceeded one perspective pair in the single review round; "
-        f"found {len(reviewer_sessions)} sessions"
-    )
-planner = planner_sessions[0]
-planner_time = planner["timestamp"]
-planner_first_completion = planner["first_completion_timestamp"]
-reviewer_starts = [reviewer["timestamp"] for reviewer in reviewer_sessions]
-if (
-    not planner_time
-    or not planner_first_completion
-    or not all(reviewer_starts)
-    or planner_time >= min(reviewer_starts)
-    or planner_first_completion >= min(reviewer_starts)
-):
-    raise SystemExit(
-        "Codex ralplan natural initial Planner completion did not precede "
-        "the first Plan-Reviewer creation"
-    )
-def planner_draft_ids(output):
-    return {
-        canonical_draft_id(value)
-        for value in re.findall(
-            r"(?mi)^\s*(?:-\s*)?Planner (?:draft |revision )?id:\s*(.*?)\s*$",
-            output,
-        )
-        if normalize(value).strip("` ")
-    }
-planner_completions = planner["task_completions"]
-planner_versions = [(timestamp, output, planner_draft_ids(output)) for timestamp, output in planner_completions]
-planner_tasks = planner["task_timestamps"]
-if len(planner_versions) not in (1, 2) or len(planner_tasks) != len(planner_versions) or any(not timestamp or not output or len(ids) != 1 for timestamp, output, ids in planner_versions):
-    raise SystemExit("Codex ralplan natural Planner output lacked one stable draft id or task-bound completion")
-planner_initial_completion, planner_initial_output, reviewed_planner_ids = planner_versions[0]
-planner_final_completion, planner_output, planner_ids = planner_versions[-1]
-if len(planner_versions) == 2 and reviewed_planner_ids == planner_ids:
-    raise SystemExit("Codex ralplan natural accepted revision did not change the Planner draft id")
-planner_output_lower = planner_output.lower()
-if "goal" not in planner_output_lower:
-    raise SystemExit("Codex ralplan natural typed child planner lacked a goal")
-acceptance_markers = ("acceptance", "required outcomes", "success criteria")
-ac_ids = set(re.findall(r"(?i)\bAC[- ]?([0-9]+)\b", planner_output))
-if not any(marker in planner_output_lower for marker in acceptance_markers) or not ac_ids:
-    raise SystemExit("Codex ralplan natural typed child planner lacked structured acceptance outcomes")
-final_reviewer_evidence = []
-for reviewer_index, reviewer in enumerate(reviewer_sessions, start=1):
-    reviewer_output = reviewer["output"]
-    if not reviewer_output:
-        raise SystemExit(
-            f"Codex ralplan natural typed Plan-Reviewer {reviewer_index} returned no output"
-        )
-    if "review" not in reviewer_output.lower():
-        raise SystemExit(
-            f"Codex ralplan natural typed Plan-Reviewer {reviewer_index} lacked review evidence"
-        )
-    verdict_fields = re.findall(r"(?mi)^\s*Verdict:\s*(.*?)\s*$", reviewer_output)
-    verdict = verdict_fields[0].strip().upper() if len(verdict_fields) == 1 else ""
-    if verdict not in {"APPROVE", "ITERATE", "REJECT"}:
-        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} output lacked exactly one anchored verdict")
-    reviewed_ids = {
-        canonical_draft_id(value)
-        for value in re.findall(
-            r"(?mi)^\s*(?:-\s*)?Reviewed draft:\s*(.*?)\s*$",
-            reviewer_output,
-        )
-        if normalize(value).strip("` ")
-    }
-    if len(reviewed_ids) != 1:
-        raise SystemExit(
-            f"Codex ralplan natural Plan-Reviewer {reviewer_index} output lacked one "
-            f"Reviewed draft id: {sorted(reviewed_ids)!r}"
-        )
-    final_reviewer_evidence.append(
-        {
-            "index": reviewer_index,
-            "reviewer": reviewer,
-            "output": reviewer_output,
-            "verdict": verdict,
-            "reviewed_ids": reviewed_ids,
-        }
-    )
-if len(final_reviewer_evidence) not in (1, 2):
-    raise SystemExit("Codex ralplan natural review round lacked one complete perspective pair")
-if any(evidence["reviewed_ids"] != reviewed_planner_ids for evidence in final_reviewer_evidence):
-    raise SystemExit(
-        "Codex ralplan natural review round did not bind to the initial Planner draft; "
-        f"initial={sorted(reviewed_planner_ids)!r} observed={sorted(next(iter(evidence['reviewed_ids'])) for evidence in final_reviewer_evidence)!r}"
-    )
-if any(len(evidence["reviewer"]["task_completions"]) != 1 or not all(evidence["reviewer"]["task_completions"][0]) for evidence in final_reviewer_evidence):
-    raise SystemExit("Codex ralplan natural exceeded one usable Plan-Reviewer completion per perspective")
-review_verdicts = [evidence["verdict"] for evidence in final_reviewer_evidence]
-if "REJECT" in review_verdicts:
-    raise SystemExit("Codex ralplan natural successful review oracle received REJECT")
-if len(planner_versions) == 1 and any(verdict != "APPROVE" for verdict in review_verdicts):
-    raise SystemExit("Codex ralplan natural no-revision branch lacked an all-APPROVE review round")
-if len(planner_versions) == 2 and len(final_reviewer_evidence) == 2 and "ITERATE" not in review_verdicts:
-    raise SystemExit("Codex ralplan natural revised without an accepted ITERATE verdict")
-for evidence in final_reviewer_evidence:
-    reviewer = evidence["reviewer"]
-    reviewer_index = evidence["index"]
-    reviewer_completion = reviewer["task_completions"][0][0]
-    reviewer_task = reviewer["last_task_timestamp"]
-    if len(planner_versions) == 1 and reviewer_task and reviewer_task <= planner_final_completion:
-        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} was dispatched before the initial Planner draft")
-    if not reviewer_task or (len(planner_versions) == 2 and reviewer_task <= planner_initial_completion) or reviewer_task >= reviewer_completion:
-        raise SystemExit(f"Codex ralplan natural Plan-Reviewer {reviewer_index} task/completion lifecycle was invalid")
-    if planner_initial_output not in reviewer["input"] and reviewer["encrypted_task_messages"] < 1:
-        raise SystemExit(f"Codex ralplan natural final Plan-Reviewer {reviewer_index} task had neither the visible initial Planner payload nor an encrypted inter-agent task channel")
-final_review_completions = [evidence["reviewer"]["task_completions"][0][0] for evidence in final_reviewer_evidence]
-final_review_dispatches = [evidence["reviewer"]["last_task_timestamp"] for evidence in final_reviewer_evidence]
-revision_assignment = planner_tasks[1] if len(planner_versions) == 2 else ""
-if len(planner_versions) == 2 and (not revision_assignment or max(final_review_completions) >= revision_assignment or revision_assignment >= planner_final_completion):
-    raise SystemExit("Codex ralplan natural accepted Planner revision was not assigned after both reviews and completed afterward")
-def semantic_lines(value):
-    lines = set()
-    for line in normalize(value).splitlines():
-        semantic = re.sub(r"^\s*(?:#{1,6}\s+|[-*]\s+)", "", line).strip()
-        if semantic and semantic != "```":
-            lines.add(semantic)
-    return lines
-planner_payload = normalize(planner_output)
-planner_lines = semantic_lines(planner_payload)
-parent_lines = semantic_lines(final_parent_output)
-shared_planner_lines = planner_lines & parent_lines
-planner_coverage = (
-    len(shared_planner_lines) / len(planner_lines) if planner_lines else 0.0
-)
-if len(planner_lines) < 12 or planner_coverage < 0.85:
-    raise SystemExit(
-        "Codex ralplan natural parent did not preserve the complete Planner draft "
-        f"(semantic line coverage {planner_coverage:.1%})"
-    )
-parent_planner_ids = {
-    canonical_draft_id(value)
-    for value in re.findall(
-        r"(?mi)^\s*(?:-\s*)?Planner (?:draft |revision )?id:\s*(.*?)\s*$",
-        final_parent_output,
-    )
-    if normalize(value).strip("` ")
-}
-if parent_planner_ids != planner_ids:
-    raise SystemExit(
-        "Codex ralplan natural parent Planner draft did not identify the final draft id"
-    )
-parent_ac_ids = set(re.findall(r"(?i)\bAC[- ]?([0-9]+)\b", final_parent_output))
-if not ac_ids.issubset(parent_ac_ids):
-    raise SystemExit(
-        "Codex ralplan natural parent Planner draft omitted acceptance outcome ids"
-    )
-parent_reviewed_ids = {
-    canonical_draft_id(value)
-    for value in re.findall(
-        r"(?mi)^\s*(?:-\s*)?Reviewed draft:\s*(.*?)\s*$",
-        final_parent_output,
-    )
-    if normalize(value).strip("` ")
-}
-if parent_reviewed_ids != reviewed_planner_ids:
-    raise SystemExit(
-        "Codex ralplan natural parent review synthesis did not identify the final Planner draft id".replace("final Planner", "reviewed Planner")
-    )
-parent_planner_match = re.search(
-    r"(?mi)^\s*(?:#{1,6}\s+Planner draft\b|(?:-\s*)?Planner (?:draft |revision )?id:)",
-    final_parent_output,
-)
-parent_review_match = re.search(
-    r"(?mi)^\s*(?:-\s*)?Reviewed draft:\s*.*$",
-    final_parent_output,
-)
-if (
-    not parent_planner_match
-    or not parent_review_match
-    or parent_planner_match.start() >= parent_review_match.start()
-):
-    raise SystemExit("Codex ralplan natural parent reversed Planner -> review synthesis order")
-parent_review_text = final_parent_output[parent_review_match.start():]
-parent_review_lower = parent_review_text.lower()
-parent_verdict_fields = re.findall(r"(?mi)^\s*Verdict:\s*(.*?)\s*$", parent_review_text)
-parent_verdict = parent_verdict_fields[0].strip().upper() if len(parent_verdict_fields) == 1 else ""
-if parent_verdict not in {"APPROVE", "ITERATE", "REJECT"} or parent_verdict == "REJECT":
-    raise SystemExit("Codex ralplan natural parent review synthesis lacked one successful anchored verdict")
-if (len(planner_versions) == 1 and parent_verdict != "APPROVE") or (len(planner_versions) == 2 and parent_verdict != "ITERATE"):
-    raise SystemExit("Codex ralplan natural parent verdict contradicted the Planner revision branch")
-record_fields = ("Disposition", "Blocking basis", "Draft pointer", "Material consequence", "Smallest correction", "Applied change", "Body section pointer")
-def finding_records(value):
-    matches = list(re.finditer(r"(?mi)^\s*Finding id:\s*(.*?)\s*$", value)); records = {}
-    for index, match in enumerate(matches):
-        finding_id = normalize(match.group(1)).strip("` *_").casefold(); body = value[match.end() : matches[index + 1].start() if index + 1 < len(matches) else len(value)]
-        if not finding_id or finding_id in records: raise SystemExit("Codex ralplan natural finding records contained an empty or duplicate Finding id")
-        records[finding_id] = {field: re.findall(rf"(?mi)^\s*{re.escape(field)}:\s*(.*?)\s*$", body) for field in record_fields}
-    return records
-def blocker_semantics(record):
-    values = [[re.sub(r"\s+", " ", value).strip().casefold() for value in record[field] if value.strip()] for field in ("Blocking basis", "Draft pointer", "Material consequence", "Smallest correction")]
-    if any(len(field_values) != 1 for field_values in values): raise SystemExit("Codex ralplan natural blocker record lacked one complete semantic identity")
-    return tuple(field_values[0] for field_values in values)
-opposite_host_review_evidence = parent_reviewed_ids == reviewed_planner_ids and ("opposite-host" in parent_review_lower or "opposite host" in parent_review_lower) and "claude" in parent_review_lower and any(marker in parent_review_lower for marker in ("architecture findings", "quality-gate findings", "blocking basis", "review findings")) and any(token in parent_review_lower for token in ("approve", "block", "iterate", "reject"))
-parent_pair_synthesis_evidence = parent_reviewed_ids == reviewed_planner_ids and all(marker in parent_review_lower for marker in ("consensus", "contradictions", "recommended next action")) and any(marker in parent_review_lower for marker in ("same-host-perspective-pair", "cross-host", "same-host-parallel-fallback"))
-single_reviewer_topology_evidence = parent_reviewed_ids == reviewed_planner_ids and "single-reviewer" in parent_review_lower
-if len(planner_versions) == 2:
-    mapping_match = re.search(r"(?mi)^\s*(?:Accepted\s+)?Finding(?:→|->|-to-)fix mapping:\s*$", parent_review_text)
-    if not mapping_match: raise SystemExit("Codex ralplan natural parent finding-to-fix mapping section was missing")
-    authoritative = {}
-    def merge_blocker(finding_id, record):
-        semantics = blocker_semantics(record)
-        if finding_id in authoritative and authoritative[finding_id] != semantics: raise SystemExit("Codex ralplan natural reviewers reused a Finding id with conflicting blocker semantics")
-        authoritative[finding_id] = semantics
-    for evidence in final_reviewer_evidence:
-        if evidence["verdict"] == "ITERATE":
-            for finding_id, record in finding_records(evidence["output"]).items(): merge_blocker(finding_id, record)
-    if len(final_reviewer_evidence) == 1 and not single_reviewer_topology_evidence:
-        if not opposite_host_review_evidence or not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent ITERATE lacked proven one-reviewer cross-host topology")
-        synthesis_text = parent_review_text[:mapping_match.start()]; opposite_match = re.search(r"(?mis)^\s*Architecture findings:\s*(.*)$", synthesis_text)
-        if not opposite_match: raise SystemExit("Codex ralplan natural cross-host ITERATE lacked retained opposite-host blockers")
-        for finding_id, record in finding_records(opposite_match.group(1)).items(): merge_blocker(finding_id, record)
-    v2_records = finding_records(planner_output); parent_records = finding_records(parent_review_text[mapping_match.end():])
-    relocated_fields = ("Applied change", "Body section pointer")
-    def bound_record(v2_record, parent_record):
-        merged = dict(v2_record)
-        for field in relocated_fields:
-            if not [value for value in merged.get(field, []) if value.strip()]: merged[field] = parent_record.get(field, [])
-        return merged
-    if not authoritative: raise SystemExit("Codex ralplan natural ITERATE branch lacked explicit blocker records")
-    for finding_id, semantics in authoritative.items():
-        v2_record = v2_records.get(finding_id); parent_record = parent_records.get(finding_id)
-        if not v2_record or not parent_record: raise SystemExit("Codex ralplan natural ITERATE blocker was not bound through v2 and parent mapping")
-        merged_record = bound_record(v2_record, parent_record)
-        required = {field: [value.strip() for value in merged_record[field] if value.strip()] for field in ("Disposition", "Blocking basis", "Applied change", "Body section pointer")}
-        if any(len(values) != 1 for values in required.values()) or required["Disposition"][0].casefold() != "accepted": raise SystemExit("Codex ralplan natural v2 blocker record was missing fields or not accepted")
-        if re.sub(r"\s+", " ", required["Blocking basis"][0]).strip().casefold() != semantics[0]: raise SystemExit("Codex ralplan natural v2 Blocking basis did not match reviewer evidence")
-        if any(len([value for value in parent_record[field] if value.strip()]) != 1 for field in ("Applied change", "Body section pointer")): raise SystemExit("Codex ralplan natural parent finding-to-fix mapping was incomplete")
-    if any(any(value.strip().casefold() in {"deferred", "rejected", "direction-change"} for value in record["Disposition"]) for record in v2_records.values()): raise SystemExit("Codex ralplan natural v2 retained a non-accepted blocker disposition")
-if len(final_reviewer_evidence) == 2:
-    if not all(final_review_dispatches) or not all(final_review_completions) or max(final_review_dispatches) >= min(final_review_completions): raise SystemExit("Codex ralplan natural final perspective pair was not dispatched before either review completed")
-    if "same-host-perspective-pair" not in parent_review_lower: raise SystemExit("Codex ralplan natural parent did not record same-host-perspective-pair for two typed reviewers")
-    if not parent_pair_synthesis_evidence: raise SystemExit("Codex ralplan natural parent omitted evidence that it synthesized the reviewer pair; two-reviewer branch lacked parent pair-synthesis evidence")
-elif len(final_reviewer_evidence) == 1:
-    if not single_reviewer_topology_evidence:
-        if not opposite_host_review_evidence:
-            raise SystemExit(
-                "Codex ralplan natural single typed Plan-Reviewer lacked opposite-host review evidence"
-            )
-        if not parent_pair_synthesis_evidence:
-            raise SystemExit(
-                "Codex ralplan natural cross-host branch lacked parent pair-synthesis evidence"
-            )
-if not final_parent_output.rstrip().endswith("OH_NO_CODEX_RALPLAN_NATURAL_OK"):
-    raise SystemExit("Codex ralplan natural parent did not end with its success marker")
-print(
-    "ok - live Codex ralplan natural typed child transcripts proved "
-    "sequential planning and valid review topology"
-)
-PY
-}
 
-run_named_agents_live_test() {
-  if [[ "$RUN_NAMED_AGENTS_LIVE" != "1" ]]; then
-    log "Skipping live Codex named custom-agent smoke test"
-    printf 'Run with --named-agents-live or OH_NO_NAMED_AGENTS_LIVE=1 to verify actual Codex agent_type=oh-no-* custom-agent spawns.\n' >&2
-    return
-  fi
+def decoded(value):
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
 
-  log "Running live Codex named custom-agent smoke test"
-  mkdir -p "$RUN_DIR"
+def argv_for(value):
+    value = decoded(value)
+    if isinstance(value, dict):
+        value = value.get("argv") or value.get("cmd") or value.get("command") or ""
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    try:
+        return shlex.split(str(value or ""))
+    except ValueError:
+        return []
 
-  local agent_type safe_agent expected_task_name out_file err_file prompt
-  local expected_agents=(
-    oh-no-analyst
-    oh-no-code-reviewer
-    oh-no-debugger
-    oh-no-executor
-    oh-no-explore
-    oh-no-fusion-rescue-analyst
-    oh-no-plan-reviewer
-    oh-no-planner
-    oh-no-verifier
-  )
+def bounded_wrapper_proof(raw):
+    return fusion_launcher_proof(raw, budget)
 
-  local named_agent_temp_root
-  named_agent_temp_root="$(mktemp -d)"
-  CODEX_LIVE_TEMP_ROOTS+=("$named_agent_temp_root")
 
-  local negative_home="$named_agent_temp_root/named-agents-negative-home"
-  local negative_project_root="$named_agent_temp_root/named-agents-negative-project"
-  local negative_out_file="$RUN_DIR/named-agents-negative.jsonl"
-  local negative_err_file="$RUN_DIR/named-agents-negative.err"
-  local negative_prompt
-  rm -rf "$negative_home" "$negative_project_root"
-  clone_codex_live_home "$CODEX_HOME_DIR" "$negative_home"
-  rm -rf "$negative_home/agents"
-  mkdir -p "$negative_project_root"
+def nested_terminal(value):
+    candidates = []
+    def visit(candidate):
+        if isinstance(candidate, dict):
+            if "exit_code" in candidate or "output" in candidate:
+                if isinstance(candidate.get("exit_code"), int) and not isinstance(candidate.get("exit_code"), bool) and isinstance(candidate.get("output"), str):
+                    candidates.append(candidate)
+                return
+            for nested in candidate.values():
+                visit(nested)
+        elif isinstance(candidate, list):
+            for nested in candidate:
+                visit(nested)
+        elif isinstance(candidate, str):
+            try:
+                decoded_value = json.loads(candidate)
+            except json.JSONDecodeError:
+                return
+            if decoded_value != candidate:
+                visit(decoded_value)
+    visit(value)
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    return candidate["exit_code"], str(candidate.get("status") or ""), candidate["output"]
 
-  negative_prompt='Codex custom-agent negative control. Do not edit files. Use spawn_agent exactly once with task_name "named_agent_negative_code_reviewer", agent_type "oh-no-code-reviewer", fork_turns "none" (never a full-history fork), and message "Do not edit files; report whether the requested custom agent type is available." in the same call. Do not omit task_name, agent_type, or message. Do not use a generic/default fallback. If spawn_agent fails because the requested agent_type is unavailable, report the exact failure and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK. If the spawn succeeds, close the receiver and reply with OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED.'
 
-  local negative_cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$negative_project_root"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
+def terminal(value, fallback_status=""):
+    value = decoded(value)
+    exit_code = None
+    status = fallback_status
+    if isinstance(value, dict):
+        for key in ("exit_code", "return_code", "status_code"):
+            candidate = value.get(key)
+            if isinstance(candidate, int):
+                exit_code = candidate
+                break
+            if isinstance(candidate, str) and re.fullmatch(r"-?[0-9]+", candidate.strip()):
+                exit_code = int(candidate.strip())
+                break
+        status = str(value.get("status") or status)
+        text = collect_text(value.get("aggregated_output") or value.get("output") or value.get("content") or value.get("result") or "")
+    else:
+        text = collect_text(value)
+    return exit_code, status, text
 
-  if [[ -n "$LIVE_MODEL" ]]; then
-    negative_cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_in_verified_codex_live_home "$negative_home" "${negative_cmd[@]}" "$negative_prompt" >"$negative_out_file" 2>"$negative_err_file" || true
-
-  "$PYTHON_BIN" - "$negative_out_file" "$negative_err_file" <<'PY'
-import json
-import sys
-
-out_path = sys.argv[1]
-err_path = sys.argv[2]
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-
-text = ""
-completed_receivers = []
-if out_path:
-    with open(out_path, "r", encoding="utf-8") as fh:
-        for line in fh:
-            if not line.strip():
-                continue
+out_blob = read_bytes(out_path)
+err_blob = read_bytes(err_path)
+session_blobs = []
+if sessions_path.is_dir():
+    for path in sorted(sessions_path.rglob("*.jsonl")):
+        session_blobs.append(read_bytes(path))
+sessions_blob = b"\0".join(session_blobs)
+launches = []
+outputs = {}
+ordered_payloads = []
+event_shapes = set()
+row_number = 0
+for blob in [out_blob, *session_blobs]:
+    for line in blob.decode("utf-8", errors="replace").splitlines():
+        row_number += 1
+        try:
             data = json.loads(line)
-            item = data.get("item") or {}
-            text += "\n" + (item.get("text") or data.get("result") or "")
-            if (
-                item.get("type") == "collab_tool_call"
-                and item.get("tool") == "spawn_agent"
-                and item.get("status") == "completed"
-            ):
-                completed_receivers.extend(item.get("receiver_thread_ids") or [])
-
-combined = f"{err_text}\n{text}"
-if completed_receivers:
-    raise SystemExit(
-        "Codex named-agent negative control unexpectedly spawned receivers without "
-        f"user-scope or project-scope custom agents: {completed_receivers!r}"
-    )
-if "OH_NO_CODEX_NAMED_AGENT_NEGATIVE_FAILED" in combined:
-    raise SystemExit("Codex named-agent negative control reported unexpected success")
-if "unknown agent_type" not in combined.lower():
-    raise SystemExit(
-        "Codex named-agent negative control did not prove missing custom agents "
-        f"produce unknown agent_type; stderr/text={combined[:2000]!r}"
-    )
-if "OH_NO_CODEX_NAMED_AGENT_NEGATIVE_OK" not in combined:
-    raise SystemExit("Codex named-agent negative control did not return success marker")
-
-print("ok - Codex named custom-agent negative control requires an installed custom agent")
-PY
-
-  local live_home="$named_agent_temp_root/named-agents-live-home"
-  local live_project_root="$named_agent_temp_root/named-agents-live-project"
-  rm -rf "$live_home" "$live_project_root"
-  clone_codex_live_home "$CODEX_HOME_DIR" "$live_home"
-  mkdir -p "$live_project_root"
-
-  log "Installing isolated user-scope Codex custom agents for named-agent live test"
-  run_in_verified_codex_live_home "$live_home" "$PLUGIN_ROOT/scripts/install-codex-agents" --scope user --force \
-    >"$RUN_DIR/named-agents-live-user-install.out" \
-    2>"$RUN_DIR/named-agents-live-user-install.err" || {
-      cat "$RUN_DIR/named-agents-live-user-install.err" >&2
-      fail "Codex named-agent live test could not install isolated user-scope custom agents"
-    }
-
-  local proof_map_file="$RUN_DIR/named-agent-proof-map.tsv"
-  "$PYTHON_BIN" - "$live_home/agents" "$proof_map_file" "${expected_agents[@]}" <<'PY'
-from pathlib import Path
-import secrets
-import sys
-
-agents_dir = Path(sys.argv[1])
-proof_map = Path(sys.argv[2])
-rows = []
-for agent_type in sys.argv[3:]:
-    path = agents_dir / f"{agent_type}.toml"
-    text = path.read_text(encoding="utf-8")
-    needle = 'developer_instructions = """\n'
-    nonce = secrets.token_hex(12)
-    request = f"OH_NO_NAMED_AGENT_PROOF_REQUEST {nonce}"
-    ok = f"OH_NO_NAMED_AGENT_PROOF_OK {agent_type} {nonce}"
-    proof = (
-        f"Live named-agent proof for {agent_type}.\n"
-        f"If your task message is exactly \"{request}\", return exactly \"{ok}\" "
-        f"and do not inspect files or add explanation.\n\n"
-    )
-    if needle not in text:
-        raise SystemExit(f"{path} is missing developer_instructions header")
-    path.write_text(text.replace(needle, needle + proof, 1), encoding="utf-8")
-    rows.append(f"{agent_type}\t{request}\t{ok}\n")
-proof_map.write_text("".join(rows), encoding="utf-8")
-PY
-
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$live_project_root"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  for agent_type in "${expected_agents[@]}"; do
-    safe_agent="${agent_type//[^A-Za-z0-9_]/_}"
-    expected_task_name="named_agent_${agent_type#oh-no-}"
-    expected_task_name="${expected_task_name//-/_}"
-    out_file="$RUN_DIR/named-agent-${safe_agent}.jsonl"
-    err_file="$RUN_DIR/named-agent-${safe_agent}.err"
-    proof_request="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $2}' "$proof_map_file")"
-    proof_ok="$(awk -F '\t' -v a="$agent_type" '$1 == a {print $3}' "$proof_map_file")"
-    [[ -n "$proof_request" && -n "$proof_ok" ]] || fail "Codex named-agent live test could not load proof mapping for ${agent_type}"
-    prompt="Codex custom agent name registration live probe for ${agent_type}. Do not edit files. Your FIRST tool call must be spawn_agent, called exactly once with task_name \"${expected_task_name}\", agent_type \"${agent_type}\", fork_turns \"none\" (never a full-history fork), and message \"${proof_request}\" in the same call. Do not omit task_name or agent_type. Do not call wait, close, or any other tool before that spawn_agent call succeeds. Do not inspect available-role comments or rendered schema text before spawning; the tool accepts agent_type as a string and the negative control already proved missing custom agents fail. You MUST attempt the spawn_agent tool call before reporting any failure, and you MUST NOT infer unavailability from schema comments or your own schema summary. Do not use generic/default agents. If the attempted spawn_agent call is rejected by the tool runtime, do not retry with a generic agent; reply OH_NO_CODEX_NAMED_AGENT_FAILED ${agent_type} with the exact failure. If spawn_agent succeeds, wait for that receiver, then close that receiver if a close tool exists; if no close/close_agent tool is available in this runtime, skip closing and include exactly: Close/cleanup was not available. Reply OH_NO_CODEX_NAMED_AGENT_OK ${agent_type} only after the wait completed. Do not mention any expected child output."
-
-    run_in_verified_codex_live_home "$live_home" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-
-    "$PYTHON_BIN" - "$agent_type" "$expected_task_name" "$proof_request" "$proof_ok" "$live_home" "$out_file" "$err_file" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-agent_type, expected_task_name, proof_request, proof_ok, live_home, out_path, err_path = sys.argv[1:8]
-role = agent_type.removeprefix("oh-no-")
-nonce = proof_request.rsplit(" ", 1)[-1]
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-for marker in ("unknown agent_type", "spawn failed", "agent thread limit reached", "full-history forked agents inherit", "provide either message or items"):
-    if marker in err_text.lower():
-        raise SystemExit(f"{agent_type} smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-spawn_events = []
-failed_spawns = []
-waited_receivers = {}
-closed_receivers = {}
-final_ok = False
-parent_thread_id = None
-all_text_parts = []
-
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-def parse_child_transcript(path):
-    text = path.read_text(encoding="utf-8", errors="replace")
-    rows = [json.loads(line) for line in text.splitlines() if line.strip()]
-    meta = next(
-        (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-        {},
-    )
-    source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-    subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-    thread_spawn = (
-        subagent.get("thread_spawn")
-        if isinstance(subagent.get("thread_spawn"), dict)
-        else {}
-    )
-    agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-    parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-    agent_path = meta.get("agent_path") or thread_spawn.get("agent_path")
-    task_name = agent_path.rsplit("/", 1)[-1] if isinstance(agent_path, str) else None
-    user_messages = []
-    assistant_messages = []
-    encrypted_task_messages = 0
-    completed = False
-    for row in rows:
-        payload = row.get("payload") or {}
-        if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-            completed = True
-            final_message = collect_text(payload.get("last_agent_message"))
-            if final_message:
-                assistant_messages.append(final_message)
-        if row.get("type") != "response_item":
+        except json.JSONDecodeError:
             continue
-        if payload.get("type") == "agent_message":
-            content = payload.get("content") or []
-            if any(
-                isinstance(item, dict) and item.get("type") == "encrypted_content"
-                for item in content
-            ):
-                encrypted_task_messages += 1
-            else:
-                user_messages.append(collect_text(content))
-            continue
-        if payload.get("type") != "message":
-            continue
-        if payload.get("role") == "user":
-            user_messages.append(collect_text(payload.get("content")))
-        elif payload.get("role") == "assistant":
-            assistant_messages.append(collect_text(payload.get("content")))
-    return {
-        "text": text,
-        "agent_role": agent_role,
-        "parent": parent,
-        "task_name": task_name,
-        "input": "\n".join(user_messages),
-        "encrypted_task_messages": encrypted_task_messages,
-        "output": "\n".join(dict.fromkeys(assistant_messages)),
-        "completed": completed,
-    }
-
-
-def receiver_transcript(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"{agent_type} could not find session transcript for receiver: {receiver}")
-    parsed = [parse_child_transcript(path) for path in session_candidates]
-    matches = [child for child in parsed if child["agent_role"] == agent_type]
-    if len(matches) != 1:
-        raise SystemExit(f"{agent_type} expected one typed transcript for receiver {receiver}, got {len(matches)}")
-    return matches[0]
-
-with open(out_path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        event_text = collect_text(data)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
         item = data.get("item") or {}
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-        text = item.get("text") or data.get("result") or ""
-        if f"OH_NO_CODEX_NAMED_AGENT_OK {agent_type}" in text:
-            final_ok = True
-        if "OH_NO_CODEX_NAMED_AGENT_FAILED" in text:
-            raise SystemExit(f"{agent_type} smoke returned failure marker: {text[:2000]!r}")
-        if item.get("type") != "collab_tool_call":
-            continue
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool == "spawn_agent" and status == "completed":
-            spawn_events.append(
-                {
-                    "index": index,
-                    "prompt": item.get("prompt"),
-                    "receivers": list(item.get("receiver_thread_ids") or []),
-                }
-            )
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool in {"wait", "wait_agent"} and status == "completed":
-            for receiver, state in (item.get("agents_states") or {}).items():
-                if state.get("status") == "completed":
-                    waited_receivers[receiver] = {
-                        "index": index,
-                        "message": state.get("message"),
-                    }
-        if tool == "close_agent" and status == "completed":
-            for receiver in item.get("receiver_thread_ids") or []:
-                closed_receivers[receiver] = {
-                    "index": index,
-                    "message": None,
-                }
-            for receiver, state in (item.get("agents_states") or {}).items():
-                if state.get("status") == "completed":
-                    closed_receivers[receiver] = {
-                        "index": index,
-                        "message": state.get("message"),
-                    }
+        payload = data.get("payload") or {}
+        if payload:
+            ordered_payloads.append((row_number, payload))
+        if item.get("type") == "command_execution":
+            command = item.get("command") or ""
+            argv = argv_for(command)
+            if argv and Path(argv[0]).name == "claude":
+                identity = item.get("id") or item.get("call_id")
+                launches.append((identity, "command_execution", argv, None))
+                outputs[identity] = terminal({
+                    "exit_code": item.get("exit_code", item.get("return_code")),
+                    "status": item.get("status"),
+                    "output": item.get("aggregated_output") or item.get("output") or "",
+                })
+                event_shapes.add("command_execution")
+        payload_type = payload.get("type")
+        if payload_type in {"function_call", "custom_tool_call"} and payload.get("name") in {"exec_command", "functions.exec_command", "exec"}:
+            raw = payload.get("arguments") or payload.get("input") or payload.get("command") or ""
+            terminal_mode = None
+            if payload_type == "custom_tool_call":
+                proof = bounded_wrapper_proof(raw)
+                argv = proof["argv"] if proof["ok"] else []
+                terminal_mode = proof["terminal_mode"] if proof["ok"] else None
+            else:
+                argv = argv_for(raw)
+            if argv and Path(argv[0]).name == "claude":
+                identity = payload.get("call_id") or payload.get("id")
+                launches.append((identity, payload_type, argv, terminal_mode))
+                event_shapes.add(payload_type)
+        if payload_type in {"function_call_output", "custom_tool_call_output"}:
+            identity = payload.get("call_id") or payload.get("id")
+            outputs[identity] = terminal(payload.get("output") or payload.get("content") or payload.get("result") or payload, str(payload.get("status") or ""))
 
-if failed_spawns:
-    raise SystemExit(f"{agent_type} smoke saw failed spawn_agent calls: {failed_spawns!r}")
+if len(launches) == 1 and launches[0][1] == "custom_tool_call":
+    launch_identity = launches[0][0]
+    launch_line = next((line for line, payload in ordered_payloads if (payload.get("call_id") or payload.get("id")) == launch_identity and payload.get("type") == "custom_tool_call"), None)
+    launch_output = outputs.get(launch_identity, (None, "", ""))[2]
+    cells = re.findall(r"(?i)Script running with cell ID\s+([A-Za-z0-9_-]+)", launch_output)
+    if launch_line is not None and len(cells) == 1:
+        cell = cells[0]
+        session = None
+        wait_requests = {}
+        poll_requests = {}
+        correlated = []
+        for line, payload in ordered_payloads:
+            if line <= launch_line:
+                continue
+            payload_type = payload.get("type")
+            call_identity = payload.get("call_id") or payload.get("id")
+            if payload_type == "function_call" and payload.get("name") == "wait":
+                value = decoded(payload.get("arguments") or "")
+                if isinstance(value, dict) and str(value.get("cell_id")) == cell:
+                    wait_requests[call_identity] = line
+                continue
+            if payload_type == "custom_tool_call" and payload.get("name") == "exec":
+                raw = payload.get("input") or ""
+                match = re.fullmatch(
+                    r'\s*const\s+r\s*=\s*await\s+tools[.]write_stdin\s*[(]\s*[{]\s*session_id\s*:\s*([1-9][0-9]*)\s*,\s*chars\s*:\s*["\']["\']\s*,\s*yield_time_ms\s*:\s*([1-9][0-9]*)\s*,\s*max_output_tokens\s*:\s*([1-9][0-9]*)\s*[}]\s*[)]\s*;\s*(?:text\s*[(]\s*JSON[.]stringify\s*[(]\s*r\s*[)]\s*[)]|text\s*[(]\s*r[.]output\s*[)]\s*;\s*if\s*[(]\s*r[.]session_id\s*[)]\s*text\s*[(]\s*`SESSION_ID=[$][{]r[.]session_id[}]`\s*[)])\s*;?\s*',
+                    raw,
+                    re.S,
+                )
+                if match and int(match.group(2)) <= 30000 and int(match.group(3)) <= FUSION_WRITE_STDIN_MAX_OUTPUT_TOKENS:
+                    poll_requests[call_identity] = (line, int(match.group(1)))
+                continue
+            if payload_type not in {"function_call_output", "custom_tool_call_output"}:
+                continue
+            raw_output = payload.get("output") or payload.get("content") or payload.get("result") or ""
+            if call_identity in wait_requests:
+                output_text = collect_text(raw_output)
+                structured_terminal = nested_terminal(raw_output)
+                textual_terminal = fusion_textual_terminal(raw_output) if launches[0][3] in {"envelope", "transport"} else None
+                if structured_terminal is not None and textual_terminal is not None:
+                    correlated.append((None, "collision", ""))
+                elif structured_terminal is not None:
+                    correlated.append(structured_terminal)
+                elif textual_terminal is not None:
+                    correlated.append((textual_terminal["exit_code"], textual_terminal["status"], textual_terminal["output"]))
+                structured_sessions = re.findall(r'["\']session_id["\']\s*:\s*["\']?([1-9][0-9]*)', output_text)
+                textual_sessions = re.findall(r'(?m)^SESSION_ID=([1-9][0-9]*)$', output_text)
+                observed_sessions = structured_sessions or textual_sessions if not (structured_sessions and textual_sessions) else []
+                if len(observed_sessions) == 1:
+                    observed_session = int(observed_sessions[0])
+                    if session is None:
+                        session = observed_session
+                    elif session != observed_session:
+                        correlated.append((None, "session-changed", ""))
+                continue
+            request = poll_requests.get(call_identity)
+            if request is None or session is None or request[1] != session or line <= request[0]:
+                continue
+            structured = nested_terminal(raw_output)
+            textual = fusion_textual_terminal(raw_output) if launches[0][3] in {"envelope", "transport"} else None
+            if structured is not None and textual is not None:
+                correlated.append((None, "collision", ""))
+            elif structured is not None:
+                correlated.append(structured)
+            elif textual is not None:
+                correlated.append((textual["exit_code"], textual["status"], textual["output"]))
+            else:
+                next_cells = re.findall(r"(?i)Script running with cell ID\s+([A-Za-z0-9_-]+)", collect_text(raw_output))
+                if len(next_cells) == 1:
+                    cell = next_cells[0]
+        if len(correlated) == 1:
+            outputs[launch_identity] = correlated[0]
+            event_shapes.add("custom_tool_call+custom_write_stdin")
 
-custom_prompt_marker = f"Agent prompt source: docs/agent-core/{role}.md"
-
-def find_spawned_child_sessions():
-    # Newer Codex CLIs (>= 0.144) stop emitting spawn_agent collab_tool_call
-    # events in the exec --json stream, so the spawn proof must come from the
-    # child session transcripts written under the isolated live home.
-    sessions_root = Path(live_home) / "sessions"
-    matches = []
-    for path in sorted(sessions_root.rglob("rollout-*.jsonl")):
-        child = parse_child_transcript(path)
-        if child["agent_role"] != agent_type:
-            continue
-        if parent_thread_id and child["parent"] != parent_thread_id:
-            continue
-        matches.append((path, child))
-    return matches
-
-if spawn_events:
-    if len(spawn_events) != 1:
-        raise SystemExit(f"{agent_type} expected one completed spawn_agent call, got {spawn_events!r}")
-    spawn_event = spawn_events[0]
-    if spawn_event["prompt"] != proof_request:
-        raise SystemExit(
-            f"{agent_type} spawn prompt was {spawn_event['prompt']!r}, expected {proof_request!r}"
-        )
-    spawn_receivers = set(spawn_event["receivers"])
-    if len(spawn_receivers) != 1:
-        raise SystemExit(f"{agent_type} expected one spawned receiver, got {spawn_receivers!r}")
-    for receiver in sorted(spawn_receivers):
-        wait = waited_receivers.get(receiver)
-        if wait is None:
-            raise SystemExit(f"{agent_type} did not capture wait result for receiver: {receiver}")
-        child_message = wait["message"] or ""
-        if proof_ok not in child_message:
-            raise SystemExit(
-                f"{agent_type} child message was {child_message!r}, expected exact proof reply {proof_ok!r}"
-            )
-        child = receiver_transcript(receiver)
-        if not child["completed"]:
-            raise SystemExit(f"{agent_type} receiver {receiver} lacked task_complete")
-        if child["task_name"] != expected_task_name:
-            raise SystemExit(
-                f"{agent_type} receiver {receiver} had task_name={child['task_name']!r}, expected {expected_task_name!r}"
-            )
-        if proof_request not in child["input"] and child["encrypted_task_messages"] != 1:
-            raise SystemExit(
-                f"{agent_type} receiver {receiver} had neither the visible exact proof request "
-                "nor one encrypted inter-agent task message"
-            )
-        if proof_ok not in child["output"]:
-            raise SystemExit(f"{agent_type} receiver {receiver} did not produce the exact proof reply")
-        if custom_prompt_marker not in child["text"]:
-            raise SystemExit(
-                f"{agent_type} receiver transcript did not include custom role prompt marker "
-                f"{custom_prompt_marker!r}; generic/default agent dispatch would not satisfy this proof"
-            )
-        close = closed_receivers.get(receiver)
-        if close is None and "close/cleanup was not available" not in "\n".join(all_text_parts).lower():
-            raise SystemExit(
-                f"{agent_type} left receiver {receiver} without close evidence or an unavailable-cleanup record"
-            )
-        if close is not None and wait["index"] >= close["index"]:
-            raise SystemExit(
-                f"{agent_type} close_agent completed before wait_agent captured the proof result"
-            )
-else:
-    children = find_spawned_child_sessions()
-    if len(children) != 1:
-        raise SystemExit(
-            f"{agent_type} expected exactly one spawned child session with "
-            f"agent_role={agent_type!r} under the isolated live home, got "
-            f"{[str(path) for path, _ in children]!r}; the stream also carried no "
-            "spawn_agent collab events, so no named-agent dispatch was proven"
-        )
-    child_path, child = children[0]
-    if not child["completed"]:
-        raise SystemExit(f"{agent_type} child session {child_path} lacked task_complete")
-    if child["task_name"] != expected_task_name:
-        raise SystemExit(
-            f"{agent_type} child session {child_path} had task_name={child['task_name']!r}, expected {expected_task_name!r}"
-        )
-    if proof_request not in child["input"] and child["encrypted_task_messages"] != 1:
-        raise SystemExit(
-            f"{agent_type} child session {child_path} had neither the visible exact proof request "
-            "nor one encrypted inter-agent task message"
-        )
-    if proof_ok not in child["output"]:
-        raise SystemExit(
-            f"{agent_type} child session {child_path} never produced the proof reply "
-            f"{proof_ok!r}; the custom developer_instructions were not applied"
-        )
-    if custom_prompt_marker not in child["text"]:
-        raise SystemExit(
-            f"{agent_type} child session {child_path} did not include custom role prompt "
-            f"marker {custom_prompt_marker!r}; generic/default agent dispatch would not "
-            "satisfy this proof"
-        )
-if not final_ok:
-    raise SystemExit(f"{agent_type} did not return success marker")
+identity, shape, argv, terminal_mode = launches[0] if len(launches) == 1 else (None, None, [], None)
+exit_code, terminal_status, output = outputs.get(identity, (None, "", ""))
+required_pairs = (("--model", "opus"), ("--max-budget-usd", budget), ("--permission-mode", "dontAsk"))
+def exact_pair(flag, value):
+    positions = [index for index, token in enumerate(argv) if token == flag]
+    return len(positions) == 1 and positions[0] + 1 < len(argv) and argv[positions[0] + 1] == value
+competing_patterns = (
+    r"(?i)command not found", r"(?i)permission denied",
+    r"(?i)(?:invalid|unknown) (?:option|argument|model)",
+    r"(?i)(?:config(?:uration)? (?:parse|syntax) error|failed to parse config|error parsing config)",
+    r"(?i)\b(?:HTTP(?:/[0-9.]+)?\s*)?(?:401|403|5[0-9]{2})\b",
+    r"(?i)timed? out|timeout", r"(?i)terminated by signal|signal [0-9]+",
+    r"(?i)(?:budget|spend limit).*(?:exceeded|failure|failed|reached)",
+)
+summary = {
+    "status": "rejected",
+    "reason_code": "first-leg-classifier-rejected",
+    "first_leg_rc": int(first_leg_rc),
+    "scanner_result": scanner_result,
+    "artifacts": [
+        digest_blob("stdout", out_blob),
+        digest_blob("stderr", err_blob),
+        digest_blob("sessions", sessions_blob),
+    ],
+    "launch_count": len(launches),
+    "event_shapes": sorted(event_shapes),
+    "verified_argv": {
+        "executable": bool(argv and Path(argv[0]).name == "claude"),
+        "print_mode": argv.count("--print") + argv.count("-p") == 1,
+        "model_opus": exact_pair("--model", "opus"),
+        "budget": exact_pair("--max-budget-usd", budget),
+        "permission_mode_dontAsk": exact_pair("--permission-mode", "dontAsk"),
+        "session_persistence_disabled": argv.count("--no-session-persistence") == 1,
+        "tools_override_absent": "--tools" not in argv,
+    },
+    "correlated_inner_exit_code": exit_code,
+    "terminal_status_failed": exit_code not in (None, 0) or terminal_status.lower() in {"failed", "error", "cancelled"},
+    "http429": re.search(r"(?i)(?:\bHTTP(?:/[0-9.]+)?\s*(?:status(?:\s+code)?\s*)?[:=]?\s*429\b|\bHTTP status(?: code)?\s*[:=]?\s*429\b|API Error:\s*Request rejected\s*\(429\))", output) is not None,
+    "cooldown": re.search(r"(?i)\bcredentials(?:\s+for\s+model\s+\S+)?(?:\s+are)?\s+cooling down\b", output) is not None,
+    "success_marker": "OH_NO_CLAUDE_FUSION_PANEL_OK" in output,
+    "competing_error": any(re.search(pattern, output) for pattern in competing_patterns),
+    "classifier_outcome": "rejected",
+    "classifier_rc": int(classifier_rc_text),
+    "fallback": {"status": "not-run"},
+}
+summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
-  done
-
-  print_ok_count="${#expected_agents[@]}"
-  ok "live Codex named custom agents spawned, waited, and lifecycle-cleaned by ${print_ok_count} oh-no-* agent_type values"
 }
 
 run_fusion_rescue_live_test() {
@@ -4700,7 +4858,9 @@ PROMPT
     cmd+=(--model "$LIVE_MODEL")
   fi
 
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
+  local first_leg_rc=0
+  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" </dev/null >"$out_file" 2>"$err_file" \
+    || first_leg_rc=$?
   if ! assert_no_codex_live_secret_leak \
     "$CODEX_HOME_DIR/auth.json" \
     "$out_file" \
@@ -4710,13 +4870,19 @@ PROMPT
     fail "Codex Fusion Rescue live artifacts failed the credential-leak guard and were removed"
   fi
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$FUSION_RESCUE_MAX_BUDGET_USD" "$summary_file" <<'PY'
+  local first_oracle_rc=0 first_oracle_err="$RUN_DIR/fusion-rescue-codex-claude.oracle.err"
+  {
+    codex_run_oracle_script "$out_file" "$err_file" "$CODEX_HOME_DIR" "$FUSION_RESCUE_MAX_BUDGET_USD" "$summary_file" "$first_leg_rc" 2>"$first_oracle_err" <<'PY'
+import ast
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 
-out_path, err_path, live_home, budget, summary_path = sys.argv[1:6]
+#@SHARED_HELPERS@
+out_path, err_path, live_home, budget, summary_path, first_leg_rc_text = sys.argv[1:7]
+first_leg_rc = int(first_leg_rc_text)
 expected_markers = {
     "primary": "OH_NO_FUSION_PANEL_PRIMARY_CLAUDE",
     "adversarial": "OH_NO_FUSION_PANEL_ADVERSARIAL",
@@ -4806,7 +4972,7 @@ for fixture in forbidden_claude_prompt_fixtures:
     if not any(pattern.search(fixture) for pattern in forbidden_claude_prompt_patterns):
         raise SystemExit(f"Fusion Rescue Codex live forbidden prompt guard misses fixture {fixture!r}")
 secret_patterns = [
-    re.compile(r"sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tools = {
@@ -5014,12 +5180,13 @@ def assert_meaningful_domain_analysis(label, text):
         )
 
 def inspect_primary_claude_call(transcript):
-    tool_text_parts = []
-    command_outputs = []
-    claude_call_events = []
+    launch_records = []
+    custom_candidates = {}
+    outputs_by_call = {}
+    ordered_payloads = []
     event_shapes = []
 
-    def command_from_payload(payload):
+    def decoded_payload_value(payload):
         raw = (
             payload.get("arguments")
             or payload.get("input")
@@ -5029,21 +5196,208 @@ def inspect_primary_claude_call(transcript):
         )
         if isinstance(raw, str):
             try:
-                decoded = json.loads(raw) if raw else {}
+                return json.loads(raw) if raw else ""
             except json.JSONDecodeError:
                 return raw
-        else:
-            decoded = raw
+        return raw
+
+    def command_from_payload(payload):
+        decoded = decoded_payload_value(payload)
         if isinstance(decoded, dict):
-            for key in ("cmd", "command", "argv"):
+            for key in ("argv", "cmd", "command"):
                 value = decoded.get(key)
                 if isinstance(value, list):
-                    return " ".join(str(item) for item in value)
+                    return [str(item) for item in value]
                 if value:
                     return str(value)
         if isinstance(decoded, list):
-            return " ".join(str(item) for item in decoded)
+            return [str(item) for item in decoded]
         return str(decoded or "")
+
+    def terminal_result(value, fallback_status=""):
+        decoded = value
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                decoded = value
+        exit_code = None
+        status = fallback_status
+        if isinstance(decoded, dict):
+            for key in ("exit_code", "return_code", "status_code"):
+                candidate = decoded.get(key)
+                if isinstance(candidate, int):
+                    exit_code = candidate
+                    break
+                if isinstance(candidate, str) and re.fullmatch(r"-?[0-9]+", candidate.strip()):
+                    exit_code = int(candidate.strip())
+                    break
+            status = str(decoded.get("status") or status)
+            output = collect_text(
+                decoded.get("aggregated_output")
+                or decoded.get("output")
+                or decoded.get("content")
+                or decoded.get("result")
+                or ""
+            )
+        else:
+            output = collect_text(decoded)
+        return {"exit_code": exit_code, "status": status, "output": output}
+
+    def nested_terminal_result(value):
+        candidates = []
+
+        def visit(candidate):
+            if isinstance(candidate, dict):
+                if "exit_code" in candidate or "output" in candidate:
+                    if isinstance(candidate.get("exit_code"), int) and not isinstance(candidate.get("exit_code"), bool) and isinstance(candidate.get("output"), str):
+                        candidates.append(candidate)
+                    return
+                for nested in candidate.values():
+                    visit(nested)
+                return
+            if isinstance(candidate, list):
+                for nested in candidate:
+                    visit(nested)
+                return
+            if not isinstance(candidate, str):
+                return
+            try:
+                decoded = json.loads(candidate)
+            except json.JSONDecodeError:
+                return
+            if decoded != candidate:
+                visit(decoded)
+
+        visit(value)
+        if len(candidates) > 1:
+            raise SystemExit("Fusion Rescue Codex live primary async output exposed multiple structured terminal objects")
+        if not candidates:
+            return None
+        candidate = candidates[0]
+        return {
+            "exit_code": candidate["exit_code"],
+            "status": str(candidate.get("status") or ""),
+            "output": candidate["output"],
+        }
+
+    def argv_for(command):
+        if isinstance(command, list):
+            return command
+        try:
+            return shlex.split(command)
+        except ValueError as exc:
+            raise SystemExit(f"Fusion Rescue Codex live primary Claude command was not valid argv text: {exc}")
+
+    def custom_exec_argv(data, raw_text):
+        proof = fusion_launcher_proof(raw_text, budget)
+        if not proof["ok"]:
+            raise SystemExit(
+                "Fusion Rescue Codex live primary Claude custom exec was not a bounded semantic launcher: "
+                + proof["reason"]
+            )
+        return proof
+
+    def async_cell(value):
+        text = collect_text(value)
+        matches = re.findall(r"(?i)Script running with cell ID\s+([A-Za-z0-9_-]+)", text)
+        if len(matches) > 1:
+            raise SystemExit("Fusion Rescue Codex live primary async output exposed multiple cell handles")
+        return matches[0] if matches else None
+
+    def async_write_stdin_request(raw):
+        if not isinstance(raw, str) or "write_stdin" not in raw:
+            return None
+        operations = re.findall(r"tools[.]([A-Za-z_][A-Za-z0-9_]*)\s*[(]", raw)
+        if operations != ["write_stdin"]:
+            raise SystemExit("Fusion Rescue Codex live primary async poll mixed or duplicated execution primitives")
+        calls = re.findall(r"(?:const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*)?await\s+tools[.]write_stdin\s*[(]\s*[{]([^{}]*)[}]\s*[)]", raw, re.S)
+        if len(calls) != 1 or not calls[0][0]:
+            raise SystemExit("Fusion Rescue Codex live primary async poll lacked exactly one assigned write_stdin operation")
+        result_name, call_fields = calls[0]
+        executable = "".join(raw[start:end] for start, end in js_executable_spans(raw))
+        json_sinks = re.findall(r"text\s*[(]\s*JSON[.]stringify\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*[)]\s*[)]", executable)
+        output_sinks = re.findall(r"text\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)[.]output\s*[)]", executable)
+        session_sinks = re.findall(r"if\s*[(]\s*([A-Za-z_$][A-Za-z0-9_$]*)[.]session_id\s*[)]\s*text\s*[(]\s*`SESSION_ID=[$][{]([A-Za-z_$][A-Za-z0-9_$]*)[.]session_id[}]`\s*[)]", raw)
+        text_calls = re.findall(r"(?<![A-Za-z0-9_$.])text\s*[(]", executable)
+        json_sink_ok = json_sinks == [result_name] and not output_sinks and not session_sinks and len(text_calls) == 1
+        output_sink_ok = output_sinks == [result_name] and session_sinks in ([], [(result_name, result_name)]) and len(text_calls) == 1 + len(session_sinks)
+        if not (json_sink_ok or output_sink_ok):
+            raise SystemExit("Fusion Rescue Codex live primary async poll sink did not retain its assigned result")
+        fields = {}
+        for token in call_fields.split(","):
+            match = re.fullmatch(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*?)\s*", token, re.S)
+            if match is None or match.group(1) in fields:
+                raise SystemExit("Fusion Rescue Codex live primary async poll arguments were ambiguous")
+            fields[match.group(1)] = match.group(2)
+        field_names = set(fields)
+        bounded = field_names == {"session_id", "chars", "yield_time_ms", "max_output_tokens"}
+        if field_names not in ({"session_id", "chars"}, {"session_id", "chars", "yield_time_ms", "max_output_tokens"}):
+            raise SystemExit("Fusion Rescue Codex live primary async poll arguments were incomplete or ambiguous")
+        if re.fullmatch(r"[1-9][0-9]*", fields["session_id"]) is None:
+            raise SystemExit("Fusion Rescue Codex live primary async poll lacked one concrete numeric session identity")
+        if fields["chars"] not in {'""', "''"}:
+            raise SystemExit("Fusion Rescue Codex live primary async poll attempted nonempty input")
+        if bounded:
+            if re.fullmatch(r"[1-9][0-9]*", fields["yield_time_ms"]) is None:
+                raise SystemExit("Fusion Rescue Codex live primary async poll lacked a bounded yield")
+            if re.fullmatch(r"[1-9][0-9]*", fields["max_output_tokens"]) is None:
+                raise SystemExit("Fusion Rescue Codex live primary async poll lacked a bounded output limit")
+            yield_time_ms = int(fields["yield_time_ms"])
+            max_output_tokens = int(fields["max_output_tokens"])
+            if yield_time_ms > 30000 or max_output_tokens > FUSION_WRITE_STDIN_MAX_OUTPUT_TOKENS:
+                raise SystemExit("Fusion Rescue Codex live primary async poll exceeded its wait/output bounds")
+        return int(fields["session_id"]), bounded
+
+    def validate_argv(command):
+        argv = argv_for(command)
+        if not argv:
+            raise SystemExit("Fusion Rescue Codex live primary Claude launch had empty argv")
+        executable = argv[0]
+        if executable != "${CLAUDE_BIN:-claude}" and Path(executable).name != "claude":
+            raise SystemExit(
+                f"Fusion Rescue Codex live primary launch used unexpected executable {executable!r}"
+            )
+        if any(token in {"|", "||", "&&", ";", ">", ">>", "<"} for token in argv):
+            raise SystemExit("Fusion Rescue Codex live primary Claude launch used a shell pipeline or wrapper")
+        if Path(executable).name in {"bash", "sh", "zsh", "env"}:
+            raise SystemExit("Fusion Rescue Codex live primary Claude launch used an unrelated wrapper")
+        if argv.count("--print") + argv.count("-p") != 1:
+            raise SystemExit("Fusion Rescue Codex live primary Claude launch must use exactly one print-mode flag")
+        required_pairs = (("--model", "opus"), ("--max-budget-usd", budget), ("--permission-mode", "dontAsk"))
+        for flag, expected in required_pairs:
+            positions = [index for index, token in enumerate(argv) if token == flag]
+            if len(positions) != 1 or positions[0] + 1 >= len(argv) or argv[positions[0] + 1] != expected:
+                raise SystemExit(
+                    f"Fusion Rescue Codex live primary Claude argv must contain exactly {flag} {expected}"
+                )
+        if argv.count("--no-session-persistence") != 1:
+            raise SystemExit("Fusion Rescue Codex live primary Claude argv must disable session persistence")
+        forbidden_session_flags = {"--continue", "--resume", "--session-id", "--fork-session"}
+        if forbidden_session_flags & set(argv):
+            raise SystemExit("Fusion Rescue Codex live primary Claude argv enabled session persistence")
+        if "--tools" in argv:
+            raise SystemExit("Fusion Rescue Codex live primary Claude argv unexpectedly overrode tools")
+        prompt_text = " ".join(argv[1:])
+        missing_direct_terms = [
+            term for term in required_claude_direct_prompt_terms
+            if term not in prompt_text.lower()
+        ]
+        if missing_direct_terms:
+            raise SystemExit(
+                "Fusion Rescue Codex live primary Claude prompt missed a direct Opus panel-review instruction; "
+                f"missing_terms={missing_direct_terms!r}"
+            )
+        forbidden_prompt_hits = [
+            pattern.pattern for pattern in forbidden_claude_prompt_patterns
+            if pattern.search(prompt_text)
+        ]
+        if forbidden_prompt_hits:
+            raise SystemExit(
+                "Fusion Rescue Codex live primary Claude prompt appears to delegate to Claude-side workflow tooling: "
+                f"{forbidden_prompt_hits!r}"
+            )
+        return argv
 
     for line_number, line in enumerate(transcript.splitlines(), 1):
         if not line.strip():
@@ -5051,136 +5405,965 @@ def inspect_primary_claude_call(transcript):
         data = json.loads(line)
         event_text = collect_text(data)
         if any(pattern.search(event_text) for pattern in secret_patterns):
-            raise SystemExit(f"Fusion Rescue Codex live primary transcript exposed a secret-like value near line {line_number}")
+            raise SystemExit(
+                f"Fusion Rescue Codex live primary transcript exposed a secret-like value near line {line_number}"
+            )
         item = data.get("item") or {}
         payload = data.get("payload") or {}
-        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
-        tool_lower = str(item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or "").lower()
-        command_text = str(item.get("command") or "")
+        ordered_payloads.append((line_number, payload, data))
         event_shapes.append(
             {
                 "line": line_number,
                 "data_type": data.get("type"),
                 "item_type": item.get("type"),
-                "item_tool": item.get("tool") or item.get("name"),
                 "payload_type": payload.get("type"),
                 "payload_name": payload.get("name"),
             }
         )
-        if payload.get("type") == "function_call":
-            tool_lower = str(payload.get("name") or tool_lower).lower()
-            command_text = command_from_payload(payload) or command_text
-        elif payload.get("type") == "custom_tool_call":
-            tool_lower = str(payload.get("name") or tool_lower).lower()
-            command_text = command_from_payload(payload) or command_text
-        is_exec_command_call = (
-            (
-                payload.get("type") == "function_call"
-                and payload.get("name") in {"exec_command", "functions.exec_command"}
-            )
-            or (
-                payload.get("type") == "custom_tool_call"
-                and payload.get("name") == "exec"
-            )
-            or (
-                item_type_lower == "command_execution"
-                and item.get("status") == "completed"
-            )
-        )
-        if is_exec_command_call and command_text and any(
-            pattern.search(command_text) for pattern in claude_command_patterns
-        ):
-            claude_call_events.append((line_number, command_text[:1000]))
+        item_type_lower = str(item.get("type") or data.get("type") or "").lower()
+        tool_lower = str(item.get("tool") or item.get("name") or payload.get("name") or "").lower()
         if item_type_lower in forbidden_write_tools or tool_lower in forbidden_write_tools:
             raise SystemExit(
                 f"Fusion Rescue Codex live primary subagent saw write-capable event at line {line_number}: "
                 f"type={item_type_lower!r} tool={tool_lower!r}"
             )
-        if (
-            item_type_lower == "command_execution"
-            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
-        ) and any(
-            pattern.search(command_text) for pattern in forbidden_command_patterns
+        inspectable = safety_inspectable_commands(data)
+        if event_is_command_bearing(data) and any(
+            pattern.search(candidate)
+            for candidate in inspectable
+            for pattern in forbidden_command_patterns
         ):
             raise SystemExit(
-                f"Fusion Rescue Codex live primary subagent saw write-like command at line {line_number}: "
-                f"{command_text[:1000]!r}"
+                f"Fusion Rescue Codex live primary subagent saw write-like command at line {line_number}"
             )
-        item_type = item.get("type") or data.get("type")
-        tool_name = item.get("tool") or item.get("name") or data.get("tool") or data.get("name") or ""
-        if (
-            "claude" in event_text.lower()
-            and (
-                is_exec_command_call
-                or (
-                    item_type in {"collab_tool_call", "function_call", "tool_call", "tool_use"}
-                    and tool_name not in {"spawn_agent", "wait", "wait_agent", "close_agent"}
-                )
-            )
-        ):
-            tool_text_parts.append(event_text)
-        if (
-            item.get("type") == "command_execution"
-            and item.get("status") == "completed"
-            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(item.get("aggregated_output") or "")
-        ):
-            command_outputs.append(str(item.get("aggregated_output") or ""))
-        if (
-            payload.get("type") == "function_call_output"
-            and "OH_NO_CLAUDE_FUSION_PANEL_OK" in str(payload.get("output") or "")
-        ):
-            command_outputs.append(str(payload.get("output") or ""))
-        if payload.get("type") == "custom_tool_call_output":
-            custom_output = collect_text(payload)
-            if "OH_NO_CLAUDE_FUSION_PANEL_OK" in custom_output:
-                command_outputs.append(custom_output)
 
-    tool_text = "\n".join(tool_text_parts)
-    if not tool_text:
-        raise SystemExit(
-            "Fusion Rescue Codex live primary subagent did not expose a Claude CLI "
-            f"tool call; event_shapes={event_shapes!r}"
+        if item.get("type") == "command_execution":
+            command = item.get("command") or ""
+            if command and any(pattern.search(str(command)) for pattern in claude_command_patterns):
+                identity = item.get("id") or item.get("call_id")
+                if not identity:
+                    raise SystemExit(
+                        "Fusion Rescue Codex live primary command_execution lacked item identity"
+                    )
+                launch_records.append({
+                    "identity": identity,
+                    "line": line_number,
+                    "command": command,
+                    "shape": "command_execution",
+                })
+                outputs_by_call[identity] = terminal_result(
+                    {
+                        "exit_code": item.get("exit_code", item.get("return_code")),
+                        "status": item.get("status"),
+                        "aggregated_output": item.get("aggregated_output") or item.get("output") or "",
+                    },
+                    str(item.get("status") or ""),
+                )
+            continue
+
+        payload_type = payload.get("type")
+        is_function_exec = (
+            payload_type == "function_call"
+            and payload.get("name") in {"exec_command", "functions.exec_command"}
         )
-    if len(claude_call_events) != 1:
+        is_custom_exec = (
+            payload.get("type") == "custom_tool_call"
+            and payload.get("name") == "exec"
+        )
+        if is_function_exec or is_custom_exec:
+            command = command_from_payload(payload)
+            command_text = " ".join(command) if isinstance(command, list) else str(command)
+            if command_text and any(pattern.search(command_text) for pattern in claude_command_patterns):
+                identity = payload.get("call_id") or payload.get("id")
+                if not identity:
+                    raise SystemExit(
+                        "Fusion Rescue Codex live primary Claude launch lacked call/item identity"
+                    )
+                record = {
+                    "identity": identity,
+                    "line": line_number,
+                    "command": command,
+                    "shape": payload_type,
+                }
+                if is_custom_exec:
+                    if not isinstance(command, list):
+                        raw = payload.get("input") or payload.get("arguments") or ""
+                        raw_text = raw if isinstance(raw, str) else json.dumps(raw)
+                        launcher = custom_exec_argv(data, raw_text)
+                        record["command"] = launcher["argv"]
+                        record["terminal_mode"] = launcher["terminal_mode"]
+                    custom_candidates[identity] = record
+                else:
+                    launch_records.append(record)
+            continue
+
+        is_correlated_output = (
+            payload_type == "function_call_output"
+            or payload.get("type") == "custom_tool_call_output"
+        )
+        if is_correlated_output:
+            identity = payload.get("call_id") or payload.get("id")
+            if not identity:
+                raise SystemExit(
+                    "Fusion Rescue Codex live primary terminal output lacked call/item identity"
+                )
+            outputs_by_call[identity] = terminal_result(
+                payload.get("output") or payload.get("content") or payload.get("result") or payload,
+                str(payload.get("status") or ""),
+            )
+
+    async_launches = []
+    for identity, record in sorted(custom_candidates.items(), key=lambda item: item[1]["line"]):
+        observed = outputs_by_call.get(identity)
+        if observed is None:
+            launch_records.append(record)
+            continue
+        output = observed["output"]
+        cell = async_cell(output)
+        pre_execution_failure = (
+            "Script failed" in output
+            and "Script error:" in output
+            and "ReferenceError:" in output
+            and cell is None
+            and nested_terminal_result(observed["output"]) is None
+        )
+        if pre_execution_failure:
+            continue
+        if cell is not None:
+            record["shape"] = "custom_tool_call+function_wait"
+            record["async_cell"] = cell
+            async_launches.append(record)
+            outputs_by_call.pop(identity, None)
+        launch_records.append(record)
+
+    if len(async_launches) == 1:
+        async_launch = async_launches[0]
+        state = {"cell": async_launch["async_cell"], "session": None, "terminal": None}
+        wait_requests = {}
+        poll_requests = {}
+        for line_number, payload, _data in ordered_payloads:
+            payload_type = payload.get("type")
+            identity = payload.get("call_id") or payload.get("id")
+            if payload_type == "function_call" and payload.get("name") == "wait":
+                arguments = decoded_payload_value(payload)
+                if not isinstance(arguments, dict) or not isinstance(arguments.get("cell_id"), (str, int)):
+                    raise SystemExit("Fusion Rescue Codex live primary async wait lacked one concrete cell handle")
+                wait_requests[identity] = (line_number, str(arguments["cell_id"]))
+                continue
+            if payload_type == "custom_tool_call" and payload.get("name") == "exec":
+                poll_request = async_write_stdin_request(payload.get("input") or "")
+                if poll_request is not None:
+                    if not identity:
+                        raise SystemExit("Fusion Rescue Codex live primary async poll lacked call identity")
+                    if line_number < async_launch["line"]:
+                        raise SystemExit("Fusion Rescue Codex live primary async poll preceded its launch")
+                    if identity in poll_requests:
+                        raise SystemExit("Fusion Rescue Codex live primary async poll reused call identity")
+                    poll_session, poll_bounded = poll_request
+                    poll_requests[identity] = (line_number, poll_session, poll_bounded)
+                continue
+            if payload_type not in {"function_call_output", "custom_tool_call_output"}:
+                continue
+            raw_output = payload.get("output") or payload.get("content") or payload.get("result") or ""
+            terminal = terminal_result(raw_output, str(payload.get("status") or ""))
+            structured_terminal = nested_terminal_result(raw_output)
+            textual_terminal = fusion_textual_terminal(raw_output) if async_launch.get("terminal_mode") in {"envelope", "transport"} else None
+            if structured_terminal is not None and textual_terminal is not None:
+                raise SystemExit("Fusion Rescue Codex live primary async output mixed structured and textual terminal proofs")
+            has_terminal_proof = structured_terminal is not None or textual_terminal is not None or "OH_NO_CLAUDE_FUSION_PANEL_OK" in terminal["output"]
+            if line_number < async_launch["line"] and has_terminal_proof:
+                raise SystemExit("Fusion Rescue Codex live primary async terminal output preceded its launch")
+            if identity in poll_requests:
+                poll_line, poll_session, poll_bounded = poll_requests.pop(identity)
+                if line_number <= poll_line:
+                    raise SystemExit("Fusion Rescue Codex live primary async poll output did not follow its call")
+                if state["session"] is None or poll_session != state["session"]:
+                    raise SystemExit("Fusion Rescue Codex live primary async poll session did not match its launch")
+                if has_terminal_proof:
+                    if not poll_bounded:
+                        raise SystemExit("Fusion Rescue Codex live primary async terminal poll lacked bounded wait semantics")
+                    if state["terminal"] is not None:
+                        raise SystemExit("Fusion Rescue Codex live primary async launch had multiple terminal outputs")
+                    if structured_terminal is not None:
+                        terminal = structured_terminal
+                    elif textual_terminal is not None:
+                        terminal = textual_terminal
+                    state["terminal"] = terminal
+                    async_launch["shape"] = "custom_tool_call+custom_write_stdin"
+                    continue
+                next_cell = async_cell(terminal["output"])
+                if next_cell is None:
+                    raise SystemExit("Fusion Rescue Codex live primary async poll lacked its next cell handle")
+                state["cell"] = next_cell
+                continue
+            if identity not in wait_requests:
+                if has_terminal_proof:
+                    raise SystemExit("Fusion Rescue Codex live primary terminal output came from an unrelated wait")
+                continue
+            wait_line, wait_cell = wait_requests.pop(identity)
+            if wait_line < async_launch["line"]:
+                if has_terminal_proof:
+                    raise SystemExit("Fusion Rescue Codex live primary async wait preceded its launch")
+                continue
+            if wait_cell != state["cell"]:
+                if has_terminal_proof:
+                    raise SystemExit("Fusion Rescue Codex live primary async terminal wait used a mismatched cell handle")
+                continue
+            output_blob = collect_text(raw_output)
+            structured_sessions = re.findall(r'["\']session_id["\']\s*:\s*["\']?([1-9][0-9]*)', output_blob)
+            textual_sessions = re.findall(r'(?m)^SESSION_ID=([1-9][0-9]*)$', output_blob)
+            if structured_sessions and textual_sessions:
+                raise SystemExit("Fusion Rescue Codex live primary async wait mixed structured and textual session identities")
+            observed_sessions = structured_sessions or textual_sessions
+            session_ids = {int(value) for value in observed_sessions}
+            if len(observed_sessions) > 1 or len(session_ids) > 1:
+                raise SystemExit("Fusion Rescue Codex live primary async wait exposed multiple session identities")
+            if session_ids:
+                observed_session = next(iter(session_ids))
+                if state["session"] is None:
+                    state["session"] = observed_session
+                elif state["session"] != observed_session:
+                    raise SystemExit("Fusion Rescue Codex live primary async wait session changed")
+            if has_terminal_proof:
+                if state["session"] is None:
+                    raise SystemExit("Fusion Rescue Codex live primary async terminal output lacked a correlated session")
+                if state["terminal"] is not None:
+                    raise SystemExit("Fusion Rescue Codex live primary async launch had multiple terminal outputs")
+                if structured_terminal is not None:
+                    terminal = structured_terminal
+                elif textual_terminal is not None:
+                    terminal = textual_terminal
+                state["terminal"] = terminal
+        if poll_requests:
+            raise SystemExit("Fusion Rescue Codex live primary async poll lacked correlated output")
+        if state["terminal"] is not None:
+            outputs_by_call[async_launch["identity"]] = state["terminal"]
+
+    if len(launch_records) != 1:
         raise SystemExit(
             "Fusion Rescue Codex live primary subagent must invoke Claude exactly once; "
-            f"saw {len(claude_call_events)} candidate command call(s): {claude_call_events!r}"
+            f"saw {len(launch_records)} candidate launch(es): {launch_records!r}"
         )
-    for marker in required_claude_argv:
-        if marker.lower() not in tool_text.lower():
+    launch = launch_records[0]
+    argv = validate_argv(launch["command"])
+    terminal = outputs_by_call.get(launch["identity"])
+    if terminal is None:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude launch lacked correlated terminal output"
+        )
+    output = terminal["output"]
+    exit_code = terminal["exit_code"]
+    status_lower = terminal["status"].lower()
+    nonzero = exit_code is not None and exit_code != 0
+    terminal_failed = nonzero or status_lower in {"failed", "error", "cancelled"}
+    success_marker = "OH_NO_CLAUDE_FUSION_PANEL_OK" in output
+    http_429 = re.search(
+        r"(?i)(?:\bHTTP(?:/[0-9.]+)?\s*(?:status(?:\s+code)?\s*)?[:=]?\s*429\b|\bHTTP status(?: code)?\s*[:=]?\s*429\b|API Error:\s*Request rejected\s*\(429\))",
+        output,
+    ) is not None
+    cooldown = re.search(r"(?i)\bcredentials(?:\s+for\s+model\s+\S+)?(?:\s+are)?\s+cooling down\b", output) is not None
+    competing_error_patterns = (
+        r"(?i)command not found",
+        r"(?i)permission denied",
+        r"(?i)(?:invalid|unknown) (?:option|argument|model)",
+        r"(?i)(?:config(?:uration)? (?:parse|syntax) error|failed to parse config|error parsing config)",
+        r"(?i)\b(?:HTTP(?:/[0-9.]+)?\s*)?(?:401|403|5[0-9]{2})\b",
+        r"(?i)timed? out|timeout",
+        r"(?i)terminated by signal|signal [0-9]+",
+        r"(?i)(?:budget|spend limit).*(?:exceeded|failure|failed|reached)",
+    )
+    competing = [pattern for pattern in competing_error_patterns if re.search(pattern, output)]
+    if launch.get("terminal_mode") == "transport" and terminal.get("stderr_class") != "empty":
+        raise SystemExit(
+            "Fusion Rescue Codex live provider transport reported nonempty or uncertified stderr"
+        )
+
+    if exit_code == 1 and http_429 and cooldown:
+        if success_marker:
             raise SystemExit(
-                f"Fusion Rescue Codex live primary Claude tool call missed argv marker {marker!r}; "
-                f"tool_text={tool_text[:2000]!r}"
+                "Fusion Rescue Codex live provider-limited output coexisted with the Claude success marker"
             )
-    tool_text_lower = tool_text.lower()
-    missing_direct_terms = [
-        term for term in required_claude_direct_prompt_terms if term not in tool_text_lower
+        if competing:
+            raise SystemExit(
+                "Fusion Rescue Codex live provider-limited output contained a competing terminal failure: "
+                f"{competing!r}"
+            )
+        return {
+            "outcome": "provider-limited",
+            "argv": argv,
+            "output": output,
+            "identity": launch["identity"],
+            "shape": launch["shape"],
+            "exit_code": exit_code,
+        }
+    if http_429 or cooldown:
+        raise SystemExit(
+            "Fusion Rescue Codex live provider-limited classification requires inner exit_code=1 plus both HTTP 429 and credentials cooling down"
+        )
+    if terminal_failed:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary Claude invocation failed outside the provider-limited class"
+        )
+    if not success_marker:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary subagent did not capture Claude marker in correlated command output"
+        )
+    return {
+        "outcome": "full",
+        "argv": argv,
+        "output": output,
+        "identity": launch["identity"],
+        "shape": launch["shape"],
+        "exit_code": exit_code,
+    }
+
+
+def inspect_linked_primary_claude_call(receiver_to_lens, receiver_transcripts):
+    primary_receivers = [
+        receiver for receiver, lens in receiver_to_lens.items()
+        if lens == "primary"
     ]
-    if missing_direct_terms:
+    if len(primary_receivers) != 1:
         raise SystemExit(
-            "Fusion Rescue Codex live primary Claude prompt missed a direct Opus panel-review instruction; "
-            f"missing_terms={missing_direct_terms!r}; "
-            f"tool_text={tool_text[:2000]!r}"
+            "Fusion Rescue Codex live expected exactly one parent-linked primary receiver"
         )
-    forbidden_prompt_hits = [
-        pattern.pattern for pattern in forbidden_claude_prompt_patterns
-        if pattern.search(tool_text)
+    primary_receiver = primary_receivers[0]
+    transcript = receiver_transcripts.get(primary_receiver)
+    if transcript is None:
+        raise SystemExit(
+            "Fusion Rescue Codex live primary receiver lacked a loaded transcript"
+        )
+    return primary_receiver, inspect_primary_claude_call(transcript)
+
+
+def run_primary_claude_classifier_fixtures():
+    argv = [
+        "claude",
+        "--print",
+        "--model",
+        "opus",
+        "--max-budget-usd",
+        budget,
+        "--permission-mode",
+        "dontAsk",
+        "--no-session-persistence",
+        "Review the assigned primary panel directly.",
     ]
-    if forbidden_prompt_hits:
-        raise SystemExit(
-            "Fusion Rescue Codex live primary Claude prompt appears to delegate to "
-            f"Claude-side workflow tooling instead of direct Opus review: {forbidden_prompt_hits!r}; "
-            f"tool_text={tool_text[:2000]!r}"
+
+    def transcript(shape, output, exit_code=1, output_identity="call-1", extra_rows=()):
+        if shape == "command_execution":
+            rows = [{
+                "item": {
+                    "type": "command_execution",
+                    "id": "call-1",
+                    "status": "failed" if exit_code else "completed",
+                    "exit_code": exit_code,
+                    "command": argv,
+                    "aggregated_output": output,
+                }
+            }]
+        else:
+            call_type = "function_call" if shape == "function_call" else "custom_tool_call"
+            output_type = "function_call_output" if shape == "function_call" else "custom_tool_call_output"
+            name = "exec_command" if shape == "function_call" else "exec"
+            rows = [
+                {
+                    "payload": {
+                        "type": call_type,
+                        "name": name,
+                        "call_id": "call-1",
+                        "arguments": json.dumps({"argv": argv}),
+                    }
+                },
+                {
+                    "payload": {
+                        "type": output_type,
+                        "call_id": output_identity,
+                        "output": json.dumps({"exit_code": exit_code, "output": output}),
+                    }
+                },
+            ]
+        rows.extend(extra_rows)
+        return "\n".join(json.dumps(row) for row in rows)
+
+    provider_text = "HTTP 429: credentials cooling down"
+    for shape in ("command_execution", "function_call", "custom_tool_call"):
+        result = inspect_primary_claude_call(transcript(shape, provider_text))
+        if result["outcome"] != "provider-limited" or result["shape"] != shape:
+            raise SystemExit(f"Fusion classifier positive fixture failed for {shape}: {result!r}")
+    full = inspect_primary_claude_call(
+        transcript("function_call", "OH_NO_CLAUDE_FUSION_PANEL_OK", exit_code=0)
+    )
+    if full["outcome"] != "full":
+        raise SystemExit(f"Fusion classifier full-success control failed: {full!r}")
+
+    def async_transcript(final_cell="8", final_session=None, second_launch=False, terminal_before_launch=False, duplicate_terminal=False):
+        prompt = argv[-1]
+        py_source = (
+            'import os, subprocess\n'
+            'prompt = ' + json.dumps(prompt) + '\n'
+            'argv = [os.environ.get("CLAUDE_BIN", "claude"), '
+            '"--print", "--model", "opus", "--max-budget-usd", ' + json.dumps(budget) + ', '
+            '"--permission-mode", "dontAsk", "--no-session-persistence", prompt]\n'
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)\n'
+            'print(result.stdout, end="")\n'
+            'if result.stderr: print("\\n[stderr]", result.stderr, end="")\n'
+            'raise SystemExit(result.returncode)'
         )
-    if "--print" not in tool_text and " -p" not in tool_text:
-        raise SystemExit(
-            "Fusion Rescue Codex live primary Claude tool call did not use --print or -p; "
-            f"tool_text={tool_text[:2000]!r}"
+        launch_input = (
+            'const r = await tools.exec_command({cmd: ' + json.dumps("python3 -c " + shlex.quote(py_source)) + '});\n'
+            'text(JSON.stringify(r));\n'
         )
-    command_output = "\n".join(command_outputs)
-    if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in command_output:
-        raise SystemExit("Fusion Rescue Codex live primary subagent did not capture Claude marker in command output")
-    return tool_text, command_output
+        rows = []
+        if terminal_before_launch:
+            rows.extend((
+                {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-early", "arguments": json.dumps({"cell_id": "3"})}},
+                {"payload": {"type": "function_call_output", "call_id": "wait-early", "output": json.dumps({"exit_code": 0, "output": "CLAUDE_EXIT_CODE=1\nHTTP 429: credentials cooling down"})}},
+            ))
+        for call_id, error in (
+            ("pre-btoa", "ReferenceError: btoa is not defined"),
+            ("pre-text-encoder", "ReferenceError: TextEncoder is not defined"),
+        ):
+            rows.extend((
+                {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": call_id, "input": launch_input}},
+                {"payload": {"type": "custom_tool_call_output", "call_id": call_id, "output": "Script failed\nWall time 0.0 seconds\nOutput:\nScript error:\n" + error}},
+            ))
+        rows.extend((
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-async", "input": launch_input}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "launch-async", "output": "Script running with cell ID 3\nWall time 11.0 seconds\nOutput:\n"}},
+        ))
+        if second_launch:
+            rows.extend((
+                {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-second", "input": launch_input}},
+                {"payload": {"type": "custom_tool_call_output", "call_id": "launch-second", "output": "Script running with cell ID 9\nWall time 11.0 seconds\nOutput:\n"}},
+            ))
+        rows.extend((
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-3", "arguments": json.dumps({"cell_id": "3"})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-3", "output": [
+                {"type": "input_text", "text": "Script completed\nWall time 16.1 seconds\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({"session_id": 27543, "output": ""})},
+            ]}},
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-1", "input": "const r = await tools.write_stdin({session_id: 27543, chars: \"\"}); text(JSON.stringify(r));"}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "poll-1", "output": "Script running with cell ID 4\nWall time 11.0 seconds\nOutput:\n"}},
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-4", "arguments": json.dumps({"cell_id": "4"})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-4", "output": [
+                {"type": "input_text", "text": "Script completed\nWall time 14.2 seconds\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({"session_id": 27543, "output": ""})},
+            ]}},
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-2", "input": "const r = await tools.write_stdin({session_id: 27543, chars: \"\"}); text(JSON.stringify(r));"}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "poll-2", "output": "Script running with cell ID 8\nWall time 11.0 seconds\nOutput:\n"}},
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-final", "arguments": json.dumps({"cell_id": final_cell})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-final", "output": [
+                {"type": "input_text", "text": "Script completed\nWall time 7.4 seconds\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({
+                    **({"session_id": final_session} if final_session is not None else {}),
+                    "exit_code": 1,
+                    "output": "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\n",
+                })},
+            ]}},
+        ))
+        if duplicate_terminal:
+            rows.extend((
+                {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-duplicate", "arguments": json.dumps({"cell_id": "8"})}},
+                {"payload": {"type": "function_call_output", "call_id": "wait-duplicate", "output": json.dumps({
+                    "exit_code": 0,
+                    "output": "CLAUDE_EXIT_CODE=1\nHTTP 429: credentials cooling down",
+                })}},
+            ))
+        return "\n".join(json.dumps(row) for row in rows)
+
+    def async_write_stdin_transcript(final_input=None, output_identity="poll-final", prelaunch=False, duplicate_terminal=False):
+        rows = [json.loads(row) for row in async_transcript().splitlines()]
+        final_input = final_input or "const r = await tools.write_stdin({session_id: 27543, chars: \"\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(r));"
+        terminal_rows = (
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-final", "input": final_input}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": output_identity, "output": [
+                {"type": "input_text", "text": "Script completed\nWall time 9.5 seconds\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({
+                    "exit_code": 1,
+                    "output": "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\n",
+                })},
+            ]}},
+        )
+        rows[-2:] = terminal_rows
+        if prelaunch:
+            rows[:0] = (
+                {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-early", "input": final_input}},
+                {"payload": {"type": "custom_tool_call_output", "call_id": "poll-early", "output": "Script running with cell ID 99\nWall time 11.0 seconds\nOutput:\n"}},
+            )
+        if duplicate_terminal:
+            duplicate = json.loads(json.dumps(terminal_rows))
+            duplicate[0]["payload"]["call_id"] = "poll-duplicate"
+            duplicate[1]["payload"]["call_id"] = "poll-duplicate"
+            rows.extend(duplicate)
+        return "\n".join(json.dumps(row) for row in rows)
+
+    def assigned_argv_wrapper_transcript(terminal_output=None, source_transform=None, output_identity="poll-assigned", poll_session=52069, duplicate_terminal=False, extra_rows=()):
+        prompt = argv[-1]
+        py_source = (
+            'import os, subprocess\n'
+            'prompt = """' + prompt + '"""\n'
+            'argv = [os.environ.get("CLAUDE_BIN", "claude"), "--print", "--model", "opus", '
+            '"--max-budget-usd", ' + json.dumps(budget) + ', "--permission-mode", "dontAsk", '
+            '"--no-session-persistence", prompt]\n'
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)\n'
+            'print(result.stdout, end="")\n'
+            'if result.stderr: print("\\n[stderr]", result.stderr, end="")\n'
+            'raise SystemExit(result.returncode)'
+        )
+        if source_transform is not None:
+            py_source = source_transform(py_source)
+        launch_input = (
+            'const r = await tools.exec_command({cmd: ' + json.dumps("python3 -c " + shlex.quote(py_source)) + ', '
+            'workdir: "/tmp/fusion-fixture", yield_time_ms: 30000, max_output_tokens: 8000});\n'
+            'text(JSON.stringify(r));'
+        )
+        terminal_output = terminal_output or {
+            "exit_code": 1,
+            "output": "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\n",
+        }
+        terminal_items = [
+            {"type": "input_text", "text": "Script completed\nWall time 7.6 seconds\nOutput:\n"},
+            {"type": "input_text", "text": json.dumps(terminal_output)},
+        ]
+        if duplicate_terminal:
+            terminal_items.append({"type": "input_text", "text": json.dumps(terminal_output)})
+        rows = [
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-assigned", "input": launch_input}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "launch-assigned", "output": "Script running with cell ID 1\nWall time 11.0 seconds\nOutput:\n"}},
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-assigned", "arguments": json.dumps({"cell_id": "1"})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-assigned", "output": [
+                {"type": "input_text", "text": "Script completed\nWall time 16.1 seconds\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({"session_id": 52069, "output": ""})},
+            ]}},
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-assigned", "input": f"const r = await tools.write_stdin({{session_id: {poll_session}, chars: \"\", yield_time_ms: 30000, max_output_tokens: 8000}}); text(JSON.stringify(r));"}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": output_identity, "output": terminal_items}},
+        ]
+        rows.extend(extra_rows)
+        return "\n".join(json.dumps(row) for row in rows)
+
+    def heredoc_wrapper_transcript(source_transform=None, command_transform=None, sink_transform=None, terminal_text=None, terminal_via_wait=False):
+        prompt = argv[-1]
+        py_source = (
+            'import os\nimport subprocess\nimport sys\n\n'
+            'prompt = ' + repr(prompt) + '\n'
+            "exe = os.environ.get('CLAUDE_BIN') or 'claude'\n"
+            "argv = [exe, '--print', '--model', 'opus', '--max-budget-usd', " + repr(budget) + ", '--permission-mode', 'dontAsk', '--no-session-persistence', prompt]\n"
+            'try:\n'
+            '    completed = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300, check=False)\n'
+            'except FileNotFoundError:\n'
+            "    print('CLAUDE_CALL_STATUS=executable_not_found')\n"
+            '    sys.exit(127)\n'
+            'except subprocess.TimeoutExpired:\n'
+            "    print('CLAUDE_CALL_STATUS=timeout')\n"
+            '    sys.exit(124)\n'
+            "print('CLAUDE_CALL_STATUS=completed')\n"
+            "print('CLAUDE_EXIT_CODE=' + str(completed.returncode))\n"
+            "print('CLAUDE_STDOUT_BEGIN')\n"
+            'print(completed.stdout)\n'
+            "print('CLAUDE_STDOUT_END')\n"
+            'if completed.stderr:\n'
+            "    print('CLAUDE_STDERR_BEGIN')\n"
+            '    print(completed.stderr)\n'
+            "    print('CLAUDE_STDERR_END')\n"
+            'sys.exit(completed.returncode)\n'
+        )
+        if source_transform is not None:
+            py_source = source_transform(py_source)
+        command = "python3 - <<'PY'\n" + py_source + "PY"
+        if command_transform is not None:
+            command = command_transform(command)
+        sink = 'text(r.output);\nif (r.session_id) text(`SESSION_ID=${r.session_id}`);'
+        if sink_transform is not None:
+            sink = sink_transform(sink)
+        launch_input = (
+            'const r = await tools.exec_command({cmd: ' + json.dumps(command) + ', '
+            'workdir: "/tmp/fusion-fixture", yield_time_ms: 30000, max_output_tokens: 8000});\n'
+            + sink
+        )
+        rows = [
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-heredoc", "input": launch_input}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "launch-heredoc", "output": "Script running with cell ID 1\nWall time 11.0 seconds\nOutput:\n"}},
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-heredoc", "arguments": json.dumps({"cell_id": "1"})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-heredoc", "output": [{"type": "input_text", "text": json.dumps({"session_id": 32478, "output": ""})}]}},
+        ]
+        for index in range(1, 6):
+            rows.extend((
+                {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": f"poll-heredoc-{index}", "input": f"const r = await tools.write_stdin({{session_id: 32478, chars: \"\", yield_time_ms: 30000, max_output_tokens: 8000}}); text(r.output); if (r.session_id) text(`SESSION_ID=${{r.session_id}}`);"}},
+                {"payload": {"type": "custom_tool_call_output", "call_id": f"poll-heredoc-{index}", "output": f"Script running with cell ID {index + 1}\nWall time 11.0 seconds\nOutput:\n"}},
+            ))
+        terminal_text = terminal_text or "CLAUDE_CALL_STATUS=completed\nCLAUDE_EXIT_CODE=1\nCLAUDE_STDOUT_BEGIN\nAPI Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\nCLAUDE_STDOUT_END\n"
+        rows.append(
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-heredoc-final", "input": "const r = await tools.write_stdin({session_id: 32478, chars: \"\", yield_time_ms: 30000, max_output_tokens: 8000}); text(r.output); if (r.session_id) text(`SESSION_ID=${r.session_id}`);"}}
+        )
+        if terminal_via_wait:
+            rows.extend((
+                {"payload": {"type": "custom_tool_call_output", "call_id": "poll-heredoc-final", "output": "Script running with cell ID 7\nWall time 11.0 seconds\nOutput:\n"}},
+                {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-heredoc-final", "arguments": json.dumps({"cell_id": "7"})}},
+                {"payload": {"type": "function_call_output", "call_id": "wait-heredoc-final", "output": [{"type": "input_text", "text": "Script completed\nWall time 5.0 seconds\nOutput:\n"}, {"type": "input_text", "text": terminal_text}]}},
+            ))
+        else:
+            rows.append(
+                {"payload": {"type": "custom_tool_call_output", "call_id": "poll-heredoc-final", "output": [{"type": "input_text", "text": "Script completed\nWall time 5.0 seconds\nOutput:\n"}, {"type": "input_text", "text": terminal_text}]}}
+            )
+        return "\n".join(json.dumps(row) for row in rows)
+
+    def semantic_transport_wrapper_transcript(
+        source_transform=None, terminal_text=None, poll_tokens=12000,
+        poll_session=16195, poll_chars="", final_parent_text="Claude marker: absent.",
+    ):
+        prompt = argv[-1]
+        py_source = (
+            'import os, subprocess, sys\n'
+            'prompt = ' + repr(prompt) + '\n'
+            'binary = os.environ.get("CLAUDE_BIN") or "claude"\n'
+            'args = [binary, "--print", "--model", "opus", "--max-budget-usd", ' + repr(budget) + ', "--permission-mode", "dontAsk", "--no-session-persistence", prompt]\n'
+            'try:\n'
+            '    cp = subprocess.run(args, shell=False, capture_output=True, text=True)\n'
+            'except Exception as exc:\n'
+            '    print("CLAUDE_LAUNCH_FAILURE_TYPE=" + type(exc).__name__)\n'
+            '    sys.exit(125)\n'
+            'print("CLAUDE_EXIT_STATUS=" + str(cp.returncode))\n'
+            'print("CLAUDE_STDERR_CLASS=" + ("empty" if not cp.stderr else "nonempty"))\n'
+            'print("CLAUDE_STDOUT_BEGIN")\n'
+            'print(cp.stdout, end="" if cp.stdout.endswith("\\\\n") or not cp.stdout else "\\\\n")\n'
+            'print("CLAUDE_STDOUT_END")\n'
+            'sys.exit(0)\n'
+        )
+        if source_transform is not None:
+            py_source = source_transform(py_source)
+        launch_input = (
+            'const r = await tools.exec_command({cmd: ' + json.dumps("python3 -c " + shlex.quote(py_source)) + ', '
+            'workdir: "/tmp/fusion-fixture", yield_time_ms: 30000, max_output_tokens: 12000});\n'
+            'text(r.output);\nif (r.session_id) text(`SESSION_ID=${r.session_id}`);'
+        )
+        terminal_text = terminal_text or (
+            "CLAUDE_EXIT_STATUS=1\n"
+            "CLAUDE_STDERR_CLASS=empty\n"
+            "CLAUDE_STDOUT_BEGIN\n"
+            "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\n"
+            "\\nCLAUDE_STDOUT_END\n"
+        )
+        rows = [
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "call_ksm2zVFgGGQBkjfq6HsAPYVm", "input": launch_input}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "call_ksm2zVFgGGQBkjfq6HsAPYVm", "output": "Script running with cell ID 1\nWall time 11.0 seconds\nOutput:\n"}},
+            {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-semantic", "arguments": json.dumps({"cell_id": "1"})}},
+            {"payload": {"type": "function_call_output", "call_id": "wait-semantic", "output": [{"type": "input_text", "text": json.dumps({"session_id": 16195, "output": ""})}]}},
+        ]
+        for index in range(1, 5):
+            rows.extend((
+                {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": f"poll-semantic-{index}", "input": f'const r = await tools.write_stdin({{session_id: {poll_session}, chars: {json.dumps(poll_chars)}, yield_time_ms: 30000, max_output_tokens: {poll_tokens}}});\ntext(r.output);\nif (r.session_id) text(`SESSION_ID=${{r.session_id}}`);'}},
+                {"payload": {"type": "custom_tool_call_output", "call_id": f"poll-semantic-{index}", "output": f"Script running with cell ID {index + 1}\nWall time 11.0 seconds\nOutput:\n"}},
+            ))
+        rows.extend((
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "call_eWhCQFTAiwnBHFcEbFPooZLM", "input": f'const r = await tools.write_stdin({{session_id: {poll_session}, chars: {json.dumps(poll_chars)}, yield_time_ms: 30000, max_output_tokens: {poll_tokens}}});\ntext(r.output);\nif (r.session_id) text(`SESSION_ID=${{r.session_id}}`);'}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": "call_eWhCQFTAiwnBHFcEbFPooZLM", "output": [{"type": "input_text", "text": "Script completed\nWall time 0.0 seconds\nOutput:\n"}, {"type": "input_text", "text": terminal_text}]}},
+            {"type": "event_msg", "payload": {"type": "task_complete", "last_agent_message": final_parent_text}},
+        ))
+        return "\n".join(json.dumps(row) for row in rows)
+
+    semantic_transport = inspect_primary_claude_call(semantic_transport_wrapper_transcript())
+    if semantic_transport["outcome"] != "provider-limited" or semantic_transport["shape"] != "custom_tool_call+custom_write_stdin" or semantic_transport["exit_code"] != 1 or first_leg_rc != 0:
+        raise SystemExit(f"Fusion classifier semantic transport fixture failed: {semantic_transport!r}")
+
+    parent_stream = (
+        {"item": {"type": "message", "role": "user", "text": "Require OH_NO_CLAUDE_FUSION_PANEL_OK and OH_NO_CODEX_FUSION_RESCUE_LIVE_OK."}},
+        {"item": {"type": "collab_tool_call", "tool": "spawn_agent", "status": "completed", "message": "Primary instruction requires OH_NO_CLAUDE_FUSION_PANEL_OK."}},
+        {"item": {"type": "agent_message", "text": "Provider-limited final. Claude marker: absent."}},
+    )
+    observed_parent_results = [
+        text for row in parent_stream
+        if (text := fusion_parent_observed_result_text(row))
+    ]
+    primary_results = {"receiver-primary": "Primary result. Claude marker: absent."}
+    if fusion_provider_observed_success_markers(primary_results, observed_parent_results):
+        raise SystemExit("Fusion provider result guard counted outbound prompt/spawn instruction tokens")
+    claude_collision_parent = [fusion_parent_observed_result_text(
+        {"item": {"type": "agent_message", "text": "OH_NO_CLAUDE_FUSION_PANEL_OK"}}
+    )]
+    codex_collision_parent = [fusion_parent_observed_result_text(
+        {"item": {"type": "agent_message", "text": "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK"}}
+    )]
+    for label, panel_results, parent_results, expected in (
+        ("primary child Claude token", {"receiver-primary": "OH_NO_CLAUDE_FUSION_PANEL_OK"}, observed_parent_results, ["OH_NO_CLAUDE_FUSION_PANEL_OK"]),
+        ("parent final Claude token", primary_results, claude_collision_parent, ["OH_NO_CLAUDE_FUSION_PANEL_OK"]),
+        ("parent final Codex token", primary_results, codex_collision_parent, ["OH_NO_CODEX_FUSION_RESCUE_LIVE_OK"]),
+    ):
+        actual = fusion_provider_observed_success_markers(panel_results, parent_results)
+        if actual != expected:
+            raise SystemExit(f"Fusion provider result guard missed {label}: {actual!r}")
+
+    assigned_wrapper = inspect_primary_claude_call(assigned_argv_wrapper_transcript())
+    if assigned_wrapper["outcome"] != "provider-limited" or assigned_wrapper["shape"] != "custom_tool_call+custom_write_stdin":
+        raise SystemExit(f"Fusion classifier assigned-argv wrapper fixture failed: {assigned_wrapper!r}")
+    heredoc_wrapper = inspect_primary_claude_call(heredoc_wrapper_transcript())
+    if heredoc_wrapper["outcome"] != "provider-limited" or heredoc_wrapper["shape"] != "custom_tool_call+custom_write_stdin" or heredoc_wrapper["exit_code"] != 1 or first_leg_rc != 0:
+        raise SystemExit(f"Fusion classifier heredoc wrapper fixture failed: {heredoc_wrapper!r}")
+    heredoc_final_wait = inspect_primary_claude_call(heredoc_wrapper_transcript(terminal_via_wait=True))
+    if heredoc_final_wait["outcome"] != "provider-limited" or heredoc_final_wait["shape"] != "custom_tool_call+function_wait" or heredoc_final_wait["exit_code"] != 1:
+        raise SystemExit(f"Fusion classifier heredoc final-wait fixture failed: {heredoc_final_wait!r}")
+    heredoc_negatives = (
+        ("unquoted heredoc", {"command_transform": lambda command: command.replace("<<'PY'", "<<PY", 1)}),
+        ("extra shell command", {"command_transform": lambda command: command + "\nprintf fabricated"}),
+        ("pipeline", {"command_transform": lambda command: command + " | cat"}),
+        ("redirection", {"command_transform": lambda command: command + " > /tmp/output"}),
+        ("wrong env key", {"source_transform": lambda source: source.replace("CLAUDE_BIN", "WRONG_BIN")}),
+        ("executable reassignment", {"source_transform": lambda source: source.replace("argv = [exe", "exe = 'claude'\nargv = [exe")}),
+        ("unbounded timeout", {"source_transform": lambda source: source.replace("timeout=300", "timeout=301")}),
+        ("check true", {"source_transform": lambda source: source.replace("check=False", "check=True")}),
+        ("second subprocess", {"source_transform": lambda source: source.replace("try:\n", "subprocess.run(argv, capture_output=True, text=True, timeout=1)\ntry:\n")}),
+        ("os.system call", {"source_transform": lambda source: source.replace("try:\n", "os.system('true')\ntry:\n")}),
+        ("open write call", {"source_transform": lambda source: source.replace("try:\n", "open('/tmp/fabricated', 'w')\ntry:\n")}),
+        ("eval call", {"source_transform": lambda source: source.replace("try:\n", "eval('1 + 1')\ntry:\n")}),
+        ("exec call", {"source_transform": lambda source: source.replace("try:\n", "exec('value = 1')\ntry:\n")}),
+        ("dynamic import call", {"source_transform": lambda source: source.replace("try:\n", "__import__('pathlib')\ntry:\n")}),
+        ("arbitrary method call", {"source_transform": lambda source: source.replace("try:\n", "prompt.upper()\ntry:\n")}),
+        ("handler arbitrary call", {"source_transform": lambda source: source.replace("except FileNotFoundError:\n", "except FileNotFoundError:\n    os.system('true')\n")}),
+        ("pre-run static provider print", {"source_transform": lambda source: source.replace("try:\n", "print('HTTP 429 credentials cooling down')\ntry:\n")}),
+        ("environment subscript assignment", {"source_transform": lambda source: source.replace("try:\n", "os.environ['CLAUDE_BIN'] = 'other'\ntry:\n")}),
+        ("nested import", {"source_transform": lambda source: source.replace("try:\n", "if True:\n    import socket\ntry:\n")}),
+        ("extra JavaScript tool call", {"sink_transform": lambda sink: "await tools.write_file({path: '/tmp/fabricated', content: 'x'});\n" + sink}),
+        ("static provider print", {"source_transform": lambda source: source.replace("print('CLAUDE_CALL_STATUS=completed')", "print('HTTP 429 credentials cooling down')\nprint('CLAUDE_CALL_STATUS=completed')")}),
+        ("constant exit marker", {"source_transform": lambda source: source.replace("str(completed.returncode)", "'1'")}),
+        ("constant final exit", {"source_transform": lambda source: source.replace("sys.exit(completed.returncode)", "sys.exit(1)")}),
+        ("output not result-derived", {"source_transform": lambda source: source.replace("print(completed.stdout)", "print('fabricated output')")}),
+        ("timeout branch provider proof", {"source_transform": lambda source: source.replace("print('CLAUDE_CALL_STATUS=timeout')", "print('CLAUDE_CALL_STATUS=completed')\n    print('CLAUDE_EXIT_CODE=1')")}),
+        ("sink bound to another result", {"sink_transform": lambda sink: sink.replace("r.output", "other.output")}),
+        ("multiple output owners", {"sink_transform": lambda sink: sink + "\ntext(JSON.stringify(r));"}),
+        ("constant textual exit proof", {"terminal_text": "CLAUDE_CALL_STATUS=completed\nCLAUDE_EXIT_CODE=1\nCLAUDE_STDOUT_BEGIN\nHTTP 429 credentials cooling down\nCLAUDE_STDOUT_END\nCLAUDE_EXIT_CODE=1\n"}),
+    )
+    for label, kwargs in heredoc_negatives:
+        try:
+            inspect_primary_claude_call(heredoc_wrapper_transcript(**kwargs))
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier heredoc negative fixture unexpectedly passed: {label}")
+    semantic_transport_negatives = (
+        ("dynamic timeout", {"source_transform": lambda source: source.replace("text=True)", "text=True, timeout=int('1'))")}),
+        ("timeout None", {"source_transform": lambda source: source.replace("text=True)", "text=True, timeout=None)")}),
+        ("timeout zero", {"source_transform": lambda source: source.replace("text=True)", "text=True, timeout=0)")}),
+        ("timeout 301", {"source_transform": lambda source: source.replace("text=True)", "text=True, timeout=301)")}),
+        ("handler arbitrary call", {"source_transform": lambda source: source.replace('    print("CLAUDE_LAUNCH_FAILURE_TYPE="', '    os.system("true")\n    print("CLAUDE_LAUNCH_FAILURE_TYPE="')}),
+        ("handler provider text", {"source_transform": lambda source: source.replace('    print("CLAUDE_LAUNCH_FAILURE_TYPE="', '    print("HTTP 429 credentials cooling down")\n    print("CLAUDE_LAUNCH_FAILURE_TYPE="')}),
+        ("handler wrong exit", {"source_transform": lambda source: source.replace("sys.exit(125)", "sys.exit(1)")}),
+        ("handler no alias", {"source_transform": lambda source: source.replace("except Exception as exc:", "except Exception:")}),
+        ("bare handler", {"source_transform": lambda source: source.replace("except Exception as exc:", "except:")}),
+        ("multiple broad handlers", {"source_transform": lambda source: source.replace("except Exception as exc:", "except Exception as exc:\n    print(\"CLAUDE_LAUNCH_FAILURE_TYPE=\" + type(exc).__name__)\n    sys.exit(125)\nexcept Exception as other:")}),
+        ("BaseException handler", {"source_transform": lambda source: source.replace("except Exception as exc:", "except BaseException as exc:")}),
+        ("extra handler statement", {"source_transform": lambda source: source.replace("    sys.exit(125)", "    print(type(exc).__name__)\n    sys.exit(125)")}),
+        ("constant exit status", {"source_transform": lambda source: source.replace("str(cp.returncode)", '"1"')}),
+        ("status wrong result", {"source_transform": lambda source: source.replace("str(cp.returncode)", "str(other.returncode)")}),
+        ("fabricated stderr class", {"source_transform": lambda source: source.replace('(\"empty\" if not cp.stderr else \"nonempty\")', '"empty"')}),
+        ("nonempty stderr class", {"terminal_text": "CLAUDE_EXIT_STATUS=1\nCLAUDE_STDERR_CLASS=nonempty\nCLAUDE_STDOUT_BEGIN\nHTTP 429: credentials cooling down\n\\nCLAUDE_STDOUT_END\n"}),
+        ("stdout constant", {"source_transform": lambda source: source.replace("print(cp.stdout, end=", 'print("HTTP 429 credentials cooling down", end=')}),
+        ("stdout wrong result", {"source_transform": lambda source: source.replace("print(cp.stdout, end=", "print(other.stdout, end=")}),
+        ("final nonzero wrapper exit", {"source_transform": lambda source: source.replace("sys.exit(0)", "sys.exit(1)")}),
+        ("static provider text", {"source_transform": lambda source: source.replace('print("CLAUDE_STDOUT_BEGIN")', 'print("HTTP 429 credentials cooling down")\nprint("CLAUDE_STDOUT_BEGIN")')}),
+        ("poll output cap 12001", {"poll_tokens": 12001}),
+        ("poll nonempty chars", {"poll_chars": "x"}),
+        ("poll mismatched session", {"poll_session": 99999}),
+        ("success token collision", {"terminal_text": "CLAUDE_EXIT_STATUS=1\nCLAUDE_STDERR_CLASS=empty\nCLAUDE_STDOUT_BEGIN\nHTTP 429: credentials cooling down; OH_NO_CLAUDE_FUSION_PANEL_OK\n\\nCLAUDE_STDOUT_END\n"}),
+    )
+    for label, kwargs in semantic_transport_negatives:
+        transcript_text = semantic_transport_wrapper_transcript(**kwargs)
+        try:
+            inspect_primary_claude_call(transcript_text)
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier semantic transport negative fixture unexpectedly passed: {label}")
+    assigned_wrapper_negatives = (
+        ("shell=True", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)',
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240, shell=True)',
+        )}),
+        ("string command", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)',
+            'result = subprocess.run("claude --print", capture_output=True, text=True, timeout=240, shell=False)',
+        )}),
+        ("argv reassignment", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv,', 'argv = argv\nresult = subprocess.run(argv,',
+        )}),
+        ("prompt reassignment", {"source_transform": lambda source: source.replace(
+            'argv = [', 'prompt = prompt\nargv = [',
+        )}),
+        ("argv mutation", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv,', 'argv.append("--tools")\nresult = subprocess.run(argv,',
+        )}),
+        ("tools override", {"source_transform": lambda source: source.replace(
+            '"--no-session-persistence", prompt]', '"--no-session-persistence", "--tools", "", prompt]',
+        )}),
+        ("two subprocess calls", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv,', 'subprocess.run(argv, capture_output=True, text=True, timeout=240)\nresult = subprocess.run(argv,',
+        )}),
+        ("subprocess prose without AST call", {"source_transform": lambda source: source.replace(
+            'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)',
+            '# subprocess.run(argv, capture_output=True, text=True, timeout=240)\nresult = None',
+        )}),
+        ("constant SystemExit", {"source_transform": lambda source: source.replace(
+            'raise SystemExit(result.returncode)', 'raise SystemExit(1)',
+        )}),
+        ("stdout prose constant", {"source_transform": lambda source: source.replace(
+            'print(result.stdout, end="")', 'print("unrelated stdout", end="")',
+        )}),
+        ("stderr prose constant", {"source_transform": lambda source: source.replace(
+            'print("\\n[stderr]", result.stderr, end="")', 'print("unrelated stderr", end="")',
+        )}),
+        ("altered stderr condition", {"source_transform": lambda source: source.replace(
+            'if result.stderr:', 'if True:',
+        )}),
+        ("stderr else branch", {"source_transform": lambda source: source.replace(
+            'if result.stderr: print("\\n[stderr]", result.stderr, end="")',
+            'if result.stderr:\n    print("\\n[stderr]", result.stderr, end="")\nelse:\n    print("unrelated")',
+        )}),
+        ("nested terminal missing exit_code", {"terminal_output": {"output": provider_text}}),
+        ("nested terminal exit_code zero", {"terminal_output": {"exit_code": 0, "output": provider_text}}),
+        ("nested terminal arbitrary nonzero exit_code", {"terminal_output": {"exit_code": 2, "output": provider_text}}),
+        ("multiple nested terminal objects", {"duplicate_terminal": True}),
+        ("mismatched terminal call identity", {"output_identity": "poll-other"}),
+        ("mismatched terminal session", {"poll_session": 99999}),
+        ("provider text only in task-complete prose", {
+            "terminal_output": {"exit_code": 1, "output": "generic provider failure"},
+            "extra_rows": ({"type": "event_msg", "payload": {"type": "task_complete", "last_agent_message": provider_text}},),
+        }),
+    )
+    for label, kwargs in assigned_wrapper_negatives:
+        try:
+            inspect_primary_claude_call(assigned_argv_wrapper_transcript(**kwargs))
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier assigned-argv negative fixture unexpectedly passed: {label}")
+
+    async_result = inspect_primary_claude_call(async_transcript())
+    if async_result["outcome"] != "provider-limited" or async_result["shape"] != "custom_tool_call+function_wait":
+        raise SystemExit(f"Fusion classifier async wait fixture failed: {async_result!r}")
+    async_write_result = inspect_primary_claude_call(async_write_stdin_transcript())
+    if async_write_result["outcome"] != "provider-limited" or async_write_result["shape"] != "custom_tool_call+custom_write_stdin":
+        raise SystemExit(f"Fusion classifier async write_stdin fixture failed: {async_write_result!r}")
+    for label, kwargs in (
+        ("second eligible async launch", {"second_launch": True}),
+        ("terminal output before launch", {"terminal_before_launch": True}),
+        ("mismatched wait handle", {"final_cell": "99"}),
+        ("mismatched wait session", {"final_session": 99999}),
+        ("multiple terminal wait outputs", {"duplicate_terminal": True}),
+    ):
+        try:
+            inspect_primary_claude_call(async_transcript(**kwargs))
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier async negative fixture unexpectedly passed: {label}")
+    write_stdin_negatives = (
+        ("pre-launch write_stdin", {"prelaunch": True}),
+        ("changed write_stdin session", {"final_input": "const r = await tools.write_stdin({session_id: 99999, chars: \"\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(r));"}),
+        ("missing write_stdin session", {"final_input": "const r = await tools.write_stdin({chars: \"\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(r));"}),
+        ("nonempty write_stdin input", {"final_input": "const r = await tools.write_stdin({session_id: 27543, chars: \"x\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(r));"}),
+        ("ambiguous write_stdin session", {"final_input": "const r = await tools.write_stdin({session_id: 27543, session_id: 27543, chars: \"\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(r));"}),
+        ("multiple write_stdin operations", {"final_input": "const a = await tools.write_stdin({session_id: 27543, chars: \"\"}); const b = await tools.write_stdin({session_id: 27543, chars: \"\"}); text(JSON.stringify(b));"}),
+        ("mixed exec_command and write_stdin", {"final_input": "const a = await tools.exec_command({cmd: \"true\"}); const b = await tools.write_stdin({session_id: 27543, chars: \"\", yield_time_ms: 30000, max_output_tokens: 10000}); text(JSON.stringify(b));"}),
+        ("unbounded terminal write_stdin", {"final_input": "const r = await tools.write_stdin({session_id: 27543, chars: \"\"}); text(JSON.stringify(r));"}),
+        ("mismatched write_stdin output identity", {"output_identity": "poll-other"}),
+        ("multiple terminal write_stdin outputs", {"duplicate_terminal": True}),
+    )
+    for label, kwargs in write_stdin_negatives:
+        try:
+            inspect_primary_claude_call(async_write_stdin_transcript(**kwargs))
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier async write_stdin negative fixture unexpectedly passed: {label}")
+
+    negative_outputs = {
+        "429 without cooldown": "HTTP 429",
+        "cooldown without 429": "credentials cooling down",
+        "401": "HTTP 401: credentials cooling down",
+        "403": "HTTP 403: credentials cooling down",
+        "5xx": "HTTP 503: credentials cooling down",
+        "command not found": "HTTP 429: credentials cooling down; command not found",
+        "permission denied": "HTTP 429: credentials cooling down; permission denied",
+        "invalid option": "HTTP 429: credentials cooling down; invalid option --model",
+        "unknown model": "HTTP 429: credentials cooling down; unknown model opus",
+        "config parse": "HTTP 429: credentials cooling down; config parse error",
+        "timeout": "HTTP 429: credentials cooling down; timeout",
+        "signal": "HTTP 429: credentials cooling down; terminated by signal 9",
+        "budget": "HTTP 429: credentials cooling down; budget exceeded",
+        "success collision": "HTTP 429: credentials cooling down; OH_NO_CLAUDE_FUSION_PANEL_OK",
+    }
+    for label, output in negative_outputs.items():
+        try:
+            inspect_primary_claude_call(transcript("function_call", output))
+        except SystemExit:
+            pass
+        else:
+            raise SystemExit(f"Fusion classifier negative fixture unexpectedly passed: {label}")
+    try:
+        inspect_primary_claude_call(transcript("function_call", provider_text, exit_code=None))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("Fusion classifier accepted provider-limited output without nonzero terminal status")
+    try:
+        inspect_primary_claude_call(
+            transcript("function_call", provider_text, output_identity="call-other")
+        )
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("Fusion classifier accepted missing call/output correlation")
+    second_call = {
+        "payload": {
+            "type": "function_call",
+            "name": "exec_command",
+            "call_id": "call-2",
+            "arguments": json.dumps({"argv": argv}),
+        }
+    }
+    try:
+        inspect_primary_claude_call(
+            transcript("function_call", provider_text, extra_rows=(second_call,))
+        )
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("Fusion classifier accepted a second Claude launch/retry")
+    outbound_only = list(argv)
+    outbound_only[-1] += " Simulate HTTP 429 credentials cooling down."
+    original_argv = argv[:]
+    argv[:] = outbound_only
+    try:
+        inspect_primary_claude_call(transcript("function_call", "generic provider failure"))
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("Fusion classifier sourced provider text from the outbound prompt")
+    finally:
+        argv[:] = original_argv
+
+    bridge_transcript = transcript("function_call", provider_text)
+    primary_receiver, claude_call = inspect_linked_primary_claude_call(
+        {"receiver-primary": "primary", "receiver-a": "adversarial", "receiver-p": "pragmatic"},
+        {"receiver-primary": bridge_transcript},
+    )
+    provider_limited = claude_call["outcome"] == "provider-limited"
+    if primary_receiver != "receiver-primary" or not provider_limited:
+        raise SystemExit("Fusion classifier executable primary-receiver bridge fixture failed")
+    try:
+        inspect_linked_primary_claude_call(
+            {"receiver-one": "primary", "receiver-two": "primary"},
+            {"receiver-one": bridge_transcript, "receiver-two": bridge_transcript},
+        )
+    except SystemExit:
+        pass
+    else:
+        raise SystemExit("Fusion classifier bridge accepted duplicate primary receivers")
+
+
+if summary_path == "__fusion_classifier_self_test__":
+    run_primary_claude_classifier_fixtures()
+    print("ok - Fusion primary Claude classifier fixtures passed")
+    raise SystemExit(0)
 
 with open(err_path, "r", encoding="utf-8") as fh:
     err_text = fh.read()
@@ -5201,6 +6384,7 @@ panel_result_by_receiver = {}
 wait_index_by_receiver = {}
 close_index_by_receiver = {}
 non_user_text_parts = []
+parent_result_text_parts = []
 parent_thread_id = None
 used_transcript_fallback = False
 
@@ -5230,8 +6414,19 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 f"Fusion Rescue Codex live saw write-like command at line {index}: "
                 f"{command_text[:1000]!r}"
             )
+        if event_is_command_bearing(data) and any(
+            pattern.search(command)
+            for command in safety_inspectable_commands(data)
+            for pattern in claude_command_patterns
+        ):
+            raise SystemExit(
+                "Fusion Rescue Codex live Claude launch was not owned by the parent-linked primary child"
+            )
         if role_of_event(data) != "user":
             non_user_text_parts.append(event_text)
+        parent_result_text = fusion_parent_observed_result_text(data)
+        if parent_result_text:
+            parent_result_text_parts.append(parent_result_text)
         if item.get("type") != "collab_tool_call":
             continue
         tool = item.get("tool")
@@ -5351,10 +6546,37 @@ for receiver, lens in receiver_to_lens.items():
             f"Fusion Rescue Codex live spawned receiver {receiver} for {lens} with "
             f"agent_role={actual_agent_role!r}; expected oh-no-fusion-rescue-analyst"
         )
+    if lens != "primary":
+        for line_number, line in enumerate(transcript.splitlines(), 1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if not event_is_command_bearing(row):
+                continue
+            commands = safety_inspectable_commands(row)
+            if any(
+                pattern.search(command)
+                for command in commands
+                for pattern in claude_command_patterns
+            ):
+                raise SystemExit(
+                    "Fusion Rescue Codex live Claude launch was owned by a non-primary panel "
+                    f"{lens} near transcript line {line_number}"
+                )
+
+primary_receiver, claude_call = inspect_linked_primary_claude_call(
+    receiver_to_lens, receiver_transcripts
+)
+provider_limited = claude_call["outcome"] == "provider-limited"
+if first_leg_rc not in {0, 1}:
+    raise SystemExit("Fusion Rescue Codex live outer command status was not 0 or 1")
+if first_leg_rc == 1 and not provider_limited:
+    raise SystemExit("Fusion Rescue Codex live outer RC1 lacked exact provider-limited inner proof")
 
 missing_waits = sorted(set(receiver_to_lens) - set(wait_index_by_receiver))
 missing_closes = sorted(set(receiver_to_lens) - set(close_index_by_receiver))
 all_non_user_text = "\n".join(non_user_text_parts)
+non_user_text = all_non_user_text
 if missing_waits:
     raise SystemExit(f"Fusion Rescue Codex live did not capture wait_agent results: {missing_waits!r}")
 if (
@@ -5363,83 +6585,66 @@ if (
     and "close/cleanup was not available" not in all_non_user_text.lower()
 ):
     raise SystemExit(
-        "Fusion Rescue Codex live left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
+        "Fusion Rescue Codex live left receivers without close evidence or an unavailable-cleanup record"
     )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in receiver_to_lens
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-}
-if early_closes:
-    raise SystemExit(f"Fusion Rescue Codex live closed receivers before wait results: {early_closes!r}")
+for receiver in receiver_to_lens:
+    if receiver in close_index_by_receiver and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]:
+        raise SystemExit(f"Fusion Rescue Codex live closed receiver before wait result: {receiver}")
 
-for receiver, lens in receiver_to_lens.items():
-    result_text = panel_result_by_receiver.get(receiver, "")
-    lower_result_text = result_text.lower()
-    marker = expected_markers[lens]
-    if marker not in result_text:
-        raise SystemExit(
-            f"Fusion Rescue Codex live panel {lens} did not return marker {marker!r} "
-            f"in wait result; result={result_text[:2000]!r}"
-        )
-    if lens not in lower_result_text:
-        raise SystemExit(
-            f"Fusion Rescue Codex live panel {lens} wait result did not name its lens; "
-            f"result={result_text[:2000]!r}"
-        )
-    for field in required_panel_fields:
-        if field not in lower_result_text:
-            raise SystemExit(
-                f"Fusion Rescue Codex live panel {lens} wait result missed field {field!r}; "
-                f"result={result_text[:2000]!r}"
-            )
-    assert_meaningful_domain_analysis(f"panel {lens}", result_text)
+if not provider_limited:
+    for receiver, lens in receiver_to_lens.items():
+        result_text = panel_result_by_receiver.get(receiver, "")
+        lower_result_text = result_text.lower()
+        marker = expected_markers[lens]
+        if marker not in result_text:
+            raise SystemExit(f"Fusion Rescue Codex live panel {lens} did not return its required marker")
+        if lens not in lower_result_text:
+            raise SystemExit(f"Fusion Rescue Codex live panel {lens} result did not name its lens")
+        for field in required_panel_fields:
+            if field not in lower_result_text:
+                raise SystemExit(f"Fusion Rescue Codex live panel {lens} result missed required field {field!r}")
+        assert_meaningful_domain_analysis(f"panel {lens}", result_text)
 
-primary_receivers = [receiver for receiver, lens in receiver_to_lens.items() if lens == "primary"]
-if len(primary_receivers) != 1:
-    raise SystemExit(f"Fusion Rescue Codex live expected exactly one primary receiver, got {primary_receivers!r}")
-primary_receiver = primary_receivers[0]
-primary_result = panel_result_by_receiver.get(primary_receiver, "")
-if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in primary_result:
-    raise SystemExit(
-        "Fusion Rescue Codex live primary Codex subagent result did not include Claude marker "
-        "OH_NO_CLAUDE_FUSION_PANEL_OK"
-    )
-primary_claude_tool_text, claude_panel_output = inspect_primary_claude_call(receiver_transcripts[primary_receiver])
-combined_claude_evidence = primary_result + "\n" + claude_panel_output
-lower_claude_panel_output = combined_claude_evidence.lower()
-if "OH_NO_CLAUDE_FUSION_PANEL_OK" not in combined_claude_evidence:
-    raise SystemExit("Fusion Rescue Codex live did not capture Claude panel return marker")
-for field in required_panel_fields:
-    if field not in lower_claude_panel_output:
-        raise SystemExit(
-            f"Fusion Rescue Codex live Claude evidence missed field {field!r}; "
-            f"output={combined_claude_evidence[:2000]!r}"
-        )
-assert_meaningful_domain_analysis("Claude primary panel", combined_claude_evidence)
-
-non_user_text = "\n".join(non_user_text_parts)
 success_text = "\n".join(
-    part for part in non_user_text_parts
+    part for part in parent_result_text_parts
     if "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK" in part
 )
-if not success_text:
-    raise SystemExit("Fusion Rescue Codex live did not return success marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK")
-lower_success_text = success_text.lower()
-for marker in required_final_markers:
-    if marker.lower() not in lower_success_text:
-        raise SystemExit(f"Fusion Rescue Codex live missing final marker/text: {marker!r}")
-for field in required_synthesis_fields:
-    if field.lower() not in lower_success_text:
-        raise SystemExit(f"Fusion Rescue Codex live missing synthesis field: {field!r}")
-for marker in forbidden_fallbacks:
-    if marker.lower() in lower_success_text:
-        raise SystemExit(f"Fusion Rescue Codex live reported forbidden fallback marker: {marker!r}")
+if provider_limited:
+    primary_panel_results = {
+        receiver: panel_result_by_receiver.get(receiver, "")
+        for receiver, lens in receiver_to_lens.items()
+        if lens == "primary"
+    }
+    leaked = fusion_provider_observed_success_markers(
+        primary_panel_results, parent_result_text_parts
+    )
+    if leaked:
+        raise SystemExit(
+            "Fusion Rescue Codex live provider-limited path contained full-success evidence: "
+            f"{leaked!r}"
+        )
+else:
+    if not success_text:
+        raise SystemExit("Fusion Rescue Codex live did not return success marker OH_NO_CODEX_FUSION_RESCUE_LIVE_OK")
+    lower_success_text = success_text.lower()
+    for marker in required_final_markers:
+        if marker.lower() not in lower_success_text:
+            raise SystemExit(f"Fusion Rescue Codex live missing final marker/text: {marker!r}")
+    for field in required_synthesis_fields:
+        if field.lower() not in lower_success_text:
+            raise SystemExit(f"Fusion Rescue Codex live missing synthesis field: {field!r}")
+    for marker in forbidden_fallbacks:
+        if marker.lower() in lower_success_text:
+            raise SystemExit(f"Fusion Rescue Codex live reported forbidden fallback marker: {marker!r}")
 
 summary = {
-    "status": "passed",
+    "status": "provider-limited" if provider_limited else "passed",
+    "accepted_outcome": "PASS(provider-limited)" if provider_limited else "PASS",
+    "message": (
+        "invocation transport was proven but Claude panel inference/output was unavailable"
+        if provider_limited
+        else "full cross-host Claude panel output and synthesis were proven"
+    ),
     "codex_panel_receivers": [
         {
             "receiver": receiver,
@@ -5457,19 +6662,47 @@ summary = {
         "budget": budget,
         "print_mode": True,
         "permission_mode": "dontAsk",
-        "tools": "disabled",
         "path": "Codex primary subagent -> Claude CLI",
         "primary_receiver": primary_receiver,
         "session_persistence": "disabled",
-        "marker": "OH_NO_CLAUDE_FUSION_PANEL_OK",
-        "tool_call_preview": primary_claude_tool_text[:1000],
+        "outcome": claude_call["outcome"],
+        "call_identity": claude_call["identity"],
+        "event_shape": claude_call["shape"],
+        "terminal_exit_code": claude_call["exit_code"],
+        "marker": None if provider_limited else "OH_NO_CLAUDE_FUSION_PANEL_OK",
+        "verified_argv": {
+            "executable": True,
+            "print_mode": True,
+            "model_opus": True,
+            "budget": True,
+            "permission_mode_dontAsk": True,
+            "session_persistence_disabled": True,
+            "tools_override_absent": True,
+        },
     },
-    "final_marker": "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
+    "final_marker": None if provider_limited else "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
 }
 Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-print("ok - live Codex Fusion Rescue spawned three panel agents, primary called Claude Opus, and main synthesized")
+if provider_limited:
+    print("ok - provider-limited Claude transport classification accepted; continuing to permission fallback")
+else:
+    print("ok - full cross-host Fusion Rescue classification accepted; continuing to permission fallback")
 PY
+  } || first_oracle_rc=$?
+
+  if (( first_oracle_rc != 0 )); then
+    write_fusion_rescue_safe_rejection_summary \
+      "$out_file" "$err_file" "$CODEX_HOME_DIR/sessions" "$summary_file" \
+      "$first_leg_rc" passed "$first_oracle_rc" \
+      || { rm -f "$out_file" "$err_file" "$first_oracle_err"; fail "Fusion Rescue safe rejection summary failed"; }
+    rm -f "$out_file" "$err_file" "$first_oracle_err"
+    if (( first_leg_rc != 0 )); then
+      return "$first_leg_rc"
+    fi
+    return "$first_oracle_rc"
+  fi
+  rm -f "$first_oracle_err"
 
   log "Running live Codex Fusion Rescue permission fallback smoke test"
   local fallback_out_file="$RUN_DIR/fusion-rescue-codex-permission-fallback.jsonl"
@@ -5512,7 +6745,7 @@ PROMPT
     fallback_cmd+=(--model "$LIVE_MODEL")
   fi
 
-  run_codex_live_command "$CODEX_HOME_DIR" "${fallback_cmd[@]}" "$fallback_prompt" >"$fallback_out_file" 2>"$fallback_err_file"
+  run_codex_live_command "$CODEX_HOME_DIR" "${fallback_cmd[@]}" "$fallback_prompt" </dev/null >"$fallback_out_file" 2>"$fallback_err_file"
   if ! assert_no_codex_live_secret_leak \
     "$CODEX_HOME_DIR/auth.json" \
     "$fallback_out_file" \
@@ -5522,12 +6755,13 @@ PROMPT
     fail "Codex Fusion Rescue permission-fallback artifacts failed the credential-leak guard and were removed"
   fi
 
-  "$PYTHON_BIN" - "$fallback_out_file" "$fallback_err_file" "$CODEX_HOME_DIR" "$fallback_summary_file" <<'PY'
+  codex_run_oracle_script "$fallback_out_file" "$fallback_err_file" "$CODEX_HOME_DIR" "$fallback_summary_file" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
+#@SHARED_HELPERS@
 out_path, err_path, live_home, summary_path = sys.argv[1:5]
 expected_markers = {
     "primary": "OH_NO_FUSION_PANEL_PRIMARY_SELF",
@@ -5565,7 +6799,7 @@ required_panel_fields = [
 ]
 domain_markers = ["ci", "integration", "quarantine", "retry", "root-cause", "release", "risk"]
 secret_patterns = [
-    re.compile(r"sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tools = {"apply_patch", "edit", "write", "write_file", "file_change", "patch"}
@@ -5778,16 +7012,15 @@ def inspect_fallback_receiver_transcript(receiver, lens, transcript):
                 f"Fusion Rescue Codex permission fallback receiver {receiver} ({lens}) saw write-capable event "
                 f"at line {line_number}: type={item_type_lower!r} tool={tool_lower!r}"
             )
-        is_exec_command_call = (
-            item_type_lower == "command_execution"
-            or (
-                payload.get("type") == "function_call"
-                and payload.get("name") in {"exec_command", "functions.exec_command"}
-            )
-        )
-        if not is_exec_command_call:
+        # Canonical shared extraction: all observed shapes (including the current
+        # custom_tool_call "exec") and every batched embedded command.
+        if not event_is_command_bearing(data):
             continue
-        if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+        inspectable = safety_inspectable_commands(data)
+        if command_text and command_text not in inspectable:
+            inspectable = inspectable + [command_text]
+        if any(pattern.search(candidate) for candidate in inspectable
+               for pattern in forbidden_command_patterns):
             raise SystemExit(
                 f"Fusion Rescue Codex permission fallback receiver {receiver} ({lens}) saw write-like command "
                 f"at line {line_number}: {command_text[:1000]!r}"
@@ -5848,17 +7081,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 f"Fusion Rescue Codex permission fallback saw write-capable event at line {index}: "
                 f"type={item_type_lower!r} tool={tool_lower!r}"
             )
-        if (
-            item_type_lower == "command_execution"
-            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
-        ):
-            if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+        # Canonical shared extraction (see above): all shapes, all embedded commands.
+        inspectable = safety_inspectable_commands(data)
+        if command_text and command_text not in inspectable:
+            inspectable = inspectable + [command_text]
+        if event_is_command_bearing(data):
+            if any(pattern.search(candidate) for candidate in inspectable
+                   for pattern in forbidden_command_patterns):
                 raise SystemExit(
                     f"Fusion Rescue Codex permission fallback saw write-like command at line {index}: "
                     f"{command_text[:1000]!r}"
                 )
-            if any(pattern.search(command_text) for pattern in claude_command_patterns):
-                claude_command_hits.append((index, command_text[:1000]))
+            if any(pattern.search(candidate) for candidate in inspectable
+                   for pattern in claude_command_patterns):
+                claude_command_hits.append((index, "; ".join(inspectable)[:1000]))
         if role_of_event(data) != "user":
             non_user_text_parts.append(event_text)
         if item.get("type") != "collab_tool_call":
@@ -6045,6 +7281,23 @@ Path(summary_path).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\
 
 print("ok - live Codex Fusion Rescue skipped Claude without danger-full-access and used self-host panels")
 PY
+
+  "$PYTHON_BIN" - "$summary_file" "$fallback_summary_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+primary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+fallback = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+if fallback.get("status") != "passed":
+    raise SystemExit("Fusion Rescue permission-fallback continuation did not pass")
+outcome = primary.get("accepted_outcome")
+if outcome == "PASS(provider-limited)":
+    print("PASS(provider-limited) - invocation transport was proven but Claude panel inference/output was unavailable; permission fallback also passed")
+elif outcome == "PASS":
+    print("PASS - full cross-host Fusion Rescue and permission fallback both passed")
+else:
+    raise SystemExit(f"Fusion Rescue primary summary had unknown outcome: {outcome!r}")
+PY
 }
 
 run_codex_cross_host_fallback_live_test() {
@@ -6060,30 +7313,83 @@ run_codex_cross_host_fallback_live_test() {
   local err_file="$RUN_DIR/cross-host-fallback-codex.err"
   local summary_file="$RUN_DIR/cross-host-fallback-codex.summary.json"
   local live_workspace="$RUN_DIR/cross-host-fallback-codex-workspace"
-  local prompt
+  local prompt target_revision target_fingerprint
+  rm -rf "$live_workspace"
   mkdir -p "$live_workspace"
-  prompt=$(cat <<'PROMPT'
-Use the oh-no-harness:simplify skill with cross-host review. Read-only live cross-host fallback smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. This run is in DEFAULT mode (NOT require-cross-host).
+  git -C "$live_workspace" init -q --object-format=sha1
+  cat >"$live_workspace/auth.py" <<'AUTH_FIXTURE'
+def is_admin(user):
+    return bool(user.get("is_admin", False))
+AUTH_FIXTURE
+  git -C "$live_workspace" add auth.py
+  GIT_AUTHOR_NAME='Oh No Fixture' GIT_AUTHOR_EMAIL='fixture@example.invalid' \
+  GIT_COMMITTER_NAME='Oh No Fixture' GIT_COMMITTER_EMAIL='fixture@example.invalid' \
+  GIT_AUTHOR_DATE='2000-01-01T00:00:00Z' GIT_COMMITTER_DATE='2000-01-01T00:00:00Z' \
+    git -C "$live_workspace" -c commit.gpgsign=false commit -qm baseline
+  target_revision="$(git -C "$live_workspace" rev-parse HEAD)"
+  cat >"$live_workspace/auth.py" <<'AUTH_FIXTURE'
+def is_admin(user):
+    return bool(user.get("is_admin", False) or user.get("debug", False))
+AUTH_FIXTURE
+  target_fingerprint="$target_revision:$(git -C "$live_workspace" diff --binary HEAD -- auth.py | shasum -a 256 | awk '{print $1}')"
+  prompt=$(cat <<PROMPT
+Use the oh-no-harness:verification-before-completion skill for a synthetic final review. Read-only live cross-host fallback smoke test only: do not edit files, do not create artifacts, do not install plugins, and do not run nested rescue. This run is in DEFAULT mode (NOT require-cross-host).
 
 Named THOROUGH trigger: security-sensitive public authentication contract review. Pairing is trigger-driven, not availability-driven.
 
 This run is intentionally launched with Codex read-only sandbox permissions. Before any cross-host review or opposite-host consult, inspect the current Codex permission/sandbox context. Because the permission state is not danger-full-access, the Claude Code cross-host consult is UNAVAILABLE and UNAUTHORIZED: you must NOT invoke ${CLAUDE_BIN:-claude}, must NOT shell out to claude, must NOT make any cross-host or opposite-host hop, and must NOT invoke /codex:rescue, codex:codex-rescue, rescue, fusion-rescue, or another host. Treat the opposite host (Claude Code) as unavailable and take the default-mode Same-Host Parallel Fallback (two same-host Codex agents synthesized), NOT the cross-host path.
 
-The diff under review (treat as the stable diff):
---- a/auth.py
-+++ b/auth.py
-@@
--def is_admin(user):
--    return user.role == "admin"
-+def is_admin(user):
-+    return user.role == "admin" or user.get("debug", False)
-The reviewed change adds a debug bypass to an admin check. Because the opposite host is unavailable in default mode, dispatch EXACTLY TWO same-host Codex code-reviewer agents in parallel under distinct lenses, each running the COMPLETE code-reviewer role differing only by lens emphasis, then synthesize as the current Codex main judge.
+The disposable Git fixture at ${live_workspace} has baseline revision ${target_revision} and exact target fingerprint ${target_fingerprint}. Its working-tree diff adds or user.get("debug", False) to auth.py. Acceptance criterion AC-AUTH-1: only is_admin=true may grant admin; debug mode must never grant admin. Each reviewer must inspect that exact file and Git diff, bind its Reviewed revision/diff fingerprint to ${target_fingerprint}, and report the debug-admin bypass as a blocking finding; blocked due an absent target is not substantive review success. Dispatch EXACTLY TWO same-host Codex code-reviewer agents in parallel, each running the COMPLETE code-reviewer role. Use task_name "cross_host_lens_a" and agent_type "oh-no-code-reviewer" for Lens A; use task_name "cross_host_lens_b" and agent_type "oh-no-code-reviewer" for Lens B. The task names and receiver metadata are outside the child packet body. Send the following complete bodies exactly:
 
-Same-host agent Lens A must be a Codex current-host subagent using spawn_agent with task_name "cross_host_lens_a" and agent_type "oh-no-code-reviewer", an adversarial correctness + security skeptic ("what breaks or is exploitable"). Its message must include exactly these lines: Lens: A adversarial correctness and security; Marker: OH_NO_XHOST_FALLBACK_LENS_A; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+CHILD_PACKET_BEGIN
+Assigned perspective: adversarial correctness + security skeptic
+Common result marker: OH_NO_XHOST_FALLBACK_REVIEW_RESULT
+Packet ID: xhost-fallback-review
+Run/session ID: xhost-fallback-live
+Story/task ID: synthetic-auth-review
+Target role: code-reviewer
+Target revision/diff fingerprint: ${target_fingerprint}
+Scope: inspect ${live_workspace}/auth.py and the exact baseline-to-working-tree diff only
+Observation command: issue a read-only command naming the exact absolute ${live_workspace}/auth.py path, or `git -C ${live_workspace} diff HEAD -- auth.py`, and retain its successful nonempty result
+Permissions: read-only same-host review
+Non-goals: edits, artifacts, opposite-host calls, nested rescue
+Review basis: security-sensitive public authentication contract; debug bypass must not grant admin
+Expected evidence/output: complete code-reviewer role output followed by the exact caller-owned annex
+Stop/escalation boundary: return findings to the parent; do not mutate or dispatch another host
+Do not edit files
+Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent
+Run the complete code-reviewer role, then append a caller-owned annex with exactly one nonempty standalone line for each label below. Do not rename, merge, or omit any label.
+Strongest finding:
+Evidence used:
+Likely failure mode:
+Recommended next action:
+CHILD_PACKET_END
 
-Same-host agent Lens B must be a second Codex current-host subagent using spawn_agent with task_name "cross_host_lens_b" and agent_type "oh-no-code-reviewer", a maintainability + coverage completeness reviewer ("what is missing or regresses"). Its message must include exactly these lines: Lens: B maintainability and coverage; Marker: OH_NO_XHOST_FALLBACK_LENS_B; Scope: the fixed auth.py diff only; Do not edit files; Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent; Expected output: marker line plus strongest finding, evidence used, likely failure mode, recommended next action.
+CHILD_PACKET_BEGIN
+Assigned perspective: maintainability + coverage completeness
+Common result marker: OH_NO_XHOST_FALLBACK_REVIEW_RESULT
+Packet ID: xhost-fallback-review
+Run/session ID: xhost-fallback-live
+Story/task ID: synthetic-auth-review
+Target role: code-reviewer
+Target revision/diff fingerprint: ${target_fingerprint}
+Scope: inspect ${live_workspace}/auth.py and the exact baseline-to-working-tree diff only
+Observation command: issue a read-only command naming the exact absolute ${live_workspace}/auth.py path, or `git -C ${live_workspace} diff HEAD -- auth.py`, and retain its successful nonempty result
+Permissions: read-only same-host review
+Non-goals: edits, artifacts, opposite-host calls, nested rescue
+Review basis: security-sensitive public authentication contract; debug bypass must not grant admin
+Expected evidence/output: complete code-reviewer role output followed by the exact caller-owned annex
+Stop/escalation boundary: return findings to the parent; do not mutate or dispatch another host
+Do not edit files
+Do not invoke rescue, fusion-rescue, cross-host consult, Claude, or another host from inside this agent
+Run the complete code-reviewer role, then append a caller-owned annex with exactly one nonempty standalone line for each label below. Do not rename, merge, or omit any label.
+Strongest finding:
+Evidence used:
+Likely failure mode:
+Recommended next action:
+CHILD_PACKET_END
 
-Start both Codex subagents before waiting when possible. Wait for each receiver until completed, capture both results, then close both completed receivers only when the host exposes close_agent; otherwise include exactly: Close/cleanup was not available. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. After both same-host agents finish, synthesize immediately as the current Codex main judge rather than concatenate. Final answer must contain exactly the marker OH_NO_XHOST_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; same-host agents: 2; lens markers: OH_NO_XHOST_FALLBACK_LENS_A, OH_NO_XHOST_FALLBACK_LENS_B; a single synthesis block marked OH_NO_XHOST_FALLBACK_SYNTHESIS with consensus, contradictions, and recommended next action; and a fallback note stating the opposite host (Claude Code) was treated as unavailable and the review ran via the Same-Host Parallel Fallback of two same-host agents rather than as a single current-host pass or a cross-host consult. Do NOT emit OH_NO_CLAUDE_FUSION_PANEL_OK or any Claude/opposite-host success marker and do NOT claim a cross-host consult occurred.
+Start both Codex subagents before waiting. Wait for each receiver until completed, capture both results, then close both completed receivers only when the host exposes close_agent; otherwise include exactly: Close/cleanup was not available. If wait_agent returns no agents completed yet, wait longer; MUST NOT close a running or pending receiver. Map each result by its receiver and Assigned perspective metadata, not by different marker text. After both same-host agents finish, synthesize immediately as the current Codex main judge rather than concatenate. Final answer must contain exactly the marker OH_NO_XHOST_FALLBACK_OK and must include: Codex permission preflight: not danger-full-access; Claude unavailable: Codex permission state is not danger-full-access; same-host agents: 2; common child result marker: OH_NO_XHOST_FALLBACK_REVIEW_RESULT; a single synthesis block marked OH_NO_XHOST_FALLBACK_SYNTHESIS with consensus, contradictions, and recommended next action; and a fallback note stating the opposite host (Claude Code) was treated as unavailable and the review ran via the Same-Host Parallel Fallback of two same-host agents rather than as a single current-host pass or a cross-host consult. Do NOT emit OH_NO_CLAUDE_FUSION_PANEL_OK or any Claude/opposite-host success marker and do NOT claim a cross-host consult occurred.
 PROMPT
 )
 
@@ -6112,21 +7418,22 @@ PROMPT
     fail "Codex cross-host fallback artifacts failed the credential-leak guard and were removed"
   fi
 
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" "$summary_file" <<'PY'
+  codex_run_oracle_script "$out_file" "$err_file" "$CODEX_HOME_DIR" "$summary_file" "$live_workspace" "$target_fingerprint" <<'PY'
 import json
 import re
 import sys
 from pathlib import Path
 
-out_path, err_path, live_home, summary_path = sys.argv[1:5]
-expected_lens_markers = {
-    "A": "OH_NO_XHOST_FALLBACK_LENS_A",
-    "B": "OH_NO_XHOST_FALLBACK_LENS_B",
+#@SHARED_HELPERS@
+out_path, err_path, live_home, summary_path, live_workspace, target_fingerprint = sys.argv[1:7]
+expected_perspectives = {
+    "A": "adversarial correctness + security skeptic",
+    "B": "maintainability + coverage completeness",
 }
+common_result_marker = "OH_NO_XHOST_FALLBACK_REVIEW_RESULT"
 required_final_markers = [
     "OH_NO_XHOST_FALLBACK_OK",
-    "OH_NO_XHOST_FALLBACK_LENS_A",
-    "OH_NO_XHOST_FALLBACK_LENS_B",
+    "OH_NO_XHOST_FALLBACK_REVIEW_RESULT",
     "OH_NO_XHOST_FALLBACK_SYNTHESIS",
     "Codex permission preflight",
     "not danger-full-access",
@@ -6135,12 +7442,6 @@ required_final_markers = [
 required_synthesis_fields = [
     "consensus",
     "contradictions",
-    "recommended next action",
-]
-required_panel_fields = [
-    "strongest finding",
-    "evidence used",
-    "likely failure mode",
     "recommended next action",
 ]
 # Markers that would prove the cross-host path (NOT the fallback) was taken.
@@ -6152,7 +7453,7 @@ forbidden_crosshost_markers = [
     "OH_NO_CODEX_RESCUE_RETURN_OK",
 ]
 secret_patterns = [
-    re.compile(r"sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
+    re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,512}(?![A-Za-z0-9_-])"),
     re.compile(r"(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
 ]
 forbidden_write_tools = {"apply_patch", "edit", "write", "write_file", "file_change", "patch"}
@@ -6184,29 +7485,120 @@ def collect_text(value):
     return ""
 
 
-def missing_panel_evidence(text):
-    lower_text = text.lower()
-    checks = {
-        "strongest finding": bool(
-            "strongest finding" in lower_text
-            or re.search(r"(?im)^\s*blocking finding ids:\s*(?!none\b)\S+", text)
-            or re.search(r"(?im)^\s*[-*]\s*[A-Z]+-[0-9]+\s*[—-]\s*(?:critical|high)\b", text)
+def physical_line_field_values(text, label):
+    return re.findall(
+        rf"(?m)^[ \t]*{re.escape(label)}:[ \t]*(.*)$",
+        text,
+    )
+
+
+def missing_complete_code_reviewer_output(text):
+    issues = []
+    correctness_match = re.search(
+        r"(?mi)^[ \t]*-?[ \t]*Correctness and maintainability findings:[ \t]*$",
+        text,
+    )
+    security_match = re.search(
+        r"(?mi)^[ \t]*-?[ \t]*Security findings:[ \t]*$",
+        text,
+    )
+    if not correctness_match or not security_match or security_match.start() <= correctness_match.start():
+        issues.append("ordered correctness and security lens sections")
+        return issues
+    envelope = text[:correctness_match.start()]
+    required_envelope = (
+        "Packet ID",
+        "Run/session ID",
+        "Story/task ID",
+        "Role",
+        "Reviewed revision/diff fingerprint",
+        "Overall verdict",
+        "Blocking finding IDs",
+    )
+    envelope_values = {}
+    for field in required_envelope:
+        values = physical_line_field_values(envelope, field)
+        if len(values) != 1 or not values[0].strip():
+            issues.append(field)
+        else:
+            envelope_values[field] = values[0].strip()
+    if envelope_values.get("Role") != "code-reviewer":
+        issues.append("Role: code-reviewer")
+    verdict = envelope_values.get("Overall verdict")
+    if verdict not in {"approve", "blocking-findings", "blocked"}:
+        issues.append("Overall verdict enum")
+    blocking_ids = envelope_values.get("Blocking finding IDs", "")
+    if verdict == "blocking-findings" and blocking_ids.lower() == "none":
+        issues.append("blocking verdict requires finding IDs")
+    if verdict in {"approve", "blocked"} and blocking_ids.lower() != "none":
+        issues.append("non-blocking verdict requires Blocking finding IDs: none")
+
+    correctness = text[correctness_match.end():security_match.start()]
+    security = text[security_match.end():]
+    required_lens_fields = {
+        "correctness": (
+            "Practical maintainability gate result",
+            "Contract and baseline regression check",
+            "Direction Contract and AC-ID mapping",
         ),
-        "evidence used": bool(
-            "evidence used" in lower_text
-            or re.search(r"(?im)^\s*(?:[-*]\s*)?evidence\s*:", text)
-            or re.search(r"(?im)^\s*reviewed revision/diff fingerprint\s*:", text)
-        ),
-        "likely failure mode": bool(
-            "likely failure mode" in lower_text
-            or re.search(r"(?im)^\s*(?:[-*]\s*)?(?:failure mode|regression)\s*:", text)
-        ),
-        "recommended next action": bool(
-            "recommended next action" in lower_text
-            or re.search(r"(?im)^\s*(?:[-*]\s*)?(?:required mitigations?|safe (?:cleanup )?action)\s*:", text)
+        "security": (
+            "Security verdict",
+            "Safety trigger checklist result",
+            "Residual risk",
         ),
     }
-    return [field for field, present in checks.items() if not present]
+    for lens, section in (("correctness", correctness), ("security", security)):
+        for field in required_lens_fields[lens]:
+            values = physical_line_field_values(section, field)
+            if len(values) != 1 or not values[0].strip():
+                issues.append(field)
+        substantive_lines = []
+        for line in section.splitlines():
+            stripped = line.strip().lstrip("-*+ ").strip()
+            if not stripped or re.match(r"^[A-Za-z][A-Za-z /-]*:[ \t]*", stripped):
+                continue
+            if stripped.lower() in {"fixture", "placeholder", "present", "tbd", "todo"}:
+                continue
+            substantive_lines.append(stripped)
+        explicit_none = bool(
+            re.search(
+                r"(?mi)^[ \t]*(?:[-*+]\s*)?(?:none|no (?:blocking )?(?:correctness |security )?findings(?: remain)?(?:\b.*)?)$",
+                section,
+            )
+        )
+        if not substantive_lines and not explicit_none:
+            issues.append(f"substantive {lens} lens findings")
+    return issues
+
+
+def annex_presentation_outcome(text):
+    fields = (
+        "Strongest finding",
+        "Evidence used",
+        "Likely failure mode",
+        "Recommended next action",
+    )
+    hard = []
+    warnings = []
+    for field in fields:
+        values = physical_line_field_values(text, field)
+        if not values:
+            if field == "Likely failure mode":
+                warnings.append("missing exact standalone Likely failure mode field")
+            else:
+                hard.append(field)
+            continue
+        if len(values) != 1 or not values[0].strip():
+            hard.append(field)
+    return hard, warnings
+
+
+def perspectives_in_text(text):
+    values = re.findall(r"(?m)^Assigned perspective:\s*(.*?)\s*$", text)
+    return [
+        lens for lens, perspective in expected_perspectives.items()
+        if values.count(perspective) == 1
+    ]
 
 
 def role_of_event(data):
@@ -6214,37 +7606,84 @@ def role_of_event(data):
     message = data.get("message") or {}
     return item.get("role") or data.get("role") or message.get("role") or ""
 
-def receiver_transcript_and_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"Codex cross-host fallback live could not find session transcript for receiver: {receiver}")
-    transcript_parts = []
-    agent_role = None
-    for path in session_candidates:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        transcript_parts.append(text)
-        for line in text.splitlines():
-            if not line.strip():
-                continue
-            data = json.loads(line)
-            if data.get("type") != "session_meta":
-                continue
-            payload = data.get("payload") or {}
-            source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-            subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-            thread_spawn = (
-                subagent.get("thread_spawn")
-                if isinstance(subagent.get("thread_spawn"), dict)
-                else {}
+
+def metadata_layers(meta):
+    source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
+    subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
+    thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
+    return meta, thread_spawn
+
+
+def resolved_metadata_value(meta, key, required=False):
+    values = [layer.get(key) for layer in metadata_layers(meta) if key in layer]
+    distinct = []
+    for value in values:
+        if value not in distinct:
+            distinct.append(value)
+    if len(distinct) > 1:
+        raise SystemExit(f"Codex cross-host fallback found conflicting {key} metadata: {distinct!r}")
+    if required and (not distinct or distinct[0] in (None, "")):
+        raise SystemExit(f"Codex cross-host fallback lacked required {key} metadata")
+    return distinct[0] if distinct else None
+
+
+def resolved_session_metadata(path, rows):
+    metas = [row.get("payload") or {} for row in rows if row.get("type") == "session_meta"]
+    if len(metas) != 1 or not isinstance(metas[0], dict):
+        raise SystemExit(f"Codex cross-host fallback expected exactly one session_meta in {path}")
+    meta = metas[0]
+    identities = []
+    for key in ("id", "session_id"):
+        value = meta.get(key) if key in meta else None
+        if value not in (None, "") and value not in identities:
+            identities.append(value)
+    if len(identities) > 1:
+        raise SystemExit(
+            f"Codex cross-host fallback expected one consistent receiver identity in {path}: {identities!r}"
+        )
+    if not identities:
+        raise SystemExit(f"Codex cross-host fallback lacked receiver identity in {path}")
+    thread_spawn = metadata_layers(meta)[1]
+    spawn_parent = thread_spawn.get("id")
+    if spawn_parent not in (None, ""):
+        parent = resolved_metadata_value(meta, "parent_thread_id", required=True)
+        if spawn_parent != parent:
+            raise SystemExit(
+                f"Codex cross-host fallback found conflicting spawn-parent identity in {path}: "
+                f"thread_spawn.id={spawn_parent!r}, parent_thread_id={parent!r}"
             )
-            agent_role = payload.get("agent_role") or thread_spawn.get("agent_role")
-            break
-        if agent_role is not None:
-            break
-    if agent_role is not None:
-        return "\n".join(transcript_parts), agent_role
-    raise SystemExit(f"Codex cross-host fallback live transcript lacked session_meta: {receiver}")
+    return meta, identities[0]
+
+
+def resolve_receiver_session(receiver):
+    matches = []
+    for path in (Path(live_home) / "sessions").rglob("*.jsonl"):
+        rows = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.strip()
+        ]
+        if not any(row.get("type") == "session_meta" for row in rows):
+            continue
+        meta, identity = resolved_session_metadata(path, rows)
+        if identity == receiver:
+            matches.append((path, rows, meta))
+    if len(matches) != 1:
+        raise SystemExit(
+            f"Codex cross-host fallback expected exactly one session for receiver {receiver!r}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def receiver_transcript_and_agent_role(receiver):
+    path, rows, meta = resolve_receiver_session(receiver)
+    parent = resolved_metadata_value(meta, "parent_thread_id", required=True)
+    if parent != parent_thread_id:
+        raise SystemExit(
+            f"Codex cross-host fallback receiver {receiver} had foreign parent {parent!r}"
+        )
+    agent_role = resolved_metadata_value(meta, "agent_role", required=True)
+    return path.read_text(encoding="utf-8", errors="replace"), agent_role
 
 
 def parent_linked_lens_transcripts(parent_thread_id):
@@ -6253,23 +7692,17 @@ def parent_linked_lens_transcripts(parent_thread_id):
     for path in (Path(live_home) / "sessions").rglob("*.jsonl"):
         text = path.read_text(encoding="utf-8", errors="replace")
         rows = [json.loads(line) for line in text.splitlines() if line.strip()]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
-        if not isinstance(meta, dict):
+        if not any(row.get("type") == "session_meta" for row in rows):
             continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = (
-            subagent.get("thread_spawn")
-            if isinstance(subagent.get("thread_spawn"), dict)
-            else {}
-        )
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id or agent_role != "oh-no-code-reviewer":
+        meta, receiver = resolved_session_metadata(path, rows)
+        parent = resolved_metadata_value(meta, "parent_thread_id")
+        agent_role = resolved_metadata_value(meta, "agent_role")
+        if parent != parent_thread_id:
             continue
+        if agent_role != "oh-no-code-reviewer":
+            raise SystemExit(
+                f"Codex cross-host fallback parent-linked receiver {receiver} had role {agent_role!r}"
+            )
         linked_children += 1
         user_messages = []
         assistant_messages = []
@@ -6307,30 +7740,34 @@ def parent_linked_lens_transcripts(parent_thread_id):
             if task_complete_messages
             else "\n".join(dict.fromkeys(assistant_messages))
         )
-        matched_output = [
-            lens for lens, marker in expected_lens_markers.items()
-            if marker in task_output
-        ]
-        if len(matched_output) != 1:
+        if len(re.findall(rf"(?m)^\s*{re.escape(common_result_marker)}\s*$", task_output)) != 1:
             raise SystemExit(
-                "Codex cross-host fallback parent-linked child output did not identify "
-                f"exactly one lens: {matched_output!r}"
+                "Codex cross-host fallback parent-linked child output lacked one common result marker"
             )
-        lens = matched_output[0]
-        matched_input = [
-            candidate for candidate, marker in expected_lens_markers.items()
-            if marker in task_input
-        ]
-        if encrypted_task_messages < 1 and matched_input != [lens]:
-            raise SystemExit(
-                f"Codex cross-host fallback plaintext task did not match {lens} and "
-                f"lacked encrypted task-channel evidence: {matched_input!r}"
-            )
+        matched_input = perspectives_in_text(task_input)
+        lens = matched_input[0] if len(matched_input) == 1 else ""
+        if len(matched_input) != 1:
+            agent_path = str(resolved_metadata_value(meta, "agent_path", required=True) or "")
+            node = agent_path.rstrip("/").rsplit("/", 1)[-1]
+            metadata_matches = [
+                candidate for candidate in expected_perspectives
+                if node == f"cross_host_lens_{candidate.lower()}"
+            ]
+            if encrypted_task_messages < 1 or len(metadata_matches) != 1:
+                raise SystemExit(
+                    "Codex cross-host fallback child lacked one receiver-bound Assigned perspective"
+                )
+            lens = metadata_matches[0]
         if lens in children:
             raise SystemExit(f"Codex cross-host fallback found duplicate parent-linked transcripts for lens {lens}")
         if not completed:
             raise SystemExit(f"Codex cross-host fallback parent-linked lens {lens} child lacked task_complete")
-        receiver = meta.get("id") or meta.get("session_id") or path.stem
+        expected_node = f"cross_host_lens_{lens.lower()}"
+        agent_path = str(resolved_metadata_value(meta, "agent_path", required=True) or "")
+        if agent_path.rstrip("/").rsplit("/", 1)[-1] != expected_node:
+            raise SystemExit(
+                f"Codex cross-host fallback receiver {receiver} had wrong agent_path {agent_path!r}"
+            )
         children[lens] = {
             "receiver": receiver,
             "text": text,
@@ -6339,7 +7776,7 @@ def parent_linked_lens_transcripts(parent_thread_id):
             "encrypted_task_messages": encrypted_task_messages,
             "output": task_output,
         }
-    if linked_children != len(expected_lens_markers):
+    if linked_children != len(expected_perspectives):
         raise SystemExit(
             "Codex cross-host fallback expected exactly two parent-linked lens sessions, "
             f"found {linked_children}"
@@ -6347,8 +7784,62 @@ def parent_linked_lens_transcripts(parent_thread_id):
     return children
 
 
+def persisted_parent_lifecycle(parent_id, receivers):
+    _path, rows, _meta = resolve_receiver_session(parent_id)
+    calls = {}
+    receipt_indexes = {}
+    close_indexes = {}
+    cleanup_unavailable = False
+    for index, row in enumerate(rows, 1):
+        payload = row.get("payload") or {}
+        payload_type = payload.get("type")
+        if payload_type in {"custom_tool_call", "function_call"}:
+            name = str(payload.get("name") or "")
+            call_id = payload.get("call_id")
+            raw_input = payload.get("input") if "input" in payload else payload.get("arguments")
+            calls[call_id] = (index, name, collect_text(raw_input))
+            continue
+        if payload_type not in {"custom_tool_call_output", "function_call_output"}:
+            continue
+        call_id = payload.get("call_id")
+        if call_id not in calls:
+            continue
+        call_index, name, call_input = calls[call_id]
+        output = collect_text(payload.get("output"))
+        mentioned = {receiver for receiver in receivers if receiver in call_input or receiver in output}
+        if name in {"wait", "wait_agent"}:
+            for receiver in mentioned:
+                if re.search(rf"(?is){re.escape(receiver)}.*completed", output) and output.strip():
+                    receipt_indexes.setdefault(receiver, index)
+        elif name == "close_agent":
+            if re.search(r"(?i)unavailable|unsupported|unknown tool|not exposed", output):
+                cleanup_unavailable = True
+            for receiver in mentioned:
+                if receiver in receipt_indexes and call_index > receipt_indexes[receiver]:
+                    close_indexes.setdefault(receiver, index)
+    missing_receipts = sorted(set(receivers) - set(receipt_indexes))
+    missing_closes = sorted(set(receivers) - set(close_indexes))
+    if missing_receipts:
+        raise SystemExit(
+            f"Codex cross-host fallback transcript lacked correlated parent receipt evidence: {missing_receipts!r}"
+        )
+    if missing_closes and not cleanup_unavailable:
+        raise SystemExit(
+            "Codex cross-host fallback transcript lacked close-after-receipt evidence or authoritative "
+            f"cleanup-unavailable output: {missing_closes!r}"
+        )
+    return receipt_indexes, close_indexes
+
+
 def inspect_fallback_receiver_transcript(receiver, lens, transcript):
     host_command_hits = []
+    target_read_result_evidence = []
+    target_read_observations = []
+    command_calls = []
+    command_outputs = {}
+    workspace_path = Path(live_workspace)
+    exact_workspaces = {str(workspace_path), str(workspace_path.resolve())}
+    exact_auth_paths = {str(workspace_path / "auth.py"), str(workspace_path.resolve() / "auth.py")}
     for line_number, line in enumerate(transcript.splitlines(), 1):
         if not line.strip():
             continue
@@ -6377,26 +7868,66 @@ def inspect_fallback_receiver_transcript(receiver, lens, transcript):
                 f"Codex cross-host fallback live receiver {receiver} ({lens}) saw write-capable event "
                 f"at line {line_number}: type={item_type_lower!r} tool={tool_lower!r}"
             )
-        is_exec_command_call = (
-            item_type_lower == "command_execution"
-            or (
-                payload.get("type") == "function_call"
-                and payload.get("name") in {"exec_command", "functions.exec_command"}
+        payload_type = payload.get("type")
+        if payload_type in {"custom_tool_call_output", "function_call_output"} and payload.get("call_id"):
+            command_outputs[str(payload.get("call_id"))] = (
+                payload.get("output") or payload.get("content") or payload.get("result") or "",
+                str(payload.get("status") or ""),
             )
-        )
-        if not is_exec_command_call:
+        if item.get("type") == "command_execution" and (item.get("id") or item.get("call_id")):
+            command_outputs[str(item.get("id") or item.get("call_id"))] = (
+                {
+                    "exit_code": item.get("exit_code", item.get("return_code")),
+                    "status": item.get("status"),
+                    "aggregated_output": item.get("aggregated_output") or item.get("output") or "",
+                },
+                str(item.get("status") or ""),
+            )
+        # Canonical shared extraction: all observed shapes (including the current
+        # custom_tool_call "exec") and every batched embedded command.
+        if not event_is_command_bearing(data):
             continue
-        if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+        inspectable = safety_inspectable_commands(data)
+        if command_text and command_text not in inspectable:
+            inspectable = inspectable + [command_text]
+        call_id = str(
+            item.get("id") or item.get("call_id") or payload.get("call_id") or payload.get("id") or ""
+        )
+        for candidate, owns_output in command_records_from_event(data):
+            command_calls.append((line_number, call_id, candidate, owns_output, str(payload.get("status") or item.get("status") or "")))
+        if any(pattern.search(candidate) for candidate in inspectable
+               for pattern in forbidden_command_patterns):
             raise SystemExit(
                 f"Codex cross-host fallback live receiver {receiver} ({lens}) saw write-like command "
                 f"at line {line_number}: {command_text[:1000]!r}"
             )
-        if any(pattern.search(command_text) for pattern in claude_command_patterns):
-            host_command_hits.append((line_number, "claude", command_text[:1000]))
+        if any(pattern.search(candidate) for candidate in inspectable
+               for pattern in claude_command_patterns):
+            host_command_hits.append((line_number, "claude", "; ".join(inspectable)[:1000]))
     if host_command_hits:
         raise SystemExit(
             f"Codex cross-host fallback live receiver {receiver} ({lens}) invoked a forbidden Claude/opposite-host command: "
             f"{host_command_hits!r}"
+        )
+    read_tool_pattern = re.compile(r"(?:^|[;&|]\s*|\s)(?:cat|sed|head|tail|nl|git(?:\s+-C\s+\S+)?\s+(?:diff|show))(?:\s|$)")
+    for line_number, call_id, candidate, owns_output, call_status in command_calls:
+        exact_target = any(path in candidate for path in exact_auth_paths)
+        exact_git_diff = (
+            any(path in candidate for path in exact_workspaces)
+            and re.search(r"(?:^|\s)git\s+-C\s+[^;&|]+\s+(?:diff|show)\b[^;&|]*--\s+auth[.]py(?:\s|$)", candidate)
+        )
+        if not (read_tool_pattern.search(candidate) and (exact_target or exact_git_diff)):
+            continue
+        if not call_id or not owns_output or call_id not in command_outputs:
+            continue
+        raw_output, output_status = command_outputs[call_id]
+        status, retained = retained_output_result(raw_output, output_status or call_status)
+        target_read_observations.append((line_number, call_id, exact_target, bool(exact_git_diff), status, bool(retained.strip())))
+        if status == 0 and retained.strip():
+            target_read_result_evidence.append((line_number, call_id, candidate))
+    if not target_read_result_evidence:
+        raise SystemExit(
+            f"Codex cross-host fallback live receiver {receiver} ({lens}) did not inspect the exact auth.py target through a successful correlated command result; calls={command_calls!r} outputs={sorted(command_outputs)!r} observations={target_read_observations!r}"
         )
 
 with open(err_path, "r", encoding="utf-8") as fh:
@@ -6407,6 +7938,7 @@ if "spawn failed" in err_text.lower() or "agent thread limit reached" in err_tex
 failed_spawns = []
 all_spawn_receivers = []
 receiver_to_lens = {}
+packet_by_receiver = {}
 receiver_agent_roles = {}
 receiver_transcripts = {}
 agent_result_by_receiver = {}
@@ -6416,6 +7948,7 @@ non_user_text_parts = []
 claude_command_hits = []
 parent_thread_id = None
 used_transcript_fallback = False
+presentation_warnings = []
 
 with open(out_path, "r", encoding="utf-8") as fh:
     for index, line in enumerate(fh, 1):
@@ -6445,17 +7978,20 @@ with open(out_path, "r", encoding="utf-8") as fh:
                 f"Codex cross-host fallback live saw write-capable event at line {index}: "
                 f"type={item_type_lower!r} tool={tool_lower!r}"
             )
-        if (
-            item_type_lower == "command_execution"
-            or (payload.get("type") == "function_call" and payload.get("name") in {"exec_command", "functions.exec_command"})
-        ):
-            if any(pattern.search(command_text) for pattern in forbidden_command_patterns):
+        # Canonical shared extraction (see above): all shapes, all embedded commands.
+        inspectable = safety_inspectable_commands(data)
+        if command_text and command_text not in inspectable:
+            inspectable = inspectable + [command_text]
+        if event_is_command_bearing(data):
+            if any(pattern.search(candidate) for candidate in inspectable
+                   for pattern in forbidden_command_patterns):
                 raise SystemExit(
                     f"Codex cross-host fallback live saw write-like command at line {index}: "
                     f"{command_text[:1000]!r}"
                 )
-            if any(pattern.search(command_text) for pattern in claude_command_patterns):
-                claude_command_hits.append((index, command_text[:1000]))
+            if any(pattern.search(candidate) for candidate in inspectable
+                   for pattern in claude_command_patterns):
+                claude_command_hits.append((index, "; ".join(inspectable)[:1000]))
         if role_of_event(data) != "user":
             non_user_text_parts.append(event_text)
         if item.get("type") != "collab_tool_call":
@@ -6467,16 +8003,19 @@ with open(out_path, "r", encoding="utf-8") as fh:
         if tool == "spawn_agent" and status == "completed":
             all_spawn_receivers.extend(item.get("receiver_thread_ids") or [])
             spawn_text = collect_text(item)
-            matched = [lens for lens, marker in expected_lens_markers.items() if marker in spawn_text]
-            if not matched:
-                raise SystemExit(
-                    "Codex cross-host fallback live saw an unexpected spawn_agent call "
-                    f"without a required lens marker at line {index}: {spawn_text[:2000]!r}"
-                )
+            matched = perspectives_in_text(spawn_text)
             if len(matched) != 1:
                 raise SystemExit(
-                    f"Codex cross-host fallback live spawn payload matched multiple lenses {matched!r}; "
-                    f"text={spawn_text[:2000]!r}"
+                    "Codex cross-host fallback live spawn payload lacked one Assigned perspective; "
+                    f"line={index} matched={matched!r} text={spawn_text[:2000]!r}"
+                )
+            packet_matches = re.findall(
+                r"(?ms)^\s*CHILD_PACKET_BEGIN\s*$\n(.*?)^\s*CHILD_PACKET_END\s*$",
+                spawn_text,
+            )
+            if len(packet_matches) != 1 or common_result_marker not in packet_matches[0]:
+                raise SystemExit(
+                    "Codex cross-host fallback live spawn payload lacked one complete common-marker child packet"
                 )
             receivers = item.get("receiver_thread_ids") or []
             if len(receivers) != 1:
@@ -6489,6 +8028,7 @@ with open(out_path, "r", encoding="utf-8") as fh:
                         f"Codex cross-host fallback live spawn prompt leaked opposite-host success marker {forbidden!r}"
                     )
             receiver_to_lens[receivers[0]] = matched[0]
+            packet_by_receiver[receivers[0]] = packet_matches[0].strip()
         if status == "completed" and tool in {"wait", "wait_agent", "close_agent"}:
             text = collect_text(item)
             mentioned = set(item.get("receiver_thread_ids") or [])
@@ -6524,7 +8064,7 @@ if not receiver_to_lens:
             "Codex cross-host fallback live lacked both collab spawn events and a parent thread id"
         )
     transcript_children = parent_linked_lens_transcripts(parent_thread_id)
-    missing_transcript_lenses = sorted(set(expected_lens_markers) - set(transcript_children))
+    missing_transcript_lenses = sorted(set(expected_perspectives) - set(transcript_children))
     if missing_transcript_lenses:
         raise SystemExit(
             "Codex cross-host fallback live parent-linked transcripts omitted lenses: "
@@ -6545,17 +8085,55 @@ if not receiver_to_lens:
         receiver_agent_roles[receiver] = child["role"]
         receiver_transcripts[receiver] = child["text"]
         agent_result_by_receiver[receiver] = child["output"]
-        wait_index_by_receiver[receiver] = 0
         all_spawn_receivers.append(receiver)
+    persisted_waits, persisted_closes = persisted_parent_lifecycle(
+        parent_thread_id,
+        set(receiver_to_lens),
+    )
+    wait_index_by_receiver.update(persisted_waits)
+    close_index_by_receiver.update(persisted_closes)
+
+if len(packet_by_receiver) != len(expected_perspectives):
+    captured_packets = []
+    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
+        rows = [
+            json.loads(line)
+            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.strip()
+        ]
+        if not any(row.get("type") == "session_meta" for row in rows):
+            continue
+        _meta, identity = resolved_session_metadata(transcript_path, rows)
+        if identity != parent_thread_id:
+            continue
+        captured_packets.extend(
+            packet.strip()
+            for packet in re.findall(
+                r"(?ms)^\s*CHILD_PACKET_BEGIN\s*$\n(.*?)^\s*CHILD_PACKET_END\s*$",
+                collect_text(rows),
+            )
+        )
+    for packet in captured_packets:
+        matched = perspectives_in_text(packet)
+        if len(matched) == 1:
+            packet_by_receiver[f"parent-captured-{matched[0]}"] = packet
+if len(packet_by_receiver) != len(expected_perspectives):
+    raise SystemExit("Codex cross-host fallback could not capture both complete child packet bodies")
+normalized_packets = {
+    re.sub(r"(?m)^Assigned perspective:.*$", "Assigned perspective: NORMALIZED", packet)
+    for packet in packet_by_receiver.values()
+}
+if len(normalized_packets) != 1:
+    raise SystemExit("Codex cross-host fallback child packet bodies differed beyond Assigned perspective")
 
 # Two distinct same-host lens agents (two agents, not one pass).
-missing_lenses = sorted(set(expected_lens_markers) - set(receiver_to_lens.values()))
+missing_lenses = sorted(set(expected_perspectives) - set(receiver_to_lens.values()))
 if missing_lenses:
     raise SystemExit(
         f"Codex cross-host fallback live did not dispatch both same-host lens agents; "
         f"missing={missing_lenses!r} got={receiver_to_lens!r}"
     )
-if len(receiver_to_lens) != len(expected_lens_markers):
+if len(receiver_to_lens) != len(expected_perspectives):
     raise SystemExit(
         f"Codex cross-host fallback live expected exactly two same-host lens receivers, got {receiver_to_lens!r}"
     )
@@ -6600,23 +8178,49 @@ for receiver in receiver_to_lens:
 for receiver, lens in receiver_to_lens.items():
     result_text = agent_result_by_receiver.get(receiver, "")
     lower_result_text = result_text.lower()
-    marker = expected_lens_markers[lens]
-    if marker not in result_text:
+    marker_count = len(re.findall(rf"(?m)^\s*{re.escape(common_result_marker)}\s*$", result_text))
+    if marker_count != 1:
         raise SystemExit(
-            f"Codex cross-host fallback live lens {lens} did not return marker {marker!r}; "
-            f"result={result_text[:2000]!r}"
+            f"Codex cross-host fallback live lens {lens} did not return exactly one common marker; "
+            f"count={marker_count} result={result_text[:2000]!r}"
         )
     for forbidden in forbidden_crosshost_markers:
         if forbidden in result_text:
             raise SystemExit(
                 f"Codex cross-host fallback live lens {lens} returned forbidden opposite-host marker {forbidden!r}"
             )
-    missing_fields = missing_panel_evidence(result_text)
-    if missing_fields:
+    missing_role_fields = missing_complete_code_reviewer_output(result_text)
+    if missing_role_fields:
         raise SystemExit(
-            f"Codex cross-host fallback live lens {lens} wait result lacked semantic "
-            f"panel evidence: {missing_fields!r}; result={result_text[:2000]!r}"
+            f"Codex cross-host fallback live lens {lens} lacked complete code-reviewer role output: "
+            f"{missing_role_fields!r}; result={result_text[:2000]!r}"
         )
+    reviewed = physical_line_field_values(result_text, "Reviewed revision/diff fingerprint")
+    verdicts = physical_line_field_values(result_text, "Overall verdict")
+    if reviewed != [target_fingerprint]:
+        raise SystemExit(
+            f"Codex cross-host fallback live lens {lens} did not bind to the exact target fingerprint"
+        )
+    if verdicts != ["blocking-findings"]:
+        raise SystemExit(
+            f"Codex cross-host fallback live lens {lens} did not return a substantive blocking verdict: {verdicts!r}"
+        )
+    semantic_finding = (
+        "debug" in lower_result_text
+        and "admin" in lower_result_text
+        and any(term in lower_result_text for term in ("bypass", "unauthorized", "escalation", "grants admin"))
+    )
+    if not semantic_finding:
+        raise SystemExit(
+            f"Codex cross-host fallback live lens {lens} missed the blocking debug-admin bypass finding"
+        )
+    hard_annex_issues, annex_warnings = annex_presentation_outcome(result_text)
+    if hard_annex_issues:
+        raise SystemExit(
+            f"Codex cross-host fallback live lens {lens} wait result lacked a required substantive annex field or was ambiguous: "
+            f"{hard_annex_issues!r}; result={result_text[:2000]!r}"
+        )
+    presentation_warnings.extend(f"lens {lens}: {warning}" for warning in annex_warnings)
 
 non_user_text = "\n".join(non_user_text_parts)
 lower_non_user_text = non_user_text.lower()
@@ -6651,6 +8255,12 @@ if synthesis_count < 1:
 for field in required_synthesis_fields:
     if field.lower() not in lower_success_text:
         raise SystemExit(f"Codex cross-host fallback live missing synthesis field: {field!r}")
+if not (
+    "debug" in lower_success_text
+    and "admin" in lower_success_text
+    and any(term in lower_success_text for term in ("bypass", "unauthorized", "escalation", "grants admin"))
+):
+    raise SystemExit("Codex cross-host fallback synthesis omitted the blocking debug-admin bypass finding")
 
 # Fallback note: the opposite host (Claude Code) was treated as unavailable and
 # the review ran via the Same-Host Parallel Fallback.
@@ -6662,6 +8272,12 @@ if not (
     raise SystemExit(
         "Codex cross-host fallback live missing fallback note that the opposite host (Claude Code) was "
         f"unavailable and the review ran via the Same-Host Parallel Fallback; success_text={success_text[:2000]!r}"
+    )
+
+if presentation_warnings:
+    print(
+        "WARNING [codex/cross-host-fallback-live/annex-presentation]: "
+        + "; ".join(sorted(presentation_warnings))
     )
 
 summary = {
@@ -6679,7 +8295,8 @@ summary = {
             "agent_role": receiver_agent_roles[receiver],
             "wait_result_line": wait_index_by_receiver[receiver],
             "close_result_line": close_index_by_receiver.get(receiver, "host-managed/unavailable"),
-            "returned_marker": expected_lens_markers[receiver_to_lens[receiver]],
+            "assigned_perspective": expected_perspectives[receiver_to_lens[receiver]],
+            "returned_marker": common_result_marker,
         }
         for receiver in sorted(receiver_to_lens, key=lambda item: receiver_to_lens[item])
     ],
@@ -6692,1627 +8309,376 @@ print("ok - live Codex cross-host Same-Host Parallel Fallback dispatched two sam
 PY
 }
 
-run_parallel_live_test() {
-  if [[ "$RUN_PARALLEL_LIVE" != "1" ]]; then
-    log "Skipping live Codex parallel-subagent smoke test"
-    printf 'Run with --parallel-live or OH_NO_PARALLEL_LIVE=1 to verify actual Codex spawn_agent use and agent-prompt embedding.\n' >&2
-    return
-  fi
-
-  log "Running live Codex parallel-subagent smoke test"
-  mkdir -p "$RUN_DIR"
-  local out_file="$RUN_DIR/parallel-subagents.jsonl"
-  local err_file="$RUN_DIR/parallel-subagents.err"
-  local prompt
-  prompt='Use the oh-no-harness:ralph skill. Read-only live subagent smoke test. This is an explicit parallel subagents request. Verify every Ralph-eligible Oh No Harness role with Codex spawn_agent custom agents, but respect platform concurrency limits: run the roles in independent waves of at most three subagents, start every subagent in the current wave before waiting for that wave, call close_agent for every completed agent before starting the next wave when the host exposes it; otherwise include exactly: Close/cleanup was not available. Do not continue if any spawn fails. For every receiver thread, call wait_agent until that receiver appears in a completed final-status wait result before calling close_agent; do not use close_agent as the first result capture for any receiver, and if wait_agent returns no agents completed yet then wait longer. MUST NOT call close_agent for a running or pending agent merely because it is slow. Wave 1: explore, analyst, planner. Wave 2: executor, debugger. Wave 3: verifier, code-reviewer, fusion-rescue-analyst. Do not dispatch plan-reviewer: only the Ralplan planning phase owns that role, and the separate Ralplan live smoke covers it. For every Codex spawn_agent call, set agent_type to the matching registered custom agent oh-no-<role>, omit model/reasoning overrides, and do not fork full history. In that same call, use the exact task_name mapping explore=ralph_explore, analyst=ralph_analyst, planner=ralph_planner, executor=ralph_executor, debugger=ralph_debugger, verifier=ralph_verifier, code-reviewer=ralph_code_reviewer, fusion-rescue-analyst=ralph_fusion_rescue_analyst. Do not use generic/default agents and do not embed docs/agent-core prompt bodies while the registered oh-no-* custom agent is available. Each spawned-agent message MUST include Role: <role>, Codex agent type: oh-no-<role>, Scope, Expected output, Verification responsibility, Lifecycle, and Result marker: OH_NO_PARALLEL_RESULT <role> lines. Each custom agent should report the exact OH_NO_PARALLEL_RESULT <role> marker, its role heading, and whether Skill Relationship, Responsibilities, Operating Rules, and Output are present. Do not edit files. Preserve every role-specific result marker in the parent final response. After all eight subagents finish and completed agents are closed when supported, or unavailable cleanup is recorded, reply exactly OH_NO_CODEX_PARALLEL_SUBAGENTS_OK and summarize the eight role checks plus Used custom agent types: 8; Wait results captured: 8; Lifecycle cleanup: closed | unavailable.'
-  prompt="${prompt} The host accepts agent_type as a string even if rendered schema text or display comments omit it; do not inspect schema comments or block on missing displayed agent_type. Attempt each requested oh-no-* agent_type call first, and only treat custom agents as unavailable after an actual unknown/unavailable rejection."
-
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Parallel explicit live artifacts failed the credential-leak guard and were removed"
-  fi
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
-import json
+run_fusion_rescue_provider_classifier_offline_test() {
+  log "Running offline Fusion Rescue provider classifier fixtures"
+  local oracle_source
+  oracle_source="$("$PYTHON_BIN" - "$SELF_PATH" <<'PY'
 import re
 import sys
-from collections import defaultdict
 from pathlib import Path
-
-path = sys.argv[1]
-err_path = sys.argv[2]
-live_home = sys.argv[3]
-successful_spawns = []
-failed_spawns = []
-spawn_texts = []
-spawn_texts_by_role = defaultdict(list)
-first_wait_index = None
-receiver_to_role = {}
-wait_index_by_receiver = {}
-wait_result_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
-all_text_parts = []
-parent_thread_id = None
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"Codex live parallel smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-expected_roles = [
-    "explore",
-    "analyst",
-    "planner",
-    "executor",
-    "debugger",
-    "verifier",
-    "code-reviewer",
-    "fusion-rescue-analyst",
-]
-role_headings = {
-    "explore": "# Explore Agent",
-    "analyst": "# Analyst Agent",
-    "planner": "# Planner Agent",
-    "executor": "# Executor Agent",
-    "debugger": "# Debugger Agent",
-    "verifier": "# Verifier Agent",
-    "code-reviewer": "# Code Reviewer Agent",
-    "fusion-rescue-analyst": "# Fusion Rescue Analyst Agent",
-}
-role_waves = [
-    ("explore", "analyst", "planner"),
-    ("executor", "debugger"),
-    ("verifier", "code-reviewer", "fusion-rescue-analyst"),
-]
-required_prompt_markers = [
-    "## Skill Relationship",
-    "## Responsibilities",
-    "## Operating Rules",
-    "## Output",
-]
-def roles_in_text(text):
-    return [
-        role for role in expected_roles
-        if f"Codex agent type: oh-no-{role}".lower() in text.lower()
-    ]
-def has_role_heading(text, role):
-    heading = role_headings[role].lstrip("#").strip().lower()
-    role_identity = re.sub(r"[-_]+", " ", role).strip().lower()
-    marker = f"OH_NO_PARALLEL_RESULT {role}".lower()
-    for line in text.splitlines():
-        normalized = re.sub(r"^\s*[-+]\s*", "", line)
-        normalized = normalized.replace("`", "").replace("*", "")
-        normalized = re.sub(r"^\s*#{1,6}\s*", "", normalized).strip().lower()
-        if normalized == heading:
-            return True
-        if normalized.startswith("role heading:") and heading in normalized:
-            return True
-        if normalized.startswith("role:"):
-            reported_role = re.sub(
-                r"[-_]+",
-                " ",
-                normalized.removeprefix("role:").strip(),
-            )
-            if reported_role in {role_identity, heading.removesuffix(" agent")}:
-                return True
-        if marker in normalized and heading in normalized:
-            return True
-        if normalized.startswith(heading) and normalized[len(heading):].strip(" :;-") == "present":
-            return True
-    return False
-def mentioned_receivers(item):
-    text = collect_text(item)
-    mentioned = set(item.get("receiver_thread_ids") or [])
-    mentioned.update((item.get("agents_states") or {}).keys())
-    mentioned.update(
-        receiver for receiver in receiver_to_role
-        if receiver in text
-    )
-    return mentioned & set(receiver_to_role)
-
-def receiver_agent_role(receiver):
-    sessions_root = Path(live_home) / "sessions"
-    session_candidates = list(sessions_root.rglob(f"*{receiver}*.jsonl"))
-    if not session_candidates:
-        raise SystemExit(f"Codex live parallel smoke could not find session transcript for receiver: {receiver}")
-    for path in session_candidates:
-        with path.open("r", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if data.get("type") != "session_meta":
-                    continue
-                payload = data.get("payload") or {}
-                source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-                subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-                thread_spawn = (
-                    subagent.get("thread_spawn")
-                    if isinstance(subagent.get("thread_spawn"), dict)
-                    else {}
-                )
-                return payload.get("agent_role") or thread_spawn.get("agent_role")
-    raise SystemExit(f"Codex live parallel smoke transcript lacked session_meta: {receiver}")
-events = []
-with open(path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-            if "OH_NO_CODEX_PARALLEL_SUBAGENTS_OK" in event_text:
-                marker = True
-        if (
-            item.get("type") == "collab_tool_call"
-            and item.get("tool") in {"wait", "wait_agent"}
-            and first_wait_index is None
-        ):
-            first_wait_index = index
-        if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            if receivers:
-                successful_spawns.append((index, tuple(receivers)))
-                spawn_text = collect_text(item)
-                spawn_texts.append(spawn_text)
-                matched_roles = roles_in_text(spawn_text)
-                if len(matched_roles) != 1:
-                    raise SystemExit(
-                        "expected each completed spawn_agent payload to contain exactly one role prompt source; "
-                        f"line={index} roles={matched_roles!r} text={spawn_text[:2000]!r}"
-                    )
-                role = matched_roles[0]
-                spawn_texts_by_role[role].append(spawn_text)
-                for receiver in receivers:
-                    receiver_to_role[receiver] = role
-                events.append((index, "spawn", role))
-        if item.get("type") == "collab_tool_call" and item.get("tool") == "spawn_agent" and item.get("status") == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if item.get("type") == "collab_tool_call" and item.get("status") == "completed":
-            tool = item.get("tool")
-            receivers = mentioned_receivers(item)
-            if tool in {"wait", "wait_agent"}:
-                for receiver in receivers:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-            if tool == "close_agent":
-                for receiver in receivers:
-                    close_index_by_receiver.setdefault(receiver, index)
-if failed_spawns:
-    raise SystemExit(f"Codex live parallel smoke saw failed spawn_agent calls: {failed_spawns!r}")
-if len(successful_spawns) < len(expected_roles):
-    if successful_spawns:
-        raise SystemExit(
-            "Codex live parallel smoke emitted only a partial collab event stream: "
-            f"{successful_spawns!r}"
-        )
-    if not parent_thread_id:
-        raise SystemExit("Codex live parallel smoke lacked both collab events and a parent thread id")
-    transcript_children = {}
-    sessions_root = Path(live_home) / "sessions"
-    for transcript_path in sessions_root.rglob("*.jsonl"):
-        rows = [
-            json.loads(line)
-            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip()
-        ]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = (
-            subagent.get("thread_spawn")
-            if isinstance(subagent.get("thread_spawn"), dict)
-            else {}
-        )
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if parent != parent_thread_id or not isinstance(agent_role, str):
-            continue
-        if not agent_role.startswith("oh-no-"):
-            continue
-        role = agent_role.removeprefix("oh-no-")
-        if role not in expected_roles:
-            continue
-        if role in transcript_children:
-            raise SystemExit(f"Codex live parallel smoke found duplicate child sessions for {role}")
-        completion_records = []
-        user_messages = []
-        encrypted_task_messages = 0
-        for row in rows:
-            payload = row.get("payload") or {}
-            if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completion_records.append((row.get("timestamp", ""), collect_text(payload.get("last_agent_message")).strip()))
-            if row.get("type") != "response_item":
-                continue
-            if payload.get("type") == "agent_message":
-                content = payload.get("content") or []
-                if any(
-                    isinstance(item, dict) and item.get("type") == "encrypted_content"
-                    for item in content
-                ):
-                    encrypted_task_messages += 1
-                else:
-                    user_messages.append(collect_text(content))
-                continue
-            if payload.get("type") != "message":
-                continue
-            if payload.get("role") == "user":
-                user_messages.append(collect_text(payload.get("content")))
-        if not completion_records:
-            raise SystemExit(f"Codex live parallel typed child {role} lacked task_complete")
-        initial_completion, initial_output = completion_records[0]
-        # task_complete_messages[-1] is not authoritative for initial-assignment evidence.
-        if not initial_completion or not initial_output:
-            raise SystemExit(f"Codex live parallel typed child {role} initial task_complete lacked timestamp or output")
-        transcript_children[role] = {
-            "started": meta.get("timestamp", ""),
-            "completed": initial_completion,
-            "input": "\n".join(user_messages),
-            "encrypted_task_messages": encrypted_task_messages,
-            "output": initial_output,
-        }
-    missing_children = sorted(set(expected_roles) - set(transcript_children))
-    if missing_children:
-        raise SystemExit(
-            "Codex live parallel smoke omitted typed child session proof for roles: "
-            f"{missing_children!r}"
-        )
-    parent_text = "\n".join(all_text_parts)
-    if not marker:
-        raise SystemExit("Codex live parallel typed children completed but parent omitted the success marker")
-    completion_markers = (
-        "Skill Relationship: present",
-        "Responsibilities: present",
-        "Operating Rules: present",
-        "Output: present",
-    )
-    for role, child in transcript_children.items():
-        required_input = (f"Result marker: OH_NO_PARALLEL_RESULT {role}",)
-        missing_input = [
-            value for value in required_input
-            if value.lower() not in child["input"].lower()
-        ]
-        if missing_input and child["encrypted_task_messages"] < 1:
-            raise SystemExit(
-                f"Codex live parallel typed child {role} task omitted its result protocol "
-                f"and lacked encrypted task-channel evidence: {missing_input!r}"
-            )
-        required_output = (
-            f"OH_NO_PARALLEL_RESULT {role}",
-            *completion_markers,
-        )
-        missing_output = [value for value in required_output if value.lower() not in child["output"].lower()]
-        if not has_role_heading(child["output"], role):
-            missing_output.append(f"role heading: {role_headings[role]}")
-        if missing_output:
-            raise SystemExit(
-                f"Codex live parallel typed child {role} lacked role-owned output evidence: {missing_output!r}"
-            )
-        if f"OH_NO_PARALLEL_RESULT {role}" not in parent_text:
-            raise SystemExit(f"Codex live parallel parent omitted the captured result marker for {role}")
-    # Child lifetimes do not reveal when the parent issued wait_agent: a fast
-    # child may finish before the last sequential spawn call without any wait.
-    # The collab-event branch proves spawn-before-wait when those events exist;
-    # this fallback proves valid child lifetimes and hard inter-wave barriers.
-    for wave in role_waves:
-        wave_starts = [transcript_children[role]["started"] for role in wave]
-        wave_completions = [transcript_children[role]["completed"] for role in wave]
-        if not all(wave_starts) or not all(wave_completions):
-            raise SystemExit(
-                "Codex live parallel typed child wave lacked lifecycle timestamps: "
-                f"wave={wave!r} starts={wave_starts!r} completions={wave_completions!r}"
-            )
-        invalid_lifetimes = {
-            role: (
-                transcript_children[role]["started"],
-                transcript_children[role]["completed"],
-            )
-            for role in wave
-            if transcript_children[role]["started"] >= transcript_children[role]["completed"]
-        }
-        if invalid_lifetimes:
-            raise SystemExit(
-                "Codex live parallel typed child lifecycle timestamps were invalid: "
-                f"{invalid_lifetimes!r}"
-            )
-    for earlier_wave, later_wave in zip(role_waves, role_waves[1:]):
-        earlier_completions = [transcript_children[role]["completed"] for role in earlier_wave]
-        later_starts = [transcript_children[role]["started"] for role in later_wave]
-        if (
-            not all(earlier_completions)
-            or not all(later_starts)
-            or max(earlier_completions) >= min(later_starts)
-        ):
-            raise SystemExit(
-                "Codex live parallel typed child completion barriers violated the requested waves: "
-                f"earlier_completions={earlier_completions!r} later_starts={later_starts!r}"
-            )
-    print("ok - live Codex role subagents proved by typed child transcripts (collab events unavailable)")
-    raise SystemExit(0)
-receiver_ids = {rid for _, receivers in successful_spawns[:len(expected_roles)] for rid in receivers}
-if len(receiver_ids) < len(expected_roles):
-    raise SystemExit(f"expected {len(expected_roles)} distinct spawned receiver threads, got {receiver_ids!r}")
-for receiver in receiver_ids:
-    role = receiver_to_role.get(receiver)
-    expected_agent_role = f"oh-no-{role}"
-    actual_agent_role = receiver_agent_role(receiver)
-    if actual_agent_role != expected_agent_role:
-        raise SystemExit(
-            f"Codex live parallel smoke spawned receiver {receiver} with agent_role={actual_agent_role!r}, "
-            f"expected {expected_agent_role!r}; generic/default dispatch is not acceptable"
-        )
-missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
-missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
-all_text = "\n".join(all_text_parts)
-if missing_wait_results:
-    raise SystemExit(f"Codex live parallel smoke did not capture final wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        "Codex live parallel smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in receiver_ids
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-}
-if early_closes:
-    raise SystemExit(
-        "Codex live parallel smoke closed agents before their wait_agent results were captured: "
-        f"{early_closes!r}"
-    )
-spawn_index_by_role = {
-    role: index for index, event_type, role in events if event_type == "spawn"
-}
-receiver_by_role = {role: receiver for receiver, role in receiver_to_role.items()}
-for wave in role_waves:
-    first_wave_wait = min(wait_index_by_receiver[receiver_by_role[role]] for role in wave)
-    late_spawns = {
-        role: spawn_index_by_role[role]
-        for role in wave
-        if spawn_index_by_role[role] >= first_wave_wait
-    }
-    if late_spawns:
-        raise SystemExit(
-            "Codex live parallel smoke did not start every role in a wave before waiting: "
-            f"wave={wave!r} first_wait={first_wave_wait} late_spawns={late_spawns!r}"
-        )
-for earlier_wave, later_wave in zip(role_waves, role_waves[1:]):
-    later_start = min(spawn_index_by_role[role] for role in later_wave)
-    late_results = {
-        role: wait_index_by_receiver.get(receiver_by_role[role])
-        for role in earlier_wave
-        if wait_index_by_receiver.get(receiver_by_role[role], later_start) >= later_start
-    }
-    if late_results:
-        raise SystemExit(
-            "Codex live parallel smoke started a later wave before every prior result completed: "
-            f"later_start={later_start} late_results={late_results!r}"
-        )
-    late_closes = {
-        role: close_index_by_receiver[receiver_by_role[role]]
-        for role in earlier_wave
-        if receiver_by_role[role] in close_index_by_receiver
-        and close_index_by_receiver[receiver_by_role[role]] >= later_start
-    }
-    if late_closes:
-        raise SystemExit(
-            "Codex live parallel smoke started a later wave before closing completed prior receivers: "
-            f"later_start={later_start} late_closes={late_closes!r}"
-        )
-for role in expected_roles:
-    role_payloads = spawn_texts_by_role.get(role, [])
-    if len(role_payloads) != 1:
-        raise SystemExit(f"expected exactly one successful spawn_agent payload for {role}, got {len(role_payloads)}")
-    role_text = role_payloads[0]
-    missing_prompt_markers = [
-        marker for marker in [
-            f"Codex agent type: oh-no-{role}",
-            f"Result marker: OH_NO_PARALLEL_RESULT {role}",
-        ]
-        if marker.lower() not in role_text.lower()
-    ]
-    if missing_prompt_markers:
-        raise SystemExit(
-            f"Codex spawn_agent payload for {role} did not use required custom-agent markers: "
-            f"{missing_prompt_markers}; spawn_text={role_text[:2000]!r}"
-        )
-    forbidden_frontmatter_markers = [
-        "\n---\n",
-        "\ntools:",
-        "\nmodel:",
-        "\ncolor:",
-        "Agent prompt content:",
-        f"Agent prompt source: docs/agent-core/{role}.md",
-    ]
-    leaked = [marker for marker in forbidden_frontmatter_markers if marker in role_text]
-    if leaked:
-        raise SystemExit(
-            f"Codex spawn_agent payload for {role} leaked Claude YAML frontmatter markers: "
-            f"{leaked}; spawn_text={role_text[:2000]!r}"
-        )
-receiver_by_role = {role: receiver for receiver, role in receiver_to_role.items()}
-for role in expected_roles:
-    receiver = receiver_by_role.get(role)
-    if not receiver:
-        raise SystemExit(f"Codex live parallel smoke lacked a receiver for {role}")
-    result = wait_result_by_receiver.get(receiver, "")
-    required_result = (
-        f"OH_NO_PARALLEL_RESULT {role}",
-        "Skill Relationship: present",
-        "Responsibilities: present",
-        "Operating Rules: present",
-        "Output: present",
-    )
-    missing_result = [value for value in required_result if value.lower() not in result.lower()]
-    if not has_role_heading(result, role):
-        missing_result.append(f"role heading: {role_headings[role]}")
-    if missing_result:
-        raise SystemExit(
-            f"Codex live parallel result for {role} lacked role-owned evidence: "
-            f"{missing_result!r}; result={result[:2000]!r}"
-        )
-    if f"OH_NO_PARALLEL_RESULT {role}" not in all_text:
-        raise SystemExit(f"Codex live parallel parent omitted the captured result marker for {role}")
-if not marker:
-    raise SystemExit("Codex live parallel smoke did not return success marker")
-
-print("ok - live Codex role subagents spawned with role-owned result evidence")
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+blocks = re.findall(r"<<'PY'\n(.*?)\nPY", source, re.S)
+print(next(block for block in blocks if "def inspect_primary_claude_call" in block))
 PY
-
-  log "Running live Codex Ralph natural SessionStart-dispatch smoke test"
-  out_file="$RUN_DIR/ralph-natural-session-start.jsonl"
-  err_file="$RUN_DIR/ralph-natural-session-start.err"
-  prompt='Use the oh-no-harness:ralph skill. Read-only natural SessionStart smoke test. Named THOROUGH request: assess whether this plugin checkout is ready for a release-facing test-harness change. Perform only the normal initial repository assessment and implementation-readiness analysis; do not edit files, execute changes, or continue into verification. Summarize the evidence gathered and the proposed implementation direction.'
-  assert_natural_prompt_has_no_explicit_subagent_terms "ralph" "$prompt"
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Parallel natural live artifacts failed the credential-leak guard and were removed"
-  fi
-  assert_natural_role_spawn_smoke "$out_file" "$err_file" "ralph" "$CODEX_HOME_DIR"
-}
-
-run_simplify_live_test() {
-  if [[ "$RUN_SIMPLIFY_LIVE" != "1" ]]; then
-    log "Skipping live Codex simplify cleanup-subagent smoke test"
-    printf 'Run with --simplify-live or OH_NO_SIMPLIFY_LIVE=1 to verify actual Codex simplify cleanup subagents.\n' >&2
-    return
-  fi
-
-  log "Running live Codex simplify cleanup-subagent smoke test"
-  mkdir -p "$RUN_DIR"
-  local out_file="$RUN_DIR/simplify-cleanup-subagents.jsonl"
-  local err_file="$RUN_DIR/simplify-cleanup-subagents.err"
-  local prompt
-  prompt='Use the oh-no-harness:simplify skill. Read-only dispatch instrumentation test only: do not edit files, do not create artifacts, do not apply cleanup fixes, and do not run Phase 2. Verify Phase 1 dispatch only. Use Codex spawn_agent exactly four times in two host-bounded waves. Wave 1: launch Reuse, Simplification, and Efficiency before any wait, wait_agent, or close_agent call; wait and capture all three. Wave 2: launch Altitude, then wait and capture it. The four cleanup subagent angles must be exactly Reuse, Simplification, Efficiency, and Altitude. For every Codex spawn_agent call, omit agent_type/model/reasoning overrides and do not fork full history. In each same call, use the exact task_name mapping Reuse=simplify_reuse, Simplification=simplify_simplification, Efficiency=simplify_efficiency, Altitude=simplify_altitude. Each spawned-agent message MUST include exactly one line of the form Angle: <angle>, one matching marker line, plus these literal lines: Scope: current diff; Do not edit files; Do not create artifacts; Do not apply cleanup fixes; Do not run Phase 2; Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields. Marker lines by angle: Reuse uses Marker: OH_NO_SIMPLIFY_REUSE_READONLY; Simplification uses Marker: OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY; Efficiency uses Marker: OH_NO_SIMPLIFY_EFFICIENCY_READONLY; Altitude uses Marker: OH_NO_SIMPLIFY_ALTITUDE_READONLY. Each cleanup subagent must return its matching marker and labeled Angle, File, Line, Summary, and Concrete cost fields. For every receiver thread, call wait_agent until that receiver appears in a completed final-status result with its output captured; do not use close_agent as the first result capture for any receiver. After each result is captured, call close_agent only if the host exposes it; otherwise include exactly: Close/cleanup was not available. After all four cleanup subagents finish, include each matching marker in the final response as captured-result evidence. After lifecycle cleanup is closed or recorded unavailable, reply exactly OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK and summarize Review angles: Reuse, Simplification, Efficiency, Altitude; Host-bounded waves: 3+1; Wait results captured: 4; Lifecycle cleanup: closed | unavailable.'
-  prompt="Named THOROUGH broad-diff cleanup trigger. ${prompt}"
-
-  local cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Simplify explicit live artifacts failed the credential-leak guard and were removed"
-  fi
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
-import json
-import re
+)"
+  printf '%s\n' "$oracle_source" \
+    | codex_run_oracle_script /dev/null /dev/null /dev/null "$FUSION_RESCUE_MAX_BUDGET_USD" __fusion_classifier_self_test__ 0
+  "$PYTHON_BIN" - "$SELF_PATH" <<'PY'
 import sys
-from collections import defaultdict
 from pathlib import Path
-
-path = sys.argv[1]
-err_path = sys.argv[2]
-live_home = sys.argv[3]
-expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
-required_payload_markers = [
-    "Scope: current diff",
-    "Do not edit files",
-    "Do not create artifacts",
-    "Do not apply cleanup fixes",
-    "Do not run Phase 2",
-    "Expected output: matching marker plus Angle, File, Line, Summary, Concrete cost fields",
-]
-angle_markers = {
-    "Reuse": "OH_NO_SIMPLIFY_REUSE_READONLY",
-    "Simplification": "OH_NO_SIMPLIFY_SIMPLIFICATION_READONLY",
-    "Efficiency": "OH_NO_SIMPLIFY_EFFICIENCY_READONLY",
-    "Altitude": "OH_NO_SIMPLIFY_ALTITUDE_READONLY",
-}
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-def angles_in_payload(text):
-    matches = []
-    for angle in expected_angles:
-        if re.search(rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$", text):
-            matches.append(angle)
-    return matches
-
-def mentioned_receivers(item):
-    text = collect_text(item)
-    return {
-        receiver
-        for receiver in receiver_to_angle
-        if receiver in text
-    }
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"Codex simplify cleanup smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-successful_spawns = []
-failed_spawns = []
-spawns_by_angle = defaultdict(list)
-wait_or_close_indexes = []
-receiver_to_angle = {}
-wait_index_by_receiver = {}
-wait_result_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
-all_text_parts = []
-parent_thread_id = None
-
-with open(path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-        if "OH_NO_CODEX_SIMPLIFY_SUBAGENTS_OK" in event_text:
-            marker = True
-        if item.get("type") != "collab_tool_call":
-            continue
-
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool in {"wait", "wait_agent", "close_agent"}:
-            wait_or_close_indexes.append(index)
-        if status == "completed":
-            receivers = mentioned_receivers(item)
-            if tool in {"wait", "wait_agent"}:
-                for receiver in receivers:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-            if tool == "close_agent":
-                for receiver in receivers:
-                    close_index_by_receiver.setdefault(receiver, index)
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            spawn_text = collect_text(item)
-            if len(receivers) != 1:
-                raise SystemExit(
-                    f"completed Codex simplify spawn_agent call must have exactly one receiver thread id; "
-                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
-                )
-            matched_angles = angles_in_payload(spawn_text)
-            if len(matched_angles) != 1:
-                raise SystemExit(
-                    "expected each completed simplify spawn_agent payload to contain exactly one Angle line; "
-                    f"line={index} angles={matched_angles!r} text={spawn_text[:2000]!r}"
-                )
-            angle = matched_angles[0]
-            successful_spawns.append((index, angle, tuple(receivers), spawn_text))
-            spawns_by_angle[angle].append((index, spawn_text))
-            for receiver in receivers:
-                receiver_to_angle[receiver] = angle
-
-if failed_spawns:
-    raise SystemExit(f"Codex simplify cleanup smoke saw failed spawn_agent calls: {failed_spawns!r}")
-if not successful_spawns:
-    if not parent_thread_id:
-        raise SystemExit("Codex simplify cleanup smoke lacked both collab events and a parent thread id")
-    transcript_children = {}
-    linked_children = 0
-    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-        rows = [
-            json.loads(line)
-            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip()
-        ]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        if parent != parent_thread_id:
-            continue
-        linked_children += 1
-        user_messages = []
-        encrypted_task_messages = 0
-        assistant_messages = []
-        task_complete_messages = []
-        completed = False
-        completion_timestamp = ""
-        for row in rows:
-            payload = row.get("payload") or {}
-            if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                completion_timestamp = row.get("timestamp", "") or completion_timestamp
-                final_message = collect_text(payload.get("last_agent_message"))
-                if final_message:
-                    task_complete_messages.append(final_message)
-            if row.get("type") != "response_item":
-                continue
-            if payload.get("type") == "agent_message":
-                content = payload.get("content") or []
-                if any(
-                    isinstance(item, dict) and item.get("type") == "encrypted_content"
-                    for item in content
-                ):
-                    encrypted_task_messages += 1
-                else:
-                    user_messages.append(collect_text(content))
-                continue
-            if payload.get("type") != "message":
-                continue
-            if payload.get("role") == "assistant":
-                assistant_messages.append(collect_text(payload.get("content")))
-            elif payload.get("role") == "user":
-                user_messages.append(collect_text(payload.get("content")))
-        assistant_output = (
-            task_complete_messages[-1]
-            if task_complete_messages
-            else "\n".join(dict.fromkeys(assistant_messages))
-        )
-        if not completed or not assistant_output:
-            raise SystemExit("Codex simplify parent-linked child lacked completed final output")
-        output_angles = angles_in_payload(assistant_output)
-        marker_angles = [
-            angle for angle in expected_angles
-            if angle_markers[angle] in assistant_output
-        ]
-        if len(output_angles) != 1 or marker_angles != output_angles:
-            raise SystemExit(
-                "Codex simplify parent-linked child output did not identify exactly one "
-                f"matching angle and marker: angles={output_angles!r} markers={marker_angles!r}"
-            )
-        angle = output_angles[0]
-        if angle in transcript_children:
-            raise SystemExit(f"Codex simplify transcript proof found duplicate children for {angle}")
-        user_input = "\n".join(user_messages)
-        input_angles = angles_in_payload(user_input)
-        if input_angles and input_angles != [angle]:
-            raise SystemExit(
-                f"Codex simplify plaintext child task did not match its {angle} output: "
-                f"{input_angles!r}"
-            )
-        if not input_angles and encrypted_task_messages < 1:
-            raise SystemExit(
-                f"Codex simplify child {angle} lacked plaintext or encrypted task-channel evidence"
-            )
-        task_input = user_input if input_angles == [angle] else ""
-        transcript_children[angle] = {
-            "started": meta.get("timestamp", ""),
-            "completed": completion_timestamp,
-            "input": task_input,
-            "encrypted_task_messages": encrypted_task_messages,
-            "output": assistant_output,
-        }
-    if linked_children != len(expected_angles):
-        raise SystemExit(
-            "Codex simplify transcript proof expected exactly four parent-linked child sessions, "
-            f"found {linked_children}"
-        )
-    missing_children = sorted(set(expected_angles) - set(transcript_children))
-    if missing_children:
-        raise SystemExit(f"Codex simplify transcript proof omitted angles: {missing_children!r}")
-    first_wave_completions = [transcript_children[angle]["completed"] for angle in expected_angles[:3]]
-    altitude_start = transcript_children["Altitude"]["started"]
-    if not all(first_wave_completions) or not altitude_start or max(first_wave_completions) >= altitude_start:
-        raise SystemExit(
-            "Codex simplify transcript proof violated the host-bounded 3+1 completion barrier"
-        )
-    parent_text = "\n".join(all_text_parts)
-    for angle in expected_angles:
-        child = transcript_children[angle]
-        required_input = (f"Marker: {angle_markers[angle]}", *required_payload_markers)
-        if child["input"]:
-            missing_input = [
-                value for value in required_input
-                if value.lower() not in child["input"].lower()
-            ]
-            if missing_input:
-                raise SystemExit(
-                    f"Codex simplify plaintext child {angle} task omitted protocol fields: "
-                    f"{missing_input!r}"
-                )
-        elif child["encrypted_task_messages"] < 1:
-            raise SystemExit(
-                f"Codex simplify child {angle} lacked encrypted task-channel evidence"
-            )
-        required_output = (
-            angle_markers[angle],
-            f"Angle: {angle}",
-            "File:",
-            "Line:",
-            "Summary:",
-            "Concrete cost:",
-        )
-        missing_output = [value for value in required_output if value.lower() not in child["output"].lower()]
-        if missing_output:
-            raise SystemExit(f"Codex simplify typed child {angle} lacked result fields: {missing_output!r}")
-        if angle_markers[angle] not in parent_text:
-            raise SystemExit(f"Codex simplify parent omitted the captured {angle} result marker")
-    if not marker:
-        raise SystemExit("Codex simplify typed children completed but parent omitted the success marker")
-    print("ok - live Codex simplify proved by typed child transcripts in host-bounded 3+1 waves")
-    raise SystemExit(0)
-if len(successful_spawns) != len(expected_angles):
-    raise SystemExit(
-        f"expected exactly {len(expected_angles)} completed simplify spawn_agent calls, "
-        f"got {len(successful_spawns)}: {successful_spawns!r}"
-    )
-missing_angles = [angle for angle in expected_angles if angle not in spawns_by_angle]
-duplicate_angles = {
-    angle: payloads for angle, payloads in spawns_by_angle.items()
-    if len(payloads) != 1
-}
-if missing_angles or duplicate_angles:
-    raise SystemExit(
-        "Codex simplify cleanup angles did not match the required set: "
-        f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
-    )
-receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
-if len(receiver_ids) != len(expected_angles):
-    raise SystemExit(f"expected {len(expected_angles)} distinct simplify receiver threads, got {receiver_ids!r}")
-missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
-missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
-all_text = "\n".join(all_text_parts)
-if missing_wait_results:
-    raise SystemExit(f"Codex simplify cleanup smoke did not capture final wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        "Codex simplify cleanup smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in receiver_ids
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-}
-if early_closes:
-    raise SystemExit(
-        "Codex simplify cleanup smoke closed agents before their wait_agent results were captured: "
-        f"{early_closes!r}"
-    )
-if not wait_or_close_indexes:
-    raise SystemExit("Codex simplify cleanup smoke did not wait for or close spawned cleanup subagents")
-first_wave_angles = expected_angles[:3]
-spawn_index_by_angle = {
-    angle: index for index, angle, _, _ in successful_spawns
-}
-receiver_by_angle = {
-    angle: receivers[0] for _, angle, receivers, _ in successful_spawns
-}
-first_wait_or_close = min(wait_or_close_indexes)
-last_first_wave_spawn = max(spawn_index_by_angle[angle] for angle in first_wave_angles)
-if first_wait_or_close < last_first_wave_spawn:
-    raise SystemExit(
-        "Codex simplify cleanup first wave did not launch all three viewpoints before waiting; "
-        f"first_wait_or_close={first_wait_or_close} last_first_wave_spawn={last_first_wave_spawn}"
-    )
-altitude_spawn = spawn_index_by_angle["Altitude"]
-late_first_wave_results = {
-    angle: wait_index_by_receiver[receiver_by_angle[angle]]
-    for angle in first_wave_angles
-    if wait_index_by_receiver[receiver_by_angle[angle]] >= altitude_spawn
-}
-if late_first_wave_results:
-    raise SystemExit(
-        "Codex simplify cleanup launched Altitude before capturing every first-wave result; "
-        f"altitude_spawn={altitude_spawn} first_wave_waits={late_first_wave_results!r}"
-    )
-late_first_wave_closes = {
-    angle: close_index_by_receiver[receiver_by_angle[angle]]
-    for angle in first_wave_angles
-    if receiver_by_angle[angle] in close_index_by_receiver
-    and close_index_by_receiver[receiver_by_angle[angle]] >= altitude_spawn
-}
-if late_first_wave_closes:
-    raise SystemExit(
-        "Codex simplify cleanup launched Altitude before closing completed first-wave receivers: "
-        f"altitude_spawn={altitude_spawn} first_wave_closes={late_first_wave_closes!r}"
-    )
-for angle, payloads in spawns_by_angle.items():
-    _, payload = payloads[0]
-    missing_markers = [
-        marker for marker in [
-            f"Angle: {angle}",
-            f"Marker: {angle_markers[angle]}",
-            *required_payload_markers,
-        ]
-        if marker.lower() not in payload.lower()
-    ]
-    if missing_markers:
-        raise SystemExit(
-            f"Codex simplify spawn_agent payload for {angle} missed required prompt markers: "
-            f"{missing_markers}; payload={payload[:2000]!r}"
-        )
-for angle in expected_angles:
-    receiver = receiver_by_angle[angle]
-    result = wait_result_by_receiver[receiver]
-    required_result_patterns = (
-        rf"(?im)^\s*{re.escape(angle_markers[angle])}\s*$",
-        rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$",
-        r"(?im)^\s*File:\s*\S.+$",
-        r"(?im)^\s*Line:\s*\S.+$",
-        r"(?im)^\s*Summary:\s*\S.+$",
-        r"(?im)^\s*Concrete cost:\s*\S.+$",
-    )
-    missing_result_fields = [
-        pattern for pattern in required_result_patterns
-        if re.search(pattern, result) is None
-    ]
-    if missing_result_fields:
-        raise SystemExit(
-            f"Codex simplify cleanup result for {angle} lacked structured evidence: "
-            f"{missing_result_fields!r}; result={result[:2000]!r}"
-        )
-    if angle_markers[angle] not in all_text:
-        raise SystemExit(
-            f"Codex simplify cleanup parent did not preserve the captured {angle} result marker"
-        )
-if not marker:
-    raise SystemExit("Codex simplify cleanup smoke did not return success marker")
-
-print("ok - live Codex simplify cleanup subagents spawned in host-bounded 3+1 waves")
-PY
-
-  log "Running live Codex simplify natural SessionStart-dispatch smoke test"
-  out_file="$RUN_DIR/simplify-natural-session-start.jsonl"
-  err_file="$RUN_DIR/simplify-natural-session-start.err"
-  prompt='Named THOROUGH broad-diff maintainability trigger. Use the oh-no-harness:simplify skill for a read-only natural SessionStart smoke test. Review only docs/reference/source-index.md through the normal Phase 1 path. Do not inspect other changed files, edit files, create artifacts, apply fixes, or continue to Phase 2. End with OH_NO_CODEX_SIMPLIFY_NATURAL_OK and summarize the Reuse, Simplification, Efficiency, and Altitude findings.'
-
-  assert_natural_prompt_has_no_explicit_subagent_terms "simplify" "$prompt"
-
-  local natural_cmd=(
-    "$CODEX_BIN"
-    --enable plugin_hooks
-    --ask-for-approval never
-    exec
-    --json
-    --cd "$PLUGIN_ROOT"
-    --sandbox read-only
-    --skip-git-repo-check
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    natural_cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${natural_cmd[@]}" "$prompt" >"$out_file" 2>"$err_file"
-  if ! assert_no_codex_live_secret_leak \
-    "$CODEX_HOME_DIR/auth.json" \
-    "$out_file" \
-    "$err_file" \
-    "$CODEX_HOME_DIR/sessions"; then
-    rm -f "$out_file" "$err_file"
-    fail "Codex Simplify natural live artifacts failed the credential-leak guard and were removed"
-  fi
-
-  "$PYTHON_BIN" - "$out_file" "$err_file" "$CODEX_HOME_DIR" <<'PY'
-import json
-import re
-import sys
-from collections import defaultdict
-from pathlib import Path
-
-path = sys.argv[1]
-err_path = sys.argv[2]
-live_home = sys.argv[3]
-expected_angles = ["Reuse", "Simplification", "Efficiency", "Altitude"]
-expected_agent_nodes = {
-    "Reuse": "simplify_reuse",
-    "Simplification": "simplify_simplification",
-    "Efficiency": "simplify_efficiency",
-    "Altitude": "simplify_altitude",
-}
-allowed_discovery_roles = {
-    "oh-no-analyst",
-    "oh-no-code-reviewer",
-    "oh-no-explore",
-}
-required_payload_markers = [
-    "Do not edit files",
-    "Do not apply cleanup fixes",
-    "Do not run Phase 2",
-]
-def collect_text(value):
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(collect_text(item) for item in value.values())
-    if isinstance(value, list):
-        return "\n".join(collect_text(item) for item in value)
-    return ""
-
-def angles_in_payload(text):
-    exact = [
-        angle for angle in expected_angles
-        if re.search(rf"(?im)^\s*Angle:\s*{re.escape(angle)}\s*$", text)
-    ]
-    if exact:
-        return exact
-    structural = [
-        angle for angle in expected_angles
-        if re.search(
-            rf"(?im)^\s*(?:#{{1,6}}\s*)?(?:(?:viewpoint|perspective|lens)\s*:\s*)?"
-            rf"{re.escape(angle)}(?:\s+(?:review|findings?|analysis|pass))?\s*:?[ \t]*$",
-            text,
-        )
-    ]
-    if structural:
-        return structural
-    prefix = text[:1200]
-    return [
-        angle for angle in expected_angles
-        if re.search(rf"(?i)\b{re.escape(angle)}\b", prefix)
-    ]
-
-def missing_result_evidence(text):
-    lower_text = text.lower()
-    no_candidate = bool(
-        re.search(r"(?i)\bno (?:cleanup )?(?:candidates?|findings?)\b", text)
-    )
-    structured_finding = bool(
-        re.search(r"(?im)^\s*(?:key\s+)?findings?\s*:", text)
-        and re.search(r"(?im)^\s*[-*]\s+.*source-index\.md", text)
-    )
-    inline_finding = bool(
-        re.search(
-            r"(?im)^\s*[-*]\s+.*source-index\.md(?::[0-9]+|#L[0-9]+).*?\s+[—-]\s+\S+",
-            text,
-        )
-    )
-    checks = {
-        "file": "docs/reference/source-index.md" in lower_text,
-        "line": bool(
-            no_candidate
-            or re.search(r"(?i)\blines?\s*:?[ \t]*(?:[0-9]+|n/?a|none)\b", text)
-            or re.search(r"(?i)source-index\.md(?::[0-9]+|#L[0-9]+)", text)
-        ),
-        "summary": bool(
-            re.search(r"(?im)^\s*(?:[-*]\s*)?(?:summary|finding)\s*:", text)
-            or no_candidate
-            or structured_finding
-            or inline_finding
-        ),
-        "concrete cost": bool(
-            no_candidate
-            or re.search(r"(?i)\b(?:concrete\s+cost|cost\s+if\s+ignored|cost)\b", text)
-        ),
-    }
-    return [field for field, present in checks.items() if not present]
-
-
-def mentioned_receivers(item):
-    text = collect_text(item)
-    return {receiver for receiver in receiver_to_angle if receiver in text}
-
-with open(err_path, "r", encoding="utf-8") as fh:
-    err_text = fh.read()
-if (
-    "spawn failed" in err_text.lower()
-    or "agent thread limit reached" in err_text.lower()
-    or "full-history forked agents inherit" in err_text.lower()
-    or "provide either message or items" in err_text.lower()
-):
-    raise SystemExit(f"Codex simplify natural smoke saw spawn failure in stderr: {err_text[:2000]!r}")
-
-successful_spawns = []
-failed_spawns = []
-spawns_by_angle = defaultdict(list)
-wait_or_close_indexes = []
-receiver_to_angle = {}
-wait_index_by_receiver = {}
-wait_result_by_receiver = {}
-close_index_by_receiver = {}
-marker = False
-all_text_parts = []
-parent_thread_id = None
-
-with open(path, "r", encoding="utf-8") as fh:
-    for index, line in enumerate(fh, 1):
-        if not line.strip():
-            continue
-        data = json.loads(line)
-        if data.get("type") == "thread.started":
-            parent_thread_id = data.get("thread_id") or parent_thread_id
-        item = data.get("item") or {}
-        event_text = collect_text(data)
-        if item.get("type") == "agent_message":
-            all_text_parts.append(event_text)
-        if "OH_NO_CODEX_SIMPLIFY_NATURAL_OK" in event_text:
-            marker = True
-        if item.get("type") != "collab_tool_call":
-            continue
-
-        tool = item.get("tool")
-        status = item.get("status")
-        if tool in {"wait", "wait_agent", "close_agent"}:
-            wait_or_close_indexes.append(index)
-        if status == "completed":
-            receivers = mentioned_receivers(item)
-            if tool in {"wait", "wait_agent"}:
-                for receiver in receivers:
-                    state = (item.get("agents_states") or {}).get(receiver) or {}
-                    if state.get("status") == "completed" and state.get("message"):
-                        wait_index_by_receiver.setdefault(receiver, index)
-                        wait_result_by_receiver.setdefault(receiver, str(state.get("message")))
-            if tool == "close_agent":
-                for receiver in receivers:
-                    close_index_by_receiver.setdefault(receiver, index)
-        if tool == "spawn_agent" and status == "failed":
-            failed_spawns.append((index, collect_text(item)[:2000]))
-        if tool == "spawn_agent" and status == "completed":
-            receivers = item.get("receiver_thread_ids") or []
-            spawn_text = collect_text(item)
-            if len(receivers) != 1:
-                raise SystemExit(
-                    f"completed Codex simplify natural spawn_agent call must have exactly one receiver thread id; "
-                    f"line={index} receivers={receivers!r} text={spawn_text[:2000]!r}"
-                )
-            matched_angles = angles_in_payload(spawn_text)
-            if len(matched_angles) != 1:
-                raise SystemExit(
-                    "expected each completed natural simplify spawn_agent payload to contain exactly one Angle line; "
-                    f"line={index} angles={matched_angles!r} text={spawn_text[:2000]!r}"
-                )
-            angle = matched_angles[0]
-            successful_spawns.append((index, angle, tuple(receivers), spawn_text))
-            spawns_by_angle[angle].append((index, spawn_text))
-            for receiver in receivers:
-                receiver_to_angle[receiver] = angle
-
-if failed_spawns:
-    raise SystemExit(f"Codex simplify natural smoke saw failed spawn_agent calls: {failed_spawns!r}")
-if not successful_spawns:
-    if not parent_thread_id:
-        raise SystemExit("Codex simplify natural smoke lacked both collab events and a parent thread id")
-    transcript_children = {}
-    linked_children = 0
-    for transcript_path in (Path(live_home) / "sessions").rglob("*.jsonl"):
-        rows = [
-            json.loads(line)
-            for line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.strip()
-        ]
-        meta = next(
-            (row.get("payload") or {} for row in rows if row.get("type") == "session_meta"),
-            None,
-        )
-        if not isinstance(meta, dict):
-            continue
-        source = meta.get("source") if isinstance(meta.get("source"), dict) else {}
-        subagent = source.get("subagent") if isinstance(source.get("subagent"), dict) else {}
-        thread_spawn = subagent.get("thread_spawn") if isinstance(subagent.get("thread_spawn"), dict) else {}
-        parent = meta.get("parent_thread_id") or thread_spawn.get("parent_thread_id")
-        if parent != parent_thread_id:
-            continue
-        linked_children += 1
-        user_messages = []
-        encrypted_task_messages = 0
-        assistant_messages = []
-        task_complete_messages = []
-        completed = False
-        completion_timestamp = ""
-        for row in rows:
-            payload = row.get("payload") or {}
-            if row.get("type") == "event_msg" and payload.get("type") == "task_complete":
-                completed = True
-                completion_timestamp = row.get("timestamp", "") or completion_timestamp
-                final_message = collect_text(payload.get("last_agent_message"))
-                if final_message:
-                    task_complete_messages.append(final_message)
-            if row.get("type") != "response_item":
-                continue
-            if payload.get("type") == "agent_message":
-                content = payload.get("content") or []
-                if any(
-                    isinstance(item, dict) and item.get("type") == "encrypted_content"
-                    for item in content
-                ):
-                    encrypted_task_messages += 1
-                else:
-                    user_messages.append(collect_text(content))
-                continue
-            if payload.get("type") != "message":
-                continue
-            if payload.get("role") == "assistant":
-                assistant_messages.append(collect_text(payload.get("content")))
-            elif payload.get("role") == "user":
-                user_messages.append(collect_text(payload.get("content")))
-        assistant_output = (
-            task_complete_messages[-1]
-            if task_complete_messages
-            else "\n".join(dict.fromkeys(assistant_messages))
-        )
-        if not completed or not assistant_output:
-            raise SystemExit(
-                "Codex simplify natural parent-linked child lacked completed final output"
-            )
-        agent_role = meta.get("agent_role") or thread_spawn.get("agent_role")
-        if agent_role not in allowed_discovery_roles:
-            raise SystemExit(
-                "Codex simplify natural parent-linked child used a non-discovery "
-                f"typed role: {agent_role!r}"
-            )
-        agent_path = str(meta.get("agent_path") or thread_spawn.get("agent_path") or "")
-        agent_node = agent_path.rstrip("/").rsplit("/", 1)[-1]
-        metadata_angles = [
-            angle for angle, expected_node in expected_agent_nodes.items()
-            if agent_node == expected_node
-        ]
-        if len(metadata_angles) != 1:
-            raise SystemExit(
-                "Codex simplify natural parent-linked child metadata did not identify "
-                f"exactly one viewpoint: agent_path={agent_path!r} matches={metadata_angles!r}"
-            )
-        angle = metadata_angles[0]
-        output_angles = angles_in_payload(assistant_output)
-        if len(output_angles) > 1 or (output_angles and output_angles != [angle]):
-            raise SystemExit(
-                f"Codex simplify natural {angle} child output contradicted its typed "
-                f"agent-path identity: {output_angles!r}"
-            )
-        if angle in transcript_children:
-            raise SystemExit(f"Codex simplify natural transcript proof found duplicate children for {angle}")
-        user_input = "\n".join(user_messages)
-        input_angles = angles_in_payload(user_input)
-        if encrypted_task_messages >= 1:
-            task_input = ""
-        elif input_angles == [angle]:
-            task_input = user_input
-        else:
-            raise SystemExit(
-                f"Codex simplify natural plaintext child task did not match its {angle} "
-                f"output and lacked encrypted task-channel evidence: {input_angles!r}"
-            )
-        transcript_children[angle] = {
-            "started": meta.get("timestamp", ""),
-            "completed": completion_timestamp,
-            "input": task_input,
-            "encrypted_task_messages": encrypted_task_messages,
-            "output": assistant_output,
-        }
-    if linked_children != len(expected_angles):
-        raise SystemExit(
-            "Codex simplify natural transcript proof expected exactly four parent-linked "
-            f"child sessions, found {linked_children}"
-        )
-    missing_children = sorted(set(expected_angles) - set(transcript_children))
-    if missing_children:
-        raise SystemExit(f"Codex simplify natural transcript proof omitted angles: {missing_children!r}")
-    first_wave_completions = [transcript_children[angle]["completed"] for angle in expected_angles[:3]]
-    altitude_start = transcript_children["Altitude"]["started"]
-    if not all(first_wave_completions) or not altitude_start or max(first_wave_completions) >= altitude_start:
-        raise SystemExit(
-            "Codex simplify natural transcript proof violated the host-bounded 3+1 completion barrier"
-        )
-    parent_text = "\n".join(all_text_parts)
-    for angle in expected_angles:
-        child = transcript_children[angle]
-        if child["input"]:
-            missing_input = [
-                value for value in (f"Angle: {angle}", *required_payload_markers)
-                if value.lower() not in child["input"].lower()
-            ]
-            if missing_input:
-                raise SystemExit(
-                    f"Codex simplify natural plaintext child {angle} task omitted "
-                    f"skill-owned fields: {missing_input!r}"
-                )
-        elif child["encrypted_task_messages"] < 1:
-            raise SystemExit(
-                f"Codex simplify natural child {angle} lacked encrypted task-channel evidence"
-            )
-        missing_output = missing_result_evidence(child["output"])
-        if missing_output:
-            raise SystemExit(
-                f"Codex simplify natural typed child {angle} lacked semantic result "
-                f"evidence: {missing_output!r}"
-            )
-        if angle.lower() not in parent_text.lower():
-            raise SystemExit(f"Codex simplify natural parent omitted the {angle} disposition")
-    if not marker:
-        raise SystemExit("Codex simplify natural typed children completed but parent omitted the success marker")
-    print("ok - live Codex simplify natural path proved by typed child transcripts")
-    raise SystemExit(0)
-if len(successful_spawns) != len(expected_angles):
-    raise SystemExit(
-        f"expected exactly {len(expected_angles)} completed natural simplify spawn_agent calls from SessionStart authorization, "
-        f"got {len(successful_spawns)}: {successful_spawns!r}"
-    )
-missing_angles = [angle for angle in expected_angles if angle not in spawns_by_angle]
-duplicate_angles = {
-    angle: payloads for angle, payloads in spawns_by_angle.items()
-    if len(payloads) != 1
-}
-if missing_angles or duplicate_angles:
-    raise SystemExit(
-        "Codex simplify natural cleanup angles did not match the required set: "
-        f"missing={missing_angles!r} duplicates={duplicate_angles!r}"
-    )
-receiver_ids = {receivers[0] for _, _, receivers, _ in successful_spawns}
-missing_wait_results = sorted(receiver_ids - set(wait_index_by_receiver))
-missing_closes = sorted(receiver_ids - set(close_index_by_receiver))
-all_text = "\n".join(all_text_parts)
-if missing_wait_results:
-    raise SystemExit(f"Codex simplify natural smoke did not capture final wait_agent results for receivers: {missing_wait_results!r}")
-if missing_closes and "close/cleanup was not available" not in all_text.lower():
-    raise SystemExit(
-        "Codex simplify natural smoke left receivers without close evidence or an unavailable-cleanup record: "
-        f"{missing_closes!r}"
-    )
-early_closes = {
-    receiver: (wait_index_by_receiver[receiver], close_index_by_receiver[receiver])
-    for receiver in receiver_ids
-    if receiver in close_index_by_receiver
-    and close_index_by_receiver[receiver] <= wait_index_by_receiver[receiver]
-}
-if early_closes:
-    raise SystemExit(
-        "Codex simplify natural smoke closed agents before their wait_agent results were captured: "
-        f"{early_closes!r}"
-    )
-if not wait_or_close_indexes:
-    raise SystemExit("Codex simplify natural smoke did not wait for or close spawned cleanup workers")
-first_wave_angles = expected_angles[:3]
-spawn_index_by_angle = {
-    angle: index for index, angle, _, _ in successful_spawns
-}
-receiver_by_angle = {
-    angle: receivers[0] for _, angle, receivers, _ in successful_spawns
-}
-first_wait_or_close = min(wait_or_close_indexes)
-last_first_wave_spawn = max(spawn_index_by_angle[angle] for angle in first_wave_angles)
-if first_wait_or_close < last_first_wave_spawn:
-    raise SystemExit(
-        "Codex simplify natural first wave did not launch all three viewpoints before waiting; "
-        f"first_wait_or_close={first_wait_or_close} last_first_wave_spawn={last_first_wave_spawn}"
-    )
-altitude_spawn = spawn_index_by_angle["Altitude"]
-late_first_wave_results = {
-    angle: wait_index_by_receiver[receiver_by_angle[angle]]
-    for angle in first_wave_angles
-    if wait_index_by_receiver[receiver_by_angle[angle]] >= altitude_spawn
-}
-if late_first_wave_results:
-    raise SystemExit(
-        "Codex simplify natural smoke launched Altitude before capturing every first-wave result; "
-        f"altitude_spawn={altitude_spawn} first_wave_waits={late_first_wave_results!r}"
-    )
-late_first_wave_closes = {
-    angle: close_index_by_receiver[receiver_by_angle[angle]]
-    for angle in first_wave_angles
-    if receiver_by_angle[angle] in close_index_by_receiver
-    and close_index_by_receiver[receiver_by_angle[angle]] >= altitude_spawn
-}
-if late_first_wave_closes:
-    raise SystemExit(
-        "Codex simplify natural smoke launched Altitude before closing completed first-wave receivers: "
-        f"altitude_spawn={altitude_spawn} first_wave_closes={late_first_wave_closes!r}"
-    )
-for angle, payloads in spawns_by_angle.items():
-    _, payload = payloads[0]
-    missing_markers = [
-        marker for marker in required_payload_markers
-        if marker.lower() not in payload.lower()
-    ]
-    if missing_markers:
-        raise SystemExit(
-            f"Codex simplify natural spawn_agent payload for {angle} missed skill-owned prompt markers: "
-            f"{missing_markers}; payload={payload[:2000]!r}"
-        )
-for angle in expected_angles:
-    receiver = receiver_by_angle[angle]
-    result = wait_result_by_receiver[receiver]
-    result_angles = angles_in_payload(result)
-    if result_angles != [angle]:
-        raise SystemExit(
-            f"Codex simplify natural result did not identify exactly {angle}: "
-            f"{result_angles!r}"
-        )
-    missing_result_fields = missing_result_evidence(result)
-    if missing_result_fields:
-        raise SystemExit(
-            f"Codex simplify natural result for {angle} lacked semantic evidence: "
-            f"{missing_result_fields!r}; result={result[:2000]!r}"
-        )
-    if angle.lower() not in all_text.lower():
-        raise SystemExit(f"Codex simplify natural parent omitted the {angle} disposition")
-if not marker:
-    raise SystemExit("Codex simplify natural smoke did not return success marker")
-
-print("ok - live Codex simplify spawned cleanup subagents from SessionStart standing authorization")
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+start = source.index("run_fusion_rescue_live_test()")
+end = source.index("run_codex_cross_host_fallback_live_test()", start)
+body = source[start:end]
+required = (
+    '"accepted_outcome": "PASS(provider-limited)" if provider_limited else "PASS"',
+    "invocation transport was proven but Claude panel inference/output was unavailable",
+    'if fallback.get("status") != "passed":',
+    "permission fallback also passed",
+    "assert_no_codex_live_secret_leak",
+    '|| first_leg_' + 'rc=$?',
+    'primary_receiver, claude_call = inspect_linked_' + 'primary_claude_call(\n    receiver_to_lens, receiver_transcripts\n)',
+    'provider_limited = claude_call["outcome"] == "provider-' + 'limited"\nif first_leg_rc not in {0, 1}:',
+    'if first_leg_rc == 1 and not provider_' + 'limited:',
+    'if (( first_oracle_rc != 0 )); ' + 'then',
+    'return "$first_leg_' + 'rc"',
+    'write_fusion_rescue_safe_' + 'rejection_summary',
+)
+missing = [fragment for fragment in required if fragment not in body]
+if missing:
+    raise SystemExit(f"Fusion provider-limited continuation contract missed fragments: {missing!r}")
+provider_summary = body.index('"accepted_outcome": "PASS(provider-limited)"')
+fallback_run = body.index('log "Running live Codex Fusion Rescue permission fallback smoke test"')
+final_report = body.index('print("PASS(provider-limited) - invocation transport was proven')
+if not provider_summary < fallback_run < final_report:
+    raise SystemExit("Fusion provider-limited path could exit before permission-fallback continuation")
+print("ok - Fusion provider-limited summary remains distinct and permission fallback continues")
 PY
 }
 
-run_worktree_live_test() {
-  if [[ "$RUN_WORKTREE_LIVE" != "1" ]]; then
-    log "Skipping live Codex Ralph worktree-creation smoke test"
-    printf 'Run with --worktree-live or OH_NO_WORKTREE_LIVE=1 to verify Ralph creates a project-local task worktree.\n' >&2
-    return 0
-  fi
-
-  log "Running live Codex Ralph worktree-creation smoke test"
-  mkdir -p "$RUN_DIR"
-
-  local repo="$RUN_DIR/worktree-live-repo"
-  local out_file="$RUN_DIR/worktree-live.txt"
-  local log_file="$RUN_DIR/worktree-live.log"
-  rm -rf "$repo"
-  mkdir -p "$repo"
-  git -C "$repo" init -q
-  git -C "$repo" config user.email "oh-no-harness@example.invalid"
-  git -C "$repo" config user.name "Oh No Harness Test"
-  printf '.oh-no/\n' >"$repo/.gitignore"
-  printf '# Worktree Live Fixture\n' >"$repo/README.md"
-  git -C "$repo" add .gitignore README.md
-  git -C "$repo" commit -q -m "initial fixture"
-
-  local prompt
-  prompt='Use the oh-no-harness:ralph skill. Live worktree creation smoke test. This repository is disposable. Concrete task: create src/worktree-live.txt containing exactly OH_NO_CODEX_WORKTREE_CONTENT and a trailing newline. Acceptance criteria: the file exists in a registered Git worktree created by git worktree add, the content matches exactly, and the original integration checkout is not edited. Follow Ralph worktree isolation before any source edit: run git worktree add .oh-no/worktrees/<task-slug> -b <branch-name> or select an already registered project-local Git worktree under .oh-no/worktrees/<task-slug>, record Worktree decision: direct automatic worktree, and do not create a parent-directory sibling worktree. git clone, cp -R, mkdir-only directories, and manual checkouts are invalid for this test. Do not merge back; leave the task worktree in place for external inspection. Run verification from the task worktree, including git worktree list --porcelain from the integration checkout. End the final response with OH_NO_CODEX_WORKTREE_LIVE_OK and include the exact Worktree location.'
-
-  local cmd=(
-    "$CODEX_BIN"
-    --ask-for-approval never
-    exec
-    --cd "$repo"
-    --sandbox danger-full-access
-    --output-last-message "$out_file"
-  )
-
-  if [[ -n "$LIVE_MODEL" ]]; then
-    cmd+=(--model "$LIVE_MODEL")
-  fi
-
-  run_codex_live_command "$CODEX_HOME_DIR" "${cmd[@]}" "$prompt" >"$log_file" 2>&1
-
-  "$PYTHON_BIN" - "$repo" "$out_file" <<'PY'
+run_fusion_rescue_control_flow_offline_test() {
+  log "Running offline production-linked Fusion Rescue control-flow fixtures"
+  "$PYTHON_BIN" - "$SELF_PATH" <<'PY'
+import json
+import os
+import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-repo = Path(sys.argv[1]).resolve()
-out_file = Path(sys.argv[2])
-text = out_file.read_text(encoding="utf-8") if out_file.exists() else ""
+source = Path(sys.argv[1]).resolve()
+runner = r'''
+set -euo pipefail
+script="$1"
+root="$2"
+set --
+source "$script"
+mkdir -p "$root/run" "$root/home/sessions"
+RUN_FUSION_RESCUE_LIVE=1
+RUN_DIR="$root/run"
+CODEX_HOME_DIR="$root/home"
+CODEX_BIN=codex-fixture
+LIVE_MODEL=""
+FUSION_RESCUE_MAX_BUDGET_USD=0.50
+trace="$root/trace"
+: >"$trace"
+run_codex_live_command() {
+  local count
+  count="$(grep -c '^command-' "$trace" || true)"
+  count=$((count + 1))
+  printf 'command-%s\n' "$count" >>"$trace"
+  if [[ "$count" == 1 ]]; then
+    printf '%s\n' "${FIRST_TRANSCRIPT:-fixture-first-leg}"
+    printf '%s\n' "fixture-first-stderr" >&2
+    return "${FIRST_RC:-0}"
+  fi
+  printf '%s\n' 'fixture-fallback-output'
+  printf '%s\n' 'fixture-fallback-stderr' >&2
+  return "${FALLBACK_COMMAND_RC:-0}"
+}
+assert_no_codex_live_secret_leak() {
+  local count
+  count="$(grep -c '^scan-' "$trace" || true)"
+  count=$((count + 1))
+  printf 'scan-%s\n' "$count" >>"$trace"
+  if [[ "$count" == 1 ]]; then
+    if [[ "${FIRST_SCAN:-pass}" != pass ]]; then
+      printf '%s\n' 'SAFE_SECRET_DIAGNOSTIC {"status":"fixture-secret-scan-rejected"}' >&2
+      return 1
+    fi
+  else
+    [[ "${FALLBACK_SCAN:-pass}" == pass ]]
+  fi
+}
+codex_run_oracle_script() {
+  if [[ "$#" == 8 ]]; then
+    local temp script_file helpers_file substitutions status=0
+    temp="$(mktemp -d)"; script_file="$temp/oracle.py"; helpers_file="$temp/helpers.py"
+    codex_oracle_shared_helpers >"$helpers_file"
+    substitutions="$(awk -v helpers="$helpers_file" '$0 == "#@SHARED_HELPERS@" { n += 1; while ((getline line < helpers) > 0) print line > out; close(helpers); next } { print > out } END { print n + 0 }' out="$script_file")"
+    [[ "$substitutions" == 1 ]] || return 98
+    "$PYTHON_BIN" "$script_file" "$@" || status=$?
+    rm -rf "$temp"
+    return "$status"
+  fi
+  cat >/dev/null
+  if [[ "$#" == 6 ]]; then
+    printf 'classify\n' >>"$trace"
+    local rc="$6" summary="$5" class="${FIRST_CLASS:-full}"
+    if [[ "${FIRST_PARSER_RC:-0}" != 0 ]]; then return "$FIRST_PARSER_RC"; fi
+    if [[ "$class" == provider && ( "$rc" == 0 || "$rc" == 1 ) ]]; then
+      printf '%s\n' '{"status":"provider-limited","accepted_outcome":"PASS(provider-limited)"}' >"$summary"
+      return 0
+    fi
+    if [[ "$class" == full && "$rc" == 0 ]]; then
+      printf '%s\n' '{"status":"passed","accepted_outcome":"PASS"}' >"$summary"
+      return 0
+    fi
+    return 65
+  fi
+  printf 'fallback-parser\n' >>"$trace"
+  [[ "${FALLBACK_PARSER_RC:-0}" == 0 ]] || return "$FALLBACK_PARSER_RC"
+  if [[ "${FALLBACK_SUMMARY:-passed}" == passed ]]; then
+    printf '%s\n' '{"status":"passed"}' >"$4"
+  else
+    printf '%s\n' '{"status":"failed"}' >"$4"
+  fi
+}
+run_fusion_rescue_live_test
+'''
 
-if "OH_NO_CODEX_WORKTREE_LIVE_OK" not in text:
-    raise SystemExit(f"worktree live smoke missing success marker; got {text!r}")
+def case(label, env, expected_rc, expected_pass=None, expected_trace=(), absent_trace=(), safe_schema=False, safe_expect=None):
+    with tempfile.TemporaryDirectory() as temp:
+        case_env = os.environ.copy()
+        case_env.update(env)
+        result = subprocess.run(
+            ["bash", "-c", runner, "fusion-control-fixture", str(source), temp],
+            text=True,
+            capture_output=True,
+            env=case_env,
+        )
+        trace_path = Path(temp) / "trace"
+        trace = trace_path.read_text(encoding="utf-8").splitlines() if trace_path.exists() else []
+        if result.returncode != expected_rc:
+            raise SystemExit(f"{label}: rc={result.returncode}, expected={expected_rc}, stderr={result.stderr!r}")
+        combined = result.stdout + result.stderr
+        if expected_pass is not None and expected_pass not in combined:
+            raise SystemExit(f"{label}: missing final pass {expected_pass!r}: {combined!r}")
+        if expected_pass is None and "PASS(provider-limited)" in combined:
+            raise SystemExit(f"{label}: emitted provider-limited pass on rejected path")
+        positions = []
+        for marker in expected_trace:
+            if marker not in trace:
+                raise SystemExit(f"{label}: missing trace marker {marker!r}: {trace!r}")
+            positions.append(trace.index(marker))
+        if positions != sorted(positions):
+            raise SystemExit(f"{label}: trace order was not preserved: {trace!r}")
+        if any(marker in trace for marker in absent_trace):
+            raise SystemExit(f"{label}: forbidden trace marker present: {trace!r}")
+        if safe_schema:
+            summary = json.loads((Path(temp) / "run" / "fusion-rescue-codex-claude.summary.json").read_text(encoding="utf-8"))
+            required = {
+                "status", "reason_code", "first_leg_rc", "scanner_result", "artifacts",
+                "launch_count", "event_shapes", "verified_argv", "correlated_inner_exit_code",
+                "terminal_status_failed", "http429", "cooldown", "success_marker",
+                "competing_error", "classifier_outcome", "classifier_rc", "fallback",
+            }
+            if set(summary) != required or summary["fallback"] != {"status": "not-run"}:
+                raise SystemExit(f"{label}: unsafe or incomplete rejection schema: {summary!r}")
+            for key, expected in (safe_expect or {}).items():
+                actual = summary
+                for component in key.split("."):
+                    actual = actual[component]
+                if actual != expected:
+                    raise SystemExit(f"{label}: safe summary {key}={actual!r}, expected {expected!r}: {summary!r}")
+            if (Path(temp) / "run" / "fusion-rescue-codex-claude.jsonl").exists() or (Path(temp) / "run" / "fusion-rescue-codex-claude.err").exists():
+                raise SystemExit(f"{label}: raw first-leg artifacts survived rejection")
 
-root_file = repo / "src" / "worktree-live.txt"
-if root_file.exists():
-    raise SystemExit(f"Ralph edited integration checkout instead of only task worktree: {root_file}")
-
-worktree_root = repo / ".oh-no" / "worktrees"
-candidates = sorted(worktree_root.rglob("src/worktree-live.txt")) if worktree_root.exists() else []
-if not candidates:
-    raise SystemExit(f"no task worktree file found under {worktree_root}")
-
-valid_candidates = [
-    path for path in candidates
-    if path.read_text(encoding="utf-8") == "OH_NO_CODEX_WORKTREE_CONTENT\n"
-]
-if not valid_candidates:
-    details = {str(path): path.read_text(encoding="utf-8", errors="replace") for path in candidates}
-    raise SystemExit(f"task worktree file content did not match: {details!r}")
-
-porcelain = subprocess.check_output(
-    ["git", "-C", str(repo), "worktree", "list", "--porcelain"],
-    text=True,
-)
-registered = [
-    Path(line.split(" ", 1)[1]).resolve()
-    for line in porcelain.splitlines()
-    if line.startswith("worktree ")
-]
-project_local = [
-    path for path in registered
-    if path != repo and str(path).startswith(str(worktree_root.resolve()) + "/")
-]
-if not project_local:
-    raise SystemExit(f"no registered project-local task worktree in git worktree list: {porcelain!r}")
-
-if not any(any(str(candidate.resolve()).startswith(str(worktree) + "/") for worktree in project_local) for candidate in valid_candidates):
-    raise SystemExit(
-        "matching file was not inside a registered project-local worktree; "
-        f"candidates={valid_candidates!r} registered={project_local!r}"
+def heredoc_wrapper_transcript():
+    prompt = "Review the assigned primary panel directly."
+    py_source = (
+        'import os\nimport subprocess\nimport sys\n\n'
+        'prompt = ' + repr(prompt) + '\n'
+        "exe = os.environ.get('CLAUDE_BIN') or 'claude'\n"
+        "argv = [exe, '--print', '--model', 'opus', '--max-budget-usd', '0.50', '--permission-mode', 'dontAsk', '--no-session-persistence', prompt]\n"
+        'try:\n'
+        '    completed = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300, check=False)\n'
+        'except FileNotFoundError:\n'
+        "    print('CLAUDE_CALL_STATUS=executable_not_found')\n"
+        '    sys.exit(127)\n'
+        'except subprocess.TimeoutExpired:\n'
+        "    print('CLAUDE_CALL_STATUS=timeout')\n"
+        '    sys.exit(124)\n'
+        "print('CLAUDE_CALL_STATUS=completed')\n"
+        "print('CLAUDE_EXIT_CODE=' + str(completed.returncode))\n"
+        "print('CLAUDE_STDOUT_BEGIN')\n"
+        'print(completed.stdout)\n'
+        "print('CLAUDE_STDOUT_END')\n"
+        'if completed.stderr:\n'
+        "    print('CLAUDE_STDERR_BEGIN')\n"
+        '    print(completed.stderr)\n'
+        "    print('CLAUDE_STDERR_END')\n"
+        'sys.exit(completed.returncode)\n'
     )
+    command = "python3 - <<'PY'\n" + py_source + "PY"
+    launch_input = (
+        'const r = await tools.exec_command({cmd: ' + json.dumps(command) + '});\n'
+        'text(r.output); if (r.session_id) text(`SESSION_ID=${r.session_id}`);'
+    )
+    output = "CLAUDE_CALL_STATUS=completed\nCLAUDE_EXIT_CODE=1\nCLAUDE_STDOUT_BEGIN\nAPI Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\nCLAUDE_STDOUT_END\n"
+    rows = (
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-heredoc", "input": launch_input}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "launch-heredoc", "output": "Script running with cell ID 1\nOutput:\n"}},
+        {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-heredoc", "arguments": json.dumps({"cell_id": "1"})}},
+        {"payload": {"type": "function_call_output", "call_id": "wait-heredoc", "output": [{"type": "input_text", "text": json.dumps({"session_id": 32478, "output": ""})}]}},
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-heredoc", "input": "const r = await tools.write_stdin({session_id: 32478, chars: \"\", yield_time_ms: 30000, max_output_tokens: 8000}); text(r.output); if (r.session_id) text(`SESSION_ID=${r.session_id}`);"}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "poll-heredoc", "output": "Script running with cell ID 2\nOutput:\n"}},
+        {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-heredoc-final", "arguments": json.dumps({"cell_id": "2"})}},
+        {"payload": {"type": "function_call_output", "call_id": "wait-heredoc-final", "output": output}},
+    )
+    return "\n".join(json.dumps(row) for row in rows)
 
-print("ok - live Codex Ralph created project-local task worktree")
+def semantic_transport_wrapper_transcript():
+    prompt = "Review the assigned primary panel directly."
+    py_source = (
+        'import os, subprocess, sys\n'
+        'prompt = ' + repr(prompt) + '\n'
+        'binary = os.environ.get("CLAUDE_BIN") or "claude"\n'
+        'args = [binary, "--print", "--model", "opus", "--max-budget-usd", "0.50", "--permission-mode", "dontAsk", "--no-session-persistence", prompt]\n'
+        'try:\n'
+        '    cp = subprocess.run(args, shell=False, capture_output=True, text=True)\n'
+        'except Exception as exc:\n'
+        '    print("CLAUDE_LAUNCH_FAILURE_TYPE=" + type(exc).__name__)\n'
+        '    sys.exit(125)\n'
+        'print("CLAUDE_EXIT_STATUS=" + str(cp.returncode))\n'
+        'print("CLAUDE_STDERR_CLASS=" + ("empty" if not cp.stderr else "nonempty"))\n'
+        'print("CLAUDE_STDOUT_BEGIN")\n'
+        'print(cp.stdout, end="" if cp.stdout.endswith("\\\\n") or not cp.stdout else "\\\\n")\n'
+        'print("CLAUDE_STDOUT_END")\n'
+        'sys.exit(0)\n'
+    )
+    launch_input = (
+        'const r = await tools.exec_command({cmd: ' + json.dumps("python3 -c " + shlex.quote(py_source)) + ', '
+        'workdir: "/tmp/fusion-fixture", yield_time_ms: 30000, max_output_tokens: 12000});\n'
+        'text(r.output);\nif (r.session_id) text(`SESSION_ID=${r.session_id}`);'
+    )
+    terminal_text = (
+        "CLAUDE_EXIT_STATUS=1\nCLAUDE_STDERR_CLASS=empty\nCLAUDE_STDOUT_BEGIN\n"
+        "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude\n"
+        "\\nCLAUDE_STDOUT_END\n"
+    )
+    rows = [
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "call_ksm2zVFgGGQBkjfq6HsAPYVm", "input": launch_input}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "call_ksm2zVFgGGQBkjfq6HsAPYVm", "output": "Script running with cell ID 1\nOutput:\n"}},
+        {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-semantic", "arguments": json.dumps({"cell_id": "1"})}},
+        {"payload": {"type": "function_call_output", "call_id": "wait-semantic", "output": [{"type": "input_text", "text": json.dumps({"session_id": 16195, "output": ""})}]}},
+    ]
+    for index in range(1, 5):
+        rows.extend((
+            {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": f"poll-semantic-{index}", "input": 'const r = await tools.write_stdin({session_id: 16195, chars: "", yield_time_ms: 30000, max_output_tokens: 12000}); text(r.output); if (r.session_id) text(`SESSION_ID=${r.session_id}`);'}},
+            {"payload": {"type": "custom_tool_call_output", "call_id": f"poll-semantic-{index}", "output": f"Script running with cell ID {index + 1}\nOutput:\n"}},
+        ))
+    rows.extend((
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "call_eWhCQFTAiwnBHFcEbFPooZLM", "input": 'const r = await tools.write_stdin({session_id: 16195, chars: "", yield_time_ms: 30000, max_output_tokens: 12000}); text(r.output); if (r.session_id) text(`SESSION_ID=${r.session_id}`);'}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "call_eWhCQFTAiwnBHFcEbFPooZLM", "output": [{"type": "input_text", "text": terminal_text}]}},
+        {"type": "event_msg", "payload": {"type": "task_complete", "last_agent_message": "Claude marker: absent."}},
+    ))
+    return "\n".join(json.dumps(row) for row in rows)
+
+
+def assigned_wrapper_transcript(competing=False, source_transform=None):
+    prompt = "Review the assigned primary panel directly."
+    py_source = (
+        'import os, subprocess\n'
+        'prompt = """' + prompt + '"""\n'
+        'argv = [os.environ.get("CLAUDE_BIN", "claude"), "--print", "--model", "opus", "--max-budget-usd", "0.50", "--permission-mode", "dontAsk", "--no-session-persistence", prompt]\n'
+        'result = subprocess.run(argv, capture_output=True, text=True, timeout=240)\n'
+        'print(result.stdout, end="")\n'
+        'if result.stderr: print("\\n[stderr]", result.stderr, end="")\n'
+        'raise SystemExit(result.returncode)'
+    )
+    if source_transform is not None:
+        py_source = source_transform(py_source)
+    launch_input = (
+        'const r = await tools.exec_command({cmd: ' + json.dumps("python3 -c " + shlex.quote(py_source)) + ', '
+        'workdir: "/tmp/fusion-fixture", yield_time_ms: 30000, max_output_tokens: 8000});\n'
+        'text(JSON.stringify(r));'
+    )
+    output = "API Error: Request rejected (429) · All credentials for model claude-opus-5 are cooling down via provider claude"
+    if competing:
+        output += "; permission denied"
+    rows = (
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "launch-assigned", "input": launch_input}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "launch-assigned", "output": "Script running with cell ID 1\nWall time 11.0 seconds\nOutput:\n"}},
+        {"payload": {"type": "function_call", "name": "wait", "call_id": "wait-assigned", "arguments": json.dumps({"cell_id": "1"})}},
+        {"payload": {"type": "function_call_output", "call_id": "wait-assigned", "output": [{"type": "input_text", "text": json.dumps({"session_id": 52069, "output": ""})}]}},
+        {"payload": {"type": "custom_tool_call", "name": "exec", "call_id": "poll-assigned", "input": "const r = await tools.write_stdin({session_id: 52069, chars: \"\", yield_time_ms: 30000, max_output_tokens: 8000}); text(JSON.stringify(r));"}},
+        {"payload": {"type": "custom_tool_call_output", "call_id": "poll-assigned", "output": [{"type": "input_text", "text": json.dumps({"exit_code": 1, "output": output})}]}},
+    )
+    return "\n".join(json.dumps(row) for row in rows)
+
+ordered = ("command-1", "scan-1", "classify", "command-2", "scan-2", "fallback-parser")
+case("provider RC1 continues", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FIRST_TRANSCRIPT":"HTTP 429: credentials cooling down"}, 0, "PASS(provider-limited) -", ordered)
+case("provider RC0 continues", {"FIRST_RC":"0", "FIRST_CLASS":"provider", "FIRST_TRANSCRIPT":heredoc_wrapper_transcript()}, 0, "PASS(provider-limited) -", ordered)
+case("full RC0 continues", {"FIRST_RC":"0", "FIRST_CLASS":"full", "FIRST_TRANSCRIPT":"OH_NO_CLAUDE_FUSION_PANEL_OK"}, 0, "PASS -", ordered)
+case("arbitrary RC1 preserved", {"FIRST_RC":"1", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":"generic failure"}, 1, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True)
+wrapper_summary = {
+    "launch_count": 1,
+    "verified_argv.executable": True,
+    "verified_argv.print_mode": True,
+    "verified_argv.model_opus": True,
+    "verified_argv.budget": True,
+    "verified_argv.permission_mode_dontAsk": True,
+    "verified_argv.session_persistence_disabled": True,
+    "verified_argv.tools_override_absent": True,
+    "correlated_inner_exit_code": 1,
+    "terminal_status_failed": True,
+    "http429": True,
+    "cooldown": True,
+}
+case("assigned wrapper safe summary", {"FIRST_RC":"1", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":assigned_wrapper_transcript()}, 1, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True, safe_expect={**wrapper_summary, "competing_error": False})
+case("heredoc wrapper safe summary", {"FIRST_RC":"0", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":heredoc_wrapper_transcript()}, 65, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True, safe_expect={**wrapper_summary, "first_leg_rc": 0, "competing_error": False})
+case("semantic transport wrapper safe summary", {"FIRST_RC":"0", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":semantic_transport_wrapper_transcript()}, 65, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True, safe_expect={**wrapper_summary, "first_leg_rc": 0, "competing_error": False})
+case("assigned wrapper competing error safe summary", {"FIRST_RC":"1", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":assigned_wrapper_transcript(competing=True)}, 1, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True, safe_expect={**wrapper_summary, "competing_error": True})
+for label, transform in (
+    ("constant SystemExit", lambda source: source.replace('raise SystemExit(result.returncode)', 'raise SystemExit(1)')),
+    ("stdout prose constant", lambda source: source.replace('print(result.stdout, end="")', 'print("unrelated stdout", end="")')),
+    ("altered stderr condition", lambda source: source.replace('if result.stderr:', 'if True:')),
+    ("stderr else branch", lambda source: source.replace(
+        'if result.stderr: print("\\n[stderr]", result.stderr, end="")',
+        'if result.stderr:\n    print("\\n[stderr]", result.stderr, end="")\nelse:\n    print("unrelated")',
+    )),
+):
+    case(f"safe summary rejects {label}", {"FIRST_RC":"1", "FIRST_CLASS":"reject", "FIRST_TRANSCRIPT":assigned_wrapper_transcript(source_transform=transform)}, 1, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"), safe_schema=True, safe_expect={"launch_count": 0})
+case("timeout RC124 preserved", {"FIRST_RC":"124", "FIRST_CLASS":"provider", "FIRST_TRANSCRIPT":"HTTP 429: credentials cooling down"}, 124, None, ("command-1", "scan-1", "classify"), ("command-2", "fallback-parser"))
+case("scanner blocks classifier", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FIRST_SCAN":"fail"}, 1, None, ("command-1", "scan-1"), ("classify", "command-2", "fallback-parser"))
+case("fallback command failure blocks pass", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FALLBACK_COMMAND_RC":"71"}, 71, None, ordered[:4], ("fallback-parser",))
+case("fallback scanner blocks parser", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FALLBACK_SCAN":"fail"}, 1, None, ordered[:5], ("fallback-parser",))
+case("fallback parser blocks pass", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FALLBACK_PARSER_RC":"72"}, 72, None, ordered)
+case("fallback failed summary blocks pass", {"FIRST_RC":"1", "FIRST_CLASS":"provider", "FALLBACK_SUMMARY":"failed"}, 1, None, ordered)
+print("ok - production-linked Fusion Rescue captured-RC, scanner, classifier, fallback, and final-pass ordering fixtures passed")
 PY
 }
 
-run_codex_live_parser_regression_offline_test() {
-  log "Running offline Codex production-linked live-parser regression fixtures"
-  "$PYTHON_BIN" - "${SCRIPT_DIR}/test-codex-plugin.sh" <<'PY'
-import json, re, subprocess, sys, tempfile
-from pathlib import Path
-source = Path(sys.argv[1]).read_text(); blocks = re.findall(r"<<'PY'\n(.*?)\nPY", source, re.S)
-ralplan = next(block for block in blocks if "planner_versions" in block and "Codex ralplan natural transcript proof" in block)
-parallel = next(block for block in blocks if "completion_records" in block and "Codex live parallel smoke saw spawn failure" in block)
-def write(path, rows): path.write_text("".join(json.dumps(row) + "\n" for row in rows))
-def meta(parent, role, timestamp): return {"type":"session_meta","payload":{"timestamp":timestamp,"parent_thread_id":parent,"agent_role":"oh-no-"+role}}
-def task(timestamp): return {"timestamp":timestamp,"type":"response_item","payload":{"type":"agent_message","content":[{"type":"encrypted_content"}]}}
-def done(timestamp, text): return {"timestamp":timestamp,"type":"event_msg","payload":{"type":"task_complete","last_agent_message":text}}
-def run(code, out, err, home): return subprocess.run([sys.executable,"-",str(out),str(err),str(home)],input=code,text=True,capture_output=True)
-def expect(label, result, success, needle=""):
- if (result.returncode == 0) != success or (not success and needle not in result.stderr): raise SystemExit(f"{label} unexpected result: rc={result.returncode} stderr={result.stderr!r}")
-with tempfile.TemporaryDirectory() as temp:
- root=Path(temp); home=root/"home"; sessions=home/"sessions"; sessions.mkdir(parents=True); err=root/"err"; err.write_text(""); out=root/"out"
- roles=["explore","analyst","planner","executor","debugger","verifier","code-reviewer","fusion-rescue-analyst"]; starts=dict(zip(roles,["01","01.1","01.2","06","06.1","09","09.1","09.2"])); finishes=dict(zip(roles,["02","03","04","07","08","10","11","12"]))
- def role_output(role): return f"Role: {role}\nOH_NO_PARALLEL_RESULT {role}\nSkill Relationship: present\nResponsibilities: present\nOperating Rules: present\nOutput: present"
- parent="\n".join(["OH_NO_CODEX_PARALLEL_SUBAGENTS_OK"]+[f"OH_NO_PARALLEL_RESULT {role}" for role in roles]); write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
- def parallel_case(label, first_time, first_output, later, success, needle=""):
-  for role in roles:
-   rows=[meta("parent",role,starts[role]),task(starts[role]+"5"),done(first_time if role=="explore" else finishes[role],first_output if role=="explore" else role_output(role))]
-   if role=="explore" and later: rows.append(done(*later))
-   write(sessions/(role+".jsonl"),rows)
-  expect(label,run(parallel,out,err,home),success,needle)
- parallel_case("parallel preserves first evidence","02",role_output("explore"),("08","unrelated"),True); parallel_case("parallel rejects empty first output","02","",("08",role_output("explore")),False,"initial task_complete lacked timestamp or output"); parallel_case("parallel rejects late first completion","07",role_output("explore"),None,False,"completion barriers violated")
-with tempfile.TemporaryDirectory() as temp:
- root=Path(temp); home=root/"home"; sessions=home/"sessions"; sessions.mkdir(parents=True); err=root/"err"; err.write_text(""); out=root/"out"
- v1="Planner draft id: v1\nGoal: one review round\nAcceptance criteria:\n- AC1 verdict binding\n- AC2 revision ordering\nScope: parser\nConstraint: no model\nWorktree: none\nStep 1: review\nStep 2: repair\nVerification: fixture\nRisk: low\nApproval: pending"; v2_base="Planner revision id: v2-final\nGoal: one review round\nAcceptance criteria:\n- AC1 verdict binding\n- AC2 revision ordering\nScope: parser\nConstraint: no model\nWorktree: none\nStep 1: review\nStep 2: repaired\nVerification: fixture\nRisk: low\nApproval: final"
- default_blocker=("finding-alpha","accepted","AC2","Plan step 2","Revision could precede review","Move revision after reviews")
- def review_record(blocker, basis=""):
-  finding_id,_,default_basis,pointer,consequence,correction=blocker; return f"Finding id: {finding_id}\nBlocking basis: {basis or default_basis}\nDraft pointer: {pointer}\nMaterial consequence: {consequence}\nSmallest correction: {correction}"
- def repair_record(blocker, missing="", basis=""):
-  finding_id,disposition,default_basis,_,_,_=blocker; fields=[("Disposition",disposition),("Blocking basis",basis or default_basis),("Applied change","revision follows reviews"),("Body section pointer","Step 2")]; dropped=missing if isinstance(missing,tuple) else (missing,); return "Finding id: "+finding_id+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name not in dropped)
- def mapped_record(blocker, mapping_missing="", mapping_extra=()):
-  fields=[("Applied change","mapped repair"),("Body section pointer","Step 2")]+list(mapping_extra); return "Finding id: "+blocker[0]+"\n"+"\n".join(f"{name}: {value}" for name,value in fields if name != mapping_missing)
- def ralplan_case(label, verdicts, revision, revision_task="07", reviewed=("v1","v1"), parent_verdict=None, blockers=(default_blocker,), missing="", mapping_missing="", mapping_extra=(), topology=None, second_basis="", v2_basis="", cross_host=False, retain_opposite=True, mapping=True, success=True, needle=""):
-  review_outputs=[]
-  for index, verdict in enumerate(verdicts):
-   blocker_text="\n".join(review_record(blocker,second_basis if index==1 else "") for blocker in blockers); finding=blocker_text if verdict=="ITERATE" else "none"; incidental="R5 NB1 HTTP2; ITERATE was discussed but not selected." if verdict=="APPROVE" else "APPROVE wording is incidental."
-   review_outputs.append(f"Reviewed draft: {reviewed[index]}\nVerdict: {verdict}\nArchitecture findings:\n{finding}\nQuality-gate findings: none\nDirection preservation: preserved\nRequired changes for Planner: see blocking finding records\nReview note: {incidental}")
-  v2=v2_base+"\n"+"\n".join(repair_record(blocker,missing if index==0 else "",v2_basis if index==0 else "") for index,blocker in enumerate(blockers)); final_plan=v2 if revision else v1; parent_verdict=parent_verdict or ("ITERATE" if "ITERATE" in verdicts or cross_host else verdicts[0])
-  opposite=("Opposite-host: Claude\nArchitecture findings:\n"+("\n".join(review_record(blocker) for blocker in blockers) if retain_opposite else "none")) if cross_host else ""; mapped="\n".join(mapped_record(blocker,mapping_missing,mapping_extra) for blocker in blockers); mapping_text=("Finding-to-fix mapping:\n"+mapped) if revision and mapping else ""
-  topology=topology or ("cross-host" if cross_host else "same-host-perspective-pair"); parent=final_plan+f"\nReviewed draft: v1\nVerdict: {parent_verdict}\n{opposite}\n{mapping_text}\nMapping note: accepted wording is unrelated.\n{topology}\nConsensus: decision recorded\nContradictions: none\nRecommended next action: approve\nOH_NO_CODEX_RALPLAN_NATURAL_OK"; write(out,[{"type":"thread.started","thread_id":"parent"},{"type":"item.completed","item":{"type":"agent_message","text":parent}}])
-  planner_rows=[meta("parent","planner","01"),task("01.5"),done("02",v1)]; planner_rows += [task(revision_task),done("08",v2)] if revision else []; write(sessions/"planner.jsonl",planner_rows)
-  for path in sessions.glob("review*.jsonl"): path.unlink()
-  for index,output in enumerate(review_outputs): write(sessions/f"review{index+1}.jsonl",[meta("parent","plan-reviewer","03" if index==0 else "03.1"),task("03.5" if index==0 else "03.6"),done("05" if index==0 else "06",output)])
-  expect(label,run(ralplan,out,err,home),success,needle)
- ralplan_case("parent APPROVE no revision",("APPROVE","APPROVE"),False); ralplan_case("parent ITERATE contradicts no revision",("APPROVE","APPROVE"),False,parent_verdict="ITERATE",success=False,needle="parent verdict contradicted"); ralplan_case("anchored REJECT overrides incidental APPROVE",("REJECT","APPROVE"),False,success=False,needle="received REJECT"); ralplan_case("APPROVE cannot revise",("APPROVE","APPROVE"),True,success=False,needle="revised without an accepted ITERATE")
- ralplan_case("equivalent consensus duplicate",("ITERATE","ITERATE"),True); ralplan_case("conflicting consensus duplicate",("ITERATE","ITERATE"),True,second_basis="AC9",success=False,needle="conflicting blocker semantics"); ralplan_case("v2 basis mismatch",("APPROVE","ITERATE"),True,v2_basis="AC9",success=False,needle="Blocking basis did not match"); ralplan_case("cross-host APPROVE plus parent ITERATE",("APPROVE",),True,cross_host=True)
- ralplan_case("cross-host missing retained blocker",("APPROVE",),True,cross_host=True,retain_opposite=False,success=False,needle="explicit blocker records"); ralplan_case("parent APPROVE contradicts v2",("APPROVE","ITERATE"),True,parent_verdict="APPROVE",success=False,needle="parent verdict contradicted"); ralplan_case("revision assigned before review completion",("APPROVE","ITERATE"),True,revision_task="05.5",success=False,needle="not assigned after both reviews"); ralplan_case("mismatched reviewed draft",("APPROVE","ITERATE"),True,reviewed=("v1","v2-final"),success=False,needle="did not bind to the initial Planner draft")
- ralplan_case("partial blocker disposition rejects",("APPROVE","ITERATE"),True,blockers=(default_blocker,("finding-beta","deferred","AC3","Plan step 3","Second issue remains","Repair second issue")),success=False,needle="not accepted"); ralplan_case("missing blocker field rejects",("APPROVE","ITERATE"),True,missing="Disposition",success=False,needle="missing fields")
- ralplan_case("relocated mapping fields resolve from parent brief",("APPROVE","ITERATE"),True,missing=("Applied change","Body section pointer")); ralplan_case("relocated mapping fields missing everywhere rejects",("APPROVE","ITERATE"),True,missing=("Applied change","Body section pointer"),mapping_missing="Applied change",success=False,needle="missing fields"); ralplan_case("non-relocated v2 fields never fall back to parent",("APPROVE","ITERATE"),True,missing=("Disposition","Blocking basis"),mapping_extra=(("Disposition","accepted"),("Blocking basis","AC2")),success=False,needle="missing fields")
- ralplan_case("recorded single-reviewer STANDARD approves",("APPROVE",),False,topology="single-reviewer"); ralplan_case("recorded single-reviewer STANDARD iterates",("ITERATE",),True,topology="single-reviewer"); ralplan_case("unrecorded lone reviewer rejects",("APPROVE",),False,topology="Reviewer count: one",success=False,needle="lacked opposite-host review evidence")
-print(f"ok - production-linked Codex parser fixtures passed with optimize={sys.flags.optimize}")
-PY
-}
 main() {
   cd "$PLUGIN_ROOT"
-  require_command "$CODEX_BIN"
   require_command "$PYTHON_BIN"
-  run_live_timeout_offline_test
-  run_codex_live_parser_regression_offline_test
-  run_natural_prompt_guard_offline_test
-  run_natural_git_fixture_offline_test
-  run_codex_natural_activation_assertion_offline_test
-  validate_codex_live_secret_scanner
+  require_command "$CODEX_BIN"
+  run_live_timeout_offline_test; run_direct_smoke_classifier_offline_test
+  run_codex_dispatch_oracle_offline_test; run_cross_host_oracle_offline_test
+  run_codex_install_identity_offline_test; run_codex_install_integration_offline_test
+  run_codex_active_plugin_root_offline_test; run_codex_safety_extraction_offline_test
+  run_fusion_rescue_provider_classifier_offline_test; run_fusion_rescue_control_flow_offline_test
+  validate_codex_live_secret_scanner; run_codex_dispatch_evidence_offline_test
   validate_codex_live_clone_safety
-  validate_ralplan_live_option_compatibility
   prepare_isolated_codex_live_home
-
   log "Testing ${PLUGIN_ID} for Codex from ${PLUGIN_ROOT}"
-  validate_codex_manifest
-  validate_codex_hooks
-  validate_codex_agent_installer
-  install_via_codex_plugins
-  install_codex_agents_user_scope
-  assert_codex_prompt_exposes_skills
+  validate_codex_manifest; validate_codex_hooks; validate_codex_agent_installer
+  install_via_codex_plugins; install_codex_agents_user_scope; assert_codex_prompt_exposes_skills
   run_live_tests
-  run_deep_live_tests
-  run_ralplan_live_test
-  run_named_agents_live_test
-  run_fusion_rescue_live_test
-  run_codex_cross_host_fallback_live_test
-  run_parallel_live_test
-  run_simplify_live_test
-  run_natural_session_start_live_tests
-  run_worktree_live_test
+  run_dispatch_live_tests
+  run_cross_host_live_test
   log "All requested Codex checks passed"
 }
-
-# Run main only when executed directly so deterministic offline functions can be
-# sourced and exercised without installing the plugin or spending model budget.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  main "$@"
-fi
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then main "$@"; fi

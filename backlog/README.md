@@ -38,18 +38,13 @@ the current feature work.
     `Worktree decision` carve-out, and nothing prevents re-adding the duplication
     AC-4 removed. None is a defect in what shipped. The first three are one
     additive string each; the fourth needs a real detector.
-- [Live verification of need-based dispatch and inline contract](./need-based-dispatch-live-verification.md)
-  - **Open; the four source commits shipped with offline evidence only.** The
-    2026-07-30 change made dispatch-versus-inline a judgment call and gave the
-    inline path the full executor contract, but no live attempt has produced a
-    verdict on either. Two blocking test defects are now fixed — `ac508df`
-    (Claude stale position constraint) and `467ca98` (Codex could not see a
-    dispatched child's commands at all). The earlier "Codex hallucinated /
-    `<multi_agent_mode>` caused it" reading is retracted: the child spawned and
-    really read the file. Still open: `autonomous end-to-end` times out at 900s,
-    two rules (manifest-exit promotion, contract inheritance) have no runtime
-    lane, and the remaining positive-evidence oracles are over-strict rather than
-    child-blind — see the file for why widening them is the wrong fix.
+- [Retired natural dispatch verification and deferred host-crossing work](./need-based-dispatch-live-verification.md)
+  - **Natural model-suite coverage retired by task #51.** Historical failures in
+    natural routing, role topology, Simplify scheduling, and Ralplan finalization
+    belonged to the removed maintainer test design and are not runtime defect
+    claims. Static/reachability and direct-invocation invariant checks remain.
+    Still open only where independently substantive: Cross-host reviewer
+    substantive-read evidence and Fusion Rescue provider-credit validation.
 - [Review packet lightening](./review-packet-lightening.md)
   - Stop review packets from converting a bounded requirements question into an
     unbounded search: drop investigation-path instructions, role-core duplicates,

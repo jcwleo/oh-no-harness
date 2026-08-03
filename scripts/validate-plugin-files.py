@@ -2520,26 +2520,12 @@ def assert_tdd_routing_contract(marketplace_root: Path, root: Path) -> None:
         if "test-driven-development" in text and marker not in text:
             die(f"{path} is missing README TDD/Ralph routing marker: {marker!r}")
 
-    test_script_markers = {
-        "scripts/test-codex-plugin.sh": (
-            "explicit TDD/test-first smoke request",
-            "internal mid-loop discipline",
-            "not a top-level implementation route",
-        ),
-        "scripts/test-claude-plugin.sh": (
-            "Explicit TDD/test-first smoke request",
-            "internal mid-loop discipline",
-            "not a top-level implementation route",
-        ),
-    }
-    for relative_path, markers in test_script_markers.items():
+    for relative_path in ("scripts/test-codex-plugin.sh", "scripts/test-claude-plugin.sh"):
         path = marketplace_root / relative_path
         text = read_text(path)
-        for marker in markers:
+        for marker in ("test-driven-development", "create-red-first", "direct_invariant_for_skill()"):
             if marker not in text:
-                die(f"{path} is missing live-test TDD routing marker: {marker!r}")
-        if "Implement a small behavior change. Smoke test only" in text:
-            die(f"{path} still uses a generic implementation prompt for TDD smoke tests")
+                die(f"{path} is missing direct TDD invariant marker: {marker!r}")
 
     checked_paths = (
         description_paths
@@ -2734,60 +2720,39 @@ def assert_hook_contract(root: Path) -> None:
 
 
 def assert_hook_test_contract(marketplace_root: Path) -> None:
-    """Require the live-lane markers that remain after prompt-hook removal."""
+    """Require deterministic hook/config tests and inert deferred Fusion parsers."""
     codex_path = marketplace_root / "scripts" / "test-codex-plugin.sh"
     codex_text = read_text(codex_path)
     for marker in (
-        "--fusion-rescue-live",
-        "OH_NO_FUSION_RESCUE_LIVE",
         "OH_NO_CODEX_FUSION_RESCUE_LIVE_OK",
         "OH_NO_CLAUDE_FUSION_PANEL_OK",
-        "Claude Opus must answer the assigned panel directly",
+        "def fusion_launcher_proof",
     ):
         if marker not in codex_text:
-            die(f"{codex_path} is missing Codex fusion-rescue live marker: {marker!r}")
+            die(f"{codex_path} is missing deferred Fusion marker: {marker!r}")
 
     claude_path = marketplace_root / "scripts" / "test-claude-plugin.sh"
     claude_text = read_text(claude_path)
     for marker in (
-        "--model-diversity-live",
-        "<OH_NO_MODEL_DIVERSITY>",
-        "top_tier_models",
-        "secondary_top_model",
-        "model-diversity-pair",
-        "same-model-parallel-fallback",
-        "require-model-diversity",
-        "panel-default",
+        "direct_invariant_for_skill()",
+        "run_configure_subagents_offline_test()",
+        "run_marketplace_isolation_offline_test()",
+        "run_claude_state_isolation_offline_test()",
         "oh-no-claude-hook-cap",
-        "top_tier_models=fable opus sonnet haiku gpt-5.6-sol gpt-5.6-terra",
-        "assignment=%s,gpt-5.6-terra,max",
-        "matching-max",
-        "reapply-max",
-        "failure-max",
-        "maximum configured matching, reapply, and failure SessionStart branches stay within 6600",
     ):
         if marker not in claude_text:
-            die(f"{claude_path} is missing Claude model-diversity live marker: {marker!r}")
+            die(f"{claude_path} is missing retained deterministic test marker: {marker!r}")
 
     configure_test_path = marketplace_root / "scripts" / "test-configure-subagents.sh"
     configure_test = read_text(configure_test_path)
     for marker in (
-        "OH_NO_CONFIG_DIR",
-        "CLAUDE_PLUGIN_DATA",
-        "CLAUDE_CONFIG_DIR",
-        "XDG_CONFIG_HOME",
-        "<OH_NO_MODEL_DIVERSITY>",
-        "DEFAULT_TOP_TIER_MODELS",
-        "secondary_top_model",
-        "top_tier_models",
-        "degenerate",
-        "no preferences",
+        "OH_NO_CONFIG_DIR", "CLAUDE_PLUGIN_DATA", "CLAUDE_CONFIG_DIR",
+        "XDG_CONFIG_HOME", "<OH_NO_MODEL_DIVERSITY>", "DEFAULT_TOP_TIER_MODELS",
+        "secondary_top_model", "top_tier_models", "degenerate", "no preferences",
         "no secondary",
     ):
         if marker not in configure_test:
             die(f"{configure_test_path} is missing deterministic resolver/diversity fixture marker: {marker!r}")
-
-
 
 def assert_public_docs_contract(marketplace_root: Path, root: Path) -> None:
     plugin_agents = read_text(root / "AGENTS.md")
@@ -3192,43 +3157,28 @@ def assert_test_harness_lane_contract(marketplace_root: Path, root: Path) -> Non
         searched = ", ".join(str(candidate) for candidate in script_candidates)
         die(f"test-harness-lane-contract.py is missing; searched: {searched}")
     result = subprocess.run(
-        [
-            sys.executable,
-            str(script),
-            "--marketplace-root",
-            str(marketplace_root),
-            "--plugin-root",
-            str(root),
-        ],
+        [sys.executable, str(script), "--marketplace-root", str(marketplace_root), "--plugin-root", str(root)],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
-        details = "\n".join(
-            part for part in (result.stdout.strip(), result.stderr.strip()) if part
-        )
+        details = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
         die(f"test harness lane contract failed:\n{details}")
 
-    for name in ("test-codex-plugin.sh", "test-claude-plugin.sh"):
-        test_path = marketplace_root / "scripts" / name
-        test_body = read_text(test_path)
-        for marker in (
-            "only the Ralplan planning phase owns that role",
-            "APPROVE freezes the exact reviewed Planner draft",
-            "Optional follow-up: NB1",
-            "Planner revision: not run",
-        ):
-            if not has_required_marker(test_body, marker):
-                die(f"{test_path} is missing plan-review boundary expectation: {marker!r}")
-    codex_test = read_text(marketplace_root / "scripts" / "test-codex-plugin.sh")
-    claude_test = read_text(marketplace_root / "scripts" / "test-claude-plugin.sh")
-    for body, label, forbidden in (
-        (codex_test, "Codex", "Wave 2: plan-reviewer, executor, debugger"),
-        (claude_test, "Claude", "Wave 2: oh-no-harness:plan-reviewer, oh-no-harness:executor, oh-no-harness:debugger"),
-    ):
-        if forbidden in body:
-            die(f"{label} Ralph live smoke still directly dispatches plan-reviewer")
-
+    obsolete = (
+        "--deep-live", "--parallel-live", "--ralplan-live", "--named-agents-live",
+        "--simplify-live", "--natural-session-start-live", "--worktree-live",
+        "--model-diversity-live", "--parallel-executor-live", "--live-hook-only",
+    )
+    for host in ("claude", "codex"):
+        path = marketplace_root / "scripts" / f"test-{host}-plugin.sh"
+        text = read_text(path)
+        leftovers = [flag for flag in obsolete if flag in text]
+        if leftovers:
+            die(f"{path} retains retired live-suite options: {leftovers}")
+        for marker in ("direct_invariant_for_skill()", "direct_prompt_for_skill()", "Invariant:", "forbidden project mutation"):
+            if marker not in text:
+                die(f"{path} is missing direct-smoke contract marker: {marker!r}")
 
 def assert_direct_dispatch_compatibility_contract(root: Path) -> None:
     """Keep direct role dispatch proportional without weakening repository safety."""
@@ -5508,52 +5458,6 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
         if not has_required_marker(ralph_output, marker):
             die(f"ralph.md Output is missing conditional phase-attribution rule: {marker!r}")
 
-    repo_root = root.parent.parent
-    for host in ("codex", "claude"):
-        host_test = read_text(repo_root / "scripts" / f"test-{host}-plugin.sh")
-        common_markers = (
-            'r"(?m)^Reviewed draft:[ \\t]*(.*?)[ \\t]*$"',
-            "len(unique_reviewed) != 1",
-        )
-        host_markers = (
-            (
-                'planner_draft_ids != [proof["draft_id"]]',
-                'next(iter(unique_reviewed)) != proof["draft_id"]',
-            )
-            if host == "codex"
-            else (
-                "captured_draft_id = normalize_transport_whitespace(draft_id.group(1))",
-                "reviewed_draft_id = next(iter(unique_reviewed))",
-                "if reviewed_draft_id != captured_draft_id:",
-            )
-        )
-        for marker in (*common_markers, *host_markers):
-            if marker not in host_test:
-                die(f"{host} explicit Ralplan live parser is missing anchored Reviewed draft validation: {marker!r}")
-        prefix_comparisons = (
-            "reviewed_draft_id.startswith(captured_draft_id)",
-            'next(iter(unique_reviewed)).startswith(proof["draft_id"])',
-        )
-        if any(value in host_test for value in prefix_comparisons):
-            die(f"{host} explicit Ralplan live parser must compare exact normalized Reviewed draft id")
-
-    codex_test = read_text(repo_root / "scripts" / "test-codex-plugin.sh")
-    for marker in (
-        "if not 1 <= len(reviewer_sessions) <= 2:",
-        "exceeded one perspective pair in the single review round",
-        "if len(final_reviewer_evidence) not in (1, 2):",
-        "if len(final_reviewer_evidence) == 2:",
-        "max(final_review_dispatches) >= min(final_review_completions)",
-        "elif len(final_reviewer_evidence) == 1:",
-        "opposite_host_review_evidence",
-        "single typed Plan-Reviewer lacked opposite-host review evidence",
-        "parent_pair_synthesis_evidence",
-        "lacked parent pair-synthesis evidence",
-        "same-host-perspective-pair",
-    ):
-        if marker not in codex_test:
-            die(f"Codex Ralplan live parser is missing single-round pair proof: {marker!r}")
-
     # docs/shared retired 2026-07-17: the canonical Diff-Budget timing lives
     # in ralph.md and is asserted above; guard only against the conditional
     # phrasing regressing inside the ralph core.
@@ -6212,6 +6116,7 @@ def main() -> None:
     assert_generated_skill_wrappers(marketplace_root, root)
     assert_generated_agent_wrappers(marketplace_root, root)
     assert_test_harness_lane_contract(marketplace_root, root)
+    assert_review_boundary_mutation_tests(marketplace_root, root)
     assert_skill_reachability(marketplace_root, root)
     for skill in ALL_SKILLS:
         assert_skill(root, skill)
@@ -6230,7 +6135,6 @@ def main() -> None:
     assert_parallel_executor_contract(root)
     assert_proportional_workflow_contract(root)
     assert_ralplan_review_boundary_contract(root)
-    assert_review_boundary_mutation_tests(marketplace_root, root)
     assert_provider_guidance(root)
     assert_worktree_contract(marketplace_root, root)
     assert_tdd_routing_contract(marketplace_root, root)

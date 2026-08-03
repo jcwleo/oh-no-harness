@@ -1,40 +1,59 @@
 # Test Harness Lanes
 
-This reference is the deterministic contract for Oh No Harness local smoke,
-live, deep-live, release/static, validator, and reachability lanes. It defines
-what each lane owns, which failures are hard, which model-output differences are
-non-gating warnings, and which signals are evidence limitations rather than
-proof.
+This reference defines the maintainer test surface. It governs repository
+maintenance only; it does not change runtime routing, skill descriptions, or
+workflow behavior.
 
-Codex live lanes that create a disposable `CODEX_HOME` must begin by cloning
-the active runtime configuration: `config.toml`, available authentication/config
-JSON, and the complete `agents/*.toml` directory. Plugin installation, agent
-freshness updates, proof instrumentation, and session creation then occur only
-inside the clone. Do not synthesize a reduced positive-test config because that
-changes selector and custom-role behavior. An explicit negative control may
-remove one copied capability inside its clone after this baseline is created;
-it must not mutate the active home.
+## Policy
 
-This is the default for every present and future isolated Codex live lane, not a
-Ralplan-only exception. `clone_codex_live_home` verifies the copied config files
-and complete agents tree against the active source before the lane may mutate
-the clone. The clone must be physically independent and symlink-free; its
-provenance records the active source manifest without copying secret values into
-test evidence. Every isolated live-test function is registered in
-`ISOLATED_CODEX_LIVE_FUNCTIONS`, may launch commands only through
-`run_in_verified_codex_live_home`, and rechecks the active config/agent manifest
-before and after each command. The static lane contract rejects direct
-`CODEX_HOME=...` assignments regardless of quoting or variable-expansion form
-across every model-launch helper whose name contains `live` and `test`, not just
-registered isolated lanes or functions ending exactly in `_live_test`.
-Non-isolated live launches use `run_codex_live_command`, which permits only the
-initially selected active home or a clone carrying verified provenance; an
-unregistered future-lane mutation and an unverified-home runtime fixture guard this boundary.
-Fixture-only installer/unit tests that do not launch a live Codex model remain
-synthetic by design.
+Deterministic offline gates remain strict for manifests, generated-wrapper
+freshness, hook shape, installation identity, configuration/auth immutability,
+secret scanning, source-checkout containment, lifecycle, and command/result
+correlation.
 
-The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
-`scripts/validate-plugin-files.py`.
+Model-bearing maintainer verification is intentionally small:
+
+- deterministically prove the exact active installed skill identity before the
+  model call, including expected plugin path/inventory and generated marker;
+- issue the host-native direct invocation token without requiring a separate
+  model-visible wrapper Read event;
+- request and check exactly two nonempty machine lines, `Skill: <name>` followed
+  by `Invariant: <stable-enum>`, with no narration or third line;
+- prove the read-only probe caused no project mutation.
+
+The direct smoke does not run a workflow, create plans/specs/worktrees, dispatch
+role fleets, inspect topology, summarize linked policy, or grade narration. Each
+host has a separate opt-in `--dispatch-live` lane for the same minimal bounded
+role-dispatch matrix; it does not enlarge or replace the direct-invariant `--live`
+lane. Claude setup-skill probes present a hypothetical already-observed read-only status and do
+not pass an operational argument or execute bundled helpers. Install Statusline
+checks that `STATUS: installed-matching` stops without change; Configure Subagents
+checks that the status-only branch reports `STATUS: matching` and stops. Actual
+status/config mechanics remain covered by isolated deterministic offline fixtures.
+Hard CLI, tool, permission, invocation, startup, and host categories take
+precedence over provider-looking substrings. Only after those categories are
+excluded may a timeout or positively recognized provider exhaustion, HTTP 429,
+rate limit, cooling-down, or credit-unavailable failure be
+`INCONCLUSIVE(provider-limited)`.
+
+Codex JSON event candidates begin with `{` and must parse as JSON objects; a
+malformed candidate or recognized non-object JSON value is a HARD FAIL. Other
+plain-text CLI diagnostics, including the stdin prelude and timestamped internal
+logs before or after events, remain in the evidence stream and may produce a
+stable warning without invalidating an RC-0 run whose final JSON event is
+`turn.completed`, result protocol is exact, and the installed-skill identity
+preflight succeeds. A plain
+diagnostic matching a hard CLI or invocation category remains a HARD FAIL. This
+is candidate discrimination, not a general Codex log grammar.
+Fusion Rescue model execution remains deferred because Claude-host provider credits are unavailable and is never counted as a semantic PASS. Cross-host coverage is a separate Codex-only `--cross-host-live` direct transport smoke: one Codex parent executes one harness-owned Python launcher, which invokes Claude Code once. It does not activate a skill, workflow, fallback, panel, review, or subagent path.
+
+Ordinary changes run only affected direct skill probes when scoped invocation is
+available. Full direct `--live` is for release candidates, broad shared-contract
+changes, or explicit broad validation. The retired natural SessionStart routing,
+deep-summary, named-agent matrix, topology, worktree, Simplify/Ralplan special,
+model-diversity, and parallel-executor model suites are not maintainer gates.
+
+## Lane matrix
 
 ```json
 {
@@ -52,11 +71,10 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "Codex marketplace install, manifest validation, generated-wrapper checks, prompt exposure, hook/static output",
+      "evidence_artifact": "offline install, active plugin identity, hook, containment, secret, parser-safety, and public-skill exposure evidence",
       "non_proofs": [
         "marker-only output",
-        "live model smoke",
-        "reachability count alone"
+        "live model smoke"
       ]
     },
     {
@@ -68,10 +86,12 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "install/load",
         "command invocation",
         "tool/permission",
-        "malformed output"
+        "malformed output",
+        "forensic invariant",
+        "containment"
       ],
       "warnings": [],
-      "evidence_artifact": "codex exec output and last-message artifact for public skill smoke prompts",
+      "evidence_artifact": "deterministic active-plugin and installed-skill identity preflight, prompt beginning with the native skill token, successful terminal event, exact Skill/Invariant fields, and unchanged project fingerprint; native skill loading need not emit a model-visible Read event",
       "non_proofs": [
         "marker-only output",
         "semantic paraphrase alone",
@@ -81,205 +101,49 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
     {
       "host": "codex",
       "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--deep-live",
+      "flag": "--dispatch-live",
       "release_status": "opt-in-live",
       "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "malformed output",
-        "manifest/source assertion"
+        "install/load and installed identity",
+        "parent/child correlation and completion",
+        "unexpected or generic child",
+        "nonce receipt correlation",
+        "ordered Ralplan and Ralph review dispatch",
+        "containment"
       ],
       "warnings": [
-        "model paraphrase variance",
-        "semantic marker variance"
+        "one retry for missing or wrong expected dispatch only"
       ],
-      "evidence_artifact": "deep-live last-message artifact plus deterministic reachability/static support checks",
+      "evidence_artifact": "seven native direct parent invocations and nominal fourteen total model calls, with exact newly parent-linked role sequences, completed nonce-bearing child results and parent wait receipts, ordered Ralplan and Ralph review dispatch, Auto Routing/Simplify zero-child controls, and allowlisted versus required-success mutation proofs",
       "non_proofs": [
         "marker-only output",
-        "exact semantic marker alone",
-        "reachability count alone"
+        "Ralph baseline/diff SHA binding",
+        "reasoning, review quality, or verdict",
+        "model diversity, concurrency, waves, or capacity",
+        "full workflow completion"
       ]
     },
     {
       "host": "codex",
       "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--parallel-live",
+      "flag": "--cross-host-live",
       "release_status": "opt-in-live",
       "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Codex JSON event stream proving spawn, wait, capture, and close lifecycle",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "broad command success alone"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--ralplan-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Codex JSON event stream plus private typed-role payload proof demonstrating exact Planner handoff into one single-round mode-selected Plan-Reviewer topology from a disposable CODEX_HOME cloned from the active config and agent TOMLs; the instrumented path records `same-host-perspective-pair`, while the natural path permits 1-2 typed Plan-Reviewer sessions only and proves two parallel typed legs with parent pair synthesis, one typed leg plus opposite-host review evidence with parent pair synthesis, or one typed leg under a recorded STANDARD `single-reviewer` topology; an unrecorded lone reviewer still fails, and on ITERATE the per-blocker finding→fix mapping is read from the parent Plan Approval Brief mapping section for the relocated `Applied change` and `Body section pointer` fields while `Disposition` and `Blocking basis` remain bound to the v2 plan body; cleanup outcome is recorded, with legacy lifecycle proof retained when those events are visible",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "broad command success alone"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--named-agents-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
+        "one parent thread and terminal completion",
+        "missing, wrong, duplicate, or nonterminal launcher execution",
+        "child, collaboration, workflow, or fallback activity",
+        "nested Claude Read/result correlation and semantic finding",
+        "workspace, checkout, Codex identity, Claude state, or credential containment"
       ],
       "warnings": [
-        "post-completion observation gap"
+        "one retry for missing, wrong, or duplicate exact launcher dispatch only"
       ],
-      "evidence_artifact": "Codex JSON event stream proving agent_type=oh-no-* dispatch and lifecycle",
+      "evidence_artifact": "one safe Codex parent prompt/event/result set and its newly created parent session JSONL, proving exactly one successful execution of the harness-owned launcher plus a successful nested Claude Read of the receiver fixture and a nonce-bearing no-retry violation finding",
       "non_proofs": [
         "marker-only output",
-        "post-completion text alone",
-        "model self-report alone"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--fusion-rescue-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Codex JSON event stream plus role-owned Claude consult argv and returned panel marker",
-      "non_proofs": [
-        "marker-only output",
-        "parent inline opposite-host answer",
-        "launch notice without synchronous review"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--cross-host-fallback-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "host-boundary",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Codex JSON event stream proving opposite-host unavailable default and two same-host reviewer instances",
-      "non_proofs": [
-        "marker-only output",
-        "single current-host pass",
-        "parent inline opposite-host answer"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--simplify-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Codex JSON event stream proving a named THOROUGH broad-diff trigger expands the combined cleanup default into four cleanup-angle subagents or compliant fallback blocks",
-      "non_proofs": [
-        "marker-only output",
-        "single generic cleanup review without a recorded combined-default or expansion trigger",
-        "model self-report alone"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--natural-session-start-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "hook policy",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [
-        "auto-routing model echo"
-      ],
-      "evidence_artifact": "Codex wrapper activation/read, workflow-specific first gate, adjacent-route negatives, and mutation/approval boundaries",
-      "non_proofs": [
-        "marker-only output",
-        "SessionStart text echo alone",
-        "model self-report alone",
-        "exact worker sequence alone"
-      ]
-    },
-    {
-      "host": "codex",
-      "owner": "scripts/test-codex-plugin.sh",
-      "flag": "--worktree-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "worktree",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Disposable-repo Git worktree list, output file evidence, and original checkout containment check",
-      "non_proofs": [
-        "marker-only output",
-        "mkdir-only directory",
-        "plain clone",
-        "parent-directory sibling worktree"
+        "Fusion Rescue or any workflow/fallback path",
+        "role dispatch, subagent transport, review quality, or model diversity",
+        "general cross-host orchestration"
       ]
     },
     {
@@ -294,11 +158,10 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "Claude plugin install/update, manifest validation, generated-wrapper checks, command and hook/static output, and the deterministic configure-subagents transaction/fault, lock-serialization, journal-trust, byte-exact, and SessionStart-reapply suite run offline by scripts/test-configure-subagents.sh",
+      "evidence_artifact": "offline install/config isolation, hook, containment, configure-subagents transaction, and wrapper inventory evidence",
       "non_proofs": [
         "marker-only output",
-        "live model smoke",
-        "reachability count alone"
+        "live model smoke"
       ]
     },
     {
@@ -311,13 +174,11 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "command invocation",
         "tool/permission",
         "malformed output",
-        "hook policy"
+        "forensic invariant",
+        "containment"
       ],
-      "warnings": [
-        "AskUserQuestion tool-list exposure",
-        "auto-routing model echo"
-      ],
-      "evidence_artifact": "Claude JSON or stream-json output for public slash-command and hook-policy smoke prompts",
+      "warnings": [],
+      "evidence_artifact": "deterministic active-plugin and installed-skill identity preflight, one direct slash invocation, exact result event with two Skill/Invariant lines, and unchanged project fingerprint per non-Fusion public skill; native skill loading need not emit a model-visible Read event",
       "non_proofs": [
         "marker-only output",
         "semantic paraphrase alone",
@@ -327,230 +188,26 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
     {
       "host": "claude",
       "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--deep-live",
+      "flag": "--dispatch-live",
       "release_status": "opt-in-live",
       "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "malformed output",
-        "manifest/source assertion"
+        "install/load and installed identity",
+        "exact Agent subagent_type sequence",
+        "terminal Agent tool_result and nonce correlation",
+        "ordered Ralplan and Ralph review dispatch",
+        "zero-child controls",
+        "mutation, Git state, isolation, secret, and canonical containment"
       ],
       "warnings": [
-        "model paraphrase variance",
-        "semantic marker variance"
+        "one retry for missing, wrong, or duplicate expected dispatch only"
       ],
-      "evidence_artifact": "Claude deep-live JSON artifact plus deterministic reachability/static support checks",
+      "evidence_artifact": "seven native direct parent invocations using Sonnet and nominal fourteen total model calls, with exact plugin-scoped Agent tool_use sequences, one successful nonce-bearing terminal tool_result per child, ordered reviewer dispatch, parent nonce receipts, zero-child controls, and allowlisted versus required-success mutation proofs in a disposable plugin copy and isolated Claude config",
       "non_proofs": [
         "marker-only output",
-        "exact semantic marker alone",
-        "reachability count alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--parallel-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json event output proving Task/Agent dispatch, wait, capture, and cleanup",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "broad command success alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--ralplan-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving exact Planner handoff into one single-round THOROUGH perspective-diverse Plan-Reviewer pair: the planner leg completes before both typed `plan-reviewer` legs are dispatched in one parallel batch ahead of either result, all three role payloads carry the same Active plan contract block, both reviewer packets carry the exact captured Planner draft and differ only on their two distinct `Assigned perspective` lens lines, each reviewer output anchors one reviewed draft id back to that captured draft, and the caller closes with the single-round success marker; the lane hard-fails on anything other than exactly two Plan-Reviewer packet bodies, so it does not cover the STANDARD `single-reviewer` topology, and it exercises only the non-blocking-only v1 approval path with no Planner revision, so it proves no per-blocker finding→fix mapping",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "broad command success alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--fusion-rescue-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "hook policy",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving three parallel fusion-rescue-analyst panels use identities resolved from the injected model-diversity block: a configured native secondary takes exactly two explicit override slots, the third slot uses a distinct top-tier identity through an explicit native override or the declared-frontmatter primary, all panels return results, and the host synthesizes them",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "panel count without model-assignment proof",
-        "identity inferred from an unknown host default"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--cross-host-fallback-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "hook policy",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving that no valid secondary model yields exactly two independent same-model code-reviewer instances with same-model-parallel-fallback recorded, while require-model-diversity transitions to PAUSED instead of falling back",
-      "non_proofs": [
-        "marker-only output",
-        "single reviewer pass",
-        "model self-report alone",
-        "two dispatches without fallback-ledger and strict-mode proof"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--model-diversity-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "hook policy",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [
-        "live-model concurrency compliance"
-      ],
-      "evidence_artifact": "Claude stream-json output proving the real isolated-preferences to canonical resolver to SessionStart model-diversity block to Ralph Review Gate path: exactly two same-role code-reviewer dispatches receive raw packets with two distinct role-appropriate `Assigned perspective:` values and no divergence beyond that line, then compare equal after normalizing the `Assigned perspective:` line, model override, leg-identity labels, and dispatch-meta lines; the declared stored primary leg is unoverridden, the distinct native secondary leg has an explicit override, both return results, model-diversity-pair is recorded, and the caller emits a substantive synthesized verdict; lifecycle overlap is recorded as an advisory, non-gating live-model concurrency signal",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "two serial reviewer dispatches",
-        "pair output without injected-block, packet-equality, override, ledger, and synthesis proof"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--parallel-executor-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output plus disposable repo diff proving AC-OVERLAP-1 and its no-new-scheduler/state-machine/protocol/oracle non-goals survive executor packets and final summary while the existing disjoint executor eligibility owner drives overlap and per-executor scope checks",
-      "non_proofs": [
-        "marker-only output",
-        "model self-report alone",
-        "broad command success alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--simplify-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [],
-      "evidence_artifact": "Claude stream-json output proving a named THOROUGH broad-diff trigger expands the combined cleanup default into four cleanup-angle subagents or compliant fallback blocks",
-      "non_proofs": [
-        "marker-only output",
-        "single generic cleanup review without a recorded combined-default or expansion trigger",
-        "model self-report alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--natural-session-start-live",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "lifecycle",
-        "hook policy",
-        "containment",
-        "malformed output",
-        "forensic invariant"
-      ],
-      "warnings": [
-        "auto-routing model echo"
-      ],
-      "evidence_artifact": "Claude wrapper activation/read, workflow-specific first gate, adjacent-route negatives, and mutation/approval boundaries",
-      "non_proofs": [
-        "marker-only output",
-        "SessionStart text echo alone",
-        "model self-report alone",
-        "exact worker sequence alone"
-      ]
-    },
-    {
-      "host": "claude",
-      "owner": "scripts/test-claude-plugin.sh",
-      "flag": "--live-hook-only",
-      "release_status": "opt-in-live",
-      "hard_failures": [
-        "install/load",
-        "command invocation",
-        "tool/permission",
-        "hook policy",
-        "malformed output"
-      ],
-      "warnings": [
-        "AskUserQuestion tool-list exposure",
-        "auto-routing model echo"
-      ],
-      "evidence_artifact": "Claude stream-json hook-event output for SessionStart hook policy and auto-routing checks",
-      "non_proofs": [
-        "marker-only output",
-        "hook text echo alone",
-        "semantic paraphrase alone"
+        "v2, SHA/revision binding, review verdict, or quality",
+        "detailed trace, timing, child transcript, or model diversity",
+        "topology beyond immediate Agent tool_use/result correlation",
+        "full workflow completion"
       ]
     },
     {
@@ -564,10 +221,9 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "release default expansion"
       ],
       "warnings": [],
-      "evidence_artifact": "release script static phase: generator checks, validator, manifest/version diff, and install tests when not skipped",
+      "evidence_artifact": "release static phase and isolated install commands",
       "non_proofs": [
         "marker-only output",
-        "live model smoke",
         "opt-in live lane success"
       ]
     },
@@ -583,10 +239,9 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "hook policy"
       ],
       "warnings": [],
-      "evidence_artifact": "validator stdout plus subprocess checks for generated wrappers and skill reachability",
+      "evidence_artifact": "validator, generation freshness, lane contract, and reachability subprocesses",
       "non_proofs": [
         "marker-only output",
-        "reachability count alone",
         "live model smoke"
       ]
     },
@@ -600,10 +255,9 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
         "manifest/source assertion"
       ],
       "warnings": [],
-      "evidence_artifact": "explicit wrapper plus shared-doc plus handoff graph text-bag reachability output",
+      "evidence_artifact": "deterministic wrapper/source/handoff reachability",
       "non_proofs": [
         "marker-only output",
-        "reachability count alone",
         "semantic correctness of all public skills"
       ]
     }
@@ -611,49 +265,19 @@ The JSON matrix below is parsed by `scripts/test-harness-lane-contract.py` and
 }
 ```
 
-## Classification Semantics
+## Direct invariant table
 
-`HARD` means nonzero exit or release blocker. Hard classes include install/load,
-command invocation/resolution, tool/permission, lifecycle, malformed output,
-host-boundary, containment, worktree, forensic invariant, hook policy,
-generated-wrapper freshness, manifest/source assertion, reachability-contract,
-and release default expansion.
-
-`WARN` means exit 0 is allowed only when the lane row explicitly lists the
-warning. The `--model-diversity-live` lifecycle-overlap observation is advisory
-live-model concurrency compliance and does not waive its other lifecycle or
-forensic gates. `VARIANCE` is a subset of `WARN`, limited to model paraphrase
-variance, semantic marker variance, AskUserQuestion tool-list exposure,
-auto-routing model echo, or a post-completion observation gap after stronger
-lifecycle evidence has already passed.
-
-`NON_PROOF` means an evidence limitation. It must never upgrade a lane to proof:
-marker-only output, exact semantic markers alone, broad command success alone,
-live model smoke, and reachability count alone are not sufficient evidence for
-hard-lane success.
-
-## Reachability Boundary
-
-Deterministically checked:
-
-- Generated wrapper freshness.
-- Explicit handoff graph references.
-- Selected workflow rules reachable through source, manifest, generator, and
-  wrapper paths.
-- Validator assertions for public wrappers and manifests.
-
-Intentionally excluded:
-
-- Semantic correctness of all public skills.
-- All natural-language routes.
-- Incidental mentions.
-- Opposite-host availability.
-- Live model reliability.
-- Full public support for every PUBLIC_SKILLS entry.
-
-Requires user approval to expand:
-
-- Making reachability cover every public skill.
-- Adding new live lanes.
-- Making live smoke release-default.
-- Changing public support claims in docs, README, or marketplace manifests.
+| Skill | Stable enum | Hosts |
+|---|---|---|
+| Interview | `clarify-before-planning` | Claude, Codex |
+| Ralplan | `wait-for-user-approval` | Claude, Codex |
+| Ralph | `require-acceptance-contract` | Claude, Codex |
+| Ultrawork | `wait-for-spec-approval` | Claude, Codex |
+| Auto Routing | `future-session-guidance-only` | Claude, Codex |
+| Test-Driven Development | `create-red-first` | Claude, Codex |
+| Simplify | `lock-behavior-then-combined-scan` | Claude, Codex |
+| Verification Before Completion | `withhold-completion` | Claude, Codex |
+| Systematic Debugging | `reproduce-first` | Claude, Codex |
+| Install Statusline | `stop-no-change` | Claude |
+| Configure Subagents | `report-status-and-stop` | Claude |
+| Fusion Rescue | deferred: Claude-host provider credits exhausted | Claude, Codex |

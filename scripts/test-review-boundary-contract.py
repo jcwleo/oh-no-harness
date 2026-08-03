@@ -1932,17 +1932,6 @@ def main() -> int:
     expect_rejected(
         validator,
         plugin_root,
-        "Reviewed draft id suffix passes a prefix comparison",
-        "must compare exact normalized Reviewed draft id",
-        lambda root: replace_once(
-            root.parent.parent / "scripts" / "test-codex-plugin.sh",
-            'if next(iter(unique_reviewed)) != proof["draft_id"]:\n    raise SystemExit(\n        "Codex ralplan reviewer pair did not identify the dynamic draft id"\n    )',
-            'if next(iter(unique_reviewed)).startswith(proof["draft_id"]):\n    raise SystemExit(\n        "Codex ralplan reviewer pair did not identify the dynamic draft id"\n    )',
-        ),
-    )
-    expect_rejected(
-        validator,
-        plugin_root,
         "duplicate Ralph Execution Loop Diff-Budget execution",
         "Execution Loop must schedule one Diff-Budget Gate per stabilized revision",
         lambda root: (

@@ -46,37 +46,81 @@ cache, and use these smoke scripts to verify local changes in isolation.
 3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
 4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, `SessionStart` is the only hook entrypoint and adds no forced-routing semantics.
 
-## Validate before pushing
+## Maintainer validation policy
 
-Fast static checks only (no installs):
+This policy governs repository maintainers, contributors, coding agents, and CI
+when developing, changing, or maintaining Oh No Harness itself. It does not
+govern downstream plugin users or their projects, and it does not change runtime
+skill behavior, workflow semantics, user-facing skill guidance, or requirements
+injected into host sessions. Do not copy it into runtime prompt sources or user
+workflow documentation.
+
+After repository changes, use proportionate, outcome-focused validation. Gate
+externally observable workflow outcomes, explicit machine protocols, and safety
+boundaries—not
+incidental narration, headings, synonymous IDs or wording, summaries, or trace
+order. Classify requirements as MUST (blocking contract/safety), SHOULD
+(non-blocking quality/topology/performance expectation unless promoted), or
+DIAGNOSTIC (never independently blocking), separately from run outcomes: PASS,
+HARD FAIL, WARNING, or INCONCLUSIVE (including `provider-limited`). Stochastic
+presentation variance is a warning, not a release blocker.
+
+Keep deterministic gates strict for static/generation freshness,
+installation/identity, safety/permissions, lifecycle, containment, secret
+scanning, and material correlation. Model-bearing maintainer smoke is
+ direct-invocation-only: deterministically prove the active installed skill
+ identity and one exact core invariant for each in-scope changed skill without
+ running the workflow or natural routing.
+ Reserve full direct `--live` for release or broad shared-contract validation.
+ Fusion Rescue remains deferred while Claude-host credits are unavailable.
+ Cross-host coverage is limited to the separate Codex-owned direct transport
+ smoke; it is not workflow or fallback coverage. Preserve all isolation
+ requirements. See the canonical
+[test harness lane policy](docs/reference/test-harness-lanes.md).
+
+## Validate maintainer changes before pushing
+
+Fast static checks for repository changes (no installs):
 
 ```sh
 # Run from the repository root.
 python3 scripts/validate-plugin-files.py .
 ```
 
-Full validation (static + local install/update for both runtimes):
+Full maintainer validation (static + local install/update for both runtimes):
 
 ```sh
 scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 ```
 
-Live model smoke tests (cost real budget — opt-in). `--no-install` skips only
+Maintainer live model smoke tests after applicable repository changes (cost real
+budget — opt-in). `--no-install` skips only
 the driver's explicit marketplace/install/update commands; ordinary Claude Code
 startup can still sync registry metadata in the effective `CLAUDE_CONFIG_DIR`.
 With claudex/gateway auth, isolate that config while loading this checkout via
 `--plugin-dir`:
 
 ```sh
-scripts/test-claude-plugin.sh --isolated-config --no-install --live           # all 10 workflow skills
-scripts/test-claude-plugin.sh --isolated-config --no-install --live-hook-only # SessionStart + routing
-scripts/test-claude-plugin.sh --isolated-config --no-install --deep-live      # linked support docs
+# Deterministic installed-skill identity preflight plus one native invocation
+# and exact invariant per non-Fusion public skill; no model Read event required.
+scripts/test-claude-plugin.sh --isolated-config --no-install --live
+# Separate bounded Claude role-dispatch mechanics using Sonnet; does not enlarge --live.
+scripts/test-claude-plugin.sh --isolated-config --no-install --dispatch-live
+scripts/test-codex-plugin.sh --no-install --live --codex-home /path/to/disposable-cloned-home
+# Separate bounded Codex role-dispatch mechanics; does not enlarge --live.
+scripts/test-codex-plugin.sh --no-install --dispatch-live --codex-home /path/to/disposable-cloned-home
+# One Codex parent invokes one harness-owned Claude Code launcher; no workflow/fallback.
+scripts/test-codex-plugin.sh --no-install --cross-host-live --codex-home /path/to/disposable-cloned-home
 OH_NO_LIVE_PLUGIN_ROOT=/absolute/path/to/disposable-gpt-plugin scripts/test-claude-plugin.sh --isolated-config --no-install --live --model 'gpt-5.6-sol'
-scripts/test-codex-plugin.sh --live
-scripts/test-codex-plugin.sh --deep-live
-scripts/test-codex-plugin.sh --named-agents-live # user-scope oh-no-* agent_type dispatch
 ```
+
+Natural SessionStart routing, deep-summary, exhaustive named-agent, topology,
+worktree, and specialized Ralplan/Simplify/model-diversity model suites are
+retired. Each host's `--dispatch-live` is only the bounded seven-parent, nominal
+fourteen-call mechanics matrix documented in the lane policy. Fusion Rescue has
+no maintainer CLI lane. Codex `--cross-host-live` is only one direct parent-to-
+Claude transport proof and must not be counted as workflow or fallback coverage.
 
 `OH_NO_LIVE_PLUGIN_ROOT` is a test-only selector for an absolute disposable
 plugin copy. Source validation, manifests, inventories, and generator checks

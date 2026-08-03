@@ -51,9 +51,34 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Composition:** each generated `SKILL.md` is assembled from `docs/skill-core/<name>.md` + the platform doc + an optional per-skill platform overlay. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
 - **One plugin hook entrypoint only:** the unconditional `SessionStart` bootstrap carries only compact global no-route/direct-edit/object-of-analysis boundaries; positive workflow selection comes from destination skill descriptions. On Claude Code, auto-routing adds before-action ordering and essential precedence; Codex gains no forced-routing semantics. The hook always injects the Claude-Code model-diversity block and best-effort reapplies saved subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
 
+## Maintainer validation policy
+
+This policy governs repository maintainers, contributors, coding agents, and CI
+when developing, changing, or maintaining Oh No Harness itself. It does not
+instruct downstream plugin users how to test their own projects, and it does not
+change runtime skill behavior, workflow semantics, user-facing skill guidance,
+or requirements injected into host sessions. Do not copy it into runtime prompt
+sources or user workflow documentation.
+
+After repository changes, use proportionate, outcome-focused validation. Gate
+observable workflow outcomes, explicit machine protocols, and safety boundaries;
+do not gate on
+incidental narration, headings, synonymous wording/IDs, summaries, or trace
+order. Keep requirement importance (MUST/SHOULD/DIAGNOSTIC) separate from run
+outcome (PASS/HARD FAIL/WARNING/INCONCLUSIVE). Stochastic presentation variance
+is non-blocking. Keep deterministic safety, identity, lifecycle, containment,
+correlation, static, and generation-freshness gates strict. Model-bearing
+maintainer smoke is direct-invocation-only: deterministically prove the active
+installed skill identity plus one exact core invariant for each in-scope changed skill, without running the workflow or
+natural routing. Reserve full direct `--live` for release candidates, broad shared
+contracts, or explicit requests. Fusion Rescue and Cross-host remain deferred
+while Claude-host credits are unavailable. Preserve all isolation rules.
+See the canonical [test harness lane policy](plugins/oh-no-harness/docs/reference/test-harness-lanes.md).
+
 ## Commands
 
-Run all of these **from the repository root**.
+Maintainers run these after applicable Oh No Harness repository changes, from the
+**repository root**.
 
 ```sh
 # Fast static checks (frontmatter, manifests, public-skill surface, no Task/Skill in bodies).
@@ -65,10 +90,8 @@ python3 scripts/validate-plugin-files.py .
 python3 scripts/generate-skill-wrappers.py --check
 python3 scripts/generate-agent-wrappers.py --check
 
-# Deterministic deep-smoke: assert each skill's load-bearing workflow rules are
-# reachable in its composed wrapper plus the docs/shared and sub-skills it
-# references (replaces gating on flaky live-model phrase grep; the live
-# `--deep-live` test below is now a non-gating signal). Run for each platform.
+# Deterministic reachability: assert each skill's load-bearing workflow rules are
+# reachable in its composed wrapper plus referenced docs/shared and sub-skills.
 python3 scripts/check-skill-reachability.py --platform codex --plugin-root plugins/oh-no-harness
 python3 scripts/check-skill-reachability.py --platform claude --plugin-root plugins/oh-no-harness
 
@@ -78,14 +101,12 @@ python3 scripts/check-skill-reachability.py --platform claude --plugin-root plug
 scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 
-# Live model smoke tests — cost real budget, opt-in. Closest thing to a "single test".
-# With claudex/gateway auth, isolate both Claude registry sync and explicit driver actions:
-scripts/test-claude-plugin.sh --isolated-config --no-install --live-hook-only  # SessionStart + auto-routing
-scripts/test-claude-plugin.sh --isolated-config --no-install --live            # all 10 workflow skills
-scripts/test-claude-plugin.sh --isolated-config --no-install --deep-live       # linked support docs
-# Load models only from a disposable GPT-only plugin copy; canonical worktree validation is unchanged:
+# Opt-in direct skill smoke: deterministic installed-skill identity preflight
+# plus one native invocation and exact invariant per non-Fusion public skill.
+scripts/test-claude-plugin.sh --isolated-config --no-install --live
+scripts/test-codex-plugin.sh --no-install --live --codex-home /path/to/disposable-cloned-home
+# A disposable GPT-only plugin copy may be selected for Claude model runs:
 OH_NO_LIVE_PLUGIN_ROOT=/absolute/path/to/disposable-gpt-plugin scripts/test-claude-plugin.sh --isolated-config --no-install --live --model 'gpt-5.6-sol'
-scripts/test-codex-plugin.sh --named-agents-live  # user-scope oh-no-* agent_type dispatch
 
 # Release from a clean main (validates, bumps both plugin.json versions, tags, pushes, publishes).
 scripts/release 1.5.2 --push        # omit --push to stop after local commit+tag
