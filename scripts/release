@@ -44,6 +44,7 @@
 #   scripts/release v0.2.1 --push
 #   scripts/release 0.2.1 --skip-tests       # skip plugin install tests
 #   scripts/release 0.2.1 --skip-tests --push
+#   scripts/release 0.2.1 --push --skip-npm-publish
 
 set -euo pipefail
 
@@ -58,7 +59,7 @@ PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$REPO_ROOT/plugins/$PLUGIN_NAME}"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release <version|vversion> [--push] [--skip-tests]
+Usage: scripts/release <version|vversion> [--push] [--skip-tests] [--skip-npm-publish]
 
 Updates plugin and npm package versions, runs validators, and creates the release commit.
 With --push, pushes main to origin before the install tests (the Claude
@@ -67,12 +68,13 @@ origin/main), then tags, pushes the tag, and publishes a GitHub Release via
 gh CLI. Without --push, the Claude install test is skipped unless HEAD already
 matches origin's main. 0.x releases are marked prerelease; 1.x and later are
 stable releases. A pushed release also publishes the matching public
-`oh-no-harness` package to npm for OpenCode.
+`oh-no-harness` package to npm for OpenCode unless `--skip-npm-publish` is set.
 
 Examples:
   scripts/release v0.2.1
   scripts/release 0.2.1 --push
   scripts/release 0.2.1 --skip-tests
+  scripts/release 0.2.1 --push --skip-npm-publish
 USAGE
 }
 
@@ -248,6 +250,7 @@ fi
 version_arg=""
 push="false"
 skip_tests="false"
+skip_npm_publish="false"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -257,6 +260,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --skip-tests)
       skip_tests="true"
+      shift
+      ;;
+    --skip-npm-publish)
+      skip_npm_publish="true"
       shift
       ;;
     -h|--help)
@@ -323,7 +330,7 @@ PY
 run "$PYTHON_BIN" scripts/generate-agent-wrappers.py --plugin-root "$PLUGIN_ROOT" --check
 run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
 
-if [ "$push" = "true" ]; then
+if [ "$push" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
   preflight_npm_publish "oh-no-harness@$version"
 fi
 
@@ -383,8 +390,10 @@ else
   fi
 fi
 
-if [ "$push" = "true" ]; then
+if [ "$push" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
   publish_npm_package "oh-no-harness@$version"
+elif [ "$push" = "true" ]; then
+  printf 'release: skipping npm publish (--skip-npm-publish)\n'
 fi
 
 run git tag -a "$tag" -m "$tag"

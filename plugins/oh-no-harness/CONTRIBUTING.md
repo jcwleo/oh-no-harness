@@ -191,6 +191,7 @@ What `--push` does end-to-end:
 Skip flags:
 
 - `--skip-tests` — skip install tests (validator still runs)
+- `--skip-npm-publish` — publish main, tag, and the GitHub Release without npm; the packed npm artifact is still tested unless `--skip-tests` is also set
 - (omit `--push`) — stop after local commit + tag for review before publishing
 
 ## Repository layout
