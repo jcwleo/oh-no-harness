@@ -22,8 +22,9 @@ durability status. Raw marker-only host output remains
 non-proof on its own, including the potentially truncated `debug skill` output.
 The package lane creates the exact npm tarball, asserts its OpenCode-only file
 inventory, installs it without lifecycle scripts, verifies package resolution
-and its default export, then reruns the source lane against that installed
-artifact. Registry availability remains a separate post-publish check.
+and its default export, runs setup CLI config-preservation/confinement fixtures,
+then reruns the source lane against that installed artifact. Registry
+availability remains a separate post-publish check.
 
 Model-bearing maintainer verification is intentionally small:
 
@@ -239,7 +240,7 @@ model-diversity, and parallel-executor model suites are not maintainer gates.
         "project mutation or non-serial OpenCode command execution"
       ],
       "warnings": [],
-      "evidence_artifact": "isolated OpenCode 1.18.11 path, agent-list, and raw skill-discovery output; exact generated inventory, custom-tool schema/execution, and native global plus primary/role/package resolved permission assertions; custom-tool publication, read-only status, legacy CLI non-writing, restart-consumption fixtures; and unchanged project manifest and Git status",
+      "evidence_artifact": "isolated OpenCode 1.18.12 path, agent-list, and raw skill-discovery output; exact generated inventory, custom-tool schema/execution, and native global plus primary/role/package resolved permission assertions; custom-tool publication, read-only status, legacy CLI non-writing, restart-consumption fixtures; and unchanged project manifest and Git status",
       "non_proofs": [
         "marker-only output",
         "installed marketplace or package behavior",
@@ -257,10 +258,11 @@ model-diversity, and parallel-executor model suites are not maintainer gates.
         "npm pack or dependency-free install",
         "package identity, entrypoint, or OpenCode-only inventory",
         "installed package resolution or default export",
+        "setup CLI config preservation, idempotence, backup, or confinement",
         "installed artifact OpenCode runtime contract"
       ],
       "warnings": [],
-      "evidence_artifact": "npm pack JSON and exact file allow/deny assertions; lifecycle-script-free disposable install; package resolution/default-export probe; and the full isolated OpenCode 1.18.11 runtime driver against the installed artifact",
+      "evidence_artifact": "npm pack JSON and exact file allow/deny assertions; lifecycle-script-free disposable install; package resolution/default-export probe; setup CLI mutation fixtures; and the full isolated OpenCode 1.18.12 runtime driver against the installed artifact",
       "non_proofs": [
         "marker-only output",
         "public registry availability",

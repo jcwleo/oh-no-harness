@@ -15,9 +15,26 @@ export const ROLES = Object.freeze([
 ]);
 
 export const PREFERENCES_FILENAME = "opencode-subagent-models.conf";
-export const MODEL_SCHEMA_PATTERN = "^[^\\s,=/]+\\/[^\\s,=]+$";
+export const MODEL_SCHEMA_PATTERN = "^[\\s\\S]+\\/[\\s\\S]+$";
+export const VARIANT_SCHEMA_PATTERN = "^[\\s\\S]+$";
+export const DEFAULT_VARIANT = "default";
 
 const MODEL_PATTERN = new RegExp(MODEL_SCHEMA_PATTERN, "u");
+const VARIANT_PATTERN = new RegExp(VARIANT_SCHEMA_PATTERN, "u");
+const LEGACY_MODEL_PATTERN = /^[^\s,=/]+\/[^\s,=]+$/u;
+
+function normalizeAssignment(value) {
+  if (typeof value === "string") {
+    return MODEL_PATTERN.test(value)
+      ? { model: value, variant: DEFAULT_VARIANT }
+      : null;
+  }
+  if (!value || Array.isArray(value) || typeof value !== "object") return null;
+  if (Object.keys(value).sort().join("\0") !== "model\0variant") return null;
+  if (typeof value.model !== "string" || !MODEL_PATTERN.test(value.model)) return null;
+  if (typeof value.variant !== "string" || !VARIANT_PATTERN.test(value.variant)) return null;
+  return { model: value.model, variant: value.variant };
+}
 
 export function normalizeModelAssignments(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -29,9 +46,9 @@ export function normalizeModelAssignments(value) {
 
   const assignments = new Map();
   for (const role of ROLES) {
-    const model = source.get(role);
-    if (typeof model !== "string" || !MODEL_PATTERN.test(model)) return null;
-    assignments.set(role, model);
+    const assignment = normalizeAssignment(source.get(role));
+    if (!assignment) return null;
+    assignments.set(role, assignment);
   }
   return assignments;
 }
@@ -45,9 +62,11 @@ export function parseModelAssignments(args) {
     const argument = args[index];
     if (!argument.startsWith(prefix)) return null;
 
-    const model = argument.slice(prefix.length);
-    if (!MODEL_PATTERN.test(model)) return null;
-    assignments.set(ROLES[index], model);
+    const [model, variant = DEFAULT_VARIANT, ...extra] = argument.slice(prefix.length).split(",");
+    if (extra.length > 0) return null;
+    const assignment = normalizeAssignment({ model, variant });
+    if (!assignment) return null;
+    assignments.set(ROLES[index], assignment);
   }
   return normalizeModelAssignments(assignments);
 }
@@ -58,7 +77,11 @@ export function parsePreferences(contents) {
   const lines = contents.endsWith("\n")
     ? contents.slice(0, -1).split("\n")
     : contents.split("\n");
-  if (lines.length !== ROLES.length + 1 || lines[0] !== "schema_version=1") {
+  const schemaVersion = lines[0];
+  if (
+    lines.length !== ROLES.length + 1 ||
+    (schemaVersion !== "schema_version=1" && schemaVersion !== "schema_version=2")
+  ) {
     return null;
   }
 
@@ -67,19 +90,43 @@ export function parsePreferences(contents) {
     const role = ROLES[index];
     const prefix = `assignment=${role},`;
     const line = lines[index + 1];
-    if (!line.startsWith(prefix)) return null;
 
-    const model = line.slice(prefix.length);
-    if (!MODEL_PATTERN.test(model)) return null;
-    assignments.set(role, model);
+    let assignment;
+    if (schemaVersion === "schema_version=1") {
+      if (!line.startsWith(prefix)) return null;
+      const model = line.slice(prefix.length);
+      assignment = LEGACY_MODEL_PATTERN.test(model)
+        ? { model, variant: DEFAULT_VARIANT }
+        : null;
+    } else {
+      if (!line.startsWith("assignment=")) return null;
+      try {
+        const value = JSON.parse(line.slice("assignment=".length));
+        if (
+          !value ||
+          Array.isArray(value) ||
+          typeof value !== "object" ||
+          Object.keys(value).sort().join("\0") !== "model\0role\0variant" ||
+          value.role !== role
+        ) {
+          return null;
+        }
+        assignment = normalizeAssignment({ model: value.model, variant: value.variant });
+      } catch {
+        return null;
+      }
+    }
+    if (!assignment) return null;
+    assignments.set(role, assignment);
   }
   return assignments;
 }
 
 export function renderPreferences(assignments) {
-  const lines = ["schema_version=1"];
+  const lines = ["schema_version=2"];
   for (const role of ROLES) {
-    lines.push(`assignment=${role},${assignments.get(role)}`);
+    const assignment = assignments.get(role);
+    lines.push(`assignment=${JSON.stringify({ role, ...assignment })}`);
   }
   return `${lines.join("\n")}\n`;
 }

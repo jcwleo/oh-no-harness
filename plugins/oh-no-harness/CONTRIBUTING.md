@@ -8,7 +8,7 @@ The following CLIs must be on `PATH`:
 
 - `claude` (Claude Code CLI)
 - `codex` (Codex CLI)
-- `opencode` 1.18.11 (for the pinned deterministic OpenCode source-loading lane)
+- `opencode` 1.18.12 (for the pinned deterministic OpenCode source-loading lane)
 - `node`
 - `python3`
 
@@ -45,9 +45,13 @@ Install locations (relative to the config home the script uses):
 - Claude Code → `$CLAUDE_CONFIG_DIR/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
 - Codex → `$CODEX_HOME/plugins/cache/oh-no-harness/oh-no-harness/<version>/`
 
-OpenCode installs `oh-no-harness` with Bun at startup and caches npm plugins in
-`~/.cache/opencode/node_modules/`. The package has no dependencies, lifecycle
-scripts, global binary, daemon, or MCP server. Maintainer package tests use only
+Users register OpenCode with `npx --yes oh-no-harness@latest setup`; OpenCode then
+installs `oh-no-harness` with Bun at startup and caches npm plugins in
+`~/.cache/opencode/node_modules/`. The package has no lifecycle scripts,
+persistent global process, daemon, or MCP server. Its setup binary uses
+the pinned zero-dependency `jsonc-parser` library and exits after config
+registration, directing users to OpenCode's `/configure-subagents` command for
+catalog-backed model and variant selection. Maintainer package tests use only
 disposable install and config roots.
 
 For a persistent daily-use install, follow the root `CLAUDE.md`: install from the
@@ -56,7 +60,7 @@ cache, and use these smoke scripts to verify local changes in isolation.
 
 ## Development cycle
 
-1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform guidance in `docs/platforms/*.md`, shared role bodies in `docs/agent-core/*.md`, hooks, handwritten OpenCode sources in `opencode/index.js`, `opencode/preferences.js`, `opencode/preference-writer.js`, and `opencode/configure-opencode-subagents`, plugin-local helpers, or docs. Do not hand-edit generated skill runtime documents in `skills/*/SKILL.md`, `skills-claude/*/SKILL.md`, or `skills-opencode/*/SKILL.md`; change the applicable source doc or `scripts/generate-skill-wrappers.py` metadata, then regenerate. Do not hand-edit generated role wrappers in `agents/*.md`, `docs/platforms/codex-agents/*.toml`, or `opencode/generated/*.json`; change `docs/agent-core/*.md`, `docs/platforms/opencode-main-agent.md`, or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
+1. Edit files under `plugins/oh-no-harness/`: shared skill bodies in `docs/skill-core/*.md`, platform guidance in `docs/platforms/*.md`, shared role bodies in `docs/agent-core/*.md`, hooks, handwritten OpenCode sources in `opencode/index.js`, `opencode/preferences.js`, `opencode/preference-writer.js`, `opencode/setup.js`, and `opencode/configure-opencode-subagents`, plugin-local helpers, or docs. Do not hand-edit generated skill runtime documents in `skills/*/SKILL.md`, `skills-claude/*/SKILL.md`, or `skills-opencode/*/SKILL.md`; change the applicable source doc or `scripts/generate-skill-wrappers.py` metadata, then regenerate. Do not hand-edit generated role wrappers in `agents/*.md`, `docs/platforms/codex-agents/*.toml`, or `opencode/generated/*.json`; change `docs/agent-core/*.md`, `docs/platforms/opencode-main-agent.md`, or `scripts/generate-agent-wrappers.py` metadata, then regenerate.
 2. Re-run the test script for the runtime you changed. Claude/Codex caches resync when source differs; the OpenCode source lane loads the entrypoint in a disposable config and the package lane verifies the packed artifact.
 3. For Claude Code, `/clear` or restart the session to re-fire the `SessionStart` hook.
 4. Codex picks up skill changes on the next session. Codex plugin hooks are opt-in; when enabled, `SessionStart` is the only hook entrypoint and adds no forced-routing semantics.

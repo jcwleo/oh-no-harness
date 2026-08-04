@@ -132,6 +132,7 @@ CODEX_AGENT_TEMPLATE_ROOT = "docs/platforms/codex-agents"
 PROVIDER_DOC_ROOT = "docs/providers"
 OPENCODE_SKILLS = [*WORKFLOW_ROUTING_SKILLS, "configure-subagents"]
 OPENCODE_CONFIGURE_TOOL = "oh_no_configure_subagents"
+OPENCODE_MODEL_CATALOG_TOOL = "oh_no_get_model_catalog"
 OPENCODE_AGENT_ROOT = "opencode/generated"
 OPENCODE_ALLOWED_SKILL_FIELDS = {"name", "description"}
 OPENCODE_FORBIDDEN_WRAPPER_PATTERNS = (
@@ -3216,6 +3217,7 @@ def assert_opencode_generated_agents(root: Path) -> None:
             "*": "deny",
             **{f"oh-no-{role}": "allow" for role in AGENTS},
         },
+        OPENCODE_MODEL_CATALOG_TOOL: "ask",
         OPENCODE_CONFIGURE_TOOL: "ask",
     }
     if main.get("permission") != expected_main_permission:
@@ -3270,6 +3272,7 @@ def assert_opencode_generated_agents(root: Path) -> None:
             "fusion-rescue-analyst",
         }:
             expected_permission["bash"] = "deny"
+        expected_permission[OPENCODE_MODEL_CATALOG_TOOL] = "deny"
         expected_permission[OPENCODE_CONFIGURE_TOOL] = "deny"
         if agent.get("permission") != expected_permission:
             die(
@@ -3348,6 +3351,7 @@ def assert_opencode_runtime_contract(root: Path) -> None:
         "type": "module",
         "main": "./opencode/index.js",
         "exports": "./opencode/index.js",
+        "bin": {"oh-no-harness": "./opencode/setup.js"},
         "files": [
             "opencode/",
             "skills-opencode/",
@@ -3374,6 +3378,7 @@ def assert_opencode_runtime_contract(root: Path) -> None:
             "verification",
             "coding-workflow",
         ],
+        "dependencies": {"jsonc-parser": "3.3.1"},
         "publishConfig": {"access": "public"},
     }
     if package != expected_package:
@@ -3384,7 +3389,9 @@ def assert_opencode_runtime_contract(root: Path) -> None:
         "index.js",
         "preferences.js",
         "preference-writer.js",
+        "model-catalog.js",
         "configure-opencode-subagents",
+        "setup.js",
     }
     for filename in required_files:
         path = opencode_root / filename
@@ -3408,11 +3415,13 @@ def assert_opencode_runtime_contract(root: Path) -> None:
         'const CONFIGURE_TOOL = "oh_no_configure_subagents"',
         "tool: {",
         "[CONFIGURE_TOOL]: {",
+        "[MODEL_CATALOG_TOOL]: {",
         "args: CONFIGURE_TOOL_ARGS",
         "await context.ask({",
         "permission: CONFIGURE_TOOL",
         'patterns: ["*"]',
-        "writePreferenceAssignments(args)",
+        "validateCatalogAssignments(requested, catalog)",
+        "writePreferenceAssignments(assignments)",
         "config.agent =",
         "config.command =",
         "config.skills =",
@@ -3434,7 +3443,10 @@ def assert_opencode_runtime_contract(root: Path) -> None:
     ):
         if forbidden in index:
             die(f"{index_path} retains forbidden shell/Bash/Zod configurator surface: {forbidden!r}")
-    if index.count('type: "string"') != 1 or "pattern: MODEL_SCHEMA_PATTERN" not in index:
+    if index.count('type: "string"') != 5 or not all(
+        marker in index
+        for marker in ("pattern: MODEL_SCHEMA_PATTERN", "pattern: VARIANT_SCHEMA_PATTERN")
+    ):
         die(f"{index_path} custom tool must use the legacy plain JSON-schema property shape")
 
     permission_ceiling_markers = (
@@ -3486,6 +3498,9 @@ def assert_opencode_runtime_contract(root: Path) -> None:
     for marker in (
         "opencode-subagent-models.conf",
         "schema_version=1",
+        "schema_version=2",
+        "DEFAULT_VARIANT",
+        "VARIANT_SCHEMA_PATTERN",
         "OH_NO_CONFIG_DIR",
         "XDG_CONFIG_HOME",
         "path.isAbsolute(candidate)",
@@ -3499,6 +3514,23 @@ def assert_opencode_runtime_contract(root: Path) -> None:
     ):
         if marker not in preferences:
             die(f"{preferences_path} is missing preference contract marker: {marker!r}")
+
+    catalog_path = opencode_root / "model-catalog.js"
+    catalog = read_text(catalog_path)
+    for marker in (
+        'export const MODEL_CATALOG_TOOL = "oh_no_get_model_catalog"',
+        "MODEL_CATALOG_PAGE_SIZE = 40",
+        "client.config.providers({ query: { directory } })",
+        "primary_model",
+        "model?.variants",
+        "validateCatalogAssignments",
+        'query.mode === "providers"',
+        'query.mode !== "models"',
+        "next_cursor",
+        'status: "catalog-unavailable"',
+    ):
+        if marker not in catalog:
+            die(f"{catalog_path} is missing model-catalog contract marker: {marker!r}")
 
     writer_path = opencode_root / "preference-writer.js"
     writer = read_text(writer_path)
@@ -3590,6 +3622,36 @@ def assert_opencode_runtime_contract(root: Path) -> None:
         if forbidden in helper:
             die(f"{helper_path} read-only command contains write/apply surface: {forbidden!r}")
 
+    setup_path = opencode_root / "setup.js"
+    if not (setup_path.stat().st_mode & 0o111):
+        die(f"{setup_path} must be executable")
+    setup = read_text(setup_path)
+    for marker in (
+        "Usage: oh-no-harness setup [--check]",
+        'const PACKAGE_NAME = "oh-no-harness"',
+        "OPENCODE_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        'path.join(homedir(), ".config", "opencode")',
+        'const CONFIG_FILENAMES = ["config.json", "opencode.json", "opencode.jsonc"]',
+        "directory = await realpath(requested)",
+        "refusing symbolic-link config",
+        "parse(text, errors, { allowTrailingComma: true })",
+        'config field \'plugin\' must be an array',
+        "effectivePlugins.some(isHarnessPlugin)",
+        'await backupHandle.writeFile(previousText, "utf8")',
+        "constants.O_NOFOLLOW",
+        "constants.O_EXCL",
+        "await handle.sync()",
+        "await assertDestinationUnchanged(file, previousStats)",
+        "await assertSourcesUnchanged(sources)",
+        "await assertDirectoryUnchanged(directory, openedDirectoryStats)",
+        "await rename(temporary, file)",
+        "RESTART REQUIRED: quit and restart OpenCode",
+        "run /configure-subagents to choose exact subagent models and variants",
+    ):
+        if marker not in setup:
+            die(f"{setup_path} is missing setup CLI contract marker: {marker!r}")
+
     legacy_package_path = opencode_root / "package.json"
     if legacy_package_path.exists():
         die(f"{legacy_package_path} must not shadow the public package metadata")
@@ -3599,14 +3661,12 @@ def assert_opencode_configure_subagents_contract(root: Path) -> None:
     source_path = root / "docs" / "platforms" / "opencode-configure-subagents.md"
     wrapper_path = root / OPENCODE_SKILL_ROOT / "configure-subagents" / "SKILL.md"
     command_path = root / OPENCODE_AGENT_ROOT / "commands.json"
-    gate_marker = (
-        "First operational rule: continue only when the current user request explicitly"
-    )
+    gate_marker = "Continue only when the current user request explicitly asks to configure"
     for path in (source_path, wrapper_path):
         text = read_text(path)
         gate_at = text.find(gate_marker)
         gate_end = text.find("</HARD-GATE>")
-        operational_at = text.find("## Collection")
+        operational_at = text.find("## Available Models")
         if gate_at == -1 or gate_end == -1 or operational_at == -1:
             die(f"{path} is missing the explicit-current-user OpenCode setup hard gate")
         if not gate_at < gate_end < operational_at:
@@ -3615,8 +3675,10 @@ def assert_opencode_configure_subagents_contract(root: Path) -> None:
                 "question/tool/write instructions"
             )
         for operational_marker in (
-            "Use `question` for every choice",
-            "Ask for one mode:",
+            "Call `oh_no_get_model_catalog` exactly once",
+            "Provider model lists are paginated",
+            "exact returned `next_cursor`",
+            "Use `question` to configure all nine roles",
             "Show a final table",
             "After explicit `Apply`",
             "Invoke `",
@@ -3629,15 +3691,17 @@ def assert_opencode_configure_subagents_contract(root: Path) -> None:
                     f"explicit-current-user hard gate: {operational_marker!r}"
                 )
         for marker in (
-            "Otherwise STOP before calling `question`, calling",
+            "before calling `question`, `oh_no_get_model_catalog`,",
             "`oh_no_configure_subagents`, or writing anything",
             "Prior conversation, inferred preference, workflow entry, and",
             "another agent's recommendation are not authorization",
             "After explicit `Apply`",
-            "Cancel stops with no tool call and no write",
+            "`Cancel` stops with no",
             "call `oh_no_configure_subagents` exactly once",
-            "all nine required properties",
-            "Do not invoke Bash, a subprocess, or any helper path",
+            "all 18 required properties",
+            "Do not use Bash, a subprocess, `opencode models`",
+            "There are no fast, balanced, deep, preset, or quality profiles",
+            "`Apply`, `Edit roles`, or `Cancel`",
         ):
             if not has_required_marker(text, marker):
                 die(f"{path} is missing OpenCode setup gate/apply marker: {marker!r}")
@@ -3646,6 +3710,8 @@ def assert_opencode_configure_subagents_contract(root: Path) -> None:
         for role in AGENTS:
             if text.count(f'"{role}": "<provider/model-id>"') != 1:
                 die(f"{path} must pass exactly one {role!r} custom-tool property")
+            if text.count(f'"{role}-variant": "<variant-or-default>"') != 1:
+                die(f"{path} must pass exactly one {role!r} variant property")
         for forbidden in (
             "OH_NO_OPENCODE_PLUGIN_ROOT",
             '"${OH_NO_OPENCODE_PLUGIN_ROOT}',

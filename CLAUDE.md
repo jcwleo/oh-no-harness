@@ -51,6 +51,7 @@ Generated work products go under `.oh-no/` (gitignored): `specs/`, `plans/`, `se
 - **Composition:** each generated `SKILL.md` is assembled from the relevant shared core + platform source + optional per-skill overlay; OpenCode `configure-subagents` is intentionally standalone. See `docs/reference/relationships.md` for the full bootstrap, skill, and agent graphs, and `docs/reference/source-index.md` for where each file originated.
 - **Claude/Codex plugin hook:** the unconditional `SessionStart` bootstrap carries only compact global no-route/direct-edit/object-of-analysis boundaries; positive workflow selection comes from destination skill descriptions. On Claude Code, auto-routing adds before-action ordering and essential precedence; Codex gains no forced-routing semantics. The hook always injects the Claude-Code model-diversity block and best-effort reapplies saved Claude subagent model/effort settings after a plugin-cache update. There is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook, no state ledger, and no background process.
 - **OpenCode config hook:** `opencode/index.js` registers `skills-opencode/`, the generated commands, one `oh-no` primary carrying the static orchestration contract, and nine `oh-no-<role>` subagents from `opencode/generated/*.json`. It disables built-in `build` and `plan`, uses `oh-no` when the default is unset or one of those built-ins, preserves an unrelated custom default, and raises `subagent_depth` to at least 2 without lowering a higher custom value.
+- **OpenCode setup:** `opencode/setup.js` is the explicit `npx oh-no-harness setup` binary. It locates the effective global config, preserves valid JSON/JSONC, creates a mode-0600 backup before mutation, registers the package idempotently, and never edits OpenCode's package cache directly.
 - **OpenCode models:** the explicit-user-only OpenCode `configure-subagents` skill calls the `oh_no_configure_subagents` custom tool, which writes separate `opencode-subagent-models.conf` preferences. The `opencode/configure-opencode-subagents` executable is read-only and supports status `check` only. Changes require quitting and restarting OpenCode. Unconfigured roles inherit the primary model and must never be described as model-diverse without runtime proof.
 
 ## Maintainer validation policy
@@ -105,6 +106,7 @@ scripts/test-claude-plugin.sh --isolated-config
 OH_NO_MARKETPLACE_NAME=oh-no-harness scripts/test-codex-plugin.sh --codex-home "$(mktemp -d)"
 scripts/test-opencode-plugin.sh
 scripts/test-opencode-package.sh
+node scripts/test-opencode-setup.mjs /path/to/installed/opencode/setup.js
 
 # Opt-in direct skill smoke: deterministic installed-skill identity preflight
 # plus one native invocation and exact invariant per non-Fusion public skill.

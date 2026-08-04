@@ -24,7 +24,8 @@ scripts/test-opencode-package.sh
 
 The first OpenCode lane exercises the source runtime. The package lane creates
 the exact npm tarball, installs it without lifecycle scripts, and reruns the
-deterministic OpenCode host-loading checks against the installed artifact.
+setup CLI fixtures plus deterministic OpenCode host-loading checks against the
+installed artifact.
 
 Detailed plugin development conventions live in
 [plugins/oh-no-harness/CONTRIBUTING.md](plugins/oh-no-harness/CONTRIBUTING.md).

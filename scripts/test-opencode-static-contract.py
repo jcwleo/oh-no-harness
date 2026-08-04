@@ -77,6 +77,15 @@ def main() -> int:
         agents_path.write_text(original_agents, encoding="utf-8")
 
         agents = json.loads(original_agents)
+        agents["oh-no"]["permission"]["oh_no_get_model_catalog"] = "allow"
+        agents_path.write_text(json.dumps(agents, indent=2) + "\n", encoding="utf-8")
+        expect_rejected(
+            "OpenCode primary model catalog allow",
+            lambda: validator.assert_opencode_generated_agents(root),
+        )
+        agents_path.write_text(original_agents, encoding="utf-8")
+
+        agents = json.loads(original_agents)
         del agents["oh-no"]["permission"]["question"]
         agents_path.write_text(json.dumps(agents, indent=2) + "\n", encoding="utf-8")
         expect_rejected(
@@ -115,6 +124,18 @@ def main() -> int:
         )
         restore()
 
+        setup_path = root / "opencode" / "setup.js"
+        restore = mutate_text(
+            setup_path,
+            "refusing symbolic-link config",
+            "following symbolic-link config",
+        )
+        expect_rejected(
+            "setup CLI symlink refusal removed",
+            lambda: validator.assert_opencode_runtime_contract(root),
+        )
+        restore()
+
         index_path = root / "opencode" / "index.js"
         restore = mutate_text(
             index_path,
@@ -123,6 +144,17 @@ def main() -> int:
         )
         expect_rejected(
             "same-name per-agent permission intersection removed",
+            lambda: validator.assert_opencode_runtime_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            index_path,
+            "pattern: VARIANT_SCHEMA_PATTERN,",
+            "pattern: \".*\",",
+        )
+        expect_rejected(
+            "custom configurator exact variant schema removed",
             lambda: validator.assert_opencode_runtime_contract(root),
         )
         restore()
@@ -227,8 +259,8 @@ def main() -> int:
         setup_source = root / "docs" / "platforms" / "opencode-configure-subagents.md"
         restore = mutate_text(
             setup_source,
-            "First operational rule: continue only when the current user request explicitly",
-            "First operational rule: continue when setup seems useful",
+            "Continue only when the current user request explicitly asks to configure",
+            "Continue when setup seems useful",
         )
         expect_rejected(
             "missing explicit-current-user setup gate",

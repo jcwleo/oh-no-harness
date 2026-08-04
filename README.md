@@ -19,7 +19,7 @@ It sits between two extremes:
 It is a text-native workflow harness: stage skills coordinate the handoffs; role agents handle focused passes for exploration, planning, execution, review, security, QA, and verification.
 
 - No `npm install -g` runtime
-- No `npx` dance
+- One `npx` setup command; no runtime CLI
 - No tmux window to keep alive
 - No custom CLI muscle memory
 - No MCP server to wire up before the work can start
@@ -37,9 +37,6 @@ compact native hook entrypoints.
 Ten focused workflows help clarify vague work, plan, execute with verification, rescue hard stalled problems, debug, and clean up — without a daemon, background service, or hidden state.
 
 Oh No Harness follows semantic versioning from `1.0.0`.
-
-> [!IMPORTANT]
-> The former `using-oh-no-harness` public skill and command have been removed. This breaking change is implemented but unreleased; both plugin manifests remain at `1.7.2`, and release is blocked pending an explicit major-version decision.
 
 ## Highlights
 
@@ -75,7 +72,7 @@ Oh No Harness follows semantic versioning from `1.0.0`.
 The repository root is the Claude Code/Codex marketplace. The plugin source lives under
 `plugins/oh-no-harness/`.
 
-The npm package is an OpenCode plugin, not a global CLI: there is no `npx` bootstrap, standalone global `oh-no` binary, MCP server, setup daemon, or runtime doctor to run. The workflow lives inside the host, including GUI/plugin surfaces such as Codex App.
+The npm package is an OpenCode plugin with one explicit setup command, not a global runtime CLI: there is no standalone global `oh-no` process, MCP server, setup daemon, or runtime doctor. The workflow lives inside the host, including GUI/plugin surfaces such as Codex App.
 
 > [!TIP]
 > Install the plugin where your agent already looks, describe the task so native discovery can use the skill descriptions, and turn on auto-routing in Claude Code only if you want stronger action-ordering guidance.
@@ -134,7 +131,24 @@ codex plugin marketplace upgrade oh-no-harness
 
 ### OpenCode
 
-Add the npm plugin to `~/.config/opencode/opencode.json`:
+Run the one-time setup command:
+
+```sh
+npx --yes oh-no-harness@latest setup
+```
+
+The installer locates the effective OpenCode global config, validates JSON or
+JSONC, preserves existing settings and comments, creates a credential-safe
+backup when changing an existing file, and adds `"oh-no-harness"` to the
+`plugin` array exactly once. Quit any running OpenCode, start it again, then run
+`/configure-subagents` to select each role's exact available model and
+model-specific variant. Check registration without writing with:
+
+```sh
+npx --yes oh-no-harness@latest setup --check
+```
+
+Manual fallback:
 
 ```json
 {
@@ -209,8 +223,8 @@ For the Claude Code command above, restart Claude Code or `/clear` after togglin
 
 - On Claude Code/Codex, the compact `SessionStart` bootstrap is the only plugin hook; there is no `UserPromptSubmit`, `PreToolUse`, or `PostToolUse` hook.
 - OpenCode uses a startup config hook, not the Claude/Codex `SessionStart` hook; it registers static local source and starts no background process.
-- The npm package is a startup-loaded OpenCode plugin, not a global custom CLI process; there is no tmux process, daemon, or MCP server.
-- **No** network calls, **no** telemetry.
+- The npm package provides a one-time setup command and a startup-loaded OpenCode plugin, not a persistent global CLI process; there is no tmux process, daemon, or MCP server.
+- The runtime plugin makes **no** network calls and sends **no** telemetry; installation uses the host's normal GitHub/npm package transport.
 - Reads/writes only inside the plugin dir and `~/.claude/plugins/data/<oh-no-harness-*>/` (or `~/.config/oh-no-harness/` on hosts without that layout) for persistent harness settings.
 - Claude Code's `configure-subagents` (when you run it) rewrites the **installed** runtime agent Markdown under the active plugin root's `agents/` directory, and stores your durable model/effort choices, top-tier/secondary diversity settings, plus a bounded set of timestamped agent backups in the Oh No Harness data directory. Those backups retain agent bodies; **no proxy base URL or auth-token value is ever stored or printed** — CLIProxyAPI wiring is only checked for presence.
 - Commands, skills, and agents are auditable Markdown or generated JSON loaded by thin host-native adapters. No daemon, no background process.

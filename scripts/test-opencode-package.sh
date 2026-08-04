@@ -52,6 +52,8 @@ const names = new Set(entry.files.map((file) => file.path));
 for (const required of [
   "package.json",
   "opencode/index.js",
+  "opencode/setup.js",
+  "opencode/model-catalog.js",
   "opencode/preferences.js",
   "opencode/preference-writer.js",
   "opencode/configure-opencode-subagents",
@@ -76,9 +78,12 @@ NODE
 
 INSTALLED_ROOT="$INSTALL_DIR/node_modules/oh-no-harness"
 [[ -f "$INSTALLED_ROOT/opencode/index.js" ]] || fail "installed package entrypoint is missing"
+[[ -x "$INSTALL_DIR/node_modules/.bin/oh-no-harness" ]] \
+  || fail "installed package setup bin is missing or non-executable"
 
 "$NODE_BIN" --input-type=module - "$INSTALL_DIR" <<'NODE'
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 const installDirectory = process.argv[2];
@@ -88,7 +93,30 @@ const module = await import(pathToFileURL(entrypoint));
 if (typeof module.default !== "function") {
   throw new Error("package default export is not an OpenCode plugin function");
 }
+const metadata = JSON.parse(
+  await readFile(`${installDirectory}/node_modules/oh-no-harness/package.json`, "utf8"),
+);
+if (metadata.bin?.["oh-no-harness"] !== "./opencode/setup.js") {
+  throw new Error("package bin does not expose the setup CLI");
+}
 NODE
+
+"$NODE_BIN" "$REPO_ROOT/scripts/test-opencode-setup.mjs" \
+  "$INSTALL_DIR/node_modules/.bin/oh-no-harness"
+
+set +e
+OPENCODE_CONFIG_DIR="$TEMP_ROOT/npm-exec-config" \
+  "$NPM_BIN" exec --yes --package "$TARBALL" -- oh-no-harness setup --check \
+  >"$TEMP_ROOT/npm-exec-check.txt" 2>&1
+NPM_EXEC_STATUS=$?
+set -e
+[[ "$NPM_EXEC_STATUS" == 1 ]] || fail "npm exec setup --check returned $NPM_EXEC_STATUS"
+"$NODE_BIN" -e '
+  const text = require("node:fs").readFileSync(process.argv[1], "utf8");
+  if (!/^STATUS: unconfigured$/mu.test(text)) process.exit(1);
+' "$TEMP_ROOT/npm-exec-check.txt" || fail "npm exec did not invoke the setup binary"
+[[ ! -e "$TEMP_ROOT/npm-exec-config" ]] \
+  || fail "read-only npm exec setup --check created the config directory"
 
 OH_NO_PLUGIN_ROOT="$INSTALLED_ROOT" "$REPO_ROOT/scripts/test-opencode-plugin.sh"
 printf '\nPASS: packed npm artifact installs and loads through OpenCode\n'

@@ -497,10 +497,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("reapplies stored preferences best-effort", CLAUDE),  # SessionStart drift repair
         ("No proxy URL or token value is ever stored or printed", CLAUDE),  # credential safety
         ("current user request explicitly", OPENCODE),
-        ("exact OpenCode `provider/model-id` strings", OPENCODE),
-        ("Cancel stops with no tool call and no write", OPENCODE),
+        ("Call `oh_no_get_model_catalog` exactly once", OPENCODE),
+        ("one exact model and one exact variant", OPENCODE),
+        ("`Cancel` stops with no", OPENCODE),
         ("call `oh_no_configure_subagents` exactly once", OPENCODE),
-        ("Do not invoke Bash, a subprocess, or any helper path", OPENCODE),
+        ("Do not use Bash, a subprocess, `opencode models`", OPENCODE),
         ("quit and restart OpenCode", OPENCODE),
     ],
 }
@@ -694,8 +695,9 @@ def main() -> int:
         if args.platform == OPENCODE and skill == "configure-subagents":
             wrapper_required_terms = (
                 "current user request explicitly",
+                "oh_no_get_model_catalog",
                 "oh_no_configure_subagents",
-                "do not invoke bash",
+                "do not use bash",
             )
         for term in wrapper_required_terms:
             if term not in lowered:

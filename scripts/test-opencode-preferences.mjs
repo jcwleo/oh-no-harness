@@ -25,6 +25,12 @@ import {
   writePreferenceAssignments,
 } from "../plugins/oh-no-harness/opencode/preference-writer.js";
 import {
+  fetchModelCatalog,
+  formatModelCatalog,
+  normalizeProviderCatalog,
+  validateCatalogAssignments,
+} from "../plugins/oh-no-harness/opencode/model-catalog.js";
+import {
   inspectDirectoryPath,
   PREFERENCES_FILENAME,
   readPreferenceState,
@@ -38,10 +44,10 @@ const configurator = path.join(
   "plugins/oh-no-harness/opencode/configure-opencode-subagents",
 );
 const assignments = Object.fromEntries(
-  ROLES.map((role) => [role, `test-provider/${role}`]),
+  ROLES.map((role) => [role, { model: `test-provider/${role}`, variant: "high" }]),
 );
 const alternateAssignments = Object.fromEntries(
-  ROLES.map((role) => [role, `alternate/${role}`]),
+  ROLES.map((role) => [role, { model: `alternate/${role}`, variant: "default" }]),
 );
 const prior = Buffer.from("prior preference bytes\n");
 const lockName = ".opencode-subagent-models.lock";
@@ -101,6 +107,100 @@ async function assertNoLockArtifacts(directory) {
 
 try {
   assert.notEqual(process.platform, "win32", "POSIX writer tests require a POSIX host");
+
+  const providerResponse = {
+    providers: [{
+      id: "test-provider",
+      models: {
+        explore: {
+          id: "explore",
+          name: "Explore Model",
+          status: "active",
+          variants: { high: {}, "high effort,custom=true": {}, hidden: { disabled: true } },
+        },
+      },
+    }],
+  };
+  assert.deepEqual(normalizeProviderCatalog(providerResponse), [{
+    id: "test-provider/explore",
+    name: "Explore Model",
+    provider: "test-provider",
+    status: "active",
+    variants: ["default", "high", "high effort,custom=true"],
+  }]);
+  const catalog = await fetchModelCatalog({
+    config: {
+      providers: async ({ query }) => {
+        assert.deepEqual(query, { directory: "/fixture/project" });
+        return { data: providerResponse };
+      },
+      get: async () => ({ data: { model: "test-provider/explore" } }),
+    },
+  }, "/fixture/project");
+  assert.equal(catalog.status, "available");
+  assert.equal(catalog.primary_model, "test-provider/explore");
+  const catalogAssignments = Object.fromEntries(ROLES.map((role) => [role, {
+    model: "test-provider/explore",
+    variant: "high",
+  }]));
+  assert.ok(validateCatalogAssignments(catalogAssignments, catalog));
+  assert.ok(validateCatalogAssignments({
+    ...catalogAssignments,
+    verifier: { model: "test-provider/explore", variant: "high effort,custom=true" },
+  }, catalog));
+  assert.equal(validateCatalogAssignments({
+    ...catalogAssignments,
+    verifier: { model: "test-provider/explore", variant: "hidden" },
+  }, catalog), null);
+  assert.doesNotMatch(
+    formatModelCatalog(catalog, { status: "configured", assignments: new Map(Object.entries(catalogAssignments)) }),
+    /credential|api[_-]?key/iu,
+  );
+  assert.deepEqual(
+    await fetchModelCatalog({ config: { providers: async () => { throw new Error("offline"); } } }),
+    { status: "catalog-unavailable", primary_model: null, models: [] },
+  );
+  const pagedCatalog = {
+    status: "available",
+    primary_model: null,
+    models: Array.from({ length: 41 }, (_, index) => ({
+      id: `large-provider/model-${String(index).padStart(2, "0")}`,
+      name: `Model ${index}`,
+      provider: "large-provider",
+      status: "active",
+      variants: ["default"],
+    })),
+  };
+  const firstPage = JSON.parse(formatModelCatalog(
+    pagedCatalog,
+    { status: "unconfigured" },
+    { mode: "models", provider: "large-provider", cursor: "0" },
+  ));
+  assert.equal(firstPage.models.length, 40);
+  assert.equal(firstPage.next_cursor, "40");
+  const secondPage = JSON.parse(formatModelCatalog(
+    pagedCatalog,
+    { status: "unconfigured" },
+    { mode: "models", provider: "large-provider", cursor: firstPage.next_cursor },
+  ));
+  assert.equal(secondPage.models.length, 1);
+  assert.equal(secondPage.next_cursor, null);
+  const starProviderPage = JSON.parse(formatModelCatalog(
+    {
+      status: "available",
+      primary_model: null,
+      models: [{
+        id: "*/exact-model",
+        name: "Exact Model",
+        provider: "*",
+        status: "active",
+        variants: ["default"],
+      }],
+    },
+    { status: "unconfigured" },
+    { mode: "models", provider: "*", cursor: "0" },
+  ));
+  assert.equal(starProviderPage.models[0].id, "*/exact-model");
 
   for (const mode of [0o700, 0o755]) {
     const directory = await makeDirectory(`valid-${mode.toString(8)}`, mode);
@@ -173,8 +273,9 @@ try {
   await writeFile(path.join(malformedArgumentsDirectory, PREFERENCES_FILENAME), prior);
   for (const invalid of [
     { explore: "missing-roles/model" },
-    { ...assignments, extra: "provider/model" },
-    { ...assignments, "code-reviewer": "missing-provider-slash" },
+    { ...assignments, extra: { model: "provider/model", variant: "default" } },
+    { ...assignments, "code-reviewer": { model: "missing-provider-slash", variant: "high" } },
+    { ...assignments, verifier: { model: "provider/model", variant: "" } },
   ]) {
     await assertPriorBytes(
       malformedArgumentsDirectory,
@@ -188,7 +289,33 @@ try {
   assert.deepEqual(success, { status: "configured", published: true });
   const state = await readPreferenceState({ OH_NO_CONFIG_DIR: successDirectory });
   assert.equal(state.status, "configured");
-  for (const role of ROLES) assert.equal(state.assignments.get(role), `alternate/${role}`);
+  for (const role of ROLES) {
+    assert.deepEqual(state.assignments.get(role), {
+      model: `alternate/${role}`,
+      variant: "default",
+    });
+  }
+  assert.match(
+    await readFile(path.join(successDirectory, PREFERENCES_FILENAME), "utf8"),
+    /^schema_version=2$/mu,
+  );
+
+  const exactDirectory = await makeDirectory("exact-json-values", 0o700);
+  const exactAssignments = {
+    ...assignments,
+    explore: {
+      model: "test-provider/model,with=punctuation",
+      variant: "high effort,custom=true",
+    },
+  };
+  assert.deepEqual(await publish(exactDirectory, exactAssignments), {
+    status: "configured",
+    published: true,
+  });
+  assert.deepEqual(
+    (await readPreferenceState({ OH_NO_CONFIG_DIR: exactDirectory })).assignments.get("explore"),
+    exactAssignments.explore,
+  );
   assert.deepEqual(await readdir(successDirectory), [PREFERENCES_FILENAME]);
 
   const liveLockDirectory = await makeDirectory("live-lock", 0o700);
@@ -206,9 +333,9 @@ try {
     status: "configured",
     published: true,
   });
-  assert.equal(
+  assert.deepEqual(
     (await readPreferenceState({ OH_NO_CONFIG_DIR: staleLockDirectory })).assignments.get("explore"),
-    "alternate/explore",
+    { model: "alternate/explore", variant: "default" },
   );
   await assertNoLockArtifacts(staleLockDirectory);
 
@@ -234,9 +361,13 @@ try {
   assert.equal(concurrentResults.filter((result) => result.status === "locked").length, 1);
   const concurrentState = await readPreferenceState({ OH_NO_CONFIG_DIR: concurrentDirectory });
   assert.equal(concurrentState.status, "configured");
-  const configuredPrefix = concurrentState.assignments.get("explore").split("/", 1)[0];
+  const configuredPrefix = concurrentState.assignments.get("explore").model.split("/", 1)[0];
+  const configuredVariant = configuredPrefix === "test-provider" ? "high" : "default";
   for (const role of ROLES) {
-    assert.equal(concurrentState.assignments.get(role), `${configuredPrefix}/${role}`);
+    assert.deepEqual(concurrentState.assignments.get(role), {
+      model: `${configuredPrefix}/${role}`,
+      variant: configuredVariant,
+    });
   }
   await assertNoLockArtifacts(concurrentDirectory);
 
@@ -263,6 +394,20 @@ try {
     "configured",
   );
 
+  const legacyDirectory = await makeDirectory("legacy-v1-migration", 0o700);
+  await writeFile(
+    path.join(legacyDirectory, PREFERENCES_FILENAME),
+    `schema_version=1\n${ROLES.map((role) => `assignment=${role},legacy/${role}`).join("\n")}\n`,
+  );
+  const legacyState = await readPreferenceState({ OH_NO_CONFIG_DIR: legacyDirectory });
+  assert.equal(legacyState.status, "configured");
+  for (const role of ROLES) {
+    assert.deepEqual(legacyState.assignments.get(role), {
+      model: `legacy/${role}`,
+      variant: "default",
+    });
+  }
+
   const windowsDirectory = path.join(temporaryRoot, "windows-unsupported");
   assert.deepEqual(
     await publish(windowsDirectory, assignments, { platform: "win32" }),
@@ -270,19 +415,19 @@ try {
   );
   await assert.rejects(lstat(windowsDirectory), { code: "ENOENT" });
 
-  const legacyDirectory = await makeDirectory("legacy-cli-nonwriting", 0o700);
-  await writeFile(path.join(legacyDirectory, PREFERENCES_FILENAME), prior);
+  const legacyCliDirectory = await makeDirectory("legacy-cli-nonwriting", 0o700);
+  await writeFile(path.join(legacyCliDirectory, PREFERENCES_FILENAME), prior);
   const legacyApply = spawnSync(
     process.execPath,
     [configurator, "apply", ...ROLES.map((role) => `${role}=legacy/${role}`)],
     {
       encoding: "utf8",
-      env: { ...process.env, OH_NO_CONFIG_DIR: legacyDirectory },
+      env: { ...process.env, OH_NO_CONFIG_DIR: legacyCliDirectory },
     },
   );
   assert.equal(legacyApply.status, 2, `${legacyApply.stdout}\n${legacyApply.stderr}`);
   assert.match(legacyApply.stderr, /Usage: configure-opencode-subagents check/u);
-  assert.deepEqual(await readFile(path.join(legacyDirectory, PREFERENCES_FILENAME)), prior);
+  assert.deepEqual(await readFile(path.join(legacyCliDirectory, PREFERENCES_FILENAME)), prior);
 
   const check = spawnSync(process.execPath, [configurator, "check"], {
     encoding: "utf8",

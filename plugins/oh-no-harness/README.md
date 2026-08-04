@@ -36,7 +36,10 @@ manifests point here as the plugin source of truth.
 
 The OpenCode config hook loads one `oh-no` primary, nine `oh-no-<role>`
 subagents, and the 11-skill OpenCode surface. The public npm package exports
-`opencode/index.js` and includes only the OpenCode adapter, generated OpenCode
-skills, package documentation, notices, and license. Add `"oh-no-harness"` to
-the `plugin` array in `~/.config/opencode/opencode.json`, then quit and restart
-OpenCode.
+`opencode/index.js`, exposes the one-time `oh-no-harness setup` binary, and
+includes only the OpenCode adapter, generated OpenCode skills, package
+documentation, notices, and license. Install and register it with
+`npx --yes oh-no-harness@latest setup`, then quit and restart OpenCode. Run
+`/configure-subagents` in OpenCode to choose each role's exact available model
+and model-specific variant. Use `npx --yes oh-no-harness@latest setup --check`
+for a read-only registration status check.

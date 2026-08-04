@@ -29,6 +29,7 @@ OPEN_CODE_SKILLS = [
     "configure-subagents",
 ]
 OPEN_CODE_CONFIGURE_TOOL = "oh_no_configure_subagents"
+OPEN_CODE_MODEL_CATALOG_TOOL = "oh_no_get_model_catalog"
 
 
 @dataclass(frozen=True)
@@ -271,6 +272,7 @@ def opencode_subagent_permission(role: str) -> dict[str, object]:
         "fusion-rescue-analyst",
     }:
         permission["bash"] = "deny"
+    permission[OPEN_CODE_MODEL_CATALOG_TOOL] = "deny"
     permission[OPEN_CODE_CONFIGURE_TOOL] = "deny"
     return permission
 
@@ -293,6 +295,7 @@ def render_opencode_agents(plugin_root: Path) -> str:
                         for meta in AGENTS
                     },
                 },
+                OPEN_CODE_MODEL_CATALOG_TOOL: "ask",
                 OPEN_CODE_CONFIGURE_TOOL: "ask",
             },
         }

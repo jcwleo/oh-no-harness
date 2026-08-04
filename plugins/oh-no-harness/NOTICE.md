@@ -5,6 +5,9 @@ Oh No Harness adapts selected Markdown skill and agent content from:
 - OMC / oh-my-claudecode: https://github.com/Yeachan-Heo/oh-my-claudecode
 - Superpowers bootstrap/runtime pattern: https://github.com/obra/superpowers
 
+The OpenCode setup CLI depends on Microsoft's MIT-licensed `jsonc-parser`:
+https://github.com/microsoft/node-jsonc-parser
+
 The first version intentionally keeps only the workflow content needed for:
 
 - `interview`

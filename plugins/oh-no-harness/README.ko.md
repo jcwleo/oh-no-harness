@@ -38,5 +38,8 @@ manifest들은 이 디렉터리를 plugin source of truth로 가리킵니다.
 OpenCode config hook은 `oh-no` primary 하나, `oh-no-<role>` subagent 9개,
 OpenCode skill 11개를 로드합니다. 공개 npm 패키지는 `opencode/index.js`를
 export하고 OpenCode adapter, 생성된 OpenCode skill, 패키지 문서, notice,
-license만 포함합니다. `~/.config/opencode/opencode.json`의 `plugin` 배열에
-`"oh-no-harness"`를 추가한 뒤 OpenCode를 완전히 종료하고 다시 시작하세요.
+license만 포함하며 one-time `oh-no-harness setup` binary를 제공합니다.
+`npx --yes oh-no-harness@latest setup`으로 설치·등록한 뒤 OpenCode를 완전히 종료하고
+다시 시작하세요. 이어서 OpenCode에서 `/configure-subagents`를 실행하면 role별로
+현재 사용 가능한 정확한 model과 model-specific variant를 선택할 수 있습니다.
+읽기 전용 등록 상태 확인은 `npx --yes oh-no-harness@latest setup --check`를 사용합니다.

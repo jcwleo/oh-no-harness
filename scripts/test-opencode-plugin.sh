@@ -115,8 +115,8 @@ export TERM=dumb
 unset OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT OPENCODE_PURE
 
 OPENCODE_VERSION="$($OPENCODE_BIN --version 2>&1)"
-[[ "$OPENCODE_VERSION" == "1.18.11" ]] \
-  || fail "this driver is pinned to opencode 1.18.11; found $OPENCODE_VERSION"
+[[ "$OPENCODE_VERSION" == "1.18.12" ]] \
+  || fail "this driver is pinned to opencode 1.18.12; found $OPENCODE_VERSION"
 
 PROJECT_ROOT="$TEMP_ROOT/project"
 CUSTOM_SKILLS_ROOT="$TEMP_ROOT/custom-skills"
@@ -287,6 +287,7 @@ assert.deepEqual(generatedAgents["oh-no"].permission, {
     "*": "deny",
     ...Object.fromEntries(roles.map((role) => [`oh-no-${role}`, "allow"])),
   },
+  oh_no_get_model_catalog: "ask",
   oh_no_configure_subagents: "ask",
 });
 for (const role of roles) {
@@ -312,6 +313,7 @@ for (const role of roles) {
   } else {
     assert.equal(Object.hasOwn(agent.permission, "bash"), false);
   }
+  assert.equal(agent.permission.oh_no_get_model_catalog, "deny");
   assert.equal(agent.permission.oh_no_configure_subagents, "deny");
 }
 for (const [name, command] of Object.entries(generatedCommands)) {
@@ -324,31 +326,69 @@ assert.match(generatedCommands["configure-subagents"].template, /bypass of its a
 
 const module = await import(process.env.PLUGIN_URL);
 assert.equal(typeof module.default, "function");
-const hooks = await module.default();
+const providerModels = Object.fromEntries(roles.map((role) => [role, {
+  id: role,
+  name: `Definition ${role}`,
+  status: "active",
+  variants: { high: {} },
+}]));
+const client = {
+  config: {
+    providers: async ({ query }) => {
+      assert.deepEqual(query, { directory: "/definition/project" });
+      return { data: { providers: [{ id: "definition-test", models: providerModels }] } };
+    },
+    get: async () => ({ data: { model: "definition-test/explore" } }),
+  },
+};
+const hooks = await module.default({ client, directory: "/definition/project" });
 assert.equal(typeof hooks.config, "function");
 assert.equal(Object.hasOwn(hooks, "shell.env"), false);
-assert.deepEqual(Object.keys(hooks.tool), ["oh_no_configure_subagents"]);
+assert.deepEqual(Object.keys(hooks.tool), ["oh_no_get_model_catalog", "oh_no_configure_subagents"]);
+const catalogTool = hooks.tool.oh_no_get_model_catalog;
+assert.deepEqual(Object.keys(catalogTool.args), ["mode", "provider", "cursor"]);
+const catalogResult = JSON.parse(await catalogTool.execute({ mode: "providers", provider: "", cursor: "0" }));
+assert.equal(catalogResult.status, "available");
+assert.equal(catalogResult.primary_model, "definition-test/explore");
+assert.deepEqual(catalogResult.providers, [{ id: "definition-test", model_count: roles.length }]);
+assert.equal(catalogResult.featured_models.length, 1);
+assert.deepEqual(catalogResult.featured_models[0].variants, ["default", "high"]);
+const modelPage = JSON.parse(await catalogTool.execute({
+  mode: "models", provider: "definition-test", cursor: "0",
+}));
+assert.equal(modelPage.models.length, roles.length);
+assert.equal(modelPage.next_cursor, null);
 const configureTool = hooks.tool.oh_no_configure_subagents;
 assert.equal(typeof configureTool.execute, "function");
-assert.deepEqual(Object.keys(configureTool.args), roles);
+const expectedToolArgs = roles.flatMap((role) => [role, `${role}-variant`]);
+assert.deepEqual(Object.keys(configureTool.args), expectedToolArgs);
 const legacySchema = {
   type: "object",
   properties: configureTool.args,
   required: Object.keys(configureTool.args),
 };
-assert.deepEqual(legacySchema.required, roles);
+assert.deepEqual(legacySchema.required, expectedToolArgs);
 for (const role of roles) {
   assert.equal(configureTool.args[role].type, "string");
-  assert.equal(configureTool.args[role].pattern, "^[^\\s,=/]+\\/[^\\s,=]+$");
+  assert.equal(configureTool.args[role].pattern, "^[\\s\\S]+\\/[\\s\\S]+$");
+  assert.equal(configureTool.args[`${role}-variant`].type, "string");
+  assert.equal(configureTool.args[`${role}-variant`].pattern, "^[\\s\\S]+$");
 }
 const previousConfigDirectory = process.env.OH_NO_CONFIG_DIR;
 process.env.OH_NO_CONFIG_DIR = process.env.TOOL_CONFIG_DIR;
 let toolResult;
 const toolArgs = Object.fromEntries(
-  roles.map((role) => [role, `definition-test/${role}`]),
+  roles.flatMap((role) => [[role, `definition-test/${role}`], [`${role}-variant`, "high"]]),
 );
 const deniedRequest = [];
 try {
+  let staleAsked = false;
+  const staleResult = await configureTool.execute(
+    { ...toolArgs, analyst: "definition-test/no-longer-available" },
+    { ask: async () => { staleAsked = true; } },
+  );
+  assert.equal(staleResult, "STATUS: invalid-assignments\nPreferences were not changed.");
+  assert.equal(staleAsked, false);
   await assert.rejects(
     configureTool.execute(toolArgs, {
       ask: async (request) => {
@@ -386,7 +426,11 @@ const toolPreferences = await readFile(
   path.join(process.env.TOOL_CONFIG_DIR, "opencode-subagent-models.conf"),
   "utf8",
 );
-for (const role of roles) assert.ok(toolPreferences.includes(`assignment=${role},definition-test/${role}\n`));
+for (const role of roles) {
+  assert.ok(toolPreferences.includes(
+    `assignment={"role":"${role}","model":"definition-test/${role}","variant":"high"}\n`,
+  ));
+}
 
 const config = {
   default_agent: "build",
@@ -423,6 +467,7 @@ for (const name of expectedAgents) assert.ok(Object.hasOwn(config.agent, name));
 for (const name of expectedCommands) assert.ok(Object.hasOwn(config.command, name));
 for (const role of roles) assert.equal(Object.hasOwn(config.agent[`oh-no-${role}`], "model"), false);
 assert.equal(config.agent["oh-no"].permission.question, "allow");
+assert.equal(config.agent["oh-no"].permission.oh_no_get_model_catalog, "ask");
 assert.equal(config.agent["oh-no"].permission.oh_no_configure_subagents, "ask");
 assert.equal(Object.hasOwn(config.agent["oh-no"].permission, "bash"), false);
 assert.deepEqual(config.agent["oh-no"].permission.task, {
@@ -437,6 +482,7 @@ const restricted = {
     edit: "deny",
     task: { "*": "deny" },
     bash: "deny",
+    oh_no_get_model_catalog: "deny",
     oh_no_configure_subagents: "deny",
   },
 };
@@ -455,6 +501,7 @@ for (const name of expectedAgents) {
   const bash = restricted.agent[name].permission.bash;
   if (bash !== undefined) assert.equal(bash, "deny");
   assert.equal(restricted.agent[name].permission.oh_no_configure_subagents, "deny");
+  assert.equal(restricted.agent[name].permission.oh_no_get_model_catalog, "deny");
 }
 
 const perAgentRestricted = {
@@ -693,13 +740,12 @@ const normalizedGate = gate.replace(/\s+/gu, " ");
 for (const signal of [
   "<HARD-GATE>",
   "current user request explicitly",
-  "STOP before calling `question`, calling `oh_no_configure_subagents`, or writing anything",
-  "write nothing before final confirmation",
-  "Then use `question` once for",
-  "`Apply` or `Cancel`",
-  "Cancel stops with no tool call and no write",
+  "before calling `question`, `oh_no_get_model_catalog`,",
+  "Call `oh_no_get_model_catalog` exactly once",
+  "There are no fast, balanced, deep, preset, or quality profiles",
+  "`Apply`, `Edit roles`, or `Cancel`",
   "call `oh_no_configure_subagents` exactly once",
-  "Do not invoke Bash, a subprocess, or any helper path",
+  "Do not use Bash, a subprocess, `opencode models`",
   "restart OpenCode",
 ]) assert.ok(normalizedGate.includes(signal), `missing configurator hard-gate signal: ${signal}`);
 NODE
@@ -1241,7 +1287,7 @@ for name in expected[1:]:
 PY
 ok "real OpenCode discovers oh-no primary and all nine named subagents"
 
-# OpenCode 1.18.11 can truncate `debug skill` into invalid JSON when wrappers
+# OpenCode 1.18.12 can truncate `debug skill` into invalid JSON when wrappers
 # are large. Treat it as raw host evidence and bind that evidence to the exact
 # generator/filesystem inventory asserted above instead of parsing it.
 run_opencode_capture "$TEMP_ROOT/debug-skill.raw" debug skill
@@ -1291,18 +1337,49 @@ ASSIGNMENTS=(
 )
 log "Publishing exact role models through the custom tool and checking a fresh process"
 PLUGIN_URL="$PLUGIN_URL" "$NODE_BIN" --input-type=module >"$TEMP_ROOT/tool-valid.txt" <<'NODE'
-const hooks = await (await import(process.env.PLUGIN_URL)).default();
+const modelIDs = {
+  explore: "model-explore",
+  analyst: "model-analyst",
+  planner: "model/planner",
+  "plan-reviewer": "model-plan-reviewer",
+  executor: "model-executor",
+  debugger: "model-debugger",
+  verifier: "model-verifier",
+  "code-reviewer": "model-code-reviewer",
+  "fusion-rescue-analyst": "model-fusion-rescue-analyst",
+};
+const models = Object.fromEntries(Object.entries(modelIDs).map(([role, id]) => [role, {
+  id,
+  name: role,
+  variants: { high: {} },
+}]));
+const client = {
+  config: {
+    providers: async () => ({ data: { providers: [{ id: "fixture-provider", models }] } }),
+    get: async () => ({ data: {} }),
+  },
+};
+const hooks = await (await import(process.env.PLUGIN_URL)).default({ client, directory: process.cwd() });
 const requests = [];
 const result = await hooks.tool.oh_no_configure_subagents.execute({
   explore: "fixture-provider/model-explore",
+  "explore-variant": "default",
   analyst: "fixture-provider/model-analyst",
+  "analyst-variant": "high",
   planner: "fixture-provider/model/planner",
+  "planner-variant": "high",
   "plan-reviewer": "fixture-provider/model-plan-reviewer",
+  "plan-reviewer-variant": "high",
   executor: "fixture-provider/model-executor",
+  "executor-variant": "high",
   debugger: "fixture-provider/model-debugger",
+  "debugger-variant": "high",
   verifier: "fixture-provider/model-verifier",
+  "verifier-variant": "high",
   "code-reviewer": "fixture-provider/model-code-reviewer",
+  "code-reviewer-variant": "high",
   "fusion-rescue-analyst": "fixture-provider/model-fusion-rescue-analyst",
+  "fusion-rescue-analyst-variant": "high",
 }, { ask: async (request) => requests.push(request) });
 if (requests.length !== 1 || requests[0].permission !== "oh_no_configure_subagents") {
   throw new Error("custom tool did not request host permission exactly once");
@@ -1328,16 +1405,16 @@ PREFERENCES_FILE="$OH_NO_CONFIG_DIR/opencode-subagent-models.conf"
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const expected = `schema_version=1
-assignment=explore,fixture-provider/model-explore
-assignment=analyst,fixture-provider/model-analyst
-assignment=planner,fixture-provider/model/planner
-assignment=plan-reviewer,fixture-provider/model-plan-reviewer
-assignment=executor,fixture-provider/model-executor
-assignment=debugger,fixture-provider/model-debugger
-assignment=verifier,fixture-provider/model-verifier
-assignment=code-reviewer,fixture-provider/model-code-reviewer
-assignment=fusion-rescue-analyst,fixture-provider/model-fusion-rescue-analyst
+const expected = `schema_version=2
+assignment={"role":"explore","model":"fixture-provider/model-explore","variant":"default"}
+assignment={"role":"analyst","model":"fixture-provider/model-analyst","variant":"high"}
+assignment={"role":"planner","model":"fixture-provider/model/planner","variant":"high"}
+assignment={"role":"plan-reviewer","model":"fixture-provider/model-plan-reviewer","variant":"high"}
+assignment={"role":"executor","model":"fixture-provider/model-executor","variant":"high"}
+assignment={"role":"debugger","model":"fixture-provider/model-debugger","variant":"high"}
+assignment={"role":"verifier","model":"fixture-provider/model-verifier","variant":"high"}
+assignment={"role":"code-reviewer","model":"fixture-provider/model-code-reviewer","variant":"high"}
+assignment={"role":"fusion-rescue-analyst","model":"fixture-provider/model-fusion-rescue-analyst","variant":"high"}
 `;
 assert.equal(await readFile(process.argv[2], "utf8"), expected);
 NODE
@@ -1361,7 +1438,14 @@ const roles = [
 const hooks = await (await import(process.env.PLUGIN_URL)).default();
 const config = {};
 await hooks.config(config);
-for (const [role, model] of roles) assert.equal(config.agent[`oh-no-${role}`].model, model);
+for (const [role, model] of roles) {
+  assert.equal(config.agent[`oh-no-${role}`].model, model);
+  if (role === "explore") {
+    assert.equal(Object.hasOwn(config.agent[`oh-no-${role}`], "variant"), false);
+  } else {
+    assert.equal(config.agent[`oh-no-${role}`].variant, "high");
+  }
+}
 NODE
 
 # Separate real OpenCode processes prove the restarted host consumes each model

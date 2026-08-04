@@ -7,9 +7,14 @@ adapter instead.
 ## Native Surfaces
 
 The public npm package is `oh-no-harness`; its default export is
-`opencode/index.js`. Users add `"oh-no-harness"` to the `plugin` array in
-`~/.config/opencode/opencode.json`. OpenCode installs it with Bun at startup.
-There is no global binary, install script, daemon, or MCP server.
+`opencode/index.js`. Users run `npx --yes oh-no-harness@latest setup`, whose explicit
+one-time binary validates and backs up the effective global JSON/JSONC config
+before idempotently adding `"oh-no-harness"` to its `plugin` array. OpenCode
+installs the registered package with Bun at startup. There is no persistent
+global process, install lifecycle script, daemon, or MCP server.
+The setup completion output directs users to `/configure-subagents` inside
+OpenCode, where the plugin can use the native configured-provider catalog rather
+than duplicating model discovery in the setup process.
 
 OpenCode discovers `SKILL.md` definitions and loads them on demand with the
 native `skill` tool. Use `question` for approval, preference, scope, and
@@ -45,14 +50,15 @@ contexts remain blockers when no separate task context exists.
 
 ## Models
 
-An agent definition may set an exact `provider/model-id`. A role without a
-model setting inherits the invoking primary agent's model. The `task` call has
-no model field, so callers must not add per-call overrides or infer a model from
-a role label.
+An agent definition may set an exact `provider/model-id` and a model-specific
+`variant`. A role without a model setting inherits the invoking primary agent's
+model. A stored `default` variant omits the explicit agent variant override. The
+`task` call has no model field, so callers must not add per-call overrides or
+infer a model from a role label.
 
 Configuration states are explicit:
 
-- `configured`: the role has a stored exact provider/model ID.
+- `configured`: the role has a stored exact provider/model ID and variant.
 - `unconfigured`: the role inherits the current primary model.
 
 Multiple calls to one role provide context and perspective independence, not
@@ -69,12 +75,13 @@ confirmation, and apply one transaction through their installed mechanism.
 After a successful change, tell the user to quit and restart OpenCode. A new
 conversation inside the same process is not a reliable activation boundary.
 
-The standalone OpenCode Configure Subagents source accepts single, preset, and
-custom assignment modes and records exact provider/model IDs for all nine roles.
-It is explicit-user-only and must not ask questions or call the
-`oh_no_configure_subagents` tool without current-request authorization. After
-its final question-based confirmation, it calls that tool exactly once with all
-nine assignments and never invokes Bash, a subprocess, or a helper path.
+The standalone OpenCode Configure Subagents source reads the configured provider
+catalog through `oh_no_get_model_catalog`, then records one exact available
+model and model-specific variant for each of the nine roles. It has no profile
+or preset modes. It is explicit-user-only and must not ask questions or call
+either custom tool without current-request authorization. After final
+question-based confirmation, it calls `oh_no_configure_subagents` exactly once
+with all nine assignments; the tool reloads the catalog before writing.
 
 Configuration writes are supported only on POSIX hosts, including macOS and
 Linux. Windows (`win32`) returns `STATUS: unsupported-platform` without writing.

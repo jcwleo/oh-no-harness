@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./opencode/index.js",
   "exports": "./opencode/index.js",
+  "bin": {
+    "oh-no-harness": "./opencode/setup.js"
+  },
   "files": [
     "opencode/",
     "skills-opencode/",
@@ -33,6 +36,9 @@
     "verification",
     "coding-workflow"
   ],
+  "dependencies": {
+    "jsonc-parser": "3.3.1"
+  },
   "publishConfig": {
     "access": "public"
   }

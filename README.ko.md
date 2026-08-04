@@ -19,7 +19,7 @@
 stage skill이 handoff를 조율하고, role agent가 탐색, 계획, 실행, 리뷰, 보안, QA, 검증 같은 전문 패스를 맡는 text-native workflow harness입니다.
 
 - `npm install -g` 런타임 없음
-- `npx` 댄스 없음
+- 한 번의 `npx` setup 명령, runtime CLI 없음
 - 살려둬야 할 tmux 창 없음
 - 새로 외워야 할 전용 CLI 없음
 - 일을 시작하기 전에 붙여야 할 MCP 서버 없음
@@ -72,7 +72,7 @@ Oh No Harness는 `1.0.0`부터 semantic versioning을 따릅니다.
 저장소 루트는 Claude Code/Codex 마켓플레이스이고, 실제 플러그인 source는
 `plugins/oh-no-harness/` 아래에 있습니다.
 
-npm 패키지는 OpenCode plugin이며 global CLI가 아닙니다. `npx` bootstrap, 독립 실행형 global `oh-no` 바이너리, MCP 서버, setup daemon, runtime doctor는 없습니다. workflow 자체는 Codex App 같은 GUI/plugin surface를 포함해 호스트 안에서 동작합니다.
+npm 패키지는 한 번 실행하는 setup 명령을 포함한 OpenCode plugin이며 global runtime CLI가 아닙니다. 독립 실행형 global `oh-no` 프로세스, MCP 서버, setup daemon, runtime doctor는 없습니다. workflow 자체는 Codex App 같은 GUI/plugin surface를 포함해 호스트 안에서 동작합니다.
 
 > [!TIP]
 > 에이전트가 이미 읽는 곳에 plugin으로 설치하고, 작업을 자연어로 적어 native discovery가 skill description을 사용하게 하세요. Claude Code에서 더 강한 행동 순서 guidance를 원할 때만 auto-routing을 켜면 됩니다.
@@ -131,7 +131,25 @@ codex plugin marketplace upgrade oh-no-harness
 
 ### OpenCode
 
-`~/.config/opencode/opencode.json`에 npm plugin을 추가합니다:
+한 번만 setup 명령을 실행합니다:
+
+```sh
+npx --yes oh-no-harness@latest setup
+```
+
+installer는 실제 OpenCode global config를 찾고 JSON/JSONC를 검증하며, 기존
+설정과 comment를 보존합니다. 기존 파일을 변경할 때는 credential-safe
+backup을 만들고 `plugin` 배열에 `"oh-no-harness"`를 정확히 한 번만
+추가합니다. 실행 중인 OpenCode를 완전히 종료하고 다시 시작한 뒤
+`/configure-subagents`를 실행하면 role별로 현재 사용 가능한 정확한 model과
+model-specific variant를 선택할 수 있습니다. 쓰지 않고 등록 상태만 확인하려면
+다음을 사용합니다:
+
+```sh
+npx --yes oh-no-harness@latest setup --check
+```
+
+수동 fallback:
 
 ```json
 {
@@ -206,8 +224,8 @@ tool을 호출해 9개 role의 정확한 `provider/model-id` 할당을
 
 - Claude Code/Codex에서는 간결한 `SessionStart` 부트스트랩이 유일한 플러그인 훅이며, `UserPromptSubmit`, `PreToolUse`, `PostToolUse` 훅은 사용하지 않습니다.
 - OpenCode는 Claude/Codex `SessionStart`가 아니라 startup config hook을 사용합니다. static local source를 등록할 뿐 background process를 시작하지 않습니다.
-- npm 패키지는 startup에 로드되는 OpenCode plugin이며 global 전용 CLI 프로세스가 아닙니다. tmux 프로세스, daemon, MCP 서버도 없습니다.
-- **네트워크 호출 없음**, **텔레메트리 없음**.
+- npm 패키지는 한 번의 setup 명령과 startup에 로드되는 OpenCode plugin을 제공하며 persistent global CLI 프로세스가 아닙니다. tmux 프로세스, daemon, MCP 서버도 없습니다.
+- runtime plugin은 **네트워크를 호출하지 않고 텔레메트리를 전송하지 않습니다**. 설치에는 host의 일반 GitHub/npm package transport를 사용합니다.
 - 플러그인 디렉토리와 `~/.claude/plugins/data/<oh-no-harness-*>/` (해당 레이아웃이 없는 호스트에선 `~/.config/oh-no-harness/`)만 읽고 씁니다 (지속되는 harness 설정용).
 - Claude Code의 `configure-subagents`를 실행하면, 활성 플러그인 루트의 `agents/` 디렉토리에 있는 **설치된** 런타임 에이전트 Markdown을 다시 쓰고, 선택한 model/effort 설정, top-tier/secondary 다양성 설정, 제한된 개수의 타임스탬프 에이전트 백업을 Oh No Harness 데이터 디렉토리에 저장합니다. 이 백업은 에이전트 본문을 보관하지만, **proxy base URL이나 auth token 값은 절대 저장하거나 출력하지 않습니다** — CLIProxyAPI 연결은 존재 여부만 확인합니다.
 - command, skill, agent는 Markdown 또는 얇은 host-native adapter가 읽는 생성 JSON으로 확인할 수 있습니다. 데몬도, 백그라운드 프로세스도 없습니다.

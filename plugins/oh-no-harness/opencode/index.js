@@ -7,9 +7,17 @@ import {
   writePreferenceAssignments,
 } from "./preference-writer.js";
 import {
+  fetchModelCatalog,
+  formatModelCatalog,
+  MODEL_CATALOG_TOOL,
+  validateCatalogAssignments,
+} from "./model-catalog.js";
+import {
+  DEFAULT_VARIANT,
   MODEL_SCHEMA_PATTERN,
   readPreferenceState,
   ROLES,
+  VARIANT_SCHEMA_PATTERN,
 } from "./preferences.js";
 
 const AGENTS_URL = new URL("./generated/agents.json", import.meta.url);
@@ -20,18 +28,40 @@ const SKILLS_PATH = path.normalize(
 const ACTIONS = new Set(["allow", "ask", "deny"]);
 const ACTION_RANK = { allow: 0, ask: 1, deny: 2 };
 const CONFIGURE_TOOL = "oh_no_configure_subagents";
-const CONFIGURE_TOOL_ARGS = Object.freeze(
-  Object.fromEntries(
-    ROLES.map((role) => [
-      role,
-      {
-        type: "string",
-        pattern: MODEL_SCHEMA_PATTERN,
-        description: `Exact provider/model-id for the ${role} role.`,
-      },
-    ]),
-  ),
-);
+const MODEL_CATALOG_TOOL_ARGS = Object.freeze({
+  mode: {
+    type: "string",
+    enum: ["providers", "models"],
+    description: "Use providers for the initial index, or models to browse one provider.",
+  },
+  provider: {
+    type: "string",
+    description: "Use an empty string for providers mode, or one exact returned provider ID.",
+  },
+  cursor: {
+    type: "string",
+    pattern: "^(0|[1-9][0-9]*)$",
+    description: "Use 0 for providers mode or a first model page, then an exact next_cursor.",
+  },
+});
+const CONFIGURE_TOOL_ARGS = Object.freeze(Object.fromEntries(ROLES.flatMap((role) => [
+  [
+    role,
+    {
+      type: "string",
+      pattern: MODEL_SCHEMA_PATTERN,
+      description: `Exact available provider/model-id for the ${role} role.`,
+    },
+  ],
+  [
+    `${role}-variant`,
+    {
+      type: "string",
+      pattern: VARIANT_SCHEMA_PATTERN,
+      description: `Exact available OpenCode variant for the ${role} role, or default.`,
+    },
+  ],
+])));
 
 function wildcardMatch(value, pattern) {
   const escaped = pattern
@@ -227,15 +257,13 @@ function applyPackagePermissions(packageAgents, globalPermission, existingAgents
       permission.task = Object.keys(task).length === 1 ? "deny" : task;
     }
 
-    applyExactRestriction(
-      permission,
-      CONFIGURE_TOOL,
-      finitePackageAction(
-        packagePermission[CONFIGURE_TOOL],
-        finiteCeilings,
-        CONFIGURE_TOOL,
-      ),
-    );
+    for (const tool of [MODEL_CATALOG_TOOL, CONFIGURE_TOOL]) {
+      applyExactRestriction(
+        permission,
+        tool,
+        finitePackageAction(packagePermission[tool], finiteCeilings, tool),
+      );
+    }
     packageAgents[name] = { ...agent, permission };
   }
 }
@@ -248,7 +276,7 @@ async function readGeneratedObject(url) {
   return value;
 }
 
-export default async function ohNoHarness() {
+export default async function ohNoHarness({ client, directory } = {}) {
   const [generatedAgents, generatedCommands] = await Promise.all([
     readGeneratedObject(AGENTS_URL),
     readGeneratedObject(COMMANDS_URL),
@@ -256,18 +284,44 @@ export default async function ohNoHarness() {
 
   return {
     tool: {
+      [MODEL_CATALOG_TOOL]: {
+        description:
+          "List the exact models and model-specific variants currently available to OpenCode for an explicit subagent configuration request.",
+        args: MODEL_CATALOG_TOOL_ARGS,
+        execute: async (args) => {
+          const [catalog, preferenceState] = await Promise.all([
+            fetchModelCatalog(client, directory),
+            readPreferenceState().catch(() => ({ status: "invalid-preferences" })),
+          ]);
+          return formatModelCatalog(catalog, preferenceState, args);
+        },
+      },
       [CONFIGURE_TOOL]: {
         description:
-          "Publish all nine exact Oh No Harness OpenCode subagent model assignments after explicit user confirmation.",
+          "Publish all nine exact Oh No Harness OpenCode subagent model and variant assignments after explicit user confirmation.",
         args: CONFIGURE_TOOL_ARGS,
         execute: async (args, context) => {
+          const requested = Object.fromEntries(
+            ROLES.map((role) => [
+              role,
+              { model: args[role], variant: args[`${role}-variant`] },
+            ]),
+          );
+          const catalog = await fetchModelCatalog(client, directory);
+          if (catalog.status !== "available") {
+            return "STATUS: catalog-unavailable\nPreferences were not changed.";
+          }
+          const assignments = validateCatalogAssignments(requested, catalog);
+          if (!assignments) {
+            return "STATUS: invalid-assignments\nPreferences were not changed.";
+          }
           await context.ask({
             permission: CONFIGURE_TOOL,
             patterns: ["*"],
             always: [],
             metadata: { operation: "configure-subagents", role_count: ROLES.length },
           });
-          return formatPreferenceWriteResult(await writePreferenceAssignments(args));
+          return formatPreferenceWriteResult(await writePreferenceAssignments(assignments));
         },
       },
     },
@@ -286,9 +340,13 @@ export default async function ohNoHarness() {
       if (canSetModels) {
         for (let index = 0; index < ROLES.length; index += 1) {
           const key = roleKeys[index];
+          const assignment = preferenceState.assignments.get(ROLES[index]);
           packageAgents[key] = {
             ...packageAgents[key],
-            model: preferenceState.assignments.get(ROLES[index]),
+            model: assignment.model,
+            ...(assignment.variant === DEFAULT_VARIANT
+              ? {}
+              : { variant: assignment.variant }),
           };
         }
       }

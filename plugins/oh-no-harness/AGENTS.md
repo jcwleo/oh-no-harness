@@ -46,11 +46,14 @@ best-effort after a plugin-cache update.
 OpenCode model setup is separate from the Claude mechanism. Its explicit-user-
 only skill calls the `oh_no_configure_subagents` plugin tool exactly once after
 final confirmation. The tool uses `opencode/preference-writer.js` to write exact
-provider/model assignments for all nine roles to
-`opencode-subagent-models.conf`. A successful change requires quitting and
-restarting OpenCode. If preferences are unconfigured, the nine subagents inherit
-the `oh-no` primary model; same-role or inherited-model calls must not be claimed
-as model diversity.
+provider/model and variant assignments for all nine roles to
+`opencode-subagent-models.conf`. Its read-only catalog tool loads configured
+models and model-specific variants through OpenCode's client; the write tool
+revalidates all nine exact model/variant assignments before publication. The npm
+setup completion output hands users off to `/configure-subagents`. A successful
+change requires quitting and restarting OpenCode. If preferences are
+unconfigured, the nine subagents inherit the `oh-no` primary model; same-role or
+inherited-model calls must not be claimed as model diversity.
 
 The unconditional bootstrap owns compact global no-route, direct-edit,
 object-of-analysis, and caller-owned child-packet boundaries. Claude auto-on
@@ -134,7 +137,10 @@ as outputs only.
 The handwritten OpenCode source adapter is `opencode/index.js`, with preference
 parsing in `opencode/preferences.js`, secure publication in
 `opencode/preference-writer.js`, and read-only status checks in
-`opencode/configure-opencode-subagents`. Its config hook registers
+`opencode/configure-opencode-subagents`. The explicit one-time npm installer is
+`opencode/setup.js`; it preserves JSON/JSONC, backs up existing global config,
+and idempotently registers the npm package without pre-populating OpenCode's
+cache. Its config hook registers
 `skills-opencode/` plus `opencode/generated/{agents,commands}.json`, disables
 built-in `build` and `plan`, selects `oh-no` only when the default is absent or
 one of those built-ins, preserves unrelated custom defaults, and raises
@@ -144,8 +150,9 @@ native host inheritance; restrictive primary and same-role policies ceiling
 finite package rules, while role hard denies and exact task topology remain
 package-owned. The plugin root `package.json` publishes the public
 `oh-no-harness` npm package with `opencode/index.js` as its only module export;
-the package contains only the OpenCode adapter, `skills-opencode/`, and package
-documentation/license files. Release versions stay in lockstep across both
+the package exposes `opencode/setup.js` only as its setup binary and contains
+the OpenCode adapter, `skills-opencode/`, and package documentation/license
+files. Release versions stay in lockstep across both
 marketplace manifests and npm metadata.
 
 Company-specific prompt guidance lives in `docs/providers/openai.md` and
