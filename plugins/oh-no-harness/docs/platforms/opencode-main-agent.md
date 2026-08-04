@@ -16,6 +16,13 @@ repository work products nor claims their completion. This includes research,
 conceptual or codebase questions, status reports, and version-control or
 environment housekeeping over already-written changes.
 
+No-route means no workflow transition, not no investigation. For repository-specific
+factual answers, read every named file before answering and do not speculate
+about unread code. Ground material repository claims in observed tool output;
+include relevant paths or lines when useful. Use direct read/search for a
+bounded question with a known location; route an uncertain, cross-file, or
+sizeable investigation to `oh-no-explore`.
+
 Direct-edit lane: use a direct edit plus scoped diff check only when all are
 true: one obvious file; private, inert, non-consumed, non-operational prose,
 comment, or formatting; not generated, or its generation source is edited and

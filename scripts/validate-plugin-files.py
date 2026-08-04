@@ -3186,6 +3186,26 @@ def assert_exact_opencode_skill_inventory(root: Path) -> None:
             die(f"missing OpenCode skill wrapper: {wrapper}")
 
 
+def assert_opencode_main_grounding_contract(root: Path) -> None:
+    path = root / "docs" / "platforms" / "opencode-main-agent.md"
+    bootstrap = markdown_section(read_text(path), "## Bootstrap Boundaries")
+    canonical_grounding_paragraph = (
+        "No-route means no workflow transition, not no investigation. For "
+        "repository-specific factual answers, read every named file before "
+        "answering and do not speculate about unread code. Ground material "
+        "repository claims in observed tool output; include relevant paths or "
+        "lines when useful. Use direct read/search for a bounded question with "
+        "a known location; route an uncertain, cross-file, or sizeable "
+        "investigation to `oh-no-explore`."
+    )
+    normalized_paragraphs = {
+        re.sub(r"\s+", " ", paragraph).strip()
+        for paragraph in re.split(r"\n\s*\n", bootstrap)
+    }
+    if canonical_grounding_paragraph not in normalized_paragraphs:
+        die(f"{path} is missing its canonical OpenCode repository-grounding paragraph")
+
+
 def assert_opencode_generated_agents(root: Path) -> None:
     path = root / OPENCODE_AGENT_ROOT / "agents.json"
     agents = read_json_object(path)
@@ -3208,6 +3228,7 @@ def assert_opencode_generated_agents(root: Path) -> None:
         die(f"{path} oh-no primary must use description/mode/prompt/permission only")
     if main.get("mode") != "primary":
         die(f"{path} oh-no must be the one primary agent")
+    assert_opencode_main_grounding_contract(root)
     main_source = read_text(root / "docs" / "platforms" / "opencode-main-agent.md")
     if main.get("prompt") != main_source:
         die(f"{path} oh-no prompt must exactly equal docs/platforms/opencode-main-agent.md")

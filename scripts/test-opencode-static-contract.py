@@ -65,6 +65,79 @@ def main() -> int:
         )
         restore()
 
+        main_source = root / "docs" / "platforms" / "opencode-main-agent.md"
+        restore = mutate_text(
+            main_source,
+            "No-route means no workflow transition, not no investigation",
+            "No-route means no investigation",
+        )
+        expect_rejected(
+            "OpenCode no-route investigation requirement weakened",
+            lambda: validator.assert_opencode_main_grounding_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            main_source,
+            "Ground material repository claims in observed tool output",
+            "Consider repository evidence before answering",
+        )
+        expect_rejected(
+            "OpenCode observed-output grounding requirement removed",
+            lambda: validator.assert_opencode_main_grounding_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            main_source,
+            "sizeable investigation to `oh-no-explore`",
+            "sizeable investigation directly",
+        )
+        expect_rejected(
+            "OpenCode investigation escalation requirement removed",
+            lambda: validator.assert_opencode_main_grounding_contract(root),
+        )
+        restore()
+
+        for label, old, new in (
+            (
+                "OpenCode named-file reading requirement qualified",
+                "read every named file before answering and do not speculate",
+                "read every named file before answering only when convenient and do not speculate",
+            ),
+            (
+                "OpenCode unread-code speculation requirement qualified",
+                "do not speculate\nabout unread code. Ground",
+                "do not speculate\nabout unread code unless it seems likely. Ground",
+            ),
+            (
+                "OpenCode observed-output grounding requirement qualified",
+                "Ground material repository claims in observed tool output;",
+                "Ground material repository claims in observed tool output when available;",
+            ),
+            (
+                "OpenCode path-or-line evidence requirement qualified",
+                "include relevant paths or lines when useful. Use",
+                "include relevant paths or lines when useful only if convenient. Use",
+            ),
+            (
+                "OpenCode bounded direct lookup requirement qualified",
+                "Use direct read/search for a\nbounded question with a known location;",
+                "Use direct read/search for a\nbounded question with a known location only after a workflow transition;",
+            ),
+            (
+                "OpenCode explore escalation requirement qualified",
+                "sizeable investigation to `oh-no-explore`.",
+                "sizeable investigation to `oh-no-explore` only after a workflow transition.",
+            ),
+        ):
+            restore = mutate_text(main_source, old, new)
+            expect_rejected(
+                label,
+                lambda: validator.assert_opencode_main_grounding_contract(root),
+            )
+            restore()
+
         agents_path = root / "opencode" / "generated" / "agents.json"
         agents = json.loads(agents_path.read_text(encoding="utf-8"))
         original_agents = agents_path.read_text(encoding="utf-8")
