@@ -11,6 +11,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from plugin_fixture import copy_plugin_fixture
+
 
 def load_validator(repo_root: Path):
     path = repo_root / "scripts" / "validate-plugin-files.py"
@@ -222,7 +224,7 @@ def copy_contract_fixture(plugin_root: Path, temp_dir: str) -> Path:
     repo_copy = Path(temp_dir) / "repo"
     copy = repo_copy / "plugins" / plugin_root.name
     copy.parent.mkdir(parents=True)
-    shutil.copytree(plugin_root, copy)
+    copy_plugin_fixture(plugin_root, copy)
     scripts_copy = repo_copy / "scripts"
     scripts_copy.mkdir()
     source_scripts = plugin_root.parent.parent / "scripts"

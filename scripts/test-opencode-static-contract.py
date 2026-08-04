@@ -6,11 +6,12 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import shutil
 import tempfile
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
+
+from plugin_fixture import copy_plugin_fixture
 
 
 def load_validator(marketplace_root: Path) -> ModuleType:
@@ -39,6 +40,23 @@ def mutate_text(path: Path, old: str, new: str) -> Callable[[], None]:
     return lambda: path.write_text(original, encoding="utf-8")
 
 
+def assert_fixture_copy_excludes_runtime_state(temp_dir: str) -> None:
+    source = Path(temp_dir) / "fixture-source"
+    source.mkdir()
+    (source / "tracked-marker.txt").write_text("tracked\n", encoding="utf-8")
+    runtime_state = source / ".oh-no" / "test-runs"
+    runtime_state.mkdir(parents=True)
+    (runtime_state / "sentinel.txt").write_text("runtime\n", encoding="utf-8")
+
+    destination = Path(temp_dir) / "fixture-copy"
+    copy_plugin_fixture(source, destination)
+
+    if (destination / "tracked-marker.txt").read_text(encoding="utf-8") != "tracked\n":
+        raise SystemExit("fixture copy did not preserve tracked content")
+    if (destination / ".oh-no").exists():
+        raise SystemExit("fixture copy retained plugin-local .oh-no runtime state")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--marketplace-root", type=Path, required=True)
@@ -47,8 +65,9 @@ def main() -> int:
     validator = load_validator(args.marketplace_root.resolve())
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        assert_fixture_copy_excludes_runtime_state(temp_dir)
         root = Path(temp_dir) / "oh-no-harness"
-        shutil.copytree(args.plugin_root.resolve(), root)
+        copy_plugin_fixture(args.plugin_root.resolve(), root)
 
         wrapper = root / "skills-opencode" / "ralph" / "SKILL.md"
         restore = mutate_text(wrapper, "# Ralph for OpenCode", "# Ralph for OpenCode\n\nTask(")
