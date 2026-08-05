@@ -822,9 +822,11 @@ Phase: EXECUTE exit — the CLEANUP and RECHECK checkpoints run at EXECUTE exit
 under `## Finalize Checkpoints`.
 
 1. CLEANUP — after the behavior lock and BEFORE the single review round:
-   LIGHT/STANDARD run a caller-owned quick diff scan and
-   invoke `simplify` (one combined scan) only when actual candidates or
-   candidate uncertainty remain; a clean scan records cleanup as not needed.
+   LIGHT/STANDARD run a caller-owned quick diff scan; never load, invoke, or dispatch `simplify`, even when actual candidates or candidate uncertainty remain.
+   Record `simplify`: not-required (mode: LIGHT|STANDARD). The record names the
+   selected lower mode; candidates become follow-ups or use another already-authorized
+   Ralph mechanism without expanding mutation scope. THOROUGH alone may load or invoke `simplify`, and only when actual candidates or candidate uncertainty remain.
+   A clean THOROUGH scan records `simplify` as not-required (no candidates).
    THOROUGH expands to four independent viewpoints only for a named safety or
    broad-diff trigger. Never create cleanup work to satisfy a pass count.
    Cleanup is mutation-capable here through executor-applied accepted findings;
@@ -1097,8 +1099,10 @@ Completion criteria:
   `not-required (no trigger fired: <reason>)` is recorded. For a fired trigger,
   `dispatch-unavailable` is a blocker
   and cannot satisfy completion
-- the proportional `simplify` scan ran, was disabled, or recorded no
-  candidates; post-cleanup verification passed when cleanup changed files
+- `simplify` records `not-required (mode: LIGHT)` or `not-required (mode:
+  STANDARD)` after every lower-mode quick scan, including one with candidates
+  or uncertainty; THOROUGH records whether its candidate-gated scan ran or had
+  no candidates; post-cleanup verification passed when cleanup changed files
 - the direct-Ralph automatic worktree was merged back with post-merge
   verification, or its branch/PR handoff was reported, or none existed per
   the recorded `Worktree decision`
@@ -1108,7 +1112,7 @@ Completion criteria:
 - the final report was written
 
 ANY run may compact the four named criteria into one combined ledger line when
-EVERY part is a compliant not-required / no-candidate / no-trigger record with
+EVERY part is a compliant not-required / mode-based not-required / no-candidate / no-trigger record with
 its reason — nothing was actually dispatched or run for any of the four. Whenever
 one of the four actually ran or blocked, that entry stays individual with its own
 evidence. A STANDARD
@@ -1259,5 +1263,5 @@ and the validated secondary top-tier model from the session
 
 ## Cleanup
 
-When Ralph reaches the CLEANUP checkpoint on Claude Code, use the host
-built-in `simplify` skill when available as the cleanup contract.
+Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Claude Code load the host built-in `simplify` skill as the cleanup contract.
+LIGHT/STANDARD do not load the Simplify path and retain the core's explicit mode-based not-required record.

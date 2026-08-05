@@ -100,5 +100,5 @@ and the validated secondary top-tier model from the session
 
 ## Cleanup
 
-When Ralph reaches the CLEANUP checkpoint on Claude Code, use the host
-built-in `simplify` skill when available as the cleanup contract.
+Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Claude Code load the host built-in `simplify` skill as the cleanup contract.
+LIGHT/STANDARD do not load the Simplify path and retain the core's explicit mode-based not-required record.

@@ -75,7 +75,7 @@ SKILL_REFERENCES: dict[str, list[str]] = {
 }
 
 SOURCE_HANDOFF_PATTERNS: dict[str, tuple[str, ...]] = {
-    "ralph": (r"\binvoke `([a-z0-9-]+)` \(one combined scan\)",),
+    "ralph": (r"\bTHOROUGH alone may load or invoke `([a-z0-9-]+)`, and only when actual candidates or candidate uncertainty remain\.",),
     "ultrawork": (r"\bread and follow `([a-z0-9-]+)`",),
 }
 
@@ -217,6 +217,14 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
         ("parent workspace directory", BOTH),
         ("Ralph invokes TDD internally when behavior-changing edits require it", BOTH),
         ("Required Behavior Lock", BOTH),  # reachable via the simplify handoff edge
+        ("LIGHT/STANDARD run a caller-owned quick diff scan; never load, invoke, or dispatch `simplify`, even when actual candidates or candidate uncertainty remain.", BOTH),
+        ("Record `simplify`: not-required (mode: LIGHT|STANDARD).", BOTH),
+        ("THOROUGH alone may load or invoke `simplify`, and only when actual candidates or candidate uncertainty remain.", BOTH),
+        ("four independent viewpoints only for a named safety or broad-diff trigger.", BOTH),
+        ("When called by `ralph`, Simplify may be loaded or invoked only for eligible THOROUGH cleanup after Ralph's quick diff scan finds actual candidates or candidate uncertainty remains.", BOTH),
+        ("Direct Simplify use remains independently selected by its own behavior lock and Cleanup Depth Decision.", BOTH),
+        ("Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Codex load the `simplify` skill through the generated Codex Simplify runtime document.", CODEX),
+        ("Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Claude Code load the host built-in `simplify` skill as the cleanup contract.", CLAUDE),
         # 2026-07-29: one canonical named-trigger predicate replaced the
         # mode/same-maker mandatory verifier, and STANDARD/ordinary THOROUGH
         # review with ONE full-role code-reviewer.
@@ -508,6 +516,11 @@ REQUIRED: dict[str, list[tuple[str, str]]] = {
 
 # Skill-specific stale clauses that would contradict reachable canonical rules.
 FORBIDDEN: dict[str, list[tuple[str, str]]] = {
+    "ralph": [
+        ("invoke `simplify` (one combined scan) only when actual candidates or candidate uncertainty remain;", BOTH),
+        ("When Ralph reaches the CLEANUP checkpoint on Codex, use the Oh No Harness\n`simplify` skill", CODEX),
+        ("When Ralph reaches the CLEANUP checkpoint on Claude Code, use the host\nbuilt-in `simplify` skill", CLAUDE),
+    ],
     "auto-routing": [
         ("OpenCode persists an Auto Routing toggle", OPENCODE),
         ("OpenCode persists the Auto Routing toggle", OPENCODE),

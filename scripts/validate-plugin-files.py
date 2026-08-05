@@ -4765,6 +4765,46 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         ralph_path,
         cleanup,
         (
+            "LIGHT/STANDARD run a caller-owned quick diff scan; never load, invoke, or dispatch `simplify`, even when actual candidates or candidate uncertainty remain.",
+            "Record `simplify`: not-required (mode: LIGHT|STANDARD).",
+            "THOROUGH alone may load or invoke `simplify`, and only when actual candidates or candidate uncertainty remain.",
+            "four independent viewpoints only for a named safety or\nbroad-diff trigger.",
+        ),
+        "THOROUGH-only Simplify cleanup policy",
+    )
+    simplify_path = skill_core / "simplify.md"
+    simplify = read_text(simplify_path)
+    require(
+        simplify_path,
+        simplify,
+        (
+            "When called by `ralph`, Simplify may be loaded or invoked only for eligible THOROUGH cleanup after Ralph's quick diff scan finds actual candidates or candidate uncertainty remains.",
+            "Direct Simplify use remains independently selected by its own behavior lock and Cleanup Depth Decision.",
+            "When a named THOROUGH trigger\nselects four-viewpoint depth",
+        ),
+        "Ralph-only THOROUGH Simplify handoff policy",
+    )
+    for platform, marker in (
+        (
+            "codex-ralph.md",
+            "Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Codex load the `simplify` skill through the generated Codex Simplify runtime document.",
+        ),
+        (
+            "claude-code-ralph.md",
+            "Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Claude Code load the host built-in `simplify` skill as the cleanup contract.",
+        ),
+    ):
+        path = platforms / platform
+        require(
+            path,
+            read_text(path),
+            (marker, "LIGHT/STANDARD do not load the Simplify path and retain the core's explicit mode-based not-required record."),
+            "THOROUGH-only Simplify platform cleanup policy",
+        )
+    require(
+        ralph_path,
+        cleanup,
+        (
             "post-cleanup review inspection",
             "apply whenever a code-review stage runs, under `single-reviewer` or\n`perspective-pair`",
             "proceeds\ndirectly from CLEANUP/RECHECK to its verifier decision under",
@@ -4876,7 +4916,8 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
     )
     # M4 item 2 (2026-07-29): compaction is proportional to what actually ran, not
     # to the tier. ANY run may compact the four criteria into one line when all
-    # four are compliant not-required / no-candidate / no-trigger records; an entry
+    # four are compliant not-required / mode-based not-required / no-candidate /
+    # no-trigger records; an entry
     # that actually ran or blocked stays individual with its own evidence.
     require(
         ralph_path,
@@ -4884,7 +4925,7 @@ def assert_orchestration_ownership_contract(root: Path) -> None:
         (
             "the required reviewer pass, the independent verifier pass, simplify, and verification-before-completion",
             "ANY run may compact the four named criteria into one combined ledger line when",
-            "EVERY part is a compliant not-required / no-candidate / no-trigger record with\nits reason",
+            "EVERY part is a compliant not-required / mode-based not-required / no-candidate / no-trigger record with\nits reason",
             "nothing was actually dispatched or run for any of the four",
             "one of the four actually ran or blocked, that entry stays individual with its own\nevidence",
         ),

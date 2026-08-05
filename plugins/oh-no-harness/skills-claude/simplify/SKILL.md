@@ -34,9 +34,9 @@ dispatch-unavailable fallback.
 It is a skill, not an agent. In Oh No Harness, `ralph` uses it after the
 behavior lock and BEFORE the single review round, so the sole review sees the
 cleaned diff; the active platform runtime document supplies the matching
-simplify skill. `ralph` owns a preflight quick diff scan and invokes this skill
-only when that scan finds actual candidates or candidate uncertainty remains;
-a clean quick scan records cleanup as not needed without invoking Simplify.
+simplify skill. When called by `ralph`, Simplify may be loaded or invoked only for eligible THOROUGH cleanup after Ralph's quick diff scan finds actual candidates or candidate uncertainty remains.
+A clean THOROUGH quick scan records Simplify as not required without invoking
+it. Direct Simplify use remains independently selected by its own behavior lock and Cleanup Depth Decision.
 
 This is quality cleanup, not bug hunting. Use `code-reviewer` or the host's
 code-review workflow for correctness bugs.
@@ -55,9 +55,11 @@ replacing implementation review.
 Reuse, Simplification, Efficiency, and Altitude are review viewpoints, not four
 mandatory jobs.
 
-- LIGHT and STANDARD: run one quick or combined scan over all four viewpoints.
-  Record `no candidates` when the scan finds nothing; do not create cleanup work
-  to satisfy a pass count.
+- Direct Simplify LIGHT and STANDARD: run one quick or combined scan over all
+  four viewpoints. Record `no candidates` when the scan finds nothing; do not
+  create cleanup work to satisfy a pass count.
+- Ralph-caller LIGHT and STANDARD: Ralph retains its quick diff scan and
+  mode-based not-required record; Simplify does not run.
 - THOROUGH without a named expansion trigger: use the same combined scan.
 - THOROUGH with a named safety, broad-diff, multi-system, or high-maintainability
   risk: run four independent viewpoint passes. They may run in one parallel

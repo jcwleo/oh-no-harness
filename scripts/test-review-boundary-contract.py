@@ -116,6 +116,22 @@ def force_light_cleanup_through_reviewer(root: Path) -> None:
     )
 
 
+def reintroduce_lower_mode_simplify_invocation(root: Path) -> None:
+    replace_once(
+        root / "docs" / "skill-core" / "ralph.md",
+        "LIGHT/STANDARD run a caller-owned quick diff scan; never load, invoke, or dispatch `simplify`, even when actual candidates or candidate uncertainty remain.",
+        "LIGHT/STANDARD run a caller-owned quick diff scan and invoke `simplify` when actual candidates or candidate uncertainty remain.",
+    )
+
+
+def make_thorough_simplify_unconditional(root: Path) -> None:
+    replace_once(
+        root / "docs" / "skill-core" / "ralph.md",
+        "THOROUGH alone may load or invoke `simplify`, and only when actual candidates or candidate uncertainty remain.",
+        "THOROUGH always loads and invokes `simplify` after its quick diff scan.",
+    )
+
+
 def blur_light_reviewer_verifier_boundary(root: Path) -> None:
     """Erase the LIGHT code-review waiver by relabelling it as a review round."""
     path = root / "docs" / "skill-core" / "ralph.md"
@@ -1361,6 +1377,22 @@ def main() -> int:
             "This section applies ONLY when the core selected `perspective-pair` after a",
             "For any dispatched post-fix `code-reviewer` pair (every dispatched review), after a",
         ),
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph reintroduces lower-mode candidate Simplify invocation",
+        "THOROUGH-only Simplify cleanup policy",
+        reintroduce_lower_mode_simplify_invocation,
+        assertion="assert_orchestration_ownership_contract",
+    )
+    expect_rejected(
+        validator,
+        plugin_root,
+        "Ralph makes THOROUGH Simplify invocation unconditional",
+        "THOROUGH-only Simplify cleanup policy",
+        make_thorough_simplify_unconditional,
         assertion="assert_orchestration_ownership_contract",
     )
     # M4 item 2: compaction follows what actually ran, never the tier alone.

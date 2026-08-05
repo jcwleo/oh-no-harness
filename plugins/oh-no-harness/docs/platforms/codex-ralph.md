@@ -175,5 +175,5 @@ semantics: `require-cross-host` pauses instead of degrading.
 
 ## Cleanup
 
-When Ralph reaches the CLEANUP checkpoint on Codex, use the Oh No Harness
-`simplify` skill through the generated Codex Simplify runtime document.
+Only after the core selects eligible THOROUGH cleanup with actual candidates or candidate uncertainty may Codex load the `simplify` skill through the generated Codex Simplify runtime document.
+LIGHT/STANDARD do not load the Simplify path and retain the core's explicit mode-based not-required record.
