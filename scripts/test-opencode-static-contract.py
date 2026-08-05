@@ -85,6 +85,8 @@ def main() -> int:
         restore()
 
         main_source = root / "docs" / "platforms" / "opencode-main-agent.md"
+        validator.assert_opencode_main_prompt_contract(root)
+
         restore = mutate_text(
             main_source,
             "No-route means no workflow transition, not no investigation",
@@ -92,47 +94,80 @@ def main() -> int:
         )
         expect_rejected(
             "OpenCode no-route investigation requirement weakened",
-            lambda: validator.assert_opencode_main_grounding_contract(root),
+            lambda: validator.assert_opencode_main_prompt_contract(root),
         )
         restore()
 
         restore = mutate_text(
             main_source,
-            "Ground material repository claims in observed tool output",
-            "Consider repository evidence before answering",
+            "inspect relevant source-of-truth evidence with\ntools, even when no file is named",
+            "consider repository evidence before answering",
         )
         expect_rejected(
-            "OpenCode observed-output grounding requirement removed",
-            lambda: validator.assert_opencode_main_grounding_contract(root),
+            "OpenCode tool-before-fact grounding requirement removed",
+            lambda: validator.assert_opencode_main_prompt_contract(root),
         )
         restore()
 
         restore = mutate_text(
             main_source,
-            "sizeable investigation to `oh-no-explore`",
-            "sizeable investigation directly",
+            "Injected summaries, memory,\nnaming, and internal knowledge may guide lookup but are not repository evidence",
+            "Injected summaries, memory,\nnaming, and internal knowledge are repository evidence",
         )
         expect_rejected(
-            "OpenCode investigation escalation requirement removed",
-            lambda: validator.assert_opencode_main_grounding_contract(root),
+            "OpenCode non-evidence lookup-aid requirement removed",
+            lambda: validator.assert_opencode_main_prompt_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            main_source,
+            "loaded runtime or configuration\nseparately from checkout source",
+            "checkout source",
+        )
+        expect_rejected(
+            "OpenCode active-runtime distinction removed",
+            lambda: validator.assert_opencode_main_prompt_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            main_source,
+            "label\nthe claim unverified rather than assert it",
+            "assert the claim from available context",
+        )
+        expect_rejected(
+            "OpenCode unverified fallback removed",
+            lambda: validator.assert_opencode_main_prompt_contract(root),
+        )
+        restore()
+
+        restore = mutate_text(
+            main_source,
+            "Stop when enough\ndirectly relevant evidence supports the answer or no next lookup is likely to\nmaterially change it; report remaining uncertainty",
+            "Continue investigating until every repository detail is known",
+        )
+        expect_rejected(
+            "OpenCode bounded evidence stop removed",
+            lambda: validator.assert_opencode_main_prompt_contract(root),
         )
         restore()
 
         for label, old, new in (
             (
                 "OpenCode named-file reading requirement qualified",
-                "read every named file before answering and do not speculate",
-                "read every named file before answering only when convenient and do not speculate",
+                "Read every relevant named file before\nanswering and do not speculate",
+                "Read every relevant named file before\nanswering only when convenient and do not speculate",
             ),
             (
                 "OpenCode unread-code speculation requirement qualified",
-                "do not speculate\nabout unread code. Ground",
-                "do not speculate\nabout unread code unless it seems likely. Ground",
+                "do not speculate about unread code. Injected",
+                "do not speculate about unread code unless it seems likely. Injected",
             ),
             (
                 "OpenCode observed-output grounding requirement qualified",
-                "Ground material repository claims in observed tool output;",
-                "Ground material repository claims in observed tool output when available;",
+                "Ground material repository claims in\nobserved tool output;",
+                "Ground material repository claims in\nobserved tool output when available;",
             ),
             (
                 "OpenCode path-or-line evidence requirement qualified",
@@ -141,8 +176,8 @@ def main() -> int:
             ),
             (
                 "OpenCode bounded direct lookup requirement qualified",
-                "Use direct read/search for a\nbounded question with a known location;",
-                "Use direct read/search for a\nbounded question with a known location only after a workflow transition;",
+                "read/search for a bounded question with a known location;",
+                "read/search for a bounded question with a known location only after a workflow transition;",
             ),
             (
                 "OpenCode explore escalation requirement qualified",
@@ -153,7 +188,198 @@ def main() -> int:
             restore = mutate_text(main_source, old, new)
             expect_rejected(
                 label,
-                lambda: validator.assert_opencode_main_grounding_contract(root),
+                lambda: validator.assert_opencode_main_prompt_contract(root),
+            )
+            restore()
+
+        # These mutations preserve old section-local markers while weakening the
+        # complete main-prompt contract. They must be rejected by the validator,
+        # not merely by the source's current formatting.
+        for label, old, new in (
+            (
+                "OpenCode forbidden role catalog relocated outside Orchestration",
+                "## Models And Concurrency",
+                "Role map:\n\n- `oh-no-explore`: read-only repository lookup and tracing\n\n## Models And Concurrency",
+            ),
+            (
+                "OpenCode forbidden positive routing relocated outside Planning Boundary",
+                "## Child Packet Floor",
+                "A usable approved or concrete execution contract goes to `ralph`.\n\n## Child Packet Floor",
+            ),
+            (
+                "OpenCode forbidden task schema relocated outside Models And Concurrency",
+                "## Orchestration",
+                "Each `task` dispatch uses exact `subagent_type: oh-no-<role>` and carries no per-call model value.\n\n## Orchestration",
+            ),
+            (
+                "OpenCode forbidden same-turn task instruction relocated into a new section",
+                "## Planning Boundary",
+                "## Retired Task Mechanics\n\nIssue independent `task` calls in one assistant turn.\n\n## Planning Boundary",
+            ),
+            (
+                "OpenCode repository-fact inspection qualified",
+                "inspect relevant source-of-truth evidence with\ntools, even when no file is named.",
+                "inspect relevant source-of-truth evidence with\ntools when convenient, even when no file is named.",
+            ),
+            (
+                "OpenCode active-runtime inspection negated",
+                "Claims about active behavior require inspecting loaded runtime or configuration\nseparately from checkout source;",
+                "Claims about active behavior does not require inspecting loaded runtime or configuration\nseparately from checkout source;",
+            ),
+            (
+                "OpenCode skill-use and deliverable boundary removed",
+                "Use OpenCode's native `skill` tool to load the relevant Oh No Harness skill when\nit applies. A workflow name used only as the subject of analysis, explanation,\ncomparison, or critique is not an invocation trigger; route from the requested\ndeliverable.",
+                "Workflow names may be loaded opportunistically.",
+            ),
+            (
+                "OpenCode no-route definition weakened",
+                "No-route lane: answer directly when the request neither creates nor changes\nrepository work products nor claims their completion.",
+                "No-route lane: answer directly when the request does not necessarily create repository work products.",
+            ),
+            (
+                "OpenCode direct-edit failover removed",
+                "If\nany condition fails or becomes false, load `ralph`.",
+                "If any condition fails or becomes false, continue the direct edit.",
+            ),
+            (
+                "OpenCode caller ownership and executor floor weakened",
+                "The main agent owns conversation flow, `.oh-no` state, gates, synthesis, and\nworkflow transitions. STANDARD and THOROUGH repository work-product mutations\nuse `oh-no-executor`; inline mutation is limited to a recorded LIGHT-tiny or\nconfirmed dispatch-unavailable fallback.",
+                "External callers own workflow state and may mutate repository work products inline.",
+            ),
+            (
+                "OpenCode Child Packet Floor obligation qualified",
+                "Every role packet is proportional, self-contained English and states:",
+                "Every role packet is proportional, self-contained English and states when convenient:",
+            ),
+            (
+                "OpenCode workflow-internal role boundary weakened",
+                "Planner, Plan-Reviewer, and Fusion Rescue panels remain workflow-internal.",
+                "Planner, Plan-Reviewer, and Fusion Rescue panels may run outside workflows.",
+            ),
+            (
+                "OpenCode unmatched defaults removed",
+                "Outside a selected workflow, default unmatched read-only work to\n`oh-no-explore` and mutation to `oh-no-executor`.",
+                "Outside a selected workflow, choose any role for unmatched work.",
+            ),
+            (
+                "OpenCode inherited-model truth removed",
+                "an\nunconfigured role inherits the current primary model.",
+                "an unconfigured role chooses an arbitrary model.",
+            ),
+            (
+                "OpenCode model-diversity truth reversed",
+                "Never claim model\ndiversity without distinct runtime-proven model identities.",
+                "Claim model diversity without distinct runtime-proven model identities.",
+            ),
+            (
+                "OpenCode foreground lifecycle qualified",
+                "Use foreground completion as the\nnormal wait, and consume every result.",
+                "Use foreground completion as the\nnormal wait when convenient, and consume every result.",
+            ),
+            (
+                "OpenCode no-poll and no-duplicate lifecycle reversed",
+                "never poll, duplicate a slow task, or redo\ndelegated work inline.",
+                "may poll, duplicate a slow task, or redo delegated work inline.",
+            ),
+            (
+                "OpenCode approval wait/load/stop gate weakened",
+                "Handoff, use `question`, wait for approval, then load the selected skill with\n`skill`; otherwise stop at the current skill's outcome.",
+                "Handoff, use `question`, load the selected skill immediately, and otherwise continue.",
+            ),
+        ):
+            restore = mutate_text(main_source, old, new)
+            expect_rejected(
+                label,
+                lambda: validator.assert_opencode_main_prompt_contract(root),
+            )
+            restore()
+
+        for label, old, new in (
+            (
+                "OpenCode static role catalog reintroduced",
+                "Planner, Plan-Reviewer, and Fusion Rescue panels remain workflow-internal.",
+                "Role map:\n\n- `oh-no-explore`: read-only repository lookup and tracing\n\nPlanner, Plan-Reviewer, and Fusion Rescue panels remain workflow-internal.",
+            ),
+            (
+                "OpenCode concrete-work positive mapping reintroduced",
+                "No-route housekeeping remains direct.",
+                "A usable approved or concrete execution contract goes to `ralph`. No-route housekeeping remains direct.",
+            ),
+            (
+                "OpenCode vague-work positive mapping reintroduced",
+                "No-route housekeeping remains direct.",
+                "Vague work goes to `interview`. No-route housekeeping remains direct.",
+            ),
+            (
+                "OpenCode broad-work positive mapping reintroduced",
+                "No-route housekeeping remains direct.",
+                "Broad or strategy-unclear work with known requirements goes to `ralplan`. No-route housekeeping remains direct.",
+            ),
+            (
+                "OpenCode task-schema mechanics reintroduced",
+                "A configured role uses its stored provider/model ID",
+                "Each `task` dispatch uses exact `subagent_type: oh-no-<role>` and carries no per-call model value. A configured role uses its stored provider/model ID",
+            ),
+            (
+                "OpenCode same-turn independent task instruction reintroduced",
+                "Run at most five subagents concurrently",
+                "Issue independent `task` calls in one assistant turn. Run at most five subagents concurrently",
+            ),
+            (
+                "OpenCode non-review need test removed",
+                "One need test governs every non-review role",
+                "Need tests are optional for non-review roles",
+            ),
+            (
+                "OpenCode mandatory separate review context removed",
+                "always uses a separate `task` context",
+                "may run inline",
+            ),
+            (
+                "OpenCode unmatched role defaults removed",
+                "default unmatched read-only work to\n`oh-no-explore` and mutation to `oh-no-executor`",
+                "choose any role for unmatched work",
+            ),
+            (
+                "OpenCode independent-context withholding removed",
+                "Initial independent review, verification, and debugging packets withhold maker\nconclusions",
+                "Initial independent review, verification, and debugging packets share maker\nconclusions",
+            ),
+            (
+                "OpenCode no-extra-host-plan boundary removed",
+                "Do not switch to OpenCode's primary `plan` agent",
+                "Switch to OpenCode's primary `plan` agent",
+            ),
+            (
+                "OpenCode configured-model behavior removed",
+                "A configured role uses its stored provider/model ID",
+                "A configured role may use any model",
+            ),
+            (
+                "OpenCode concurrency cap removed",
+                "Run at most five subagents concurrently",
+                "Run any number of subagents concurrently",
+            ),
+            (
+                "OpenCode result-consumption requirement removed",
+                "consume every result",
+                "consider results when convenient",
+            ),
+            (
+                "OpenCode dependent-role sequencing removed",
+                "Dependent roles remain sequential.",
+                "Dependent roles may overlap.",
+            ),
+            (
+                "OpenCode approval-gated skill chaining removed",
+                "otherwise stop at the current skill's outcome.",
+                "otherwise continue without approval.",
+            ),
+        ):
+            restore = mutate_text(main_source, old, new)
+            expect_rejected(
+                label,
+                lambda: validator.assert_opencode_main_prompt_contract(root),
             )
             restore()
 

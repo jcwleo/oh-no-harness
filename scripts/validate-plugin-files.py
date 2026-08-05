@@ -3186,24 +3186,139 @@ def assert_exact_opencode_skill_inventory(root: Path) -> None:
             die(f"missing OpenCode skill wrapper: {wrapper}")
 
 
-def assert_opencode_main_grounding_contract(root: Path) -> None:
+def assert_opencode_main_prompt_contract(root: Path) -> None:
     path = root / "docs" / "platforms" / "opencode-main-agent.md"
-    bootstrap = markdown_section(read_text(path), "## Bootstrap Boundaries")
-    canonical_grounding_paragraph = (
-        "No-route means no workflow transition, not no investigation. For "
-        "repository-specific factual answers, read every named file before "
-        "answering and do not speculate about unread code. Ground material "
-        "repository claims in observed tool output; include relevant paths or "
-        "lines when useful. Use direct read/search for a bounded question with "
-        "a known location; route an uncertain, cross-file, or sizeable "
-        "investigation to `oh-no-explore`."
-    )
-    normalized_paragraphs = {
-        re.sub(r"\s+", " ", paragraph).strip()
-        for paragraph in re.split(r"\n\s*\n", bootstrap)
-    }
-    if canonical_grounding_paragraph not in normalized_paragraphs:
-        die(f"{path} is missing its canonical OpenCode repository-grounding paragraph")
+    text = read_text(path)
+    normalized_prompt = re.sub(r"\s+", " ", text).strip()
+
+    def require_clauses(
+        heading: str, required_clauses: dict[str, tuple[str, ...]]
+    ) -> str:
+        section = markdown_section(text, heading)
+        if not section:
+            die(f"{path} is missing OpenCode primary-prompt section: {heading}")
+        normalized_section = re.sub(r"\s+", " ", section).strip()
+        for concept, clauses in required_clauses.items():
+            if not all(clause in normalized_section for clause in clauses):
+                die(f"{path} is missing OpenCode {heading} concept: {concept}")
+        return section
+
+    require_clauses("## Bootstrap Boundaries", {
+        "skill use, object of analysis, and deliverable boundary": (
+            "Use OpenCode's native `skill` tool to load the relevant Oh No Harness skill when it applies.",
+            "A workflow name used only as the subject of analysis, explanation, comparison, or critique is not an invocation trigger; route from the requested deliverable.",
+        ),
+        "complete no-route lane": (
+            "No-route lane: answer directly when the request neither creates nor changes repository work products nor claims their completion.",
+            "This includes research, conceptual or codebase questions, status reports, and version-control or environment housekeeping over already-written changes.",
+        ),
+        "no-route investigation": (
+            "No-route means no workflow transition, not no investigation.",
+        ),
+        "tool inspection before repository facts": (
+            "Before any repository-specific factual claim, inspect relevant source-of-truth evidence with tools, even when no file is named.",
+        ),
+        "named-file and unread-code discipline": (
+            "Read every relevant named file before answering and do not speculate about unread code.",
+        ),
+        "non-evidence lookup aids": (
+            "Injected summaries, memory, naming, and internal knowledge may guide lookup but are not repository evidence.",
+        ),
+        "active runtime distinction": (
+            "Claims about active behavior require inspecting loaded runtime or configuration separately from checkout source; when that evidence cannot be inspected, label the claim unverified rather than assert it.",
+        ),
+        "observed evidence and citations": (
+            "Ground material repository claims in observed tool output; include relevant paths or lines when useful.",
+        ),
+        "proportional investigation routing": (
+            "Use direct read/search for a bounded question with a known location; route an uncertain, cross-file, or sizeable investigation to `oh-no-explore`.",
+        ),
+        "bounded evidence stop": (
+            "Stop when enough directly relevant evidence supports the answer or no next lookup is likely to materially change it; report remaining uncertainty.",
+        ),
+        "direct-edit boundary": (
+            "Direct-edit lane: use a direct edit plus scoped diff check only when all are true: one obvious file; private, inert, non-consumed, non-operational prose, comment, or formatting; not generated, or its generation source is edited and regenerated and validated in the same action; no public contract, security, or permission surface.",
+            "If any condition fails or becomes false, load `ralph`.",
+        ),
+        "caller-owned workflow state": (
+            "The main agent owns conversation flow, `.oh-no` state, gates, synthesis, and workflow transitions.",
+            "STANDARD and THOROUGH repository work-product mutations use `oh-no-executor`; inline mutation is limited to a recorded LIGHT-tiny or confirmed dispatch-unavailable fallback.",
+        ),
+    })
+    require_clauses("## Child Packet Floor", {
+        "self-contained child packets": (
+            "Every role packet is proportional, self-contained English and states:",
+            "purpose and desired outcome; exact `oh-no-<role>` target",
+            "exact target and revision plus result/revision binding",
+            "scope, permissions, ownership, and non-goals",
+            "contract and acceptance criteria",
+            "required evidence, output envelope, and return owner",
+            "stop and escalation conditions",
+        ),
+        "initial independent-context withholding": (
+            "Initial independent review, verification, and debugging packets withhold maker conclusions, expected verdicts, sibling output, preferred causes, and confidence rankings.",
+            "Disclose prior work later only as neutral exact actions, state, and raw outcomes for audit or clarification.",
+        ),
+    })
+    require_clauses("## Orchestration", {
+        "non-review need test": (
+            "One need test governs every non-review role: dispatch with `task` when the work is sizeable, genuinely independent, or parallelizable; a bounded lookup or edit finishable in a handful of tool calls may run inline with a recorded reason and, for an edit, a scoped diff check. Use one role where one suffices.",
+        ),
+        "mandatory separate review contexts": (
+            "Review independence is exempt from the need test. A fired trigger for `oh-no-code-reviewer`, `oh-no-plan-reviewer`, `oh-no-verifier`, or a `oh-no-fusion-rescue-analyst` panel always uses a separate `task` context.",
+            "A small diff, convenience, or time pressure never makes it inline.",
+        ),
+        "workflow-internal roles and unmatched defaults": (
+            "Planner, Plan-Reviewer, and Fusion Rescue panels remain workflow-internal.",
+            "Outside a selected workflow, default unmatched read-only work to `oh-no-explore` and mutation to `oh-no-executor`.",
+        ),
+    })
+    for clause, concept in (
+        ("Role map:", "static role catalog"),
+    ):
+        if clause.lower() in normalized_prompt.lower():
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+
+    require_clauses("## Planning Boundary", {
+        "no extra host planning pass": (
+            "Do not switch to OpenCode's primary `plan` agent or add a separate host planning pass around Ralph-eligible execution unless the user explicitly requests that host mode.",
+            "No-route housekeeping remains direct.",
+        ),
+    })
+    for clause, concept in (
+        ("concrete execution contract goes to `ralph`", "concrete-work positive mapping"),
+        ("vague work goes to `interview`", "vague-work positive mapping"),
+        ("broad or strategy-unclear work with known requirements goes to `ralplan`", "broad-work positive mapping"),
+    ):
+        if clause.lower() in normalized_prompt.lower():
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+
+    require_clauses("## Models And Concurrency", {
+        "configured and inherited model behavior": (
+            "A configured role uses its stored provider/model ID; an unconfigured role inherits the current primary model.",
+            "Never claim model diversity without distinct runtime-proven model identities.",
+        ),
+        "bounded concurrent result consumption": (
+            "Run at most five subagents concurrently.",
+            "Use foreground completion as the normal wait, and consume every result.",
+        ),
+        "background completion and no duplicate work": (
+            "If background mode is available, rely on its completion notification; never poll, duplicate a slow task, or redo delegated work inline.",
+            "Dependent roles remain sequential.",
+        ),
+    })
+    for clause, concept in (
+        ("Each `task` dispatch uses exact `subagent_type: oh-no-<role>` and carries no per-call model value.", "task schema mechanics"),
+        ("Issue independent `task` calls in one assistant turn", "same-turn independent task instruction"),
+    ):
+        if clause.lower() in normalized_prompt.lower():
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+
+    require_clauses("## Models And Concurrency", {
+        "approval-gated skill chaining": (
+            "When the active skill presents a Next Skill Handoff, use `question`, wait for approval, then load the selected skill with `skill`; otherwise stop at the current skill's outcome.",
+        ),
+    })
 
 
 def assert_opencode_generated_agents(root: Path) -> None:
@@ -3228,7 +3343,7 @@ def assert_opencode_generated_agents(root: Path) -> None:
         die(f"{path} oh-no primary must use description/mode/prompt/permission only")
     if main.get("mode") != "primary":
         die(f"{path} oh-no must be the one primary agent")
-    assert_opencode_main_grounding_contract(root)
+    assert_opencode_main_prompt_contract(root)
     main_source = read_text(root / "docs" / "platforms" / "opencode-main-agent.md")
     if main.get("prompt") != main_source:
         die(f"{path} oh-no prompt must exactly equal docs/platforms/opencode-main-agent.md")

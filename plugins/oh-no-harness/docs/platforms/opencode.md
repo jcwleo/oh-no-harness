@@ -112,6 +112,6 @@ or expanded through glob algebra; ambiguous combinations fail restrictive.
 
 `opencode-main-agent.md` owns the global no-route, direct-edit,
 object-of-analysis, `.oh-no` state/gate, child-packet, need-test, review
-independence, role-map, planning-boundary, model-fidelity, explicit-chaining,
+independence, workflow-internal role boundaries and unmatched defaults, planning-boundary, model-fidelity, explicit-chaining,
 and concurrency rules. Keep host detection, installation, dynamic model
 selection, and config mutation outside that static source.

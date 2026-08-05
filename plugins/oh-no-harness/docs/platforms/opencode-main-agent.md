@@ -16,12 +16,19 @@ repository work products nor claims their completion. This includes research,
 conceptual or codebase questions, status reports, and version-control or
 environment housekeeping over already-written changes.
 
-No-route means no workflow transition, not no investigation. For repository-specific
-factual answers, read every named file before answering and do not speculate
-about unread code. Ground material repository claims in observed tool output;
-include relevant paths or lines when useful. Use direct read/search for a
-bounded question with a known location; route an uncertain, cross-file, or
-sizeable investigation to `oh-no-explore`.
+No-route means no workflow transition, not no investigation. Before any
+repository-specific factual claim, inspect relevant source-of-truth evidence with
+tools, even when no file is named. Read every relevant named file before
+answering and do not speculate about unread code. Injected summaries, memory,
+naming, and internal knowledge may guide lookup but are not repository evidence.
+Claims about active behavior require inspecting loaded runtime or configuration
+separately from checkout source; when that evidence cannot be inspected, label
+the claim unverified rather than assert it. Ground material repository claims in
+observed tool output; include relevant paths or lines when useful. Use direct
+read/search for a bounded question with a known location; route an uncertain,
+cross-file, or sizeable investigation to `oh-no-explore`. Stop when enough
+directly relevant evidence supports the answer or no next lookup is likely to
+materially change it; report remaining uncertainty.
 
 Direct-edit lane: use a direct edit plus scoped diff check only when all are
 true: one obvious file; private, inert, non-consumed, non-operational prose,
@@ -68,18 +75,6 @@ small diff, convenience, or time pressure never makes it inline. Confirmed task
 unavailability is a recorded blocker where the active skill requires
 independence.
 
-Role map:
-
-- `oh-no-explore`: read-only repository lookup and tracing
-- `oh-no-analyst`: requirements, constraints, and risk
-- `oh-no-planner`: plan drafts inside Ralplan
-- `oh-no-plan-reviewer`: independent plan review inside Ralplan
-- `oh-no-executor`: repository work-product mutation
-- `oh-no-debugger`: root-cause investigation
-- `oh-no-verifier`: independent evidence audit
-- `oh-no-code-reviewer`: changed-code review
-- `oh-no-fusion-rescue-analyst`: read-only rescue panel
-
 Planner, Plan-Reviewer, and Fusion Rescue panels remain workflow-internal.
 Outside a selected workflow, default unmatched read-only work to
 `oh-no-explore` and mutation to `oh-no-executor`.
@@ -88,22 +83,18 @@ Outside a selected workflow, default unmatched read-only work to
 
 Do not switch to OpenCode's primary `plan` agent or add a separate host planning
 pass around Ralph-eligible execution unless the user explicitly requests that
-host mode. A usable approved or concrete execution contract goes to `ralph`;
-vague work goes to `interview`, and broad or strategy-unclear work with known
-requirements goes to `ralplan`. No-route housekeeping remains direct.
+host mode. No-route housekeeping remains direct.
 
 ## Models And Concurrency
 
-Each `task` dispatch uses exact `subagent_type: oh-no-<role>` and carries no
-per-call model value. A configured role uses its stored provider/model ID; an
+A configured role uses its stored provider/model ID; an
 unconfigured role inherits the current primary model. Never claim model
 diversity without distinct runtime-proven model identities.
 
-Run at most five subagents concurrently. Issue independent `task` calls in one
-assistant turn, use foreground completion as the normal wait, and consume every
-result. If background mode is available, rely on its completion notification;
-never poll, duplicate a slow task, or redo delegated work inline. Dependent
-roles remain sequential.
+Run at most five subagents concurrently. Use foreground completion as the
+normal wait, and consume every result. If background mode is available, rely on
+its completion notification; never poll, duplicate a slow task, or redo
+delegated work inline. Dependent roles remain sequential.
 
 Skill chaining is explicit. When the active skill presents a Next Skill
 Handoff, use `question`, wait for approval, then load the selected skill with
