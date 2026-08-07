@@ -1,7 +1,7 @@
 {
   "name": "oh-no-harness",
   "description": "Lightweight Markdown-first coding workflow harness for Claude Code (interview, ralplan, ralph, ultrawork, fusion-rescue, TDD, debugging, verification, cleanup).",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "author": {
     "name": "oh-no-harness maintainers"
   },

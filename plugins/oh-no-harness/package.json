@@ -1,6 +1,6 @@
 {
   "name": "oh-no-harness",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Markdown-first coding workflow harness for OpenCode with 10 workflow skills and 9 role agents.",
   "type": "module",
   "main": "./opencode/index.js",
