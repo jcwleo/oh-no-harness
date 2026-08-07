@@ -288,7 +288,7 @@ def validate_opencode_contract(path: Path, text: str) -> None:
             'CONFIGURATOR="$PLUGIN_ROOT/opencode/configure-opencode-subagents"',
             'PLUGIN_URL="$($NODE_BIN -e',
             'PLUGIN_ROOT_REAL="$($NODE_BIN -e',
-            '[[ "$OPENCODE_VERSION" == "1.18.12" ]]',
+            '[[ "$OPENCODE_VERSION" == "1.18.14" ]]',
         ),
         "isolated configuration": (
             'export XDG_CONFIG_HOME="$TEMP_ROOT/xdg-config"',

@@ -115,8 +115,8 @@ export TERM=dumb
 unset OPENCODE_CONFIG OPENCODE_CONFIG_CONTENT OPENCODE_PURE
 
 OPENCODE_VERSION="$($OPENCODE_BIN --version 2>&1)"
-[[ "$OPENCODE_VERSION" == "1.18.12" ]] \
-  || fail "this driver is pinned to opencode 1.18.12; found $OPENCODE_VERSION"
+[[ "$OPENCODE_VERSION" == "1.18.14" ]] \
+  || fail "this driver is pinned to opencode 1.18.14; found $OPENCODE_VERSION"
 
 PROJECT_ROOT="$TEMP_ROOT/project"
 CUSTOM_SKILLS_ROOT="$TEMP_ROOT/custom-skills"
