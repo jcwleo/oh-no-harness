@@ -89,6 +89,15 @@ the approved direction.
 - Detect active proof holes, untraceable scope, repeated broad suites without a
   risk reason, and current-scope speculative complexity. Do not demand inactive
   test categories or optional stronger evidence.
+- Detect authored implementation detail that belongs to the executor: literal
+  replacement text or patch bodies, step-by-step edit routes, ordering that is
+  not a real constraint, restated executor verification, or a decision already
+  canonical elsewhere. Report it as a non-blocking follow-up naming the
+  category and where it appears; detail volume satisfies no basis in the
+  material-blocker predicate. Block only when that detail is itself wrong
+  under an existing basis, and never for brevity, prose style, or
+  non-constraint ordering; an infeasible or materially required order still
+  blocks under an existing basis.
 - Preserve Direction Contract and AC IDs. A direction-level or unsalvageable
   failure is `REJECT`; do not substitute your preferred direction.
 

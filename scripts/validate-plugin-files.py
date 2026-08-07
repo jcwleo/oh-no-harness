@@ -4430,6 +4430,19 @@ def assert_child_packet_ownership_contract(root: Path) -> None:
         "plan-reviewer": (
             "Reach your own verdict from the exact draft",
             "initial review must not use an expected verdict or sibling review output",
+            # 2026-08-07: authored implementation detail is blockable only by
+            # named category, and never by brevity or style.
+            "Detect authored implementation detail that belongs to the executor",
+            "detail volume satisfies no basis in the",
+            "never for brevity, prose style, or\n  non-constraint ordering",
+            "an infeasible or materially required order still\n  blocks under an existing basis",
+        ),
+        "planner": (
+            # 2026-08-07: the manifest is a ceiling, not a floor to elaborate
+            # past; a task leaving only transcription is too detailed.
+            "Respect the authored-detail boundary",
+            "it is a ceiling, not a floor",
+            "leaves the executor only transcription is too detailed",
         ),
         "code-reviewer": (
             "Derive findings independently from the exact contract and diff",
@@ -4453,6 +4466,11 @@ def assert_child_packet_ownership_contract(root: Path) -> None:
             "Test Necessity Gate",
             "Executor Assignment Completion Stop",
             "affected packet fields",
+            # 2026-08-07: the manifest bounds authorized paths, never how the
+            # obligation is met; authored detail from a read-only planning role
+            # is prediction the executor re-derives against current code.
+            "how each\n  obligation is met is yours",
+            "Report the drift when authored detail\n  contradicts the repository",
         ),
     }
     for agent, markers in role_independence.items():
@@ -6134,6 +6152,42 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
                 "ralplan.md derived active obligation count exceeds audited baseline: "
                 f"{mode} {active}>{baseline}"
             )
+    # 2026-08-07: Ralph consumes the plan's manifest through this row, so the
+    # projection must carry every element ralph.md requires. A dropped element
+    # reopens the Expansion-Gate mismatch that let planners over-author detail.
+    scope_trace_row = next(
+        (
+            line
+            for line in table_match.group("table").splitlines()
+            if line.startswith("| Minimal scope trace |")
+        ),
+        "",
+    )
+    if not scope_trace_row:
+        die("ralplan.md canonical activation table is missing the Minimal scope trace row")
+    scope_trace_cells = [cell.strip() for cell in scope_trace_row.strip().strip("|").split("|")]
+    if len(scope_trace_cells) != 4:
+        die("ralplan.md Minimal scope trace row must have four cells")
+    # The plan projection cell is the only surface Ralph consumes; a marker
+    # living in the reviewer-entitlement cell would not supply the manifest.
+    # LIGHT plans must inherit the manifest too; narrowing this activation would
+    # silently drop it for LIGHT, the exact regression this row prevents.
+    if scope_trace_cells[1] != "always":
+        die(
+            "ralplan.md Minimal scope trace activation must stay 'always' so LIGHT "
+            f"plans still inherit the Mutation Manifest: {scope_trace_cells[1]!r}"
+        )
+    scope_trace = scope_trace_cells[2]
+    for element in (
+        "Mutation Manifest Ralph inherits",
+        "each authorized path with its change kind",
+        "semantic obligation",
+        "AC/safety basis",
+        "causal generated outputs or `none`",
+        "contract surfaces",
+    ):
+        if not has_required_marker(scope_trace, element):
+            die(f"ralplan.md Minimal scope trace must own the manifest element: {element!r}")
     for heading, markers in {
         "## Plan Review Contract": (
             "Blocking basis: <AC ID | safety invariant | Direction Contract field | applicable mandatory gate>",
@@ -6145,9 +6199,27 @@ def assert_ralplan_review_boundary_contract(root: Path) -> None:
             "inline review cannot satisfy the required pass",
             "LIGHT\nno-review carve-out remains unchanged",
             "each required\nreviewer instance runs the complete two-pass role",
+            # 2026-08-07: detail volume satisfies no R8 basis, so an
+            # authored-detail finding must stay non-blocking unless the detail
+            # is itself wrong under an existing basis.
+            "violation is non-blocking on its own",
+            "never on detail volume [R8]",
         ),
         "## Agent Roles": (
             "generic separate subagent",
+        ),
+        # 2026-08-07: planning roles are read-only, so authored implementation
+        # detail is unverified prediction that displaces executor judgment and
+        # inflates the single allowed review pass. The plan owns the manifest
+        # ceiling; the executor owns how each obligation is met.
+        "### Authored-Detail Boundary": (
+            "The plan owns what must change, why, where, and what proves it done",
+            "executor owns how, reading the actual code at execution time",
+            "Mutation Manifest\nRalph inherits, and it is the ceiling",
+            "literal replacement text, diffs, or patch bodies for a target",
+            "step-by-step edit routes",
+            "as a constraint with its basis, never as authored\nreplacement text",
+            "leaves the executor no decision beyond transcription",
         ),
         "## Findings Ledger Gate": (
             "Missing review topology, or topology that\ndoes not satisfy the selected mode and fired trigger, is a blocker rather than\na pass",

@@ -209,7 +209,7 @@ Canonical activation table:
 | Row | Activation | Plan projection | Reviewer entitlement |
 |---|---|---|---|
 | Direction and acceptance core | always | the confirmed Direction Contract; who owns success and the observable signal; confidence and what would lower it | a contradiction, an unobservable success claim, or an unresolved direction-changing inference |
-| Minimal scope trace | always | the smallest approach chosen and what it rules out; the files and contract surfaces it touches, with residual uncertainty; AC-mapped tasks, with order stated only where order is a real constraint | an infeasible stated order, a wrong surface, unmapped work, or scope beyond the smallest AC-sufficient change |
+| Minimal scope trace | always | the smallest approach chosen and what it rules out; the Mutation Manifest Ralph inherits — each authorized path with its change kind, semantic obligation, AC/safety basis, and causal generated outputs or `none` — plus the contract surfaces those authorized paths affect, with residual uncertainty; AC-mapped tasks, with order stated only where order is a real constraint | an infeasible stated order, a wrong surface, unmapped work, or scope beyond the smallest AC-sufficient change |
 | Core evidence | always | the smallest verification that settles each AC, and whether TDD applies; the AC-to-evidence mapping | a material proof hole only; a stronger optional proof is a non-blocking suggestion |
 | Execution handoff | implementation plan | the next skill, its compact profile, and the recorded worktree policy; the risks and open decisions the next skill inherits | a handoff that is unsafe or inconsistent with the profile; LIGHT stays compact |
 | Simplicity justification | STANDARD or THOROUGH | which speculative complexity was rejected; why any new abstraction or dependency is required now | speculative complexity inside current scope only |
@@ -240,6 +240,46 @@ reference it. Plan length is calibrated to decision content, not to mode —
 THOROUGH governs review depth and evidence, never plan verbosity; record each
 decision once at its canonical section. Plan-Reviewer reviews that exact
 draft, not a recap [R3]. No reviewer starts before the complete draft exists.
+
+### Authored-Detail Boundary
+
+The plan owns what must change, why, where, and what proves it done. The
+executor owns how, reading the actual code at execution time. Ralplan roles
+are read-only, so authored implementation detail is unverified prediction:
+the more exact it is, the more likely it is already stale.
+
+Each task carries its authorized path and change kind, the semantic obligation
+that must hold afterwards, its AC or safety basis, and its causal generated
+outputs or `none`. Those five elements are the Mutation Manifest
+Ralph inherits, and it is the ceiling — not a floor to elaborate past. State
+the task's completion condition too, but as its own statement: it is what
+Ralph carries as the assignment completion contract, not manifest content.
+
+Keep out of the plan body:
+
+```text
+- literal replacement text, diffs, or patch bodies for a target
+- step-by-step edit routes, or ordering that is not a real constraint
+- verification the executor must perform anyway, restated as instruction
+- restatement of a decision that already has a canonical section
+```
+
+Name a constraint the executor must honor — a pinned string, an invariant, a
+forbidden surface — as a constraint with its basis, never as authored
+replacement text. When exact wording is genuinely direction-owned, it belongs
+to the requirements source or the Direction Contract, not to a task body.
+
+A task that leaves the executor no decision beyond transcription has crossed
+the boundary. Detail is not evidence of planning quality: it displaces the
+judgment of the only role that sees the code, and it inflates the single
+review pass this workflow allows [R6].
+
+This is a Planner authoring rule, enforced where the plan is written rather
+than at a gate. Volume alone satisfies no blocker basis, so a reviewer reports
+a violation as a non-blocking follow-up and the plan may still be approved
+[R8]. Blocking arrives only through the existing bases when the authored
+detail is also wrong — a wrong surface, an infeasible stated order, or a
+contradiction of an active AC or Direction Contract field.
 
 ## Plan Review Contract
 
@@ -295,6 +335,13 @@ Blocker predicate [R8]:
   the exact draft pointer, material consequence, and smallest sufficient
   correction; a gate blocker also names its owner, trigger, and failed
   obligation.
+- An `### Authored-Detail Boundary` violation is non-blocking on its own:
+  volume is not material failure, and no basis in the enum above covers it.
+  Report it as an optional follow-up naming the keep-out category and the
+  exact draft pointer. It blocks only when the authored detail is itself
+  wrong — a wrong surface, an infeasible stated order, or a contradiction of
+  an active AC or Direction Contract field — and then it blocks on that
+  existing basis, never on detail volume [R8].
 - Review v1 returns one consolidated blocker set and MUST NOT knowingly
   reserve any blocker.
 

@@ -31,6 +31,17 @@ This is a role agent, not a public workflow skill. The active skill owns sequenc
   approach, AC-mapped tasks with order stated only where order is a real
   constraint, actual affected contract surfaces, active evidence, and the
   supplied execution handoff.
+- Respect the authored-detail boundary: give each task its authorized path and
+  change kind, the semantic obligation that must hold afterwards, its AC or
+  safety basis, and its causal generated outputs or `none` — those five
+  elements are the Mutation Manifest the executor
+  inherits, and it is a ceiling, not a floor. State the task's completion
+  condition separately, as the assignment completion contract the executor
+  must satisfy, not as part of the manifest. You are read-only, so authored
+  replacement text, patch bodies, step-by-step edit routes, and restated
+  executor verification are unverified prediction; state a pinned string,
+  invariant, or forbidden surface as a named constraint with its basis
+  instead. A task that leaves the executor only transcription is too detailed.
 - Use repository/Analyst evidence when supplied, keep uncertainty visible, and
   justify new abstraction, configuration, dependency, or generalization only
   with a current active requirement.

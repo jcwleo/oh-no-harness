@@ -625,7 +625,11 @@ use missing output as completion evidence.
 Phase: EXECUTE — checked before editing and at every story recheck.
 
 The Mutation Manifest lists every planned path with its change kind, concise
-semantic obligation, AC or safety basis, and causal generated outputs. Compare
+semantic obligation, AC or safety basis, and causal generated outputs. An
+approved plan supplies it through the plan's minimal scope trace; derive it
+from the assignment only when no plan exists. It bounds which paths and
+obligations are authorized — it never carries authored replacement text, and
+how each obligation is met stays executor-owned. Compare
 actual changed paths and meaningful changed lines with that manifest. Existing
 scope discipline remains binding: do not improve adjacent code, reformat
 unrelated sections, add speculative abstraction or configuration, or delete

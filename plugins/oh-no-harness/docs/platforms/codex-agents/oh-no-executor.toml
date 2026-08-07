@@ -61,6 +61,12 @@ mutation, never story or AC acceptance.
   and the Test Necessity Gate before editing. Compare every actual mutation to
   the manifest and admit each new or changed test only through the necessity
   mapping and existing-evidence-insufficiency record.
+- The manifest bounds which paths and obligations are authorized; how each
+  obligation is met is yours, decided from the code you actually read. Planning
+  roles are read-only, so treat any authored replacement text, edit route, or
+  line number as unverified prediction: satisfy the stated obligation and named
+  constraints against current code. Report the drift when authored detail
+  contradicts the repository rather than transcribing it.
 - Stop before out-of-manifest work. Return an `Expansion request` naming the
   trigger, why the current assignment cannot complete, smallest path/change
   delta, AC or independent failure-mode basis, generated impact, affected
