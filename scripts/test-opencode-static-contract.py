@@ -144,7 +144,7 @@ def main() -> int:
 
         restore = mutate_text(
             main_source,
-            "Stop when enough\ndirectly relevant evidence supports the answer or no next lookup is likely to\nmaterially change it; report remaining uncertainty",
+            "Stop when\nenough directly relevant evidence supports the answer or no next lookup is\nlikely to materially change it; report remaining uncertainty",
             "Continue investigating until every repository detail is known",
         )
         expect_rejected(
@@ -171,8 +171,8 @@ def main() -> int:
             ),
             (
                 "OpenCode path-or-line evidence requirement qualified",
-                "include relevant paths or lines when useful. Use",
-                "include relevant paths or lines when useful only if convenient. Use",
+                "include relevant paths or lines when useful.",
+                "include relevant paths or lines when useful only if convenient.",
             ),
             (
                 "OpenCode bounded direct lookup requirement qualified",
@@ -238,8 +238,33 @@ def main() -> int:
             ),
             (
                 "OpenCode direct-edit failover removed",
-                "If\nany condition fails or becomes false, load `ralph`.",
-                "If any condition fails or becomes false, continue the direct edit.",
+                "condition fails or becomes false, load\n`ralph`.",
+                "condition fails or becomes false, continue the direct edit.",
+            ),
+            (
+                "OpenCode runtime/operational consumption boundary removed",
+                "private, inert, not consumed at runtime or\noperationally, non-operational",
+                "private, inert, non-operational",
+            ),
+            (
+                "OpenCode mechanical-generation exception reversed",
+                "Documented mechanical generation\nalone is not runtime or operational consumption,",
+                "Documented mechanical generation\nalone is runtime or operational consumption,",
+            ),
+            (
+                "OpenCode generated-output hand-edit prohibition removed",
+                "Never hand-edit a generated output;",
+                "Hand-edit a generated output when it is faster;",
+            ),
+            (
+                "OpenCode causal regenerated-output scope rule removed",
+                "count those causal\nregenerated outputs as part of that one authored file rather than as extra\nscope",
+                "treat those regenerated outputs as extra authored scope that leaves the lane",
+            ),
+            (
+                "OpenCode need-test subordination to mutation ownership removed",
+                "Inline work stays subject to the direct-edit lane above and to the active\nskill's mutation ownership; neither a bounded scope nor a recorded reason\noverrides them.",
+                "Inline work may proceed on a bounded scope with a recorded reason.",
             ),
             (
                 "OpenCode caller ownership and executor floor weakened",
@@ -285,6 +310,16 @@ def main() -> int:
                 "OpenCode approval wait/load/stop gate weakened",
                 "Handoff, use `question`, wait for approval, then load the selected skill with\n`skill`; otherwise stop at the current skill's outcome.",
                 "Handoff, use `question`, load the selected skill immediately, and otherwise continue.",
+            ),
+            (
+                "OpenCode skill handoff duplicated back into Models And Concurrency",
+                "## Skill Handoff",
+                "Skill chaining is explicit. When the active skill presents a Next Skill\nHandoff, use `question`, wait for approval, then load the selected skill with\n`skill`.\n\n## Skill Handoff",
+            ),
+            (
+                "OpenCode tool batching relocated back into Coding Baseline",
+                "## Coding Baseline\n",
+                "## Coding Baseline\n\nIndependent lookups that are each already warranted may be issued together;\nthat is batching your own tool calls and is never a reason to spread work\nacross extra roles.\n",
             ),
         ):
             restore = mutate_text(main_source, old, new)
@@ -374,6 +409,81 @@ def main() -> int:
                 "OpenCode approval-gated skill chaining removed",
                 "otherwise stop at the current skill's outcome.",
                 "otherwise continue without approval.",
+            ),
+        ):
+            restore = mutate_text(main_source, old, new)
+            expect_rejected(
+                label,
+                lambda: validator.assert_opencode_main_prompt_contract(root),
+            )
+            restore()
+
+        # One weakening, polarity-flip, or removal case for each coding-baseline
+        # semantic group G1-G8, then the four prompt boundary cases: batching,
+        # subordination, mandatory subagent fan-out, and provider naming.
+        for label, old, new in (
+            (
+                "OpenCode coding baseline repository-first grounding removed",
+                "Ground the change in this repository before writing code.",
+                "Write code first and consult the repository afterwards.",
+            ),
+            (
+                "OpenCode coding baseline smallest-correct-change requirement qualified",
+                "Make the smallest correct change that fully satisfies the request.",
+                "Make the smallest correct change that fully satisfies the request when convenient.",
+            ),
+            (
+                "OpenCode coding baseline speculation prohibition negated",
+                "Do not build for hypothetical futures.",
+                "Build for hypothetical futures.",
+            ),
+            (
+                "OpenCode coding baseline unrelated-work preservation reversed",
+                "never revert, overwrite, reformat, or\nopportunistically clean code outside your given scope",
+                "revert, overwrite, reformat, or opportunistically clean code outside your given\nscope",
+            ),
+            (
+                "OpenCode coding baseline scoped persistence removed",
+                "Persist through the approved scope.",
+                "Ask again before each step.",
+            ),
+            (
+                "OpenCode coding baseline applicable verification requirement qualified",
+                "Run the checks that actually apply to this change, such\nas the relevant tests, build, validator, or generator check, rather than a\ngeneric sweep or nothing at all, and prefer the narrowest command that still\nexercises the change.",
+                "Run checks when they are convenient.",
+            ),
+            (
+                "OpenCode coding baseline targeted-edit preference reversed",
+                "Prefer targeted edits to the exact lines that need to change\nover rewrites of working files.",
+                "Prefer rewriting whole working files over targeted edits.",
+            ),
+            (
+                "OpenCode coding baseline outcome-first reporting removed",
+                "Report outcomes, not narration.",
+                "Narrate each step as you go.",
+            ),
+            (
+                "OpenCode orchestration own-tool batching clause removed",
+                "Independent tool calls that are each already warranted may be issued\ntogether; that is batching your own calls and is never a reason to spread work\nacross extra roles.",
+                "Independent tool calls may be issued together.",
+            ),
+            (
+                "OpenCode coding baseline subordination to orchestration boundaries removed",
+                "These implementation rules hold for every host model and provider, and they\nnever loosen the skill ownership, gate, packet, and delegation boundaries above.",
+                "These implementation rules override the boundaries above.",
+            ),
+            # These two boundary cases add drift while leaving every required
+            # clause intact, so only the dedicated fan-out and provider-neutrality
+            # scans can reject them.
+            (
+                "OpenCode coding baseline rewritten into mandatory subagent fan-out",
+                "## Coding Baseline\n",
+                "## Coding Baseline\n\nAlways fan out independent lookups and dispatch multiple subagents.\n",
+            ),
+            (
+                "OpenCode coding baseline provider name introduced",
+                "## Coding Baseline\n",
+                "## Coding Baseline\n\nApply Anthropic and OpenAI model conventions here.\n",
             ),
         ):
             restore = mutate_text(main_source, old, new)
@@ -476,6 +586,35 @@ def main() -> int:
             lambda: validator.assert_opencode_runtime_contract(root),
         )
         restore()
+
+        restore = mutate_text(
+            index_path,
+            "const packageAgents = { ...generatedAgents };",
+            "const packageAgents = { ...generatedAgents };\n      delete packageAgents[\"oh-no\"].prompt;",
+        )
+        expect_rejected(
+            "generated primary prompt stripped before config.agent publication",
+            lambda: validator.assert_opencode_runtime_contract(root),
+        )
+        restore()
+
+        # Hook-key detection must be quote-independent, so the same injection
+        # path is checked in both ordinary quoted spellings.
+        for quote, spelling in (('"', "double-quoted"), ("'", "single-quoted")):
+            restore = mutate_text(
+                index_path,
+                "    config: async (config) => {",
+                f"    {quote}experimental.chat.messages.transform{quote}: "
+                "async (_input, output) => {\n"
+                "      output.messages[0].info.system = \"injected\";\n"
+                "    },\n"
+                "    config: async (config) => {",
+            )
+            expect_rejected(
+                f"{spelling} message-level prompt-injection hook reintroduced",
+                lambda: validator.assert_opencode_runtime_contract(root),
+            )
+            restore()
 
         restore = mutate_text(
             index_path,

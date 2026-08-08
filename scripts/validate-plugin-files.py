@@ -3237,8 +3237,17 @@ def assert_opencode_main_prompt_contract(root: Path) -> None:
             "Stop when enough directly relevant evidence supports the answer or no next lookup is likely to materially change it; report remaining uncertainty.",
         ),
         "direct-edit boundary": (
-            "Direct-edit lane: use a direct edit plus scoped diff check only when all are true: one obvious file; private, inert, non-consumed, non-operational prose, comment, or formatting; not generated, or its generation source is edited and regenerated and validated in the same action; no public contract, security, or permission surface.",
+            "Direct-edit lane: use a direct edit plus scoped diff check only when all are true: one obvious authored file; private, inert, not consumed at runtime or operationally, non-operational prose, comment, or formatting; no public contract, security, or permission surface.",
             "If any condition fails or becomes false, load `ralph`.",
+        ),
+        "documented mechanical generation is not consumption": (
+            "Documented mechanical generation alone is not runtime or operational consumption, provided the authored source and every causal generated output stay private, inert, non-operational prose, comment, or formatting outside public-contract, security, and permission surfaces.",
+        ),
+        "generated-output direct-edit policy": (
+            "Never hand-edit a generated output; edit its authored source and regenerate and validate it in the same action, and count those causal regenerated outputs as part of that one authored file rather than as extra scope.",
+        ),
+        "direct-edit exclusions": (
+            "Executable source, tests, build, CI, hooks, dependencies or lockfiles, ignore or attribute files, schemas, migrations, operational-command docs, and public contracts are excluded.",
         ),
         "caller-owned workflow state": (
             "The main agent owns conversation flow, `.oh-no` state, gates, synthesis, and workflow transitions.",
@@ -3263,6 +3272,12 @@ def assert_opencode_main_prompt_contract(root: Path) -> None:
     require_clauses("## Orchestration", {
         "non-review need test": (
             "One need test governs every non-review role: dispatch with `task` when the work is sizeable, genuinely independent, or parallelizable; a bounded lookup or edit finishable in a handful of tool calls may run inline with a recorded reason and, for an edit, a scoped diff check. Use one role where one suffices.",
+        ),
+        "need-test subordination to mutation ownership": (
+            "Inline work stays subject to the direct-edit lane above and to the active skill's mutation ownership; neither a bounded scope nor a recorded reason overrides them.",
+        ),
+        "own-tool batching is not role fan-out": (
+            "Independent tool calls that are each already warranted may be issued together; that is batching your own calls and is never a reason to spread work across extra roles.",
         ),
         "mandatory separate review contexts": (
             "Review independence is exempt from the need test. A fired trigger for `oh-no-code-reviewer`, `oh-no-plan-reviewer`, `oh-no-verifier`, or a `oh-no-fusion-rescue-analyst` panel always uses a separate `task` context.",
@@ -3314,11 +3329,94 @@ def assert_opencode_main_prompt_contract(root: Path) -> None:
         if clause.lower() in normalized_prompt.lower():
             die(f"{path} retains forbidden OpenCode prompt content: {concept}")
 
-    require_clauses("## Models And Concurrency", {
+    require_clauses("## Skill Handoff", {
         "approval-gated skill chaining": (
+            "Skill chaining is explicit.",
             "When the active skill presents a Next Skill Handoff, use `question`, wait for approval, then load the selected skill with `skill`; otherwise stop at the current skill's outcome.",
         ),
     })
+    models_section = re.sub(
+        r"\s+", " ", markdown_section(text, "## Models And Concurrency")
+    ).strip()
+    for clause, concept in (
+        ("Next Skill Handoff", "skill-handoff rule outside its workflow-local heading"),
+        ("Skill chaining is explicit.", "skill-chaining rule outside its workflow-local heading"),
+    ):
+        if clause in models_section:
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+
+    require_clauses("## Coding Baseline", {
+        "provider-neutral baseline subordinate to orchestration": (
+            "These implementation rules hold for every host model and provider, and they never loosen the skill ownership, gate, packet, and delegation boundaries above.",
+        ),
+        "repository and convention first": (
+            "Ground the change in this repository before writing code.",
+            "Read the files the change touches together with their nearest callers, tests, and neighbours, and follow the conventions, structures, and libraries already present here rather than habits carried from other codebases.",
+            "Confirm that a dependency, helper, or pattern actually exists here before building on it.",
+        ),
+        "smallest correct complete change": (
+            "Make the smallest correct change that fully satisfies the request.",
+            "prefer a few direct lines over an abstraction introduced for a single caller",
+            "Completeness is part of correctness: an edit that leaves the stated outcome unreached is not smaller, it is unfinished.",
+        ),
+        "no speculative fallback or unrequested abstraction": (
+            "Do not build for hypothetical futures.",
+            "Leave out speculative fallbacks, defensive branches for conditions the surrounding code already guarantees, compatibility shims for callers that do not exist, configuration knobs nobody requested, and abstractions with one use.",
+            "Validate at real boundaries such as user input and external responses, and trust invariants the code already establishes.",
+        ),
+        "preserve unrelated in-progress work": (
+            "Protect work you did not author.",
+            "Treat unrelated in-progress edits in the worktree as intentional, and never revert, overwrite, reformat, or opportunistically clean code outside your given scope.",
+            "Formatting, renaming, and comment or annotation churn in untouched regions are separate requests.",
+        ),
+        "scoped persistence with blocker stops": (
+            "Persist through the approved scope.",
+            "carry the work to a finished state without re-asking about steps already covered, and treat a first failure as something to diagnose rather than to retry unchanged or abandon",
+            "Stop and report instead of proceeding when the work would exceed the approved scope, needs an approval or gate owned elsewhere, risks destructive or irreversible effects, or rests on evidence you cannot obtain.",
+        ),
+        "applicable verification and unverified incompleteness": (
+            "Verify what you changed.",
+            "Run the checks that actually apply to this change, such as the relevant tests, build, validator, or generator check, rather than a generic sweep or nothing at all, and prefer the narrowest command that still exercises the change.",
+            "Treat an unverified change as incomplete, report the exact commands and their real outcomes, and never present an unavailable environment or a skipped check as a passing result.",
+        ),
+        "precise edits and regeneration discipline": (
+            "Edit precisely.",
+            "Prefer targeted edits to the exact lines that need to change over rewrites of working files.",
+            "Where output is generated from a source, change the source and regenerate through its documented generator instead of hand-editing generated files.",
+        ),
+        "outcome-first evidence-bearing reporting": (
+            "Report outcomes, not narration.",
+            "Lead with what is now true, give the paths, commands, and results that support it, and name what remains unfinished, uncertain, or blocked.",
+            "Skip step-by-step commentary, restatements of the request, and progress announcements that carry no evidence.",
+        ),
+    })
+
+    baseline_section = markdown_section(text, "## Coding Baseline")
+    for clause, concept in (
+        ("batching your own", "tool-batching rule outside Orchestration"),
+        ("spread work across extra roles", "role fan-out rule outside Orchestration"),
+    ):
+        if clause in re.sub(r"\s+", " ", baseline_section):
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+
+    lowered_baseline = baseline_section.lower()
+    for clause, concept in (
+        ("explore the codebase with several subagents", "default subagent fan-out"),
+        ("dispatch multiple subagents", "default subagent fan-out"),
+        ("in parallel with multiple agents", "default subagent fan-out"),
+        ("fan out", "default subagent fan-out"),
+    ):
+        if has_required_marker(lowered_baseline, clause):
+            die(f"{path} retains forbidden OpenCode prompt content: {concept}")
+    for provider_token in (
+        "anthropic", "openai", "claude", "gpt-", "gemini", "sonnet", "opus",
+        "haiku", "llama", "qwen", "deepseek", "mistral", "grok",
+    ):
+        if provider_token in lowered_baseline:
+            die(
+                f"{path} coding baseline must stay provider-neutral: "
+                f"{provider_token!r}"
+            )
 
 
 def assert_opencode_generated_agents(root: Path) -> None:
@@ -3579,6 +3677,29 @@ def assert_opencode_runtime_contract(root: Path) -> None:
     ):
         if forbidden in index:
             die(f"{index_path} retains forbidden shell/Bash/Zod configurator surface: {forbidden!r}")
+
+    # The primary prompt is published statically through `config.agent`; it is
+    # never injected per message and never stripped before publication.
+    for injection_hook in re.findall(
+        r"""['"`]((?:experimental\.)?chat\.[A-Za-z.]+)['"`]""", index
+    ):
+        die(
+            f"{index_path} must not expose a message-level prompt-injection hook: "
+            f"{injection_hook!r}"
+        )
+    for stripping in (
+        'delete packageAgents["oh-no"].prompt',
+        'delete packageAgents["oh-no"]["prompt"]',
+        'delete config.agent["oh-no"].prompt',
+        "prompt: undefined",
+    ):
+        if stripping in index:
+            die(
+                f"{index_path} must publish the generated primary prompt, not strip it: "
+                f"{stripping!r}"
+            )
+    if 'const packageAgents = { ...generatedAgents };' not in index:
+        die(f"{index_path} must publish the generated agents, including the primary prompt")
     if index.count('type: "string"') != 5 or not all(
         marker in index
         for marker in ("pattern: MODEL_SCHEMA_PATTERN", "pattern: VARIANT_SCHEMA_PATTERN")
