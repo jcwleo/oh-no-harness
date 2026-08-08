@@ -3,12 +3,17 @@
 #
 # What it does:
 #   1. Validates the version arg (semver: 0.2.0 or v0.2.0).
-#   2. Refuses to run when not on main, when the tree is dirty, or when the
-#      tag already exists locally or on origin.
+#   2. Refuses to run when not on main, when the tree is dirty, or when any
+#      untracked non-ignored path exists under plugins/oh-no-harness. An
+#      existing tag is allowed only through the forward-completion path below.
+#   2a. With --push, requires the GitHub prerequisites (gh present, auth ok,
+#      credential-free origin slug reachable, no existing target Release)
+#      BEFORE any version write, commit, push, publish, or tag.
 #   3. Rewrites the version field in the nested plugin manifests and npm
 #      package under plugins/oh-no-harness (no-op if already correct).
 #   4. Checks generated agent wrappers, npm metadata, then runs the validator.
-#   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed.
+#   5. Creates a `chore: release v{X.Y.Z}` commit when version files changed,
+#      staging ONLY the three version manifests (never the whole plugin dir).
 #   6. With --push: pushes main to origin BEFORE the install tests, because the
 #      registered Claude marketplace syncs from GitHub and can only deliver
 #      content that is already on origin/main.
@@ -25,8 +30,12 @@
 #      never a skip; in no-push mode the Claude test is skipped with an
 #      explanation when local content is not on origin yet. Live model smoke
 #      is skipped.
-#   8. With --push: publishes the public OpenCode npm package after verifying
-#      npm authentication and refusing a mismatched existing version.
+#   7a. Packs the npm tarball exactly once after version sync/validation; the
+#      packed OpenCode test, existing-version comparison, publish, and
+#      postflight all consume that same artifact.
+#   8. With --push: publishes that exact tarball (`npm publish <tarball>`) after
+#      verifying npm authentication, refusing a mismatched existing version, and
+#      then requiring registry dist.integrity to equal the local integrity.
 #   9. Creates an annotated tag `v{X.Y.Z}` on the release commit.
 #  10. With --push: pushes the tag to origin, then publishes a GitHub
 #      Release via gh CLI if available. 0.x releases are prereleases;
@@ -38,6 +47,14 @@
 # Reruns are idempotent: after a failed --push test phase, rerunning
 # `scripts/release X.Y.Z --push` no-ops the version commit and main push,
 # reruns the tests, and then tags and publishes.
+#
+# Forward completion (run died after tagging, before the GitHub Release):
+# when local and remote tags are both annotated, both peel to current HEAD,
+# npm integrity matches the freshly packed tarball, and no GitHub Release
+# exists, the helper skips version mutation, the commit, npm publish, tag
+# creation, and tag push, and runs only the GitHub Release creation. Missing,
+# lightweight, divergent, or local-only tags, mismatched npm content, and a
+# pre-existing Release all fail closed. A tag is never replaced or forced.
 #
 # Usage:
 #   scripts/release 0.2.1
@@ -56,6 +73,12 @@ NPM_BIN="${NPM_BIN:-npm}"
 MARKETPLACE_NAME="${OH_NO_MARKETPLACE_NAME:-oh-no-harness}"
 PLUGIN_NAME="${OH_NO_PLUGIN_NAME:-oh-no-harness}"
 PLUGIN_ROOT="${OH_NO_PLUGIN_ROOT:-$REPO_ROOT/plugins/$PLUGIN_NAME}"
+PLUGIN_REL="plugins/$PLUGIN_NAME"
+VERSION_FILES=(
+  "$PLUGIN_REL/.claude-plugin/plugin.json"
+  "$PLUGIN_REL/.codex-plugin/plugin.json"
+  "$PLUGIN_REL/package.json"
+)
 
 usage() {
   cat <<'USAGE'
@@ -199,21 +222,33 @@ npm_published_integrity() {
   "$NPM_BIN" view "$identity" dist.integrity 2>/dev/null || true
 }
 
-local_npm_integrity() {
+# Pack the plugin exactly once into $1 and print "<tarball path>\t<integrity>".
+# Every later step (packed OpenCode test, existing-version comparison, publish,
+# postflight) consumes this one artifact, so the release can never test one
+# build of the package and publish a different one.
+pack_npm_artifact() {
   local destination="$1" report
   report="$destination/pack.json"
   "$NPM_BIN" pack "$PLUGIN_ROOT" --json --pack-destination "$destination" >"$report"
-  "$PYTHON_BIN" - "$report" <<'PY'
+  "$PYTHON_BIN" - "$report" "$destination" <<'PY'
 import json
 import sys
+from pathlib import Path
 
 report = json.load(open(sys.argv[1], encoding="utf-8"))
 if not isinstance(report, list) or len(report) != 1:
     raise SystemExit("npm pack did not return exactly one package report")
-integrity = report[0].get("integrity")
+entry = report[0]
+integrity = entry.get("integrity")
+filename = entry.get("filename")
 if not isinstance(integrity, str) or not integrity:
     raise SystemExit("npm pack did not report package integrity")
-print(integrity)
+if not isinstance(filename, str) or not filename:
+    raise SystemExit("npm pack did not report a tarball filename")
+tarball = Path(sys.argv[2]) / Path(filename).name
+if not tarball.is_file():
+    raise SystemExit("npm pack did not produce the reported tarball")
+print(f"{tarball}\t{integrity}")
 PY
 }
 
@@ -225,11 +260,12 @@ preflight_npm_publish() {
   fi
 }
 
+# Publish the exact tarball that was packed, tested, and compared, then require
+# the registry to report the same integrity immediately after a new publish.
 publish_npm_package() {
-  local identity="$1" pack_dir local_integrity remote_integrity
-  pack_dir="$(mktemp -d)"
-  cleanup_paths+=("$pack_dir")
-  local_integrity="$(local_npm_integrity "$pack_dir")"
+  local identity="$1" tarball="$2" local_integrity="$3" remote_integrity
+  [ -f "$tarball" ] || fail "release tarball is missing: $tarball"
+  [ -n "$local_integrity" ] || fail "local package integrity is unknown"
   remote_integrity="$(npm_published_integrity "$identity")"
   if [ -n "$remote_integrity" ]; then
     [ "$remote_integrity" = "$local_integrity" ] \
@@ -237,7 +273,66 @@ publish_npm_package() {
     printf 'release: npm package %s already exists with matching integrity; skipping publish\n' "$identity"
     return
   fi
-  run "$NPM_BIN" publish "$PLUGIN_ROOT" --access public
+  run "$NPM_BIN" publish "$tarball" --access public
+  remote_integrity="$(npm_published_integrity "$identity")"
+  [ -n "$remote_integrity" ] \
+    || fail "npm did not report integrity for $identity after publish"
+  [ "$remote_integrity" = "$local_integrity" ] \
+    || fail "published npm integrity for $identity does not match the released tarball"
+}
+
+# Refuse to mutate versions while any untracked, non-ignored path exists under
+# the plugin root: whole-plugin staging used to sweep such content into the
+# release commit, and even with exact staging it signals an unreviewed tree.
+assert_no_untracked_plugin_content() {
+  local untracked
+  untracked="$(git ls-files --others --exclude-standard -- "$PLUGIN_REL")"
+  [ -z "$untracked" ] || fail "untracked files exist under $PLUGIN_REL; commit, remove, or ignore them first:
+$untracked"
+}
+
+# Stage only the three version manifests, never the whole plugin directory.
+stage_release_version_files() {
+  run git add -- "${VERSION_FILES[@]}"
+}
+
+# Fail closed on every GitHub Release prerequisite before any irreversible side
+# effect: gh must exist, auth must succeed, the credential-free origin slug must
+# be the repository gh can reach, and no target release may already exist.
+# gh output is suppressed so token material is never echoed.
+preflight_github_release() {
+  local tag="$1" origin slug gh_slug
+  command -v gh >/dev/null 2>&1 \
+    || fail "gh CLI is required to publish the GitHub Release for $tag"
+  gh auth status >/dev/null 2>&1 \
+    || fail "gh authentication failed; run 'gh auth login' before releasing"
+  origin="$(git remote get-url origin 2>/dev/null || true)"
+  slug="$(github_slug_from_origin "$origin" 2>/dev/null)" \
+    || fail "origin is not a supported credential-free GitHub URL; refusing to publish a GitHub Release"
+  gh_slug="$(gh repo view "$slug" --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
+  [ "$gh_slug" = "$slug" ] \
+    || fail "gh cannot access repository $slug with the current credential"
+  if gh release view "$tag" --repo "$slug" >/dev/null 2>&1; then
+    fail "GitHub Release $tag already exists; refusing to modify it"
+  fi
+}
+
+# True only in the conservative resumable state: local and remote target tags
+# both exist, are annotated, and peel to current HEAD. Anything else (missing,
+# lightweight, divergent, or local-only tag) fails closed so the release never
+# replaces or force-updates a tag.
+release_forward_completion_ready() {
+  local tag="$1" head local_obj remote_line remote_obj
+  head="$(git rev-parse HEAD)"
+  git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null || return 1
+  [ "$(git cat-file -t "refs/tags/${tag}")" = "tag" ] || return 1
+  [ "$(git rev-parse "refs/tags/${tag}^{commit}")" = "$head" ] || return 1
+  local_obj="$(git rev-parse "refs/tags/${tag}")"
+  remote_line="$(git ls-remote --tags origin "refs/tags/${tag}" 2>/dev/null | cut -f1)"
+  remote_obj="$(printf '%s\n' "$remote_line" | head -n 1)"
+  [ -n "$remote_obj" ] || return 1
+  [ "$remote_obj" = "$local_obj" ] || return 1
+  return 0
 }
 
 # When sourced (e.g. by the offline regression test in
@@ -300,15 +395,40 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   fail "tracked working tree changes exist; commit or stash them first"
 fi
 
-if git rev-parse --verify "refs/tags/${tag}" >/dev/null 2>&1; then
-  fail "tag already exists locally: $tag"
-fi
-if git remote get-url origin >/dev/null 2>&1; then
-  if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-    fail "tag already exists on origin: $tag"
-  fi
+assert_no_untracked_plugin_content
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Tag state decides between a first run and the single conservative forward-
+# completion path (matching annotated local+remote tag at HEAD, no GitHub
+# Release yet). Every other pre-existing tag state fails closed.
+forward_completion="false"
+tag_exists_locally="false"
+git rev-parse --verify "refs/tags/${tag}" >/dev/null 2>&1 && tag_exists_locally="true"
+tag_exists_on_origin="false"
+if git remote get-url origin >/dev/null 2>&1 \
+  && git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+  tag_exists_on_origin="true"
 fi
 
+if [ "$tag_exists_locally" = "true" ] || [ "$tag_exists_on_origin" = "true" ]; then
+  [ "$push" = "true" ] \
+    || fail "tag $tag already exists; rerun with --push to complete the GitHub Release, or delete the tag"
+  release_forward_completion_ready "$tag" \
+    || fail "tag $tag already exists but does not match an annotated local+remote tag at HEAD; refusing to replace it"
+  forward_completion="true"
+  printf 'release: %s already exists as a matching annotated tag on HEAD and origin; completing the GitHub Release only\n' "$tag"
+fi
+
+# Fail closed on GitHub prerequisites before any version write, commit, push,
+# publish, or tag. A pre-existing target Release is never silently accepted.
+if [ "$push" = "true" ]; then
+  preflight_github_release "$tag"
+fi
+
+if [ "$forward_completion" = "false" ]; then
 "$PYTHON_BIN" - "$version" "$PLUGIN_ROOT" <<'PY'
 import json
 import sys
@@ -334,26 +454,46 @@ if [ "$push" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
   preflight_npm_publish "oh-no-harness@$version"
 fi
 
-if git diff --quiet -- plugins/oh-no-harness; then
+if git diff --quiet -- "${VERSION_FILES[@]}"; then
   printf 'release: version files already at %s; no release commit needed\n' "$tag"
 else
-  run git add plugins/oh-no-harness
+  stage_release_version_files
   run git commit -m "chore: release ${tag}"
 fi
 
 if [ "$push" = "true" ]; then
   run git push origin main
 fi
+else
+  run "$PYTHON_BIN" scripts/generate-agent-wrappers.py --plugin-root "$PLUGIN_ROOT" --check
+  run "$PYTHON_BIN" scripts/validate-plugin-files.py "$REPO_ROOT" "$PLUGIN_ROOT"
+  if [ "$push" = "true" ] && ! remote_main_matches_head; then
+    run git push origin main
+  fi
+fi
 
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+# Pack exactly once after version synchronization/validation. The packed
+# OpenCode test, existing-version comparison, publish, and postflight all use
+# this single artifact.
+pack_dir="$(mktemp -d)"
+cleanup_paths+=("$pack_dir")
+pack_result="$(pack_npm_artifact "$pack_dir")"
+release_tarball="${pack_result%%$'\t'*}"
+release_integrity="${pack_result##*$'\t'}"
+[ -f "$release_tarball" ] && [ -n "$release_integrity" ] \
+  || fail "failed to pack the release npm artifact"
+
+if [ "$forward_completion" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
+  published_integrity="$(npm_published_integrity "oh-no-harness@$version")"
+  [ "$published_integrity" = "$release_integrity" ] \
+    || fail "npm oh-no-harness@$version does not match the current tarball; refusing to resume into a GitHub Release"
+fi
 
 if [ "$skip_tests" = "true" ]; then
   printf 'release: skipping local install tests (--skip-tests)\n'
 else
   tests_failed="false"
-  run scripts/test-opencode-package.sh || tests_failed="true"
+  OH_NO_PACKAGE_TARBALL="$release_tarball" run scripts/test-opencode-package.sh || tests_failed="true"
   codex_test_home="$(mktemp -d)"
   cleanup_paths+=("$codex_test_home")
   OH_NO_MARKETPLACE_NAME="$MARKETPLACE_NAME" OH_NO_LIVE=0 OH_NO_DEEP_LIVE=0 OH_NO_PARALLEL_LIVE=0 OH_NO_RALPLAN_LIVE=0 OH_NO_RALPLAN_V2_LIVE=0 OH_NO_NAMED_AGENTS_LIVE=0 OH_NO_FUSION_RESCUE_LIVE=0 OH_NO_CODEX_CROSS_HOST_FALLBACK_LIVE=0 OH_NO_SIMPLIFY_LIVE=0 OH_NO_NATURAL_SESSION_START_LIVE=0 OH_NO_WORKTREE_LIVE=0 run scripts/test-codex-plugin.sh --codex-home "$codex_test_home" \
@@ -390,20 +530,26 @@ else
   fi
 fi
 
-if [ "$push" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
-  publish_npm_package "oh-no-harness@$version"
+if [ "$forward_completion" = "true" ]; then
+  printf 'release: npm package and tag %s already match HEAD; skipping publish and tag creation\n' "$tag"
+elif [ "$push" = "true" ] && [ "$skip_npm_publish" = "false" ]; then
+  publish_npm_package "oh-no-harness@$version" "$release_tarball" "$release_integrity"
 elif [ "$push" = "true" ]; then
   printf 'release: skipping npm publish (--skip-npm-publish)\n'
 fi
 
-run git tag -a "$tag" -m "$tag"
+if [ "$forward_completion" = "false" ]; then
+  run git tag -a "$tag" -m "$tag"
+fi
 
 notes_file="$(mktemp)"
 cleanup_paths+=("$notes_file")
 build_release_notes "$tag" >"$notes_file"
 
 if [ "$push" = "true" ]; then
-  run git push origin "$tag"
+  if [ "$forward_completion" = "false" ]; then
+    run git push origin "$tag"
+  fi
   if command -v gh >/dev/null 2>&1; then
     gh_release_cmd=(gh release create "$tag" --title "$tag" --notes-file "$notes_file")
     if [ "$major" = "0" ]; then

@@ -2040,6 +2040,203 @@ FAKE
   rm -rf "$temp_root"
   ok "marketplace/live-config isolation: guarded install/live call-sites, safe-path matrix, release contract, and cleanup verified"
 }
+# Offline release-safety contract: the four publication hazards the release
+# helper must fail closed on. Uses throwaway Git repos plus fake npm/gh
+# commands only; never touches a real remote, registry, or GitHub Release.
+run_release_safety_offline_test() {
+  log "Running offline release-safety contract regression"
+  local temp_root repo repo2 bare rc out err staged
+  temp_root="$(mktemp -d "${TMPDIR:-/tmp}/oh-no-release-safety.XXXXXX")"
+  die() { rm -rf "$temp_root"; fail "$*"; }
+  repo="$temp_root/repo"
+  repo2="$temp_root/resume-repo"
+  bare="$temp_root/origin.git"
+  out="$temp_root/out"; err="$temp_root/err"
+
+  git init -q "$repo"
+  mkdir -p "$repo/plugins/oh-no-harness/.claude-plugin" "$repo/plugins/oh-no-harness/.codex-plugin"
+  printf '{\n  "version": "1.0.0"\n}\n' >"$repo/plugins/oh-no-harness/.claude-plugin/plugin.json"
+  printf '{\n  "version": "1.0.0"\n}\n' >"$repo/plugins/oh-no-harness/.codex-plugin/plugin.json"
+  printf '{\n  "version": "1.0.0"\n}\n' >"$repo/plugins/oh-no-harness/package.json"
+  printf 'docs\n' >"$repo/plugins/oh-no-harness/README.md"
+  printf 'plugins/oh-no-harness/ignored.txt\n' >"$repo/.gitignore"
+  git -C "$repo" add -A
+  git -C "$repo" -c user.email=t@example.com -c user.name=t commit -qm init
+  git -C "$repo" remote add origin https://github.com/jcwleo/oh-no-harness.git
+
+  # ---- (1) untracked plugin content rejection + exact release staging ------
+  ( source "$REPO_ROOT/scripts/release"; declare -F assert_no_untracked_plugin_content >/dev/null ) \
+    || die "release does not expose assert_no_untracked_plugin_content"
+  printf 'stray\n' >"$repo/plugins/oh-no-harness/stray.json"
+  rc=0
+  ( cd "$repo"; source "$REPO_ROOT/scripts/release"; assert_no_untracked_plugin_content ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" != "0" ]] || die "release accepted untracked content under the plugin root"
+  rm -f "$repo/plugins/oh-no-harness/stray.json"
+  printf 'ignored\n' >"$repo/plugins/oh-no-harness/ignored.txt"
+  rc=0
+  ( cd "$repo"; source "$REPO_ROOT/scripts/release"; assert_no_untracked_plugin_content ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "0" ]] || die "release rejected an ignored untracked plugin path (rc=$rc)"
+
+  ( source "$REPO_ROOT/scripts/release"; declare -F stage_release_version_files >/dev/null ) \
+    || die "release does not expose stage_release_version_files"
+  printf '{\n  "version": "1.0.1"\n}\n' >"$repo/plugins/oh-no-harness/.claude-plugin/plugin.json"
+  printf '{\n  "version": "1.0.1"\n}\n' >"$repo/plugins/oh-no-harness/.codex-plugin/plugin.json"
+  printf '{\n  "version": "1.0.1"\n}\n' >"$repo/plugins/oh-no-harness/package.json"
+  printf 'unrelated edit\n' >"$repo/plugins/oh-no-harness/README.md"
+  ( cd "$repo"; source "$REPO_ROOT/scripts/release"; stage_release_version_files ) >/dev/null 2>&1 \
+    || die "stage_release_version_files failed on a valid version bump"
+  staged="$(git -C "$repo" diff --cached --name-only | sort | tr '\n' ' ')"
+  [[ "$staged" == "plugins/oh-no-harness/.claude-plugin/plugin.json plugins/oh-no-harness/.codex-plugin/plugin.json plugins/oh-no-harness/package.json " ]] \
+    || die "release staged unexpected paths: $staged"
+  git -C "$repo" reset -q --hard
+  rm -f "$repo/plugins/oh-no-harness/ignored.txt"
+
+  # ---- (2) exact-tarball publish + registry integrity postflight ----------
+  local fake_bin="$temp_root/bin" npm_log="$temp_root/npm.log" tarball="$temp_root/oh-no-harness-1.0.0.tgz"
+  mkdir -p "$fake_bin"
+  printf 'tarball\n' >"$tarball"
+  cat >"$fake_bin/npm" <<'FAKE_NPM'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_NPM_LOG"
+case "$1" in
+  view) [[ -f "$FAKE_NPM_STATE" ]] && cat "$FAKE_NPM_STATE" ;;
+  publish) printf '%s\n' "$FAKE_NPM_REGISTRY_INTEGRITY" >"$FAKE_NPM_STATE" ;;
+esac
+exit 0
+FAKE_NPM
+  chmod +x "$fake_bin/npm"
+
+  : >"$npm_log"
+  rc=0
+  (
+    export FAKE_NPM_LOG="$npm_log" FAKE_NPM_STATE="$temp_root/npm-state-a" FAKE_NPM_REGISTRY_INTEGRITY="sha512-LOCAL"
+    NPM_BIN="$fake_bin/npm"
+    source "$REPO_ROOT/scripts/release"
+    NPM_BIN="$fake_bin/npm"
+    publish_npm_package "oh-no-harness@1.0.0" "$tarball" "sha512-LOCAL"
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "0" ]] || die "publish of a matching exact tarball failed (rc=$rc)"
+  grep -Fq "publish $tarball --access public" "$npm_log" \
+    || die "release did not publish the exact packed tarball: $(cat "$npm_log")"
+
+  : >"$npm_log"
+  rc=0
+  (
+    export FAKE_NPM_LOG="$npm_log" FAKE_NPM_STATE="$temp_root/npm-state-b" FAKE_NPM_REGISTRY_INTEGRITY="sha512-DIVERGENT"
+    NPM_BIN="$fake_bin/npm"
+    source "$REPO_ROOT/scripts/release"
+    NPM_BIN="$fake_bin/npm"
+    publish_npm_package "oh-no-harness@1.0.0" "$tarball" "sha512-LOCAL"
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" != "0" ]] || die "release accepted a registry integrity that differs from the published tarball"
+
+  # ---- (3) GitHub prerequisites fail closed before any side effect --------
+  local gh_log="$temp_root/gh.log"
+  cat >"$fake_bin/gh" <<'FAKE_GH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_GH_LOG"
+case "$1 $2" in
+  "auth status")
+    if [[ "$FAKE_GH_MODE" == "auth-fail" ]]; then
+      printf 'Token: ghp_s3cr3ttoken\n'
+      printf 'not logged in\n' >&2
+      exit 1
+    fi
+    printf 'Logged in\n'
+    ;;
+  "repo view")
+    [[ "$FAKE_GH_MODE" == "wrong-repo" ]] && { printf 'someone/else\n'; exit 0; }
+    printf 'jcwleo/oh-no-harness\n'
+    ;;
+  "release view")
+    [[ "$FAKE_GH_MODE" == "release-exists" ]] && { printf 'v1.0.1\n'; exit 0; }
+    printf 'release not found\n' >&2
+    exit 1
+    ;;
+esac
+exit 0
+FAKE_GH
+  chmod +x "$fake_bin/gh"
+
+  ( source "$REPO_ROOT/scripts/release"; declare -F preflight_github_release >/dev/null ) \
+    || die "release does not expose preflight_github_release"
+
+  local mode
+  for mode in auth-fail wrong-repo release-exists; do
+    : >"$gh_log"
+    rc=0
+    (
+      cd "$repo"
+      export FAKE_GH_LOG="$gh_log" FAKE_GH_MODE="$mode" PATH="$fake_bin:$PATH"
+      source "$REPO_ROOT/scripts/release"
+      preflight_github_release "v1.0.1"
+    ) >"$out" 2>"$err" || rc=$?
+    [[ "$rc" != "0" ]] || die "GitHub preflight accepted mode '$mode'"
+    grep -q "release create" "$gh_log" && die "GitHub preflight created a release in mode '$mode'"
+    grep -Fq "ghp_s3cr3ttoken" "$out" "$err" && die "GitHub preflight leaked credential output in mode '$mode'"
+  done
+
+  : >"$gh_log"
+  rc=0
+  (
+    cd "$repo"
+    export FAKE_GH_LOG="$gh_log" FAKE_GH_MODE="ok" PATH="$fake_bin:$PATH"
+    source "$REPO_ROOT/scripts/release"
+    preflight_github_release "v1.0.1"
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == "0" ]] || die "GitHub preflight rejected a healthy authenticated repository (rc=$rc)"
+
+  rc=0
+  (
+    cd "$repo"
+    export FAKE_GH_LOG="$gh_log" FAKE_GH_MODE="ok" PATH="$temp_root/empty-bin:$PATH"
+    mkdir -p "$temp_root/empty-bin"
+    unalias gh 2>/dev/null || true
+    PATH="$temp_root/empty-bin:/usr/bin:/bin"
+    source "$REPO_ROOT/scripts/release"
+    preflight_github_release "v1.0.1"
+  ) >/dev/null 2>&1 || rc=$?
+  [[ "$rc" != "0" ]] || die "GitHub preflight passed without a gh executable"
+
+  # ---- (4) matching annotated-tag forward completion only -----------------
+  ( source "$REPO_ROOT/scripts/release"; declare -F release_forward_completion_ready >/dev/null ) \
+    || die "release does not expose release_forward_completion_ready"
+  git init -q --bare "$bare"
+  git init -q -b main "$repo2"
+  printf 'one\n' >"$repo2/file.txt"
+  git -C "$repo2" add -A
+  git -C "$repo2" -c user.email=t@example.com -c user.name=t commit -qm one
+  printf 'two\n' >>"$repo2/file.txt"
+  git -C "$repo2" add -A
+  git -C "$repo2" -c user.email=t@example.com -c user.name=t commit -qm two
+  git -C "$repo2" remote add origin "$bare"
+  git -C "$repo2" push -q origin main
+  git -C "$repo2" tag v1.0.0                                  # lightweight at HEAD
+  git -C "$repo2" -c user.email=t@example.com -c user.name=t tag -a v1.0.1 -m v1.0.1   # annotated, local only
+  git -C "$repo2" -c user.email=t@example.com -c user.name=t tag -a v1.0.2 -m v1.0.2   # annotated at HEAD, pushed
+  git -C "$repo2" -c user.email=t@example.com -c user.name=t tag -a v1.0.3 -m v1.0.3 HEAD~1  # annotated, older commit
+  git -C "$repo2" push -q origin v1.0.0 v1.0.2 v1.0.3
+
+  local tag_case
+  for tag_case in "v0.9.9=1" "v1.0.0=1" "v1.0.1=1" "v1.0.3=1" "v1.0.2=0"; do
+    rc=0
+    (
+      cd "$repo2"
+      source "$REPO_ROOT/scripts/release"
+      release_forward_completion_ready "${tag_case%=*}"
+    ) >/dev/null 2>&1 || rc=$?
+    if [[ "${tag_case##*=}" == "0" ]]; then
+      [[ "$rc" == "0" ]] || die "forward completion rejected a matching annotated tag ${tag_case%=*} (rc=$rc)"
+    else
+      [[ "$rc" != "0" ]] || die "forward completion accepted unsafe tag state ${tag_case%=*}"
+    fi
+  done
+
+  rm -rf "$temp_root"
+  unset -f die
+  ok "release safety: untracked/staging, exact-tarball publish integrity, GitHub preflight, and tag forward completion verified"
+}
+
 main() {
   cd "$PLUGIN_ROOT"
   require_command "$CLAUDE_BIN"
@@ -2053,6 +2250,7 @@ main() {
   run_escape_net_offline_test; run_active_stale_scan_reader_offline_test
   run_configure_subagents_offline_test; run_script_resolver_offline_test
   run_live_plugin_root_offline_test; run_marketplace_isolation_offline_test; run_claude_state_isolation_offline_test
+  run_release_safety_offline_test
   validate_frontmatter; install_or_update_plugin
   run_live_tests; run_claude_dispatch_live_tests
   log "All requested checks passed"

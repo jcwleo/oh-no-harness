@@ -31,14 +31,25 @@ PACK_DIR="$TEMP_ROOT/pack"
 INSTALL_DIR="$TEMP_ROOT/install"
 mkdir -p "$PACK_DIR" "$INSTALL_DIR"
 
-"$NPM_BIN" pack "$PLUGIN_ROOT" --json --pack-destination "$PACK_DIR" \
-  >"$TEMP_ROOT/pack.json"
+# By default this test packs the plugin root itself. The release helper instead
+# supplies OH_NO_PACKAGE_TARBALL so the artifact tested here is byte-identical
+# to the one it later publishes.
+SUPPLIED_TARBALL="${OH_NO_PACKAGE_TARBALL:-}"
+if [[ -n "$SUPPLIED_TARBALL" ]]; then
+  [[ -f "$SUPPLIED_TARBALL" ]] || fail "supplied tarball not found: $SUPPLIED_TARBALL"
+  SUPPLIED_TARBALL="$(cd -- "$(dirname -- "$SUPPLIED_TARBALL")" && pwd)/$(basename -- "$SUPPLIED_TARBALL")"
+  "$NPM_BIN" pack "$SUPPLIED_TARBALL" --dry-run --json --pack-destination "$PACK_DIR" \
+    >"$TEMP_ROOT/pack.json"
+else
+  "$NPM_BIN" pack "$PLUGIN_ROOT" --json --pack-destination "$PACK_DIR" \
+    >"$TEMP_ROOT/pack.json"
+fi
 
-TARBALL="$($NODE_BIN --input-type=module - "$TEMP_ROOT/pack.json" "$PACK_DIR" "$PLUGIN_ROOT/package.json" <<'NODE'
+TARBALL="$($NODE_BIN --input-type=module - "$TEMP_ROOT/pack.json" "$PACK_DIR" "$PLUGIN_ROOT/package.json" "$SUPPLIED_TARBALL" <<'NODE'
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const [reportPath, packDirectory, packagePath] = process.argv.slice(2);
+const [reportPath, packDirectory, packagePath, suppliedTarball] = process.argv.slice(2);
 const report = JSON.parse(readFileSync(reportPath, "utf8"));
 const packageMetadata = JSON.parse(readFileSync(packagePath, "utf8"));
 if (!Array.isArray(report) || report.length !== 1) {
@@ -69,7 +80,7 @@ for (const forbidden of ["agents/", "commands/", "hooks/", "skills-claude/", "sk
     throw new Error(`packed artifact contains non-OpenCode surface ${forbidden}`);
   }
 }
-process.stdout.write(resolve(packDirectory, entry.filename));
+process.stdout.write(suppliedTarball || resolve(packDirectory, entry.filename));
 NODE
 )"
 

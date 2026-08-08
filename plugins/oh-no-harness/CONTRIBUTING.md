@@ -182,15 +182,24 @@ scripts/release 0.2.2 --push
 What `--push` does end-to-end:
 
 1. Validates the version arg (semver: `0.2.2` or `v0.2.2`)
-2. Refuses if tree is dirty, you're not on `main`, or the tag exists locally/remote
-3. Rewrites `version` in both plugin manifests and `plugins/oh-no-harness/package.json`
-4. Runs the agent-wrapper `--check`, npm package validation, and `validate-plugin-files.py`
-5. Creates a `chore: release v0.2.2` commit if version files changed
-6. With `--push`: pushes `main` to origin **before** the install tests — the Claude marketplace syncs from GitHub, so the tests can only verify content already on `origin/main`
-7. Tests the packed OpenCode npm artifact, then runs the Codex and eligible Claude install tests
-8. With `--push`, publishes `oh-no-harness@<version>` to npm; an existing version is accepted only when its registry integrity matches the local tarball exactly
-9. Creates annotated tag `v0.2.2`
-10. Builds release notes and, with `--push`, pushes the tag and publishes the GitHub Release
+2. Refuses if tree is dirty, you're not on `main`, or **any untracked, non-ignored file exists under `plugins/oh-no-harness`** — untracked plugin content is never swept into a release commit
+3. Resolves tag state: an absent tag is a normal first run; an existing tag enters forward completion only under the strict conditions below and otherwise fails closed
+4. With `--push`, runs the GitHub preflight **before any version write, commit, push, publish, or tag**: `gh` must exist, `gh auth status` must succeed, the credential-free `origin` slug must be the repository `gh` can reach, and no GitHub Release may already exist for the tag. `gh` output is suppressed so no token material is printed
+5. Rewrites `version` in both plugin manifests and `plugins/oh-no-harness/package.json`
+6. Runs the agent-wrapper `--check`, npm package validation, and `validate-plugin-files.py`
+7. Creates a `chore: release v0.2.2` commit if version files changed, staging **only** `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `package.json` — never the whole plugin directory
+8. With `--push`: pushes `main` to origin **before** the install tests — the Claude marketplace syncs from GitHub, so the tests can only verify content already on `origin/main`
+9. Packs the npm tarball **exactly once** and records its integrity. The packed OpenCode test, the existing-version comparison, the publish, and the postflight all use that single artifact, so the release can never test one build and publish another
+10. Tests the packed OpenCode npm artifact (via `OH_NO_PACKAGE_TARBALL`), then runs the Codex and eligible Claude install tests
+11. With `--push`, runs `npm publish <tarball>` on that exact artifact, then immediately requires the registry `dist.integrity` to equal the local integrity. An existing version is accepted only when its registry integrity already matches exactly; a divergent existing version fails closed
+12. Creates annotated tag `v0.2.2`
+13. Builds release notes and, with `--push`, pushes the tag and publishes the GitHub Release
+
+Recovery and rerun semantics:
+
+- After a failed test phase (tag not yet created), rerunning `scripts/release X.Y.Z --push` is idempotent: the version commit and main push no-op, tests rerun, then tag and release.
+- **Forward completion** covers the narrow case where the run died after tagging but before the GitHub Release. It requires *all* of: local and remote `vX.Y.Z` tags exist, both are **annotated**, both peel to current `HEAD`, package/manifest versions are synchronized, npm integrity matches the freshly packed tarball, and **no GitHub Release exists**. In that state the helper skips version mutation, the release commit, npm publish, tag creation, and tag push, regenerates notes from the existing tag, and runs only the GitHub Release creation.
+- Anything else fails closed: a missing, lightweight, divergent, or local-only tag, mismatched npm content, or a pre-existing GitHub Release. The helper never replaces, moves, or force-updates a tag — delete the bad tag deliberately and rerun.
 
 Skip flags:
 
